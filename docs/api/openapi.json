@@ -42,15 +42,672 @@
       "description": "The authenticated collector's own account"
     },
     {
+      "name": "location",
+      "description": "Approximate trading area and public map position"
+    },
+    {
       "name": "meta",
       "description": "Build and environment metadata"
     },
     {
+      "name": "account",
+      "description": "Data export and account deletion of the caller"
+    },
+    {
+      "name": "profile",
+      "description": "The caller's public profile, avatar and tags"
+    },
+    {
+      "name": "collectors",
+      "description": "Public collector profiles"
+    },
+    {
+      "name": "public",
+      "description": "Public, unauthenticated resources"
+    },
+    {
       "name": "admin-audit",
       "description": "Audit log (admin console)"
+    },
+    {
+      "name": "settings",
+      "description": "Privacy and notification settings of the caller"
     }
   ],
   "paths": {
+    "/api/v1/me/settings/privacy": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The caller's privacy settings",
+        "description": "Defaults favour safety: not discoverable, online status hidden, profile visible to members, messages from members with a profile, wishlist hidden.",
+        "operationId": "getPrivacySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacySettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Replace the caller's privacy settings",
+        "description": "Full replacement (every field required). Switching `discoverable` on derives the public map point from the trading area; switching it off removes the collector from the map immediately.",
+        "operationId": "updatePrivacySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacySettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacySettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/settings/notifications": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "The caller's notification preferences",
+        "description": "Defaults: push and in-app on, email off, MARKETING fully off.",
+        "operationId": "getNotificationSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Replace the caller's notification preferences",
+        "description": "Full replacement. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.",
+        "operationId": "updateNotificationSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "The caller's profile",
+        "description": "Returns defaults derived from the account (handle, display name) until the profile is saved for the first time.",
+        "operationId": "getMyProfile",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Save the caller's profile",
+        "description": "Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the `profileComplete` onboarding step.",
+        "operationId": "updateMyProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyProfileResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HANDLE_TAKEN",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/tags": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Replace the caller's profile tags",
+        "description": "At most 12 tags in total. `tagIds` must be active tags; `customLabels` (2-24 characters) are checked against the banned-term rules and created as CUSTOM tags (or matched to an existing tag with the same slug). Returns the resulting tags.",
+        "operationId": "updateMyProfileTags",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TagResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/location/trading-area": {
+      "put": {
+        "tags": [
+          "location"
+        ],
+        "summary": "Set the caller's trading area",
+        "description": "Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km grid cell and offsets it with a deterministic per-user jitter to derive `publicPoint` (3 decimals) and its region label.",
+        "operationId": "updateMyTradingArea",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTradingAreaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyLocationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/users/{id}/roles": {
       "put": {
         "tags": [
@@ -195,6 +852,403 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/internal/jobs/account-deletion": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Process due account deletions (service auth)",
+        "description": "Anonymises every account whose grace period is over, purges module data, deletes the identity-provider user and records a job run. Consents, audit entries and ledgers are kept.",
+        "operationId": "runAccountDeletionJob",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionJobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/profile/avatar": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Upload the caller's avatar",
+        "description": "Multipart part `file`: JPEG, PNG or WebP up to 5 MB (type sniffed from the content). The server cover-crops it to a 512x512 square and re-encodes it without any metadata (EXIF/GPS stripped). 413 above 5 MB, 415 for other types, 400 for unreadable images. Rate-limited (10 per hour).",
+        "operationId": "uploadMyAvatar",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Avatar stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Remove the caller's avatar",
+        "operationId": "deleteMyAvatar",
+        "responses": {
+          "204": {
+            "description": "Removed (or there was none)"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/deletion-requests": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "summary": "The caller's deletion requests",
+        "description": "Newest first; lets clients find the pending request to cancel it after a reload.",
+        "operationId": "listAccountDeletionRequests",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeletionRequestResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Request the deletion of the caller's account",
+        "description": "Needs an ID token whose `auth_time` is at most 5 minutes old (401 REAUTHENTICATION_REQUIRED otherwise). On success the account becomes DELETION_REQUESTED, every identity-provider session is revoked (signed out everywhere; signing in again only gives access to GET /me, GET /me/export and these deletion endpoints), the collector disappears from the map and the deletion runs after a 7-day grace period. 409 DELETION_BLOCKED (extension `blockers[]`) while obligations are open; 409 CONFLICT when a request is already pending.",
+        "operationId": "requestAccountDeletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Deletion scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionRequestResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already pending (CONFLICT) or blocked (DELETION_BLOCKED, `blockers[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/me/consents": {
@@ -434,6 +1488,189 @@
         }
       }
     },
+    "/api/v1/tags": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Search profile tags",
+        "description": "Active tags whose label or slug contains `query` (case and accent insensitive), prefix matches first, then the most used. Without `query`: the most used tags. Rate-limited (60 per minute).",
+        "operationId": "searchTags",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Substring of the label or slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "GAME",
+                "ROLE",
+                "STYLE",
+                "LOGISTICS",
+                "LANGUAGE",
+                "CUSTOM"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TagResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/media/{key}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Stored media (avatars)",
+        "description": "Serves an object of the media storage by key (for example `avatars/<user id>/<random>.jpg`). Immutable: cache for a year.",
+        "operationId": "getPublicMedia",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Object key, e.g. avatars/<user id>/<random>.jpg",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The media file",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/public/legal/documents": {
       "get": {
         "tags": [
@@ -608,6 +1845,305 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PingResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/location": {
+      "get": {
+        "tags": [
+          "location"
+        ],
+        "summary": "The caller's trading area and public point",
+        "description": "The only endpoint that returns the caller's chosen centre. `publicPoint` is what other collectors see and is null while not discoverable.",
+        "operationId": "getMyLocation",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyLocationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "location"
+        ],
+        "summary": "Remove the caller's location",
+        "description": "Deletes every location row; the collector disappears from the map.",
+        "operationId": "deleteMyLocation",
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Download the caller's data",
+        "description": "JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, trading area, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.",
+        "operationId": "exportMyData",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountExport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/collectors/{handle}": {
+      "get": {
+        "tags": [
+          "collectors"
+        ],
+        "summary": "Public profile of a collector",
+        "description": "Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` is null unless the collector is discoverable; `distanceBucket` needs a trading area on the caller's side and `showDistance` on the collector's. Coordinates are the derived public point only (3 decimals).",
+        "operationId": "getCollector",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public profile as seen by the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectorProfileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, hidden or private collector",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -1038,10 +2574,639 @@
           }
         }
       }
+    },
+    "/api/v1/me/deletion-requests/{id}": {
+      "delete": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Cancel a pending deletion during the grace period",
+        "description": "Re-activates the account (and its map presence). 404 when the request is not the caller's, 409 when it is no longer pending.",
+        "operationId": "cancelAccountDeletion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled"
+          },
+          "404": {
+            "description": "Unknown request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "PrivacySettings": {
+        "type": "object",
+        "description": "Privacy settings of the caller",
+        "properties": {
+          "discoverable": {
+            "type": "boolean",
+            "description": "Appear on the map / in nearby searches (default false)"
+          },
+          "showDistance": {
+            "type": "boolean",
+            "description": "Default true"
+          },
+          "showOnlineStatus": {
+            "type": "boolean",
+            "description": "Default false"
+          },
+          "showLastActive": {
+            "type": "boolean",
+            "description": "Default true"
+          },
+          "profileVisibility": {
+            "type": "string",
+            "description": "Default MEMBERS",
+            "enum": [
+              "PUBLIC",
+              "MEMBERS",
+              "PRIVATE"
+            ]
+          },
+          "messagingPermission": {
+            "type": "string",
+            "description": "Default MEMBERS_WITH_PROFILE",
+            "enum": [
+              "EVERYONE",
+              "MEMBERS_WITH_PROFILE",
+              "NOBODY"
+            ]
+          },
+          "wishlistVisible": {
+            "type": "boolean",
+            "description": "Default false"
+          },
+          "searchDiscoverable": {
+            "type": "boolean",
+            "description": "Default true"
+          }
+        },
+        "required": [
+          "discoverable",
+          "messagingPermission",
+          "profileVisibility",
+          "searchDiscoverable",
+          "showDistance",
+          "showLastActive",
+          "showOnlineStatus",
+          "wishlistVisible"
+        ]
+      },
+      "ChannelPreferencesRequest": {
+        "type": "object",
+        "properties": {
+          "push": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "boolean"
+          },
+          "inApp": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "inApp",
+          "push"
+        ]
+      },
+      "NotificationSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "pushEnabled": {
+            "type": "boolean"
+          },
+          "emailEnabled": {
+            "type": "boolean"
+          },
+          "inAppEnabled": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ChannelPreferencesRequest"
+            },
+            "description": "Channels per category; categories left out get their defaults (MARKETING is off unless explicitly enabled)"
+          },
+          "quietHours": {
+            "type": "null",
+            "$ref": "#/components/schemas/QuietHoursRequest",
+            "description": "Defaults to disabled 22:00-08:00 America/Toronto"
+          }
+        },
+        "required": [
+          "emailEnabled",
+          "inAppEnabled",
+          "pushEnabled"
+        ]
+      },
+      "QuietHoursRequest": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "start": {
+            "type": "string",
+            "example": "22:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "end": {
+            "type": "string",
+            "example": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Toronto",
+            "maxLength": 64,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "enabled",
+          "end",
+          "start",
+          "timezone"
+        ]
+      },
+      "ChannelPreferences": {
+        "type": "object",
+        "description": "Channels enabled for one category",
+        "properties": {
+          "push": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "boolean"
+          },
+          "inApp": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "inApp",
+          "push"
+        ]
+      },
+      "NotificationSettingsResponse": {
+        "type": "object",
+        "description": "Notification preferences",
+        "properties": {
+          "pushEnabled": {
+            "type": "boolean"
+          },
+          "emailEnabled": {
+            "type": "boolean"
+          },
+          "inAppEnabled": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ChannelPreferences"
+            },
+            "description": "Every category, in order"
+          },
+          "quietHours": {
+            "$ref": "#/components/schemas/QuietHours"
+          }
+        },
+        "required": [
+          "categories",
+          "emailEnabled",
+          "inAppEnabled",
+          "pushEnabled",
+          "quietHours"
+        ]
+      },
+      "QuietHours": {
+        "type": "object",
+        "description": "Period without push notifications",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "start": {
+            "type": "string",
+            "example": "22:00",
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "end": {
+            "type": "string",
+            "example": "08:00",
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "America/Toronto"
+          }
+        },
+        "required": [
+          "enabled",
+          "end",
+          "start",
+          "timezone"
+        ]
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "3-24 characters [a-z0-9_] (input is trimmed and lower-cased); unique case-insensitively; reserved words refused (409 HANDLE_TAKEN)",
+            "example": "maika",
+            "maxLength": 64,
+            "minLength": 0
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "bio": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "yugioh, pokemon, mtg or riftbound",
+              "example": "yugioh"
+            },
+            "maxItems": 16,
+            "minItems": 0
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "ISO 639-1",
+              "example": "fr"
+            },
+            "maxItems": 10,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "displayName",
+          "handle"
+        ]
+      },
+      "MyProfileResponse": {
+        "type": "object",
+        "description": "The caller's own profile",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "games": {
+            "type": "array",
+            "example": [
+              "yugioh",
+              "pokemon"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "example": [
+              "fr",
+              "en"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagResponse"
+            }
+          },
+          "profileComplete": {
+            "type": "boolean",
+            "description": "Whether the profile was saved at least once"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "bio",
+          "displayName",
+          "games",
+          "handle",
+          "id",
+          "languages",
+          "profileComplete",
+          "tags"
+        ]
+      },
+      "TagResponse": {
+        "type": "object",
+        "description": "Profile tag",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "example": "local-meetups"
+          },
+          "label": {
+            "type": "string",
+            "example": "Local Meetups"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "GAME",
+              "ROLE",
+              "STYLE",
+              "LOGISTICS",
+              "LANGUAGE",
+              "CUSTOM"
+            ]
+          },
+          "usageCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of profiles carrying the tag",
+            "example": 12
+          }
+        },
+        "required": [
+          "category",
+          "id",
+          "label",
+          "slug",
+          "usageCount"
+        ]
+      },
+      "UpdateProfileTagsRequest": {
+        "type": "object",
+        "properties": {
+          "tagIds": {
+            "type": "array",
+            "description": "Ids of existing active tags",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 12,
+            "minItems": 0
+          },
+          "customLabels": {
+            "type": "array",
+            "description": "Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug",
+            "items": {
+              "type": "string",
+              "example": "Cube drafter",
+              "maxLength": 24,
+              "minLength": 2
+            },
+            "maxItems": 12,
+            "minItems": 0
+          }
+        }
+      },
+      "UpdateTradingAreaRequest": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "description": "Centre latitude (stored rounded to 3 decimals)",
+            "example": 45.52,
+            "maximum": 85.0,
+            "minimum": -85.0
+          },
+          "lng": {
+            "type": "number",
+            "format": "double",
+            "description": "Centre longitude (stored rounded to 3 decimals)",
+            "example": -73.58,
+            "maximum": 180.0,
+            "minimum": -180.0
+          },
+          "radiusKm": {
+            "type": "integer",
+            "format": "int32",
+            "example": 5,
+            "maximum": 50,
+            "minimum": 1
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "MANUAL (default) or DEVICE; DEVICE only records where the centre came from, the server still snaps it",
+            "enum": [
+              "MANUAL",
+              "DEVICE"
+            ]
+          }
+        },
+        "required": [
+          "lat",
+          "lng",
+          "radiusKm"
+        ]
+      },
+      "MyLocationResponse": {
+        "type": "object",
+        "description": "The caller's own location settings",
+        "properties": {
+          "tradingArea": {
+            "type": "null",
+            "$ref": "#/components/schemas/TradingAreaResponse",
+            "description": "The chosen trading area (owner only)"
+          },
+          "publicPoint": {
+            "type": "null",
+            "$ref": "#/components/schemas/PublicPoint",
+            "description": "The derived point other collectors see; null while not discoverable"
+          },
+          "discoverable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "discoverable"
+        ]
+      },
+      "PublicPoint": {
+        "type": "object",
+        "description": "Approximate public position (about 1 km grid + deterministic jitter, 3 decimals); never the collector's real location",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "example": 45.522
+          },
+          "lng": {
+            "type": "number",
+            "format": "double",
+            "example": -73.581
+          }
+        },
+        "required": [
+          "lat",
+          "lng"
+        ]
+      },
+      "TradingAreaResponse": {
+        "type": "object",
+        "description": "Trading area chosen by the owner",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "example": 45.52
+          },
+          "lng": {
+            "type": "number",
+            "format": "double",
+            "example": -73.58
+          },
+          "radiusKm": {
+            "type": "integer",
+            "format": "int32",
+            "example": 5
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "DEVICE"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Plateau-Mont-Royal, Montréal"
+          }
+        },
+        "required": [
+          "lat",
+          "lng",
+          "radiusKm",
+          "source"
+        ]
+      },
       "UpdateRolesRequest": {
         "type": "object",
         "properties": {
@@ -1078,6 +3243,121 @@
         },
         "required": [
           "ok"
+        ]
+      },
+      "AccountDeletionJobResponse": {
+        "type": "object",
+        "properties": {
+          "processed": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Accounts deleted"
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Due requests cancelled or taken meanwhile"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requests left pending after an error"
+          }
+        },
+        "required": [
+          "failed",
+          "processed",
+          "skipped"
+        ]
+      },
+      "AvatarResponse": {
+        "type": "object",
+        "properties": {
+          "avatarUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Public URL of the 512x512 avatar (immutable)"
+          }
+        },
+        "required": [
+          "avatarUrl"
+        ]
+      },
+      "CreateDeletionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional free text; never copied into the audit log",
+            "example": "Taking a break from collecting",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "exportFirst": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "default": false,
+            "description": "The owner wants their export first; GET /me/export stays available while the deletion is pending"
+          }
+        }
+      },
+      "DeletionRequestResponse": {
+        "type": "object",
+        "description": "Account deletion request",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "COMPLETED",
+              "CANCELLED"
+            ],
+            "example": "PENDING"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time",
+            "description": "End of the grace period (requestedAt + 7 days)"
+          },
+          "cancelledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "exportRequested": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "description": "Always empty on an accepted request (blocked ones are 409)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "blockers",
+          "exportRequested",
+          "id",
+          "requestedAt",
+          "scheduledFor",
+          "status"
         ]
       },
       "ConsentRequest": {
@@ -1359,6 +3639,195 @@
         "required": [
           "ok",
           "serverTime"
+        ]
+      },
+      "AccountExport": {
+        "type": "object",
+        "properties": {
+          "formatVersion": {
+            "type": "string"
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sections": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "CollectorLocation": {
+        "type": "object",
+        "description": "Approximate location (never precise)",
+        "properties": {
+          "publicLabel": {
+            "type": "string",
+            "example": "Plateau-Mont-Royal, Montréal"
+          },
+          "publicPoint": {
+            "$ref": "#/components/schemas/PublicPoint"
+          },
+          "distanceBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null unless the caller has a trading area and the collector shows distances",
+            "enum": [
+              "LT_1KM",
+              "KM_1_5",
+              "KM_5_10",
+              "KM_10_25",
+              "KM_25_50",
+              "GT_50KM"
+            ]
+          }
+        },
+        "required": [
+          "publicLabel",
+          "publicPoint"
+        ]
+      },
+      "CollectorProfileResponse": {
+        "type": "object",
+        "description": "Public collector profile",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "games": {
+            "type": "array",
+            "example": [
+              "yugioh"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectorTag"
+            }
+          },
+          "location": {
+            "type": "null",
+            "$ref": "#/components/schemas/CollectorLocation",
+            "description": "Null unless the collector is discoverable"
+          },
+          "memberSince": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-01"
+          },
+          "lastActiveBucket": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "THIS_WEEK",
+              "THIS_MONTH",
+              "LONGER_AGO",
+              "HIDDEN"
+            ]
+          },
+          "onlineStatus": {
+            "type": "string",
+            "enum": [
+              "ONLINE",
+              "OFFLINE",
+              "HIDDEN"
+            ]
+          },
+          "rating": {
+            "$ref": "#/components/schemas/CollectorRating"
+          },
+          "publicBinderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "canMessage": {
+            "type": "boolean",
+            "description": "Whether the caller may start a conversation"
+          },
+          "isBlocked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bio",
+          "canMessage",
+          "displayName",
+          "games",
+          "handle",
+          "id",
+          "isBlocked",
+          "lastActiveBucket",
+          "memberSince",
+          "onlineStatus",
+          "publicBinderCount",
+          "rating",
+          "tags"
+        ]
+      },
+      "CollectorRating": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Null until the first rating"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "CollectorTag": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "example": "trader"
+          },
+          "label": {
+            "type": "string",
+            "example": "Trader"
+          }
+        },
+        "required": [
+          "label",
+          "slug"
         ]
       },
       "AdminUserSummary": {
@@ -1815,6 +4284,13 @@
             "type": "integer",
             "format": "int32",
             "description": "Seconds to wait (RATE_LIMITED problems)"
+          },
+          "blockers": {
+            "type": "array",
+            "description": "Open obligations preventing an account deletion (DELETION_BLOCKED), e.g. OPEN_DISPUTE",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

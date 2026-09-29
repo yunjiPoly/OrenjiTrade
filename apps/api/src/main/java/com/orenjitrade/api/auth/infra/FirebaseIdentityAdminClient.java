@@ -37,6 +37,18 @@ public class FirebaseIdentityAdminClient implements IdentityAdminClient {
     }
 
     @Override
+    public void revokeSessions(String providerUid) {
+        try {
+            firebaseAuth.revokeRefreshTokens(providerUid);
+        } catch (FirebaseAuthException e) {
+            if (e.getAuthErrorCode() == AuthErrorCode.USER_NOT_FOUND) {
+                return;
+            }
+            throw new IdentityAdminException("Could not revoke sessions of " + providerUid, e);
+        }
+    }
+
+    @Override
     public void deleteUser(String providerUid) {
         try {
             firebaseAuth.deleteUser(providerUid);

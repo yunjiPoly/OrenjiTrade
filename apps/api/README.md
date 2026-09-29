@@ -59,7 +59,10 @@ match `docker compose`. The most relevant ones:
 | `CONSENT_IP_SALT` | `local-consent-salt` | salt of the hashed client IP stored with consents |
 | `SEED_EMULATOR_PASSWORD` | `LocalDev!2026` | password of the seeded emulator users (`local`/`dev` only) |
 | `EVENTS_TRANSPORT` | `local` | `local` in-process outbox or `pubsub` |
-| `STORAGE_PROVIDER`, `STORAGE_LOCAL_ROOT` | `local`, `./.local-storage` | media storage adapter |
+| `STORAGE_PROVIDER`, `STORAGE_LOCAL_ROOT` | `local`, `./.local-storage` | media storage adapter (`local` files served by the API, or `gcs`) |
+| `STORAGE_PUBLIC_BASE_URL` | empty | origin of media URLs; empty = this API (built from the request) for `local`, `https://storage.googleapis.com/<bucket>` for `gcs` |
+| `GCS_BUCKET_MEDIA` | empty | media bucket, required only with `STORAGE_PROVIDER=gcs` (Application Default Credentials) |
+| `LOCATION_JITTER_SECRET` | `local-jitter-secret` (`local`/`test` only) | HMAC key of the public-point jitter (ADR 0004); every other profile refuses to start when it is missing, the development default or shorter than 32 characters |
 | `PAYMENT_PROVIDER`, `PUSH_PROVIDER`, `EMAIL_PROVIDER` | `fake`, `log`, `log` | provider abstractions |
 | `ML_SERVICE_URL`, `ML_SERVICE_TIMEOUT_MS` | `http://localhost:8000`, `1500` | optional ML service |
 | `RATE_LIMIT_DEFAULT_PER_MINUTE`, `RATE_LIMIT_ANONYMOUS_PER_MINUTE` | `120`, `60` | default rate limits (per user / per IP) |
@@ -135,8 +138,12 @@ provider uid `seed-<handle>`, roles, `PREMIUM` plan for `premium_user`, consents
 document) and, when `FIREBASE_AUTH_EMULATOR_HOST` is set, the matching Auth-emulator users (verified
 email, password `SEED_EMULATOR_PASSWORD`, existing users left untouched). Later modules add profiles,
 locations and catalog data by registering their own `SeedContributor` with the ordering constants of
-that interface. Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for the
-premium account) and `LocalDev!2026`; see `docs/development/test-accounts.md`.
+that interface. Phase 1-B adds `profiles` (order 200: profile, bio, games, languages, tags and
+privacy settings from `db/seed/profiles.json`; discoverable: collectors 1-6, 8 and `premium_user`) and
+`trading areas` (order 300: `db/seed/locations.json`, public neighbourhood centroids, 5 km radius;
+public points derived by the server). Both only insert missing rows, so local edits survive restarts.
+Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for the premium account)
+and `LocalDev!2026`; see `docs/development/test-accounts.md`.
 
 ### Profiles
 
@@ -147,6 +154,80 @@ premium account) and `LocalDev!2026`; see `docs/development/test-accounts.md`.
 | `staging` | pre-production | off | on | ECS structured JSON |
 | `prod` | production | off | on | ECS structured JSON |
 | `test` | integration tests (Testcontainers) | on | off | text with `[requestId]` |
+
+## Profiles, location, settings, deletion (Phase 1-B)
+
+Contract: `docs/api/contracts/phase1-auth-users.md`. All routes need a bearer token and accepted terms
+unless stated.
+
+| Route | Module | Notes |
+| --- | --- | --- |
+| `GET/PUT /api/v1/me/profile` | profiles | handle (3-24 `[a-z0-9_]`, trimmed + lower-cased, reserved list, `409 HANDLE_TAKEN` case-insensitively), display name (mirrored on the account), bio (≤ 500), games (`yugioh`, `pokemon`, `mtg`, `riftbound` from `orenji.games.slugs` until the games module exists), ISO 639-1 languages; banned-term check on display name and bio (`moderation_rule`, scope `PROFILE`). First save sets onboarding `profileComplete` |
+| `POST/DELETE /api/v1/me/profile/avatar` | profiles | multipart `file`, JPEG/PNG/WebP ≤ 5 MB (type sniffed from the bytes; 413/415/400), header-checked dimensions (≤ 8192 px, ≤ 40 MP), centre cover-crop to 512×512, re-encoded **JPEG** without any metadata (see "Deviations"), stored through `ObjectStorage` under a random key; the previous object is deleted after commit |
+| `GET /api/v1/tags?query=&category=&limit=` | profiles | active tags, accent/case-insensitive substring, prefix matches first, then by usage |
+| `PUT /api/v1/me/profile/tags` | profiles | `tagIds` + `customLabels` (2-24 chars, banned-term check scope `TAG`), max 12; custom labels reuse the tag with the same slug or create a `CUSTOM` tag; usage counts recomputed |
+| `GET /api/v1/collectors/{handle}` | profiles | public view per `PrivacyPolicyService`; 404 for unknown / suspended / deletion-pending / deleted accounts and for PRIVATE profiles (except the owner); `location` only for discoverable collectors (public point + label + distance bucket); `onlineStatus` OFFLINE/HIDDEN until presence exists; `publicBinderCount`, `rating`, `isBlocked` come from optional provider beans (`PublicBinderCountProvider`, `RatingSummaryProvider`, `BlockRelationProvider`, `PresenceProvider`) |
+| `GET /api/v1/me/location`, `PUT /api/v1/me/location/trading-area`, `DELETE /api/v1/me/location` | location | the only endpoint returning the caller's own centre; radius 1-50 km, latitude within ±85 |
+| `GET/PUT /api/v1/me/settings/privacy` | profiles | safe defaults (not discoverable, online status hidden, MEMBERS, MEMBERS_WITH_PROFILE, wishlist hidden); toggling `discoverable` derives or clears the public point in the same transaction |
+| `GET/PUT /api/v1/me/settings/notifications` | notifications | channel master switches, per-category matrix (MARKETING off by default), quiet hours (HH:mm + IANA zone) |
+| `GET /api/v1/me/export` | users | JSON attachment assembled by every `ExportContributor` (account + consents + deletion requests, profile, privacy settings, location trading area, notification preferences); rate-limited 10/h; allowed while a deletion is pending |
+| `POST/GET /api/v1/me/deletion-requests`, `DELETE /api/v1/me/deletion-requests/{id}` | users | see below |
+| `POST /internal/jobs/account-deletion` | users | service token / OIDC; `@Scheduled` hourly under `local` |
+| `GET /api/v1/public/media/{key}` | common/storage | public, strict key syntax (`ObjectKeys`), `Cache-Control: public, max-age=31536000, immutable` |
+
+### Approximate location (ADR 0004)
+
+`user_location` keeps the private trading-area centre (stored at 3 decimals) and a derived
+`public_point`: the centre's ~1 km grid cell (`floor(lat/0.009)`, `floor(lng/(0.009/cos(row lat)))`)
+plus a deterministic offset from `HMAC-SHA256(LOCATION_JITTER_SECRET, userId)` with a 0.001° margin,
+rounded to 3 decimals. The same user always gets the same point inside a cell; different users get
+different points; the point never leaves the cell. The public point exists only while the collector
+is discoverable (`DiscoverabilityPolicy`, implemented by the privacy settings) and is cleared while an
+account is suspended or pending deletion. Labels come from `StaticRegionGeocoder` (offline table of
+Montréal-area neighbourhoods and Canadian cities; no API key). Distances are bucketed
+(`LT_1KM`, `KM_1_5`, `KM_5_10`, `KM_10_25`, `KM_25_50`, `GT_50KM`) from the viewer's own centre to the
+target's public point. Events carry the grid cell id only; coordinates are never logged.
+`GeoPrivacyContractTest` walks every seeded collector's public profile and admin detail and fails on
+any coordinate with more than 3 decimals, any coordinate other than the stored public point, private
+location keys, or coordinates in the captured logs.
+
+### Account deletion and export
+
+1. `POST /me/deletion-requests {reason?, exportFirst?}` needs an ID token whose `auth_time` is at most
+   `orenji.account.reauth-window` (5 min) old, else `401 REAUTHENTICATION_REQUIRED`. Every
+   `DeletionParticipant.blockers()` is consulted (`409 DELETION_BLOCKED` with `blockers[]`); a second
+   request is `409 CONFLICT`. On success: `201` with the request (`PENDING`, `scheduledFor` = +7 days),
+   account `DELETION_REQUESTED`, participants hide public traces (map point), every identity-provider
+   session is revoked. The identity stays enabled so the owner can sign in again; while pending only
+   `GET /me`, `GET /me/export` and the deletion endpoints answer (everything else `403 ACCOUNT_SUSPENDED`).
+2. `DELETE /me/deletion-requests/{id}` (owner only, 404 otherwise; 409 once not pending) cancels and
+   restores the account and its map point.
+3. `POST /internal/jobs/account-deletion` processes due requests one transaction each
+   (`FOR UPDATE SKIP LOCKED`): `purge()` on every participant (profile + tags + avatar + privacy
+   settings, location, notification preferences, later modules), anonymise the account
+   (`deleted+<id>@anonymized.invalid`, `deleted_<hex>`, "Deleted collector", only `USER` kept), delete
+   the identity-provider user, complete the request (reason cleared), audit `account.deletion.complete`
+   (SYSTEM). Consents and audit rows are kept. Records a `job_run`.
+
+Every write is audited (`account.deletion.request`, `account.deletion.cancel`,
+`account.deletion.complete`, `user.handle.change`).
+
+### Storage
+
+`ObjectStorage` (`common/storage`): `LocalFileObjectStorage` (default, files under
+`STORAGE_LOCAL_ROOT`, served by `GET /api/v1/public/media/{key}`) or `GcsObjectStorage`
+(`STORAGE_PROVIDER=gcs`, Google Cloud Storage client library, ADC; created lazily and never
+instantiated locally). Keys are random (`avatars/<user>/<32 hex>.jpg`), so objects are immutable.
+
+### Deviations from the Phase 1 contract
+
+- Avatars are re-encoded as **JPEG** (not WebP): the JDK has no WebP encoder and the TwelveMonkeys
+  plugin only decodes WebP. Uploads may still be WebP. Switching the encoder later only touches
+  `AvatarImageProcessor` (keys carry the extension, URLs are derived).
+- A deletion request **revokes sessions instead of disabling** the identity-provider user: a disabled
+  user could never sign in again to cancel during the grace period (the Auth emulator rejects its
+  tokens at once). The identity is deleted by the job.
+- Additive: `GET /me/deletion-requests` (lets clients find the pending request after a reload).
 
 ## Build, format, test
 
@@ -199,7 +280,10 @@ edited once applied. `V001__extensions.sql` installs PostGIS, `pg_trgm`, `unacce
 the `unaccent_immutable(text)` helper; `V002__event_publication.sql` creates the Spring Modulith
 `event_publication` outbox table; `V003__users.sql` creates `user_account`, `user_role`,
 `legal_document` (with the eight documents of version `2026-09-01`), `user_consent`, `audit_log` and
-`job_run`. Details and column lists: `docs/database/schema.md`.
+`job_run`; `V004__profiles.sql` (`profile`, `tag`, `profile_tag`, `moderation_rule`,
+`privacy_settings`), `V005__location.sql` (`user_location`), `V006__settings.sql`
+(`notification_preferences`) and `V007__deletion.sql` (`account_deletion_request`) complete Phase 1.
+Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
 
@@ -217,9 +301,14 @@ com.orenjitrade.api
 ├── audit/       AuditService (append-only audit_log), GET /api/v1/admin/audit-logs
 ├── admin/       /api/v1/admin/users (list, detail, suspend, unsuspend, roles)
 ├── jobs/        job_run records, POST /internal/jobs/ping
-└── profiles location games cards inventory binders search wishlist messaging community
-    notifications ratings reports offers trades payments billing credits donations ads moderation
-    analytics featureflags delisting                      (documented in each package-info.java)
+├── profiles/    profile, avatar, tags, privacy settings + PrivacyPolicyService, collector view
+├── location/    user_location, ApproximateLocationService, StaticRegionGeocoder (ADR 0004)
+├── notifications/ notification preferences (dispatch arrives in Phase 6)
+├── moderation/  moderation_rule + TextModerationService (banned terms)
+├── games/       GameCatalog (property-backed until the Phase 2 catalogue)
+└── cards inventory binders search wishlist messaging community ratings reports offers trades
+    payments billing credits donations ads analytics featureflags delisting
+                                                          (documented in each package-info.java)
 ```
 
 Inside a module: `api/` (controllers + DTOs), `domain/`, `infra/`, `events/`. Entities never leave a

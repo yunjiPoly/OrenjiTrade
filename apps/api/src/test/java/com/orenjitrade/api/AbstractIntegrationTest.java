@@ -4,20 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.MissingNode;
 
 /**
  * Base class for integration tests: boots the whole application on a random port with the {@code
@@ -31,7 +36,11 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestAuthConfiguration.class})
+@Import({
+    TestcontainersConfiguration.class,
+    TestAuthConfiguration.class,
+    TestDeletionConfiguration.class
+})
 public abstract class AbstractIntegrationTest {
 
     /**
@@ -94,6 +103,44 @@ public abstract class AbstractIntegrationTest {
         UUID id = provision(uid);
         testUsers.acceptAllRequiredConsents(id);
         return id;
+    }
+
+    /** Sends a request (JSON body when given) and returns the raw result, whatever the status. */
+    protected EntityExchangeResult<byte[]> call(
+            HttpMethod method, String uri, @Nullable String uid, @Nullable Object body) {
+        RestTestClient.RequestBodySpec spec = http.method(method).uri(uri);
+        if (uid != null) {
+            spec = spec.header(HttpHeaders.AUTHORIZATION, bearer(uid));
+        }
+        RestTestClient.RequestHeadersSpec<?> ready =
+                body == null ? spec : spec.contentType(MediaType.APPLICATION_JSON).body(body);
+        return ready.exchange().expectBody().returnResult();
+    }
+
+    /**
+     * Like {@link #call} but asserts the status (the body is part of the failure message) and
+     * parses the JSON body ({@code MissingNode} when empty).
+     */
+    protected JsonNode callJson(
+            HttpMethod method,
+            String uri,
+            @Nullable String uid,
+            @Nullable Object body,
+            int expectedStatus) {
+        EntityExchangeResult<byte[]> result = call(method, uri, uid, body);
+        byte[] bytes = result.getResponseBody();
+        String text = bytes == null ? "" : new String(bytes, StandardCharsets.UTF_8);
+        assertThat(result.getStatus().value())
+                .as("%s %s -> %s", method, uri, text)
+                .isEqualTo(expectedStatus);
+        return text.isEmpty() ? MissingNode.getInstance() : jsonMapper.readTree(text);
+    }
+
+    /** Parses a response body. */
+    protected JsonNode json(EntityExchangeResult<byte[]> result) {
+        byte[] body = result.getResponseBody();
+        assertThat(body).isNotNull();
+        return jsonMapper.readTree(body);
     }
 
     /** Provisions a compliant account holding the given roles (USER is always present). */

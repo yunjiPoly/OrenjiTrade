@@ -188,7 +188,25 @@ orenji:
     # local | gcs
     provider: ${STORAGE_PROVIDER:local}
     local-root: ${STORAGE_LOCAL_ROOT:./.local-storage}
+    # Origin of public media URLs. Empty: local media is served by this API
+    # (GET /api/v1/public/media/{key}) and URLs are built from the current request origin; with
+    # STORAGE_PROVIDER=gcs it defaults to https://storage.googleapis.com/<bucket>.
+    public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
     gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
+  games:
+    # Game slugs accepted in profiles until the games module (Phase 2) owns the catalogue.
+    slugs: yugioh,pokemon,mtg,riftbound
+  location:
+    # HMAC-SHA256 key seeding the deterministic public-point jitter (ADR 0004). No default outside
+    # the local and test profiles: the application refuses to start without it.
+    jitter-secret: ${LOCATION_JITTER_SECRET:}
+    # Approximate label of a public point comes from the static region table (StaticRegionGeocoder).
+    geocoder: static
+  account:
+    # A deletion request needs an ID token whose auth_time is younger than this (401 otherwise).
+    reauth-window: 5m
+    # Grace period between the deletion request and the anonymising job.
+    deletion-grace-days: 7
   payments:
     # fake | stripe
     provider: ${PAYMENT_PROVIDER:fake}
@@ -211,9 +229,15 @@ orenji:
     # Contract table: docs/api/contracts/phase1-auth-users.md#rate-limiting
     enabled: true
     policies:
-      - name: avatar-export
-        path-patterns: ["/api/v1/me/profile/avatar", "/api/v1/me/export"]
-        methods: [POST, GET]
+      - name: avatar-upload
+        path-patterns: ["/api/v1/me/profile/avatar"]
+        methods: [POST]
+        limit: 10
+        window-seconds: 3600
+        key-by: USER
+      - name: export
+        path-patterns: ["/api/v1/me/export"]
+        methods: [GET]
         limit: 10
         window-seconds: 3600
         key-by: USER
@@ -256,6 +280,8 @@ orenji:
       require-mfa: false
   firebase:
     auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
+  location:
+    jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
   seed:
     enabled: true
 logging:
@@ -353,6 +379,11 @@ orenji:
     internal-invokers: scheduler@orenjitrade-test.iam.gserviceaccount.com
   firebase:
     auth-emulator-host: ""
+  location:
+    jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
+  storage:
+    # Each test JVM gets its own media root (deleted by the OS); never the repository directory.
+    local-root: ${java.io.tmpdir}/orenjitrade-test-media
   seed:
     enabled: false
   ratelimit:

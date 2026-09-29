@@ -27,12 +27,19 @@ public interface UserAccountRepository
 
     boolean existsByHandleIgnoreCase(String handle);
 
+    boolean existsByHandleIgnoreCaseAndIdNot(String handle, UUID id);
+
+    @EntityGraph(attributePaths = "roles")
+    Optional<UserAccount> findWithRolesByHandleIgnoreCase(String handle);
+
     /** Cheap projection for audit actors. */
     @Query("select u.id as id, u.handle as handle from UserAccount u where u.id in :ids")
     List<HandleProjection> findHandlesByIdIn(@Param("ids") Collection<UUID> ids);
 
     @Modifying
-    @Query("update UserAccount u set u.lastActiveAt = :now where u.id = :id")
+    @Query(
+            "update UserAccount u set u.lastActiveAt = :now where u.id = :id and u.deletedAt is"
+                    + " null")
     int touchLastActive(@Param("id") UUID id, @Param("now") Instant now);
 
     interface HandleProjection {

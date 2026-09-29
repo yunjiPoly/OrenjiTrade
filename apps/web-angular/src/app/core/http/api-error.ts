@@ -12,6 +12,12 @@ export interface ProblemDetailBody {
   requestId?: string;
   timestamp?: string;
   errors?: { field?: string; message?: string }[];
+  /** `TERMS_ACCEPTANCE_REQUIRED` (428): the document versions still to accept. */
+  requiredConsents?: { documentType?: string; version?: string }[];
+  /** `ACCOUNT_SUSPENDED` (403): end of a temporary suspension, when known. */
+  suspendedUntil?: string;
+  /** `RATE_LIMITED` (429). */
+  retryAfterSeconds?: number;
 }
 
 export interface ApiErrorShape {
@@ -35,14 +41,17 @@ export class ApiError extends Error implements ApiErrorShape {
   readonly requestId: string | null;
   readonly status: number;
   readonly fieldErrors: Record<string, string>;
+  /** The raw Problem Details body (extensions such as `requiredConsents`, `suspendedUntil`). */
+  readonly problem: ProblemDetailBody | null;
 
-  constructor(shape: ApiErrorShape, options?: { cause?: unknown }) {
-    super(shape.message, options);
+  constructor(shape: ApiErrorShape, options?: { cause?: unknown; problem?: ProblemDetailBody }) {
+    super(shape.message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'ApiError';
     this.errorCode = shape.errorCode;
     this.requestId = shape.requestId;
     this.status = shape.status;
     this.fieldErrors = shape.fieldErrors;
+    this.problem = options?.problem ?? null;
   }
 
   /** True when the request never reached the server. */
@@ -98,7 +107,7 @@ export function toApiError(error: unknown, fallbackRequestId: string | null = nu
         status: body.status ?? status,
         fieldErrors,
       },
-      { cause: error },
+      { cause: error, problem: isProblemDetail(error.error) ? body : undefined },
     );
   }
 

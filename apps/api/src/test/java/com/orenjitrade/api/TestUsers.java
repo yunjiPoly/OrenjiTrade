@@ -94,6 +94,44 @@ public class TestUsers {
         return count == null ? 0 : count;
     }
 
+    /**
+     * The stored location of a user as plain numbers (tests only; production code never reads the
+     * centre outside the location module): keys centre_lat, centre_lng, public_lat, public_lng,
+     * public_label, grid_cell. Empty map without a row.
+     */
+    public Map<String, Object> locationOf(UUID id) {
+        List<Map<String, Object>> rows =
+                jdbc.queryForList(
+                        "SELECT ST_Y(trading_area_center::geometry) AS centre_lat,"
+                                + " ST_X(trading_area_center::geometry) AS centre_lng,"
+                                + " ST_Y(public_point::geometry) AS public_lat,"
+                                + " ST_X(public_point::geometry) AS public_lng,"
+                                + " public_label, grid_cell, trading_area_radius_m"
+                                + " FROM user_location WHERE user_id = ?",
+                        id);
+        return rows.isEmpty() ? Map.of() : rows.get(0);
+    }
+
+    public void setLastActive(UUID id, @Nullable Instant lastActiveAt) {
+        jdbc.update(
+                "UPDATE user_account SET last_active_at = ? WHERE id = ?",
+                lastActiveAt == null ? null : Timestamp.from(lastActiveAt),
+                id);
+    }
+
+    public int count(String sql, Object... args) {
+        Integer count = jdbc.queryForObject(sql, Integer.class, args);
+        return count == null ? 0 : count;
+    }
+
+    public List<Map<String, Object>> query(String sql, Object... args) {
+        return jdbc.queryForList(sql, args);
+    }
+
+    public int update(String sql, Object... args) {
+        return jdbc.update(sql, args);
+    }
+
     public List<Map<String, Object>> jobRuns(String name) {
         return jdbc.queryForList(
                 "SELECT name, status, details::text AS details FROM job_run WHERE name = ?"

@@ -202,6 +202,13 @@ public class OpenApiConfig {
         schema.addProperty(
                 "retryAfterSeconds",
                 new IntegerSchema().description("Seconds to wait (RATE_LIMITED problems)"));
+        schema.addProperty(
+                "blockers",
+                new ArraySchema()
+                        .items(new StringSchema())
+                        .description(
+                                "Open obligations preventing an account deletion"
+                                        + " (DELETION_BLOCKED), e.g. OPEN_DISPUTE"));
         schema.required(
                 List.of(
                         "type",

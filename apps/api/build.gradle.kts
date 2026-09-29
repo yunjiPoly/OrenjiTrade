@@ -22,6 +22,8 @@ repositories {
 extra["springModulithVersion"] = "2.1.1"
 extra["firebaseAdminVersion"] = "9.11.0"
 extra["springdocVersion"] = "3.1.0"
+extra["googleLibrariesBomVersion"] = "26.89.0"
+extra["twelveMonkeysVersion"] = "3.15.2"
 
 dependencies {
     // --- Spring Boot starters (Boot 4 naming) ---
@@ -46,6 +48,14 @@ dependencies {
 
     // --- Identity: Firebase Admin SDK verifies ID tokens (ADR 0008 / ADR 0013) ---
     implementation("com.google.firebase:firebase-admin:${property("firebaseAdminVersion")}")
+
+    // --- Media storage: Google Cloud Storage adapter (STORAGE_PROVIDER=gcs), versions from the
+    //     Google Cloud libraries BOM (ADR 0013: client libraries, no Spring Cloud GCP) ---
+    implementation(platform("com.google.cloud:libraries-bom:${property("googleLibrariesBomVersion")}"))
+    implementation("com.google.cloud:google-cloud-storage")
+
+    // --- Avatar processing: ImageIO WebP reader (the JDK only ships JPEG/PNG/GIF/BMP readers) ---
+    implementation("com.twelvemonkeys.imageio:imageio-webp:${property("twelveMonkeysVersion")}")
 
     // --- OpenAPI (enabled per profile through orenji.openapi.enabled) ---
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${property("springdocVersion")}")

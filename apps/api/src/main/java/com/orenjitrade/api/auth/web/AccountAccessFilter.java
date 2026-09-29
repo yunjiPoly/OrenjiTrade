@@ -28,8 +28,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <ul>
  *   <li>{@code SUSPENDED} (and the suspension has not expired): 403 {@code ACCOUNT_SUSPENDED} on
  *       every non-public route, with the {@code suspendedUntil} extension when temporary;
- *   <li>{@code DELETION_REQUESTED}: only {@code GET /api/v1/me} and the deletion-request endpoints
- *       are allowed, everything else is 403 {@code ACCOUNT_SUSPENDED} "deletion pending";
+ *   <li>{@code DELETION_REQUESTED}: only {@code GET /api/v1/me}, {@code GET /api/v1/me/export} and
+ *       the deletion-request endpoints are allowed, everything else is 403 {@code
+ *       ACCOUNT_SUSPENDED} "deletion pending";
  *   <li>{@code DELETED}: 403 {@code ACCOUNT_SUSPENDED}.
  * </ul>
  *
@@ -59,6 +60,7 @@ public class AccountAccessFilter extends OncePerRequestFilter {
         this.deletionRequestedAllowed =
                 new OrRequestMatcher(
                         PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/me"),
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/me/export"),
                         PathPatternRequestMatcher.pathPattern("/api/v1/me/deletion-requests"),
                         PathPatternRequestMatcher.pathPattern("/api/v1/me/deletion-requests/**"));
         this.problems = problems;

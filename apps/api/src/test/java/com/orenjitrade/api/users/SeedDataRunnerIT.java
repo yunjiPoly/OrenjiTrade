@@ -37,7 +37,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
         assertThat(seedDataRunner.contributors())
                 .extracting(contributor -> contributor.name())
-                .containsExactly("user accounts", "auth emulator users");
+                .containsExactly(
+                        "user accounts", "auth emulator users", "profiles", "trading areas");
 
         UUID adminId = UUID.fromString("00000000-0000-4000-8000-000000000011");
         Map<String, Object> admin = testUsers.row(adminId);

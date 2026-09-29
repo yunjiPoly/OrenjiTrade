@@ -75,6 +75,7 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
                         ex.getMessage(),
                         ex.getFieldErrors(),
                         request.getRequestURI());
+        ex.getProperties().forEach(detail::setProperty);
         logProblem(ex, detail);
         return respond(detail);
     }

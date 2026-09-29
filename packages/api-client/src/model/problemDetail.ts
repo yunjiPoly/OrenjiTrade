@@ -40,6 +40,10 @@ export interface ProblemDetail {
      * Seconds to wait (RATE_LIMITED problems)
      */
     retryAfterSeconds?: number;
+    /**
+     * Open obligations preventing an account deletion (DELETION_BLOCKED), e.g. OPEN_DISPUTE
+     */
+    blockers?: Array<string>;
 }
 export enum ProblemDetailErrorCodeEnum {
     ValidationFailed = 'VALIDATION_FAILED',

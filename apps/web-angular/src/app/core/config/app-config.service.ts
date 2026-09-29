@@ -23,6 +23,8 @@ export class AppConfigService {
   private readonly state = signal<AppConfig>(DEFAULT_APP_CONFIG);
   private readonly loadedState = signal(false);
   private readonly loadErrorState = signal<string | null>(null);
+  private resolveLoaded!: () => void;
+  private readonly loadedPromise = new Promise<void>((resolve) => (this.resolveLoaded = resolve));
 
   /** The full configuration (defaults until {@link load} completes). */
   readonly config = this.state.asReadonly();
@@ -54,14 +56,25 @@ export class AppConfigService {
       console.warn(`[OrenjiTrade] ${APP_CONFIG_URL} could not be loaded; using defaults.`, error);
     } finally {
       this.loadedState.set(true);
+      this.resolveLoaded();
     }
     return this.state();
+  }
+
+  /**
+   * Resolves once the configuration is final (after {@link load} finished, successfully or not,
+   * or after {@link set} in tests). Services that need the runtime configuration before their first
+   * side effect (Firebase initialisation) await this instead of reading the defaults too early.
+   */
+  whenLoaded(): Promise<AppConfig> {
+    return this.loadedPromise.then(() => this.state());
   }
 
   /** Test/seeding hook: replaces the configuration without a network round trip. */
   set(config: Partial<AppConfig>): void {
     this.state.set(normalizeAppConfig({ ...this.state(), ...config }));
     this.loadedState.set(true);
+    this.resolveLoaded();
   }
 }
 

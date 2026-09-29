@@ -6,6 +6,7 @@ import com.orenjitrade.api.auth.domain.AccountStatus;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.ErrorCode;
+import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.users.events.UserProvisionedEvent;
 import com.orenjitrade.api.users.events.UserRolesChangedEvent;
@@ -16,6 +17,8 @@ import com.orenjitrade.api.users.infra.UserAccountProvisioner;
 import com.orenjitrade.api.users.infra.UserAccountRepository;
 import com.orenjitrade.api.users.infra.UserAccountSpecifications;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -41,6 +44,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class UserAccountService {
+
+    public static final String ACTION_HANDLE_CHANGE = "user.handle.change";
 
     static final int MAX_PROVISION_ATTEMPTS = 5;
     static final int MAX_SEQUENTIAL_SUFFIXES = 25;
@@ -115,6 +120,10 @@ public class UserAccountService {
                     }
                     UserAccount account = found.get();
                     Instant now = timeProvider.now();
+                    if (account.getStatus() == AccountStatus.DELETED) {
+                        // Anonymised: a stale token must never write personal data back.
+                        return Optional.of(account.toSnapshot());
+                    }
                     account.syncIdentity(claims.email(), claims.emailVerified(), now);
                     if (account.isSuspensionExpiredAt(now)) {
                         account.unsuspend(now);
@@ -226,6 +235,14 @@ public class UserAccountService {
      * The account when it may act, otherwise {@code 404} (unknown) or {@code 403 ACCOUNT_SUSPENDED}
      * (suspended, deletion pending, deleted).
      */
+    /** The account holding {@code handle} (case-insensitive), whatever its status. */
+    @Transactional(readOnly = true)
+    public Optional<UserAccountSnapshot> findByHandle(String handle) {
+        return repository
+                .findWithRolesByHandleIgnoreCase(HandleRules.normalise(handle))
+                .map(UserAccount::toSnapshot);
+    }
+
     @Transactional(readOnly = true)
     public UserAccountSnapshot requireActive(UUID userId) {
         UserAccountSnapshot snapshot =
@@ -310,6 +327,69 @@ public class UserAccountService {
             throw ApiException.conflict("No deletion is pending for this account");
         }
         account.reactivate(timeProvider.now());
+        return account.toSnapshot();
+    }
+
+    /**
+     * Changes the caller's handle (Phase 1 contract, "Profile"). Input is trimmed and lower-cased;
+     * {@code 400 VALIDATION_FAILED} when it is not 3-24 characters of {@code [a-z0-9_]}, {@code 409
+     * HANDLE_TAKEN} when it is reserved or used by another account (case-insensitive). Keeping the
+     * current handle is always allowed (seed staff accounts carry reserved handles). Audited.
+     */
+    @Transactional
+    public UserAccountSnapshot changeHandle(UUID userId, String rawHandle) {
+        String handle = HandleRules.normalise(rawHandle);
+        if (HandleRules.check(handle).orElse(null) == HandleRules.Violation.INVALID_FORMAT) {
+            throw ApiException.validation(
+                    "Validation failed",
+                    List.of(
+                            new ProblemFieldError(
+                                    "handle",
+                                    "must be 3 to 24 characters: lower-case letters, digits or"
+                                            + " underscores")));
+        }
+        UserAccount account = load(userId);
+        if (account.getHandle().equals(handle)) {
+            return account.toSnapshot();
+        }
+        if (HandleRules.check(handle).isPresent()
+                || repository.existsByHandleIgnoreCaseAndIdNot(handle, userId)) {
+            throw new ApiException(ErrorCode.HANDLE_TAKEN, "This handle is not available");
+        }
+        String previous = account.getHandle();
+        account.changeHandle(handle, timeProvider.now());
+        repository.flush();
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("previousHandle", previous);
+        details.put("handle", handle);
+        auditService.record(
+                ActorType.USER,
+                userId,
+                ACTION_HANDLE_CHANGE,
+                AuditService.TARGET_USER,
+                userId.toString(),
+                details);
+        return account.toSnapshot();
+    }
+
+    /** Mirrors the profile display name on the account (shown by {@code /me} and admin views). */
+    @Transactional
+    public UserAccountSnapshot changeDisplayName(UUID userId, String displayName) {
+        UserAccount account = load(userId);
+        if (!displayName.equals(account.getDisplayName())) {
+            account.changeDisplayName(displayName, timeProvider.now());
+        }
+        return account.toSnapshot();
+    }
+
+    /**
+     * Irreversibly anonymises the account (deletion job): placeholder email, handle and display
+     * name, status {@code DELETED}, only {@code USER} kept. Consents and audit rows stay attached.
+     */
+    @Transactional
+    public UserAccountSnapshot anonymise(UUID userId) {
+        UserAccount account = load(userId);
+        account.anonymise(timeProvider.now());
         return account.toSnapshot();
     }
 

@@ -11,6 +11,7 @@ import { HttpHeaders }                                       from '@angular/comm
 
 import { Observable }                                        from 'rxjs';
 
+import { AccountDeletionJobResponse } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 
@@ -29,5 +30,12 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/ping
 */
     pingInternalJobs(extraHttpRequestParams?: any): Observable<PingJobResponse>;
+
+    /**
+     * Process due account deletions (service auth)
+     * Anonymises every account whose grace period is over, purges module data, deletes the identity-provider user and records a job run. Consents, audit entries and ledgers are kept.
+     * @endpoint post /internal/jobs/account-deletion
+*/
+    runAccountDeletionJob(extraHttpRequestParams?: any): Observable<AccountDeletionJobResponse>;
 
 }

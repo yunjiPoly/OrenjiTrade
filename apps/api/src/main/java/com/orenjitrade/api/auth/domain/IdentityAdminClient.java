@@ -12,6 +12,12 @@ public interface IdentityAdminClient {
 
     void enableUser(String providerUid);
 
+    /**
+     * Revokes every refresh token (signs the user out on every device) without disabling the
+     * account: the user can sign in again, e.g. to cancel a pending account deletion.
+     */
+    void revokeSessions(String providerUid);
+
     /** Deletes the provider user; ignored when it does not exist. */
     void deleteUser(String providerUid);
 

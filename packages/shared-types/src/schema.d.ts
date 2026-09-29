@@ -4,6 +4,118 @@
  */
 
 export interface paths {
+    "/api/v1/me/settings/privacy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's privacy settings
+         * @description Defaults favour safety: not discoverable, online status hidden, profile visible to members, messages from members with a profile, wishlist hidden.
+         */
+        get: operations["getPrivacySettings"];
+        /**
+         * Replace the caller's privacy settings
+         * @description Full replacement (every field required). Switching `discoverable` on derives the public map point from the trading area; switching it off removes the collector from the map immediately.
+         */
+        put: operations["updatePrivacySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/settings/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notification preferences
+         * @description Defaults: push and in-app on, email off, MARKETING fully off.
+         */
+        get: operations["getNotificationSettings"];
+        /**
+         * Replace the caller's notification preferences
+         * @description Full replacement. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
+         */
+        put: operations["updateNotificationSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's profile
+         * @description Returns defaults derived from the account (handle, display name) until the profile is saved for the first time.
+         */
+        get: operations["getMyProfile"];
+        /**
+         * Save the caller's profile
+         * @description Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the `profileComplete` onboarding step.
+         */
+        put: operations["updateMyProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the caller's profile tags
+         * @description At most 12 tags in total. `tagIds` must be active tags; `customLabels` (2-24 characters) are checked against the banned-term rules and created as CUSTOM tags (or matched to an existing tag with the same slug). Returns the resulting tags.
+         */
+        put: operations["updateMyProfileTags"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/location/trading-area": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the caller's trading area
+         * @description Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km grid cell and offsets it with a deterministic per-user jitter to derive `publicPoint` (3 decimals) and its region label.
+         */
+        put: operations["updateMyTradingArea"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users/{id}/roles": {
         parameters: {
             query?: never;
@@ -38,6 +150,71 @@ export interface paths {
          * @description Records a `ping` job run and answers `{ "ok": true }`.
          */
         post: operations["pingInternalJobs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/jobs/account-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Process due account deletions (service auth)
+         * @description Anonymises every account whose grace period is over, purges module data, deletes the identity-provider user and records a job run. Consents, audit entries and ledgers are kept.
+         */
+        post: operations["runAccountDeletionJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload the caller's avatar
+         * @description Multipart part `file`: JPEG, PNG or WebP up to 5 MB (type sniffed from the content). The server cover-crops it to a 512x512 square and re-encodes it without any metadata (EXIF/GPS stripped). 413 above 5 MB, 415 for other types, 400 for unreadable images. Rate-limited (10 per hour).
+         */
+        post: operations["uploadMyAvatar"];
+        /** Remove the caller's avatar */
+        delete: operations["deleteMyAvatar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/deletion-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's deletion requests
+         * @description Newest first; lets clients find the pending request to cancel it after a reload.
+         */
+        get: operations["listAccountDeletionRequests"];
+        put?: never;
+        /**
+         * Request the deletion of the caller's account
+         * @description Needs an ID token whose `auth_time` is at most 5 minutes old (401 REAUTHENTICATION_REQUIRED otherwise). On success the account becomes DELETION_REQUESTED, every identity-provider session is revoked (signed out everywhere; signing in again only gives access to GET /me, GET /me/export and these deletion endpoints), the collector disappears from the map and the deletion runs after a 7-day grace period. 409 DELETION_BLOCKED (extension `blockers[]`) while obligations are open; 409 CONFLICT when a request is already pending.
+         */
+        post: operations["requestAccountDeletion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -98,6 +275,46 @@ export interface paths {
          * @description Blocks every API call of the account (403 ACCOUNT_SUSPENDED) and disables the identity-provider user. Audited.
          */
         post: operations["suspendUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search profile tags
+         * @description Active tags whose label or slug contains `query` (case and accent insensitive), prefix matches first, then the most used. Without `query`: the most used tags. Rate-limited (60 per minute).
+         */
+        get: operations["searchTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/media/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stored media (avatars)
+         * @description Serves an object of the media storage by key (for example `avatars/<user id>/<random>.jpg`). Immutable: cache for a year.
+         */
+        get: operations["getPublicMedia"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -178,6 +395,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's trading area and public point
+         * @description The only endpoint that returns the caller's chosen centre. `publicPoint` is what other collectors see and is null while not discoverable.
+         */
+        get: operations["getMyLocation"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove the caller's location
+         * @description Deletes every location row; the collector disappears from the map.
+         */
+        delete: operations["deleteMyLocation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the caller's data
+         * @description JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, trading area, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.
+         */
+        get: operations["exportMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/collectors/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public profile of a collector
+         * @description Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` is null unless the collector is discoverable; `distanceBucket` needs a trading area on the caller's side and `showDistance` on the collector's. Coordinates are the derived public point only (3 decimals).
+         */
+        get: operations["getCollector"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -238,10 +519,240 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/deletion-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cancel a pending deletion during the grace period
+         * @description Re-activates the account (and its map presence). 404 when the request is not the caller's, 409 when it is no longer pending.
+         */
+        delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Privacy settings of the caller */
+        PrivacySettings: {
+            /** @description Appear on the map / in nearby searches (default false) */
+            discoverable: boolean;
+            /** @description Default true */
+            showDistance: boolean;
+            /** @description Default false */
+            showOnlineStatus: boolean;
+            /** @description Default true */
+            showLastActive: boolean;
+            /**
+             * @description Default MEMBERS
+             * @enum {string}
+             */
+            profileVisibility: "PUBLIC" | "MEMBERS" | "PRIVATE";
+            /**
+             * @description Default MEMBERS_WITH_PROFILE
+             * @enum {string}
+             */
+            messagingPermission: "EVERYONE" | "MEMBERS_WITH_PROFILE" | "NOBODY";
+            /** @description Default false */
+            wishlistVisible: boolean;
+            /** @description Default true */
+            searchDiscoverable: boolean;
+        };
+        ChannelPreferencesRequest: {
+            push: boolean;
+            email: boolean;
+            inApp: boolean;
+        };
+        NotificationSettingsRequest: {
+            pushEnabled: boolean;
+            emailEnabled: boolean;
+            inAppEnabled: boolean;
+            /** @description Channels per category; categories left out get their defaults (MARKETING is off unless explicitly enabled) */
+            categories?: {
+                [key: string]: components["schemas"]["ChannelPreferencesRequest"];
+            } | null;
+            /** @description Defaults to disabled 22:00-08:00 America/Toronto */
+            quietHours?: components["schemas"]["QuietHoursRequest"];
+        };
+        QuietHoursRequest: {
+            enabled: boolean;
+            /** @example 22:00 */
+            start: string;
+            /** @example 08:00 */
+            end: string;
+            /** @example America/Toronto */
+            timezone: string;
+        };
+        /** @description Channels enabled for one category */
+        ChannelPreferences: {
+            push: boolean;
+            email: boolean;
+            inApp: boolean;
+        };
+        /** @description Notification preferences */
+        NotificationSettingsResponse: {
+            pushEnabled: boolean;
+            emailEnabled: boolean;
+            inAppEnabled: boolean;
+            /** @description Every category, in order */
+            categories: {
+                [key: string]: components["schemas"]["ChannelPreferences"];
+            };
+            quietHours: components["schemas"]["QuietHours"];
+        };
+        /** @description Period without push notifications */
+        QuietHours: {
+            enabled: boolean;
+            /** @example 22:00 */
+            start: string;
+            /** @example 08:00 */
+            end: string;
+            /** @example America/Toronto */
+            timezone: string;
+        };
+        UpdateProfileRequest: {
+            /**
+             * @description 3-24 characters [a-z0-9_] (input is trimmed and lower-cased); unique case-insensitively; reserved words refused (409 HANDLE_TAKEN)
+             * @example maika
+             */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            bio?: string | null;
+            games?: string[];
+            languages?: string[];
+        };
+        /** @description The caller's own profile */
+        MyProfileResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            bio: string;
+            /**
+             * @example [
+             *       "yugioh",
+             *       "pokemon"
+             *     ]
+             */
+            games: string[];
+            /**
+             * @example [
+             *       "fr",
+             *       "en"
+             *     ]
+             */
+            languages: string[];
+            /** Format: uri */
+            avatarUrl?: string | null;
+            tags: components["schemas"]["TagResponse"][];
+            /** @description Whether the profile was saved at least once */
+            profileComplete: boolean;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        /** @description Profile tag */
+        TagResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @example local-meetups */
+            slug: string;
+            /** @example Local Meetups */
+            label: string;
+            /** @enum {string} */
+            category: "GAME" | "ROLE" | "STYLE" | "LOGISTICS" | "LANGUAGE" | "CUSTOM";
+            /**
+             * Format: int32
+             * @description Number of profiles carrying the tag
+             * @example 12
+             */
+            usageCount: number;
+        };
+        UpdateProfileTagsRequest: {
+            /** @description Ids of existing active tags */
+            tagIds?: string[];
+            /** @description Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug */
+            customLabels?: string[];
+        };
+        UpdateTradingAreaRequest: {
+            /**
+             * Format: double
+             * @description Centre latitude (stored rounded to 3 decimals)
+             * @example 45.52
+             */
+            lat: number;
+            /**
+             * Format: double
+             * @description Centre longitude (stored rounded to 3 decimals)
+             * @example -73.58
+             */
+            lng: number;
+            /**
+             * Format: int32
+             * @example 5
+             */
+            radiusKm: number;
+            /**
+             * @description MANUAL (default) or DEVICE; DEVICE only records where the centre came from, the server still snaps it
+             * @enum {string|null}
+             */
+            source?: "MANUAL" | "DEVICE" | null;
+        };
+        /** @description The caller's own location settings */
+        MyLocationResponse: {
+            /** @description The chosen trading area (owner only) */
+            tradingArea?: components["schemas"]["TradingAreaResponse"];
+            /** @description The derived point other collectors see; null while not discoverable */
+            publicPoint?: components["schemas"]["PublicPoint"];
+            discoverable: boolean;
+        };
+        /** @description Approximate public position (about 1 km grid + deterministic jitter, 3 decimals); never the collector's real location */
+        PublicPoint: {
+            /**
+             * Format: double
+             * @example 45.522
+             */
+            lat: number;
+            /**
+             * Format: double
+             * @example -73.581
+             */
+            lng: number;
+        };
+        /** @description Trading area chosen by the owner */
+        TradingAreaResponse: {
+            /**
+             * Format: double
+             * @example 45.52
+             */
+            lat: number;
+            /**
+             * Format: double
+             * @example -73.58
+             */
+            lng: number;
+            /**
+             * Format: int32
+             * @example 5
+             */
+            radiusKm: number;
+            /** @enum {string} */
+            source: "MANUAL" | "DEVICE";
+            /** @example Plateau-Mont-Royal, Montréal */
+            label?: string | null;
+        };
         UpdateRolesRequest: {
             /**
              * @description Complete role set; USER is always kept
@@ -254,6 +765,64 @@ export interface components {
         };
         PingJobResponse: {
             ok: boolean;
+        };
+        AccountDeletionJobResponse: {
+            /**
+             * Format: int32
+             * @description Accounts deleted
+             */
+            processed: number;
+            /**
+             * Format: int32
+             * @description Due requests cancelled or taken meanwhile
+             */
+            skipped: number;
+            /**
+             * Format: int32
+             * @description Requests left pending after an error
+             */
+            failed: number;
+        };
+        AvatarResponse: {
+            /**
+             * Format: uri
+             * @description Public URL of the 512x512 avatar (immutable)
+             */
+            avatarUrl: string;
+        };
+        CreateDeletionRequest: {
+            /**
+             * @description Optional free text; never copied into the audit log
+             * @example Taking a break from collecting
+             */
+            reason?: string | null;
+            /**
+             * @description The owner wants their export first; GET /me/export stays available while the deletion is pending
+             * @default false
+             */
+            exportFirst: boolean | null;
+        };
+        /** @description Account deletion request */
+        DeletionRequestResponse: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @example PENDING
+             * @enum {string}
+             */
+            status: "PENDING" | "PROCESSING" | "COMPLETED" | "CANCELLED";
+            /** Format: date-time */
+            requestedAt: string;
+            /**
+             * Format: date-time
+             * @description End of the grace period (requestedAt + 7 days)
+             */
+            scheduledFor: string;
+            /** Format: date-time */
+            cancelledAt?: string | null;
+            exportRequested: boolean;
+            /** @description Always empty on an accepted request (blocked ones are 409) */
+            blockers: string[];
         };
         /** @description Acceptance of one legal document version */
         ConsentRequest: {
@@ -340,6 +909,78 @@ export interface components {
             ok: boolean;
             /** Format: date-time */
             serverTime: string;
+        };
+        AccountExport: {
+            formatVersion?: string;
+            /** Format: date-time */
+            exportedAt?: string;
+            /** Format: uuid */
+            userId?: string;
+            sections?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Approximate location (never precise) */
+        CollectorLocation: {
+            /** @example Plateau-Mont-Royal, Montréal */
+            publicLabel: string;
+            publicPoint: components["schemas"]["PublicPoint"];
+            /**
+             * @description Null unless the caller has a trading area and the collector shows distances
+             * @enum {string|null}
+             */
+            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
+        };
+        /** @description Public collector profile */
+        CollectorProfileResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            bio: string;
+            /**
+             * @example [
+             *       "yugioh"
+             *     ]
+             */
+            games: string[];
+            tags: components["schemas"]["CollectorTag"][];
+            /** @description Null unless the collector is discoverable */
+            location?: components["schemas"]["CollectorLocation"];
+            /**
+             * Format: date
+             * @example 2026-09-01
+             */
+            memberSince: string;
+            /** @enum {string} */
+            lastActiveBucket: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "LONGER_AGO" | "HIDDEN";
+            /** @enum {string} */
+            onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
+            rating: components["schemas"]["CollectorRating"];
+            /** Format: int32 */
+            publicBinderCount: number;
+            /** @description Whether the caller may start a conversation */
+            canMessage: boolean;
+            isBlocked: boolean;
+        };
+        CollectorRating: {
+            /**
+             * Format: double
+             * @description Null until the first rating
+             */
+            average?: number | null;
+            /** Format: int32 */
+            count: number;
+        };
+        CollectorTag: {
+            /** @example trader */
+            slug: string;
+            /** @example Trader */
+            label: string;
         };
         /** @description Account as listed in the admin console */
         AdminUserSummary: {
@@ -523,6 +1164,8 @@ export interface components {
              * @description Seconds to wait (RATE_LIMITED problems)
              */
             retryAfterSeconds?: number;
+            /** @description Open obligations preventing an account deletion (DELETION_BLOCKED), e.g. OPEN_DISPUTE */
+            blockers?: string[];
         };
     };
     responses: never;
@@ -533,6 +1176,555 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getPrivacySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacySettings"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updatePrivacySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacySettings"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacySettings"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getNotificationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateNotificationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProfileResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProfileResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description HANDLE_TAKEN */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateMyProfileTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateMyTradingArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTradingAreaRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLocationResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateUserRoles: {
         parameters: {
             query?: never;
@@ -631,6 +1823,349 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    runAccountDeletionJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionJobResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    uploadMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Avatar stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvatarResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description PAYLOAD_TOO_LARGE */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description UNSUPPORTED_MEDIA_TYPE */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteMyAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed (or there was none) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listAccountDeletionRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionRequestResponse"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Deletion scheduled */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionRequestResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Already pending (CONFLICT) or blocked (DELETION_BLOCKED, `blockers[]`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -828,6 +2363,119 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    searchTags: {
+        parameters: {
+            query?: {
+                /** @description Substring of the label or slug */
+                query?: string;
+                category?: "GAME" | "ROLE" | "STYLE" | "LOGISTICS" | "LANGUAGE" | "CUSTOM";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getPublicMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Object key, e.g. avatars/<user id>/<random>.jpg */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The media file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/webp": string;
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -1056,6 +2704,275 @@ export interface operations {
             };
         };
     };
+    getMyLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLocationResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteMyLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    exportMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getCollector: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public profile as seen by the caller */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectorProfileResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, hidden or private collector */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listUsers: {
         parameters: {
             query?: {
@@ -1239,6 +3156,80 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    cancelAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown request */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

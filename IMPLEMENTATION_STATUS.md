@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-09-29 (session 1, Phase 1 in progress)
+**Last updated:** 2026-09-29 (session 1, Phase 1 backend complete and independently verified; web Phase 1 next)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -30,24 +30,24 @@ documentation is updated. Each completed item lists location, tests, migrations,
 
 ## Phase 1 — Auth + Users
 
-_In progress: workflow `phase1-auth-users` (workspace + backend A → regen → backend B ∥ web auth ∥ mobile auth → regen → web/mobile integration → E2E)._
+_Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1, independently re-verified: 310 API tests green, OpenAPI re-exported, clients regenerated). Web Phase 1 is the next stage; mobile is deferred by owner decision._
 
 - [x] Identity provider abstraction (`IdentityTokenVerifier`), Firebase adapter (emulator via static owner token, ADC in cloud), `StaticIdentityTokenVerifier` for tests, `IdentityAdminClient` — `apps/api/.../auth`; tests AuthenticationIT (13), unit verifier tests
 - [x] Bearer token filter → `AuthenticatedUser` principal; provisioning on first login with derived handle; last-active throttled via Redis — `auth` + `users`
 - [x] `user_account`, `user_role`, suspension + DELETION_REQUESTED gating (403 ACCOUNT_SUSPENDED), admin MFA authorization manager, service-token/OIDC auth for `/internal/**`, `jobs` module (`job_run`) — migration V003; tests RbacIT, AdminMfaIT, AdminUsersIT, ServiceAuthIT
-- [ ] Profile: display name, avatar (signed upload), bio, games, tags
-- [ ] Tag system (`tag`, `profile_tag`), searchable, admin moderation hooks
-- [ ] Privacy settings entity + defaults favouring safety
-- [ ] Approximate location: trading-area selection, public point derivation, geo privacy test
-- [ ] Account settings (notification prefs, messaging permissions, discoverability)
-- [ ] Account deletion framework (request → job → anonymise/remove → audit)
+- [x] Profile: display name, handle (`HandleRules`: 3–24 `[a-z0-9_]`, reserved list, 409 HANDLE_TAKEN, audited change), bio, games (`games` module `GameCatalog`, slugs from `orenji.games.slugs` until Phase 2), languages, avatar (multipart `POST/DELETE /me/profile/avatar` → `AvatarImageProcessor` 512×512, EXIF stripped, decompression-bomb guard → `ObjectStorage` (`LocalFileObjectStorage` default, `GcsObjectStorage` only with `STORAGE_PROVIDER=gcs`), served by `GET /public/media/{key}`) — `apps/api/.../profiles`, `common/storage`; migration V004; tests ProfileIT (8), AvatarImageProcessorTest, ObjectKeysTest, HandleRulesTest. Debt: avatars re-encoded as JPEG, not WebP (no JDK WebP encoder; TwelveMonkeys reads WebP only)
+- [x] Tag system (`tag` with 22 curated tags, `profile_tag`, `GET /tags` search, `PUT /me/profile/tags` max 12 incl. CUSTOM labels 2–24 chars) with `moderation_rule` + `TextModerationService` banned-term check (rules cached 60 s) — `profiles`, `moderation`; migration V004; tests TagIT (4), CustomTagLabelsTest. Debt: admin tag/rule moderation UI lands with Phase 7
+- [x] Privacy settings (`privacy_settings`, `GET/PUT /me/settings/privacy`, defaults: not discoverable, online status hidden, profile MEMBERS, messaging MEMBERS_WITH_PROFILE, wishlist hidden) + `PrivacyPolicyService` (profile visibility, messaging, distance/last-active/online display) — `profiles`; migration V004; tests SettingsIT, PrivacyPolicyServiceTest, LastActiveBucketTest
+- [x] Approximate location (ADR 0004): `GET/DELETE /me/location`, `PUT /me/location/trading-area` (radius 1–50 km, MANUAL/DEVICE), `ApproximateLocationService` (0.009° grid snap + deterministic HMAC-SHA256 per-user jitter with 0.001° margin, 3 decimals), `StaticRegionGeocoder` (34 regions) public labels, `public_point` NULL while not discoverable / suspended / deletion pending, bucketed distances, startup guard on `LOCATION_JITTER_SECRET` outside local/test — `location`; migration V005; tests LocationIT (6), GeoPrivacyContractTest (collector profiles + admin user detail over all seeded users, logs scanned), CollectorProfileIT (5), ApproximateLocationServiceTest (10), StaticRegionGeocoderTest, LocationConfigTest. `GET /collectors/{handle}` public profile (privacy-respecting, 404 when PRIVATE/deleted/suspended). Debt: `LOCATION_JITTER_SECRET` not yet wired into Terraform/Secret Manager (deferred, docs/deployment/DEFERRED.md)
+- [x] Account settings: notification preferences (`notification_preferences`, `GET/PUT /me/settings/notifications`, 8 categories × push/email/in-app, quiet hours), messaging permission and discoverability via privacy settings — `notifications`, `profiles`; migration V006; tests SettingsIT
+- [x] Account deletion + export: `POST/GET /me/deletion-requests`, `DELETE /me/deletion-requests/{id}` (5-min re-auth window, 7-day grace, `DeletionParticipant.blockers()` → 409 DELETION_BLOCKED, sessions revoked, off the map), `POST /internal/jobs/account-deletion` + hourly `@Scheduled` under `local` (anonymise, purge participants, delete emulator/Firebase user, keep consents/audit, `job_run`), `GET /me/export` via `ExportContributor`s (attachment, 10/hour) — `users`, admin detail shows pending request; migration V007; tests DeletionIT (5), ExportIT (2). Deviations: sessions are revoked instead of disabling the Firebase user (keeps the cancel endpoint reachable); extra `GET /me/deletion-requests`; export limit follows the contract table (10/hour)
 - [x] Terms acceptance: `legal_document` (8 seeded, v2026-09-01) + `user_consent` (version, timestamp, hashed IP, UA), 428 TERMS_ACCEPTANCE_REQUIRED enforcement, `GET /public/legal/documents`, `POST /me/consents` — tests TermsIT, ConsentIT
-- [ ] Web: register/login/verify/reset, onboarding (games, tags, trading area), settings pages
-- [ ] Mobile: login/register, profile tab, settings
-- [-] Tests: auth filter, RBAC, audit, rate limit, consent, seed (196 API tests green after stage A); geo privacy contract + deletion job pending stage B
+- [-] Web: register/login/verify/reset, onboarding (games, tags, trading area), settings pages — only unwired scaffolding so far (`apps/web-angular/src/app/core/auth`: `AuthService` + `FirebaseAuthPort`, `AppConfigService.whenLoaded()`, Problem Details extensions on `ApiError`, `firebase`/`leaflet` deps); pages are the next stage
+- [ ] Mobile: login/register, profile tab, settings — deferred by owner decision (partial work parked on `wip/mobile-auth-partial`)
+- [x] Tests (API): auth filter, RBAC, audit, rate limit, consent, seed, profiles, tags, location, geo privacy contract, settings, deletion job, export — 310 API tests (45 classes, unit + Testcontainers ITs), 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; web/mobile flow tests come with their UI stages
 - [x] Audit log (`audit_log`, `AuditService`, `GET /admin/audit-logs`) and admin user endpoints (list/get/suspend/unsuspend/roles), every write audited — tests AuditIT
 - [x] Rate limiting (Redis Lua token bucket, property-driven policies, X-RateLimit headers, fail-open) — tests RateLimitIT
-- [x] Seed accounts: 12 fictional users + roles + consents, Firebase emulator users created by the runner — SeedDataRunnerIT
+- [x] Seed accounts: 12 fictional users + roles + consents, Firebase emulator users created by the runner, plus fictional profiles/tags (`db/seed/profiles.json`) and neighbourhood-level trading areas (`db/seed/locations.json`; collector7 and staff not discoverable) — SeedDataRunnerIT, SeedIT
 
 ## Phase 2 — Card Catalog
 
@@ -164,10 +164,10 @@ _In progress: workflow `phase1-auth-users` (workspace + backend A → regen → 
 | # | Criterion | Status |
 | --- | --- | --- |
 | 1 | Register and log in | [ ] |
-| 2 | Create/edit profile | [ ] |
-| 3 | Configure privacy settings | [ ] |
-| 4 | Choose approximate trading location | [ ] |
-| 5 | Select TCG interests | [ ] |
+| 2 | Create/edit profile | [-] API proven (ProfileIT, TagIT); web UI pending |
+| 3 | Configure privacy settings | [-] API proven (SettingsIT); web UI pending |
+| 4 | Choose approximate trading location | [-] API proven (LocationIT, GeoPrivacyContractTest); web UI pending |
+| 5 | Select TCG interests | [-] API proven (ProfileIT games/languages, TagIT); web UI pending |
 | 6 | Open dedicated inventory page | [ ] |
 | 7 | Create private inventory | [ ] |
 | 8 | Create multiple binders | [ ] |
@@ -182,7 +182,7 @@ _In progress: workflow `phase1-auth-users` (workspace + backend A → regen → 
 | 17 | View public binder | [ ] |
 | 18 | Search for a card | [ ] |
 | 19 | Nearby collectors with that card | [ ] |
-| 20 | Exact coordinates never exposed | [ ] |
+| 20 | Exact coordinates never exposed | [-] GeoPrivacyContractTest covers collector profiles, admin user detail and logs; map/search endpoints (Phase 4) pending |
 | 21 | Private messaging | [ ] |
 | 22 | Public community chat | [ ] |
 | 23 | Create wishlist | [ ] |
@@ -199,11 +199,11 @@ _In progress: workflow `phase1-auth-users` (workspace + backend A → regen → 
 | 34 | Admin actions in audit log | [ ] |
 | 35 | Freemium limits work | [ ] |
 | 36 | Premium entitlements override | [ ] |
-| 37 | Account deletion works | [ ] |
+| 37 | Account deletion works | [-] API proven end to end (DeletionIT, ExportIT); web UI pending |
 | 38 | Legal pages exist | [-] draft placeholders on web; counsel review pending |
 | 39 | CI runs automatically | [-] runs on PRs; first fully green run pending |
 | 40 | E2E covers critical workflows | [ ] |
-| 41 | Runs locally | [-] infra + every app builds/tests locally; no product flows yet |
+| 41 | Runs locally | [-] infra + every app builds/tests locally; Phase 1 API flows run against docker compose + Auth emulator (snapshot jar `.local-dev/api-snapshots/api-phase1.jar`); web product flows pending |
 | 42 | Deploys to Google Cloud | [ ] |
 | 43 | Cloudflare configuration documented | [x] |
 | 44 | Production architecture supports www.orenjitrade.com | [ ] |
@@ -221,8 +221,8 @@ Execution plan (workflow `web-mvp-local`, one vertical slice per phase, backend 
 web N, every stage independently re-verified, clients regenerated and committed):
 
 1. Phase 1 remainder — profiles, tags, approximate location, settings, collector profile,
-   deletion/export (backend; V004–V007 drafted) → web auth, onboarding, settings, collector page,
-   admin users/audit.
+   deletion/export (backend **done**, V004–V007, stage 1 verified) → web auth, onboarding,
+   settings, collector page, admin users/audit (**next**).
 2. Phase 2 — catalog + platform rules (feature flags, plans, usage limits, entitlements) → web
    card search/detail, admin games/cards/flags/limits, limit-reached dialog.
 3. Phase 3 — inventory, binders, freshness → web /inventory, public binder pages.
@@ -239,3 +239,17 @@ web N, every stage independently re-verified, clients regenerated and committed)
 11. Local environment tooling (one-command dev, reset/seed, docs) and the web acceptance E2E suite.
 
 Migration ranges reserved per phase: P1 V004–V009, P2 V010–V019, …, P10 V090–V099.
+
+**Exact next task — stage 2 (web Phase 1 ∥ backend Phase 2):**
+- Web: Firebase (Auth emulator) sign-up/sign-in/verify/reset and sign-out wired through the
+  existing `core/auth` scaffolding, auth interceptor + guards, 428 consent screen
+  (`POST /me/consents`), onboarding (profile + games/languages, tags, trading area on a Leaflet
+  map with `PUT /me/location/trading-area`), settings (profile, avatar, privacy, notifications,
+  location, export, deletion request/cancel), public collector page `/c/:handle`, admin users
+  list/detail/suspend/roles and audit log. Use the generated `@orenji/api-client` only; Playwright
+  E2E against the snapshot jar `.local-dev/api-snapshots/api-phase1.jar` on :8080 with seed
+  accounts (`docs/development/test-accounts.md`).
+- Backend: Phase 2 catalog per `docs/api/contracts/phase2-catalog.md` (games, sets, cards,
+  printings, `CardProvider` + mock provider, seed catalog, FTS + trigram search) plus the
+  platform rules from plan item 2 (feature flags, plans, usage limits, entitlements; ADR 0014 —
+  no contract yet, write one first), migrations from V010.

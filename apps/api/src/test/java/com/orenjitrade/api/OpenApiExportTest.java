@@ -71,6 +71,32 @@ class OpenApiExportTest extends AbstractIntegrationTest {
         assertThat(paths.has("/api/v1/admin/users/{id}/roles")).isTrue();
         assertThat(paths.has("/api/v1/admin/audit-logs")).isTrue();
         assertThat(paths.has("/internal/jobs/ping")).isTrue();
+        // Phase 1-B (profiles, location, settings, deletion and export).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/me/profile",
+                        "/api/v1/me/profile/avatar",
+                        "/api/v1/me/profile/tags",
+                        "/api/v1/tags",
+                        "/api/v1/collectors/{handle}",
+                        "/api/v1/me/location",
+                        "/api/v1/me/location/trading-area",
+                        "/api/v1/me/settings/privacy",
+                        "/api/v1/me/settings/notifications",
+                        "/api/v1/me/export",
+                        "/api/v1/me/deletion-requests",
+                        "/api/v1/me/deletion-requests/{id}",
+                        "/api/v1/public/media/{key}",
+                        "/internal/jobs/account-deletion")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation ->
+                                    assertThat(operation.getValue().path("summary").asString())
+                                            .as("summary of %s %s", operation.getKey(), path)
+                                            .isNotEmpty());
+        }
         assertThat(paths.has("/error")).as("/error must not be exported").isFalse();
 
         JsonNode getMe = paths.path("/api/v1/me").path("get");

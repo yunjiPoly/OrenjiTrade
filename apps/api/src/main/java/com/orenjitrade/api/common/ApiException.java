@@ -1,6 +1,8 @@
 package com.orenjitrade.api.common;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 
@@ -16,6 +18,7 @@ public class ApiException extends RuntimeException {
     private final ErrorCode errorCode;
     private final HttpStatus status;
     private final List<ProblemFieldError> fieldErrors;
+    private final Map<String, Object> properties = new LinkedHashMap<>();
 
     public ApiException(ErrorCode errorCode, String message) {
         this(errorCode, errorCode.defaultStatus(), message, List.of(), null);
@@ -69,5 +72,19 @@ public class ApiException extends RuntimeException {
     /** Never null; empty unless the exception describes validation failures. */
     public List<ProblemFieldError> getFieldErrors() {
         return fieldErrors;
+    }
+
+    /**
+     * Adds a client-safe extension member to the problem document (for example {@code blockers} of
+     * {@code DELETION_BLOCKED}). Must be documented in the OpenAPI {@code ProblemDetail} schema.
+     */
+    public ApiException withProperty(String name, Object value) {
+        properties.put(name, value);
+        return this;
+    }
+
+    /** Extension members added through {@link #withProperty}; never null. */
+    public Map<String, Object> getProperties() {
+        return Map.copyOf(properties);
     }
 }

@@ -18,6 +18,7 @@ public class NoopIdentityAdminClient implements IdentityAdminClient {
 
     private final Set<String> disabled = ConcurrentHashMap.newKeySet();
     private final Set<String> deleted = ConcurrentHashMap.newKeySet();
+    private final Set<String> revoked = ConcurrentHashMap.newKeySet();
     private final Set<String> created = ConcurrentHashMap.newKeySet();
 
     @Override
@@ -30,6 +31,12 @@ public class NoopIdentityAdminClient implements IdentityAdminClient {
     public void enableUser(String providerUid) {
         log.debug("noop enableUser {}", providerUid);
         disabled.remove(providerUid);
+    }
+
+    @Override
+    public void revokeSessions(String providerUid) {
+        log.debug("noop revokeSessions {}", providerUid);
+        revoked.add(providerUid);
     }
 
     @Override
@@ -46,6 +53,10 @@ public class NoopIdentityAdminClient implements IdentityAdminClient {
 
     public boolean isDisabled(String providerUid) {
         return disabled.contains(providerUid);
+    }
+
+    public boolean hasRevokedSessions(String providerUid) {
+        return revoked.contains(providerUid);
     }
 
     public boolean isDeleted(String providerUid) {

@@ -28,6 +28,9 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "user_account")
 public class UserAccount {
 
+    /** Display name of anonymised (deleted) accounts. */
+    public static final String ANONYMISED_DISPLAY_NAME = "Deleted collector";
+
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
@@ -210,6 +213,29 @@ public class UserAccount {
 
     public void changeDisplayName(@Nullable String displayName, Instant now) {
         this.displayName = displayName;
+        touch(now);
+    }
+
+    /**
+     * Irreversibly strips every personal attribute (account deletion job): the row stays so that
+     * consents, audit entries and ledgers keep a valid reference, but nothing identifies the person
+     * any more. Only {@link Role#USER} is kept. The provider uid is kept on purpose: the job
+     * deletes the identity-provider user, and an ID token issued before that (valid for up to an
+     * hour) must hit this {@code DELETED} row (403) instead of provisioning a new, empty account.
+     */
+    public void anonymise(Instant now) {
+        String compact = id.toString().replace("-", "");
+        this.email = "deleted+" + id + "@anonymized.invalid";
+        this.emailVerified = false;
+        this.handle = "deleted_" + compact.substring(0, 16);
+        this.displayName = ANONYMISED_DISPLAY_NAME;
+        this.status = AccountStatus.DELETED;
+        this.suspendedUntil = null;
+        this.suspensionReason = null;
+        this.planCode = PlanCode.FREE;
+        this.lastActiveAt = null;
+        this.deletedAt = now;
+        roles.removeIf(userRole -> userRole.getRole() != Role.USER);
         touch(now);
     }
 
