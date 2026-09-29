@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -90,11 +91,7 @@ public class ProblemDetailFactory {
         if (detail.getType() == null || "about:blank".equals(detail.getType().toString())) {
             detail.setType(URI.create(errorCode.problemType()));
         }
-        if (detail.getTitle() == null
-                || detail.getTitle().isBlank()
-                || HttpStatusCode.valueOf(detail.getStatus())
-                        .toString()
-                        .equals(detail.getTitle())) {
+        if (isDefaultTitle(detail)) {
             detail.setTitle(errorCode.title());
         }
         String safeMessage =
@@ -112,6 +109,20 @@ public class ProblemDetailFactory {
             detail.setProperty(ERRORS, List.copyOf(errors));
         }
         return detail;
+    }
+
+    /**
+     * Whether the title is absent or the HTTP reason phrase that {@link
+     * ProblemDetail#forStatus(HttpStatusCode)} assigns ("Not Found"), in which case the error code
+     * title replaces it.
+     */
+    private static boolean isDefaultTitle(ProblemDetail detail) {
+        @Nullable String title = detail.getTitle();
+        if (title == null || title.isBlank()) {
+            return true;
+        }
+        @Nullable HttpStatus status = HttpStatus.resolve(detail.getStatus());
+        return status != null && status.getReasonPhrase().equals(title);
     }
 
     /** The request id of the current thread (put there by {@link RequestIdFilter}). */

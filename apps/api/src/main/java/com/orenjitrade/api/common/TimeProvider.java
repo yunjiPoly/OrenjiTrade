@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,6 +19,11 @@ public class TimeProvider {
 
     private final Clock clock;
 
+    /**
+     * Spring injection point: uses a {@link Clock} bean when one exists, UTC system clock
+     * otherwise.
+     */
+    @Autowired
     public TimeProvider(ObjectProvider<Clock> clock) {
         this(clock.getIfAvailable(Clock::systemUTC));
     }

@@ -25,8 +25,11 @@ spring:
   jackson:
     default-property-inclusion: non_null
     time-zone: UTC
-    serialization:
-      write-dates-as-timestamps: false
+    # Jackson 3 writes java.time values as ISO-8601 strings by default (DateTimeFeature); kept
+    # explicit so a future default change cannot silently switch the API to epoch numbers.
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
     deserialization:
       fail-on-unknown-properties: false
   servlet:

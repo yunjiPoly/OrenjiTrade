@@ -2,25 +2,178 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OrenjiTrade API",
-    "description": "Placeholder contract. Regenerated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
+    "description": "REST API of OrenjiTrade, the geographic discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
+    "license": {
+      "name": "Proprietary"
+    },
     "version": "0.1.0"
   },
   "servers": [
-    { "url": "http://localhost:8080", "description": "local" },
-    { "url": "https://api.orenjitrade.com", "description": "production" }
+    {
+      "url": "http://localhost:8080",
+      "description": "local"
+    },
+    {
+      "url": "https://api.orenjitrade.com",
+      "description": "production"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": [ ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "meta",
+      "description": "Build and environment metadata"
+    }
   ],
   "paths": {
     "/api/v1/meta": {
       "get": {
-        "tags": ["meta"],
-        "operationId": "getMeta",
+        "tags": [
+          "meta"
+        ],
         "summary": "Build and environment metadata (public)",
+        "operationId": "getMeta",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MetaResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MetaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/error": {
+      "get": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error_2",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error_3",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error_6",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error_5",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "problem-detail-error-controller"
+        ],
+        "operationId": "error_4",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
               }
             }
           }
@@ -30,40 +183,113 @@
   },
   "components": {
     "schemas": {
-      "MetaResponse": {
-        "type": "object",
-        "required": ["name", "version", "environment", "serverTime"],
-        "properties": {
-          "name": { "type": "string", "example": "OrenjiTrade API" },
-          "version": { "type": "string", "example": "0.1.0" },
-          "environment": { "type": "string", "example": "local" },
-          "serverTime": { "type": "string", "format": "date-time" }
-        }
-      },
       "ProblemDetail": {
         "type": "object",
         "description": "RFC 9457 problem details with OrenjiTrade extensions",
         "properties": {
-          "type": { "type": "string", "format": "uri" },
-          "title": { "type": "string" },
-          "status": { "type": "integer" },
-          "detail": { "type": "string" },
-          "instance": { "type": "string" },
-          "errorCode": { "type": "string", "example": "VALIDATION_FAILED" },
-          "message": { "type": "string" },
-          "requestId": { "type": "string" },
-          "timestamp": { "type": "string", "format": "date-time" },
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_FAILED",
+              "NOT_FOUND",
+              "FORBIDDEN",
+              "UNAUTHENTICATED",
+              "CONFLICT",
+              "RATE_LIMITED",
+              "PAYLOAD_TOO_LARGE",
+              "UNSUPPORTED_MEDIA_TYPE",
+              "INTERNAL_ERROR",
+              "SERVICE_UNAVAILABLE"
+            ],
+            "example": "VALIDATION_FAILED"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
           "errors": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "field": { "type": "string" },
-                "message": { "type": "string" }
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
               }
             }
           }
-        }
+        },
+        "required": [
+          "errorCode",
+          "message",
+          "requestId",
+          "status",
+          "timestamp",
+          "title",
+          "type"
+        ]
+      },
+      "MetaResponse": {
+        "type": "object",
+        "description": "Build and environment metadata",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "OrenjiTrade API"
+          },
+          "version": {
+            "type": "string",
+            "example": "0.1.0"
+          },
+          "environment": {
+            "type": "string",
+            "example": "local"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "environment",
+          "name",
+          "serverTime",
+          "version"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "Firebase Authentication ID token",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   }

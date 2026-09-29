@@ -28,7 +28,7 @@ COPY packages/api-client/src/ ./packages/api-client/src/
 
 # App dependencies (file: links resolve against ../../packages/*).
 COPY apps/web-angular/package.json apps/web-angular/package-lock.json ./apps/web-angular/
-RUN cd apps/web-angular && npm ci --no-audit --no-fund --ignore-scripts
+RUN cd apps/web-angular && npm ci --no-audit --no-fund
 
 # App sources and production build.
 COPY apps/web-angular/ ./apps/web-angular/
@@ -37,17 +37,11 @@ RUN cd apps/web-angular && npx ng build --configuration production
 # -------------------------------------------------------------- runtime stage
 FROM nginx:1.27-alpine AS runtime
 
-# Cloud Run injects PORT; default to 8080 for local runs.
+# Cloud Run injects PORT; default to 8080 for local runs. All other runtime variables
+# (API_BASE_URL, WS_BASE_URL, FIREBASE_*, GOOGLE_MAPS_*, ENVIRONMENT) are optional and get
+# safe local defaults inside docker-entrypoint.sh. None of them is a secret: they are the
+# public web configuration that ends up in config.json.
 ENV PORT=8080 \
-    API_BASE_URL=http://localhost:8080 \
-    WS_BASE_URL=ws://localhost:8080/ws \
-    FIREBASE_API_KEY= \
-    FIREBASE_AUTH_DOMAIN=orenjitrade-local.firebaseapp.com \
-    FIREBASE_PROJECT_ID=orenjitrade-local \
-    FIREBASE_APP_ID= \
-    FIREBASE_AUTH_EMULATOR_HOST= \
-    GOOGLE_MAPS_API_KEY= \
-    GOOGLE_MAPS_MAP_ID= \
     ENVIRONMENT=production
 
 RUN rm -f /etc/nginx/conf.d/default.conf

@@ -32,7 +32,7 @@ test.describe('app shell', () => {
     await expect(page).toHaveURL(/\/map$/);
     await expect(page.getByText('Map loads in Phase 4')).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /messages panel/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(Hide|Show) messages panel$/ })).toBeVisible();
   });
 
   test('shows the draft banner on the terms page', async ({ page }) => {

@@ -78,7 +78,9 @@ class OpenApiExportTest extends AbstractIntegrationTest {
         DefaultPrettyPrinter printer =
                 new DefaultPrettyPrinter(
                                 Separators.createDefaultInstance()
-                                        .withObjectNameValueSpacing(Separators.Spacing.AFTER))
+                                        .withObjectNameValueSpacing(Separators.Spacing.AFTER)
+                                        .withObjectEmptySeparator("")
+                                        .withArrayEmptySeparator(""))
                         .withObjectIndenter(indenter)
                         .withArrayIndenter(indenter);
         return jsonMapper.writer().with(printer).writeValueAsString(document) + "\n";

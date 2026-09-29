@@ -1,5 +1,6 @@
 package com.orenjitrade.api.common;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * instead of Boot's default {@code {timestamp,status,error,path}} document.
  */
 @RestController
+@Hidden // servlet-container error dispatch target, not part of the public contract
 public class ProblemDetailErrorController implements ErrorController {
 
     private static final Logger log = LoggerFactory.getLogger(ProblemDetailErrorController.class);

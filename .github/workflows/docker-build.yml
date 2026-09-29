@@ -44,9 +44,8 @@ jobs:
           - service: ml
             context: apps/ml
             file: apps/ml/Dockerfile
-    outputs:
-      # Matrix jobs overwrite shared outputs; digests are published as artifacts below.
-      registry: ${{ env.REGISTRY }}
+    # Matrix jobs overwrite shared outputs, so digests are published as artifacts and
+    # aggregated by the `digests` job below.
     steps:
       - uses: actions/checkout@v4
 
