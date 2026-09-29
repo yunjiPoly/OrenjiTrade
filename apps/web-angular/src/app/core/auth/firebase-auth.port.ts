@@ -1,24 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { FirebaseApp, initializeApp } from 'firebase/app';
-import {
-  Auth,
-  EmailAuthProvider,
-  GoogleAuthProvider,
-  User,
-  connectAuthEmulator,
-  createUserWithEmailAndPassword,
-  getAuth,
-  onIdTokenChanged,
-  reauthenticateWithCredential,
-  reauthenticateWithPopup,
-  reload,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-} from 'firebase/auth';
+import type { Auth, GoogleAuthProvider, User } from 'firebase/auth';
 import { FirebaseWebConfig } from '../config/app-config.model';
 
 /**
@@ -41,8 +22,11 @@ export interface AuthUser {
  * user throw `auth/no-current-user` when nobody is signed in.
  */
 export interface FirebaseAuthPort {
-  /** Initialises the SDK. `emulatorHost` (host:port) routes every call to the local emulator. */
-  init(config: FirebaseWebConfig, emulatorHost: string): void;
+  /**
+   * Loads and initialises the SDK. `emulatorHost` (host:port) routes every call to the local
+   * emulator. Every other method may only be called after this promise resolved.
+   */
+  init(config: FirebaseWebConfig, emulatorHost: string): Promise<void>;
   /** Fires on sign-in, sign-out and token refresh. Returns the unsubscribe function. */
   onIdTokenChanged(listener: (user: AuthUser | null) => void): () => void;
   currentUser(): AuthUser | null;
@@ -68,31 +52,42 @@ export class NoCurrentUserError extends Error {
   }
 }
 
-/** Production implementation backed by the Firebase JS SDK (v12, modular API). */
+type AuthSdk = typeof import('firebase/auth');
+
+/**
+ * Production implementation backed by the Firebase JS SDK (v12, modular API). The SDK is loaded
+ * with dynamic imports in {@link init} so it stays out of the initial bundle.
+ */
 export class SdkFirebaseAuthPort implements FirebaseAuthPort {
-  private app: FirebaseApp | null = null;
+  private sdk: AuthSdk | null = null;
   private auth: Auth | null = null;
 
-  init(config: FirebaseWebConfig, emulatorHost: string): void {
+  async init(config: FirebaseWebConfig, emulatorHost: string): Promise<void> {
     if (this.auth) {
       return;
     }
-    this.app = initializeApp({
+    const [{ initializeApp }, sdk] = await Promise.all([
+      import('firebase/app'),
+      import('firebase/auth'),
+    ]);
+    const app = initializeApp({
       // The emulator accepts any non-empty key; a real project needs the console value.
       apiKey: config.apiKey || (emulatorHost ? 'emulator' : ''),
       authDomain: config.authDomain || undefined,
       projectId: config.projectId || undefined,
       appId: config.appId || undefined,
     });
-    this.auth = getAuth(this.app);
+    const auth = sdk.getAuth(app);
     if (emulatorHost) {
       const url = /^https?:\/\//.test(emulatorHost) ? emulatorHost : `http://${emulatorHost}`;
-      connectAuthEmulator(this.auth, url, { disableWarnings: true });
+      sdk.connectAuthEmulator(auth, url, { disableWarnings: true });
     }
+    this.sdk = sdk;
+    this.auth = auth;
   }
 
   onIdTokenChanged(listener: (user: AuthUser | null) => void): () => void {
-    return onIdTokenChanged(this.requireAuth(), (user) => listener(user));
+    return this.requireSdk().onIdTokenChanged(this.requireAuth(), (user) => listener(user));
   }
 
   currentUser(): AuthUser | null {
@@ -100,42 +95,57 @@ export class SdkFirebaseAuthPort implements FirebaseAuthPort {
   }
 
   async signUpWithEmail(email: string, password: string): Promise<AuthUser> {
-    const credential = await createUserWithEmailAndPassword(this.requireAuth(), email, password);
+    const credential = await this.requireSdk().createUserWithEmailAndPassword(
+      this.requireAuth(),
+      email,
+      password,
+    );
     return credential.user;
   }
 
   async signInWithEmail(email: string, password: string): Promise<AuthUser> {
-    const credential = await signInWithEmailAndPassword(this.requireAuth(), email, password);
+    const credential = await this.requireSdk().signInWithEmailAndPassword(
+      this.requireAuth(),
+      email,
+      password,
+    );
     return credential.user;
   }
 
   async signInWithGoogle(): Promise<AuthUser> {
-    const credential = await signInWithPopup(this.requireAuth(), this.googleProvider());
+    const credential = await this.requireSdk().signInWithPopup(
+      this.requireAuth(),
+      this.googleProvider(),
+    );
     return credential.user;
   }
 
   updateDisplayName(displayName: string): Promise<void> {
-    return updateProfile(this.requireUser(), { displayName });
+    return this.requireSdk().updateProfile(this.requireUser(), { displayName });
   }
 
   sendEmailVerification(): Promise<void> {
-    return sendEmailVerification(this.requireUser());
+    return this.requireSdk().sendEmailVerification(this.requireUser());
   }
 
   sendPasswordReset(email: string): Promise<void> {
-    return sendPasswordResetEmail(this.requireAuth(), email);
+    return this.requireSdk().sendPasswordResetEmail(this.requireAuth(), email);
   }
 
   async reauthenticateWithPassword(password: string): Promise<void> {
+    const sdk = this.requireSdk();
     const user = this.requireUser();
     if (!user.email) {
       throw new NoCurrentUserError();
     }
-    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    await sdk.reauthenticateWithCredential(
+      user,
+      sdk.EmailAuthProvider.credential(user.email, password),
+    );
   }
 
   async reauthenticateWithGoogle(): Promise<void> {
-    await reauthenticateWithPopup(this.requireUser(), this.googleProvider());
+    await this.requireSdk().reauthenticateWithPopup(this.requireUser(), this.googleProvider());
   }
 
   async reload(): Promise<AuthUser | null> {
@@ -143,7 +153,7 @@ export class SdkFirebaseAuthPort implements FirebaseAuthPort {
     if (!user) {
       return null;
     }
-    await reload(user);
+    await this.requireSdk().reload(user);
     return this.auth?.currentUser ?? null;
   }
 
@@ -152,13 +162,20 @@ export class SdkFirebaseAuthPort implements FirebaseAuthPort {
   }
 
   signOut(): Promise<void> {
-    return signOut(this.requireAuth());
+    return this.requireSdk().signOut(this.requireAuth());
   }
 
   private googleProvider(): GoogleAuthProvider {
-    const provider = new GoogleAuthProvider();
+    const provider = new (this.requireSdk().GoogleAuthProvider)();
     provider.setCustomParameters({ prompt: 'select_account' });
     return provider;
+  }
+
+  private requireSdk(): AuthSdk {
+    if (!this.sdk) {
+      throw new Error('Firebase Authentication is not initialised (AuthService.init not run).');
+    }
+    return this.sdk;
   }
 
   private requireAuth(): Auth {

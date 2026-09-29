@@ -1,0 +1,182 @@
+@let p = profile();
+<article class="collector" [attr.aria-labelledby]="'collector-name'">
+  <header class="collector__hero">
+    <div class="collector__banner" aria-hidden="true">
+      @for (game of heroGames(); track game; let i = $index) {
+        <app-card-art
+          class="collector__banner-card"
+          [class]="'collector__banner-card--' + i"
+          [game]="game"
+        />
+      }
+    </div>
+    <div class="collector__identity">
+      <div class="collector__avatar">
+        <app-avatar size="xl" [src]="p.avatarUrl" [name]="p.displayName" />
+        @if (p.onlineStatus === 'ONLINE') {
+          <span class="collector__online" role="img" aria-label="Online now"></span>
+        }
+      </div>
+      <div class="collector__names">
+        <h1 class="collector__name" id="collector-name">{{ p.displayName }}</h1>
+        <p class="collector__handle">&#64;{{ p.handle }}</p>
+        <ul class="collector__facts" aria-label="Collector details">
+          @if (p.location; as location) {
+            <li class="collector__fact" data-testid="collector-public-label">
+              <mat-icon aria-hidden="true">location_on</mat-icon>
+              {{ location.publicLabel }}
+            </li>
+            @if (distanceLabel(); as distance) {
+              <li class="collector__fact">
+                <mat-icon aria-hidden="true">near_me</mat-icon>
+                {{ distance }}
+              </li>
+            }
+          } @else {
+            <li class="collector__fact collector__fact--muted">
+              <mat-icon aria-hidden="true">location_off</mat-icon>
+              Not on the map
+            </li>
+          }
+          <li class="collector__fact">
+            <mat-icon aria-hidden="true">calendar_month</mat-icon>
+            Member since {{ p.memberSince | date: 'MMMM y' }}
+          </li>
+          @if (lastActiveLabel() && p.lastActiveBucket !== 'HIDDEN') {
+            <li class="collector__fact collector__activity" [attr.data-tone]="lastActiveTone()">
+              <span class="collector__dot" aria-hidden="true"></span>
+              {{ lastActiveLabel() }}
+            </li>
+          }
+        </ul>
+      </div>
+      <div class="collector__actions">
+        @if (isOwn()) {
+          <a matButton="filled" routerLink="/settings/profile">
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            Edit profile
+          </a>
+          <a matButton="outlined" routerLink="/settings/privacy">
+            <mat-icon aria-hidden="true">shield_person</mat-icon>
+            Privacy
+          </a>
+        } @else {
+          <button
+            matButton="filled"
+            type="button"
+            disabled
+            disabledInteractive
+            matTooltip="Coming soon: public binders arrive with inventory"
+          >
+            <mat-icon aria-hidden="true">menu_book</mat-icon>
+            View public binder
+          </button>
+          <button
+            matButton="outlined"
+            type="button"
+            disabled
+            disabledInteractive
+            matTooltip="Coming soon: private messaging"
+          >
+            <mat-icon aria-hidden="true">chat</mat-icon>
+            Message
+          </button>
+          <button
+            matButton
+            type="button"
+            disabled
+            disabledInteractive
+            matTooltip="Coming soon: reporting collectors"
+          >
+            <mat-icon aria-hidden="true">flag</mat-icon>
+            Report
+          </button>
+        }
+      </div>
+    </div>
+  </header>
+
+  <div class="collector__grid">
+    <section class="collector__card collector__about" aria-labelledby="collector-about">
+      <h2 id="collector-about">About</h2>
+      @if (p.bio) {
+        <p class="collector__bio">{{ p.bio }}</p>
+      } @else {
+        <p class="collector__muted">{{ p.displayName }} has not written a bio yet.</p>
+      }
+      <h3>Games</h3>
+      @if (p.games.length > 0) {
+        <ul class="collector__chips" aria-label="Games">
+          @for (game of p.games; track game) {
+            <li><app-game-chip [slug]="game" /></li>
+          }
+        </ul>
+      } @else {
+        <p class="collector__muted">No games listed.</p>
+      }
+      <h3>Tags</h3>
+      @if (p.tags.length > 0) {
+        <ul class="collector__chips" aria-label="Tags">
+          @for (tag of p.tags; track tag.slug) {
+            <li class="collector__tag">{{ tag.label }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="collector__muted">No tags yet.</p>
+      }
+    </section>
+
+    <div class="collector__side">
+      <section class="collector__card" aria-labelledby="collector-area">
+        <h2 id="collector-area">Trading area</h2>
+        @if (p.location; as location) {
+          <app-approximate-area-map [point]="location.publicPoint" [label]="location.publicLabel" />
+          <p class="collector__muted collector__note">
+            <mat-icon aria-hidden="true">shield_person</mat-icon>
+            Approximate area around {{ location.publicLabel }}. Exact locations are never shown.
+          </p>
+        } @else {
+          <p class="collector__muted">
+            {{ isOwn() ? 'You are' : p.displayName + ' is' }} not visible on the map.
+            @if (isOwn()) {
+              <a routerLink="/settings/privacy">Change this in Privacy</a>.
+            }
+          </p>
+        }
+      </section>
+
+      <section class="collector__card" aria-labelledby="collector-ratings">
+        <h2 id="collector-ratings">Ratings</h2>
+        @if (p.rating.count > 0 && p.rating.average !== null && p.rating.average !== undefined) {
+          <p class="collector__rating">
+            <mat-icon aria-hidden="true">star</mat-icon>
+            {{ p.rating.average.toFixed(1) }} · {{ p.rating.count }} ratings
+          </p>
+        } @else {
+          <app-empty-state
+            icon="star_outline"
+            title="No ratings yet"
+            description="Ratings appear after completed trades."
+          />
+        }
+      </section>
+    </div>
+
+    <section class="collector__card collector__binders" aria-labelledby="collector-binders">
+      <h2 id="collector-binders">Public binders</h2>
+      @if (p.publicBinderCount > 0) {
+        <p>{{ p.publicBinderCount }} public binders.</p>
+      } @else {
+        <app-empty-state
+          icon="menu_book"
+          title="No public binders yet"
+          [description]="
+            isOwn()
+              ? 'Publish a binder so collectors nearby can see what you trade.'
+              : 'When ' + p.displayName + ' publishes a binder, it will show up here.'
+          "
+        />
+      }
+    </section>
+  </div>
+</article>

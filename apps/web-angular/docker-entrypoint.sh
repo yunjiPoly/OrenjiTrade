@@ -22,6 +22,13 @@ set -eu
 # Strip a trailing slash so the CSP source and URL prefixing stay consistent.
 API_BASE_URL="${API_BASE_URL%/}"
 
+# CSP source of the Firebase Auth emulator (local containers only; empty in the cloud).
+if [ -n "${FIREBASE_AUTH_EMULATOR_HOST}" ]; then
+  AUTH_EMULATOR_ORIGIN="http://${FIREBASE_AUTH_EMULATOR_HOST}"
+else
+  AUTH_EMULATOR_ORIGIN=""
+fi
+
 export PORT API_BASE_URL WS_BASE_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID \
   FIREBASE_APP_ID FIREBASE_AUTH_EMULATOR_HOST GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID ENVIRONMENT
 
@@ -31,7 +38,7 @@ envsubst '${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_API_KEY} ${FIREBASE_AUTH_DOM
   < "${HTML_ROOT}/config.template.json" > "${HTML_ROOT}/config.json"
 
 # Only substitute our own variables so nginx's $uri, $host, ... survive.
-envsubst '${PORT} ${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_AUTH_DOMAIN}' \
+envsubst '${PORT} ${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_AUTH_DOMAIN} ${AUTH_EMULATOR_ORIGIN}' \
   < /etc/nginx/orenji/default.conf.template > /etc/nginx/conf.d/default.conf
 
 echo "[orenji-web] config.json rendered (environment=${ENVIRONMENT}, api=${API_BASE_URL}); listening on :${PORT}"

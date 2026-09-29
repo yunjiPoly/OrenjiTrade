@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -34,8 +35,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *   <li>{@code DELETED}: 403 {@code ACCOUNT_SUSPENDED}.
  * </ul>
  *
- * Public routes ({@code /api/v1/public/**}, {@code /api/v1/meta}, probes, docs) never need an
- * identity and are therefore not blocked even when a token is attached.
+ * Public routes ({@code /api/v1/public/**}, {@code /api/v1/meta}, probes, docs, and the read-only
+ * catalog GET routes) never need an identity and are therefore not blocked even when a token is
+ * attached.
  */
 public class AccountAccessFilter extends OncePerRequestFilter {
 
@@ -48,15 +50,26 @@ public class AccountAccessFilter extends OncePerRequestFilter {
 
     public AccountAccessFilter(
             List<String> publicPatterns, ProblemDetailFactory problems, TimeProvider timeProvider) {
-        this.publicRoutes =
-                new OrRequestMatcher(
-                        publicPatterns.stream()
-                                .map(
-                                        pattern ->
-                                                (RequestMatcher)
-                                                        PathPatternRequestMatcher.pathPattern(
-                                                                pattern))
-                                .toList());
+        this(publicPatterns, List.of(), problems, timeProvider);
+    }
+
+    /**
+     * @param publicPatterns routes public for every method
+     * @param publicGetPatterns routes public for GET only (read-only catalog)
+     */
+    public AccountAccessFilter(
+            List<String> publicPatterns,
+            List<String> publicGetPatterns,
+            ProblemDetailFactory problems,
+            TimeProvider timeProvider) {
+        List<RequestMatcher> matchers = new ArrayList<>();
+        publicPatterns.forEach(
+                pattern -> matchers.add(PathPatternRequestMatcher.pathPattern(pattern)));
+        publicGetPatterns.forEach(
+                pattern ->
+                        matchers.add(
+                                PathPatternRequestMatcher.pathPattern(HttpMethod.GET, pattern)));
+        this.publicRoutes = new OrRequestMatcher(matchers);
         this.deletionRequestedAllowed =
                 new OrRequestMatcher(
                         PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/me"),

@@ -1,0 +1,141 @@
+@if (!loaded() && store.error(); as error) {
+  <app-error-state
+    title="We could not load your privacy settings"
+    [message]="error.message"
+    [requestId]="error.requestId"
+    (retry)="load()"
+  />
+} @else if (!loaded()) {
+  <div class="section-skeleton" aria-busy="true">
+    <span class="visually-hidden">Loading your privacy settings</span>
+    <app-skeleton variant="list" lines="4" />
+  </div>
+} @else if (draft(); as settings) {
+  <app-section-card
+    heading="Visibility"
+    headingId="privacy-visibility"
+    description="Changes are saved as soon as you make them."
+  >
+    <p class="section-status privacy__status" role="status" aria-live="polite">
+      @switch (saveState()) {
+        @case ('saving') {
+          <mat-icon aria-hidden="true">sync</mat-icon> Saving…
+        }
+        @case ('saved') {
+          <mat-icon aria-hidden="true">cloud_done</mat-icon> All changes saved
+        }
+        @case ('error') {
+          <mat-icon aria-hidden="true">error</mat-icon> Last change not saved
+        }
+      }
+    </p>
+    <ul class="section-list">
+      @for (item of toggles; track item.key) {
+        <li class="section-row">
+          <div class="section-row__text">
+            <span class="section-row__label" [id]="'privacy-' + item.key">{{ item.label }}</span>
+            <span class="section-row__help" [id]="'privacy-' + item.key + '-help'">
+              {{ item.help }}
+            </span>
+          </div>
+          <mat-slide-toggle
+            [checked]="settings[item.key]"
+            (change)="toggle(item.key, $event.checked)"
+            [attr.data-testid]="'privacy-toggle-' + item.key"
+            [aria-labelledby]="'privacy-' + item.key"
+            [aria-describedby]="'privacy-' + item.key + '-help'"
+          />
+        </li>
+      }
+    </ul>
+  </app-section-card>
+
+  <app-section-card
+    heading="Your position on the map"
+    headingId="privacy-position"
+    description="How OrenjiTrade protects where you live."
+  >
+    <ol class="privacy__steps">
+      <li>
+        <mat-icon aria-hidden="true">location_searching</mat-icon>
+        <span>You choose an <strong>approximate trading area</strong>, never an address.</span>
+      </li>
+      <li>
+        <mat-icon aria-hidden="true">grid_on</mat-icon>
+        <span
+          >We snap it to a <strong>~1 km grid</strong> and add a fixed offset unique to you.</span
+        >
+      </li>
+      <li>
+        <mat-icon aria-hidden="true">straighten</mat-icon>
+        <span>Distances are shown as <strong>ranges</strong> (“1–5 km”), never in metres.</span>
+      </li>
+      <li>
+        <mat-icon aria-hidden="true">lock</mat-icon>
+        <span>Your chosen centre is <strong>only visible to you</strong>.</span>
+      </li>
+    </ol>
+    <div class="section-callout">
+      <mat-icon aria-hidden="true">{{
+        settings.discoverable ? 'visibility' : 'visibility_off'
+      }}</mat-icon>
+      <p>
+        @if (!hasArea()) {
+          You have no trading area yet, so you never appear on the map.
+          <a routerLink="/settings/trading-area">Set your trading area</a>.
+        } @else if (!settings.discoverable) {
+          You are hidden from the map. Turn on “Show me on the map” to appear near
+          <strong>{{ publicLabel() }}</strong
+          >.
+        } @else {
+          Collectors see you near <strong>{{ publicLabel() }}</strong
+          >.
+        }
+      </p>
+    </div>
+  </app-section-card>
+
+  <app-section-card
+    heading="Who can see your profile"
+    headingId="privacy-profile"
+    description="Private profiles are hidden from everyone except you."
+  >
+    <mat-radio-group
+      class="privacy__radios"
+      aria-labelledby="privacy-profile"
+      [value]="settings.profileVisibility"
+      (change)="setVisibility($event.value)"
+    >
+      @for (option of visibilityOptions; track option.value) {
+        <mat-radio-button [value]="option.value" [aria-describedby]="'visibility-' + option.value">
+          <span class="section-row__label">{{ option.label }}</span>
+          <span class="section-row__help privacy__radio-help" [id]="'visibility-' + option.value">
+            {{ option.help }}
+          </span>
+        </mat-radio-button>
+      }
+    </mat-radio-group>
+  </app-section-card>
+
+  <app-section-card
+    heading="Who can message you"
+    headingId="privacy-messaging"
+    description="Blocked collectors can never message you."
+  >
+    <mat-radio-group
+      class="privacy__radios"
+      aria-labelledby="privacy-messaging"
+      [value]="settings.messagingPermission"
+      (change)="setMessaging($event.value)"
+    >
+      @for (option of messagingOptions; track option.value) {
+        <mat-radio-button [value]="option.value" [aria-describedby]="'messaging-' + option.value">
+          <span class="section-row__label">{{ option.label }}</span>
+          <span class="section-row__help privacy__radio-help" [id]="'messaging-' + option.value">
+            {{ option.help }}
+          </span>
+        </mat-radio-button>
+      }
+    </mat-radio-group>
+  </app-section-card>
+}

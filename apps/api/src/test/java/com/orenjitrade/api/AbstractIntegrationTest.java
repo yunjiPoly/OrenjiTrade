@@ -39,7 +39,8 @@ import tools.jackson.databind.node.MissingNode;
 @Import({
     TestcontainersConfiguration.class,
     TestAuthConfiguration.class,
-    TestDeletionConfiguration.class
+    TestDeletionConfiguration.class,
+    TestProbeController.class
 })
 public abstract class AbstractIntegrationTest {
 

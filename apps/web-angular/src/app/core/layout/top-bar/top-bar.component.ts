@@ -2,12 +2,12 @@ import { ChangeDetectionStrategy, Component, output, signal } from '@angular/cor
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SearchFieldComponent } from '../../../shared/ui/search-field/search-field.component';
 import { WordmarkComponent } from '../../../shared/ui/wordmark/wordmark.component';
+import { AccountMenuComponent } from '../account-menu/account-menu.component';
 import { PRIMARY_NAV_LINKS } from '../nav-links';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
 
@@ -19,13 +19,13 @@ import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
     MatButtonModule,
     MatIconModule,
     MatBadgeModule,
-    MatMenuModule,
     MatTooltipModule,
     RouterLink,
     RouterLinkActive,
     WordmarkComponent,
     SearchFieldComponent,
     ThemeToggleComponent,
+    AccountMenuComponent,
   ],
   templateUrl: './top-bar.component.html',
   styleUrl: './top-bar.component.scss',

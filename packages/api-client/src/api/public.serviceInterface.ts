@@ -17,6 +17,12 @@ import { ProblemDetail } from '../model/models';
 import { Configuration }                                     from '../configuration';
 
 
+export interface GetPlaceholderImageRequestParams {
+    game: string;
+    file: string;
+    ifNoneMatch?: string;
+}
+
 export interface GetPublicMediaRequestParams {
     key: string;
 }
@@ -25,6 +31,14 @@ export interface GetPublicMediaRequestParams {
 export interface PublicServiceInterface {
     defaultHeaders: HttpHeaders;
     configuration: Configuration;
+
+    /**
+     * Card placeholder image (SVG)
+     * &#x60;file&#x60; is &#x60;&lt;card slug&gt;.svg&#x60;. Generated on the server from the card name; no scripts or external references. Public cache for a day, ETag.
+     * @endpoint get /api/v1/public/placeholder-images/{game}/{file}
+* @param requestParameters
+     */
+    getPlaceholderImage(requestParameters: GetPlaceholderImageRequestParams, extraHttpRequestParams?: any): Observable<Blob>;
 
     /**
      * Stored media (avatars)

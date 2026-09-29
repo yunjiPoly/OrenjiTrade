@@ -92,6 +92,32 @@ class TermsEnforcementFilterTest {
     }
 
     @Test
+    void publicCatalogReadsAreExemptForGetOnly() throws Exception {
+        TermsEnforcementFilter catalogAware =
+                new TermsEnforcementFilter(
+                        consentService,
+                        new ProblemDetailFactory(
+                                TimeProvider.fixed(NOW), JsonMapper.builder().build()),
+                        List.of("/api/v1/cards", "/api/v1/cards/**"));
+        authenticate(UUID.randomUUID());
+        when(consentService.requiredConsents(any()))
+                .thenReturn(List.of(new RequiredConsent(LegalDocumentType.TERMS, "2026-09-01")));
+
+        MockFilterChain read = new MockFilterChain();
+        catalogAware.doFilter(
+                new MockHttpServletRequest("GET", "/api/v1/cards/suggest"),
+                new MockHttpServletResponse(),
+                read);
+        assertThat(read.getRequest()).isNotNull();
+
+        MockHttpServletResponse write = new MockHttpServletResponse();
+        MockFilterChain blocked = new MockFilterChain();
+        catalogAware.doFilter(new MockHttpServletRequest("POST", "/api/v1/cards"), write, blocked);
+        assertThat(write.getStatus()).isEqualTo(428);
+        assertThat(blocked.getRequest()).isNull();
+    }
+
+    @Test
     void passesWhenNothingIsRequired() throws Exception {
         UUID userId = UUID.randomUUID();
         authenticate(userId);

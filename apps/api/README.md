@@ -142,6 +142,8 @@ that interface. Phase 1-B adds `profiles` (order 200: profile, bio, games, langu
 privacy settings from `db/seed/profiles.json`; discoverable: collectors 1-6, 8 and `premium_user`) and
 `trading areas` (order 300: `db/seed/locations.json`, public neighbourhood centroids, 5 km radius;
 public points derived by the server). Both only insert missing rows, so local edits survive restarts.
+Phase 2 adds `feature flags` (order 50, local/dev only) and `catalog` (order 400, the four mock
+catalogs); see "Catalog and platform rules" below.
 Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for the premium account)
 and `LocalDev!2026`; see `docs/development/test-accounts.md`.
 
@@ -162,7 +164,7 @@ unless stated.
 
 | Route | Module | Notes |
 | --- | --- | --- |
-| `GET/PUT /api/v1/me/profile` | profiles | handle (3-24 `[a-z0-9_]`, trimmed + lower-cased, reserved list, `409 HANDLE_TAKEN` case-insensitively), display name (mirrored on the account), bio (≤ 500), games (`yugioh`, `pokemon`, `mtg`, `riftbound` from `orenji.games.slugs` until the games module exists), ISO 639-1 languages; banned-term check on display name and bio (`moderation_rule`, scope `PROFILE`). First save sets onboarding `profileComplete` |
+| `GET/PUT /api/v1/me/profile` | profiles | handle (3-24 `[a-z0-9_]`, trimmed + lower-cased, reserved list, `409 HANDLE_TAKEN` case-insensitively), display name (mirrored on the account), bio (≤ 500), games (slugs of the ACTIVE `game` rows through the games module's `GameCatalog`), ISO 639-1 languages; banned-term check on display name and bio (`moderation_rule`, scope `PROFILE`). First save sets onboarding `profileComplete` |
 | `POST/DELETE /api/v1/me/profile/avatar` | profiles | multipart `file`, JPEG/PNG/WebP ≤ 5 MB (type sniffed from the bytes; 413/415/400), header-checked dimensions (≤ 8192 px, ≤ 40 MP), centre cover-crop to 512×512, re-encoded **JPEG** without any metadata (see "Deviations"), stored through `ObjectStorage` under a random key; the previous object is deleted after commit |
 | `GET /api/v1/tags?query=&category=&limit=` | profiles | active tags, accent/case-insensitive substring, prefix matches first, then by usage |
 | `PUT /api/v1/me/profile/tags` | profiles | `tagIds` + `customLabels` (2-24 chars, banned-term check scope `TAG`), max 12; custom labels reuse the tag with the same slug or create a `CUSTOM` tag; usage counts recomputed |
@@ -229,6 +231,88 @@ instantiated locally). Keys are random (`avatars/<user>/<32 hex>.jpg`), so objec
   tokens at once). The identity is deleted by the job.
 - Additive: `GET /me/deletion-requests` (lets clients find the pending request after a reload).
 
+## Catalog and platform rules (Phase 2)
+
+Contracts: `docs/api/contracts/phase2-catalog.md` (catalog) and
+`docs/api/contracts/phase10-freemium-credits-ads-donations.md` "Plans and limits" (foundation). Catalog
+and plan reads are public GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`): no token needed, and a
+token of an account with pending consents or a suspension does not block them (same treatment as
+`/api/v1/public/**`). Other methods on those paths stay protected.
+
+| Route | Module | Notes |
+| --- | --- | --- |
+| `GET /api/v1/games`, `GET /api/v1/games/{slug}` | games | ACTIVE games in display order with their `GameSchema` (vocabularies, metadata fields, summary fields) |
+| `GET /api/v1/cards?game=&query=&set=&rarity=&language=&edition=&metadata.<key>=&page=&size=` | cards | FTS (`websearch_to_tsquery('simple', unaccent(q))`, `ts_rank_cd`) on name/type/text; trigram fallback (`%`, `<%` on `normalized_name`) when fewer than 5 rows match; exact printing code (`azr-en001`) short-circuits to that card; `set` = id or code; `metadata.<key>` only for filterable GameSchema fields of the given `game` (typed: number, string with case-insensitive options, string_list — repeat the key to require several values —, boolean) and matched with `metadata @>` (GIN); summaries carry the game's `summaryFields` only |
+| `GET /api/v1/cards/suggest?game=&q=&limit=8` | cards | printing-code prefixes first (`kind=PRINTING`), then cards by prefix / substring / FTS / trigram (`kind=CARD`, with the earliest printing's set and code) |
+| `GET /api/v1/cards/{id}`, `GET /api/v1/cards/{id}/printings`, `GET /api/v1/printings/{id}` | cards | full metadata, printings (earliest set first) with images (placeholder when none) and indicative market price |
+| `GET /api/v1/sets?game=&query=`, `GET /api/v1/sets/{id}?page=&size=` | cards | newest first; exact code first when querying; set detail pages its printings |
+| `GET /api/v1/public/placeholder-images/{game}/{slug}.svg` | cards | server-generated SVG with the card name (XML-escaped, no scripts or external references, `Content-Security-Policy: default-src 'none'`), `Cache-Control: public, max-age=86400` + ETag / 304; 404 for unknown cards |
+| `GET /api/v1/public/feature-flags` | featureflags | `{flag: boolean}`; anonymous callers see flags rolled out to 100 %, a bearer token evaluates partial rollouts for the caller |
+| `GET /api/v1/plans` | billing | active plans with features and limits (`limit` null = unlimited) |
+| `GET /api/v1/me/plan` | billing | the caller's plan, every limit with the effective value (entitlements applied), current usage, remaining and reset time (UTC day/month; none for totals and caps), effective features and active entitlements (without admin notes) |
+| `GET /api/v1/admin/feature-flags`, `PUT /api/v1/admin/feature-flags/{key}` | featureflags | read ADMIN+, write SUPER_ADMIN; audited `feature_flag.update`; cache evicted |
+| `GET /api/v1/admin/plans`, `PUT /api/v1/admin/plans/{code}` | billing | read ADMIN+, write SUPER_ADMIN (name, description, display price, active — FREE cannot be disabled —, order, feature upserts); audited `plan.update` |
+| `GET /api/v1/admin/usage-limits?plan=`, `PUT /api/v1/admin/usage-limits/{id}` | billing | read ADMIN+, write SUPER_ADMIN (`{unlimited, maxValue, window, description}`, caps keep `TOTAL`); live, audited `usage_limit.update` |
+| `GET/POST /api/v1/admin/users/{id}/entitlements`, `DELETE .../entitlements/{entitlementId}` | billing | ADMIN+; grant a limit override (`value` number or `unlimited`) or a feature (`true`/`false`), optional `expiresAt`/`note`; revocation keeps history; audited `entitlement.grant` / `entitlement.revoke` |
+| `GET /api/v1/admin/games`, `POST /api/v1/admin/games`, `PUT /api/v1/admin/games/{slug}` | games | ADMIN+; slug immutable; schema validated (types, unique keys, summary fields exist); HIDDEN removes a game from public endpoints and profile choices; audited |
+| `POST /api/v1/admin/sets`, `PUT /api/v1/admin/sets/{id}`, `POST /api/v1/admin/cards`, `PUT /api/v1/admin/cards/{id}`, `POST /api/v1/admin/cards/{id}/printings`, `PUT /api/v1/admin/printings/{id}` | cards | ADMIN+; values checked against the game's GameSchema (edition, language, finish, rarity vocabularies; declared metadata types); duplicate printing variant 409; audited `card_set.*`, `card.*`, `card_printing.*` |
+| `POST /api/v1/admin/catalog/sync`, `GET /api/v1/admin/catalog/sync-runs[/{id}]`, `GET /api/v1/admin/catalog/providers` | cards | ADMIN+; 202 with the QUEUED run; the import runs after commit through `CatalogSyncRequestedEvent` (`@ApplicationModuleListener`, idempotent: only QUEUED runs start); audited `catalog.sync.request` |
+
+### Feature flags, plans, limits (ADR 0014)
+
+- `FeatureFlags.isEnabled(key[, userId])`, `FeatureFlags.require(key, userId)` → `404
+  FEATURE_DISABLED` (extension `feature`). `ErrorCode.FEATURE_DISABLED` now defaults to 404 (the
+  Phase 9 contract's "404 FEATURE_DISABLED").
+- `Limits.check(userId, key)` → `LimitDecision {key, allowed, kind, window, limit, used, remaining,
+  resetsAt, planCode, overridden, upgradeUrl}`; `Limits.consume(userId, key)` increments atomically in
+  `usage_counter` (conditional upsert, never passes the limit) and throws `LimitReachedException` →
+  `429 LIMIT_REACHED` with extensions `limitKey`, `limit`, `used`, `resetsAt`, `planCode`,
+  `upgradeUrl: "/premium"`; `Limits.checkValue(userId, key, requested)` for caps
+  (`map.radius.max_km`). The plan comes from `user_account.plan_code` (FREE when unknown or inactive);
+  active entitlements win (most generous). `Entitlements.has(userId, featureKey)` resolves features the
+  same way. `LimitUsageSource` beans let owning modules report TOTAL usage (Phase 3 binders).
+- Rules are cached in Redis through `common.cache.RedisJsonCache` (60 s TTL, explicit eviction after
+  every admin write and after commit, fail-open to the database). Usage counters are mirrored in
+  Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check` fast path.
+- No Phase 2 route consumes a limit yet (binder views arrive with Phase 3, radius with Phase 4); the
+  integration tests exercise the HTTP behaviour through a test-only, OpenAPI-hidden probe controller.
+
+### Card catalog
+
+- `CardProvider` (contract interface) with `MockCardProvider` (profiles `local`, `dev`, `test`)
+  serving `db/seed/catalog/{yugioh,pokemon,mtg,riftbound}.json`: 4 sets, 20 cards and 40 printings per
+  game, invented names, game-specific metadata, FR/JA printings and finish variants, indicative CAD
+  prices, placeholder images. No provider is registered in staging/prod yet (real adapters later).
+- `CatalogImportService` upserts by `external_ref` (sets by game + code, printings fall back to their
+  variant key) under a per-game advisory lock, rewrites only changed rows (a repeated import reports 0
+  upserts), keeps card slugs stable, and records every import in `catalog_sync_run`.
+- `CatalogService` is the module's read interface; `printings(ids)` is ready for Phase 3 inventory.
+
+### Seed (Phase 2)
+
+`feature flags` (order 50, `local`/`dev` only): enables `protectedPayments`, `advertising` and
+`donations` unless an admin changed them; `mlScanning` stays off. `catalog` (order 400): imports the
+four mock catalogs through `CatalogImportService` (idempotent; one sync run per game and start-up).
+
+### Deviations from the Phase 2 / Phase 10 contracts
+
+- `usage_limit.window` is stored as `limit_window` (`WINDOW` is reserved in PostgreSQL); the API field
+  is `window`. Additive column `usage_limit.kind` (`COUNTER` / `CAP`) distinguishes counted limits from
+  caps such as `map.radius.max_km`.
+- Admin writes are per resource: `PUT /admin/feature-flags/{key}`, `PUT /admin/plans/{code}`,
+  `PUT /admin/usage-limits/{id}`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` (the contract
+  names the collections `GET/PUT /admin/plans`, `/admin/usage-limits`, "grant/revoke").
+- `GET /me/plan` has no `subscription` yet (Phase 10) and adds `features`, `upgradeUrl`; limit entries
+  add `kind`, `window`, `remaining`, `allowed`, `overridden`, `planCode`.
+- `SetDetail` is `{set, metadata, printings: PageResponse}`; `PrintingDetail` is `{printing, card, set,
+  metadata}`; `PrintingSummary.marketPrice` is `{amount, currency, updatedAt}`; `CardSuggestion` adds
+  `kind` and `printingId`.
+- Additive columns `card_set.external_ref` and `card.external_ref` (idempotent imports), and additive
+  admin routes `GET /admin/games`, `POST/PUT /admin/sets`, `GET /admin/catalog/sync-runs/{id}`,
+  `GET /admin/catalog/providers`, `GET /admin/users/{id}/entitlements`.
+- `INCREMENTAL` syncs pass the last successful run's start to the provider; the mock provider has no
+  change tracking and returns everything (still idempotent).
+
 ## Build, format, test
 
 ```bash
@@ -283,6 +367,10 @@ the `unaccent_immutable(text)` helper; `V002__event_publication.sql` creates the
 `job_run`; `V004__profiles.sql` (`profile`, `tag`, `profile_tag`, `moderation_rule`,
 `privacy_settings`), `V005__location.sql` (`user_location`), `V006__settings.sql`
 (`notification_preferences`) and `V007__deletion.sql` (`account_deletion_request`) complete Phase 1.
+Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql` (`plan`,
+`plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; `user_account.plan_code` becomes a FK),
+`V012__games.sql` (`game` with GameSchema) and `V013__catalog.sql` (`card_set`, `card`,
+`card_printing`, `card_image`, `catalog_sync_run`).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -305,9 +393,13 @@ com.orenjitrade.api
 ├── location/    user_location, ApproximateLocationService, StaticRegionGeocoder (ADR 0004)
 ├── notifications/ notification preferences (dispatch arrives in Phase 6)
 ├── moderation/  moderation_rule + TextModerationService (banned terms)
-├── games/       GameCatalog (property-backed until the Phase 2 catalogue)
-└── cards inventory binders search wishlist messaging community ratings reports offers trades
-    payments billing credits donations ads analytics featureflags delisting
+├── games/       game table + GameSchema, GameCatalog (profiles), /games, /admin/games
+├── cards/       sets, cards, printings, images, CardProvider + MockCardProvider, idempotent
+│                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
+├── featureflags/ feature_flag, FeatureFlags (Redis cache), public + admin endpoints
+├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements)
+└── inventory binders search wishlist messaging community ratings reports offers trades
+    payments credits donations ads analytics delisting
                                                           (documented in each package-info.java)
 ```
 

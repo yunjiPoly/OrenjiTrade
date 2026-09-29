@@ -1,0 +1,94 @@
+<h2 mat-dialog-title>Delete your account</h2>
+
+@switch (step()) {
+  @case ('blocked') {
+    <mat-dialog-content>
+      <div class="delete__alert" role="alert">
+        <mat-icon aria-hidden="true">block</mat-icon>
+        <p>Your account cannot be deleted yet. Please resolve the following first:</p>
+      </div>
+      <ul class="delete__blockers">
+        @for (blocker of blockers(); track blocker) {
+          <li>{{ blockerLabel(blocker) }}</li>
+        } @empty {
+          <li>Some obligations are still open.</li>
+        }
+      </ul>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button matButton="filled" type="button" mat-dialog-close>Close</button>
+    </mat-dialog-actions>
+  }
+  @case ('working') {
+    <mat-dialog-content>
+      <div class="delete__working" role="status" aria-live="polite">
+        <mat-spinner diameter="32" aria-hidden="true" />
+        <p>{{ status() }}</p>
+      </div>
+    </mat-dialog-content>
+  }
+  @default {
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-dialog-content>
+        <ul class="delete__facts">
+          <li>
+            <mat-icon aria-hidden="true">schedule</mat-icon>
+            <span>
+              Your account is deleted after a <strong>7-day grace period</strong>. You can cancel
+              any time before that.
+            </span>
+          </li>
+          <li>
+            <mat-icon aria-hidden="true">visibility_off</mat-icon>
+            <span>You disappear from the map and search right away, and you are signed out.</span>
+          </li>
+          <li>
+            <mat-icon aria-hidden="true">gavel</mat-icon>
+            <span>Consent records and audit entries are kept as required by law.</span>
+          </li>
+        </ul>
+
+        @if (error(); as message) {
+          <p class="delete__error" role="alert">{{ message }}</p>
+        }
+
+        <mat-form-field appearance="outline" class="delete__field">
+          <mat-label>Why are you leaving? (optional)</mat-label>
+          <textarea matInput formControlName="reason" rows="2" maxlength="500"></textarea>
+        </mat-form-field>
+
+        <mat-checkbox formControlName="exportFirst">Download a copy of my data first</mat-checkbox>
+
+        @if (auth.hasPasswordProvider()) {
+          <mat-form-field appearance="outline" class="delete__field">
+            <mat-label>Password</mat-label>
+            <input
+              matInput
+              type="password"
+              formControlName="password"
+              autocomplete="current-password"
+              required
+            />
+            <mat-hint>For your security, confirm your password.</mat-hint>
+            @if (form.controls.password.hasError('required')) {
+              <mat-error>Enter your password to continue.</mat-error>
+            }
+          </mat-form-field>
+        } @else {
+          <p class="delete__muted">You will confirm with Google in a pop-up window.</p>
+        }
+
+        <mat-checkbox formControlName="acknowledge">
+          I understand that my profile, tags and location will be permanently deleted.
+        </mat-checkbox>
+        @if (form.controls.acknowledge.touched && form.controls.acknowledge.invalid) {
+          <p class="delete__error" role="alert">Please confirm to continue.</p>
+        }
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button matButton type="button" mat-dialog-close>Keep my account</button>
+        <button matButton="filled" type="submit" class="delete__danger">Delete my account</button>
+      </mat-dialog-actions>
+    </form>
+  }
+}

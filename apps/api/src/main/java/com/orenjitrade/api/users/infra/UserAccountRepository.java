@@ -36,6 +36,10 @@ public interface UserAccountRepository
     @Query("select u.id as id, u.handle as handle from UserAccount u where u.id in :ids")
     List<HandleProjection> findHandlesByIdIn(@Param("ids") Collection<UUID> ids);
 
+    /** Cheap projection for plan resolution (billing module, through the service). */
+    @Query("select u.planCode from UserAccount u where u.id = :id")
+    Optional<String> findPlanCodeById(@Param("id") UUID id);
+
     @Modifying
     @Query(
             "update UserAccount u set u.lastActiveAt = :now where u.id = :id and u.deletedAt is"

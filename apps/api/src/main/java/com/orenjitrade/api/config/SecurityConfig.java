@@ -25,6 +25,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -49,7 +50,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *   <li>CORS from {@code orenji.security.cors.allowed-origins} with credentials; {@code
  *       X-Request-Id} and the rate-limit headers are exposed to browsers.
  *   <li>Public: health probes, info, OpenAPI/Swagger (when enabled), {@code /api/v1/meta}, {@code
- *       /api/v1/public/**} and {@code /error}.
+ *       /api/v1/public/**}, {@code /error} and the read-only catalog and plan routes ({@link
+ *       #PUBLIC_GET_PATTERNS}, GET only).
  *   <li>Filter order inside the chain: {@link BearerTokenAuthenticationFilter} and {@link
  *       ServiceAuthFilter} (authentication) → {@link AccountAccessFilter} (suspended / deletion
  *       pending) → {@link RateLimitFilter} → {@link AuthorizationFilter} (RBAC, admin MFA) → {@link
@@ -83,6 +85,21 @@ public class SecurityConfig {
                     "/api/v1/public/**",
                     "/error");
 
+    /**
+     * Read-only catalog and plan routes that never require authentication (Phase 2 contract:
+     * "catalog reads are public"). GET only; the same paths stay protected for other methods.
+     */
+    public static final List<String> PUBLIC_GET_PATTERNS =
+            List.of(
+                    "/api/v1/games",
+                    "/api/v1/games/*",
+                    "/api/v1/sets",
+                    "/api/v1/sets/*",
+                    "/api/v1/cards",
+                    "/api/v1/cards/**",
+                    "/api/v1/printings/*",
+                    "/api/v1/plans");
+
     private static final String PERMISSIONS_POLICY =
             "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(),"
                     + " microphone=(), payment=(), usb=()";
@@ -107,6 +124,10 @@ public class SecurityConfig {
                 PUBLIC_PATTERNS.stream()
                         .map(pattern -> (RequestMatcher) pathPattern(pattern))
                         .toArray(RequestMatcher[]::new);
+        RequestMatcher[] publicGetMatchers =
+                PUBLIC_GET_PATTERNS.stream()
+                        .map(pattern -> (RequestMatcher) pathPattern(HttpMethod.GET, pattern))
+                        .toArray(RequestMatcher[]::new);
 
         BearerTokenAuthenticationFilter bearerFilter =
                 new BearerTokenAuthenticationFilter(
@@ -118,10 +139,12 @@ public class SecurityConfig {
                         properties.internalInvokers(),
                         authenticationEntryPoint);
         AccountAccessFilter accountAccessFilter =
-                new AccountAccessFilter(PUBLIC_PATTERNS, problems, timeProvider);
+                new AccountAccessFilter(
+                        PUBLIC_PATTERNS, PUBLIC_GET_PATTERNS, problems, timeProvider);
         RateLimitFilter rateLimitFilter =
                 new RateLimitFilter(rateLimitProperties, rateLimiter, problems, timeProvider);
-        TermsEnforcementFilter termsFilter = new TermsEnforcementFilter(consentService, problems);
+        TermsEnforcementFilter termsFilter =
+                new TermsEnforcementFilter(consentService, problems, PUBLIC_GET_PATTERNS);
 
         http.csrf(
                         csrf ->
@@ -168,6 +191,8 @@ public class SecurityConfig {
                         authorize ->
                                 authorize
                                         .requestMatchers(publicMatchers)
+                                        .permitAll()
+                                        .requestMatchers(publicGetMatchers)
                                         .permitAll()
                                         .requestMatchers(pathPattern("/internal/**"))
                                         .hasRole(ServiceAuthentication.ROLE)

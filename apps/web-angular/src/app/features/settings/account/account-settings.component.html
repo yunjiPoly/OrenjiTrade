@@ -1,0 +1,104 @@
+<app-section-card
+  heading="Sign-in"
+  headingId="account-signin"
+  description="How you access OrenjiTrade."
+>
+  <ul class="section-list">
+    <li class="section-row">
+      <div class="section-row__text">
+        <span class="section-row__label">Email</span>
+        <span class="section-row__help" data-testid="account-email">{{ auth.user()?.email }}</span>
+      </div>
+      @if (auth.emailVerified()) {
+        <span class="account__badge account__badge--ok">
+          <mat-icon aria-hidden="true">verified</mat-icon>
+          Verified
+        </span>
+      } @else {
+        <div class="account__verify">
+          <span class="account__badge">
+            <mat-icon aria-hidden="true">error</mat-icon>
+            Not verified
+          </span>
+          <button
+            matButton
+            type="button"
+            [disabled]="sendingVerification()"
+            (click)="resendVerification()"
+          >
+            Resend link
+          </button>
+        </div>
+      }
+    </li>
+    <li class="section-row">
+      <div class="section-row__text">
+        <span class="section-row__label">Sign-in method</span>
+        <span class="section-row__help">{{ signInMethod() }}</span>
+      </div>
+    </li>
+    @if (session.me(); as me) {
+      <li class="section-row">
+        <div class="section-row__text">
+          <span class="section-row__label">Member since</span>
+          <span class="section-row__help">{{ me.createdAt | date: 'longDate' }}</span>
+        </div>
+      </li>
+    }
+  </ul>
+</app-section-card>
+
+<app-section-card
+  heading="Plan"
+  headingId="account-plan"
+  description="Your OrenjiTrade membership."
+>
+  <div class="account__plan">
+    <div class="account__plan-badge">
+      <mat-icon aria-hidden="true">workspace_premium</mat-icon>
+      <span>{{ session.me()?.plan === 'FREE' ? 'Free' : session.me()?.plan }}</span>
+    </div>
+    <p class="section-muted">
+      Premium plans with higher limits arrive later. Your current plan keeps every core feature.
+    </p>
+  </div>
+  @if (roleLabels().length > 0) {
+    <p class="section-muted account__roles">Staff roles: {{ roleLabels().join(', ') }}</p>
+  }
+</app-section-card>
+
+<app-section-card
+  heading="Your data"
+  headingId="account-data"
+  description="Download everything OrenjiTrade stores about you as a JSON file."
+>
+  <div class="section-actions account__left">
+    <button matButton="outlined" type="button" [disabled]="exporting()" (click)="exportData()">
+      @if (exporting()) {
+        <mat-spinner diameter="18" aria-hidden="true" />
+      } @else {
+        <mat-icon aria-hidden="true">download</mat-icon>
+      }
+      Download my data
+    </button>
+  </div>
+</app-section-card>
+
+<section class="account__danger" aria-labelledby="account-danger">
+  <h2 id="account-danger" class="account__danger-title">Delete account</h2>
+  <p class="section-muted">
+    Permanently delete your profile, tags, location and settings after a 7-day grace period. You
+    will be asked to confirm your identity.
+  </p>
+  <div class="section-actions account__left">
+    <button
+      matButton="outlined"
+      type="button"
+      class="account__danger-button"
+      (click)="deleteAccount()"
+    >
+      <mat-icon aria-hidden="true">delete_forever</mat-icon>
+      Delete my account
+    </button>
+  </div>
+</section>

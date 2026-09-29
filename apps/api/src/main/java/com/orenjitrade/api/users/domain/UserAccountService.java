@@ -231,6 +231,12 @@ public class UserAccountService {
         return repository.findWithRolesById(userId).map(UserAccount::toSnapshot);
     }
 
+    /** The plan code of an account ({@code user_account.plan_code}); empty for unknown ids. */
+    @Transactional(readOnly = true)
+    public Optional<String> findPlanCode(UUID userId) {
+        return repository.findPlanCodeById(userId);
+    }
+
     /**
      * The account when it may act, otherwise {@code 404} (unknown) or {@code 403 ACCOUNT_SUSPENDED}
      * (suspended, deletion pending, deleted).

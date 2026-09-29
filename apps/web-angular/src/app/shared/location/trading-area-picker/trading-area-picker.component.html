@@ -1,0 +1,131 @@
+<div class="picker">
+  <div class="picker__map-wrap" [attr.aria-busy]="mapState() === 'loading'">
+    <div
+      #mapHost
+      class="picker__map"
+      data-testid="trading-area-map"
+      [class.picker__map--hidden]="mapState() === 'error'"
+    ></div>
+    @if (mapState() === 'loading') {
+      <div class="picker__map-overlay">
+        <span class="visually-hidden">Loading the map</span>
+        <app-skeleton width="100%" height="100%" />
+      </div>
+    }
+    @if (mapState() === 'error') {
+      <div class="picker__map-overlay picker__map-overlay--error">
+        <app-error-state
+          title="The map could not load"
+          message="You can still pick a city or use your location below."
+          retryLabel="Reload map"
+          (retry)="initMap()"
+        />
+      </div>
+    }
+  </div>
+
+  <div class="picker__controls">
+    <p class="picker__hint">
+      <mat-icon aria-hidden="true">touch_app</mat-icon>
+      Click the map or drag the pin to move your area.
+    </p>
+
+    <div class="picker__radius">
+      <div class="picker__radius-head">
+        <span class="picker__label" [id]="id + '-radius'">Trading radius</span>
+        <output class="picker__radius-value" [attr.for]="id + '-radius-input'" aria-live="polite">
+          {{ current().radiusKm }} km
+        </output>
+      </div>
+      <mat-slider
+        class="picker__slider"
+        [min]="minRadius"
+        [max]="maxRadius"
+        step="1"
+        discrete
+        [displayWith]="formatKm"
+        [disabled]="disabled()"
+      >
+        <input
+          matSliderThumb
+          [id]="id + '-radius-input'"
+          [value]="current().radiusKm"
+          (valueChange)="setRadius($event)"
+          [attr.aria-labelledby]="id + '-radius'"
+        />
+      </mat-slider>
+      <div class="picker__scale" aria-hidden="true">
+        <span>{{ minRadius }} km</span><span>{{ maxRadius }} km</span>
+      </div>
+    </div>
+
+    <div class="picker__buttons">
+      <button
+        matButton="tonal"
+        type="button"
+        [disabled]="disabled() || geoState() === 'locating'"
+        (click)="useMyLocation()"
+      >
+        <mat-icon aria-hidden="true">my_location</mat-icon>
+        {{ geoState() === 'locating' ? 'Locating…' : 'Use my location' }}
+      </button>
+      <button
+        matButton="outlined"
+        type="button"
+        [disabled]="disabled() || mapState() !== 'ready'"
+        (click)="useMapCentre()"
+      >
+        <mat-icon aria-hidden="true">filter_center_focus</mat-icon>
+        Use map centre
+      </button>
+    </div>
+    <p class="picker__geo" role="status">
+      @switch (geoState()) {
+        @case ('done') {
+          We used your device's position only to centre the picker. It is rounded, and only an
+          approximate area is ever saved.
+        }
+        @case ('denied') {
+          Location access was blocked. Pick a city or click the map instead.
+        }
+        @case ('unavailable') {
+          Your location is not available right now. Pick a city or click the map instead.
+        }
+        @default {
+          Using your location is optional: it only centres the picker and is never shown to anyone.
+        }
+      }
+    </p>
+
+    <div class="picker__presets" role="group" [attr.aria-labelledby]="id + '-cities'">
+      <span class="picker__label" [id]="id + '-cities'">Jump to a city</span>
+      <div class="picker__preset-list">
+        @for (preset of presets; track preset.id) {
+          <button
+            type="button"
+            class="picker__preset"
+            [disabled]="disabled()"
+            (click)="choosePreset(preset)"
+          >
+            {{ preset.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <aside class="picker__privacy" aria-label="How your position is protected">
+      <mat-icon aria-hidden="true">shield_person</mat-icon>
+      <div>
+        <p class="picker__privacy-title">Only an approximate position is ever public</p>
+        <p class="picker__privacy-text">
+          We snap your area to a ~1 km grid and add a fixed offset, so other collectors see a nearby
+          point, never your home. Distances are shown as ranges like “1–5 km”.
+          @if (publicLabel()) {
+            Others currently see: <strong>{{ publicLabel() }}</strong
+            >.
+          }
+        </p>
+      </div>
+    </aside>
+  </div>
+</div>

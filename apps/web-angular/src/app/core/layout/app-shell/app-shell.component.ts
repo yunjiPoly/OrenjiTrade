@@ -2,18 +2,26 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { BottomNavComponent } from '../bottom-nav/bottom-nav.component';
 import { FooterComponent } from '../footer/footer.component';
+import { SessionBannerComponent } from '../session-banner/session-banner.component';
 import { TopBarComponent } from '../top-bar/top-bar.component';
 
 /**
- * Application frame: skip link, top bar, routed main content, footer and the
- * mobile bottom navigation. Feature pages render inside `<main>`.
+ * Application frame: skip link, top bar, session banner (account could not load), routed main
+ * content, footer and the mobile bottom navigation. Feature pages render inside `<main>`.
  */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, TopBarComponent, FooterComponent, BottomNavComponent],
+  imports: [
+    RouterOutlet,
+    TopBarComponent,
+    SessionBannerComponent,
+    FooterComponent,
+    BottomNavComponent,
+  ],
   template: `
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <app-top-bar (querySubmit)="onSearch($event)" />
+    <app-session-banner />
     <main id="main-content" class="shell__main" tabindex="-1">
       <router-outlet />
     </main>

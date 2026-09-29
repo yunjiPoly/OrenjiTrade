@@ -10,7 +10,9 @@ The OpenAPI document `openapi.json` in this folder is generated from code
 `Authorization: Bearer <Firebase ID token>`. Unauthenticated requests to protected routes get
 `401` with `errorCode=UNAUTHENTICATED`. Suspended accounts get `403 ACCOUNT_SUSPENDED`. Routes
 needing accepted terms return `428 TERMS_ACCEPTANCE_REQUIRED`. Public routes live under
-`/api/v1/public/**` plus `/api/v1/meta`. Admin routes live under `/api/v1/admin/**` and require
+`/api/v1/public/**` plus `/api/v1/meta`; the read-only catalog and plan routes (`GET /games`,
+`/sets`, `/cards`, `/printings`, `/plans` and their sub-paths) are public too, for GET only
+(`SecurityConfig.PUBLIC_GET_PATTERNS`). Admin routes live under `/api/v1/admin/**` and require
 `ADMIN`/`SUPER_ADMIN` (moderation subset for `MODERATOR`). Internal routes (`/internal/**`) are
 for Cloud Scheduler / Pub/Sub / ML with OIDC or a service token; never exposed through Cloudflare.
 
@@ -41,12 +43,12 @@ No stack traces, SQL, or class names. `requestId` equals the `X-Request-Id` resp
 | VALIDATION_FAILED | 400 |
 | UNAUTHENTICATED | 401 |
 | FORBIDDEN, ACCOUNT_SUSPENDED | 403 |
-| NOT_FOUND | 404 |
+| NOT_FOUND, FEATURE_DISABLED (feature flag off for the caller; `feature` extension) | 404 |
 | CONFLICT | 409 |
 | PAYLOAD_TOO_LARGE | 413 |
 | UNSUPPORTED_MEDIA_TYPE | 415 |
 | TERMS_ACCEPTANCE_REQUIRED | 428 |
-| RATE_LIMITED, LIMIT_REACHED (freemium; includes `limit`, `used`, `upgradeUrl` extensions) | 429 |
+| RATE_LIMITED, LIMIT_REACHED (freemium; includes `limitKey`, `limit`, `used`, `resetsAt`, `planCode`, `upgradeUrl` extensions) | 429 |
 | INTERNAL_ERROR | 500 |
 | SERVICE_UNAVAILABLE | 503 |
 

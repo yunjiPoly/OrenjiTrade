@@ -46,10 +46,23 @@ public class TermsEnforcementFilter extends OncePerRequestFilter {
 
     private final ConsentService consentService;
     private final ProblemDetailFactory problems;
+    private final List<PathPattern> exemptGet;
 
     public TermsEnforcementFilter(ConsentService consentService, ProblemDetailFactory problems) {
+        this(consentService, problems, List.of());
+    }
+
+    /**
+     * @param exemptGetPatterns additional routes exempt for GET only (the public read-only catalog,
+     *     readable without an account, so a pending consent must not hide it either)
+     */
+    public TermsEnforcementFilter(
+            ConsentService consentService,
+            ProblemDetailFactory problems,
+            List<String> exemptGetPatterns) {
         this.consentService = consentService;
         this.problems = problems;
+        this.exemptGet = compile(exemptGetPatterns);
     }
 
     /** Whether the terms check applies to a request path (public for the unit test). */
@@ -68,7 +81,14 @@ public class TermsEnforcementFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !isEnforced(request.getRequestURI());
+        if (!isEnforced(request.getRequestURI())) {
+            return true;
+        }
+        if (!"GET".equals(request.getMethod())) {
+            return false;
+        }
+        PathContainer container = PathContainer.parsePath(request.getRequestURI());
+        return exemptGet.stream().anyMatch(pattern -> pattern.matches(container));
     }
 
     @Override

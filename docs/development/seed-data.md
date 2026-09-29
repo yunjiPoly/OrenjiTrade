@@ -56,6 +56,9 @@ names such as "Azure-Eyes Sky Dragon", "Emberfang Fox VMAX", "Tidebinder Soverei
   unlimited, radius 25 km vs 100 km, advanced filters off/on); premium-user subscribed.
 - Delist policy: ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days.
 - Feature flags: `mlScanning=false`, `protectedPayments=false`, `publicChat=true`,
-  `premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false`.
+  `premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false` (V010 migration
+  defaults). The `local`/`dev` seed (`FeatureFlagSeedContributor`) then switches on
+  `protectedPayments`, `advertising` and `donations` so those flows run with the fake
+  providers; `mlScanning` stays off (Phase 11 on hold). Flags an admin already edited are kept.
 - Community channels: Montréal / Yu-Gi-Oh!, Montréal / Pokémon, Montréal / Magic,
   Montréal / Riftbound, Looking For, New Listings, Trades, General.

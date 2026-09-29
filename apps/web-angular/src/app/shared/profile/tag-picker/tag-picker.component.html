@@ -1,0 +1,104 @@
+<div class="tags">
+  <div class="tags__head">
+    <span class="tags__title" id="tag-picker-selected">Your tags</span>
+    <span class="tags__count" aria-live="polite">{{ count() }} / {{ max }}</span>
+  </div>
+
+  @if (count() === 0) {
+    <p class="tags__empty">No tags yet. Pick a few below so collectors know what you are about.</p>
+  } @else {
+    <mat-chip-set aria-labelledby="tag-picker-selected" class="tags__selected">
+      @for (tag of selected(); track tag.id) {
+        <mat-chip-row [removable]="!disabled()" (removed)="remove(tag)">
+          {{ tag.label }}
+          <button matChipRemove [attr.aria-label]="'Remove ' + tag.label" [disabled]="disabled()">
+            <mat-icon>cancel</mat-icon>
+          </button>
+        </mat-chip-row>
+      }
+      @for (label of customLabels(); track label) {
+        <mat-chip-row
+          class="tags__custom"
+          [removable]="!disabled()"
+          (removed)="removeCustom(label)"
+        >
+          <mat-icon matChipAvatar aria-hidden="true">sell</mat-icon>
+          {{ label }}
+          <button matChipRemove [attr.aria-label]="'Remove ' + label" [disabled]="disabled()">
+            <mat-icon>cancel</mat-icon>
+          </button>
+        </mat-chip-row>
+      }
+    </mat-chip-set>
+  }
+
+  <mat-form-field appearance="outline" class="tags__search" subscriptSizing="dynamic">
+    <mat-label>Search or create a tag</mat-label>
+    <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+    <input
+      matInput
+      type="search"
+      autocomplete="off"
+      [value]="query()"
+      [disabled]="disabled() || full()"
+      (input)="onQuery($event)"
+      (keydown.enter)="onEnter($event)"
+      aria-describedby="tag-picker-hint"
+    />
+    <mat-hint id="tag-picker-hint">
+      {{
+        full() ? 'You reached ' + max + ' tags. Remove one to add another.' : 'Press Enter to add.'
+      }}
+    </mat-hint>
+  </mat-form-field>
+
+  @if (customCandidate(); as candidate) {
+    <button
+      matButton="tonal"
+      type="button"
+      class="tags__create"
+      [disabled]="full() || disabled()"
+      (click)="addCustom()"
+    >
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Add “{{ candidate }}” as a custom tag
+    </button>
+  }
+
+  <div class="tags__suggestions" aria-live="polite">
+    @if (result().loading && result().tags.length === 0) {
+      <span class="visually-hidden">Loading tags</span>
+      <app-skeleton width="100%" height="2rem" />
+    } @else if (result().error; as error) {
+      <app-error-state
+        compact
+        title="Tags could not load"
+        [message]="error.message"
+        (retry)="retry()"
+      />
+    } @else if (suggestions().length === 0) {
+      <p class="tags__empty">
+        {{ query().trim() ? 'No matching tags.' : 'You picked every suggested tag.' }}
+      </p>
+    } @else {
+      <ul class="tags__list" aria-label="Suggested tags">
+        @for (tag of suggestions(); track tag.id) {
+          <li>
+            <button
+              type="button"
+              class="tags__suggestion"
+              [disabled]="full() || disabled()"
+              (click)="add(tag)"
+            >
+              <mat-icon aria-hidden="true">add</mat-icon>
+              {{ tag.label }}
+              @if (tag.usageCount > 0) {
+                <span class="tags__usage">{{ tag.usageCount }}</span>
+              }
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

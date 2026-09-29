@@ -21,8 +21,11 @@ public enum ErrorCode {
     REAUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "Re-authentication required"),
     /** The account is suspended, pending deletion or deleted. */
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "Account suspended"),
-    /** A feature flag disables the requested capability. */
-    FEATURE_DISABLED(HttpStatus.FORBIDDEN, "Feature disabled"),
+    /**
+     * A feature flag disables the requested capability. Rendered as 404 (the capability does not
+     * exist for the caller), with the {@code feature} extension.
+     */
+    FEATURE_DISABLED(HttpStatus.NOT_FOUND, "Feature disabled"),
     /** The recipient does not accept messages from the caller (privacy settings or block). */
     MESSAGING_BLOCKED(HttpStatus.FORBIDDEN, "Messaging blocked"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
@@ -33,7 +36,10 @@ public enum ErrorCode {
     /** The caller has not accepted the current version of a required legal document. */
     TERMS_ACCEPTANCE_REQUIRED(HttpStatus.PRECONDITION_REQUIRED, "Terms acceptance required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
-    /** A freemium usage limit was reached ({@code limit}, {@code used}, {@code upgradeUrl}). */
+    /**
+     * A freemium usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used},
+     * {@code resetsAt}, {@code upgradeUrl}).
+     */
     LIMIT_REACHED(HttpStatus.TOO_MANY_REQUESTS, "Limit reached"),
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload too large"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type"),

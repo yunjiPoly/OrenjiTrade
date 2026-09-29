@@ -32,7 +32,15 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.scss"]
+            "styles": [
+              "src/styles.scss",
+              {
+                "input": "../../node_modules/leaflet/dist/leaflet.css",
+                "bundleName": "leaflet",
+                "inject": false
+              }
+            ],
+            "allowedCommonJsDependencies": ["leaflet"]
           },
           "configurations": {
             "production": {

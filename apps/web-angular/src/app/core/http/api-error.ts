@@ -18,6 +18,8 @@ export interface ProblemDetailBody {
   suspendedUntil?: string;
   /** `RATE_LIMITED` (429). */
   retryAfterSeconds?: number;
+  /** `DELETION_BLOCKED` (409): open obligations that prevent the account deletion. */
+  blockers?: string[];
 }
 
 export interface ApiErrorShape {

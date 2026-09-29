@@ -26,6 +26,10 @@
   ],
   "tags": [
     {
+      "name": "admin-feature-flags",
+      "description": "Feature flags (admin console)"
+    },
+    {
       "name": "legal",
       "description": "Published legal documents"
     },
@@ -58,6 +62,18 @@
       "description": "The caller's public profile, avatar and tags"
     },
     {
+      "name": "catalog",
+      "description": "Games, sets, cards and printings (public catalog)"
+    },
+    {
+      "name": "admin-catalog",
+      "description": "Catalog administration (admin console)"
+    },
+    {
+      "name": "settings",
+      "description": "Privacy and notification settings of the caller"
+    },
+    {
       "name": "collectors",
       "description": "Public collector profiles"
     },
@@ -70,8 +86,16 @@
       "description": "Audit log (admin console)"
     },
     {
-      "name": "settings",
-      "description": "Privacy and notification settings of the caller"
+      "name": "plans",
+      "description": "Plans, usage limits and entitlements (freemium)"
+    },
+    {
+      "name": "feature-flags",
+      "description": "Feature flags (ADR 0014)"
+    },
+    {
+      "name": "admin-plans",
+      "description": "Plans and usage limits (admin console)"
     }
   ],
   "paths": {
@@ -740,6 +764,655 @@
         "responses": {
           "204": {
             "description": "Roles updated"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/usage-limits/{id}": {
+      "put": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "Change a usage limit (SUPER_ADMIN)",
+        "description": "Live edit: every instance applies the new value at once (cache evicted); counters keep their usage. Audited (`usage_limit.update`).",
+        "operationId": "updateUsageLimit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUsageLimitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUsageLimit"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sets/{id}": {
+      "put": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Change a card set (ADMIN, SUPER_ADMIN)",
+        "description": "The code cannot change. Audited (`card_set.update`).",
+        "operationId": "updateSet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/printings/{id}": {
+      "put": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Change a printing (ADMIN, SUPER_ADMIN)",
+        "description": "Audited (`card_printing.update`).",
+        "operationId": "updatePrinting",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPrintingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintingDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/plans/{code}": {
+      "put": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "Change a plan (SUPER_ADMIN)",
+        "description": "Name, description, display price, active flag, order and feature switches (listed features are upserted). FREE cannot be disabled. Audited (`plan.update`).",
+        "operationId": "updatePlan",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPlan"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/games/{slug}": {
+      "put": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Change a game and its schema (ADMIN, SUPER_ADMIN)",
+        "description": "Name, publisher, status (HIDDEN removes it from public endpoints and profile choices), order and GameSchema. The slug is immutable. Audited (`game.update`).",
+        "operationId": "updateGame",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/feature-flags/{key}": {
+      "put": {
+        "tags": [
+          "admin-feature-flags"
+        ],
+        "summary": "Change a feature flag (SUPER_ADMIN)",
+        "description": "Flags are created by migrations; unknown keys are 404. Takes effect on every instance at once (cache evicted). Audited (`feature_flag.update`).",
+        "operationId": "updateFeatureFlag",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFeatureFlagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlag"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cards/{id}": {
+      "put": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Change a card (ADMIN, SUPER_ADMIN)",
+        "description": "Name, types, text and metadata; the slug is kept. Audited (`card.update`).",
+        "operationId": "updateCard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDetail"
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
@@ -1488,6 +2161,676 @@
         }
       }
     },
+    "/api/v1/admin/users/{id}/entitlements": {
+      "get": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "Entitlements of an account (ADMIN, SUPER_ADMIN)",
+        "description": "Active, expired and revoked entitlements, newest first.",
+        "operationId": "listUserEntitlements",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Entitlement"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "Grant an entitlement (ADMIN, SUPER_ADMIN)",
+        "description": "Overrides a plan limit (`value` = number or `unlimited`) or feature (`true` / `false`) for one account, optionally until `expiresAt`. Takes effect at once. Audited (`entitlement.grant`).",
+        "operationId": "grantEntitlement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantEntitlementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entitlement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sets": {
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Create a card set (ADMIN, SUPER_ADMIN)",
+        "description": "409 when the code exists for the game. Audited (`card_set.create`).",
+        "operationId": "createSet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/games": {
+      "get": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "List games including hidden ones (ADMIN, SUPER_ADMIN)",
+        "operationId": "listAdminGames",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Create a game (ADMIN, SUPER_ADMIN)",
+        "description": "409 when the slug exists. Audited (`game.create`).",
+        "operationId": "createGame",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/catalog/sync": {
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Queue a catalog import (ADMIN, SUPER_ADMIN)",
+        "description": "Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Poll `GET /admin/catalog/sync-runs/{id}`. Audited (`catalog.sync.request`).",
+        "operationId": "requestCatalogSync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSyncRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cards": {
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Create a card (ADMIN, SUPER_ADMIN)",
+        "description": "The slug is derived from the name (suffixed when taken) and never changes. Metadata of declared GameSchema fields must have the declared type. Audited (`card.create`).",
+        "operationId": "createCard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/cards/{id}/printings": {
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Add a printing to a card (ADMIN, SUPER_ADMIN)",
+        "description": "Set of the same game; edition, language, finish and rarity from the GameSchema; 409 for a duplicate (set, number, edition, language, finish). Audited (`card_printing.create`).",
+        "operationId": "createPrinting",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPrintingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintingDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tags": {
       "get": {
         "tags": [
@@ -1604,6 +2947,244 @@
         }
       }
     },
+    "/api/v1/sets": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Search card sets (public)",
+        "description": "Newest first. `query` matches the exact code first, then the name (full text, substring, trigram).",
+        "operationId": "listSets",
+        "parameters": [
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseSetSummary"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/sets/{id}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Set with a page of its printings (public)",
+        "description": "Printings by collector number; `page`/`size` page them.",
+        "operationId": "getSet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/public/placeholder-images/{game}/{file}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Card placeholder image (SVG)",
+        "description": "`file` is `<card slug>.svg`. Generated on the server from the card name; no scripts or external references. Public cache for a day, ETag.",
+        "operationId": "getPlaceholderImage",
+        "parameters": [
+          {
+            "name": "game",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The SVG image",
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/public/media/{key}": {
       "get": {
         "tags": [
@@ -1716,6 +3297,155 @@
         "security": []
       }
     },
+    "/api/v1/public/feature-flags": {
+      "get": {
+        "tags": [
+          "feature-flags"
+        ],
+        "summary": "Client-visible feature flags (public)",
+        "description": "Map of flag key to effective value. Anonymous callers see flags rolled out to everybody; with a bearer token, partial rollouts are evaluated for the caller. Flags change live through the admin console.",
+        "operationId": "getFeatureFlags",
+        "responses": {
+          "200": {
+            "description": "Flags by key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "example": {
+                    "mlScanning": false,
+                    "publicChat": true
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/printings/{id}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Printing with card, set, images and metadata (public)",
+        "operationId": "getPrinting",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintingDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Active plans with features and limits (public)",
+        "description": "Ordered for display (FREE first). `limit` null means unlimited.",
+        "operationId": "listPlans",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Plan"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "tags": [
@@ -1773,6 +3503,78 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/plan": {
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "The caller's plan, limits with usage, features and entitlements",
+        "description": "Limits carry the effective value (entitlements override the plan), the usage of the current window and when it resets (UTC day or month; null for totals and caps).",
+        "operationId": "getMyPlan",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyPlan"
                 }
               }
             }
@@ -2109,6 +3911,105 @@
         }
       }
     },
+    "/api/v1/games": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Supported games with their schema (public)",
+        "description": "ACTIVE games in display order, each with its GameSchema.",
+        "operationId": "listGames",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameResponse"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/games/{slug}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "One game with its schema (public)",
+        "description": "404 for unknown or hidden games.",
+        "operationId": "getGame",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/collectors/{handle}": {
       "get": {
         "tags": [
@@ -2199,6 +4100,333 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/cards": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Search cards (public)",
+        "description": "Full-text search on name, type and text (accent-insensitive, `simple` config) ranked with ts_rank_cd, plus trigram typo tolerance when fewer than 5 rows match. An exact printing code (`AZR-EN001`) returns that card only. Filters: `game`, `set` (id or code), printing `rarity`, `language`, `edition`, and `metadata.<key>=<value>` for the game's filterable GameSchema fields (requires `game`; number, string, string_list and boolean fields; repeat a string_list key to require several values). Without `query`: by name. `metadata` in the results holds the game's summary fields.",
+        "operationId": "searchCards",
+        "parameters": [
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug, e.g. yugioh",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Free text or printing code",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "set",
+            "in": "query",
+            "description": "Set id or set code",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "rarity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "description": "ISO 639-1 code",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 2,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "edition",
+            "in": "query",
+            "description": "Edition code, e.g. FIRST_EDITION",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseCardSummary"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/cards/{id}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Card with metadata and printings (public)",
+        "description": "404 for unknown cards and cards of hidden games.",
+        "operationId": "getCard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/cards/{id}/printings": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Printings of a card (public)",
+        "description": "Earliest set first; images default to the placeholder SVG.",
+        "operationId": "listCardPrintings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PrintingSummary"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/cards/suggest": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Autocomplete cards and printing codes (public)",
+        "description": "Printing-code prefixes (`AZR-EN0`) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD).",
+        "operationId": "suggestCards",
+        "parameters": [
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Typed text",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CardSuggestion"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
       }
     },
     "/api/v1/admin/users": {
@@ -2364,6 +4592,510 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminUserDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/usage-limits": {
+      "get": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "List usage limits (ADMIN, SUPER_ADMIN)",
+        "description": "Every limit of every plan (optionally one plan), by plan then key.",
+        "operationId": "listUsageLimits",
+        "parameters": [
+          {
+            "name": "plan",
+            "in": "query",
+            "description": "Plan code filter, e.g. FREE",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUsageLimit"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/plans": {
+      "get": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "List plans with features and limits (ADMIN, SUPER_ADMIN)",
+        "description": "Active and inactive plans, by sort order.",
+        "operationId": "listAdminPlans",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminPlan"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/feature-flags": {
+      "get": {
+        "tags": [
+          "admin-feature-flags"
+        ],
+        "summary": "List feature flags (ADMIN, SUPER_ADMIN)",
+        "description": "Every flag with its rollout, description and last editor, by key.",
+        "operationId": "listFeatureFlags",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FeatureFlag"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/catalog/sync-runs": {
+      "get": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Catalog import runs (ADMIN, SUPER_ADMIN)",
+        "description": "Newest first, optionally for one game.",
+        "operationId": "listCatalogSyncRuns",
+        "parameters": [
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseCatalogSyncRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/catalog/sync-runs/{id}": {
+      "get": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "One catalog import run (ADMIN, SUPER_ADMIN)",
+        "operationId": "getCatalogSyncRun",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSyncRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/catalog/providers": {
+      "get": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Card providers and the games they serve (ADMIN, SUPER_ADMIN)",
+        "operationId": "listCatalogProviders",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -2607,6 +5339,91 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/entitlements/{entitlementId}": {
+      "delete": {
+        "tags": [
+          "admin-plans"
+        ],
+        "summary": "Revoke an entitlement (ADMIN, SUPER_ADMIN)",
+        "description": "404 when the entitlement does not belong to the account or is no longer active. Audited (`entitlement.revoke`).",
+        "operationId": "revokeEntitlement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "entitlementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
           },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
@@ -3234,6 +6051,948 @@
           "roles"
         ]
       },
+      "UpdateUsageLimitRequest": {
+        "type": "object",
+        "description": "Usage limit change (takes effect at once on every instance)",
+        "properties": {
+          "unlimited": {
+            "type": "boolean"
+          },
+          "maxValue": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 1000000,
+            "minimum": 0
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "DAY",
+              "MONTH",
+              "TOTAL"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "unlimited"
+        ]
+      },
+      "AdminUsageLimit": {
+        "type": "object",
+        "description": "Usage limit of a plan (admin view)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "planCode": {
+            "type": "string",
+            "example": "FREE"
+          },
+          "key": {
+            "type": "string",
+            "example": "binder.views.per_day"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "COUNTER",
+              "CAP"
+            ]
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "DAY",
+              "MONTH",
+              "TOTAL"
+            ]
+          },
+          "maxValue": {
+            "type": "integer",
+            "format": "int32",
+            "description": "null means unlimited",
+            "example": 30
+          },
+          "unlimited": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminSetRequest": {
+        "type": "object",
+        "description": "Card set creation or change",
+        "properties": {
+          "gameSlug": {
+            "type": "string",
+            "example": "yugioh",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "code": {
+            "type": "string",
+            "example": "AZR",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9]{2,10}$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 0
+          },
+          "releaseDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "totalCards": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 100000,
+            "minimum": 0
+          },
+          "series": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "SetSummary": {
+        "type": "object",
+        "description": "Card set",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "code": {
+            "type": "string",
+            "example": "AZR"
+          },
+          "name": {
+            "type": "string",
+            "example": "Azure Dawn"
+          },
+          "releaseDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "totalCards": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "series": {
+            "type": "string"
+          },
+          "printingCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AdminPrintingRequest": {
+        "type": "object",
+        "description": "Printing creation or change",
+        "properties": {
+          "setId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "collectorNumber": {
+            "type": "string",
+            "example": "EN001",
+            "maxLength": 20,
+            "minLength": 0
+          },
+          "printingCode": {
+            "type": "string",
+            "example": "AZR-EN001",
+            "maxLength": 23,
+            "minLength": 0
+          },
+          "rarity": {
+            "type": "string",
+            "example": "Ultra Rare",
+            "maxLength": 40,
+            "minLength": 0
+          },
+          "edition": {
+            "type": "string",
+            "example": "FIRST_EDITION",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "language": {
+            "type": "string",
+            "example": "en",
+            "maxLength": 2,
+            "minLength": 0
+          },
+          "finish": {
+            "type": "string",
+            "example": "NORMAL",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "marketPrice": {
+            "type": "number",
+            "maximum": 9999999.99,
+            "minimum": 0.0
+          },
+          "marketPriceCurrency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "collectorNumber",
+          "edition",
+          "finish",
+          "language",
+          "setId"
+        ]
+      },
+      "CardSummary": {
+        "type": "object",
+        "description": "Card in search results",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "name": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "slug": {
+            "type": "string",
+            "example": "azure-eyes-sky-dragon"
+          },
+          "cardType": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "primaryImageUrl": {
+            "type": "string"
+          },
+          "printingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "MarketPrice": {
+        "type": "object",
+        "description": "Indicative market price (display only)",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 18.5
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PrintingDetail": {
+        "type": "object",
+        "description": "Printing with card, set and metadata",
+        "properties": {
+          "printing": {
+            "$ref": "#/components/schemas/PrintingSummary"
+          },
+          "card": {
+            "$ref": "#/components/schemas/CardSummary"
+          },
+          "set": {
+            "$ref": "#/components/schemas/SetSummary"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "PrintingImage": {
+        "type": "object",
+        "description": "Image of a printing",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FRONT",
+              "BACK",
+              "ART_CROP"
+            ],
+            "example": "FRONT"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PrintingSummary": {
+        "type": "object",
+        "description": "Printing of a card",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "setId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "setCode": {
+            "type": "string",
+            "example": "AZR"
+          },
+          "setName": {
+            "type": "string",
+            "example": "Azure Dawn"
+          },
+          "collectorNumber": {
+            "type": "string",
+            "example": "EN001"
+          },
+          "printingCode": {
+            "type": "string",
+            "example": "AZR-EN001"
+          },
+          "rarity": {
+            "type": "string",
+            "example": "Ultra Rare"
+          },
+          "edition": {
+            "type": "string",
+            "example": "FIRST_EDITION"
+          },
+          "language": {
+            "type": "string",
+            "example": "en"
+          },
+          "finish": {
+            "type": "string",
+            "example": "NORMAL"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrintingImage"
+            }
+          },
+          "marketPrice": {
+            "$ref": "#/components/schemas/MarketPrice"
+          }
+        }
+      },
+      "PlanFeatureChange": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 0,
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "enabled",
+          "key"
+        ]
+      },
+      "UpdatePlanRequest": {
+        "type": "object",
+        "description": "Plan change",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "monthlyPrice": {
+            "type": "number",
+            "maximum": 9999.99,
+            "minimum": 0.0
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 10000,
+            "minimum": 0
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanFeatureChange"
+            },
+            "maxItems": 50,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "active",
+          "currency",
+          "monthlyPrice",
+          "name",
+          "sortOrder"
+        ]
+      },
+      "AdminPlan": {
+        "type": "object",
+        "description": "Plan with features and limits (admin view)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "FREE"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "monthlyPrice": {
+            "type": "number",
+            "example": 4.99
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanFeature"
+            }
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageLimit"
+            }
+          },
+          "updatedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PlanFeature": {
+        "type": "object",
+        "description": "Feature switch of a plan",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "filters.advanced"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "UsageLimit": {
+        "type": "object",
+        "description": "Usage limit of a plan",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string",
+            "example": "binder.views.per_day"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "COUNTER",
+              "CAP"
+            ]
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "DAY",
+              "MONTH",
+              "TOTAL"
+            ]
+          },
+          "maxValue": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The limit; null means unlimited",
+            "example": 30
+          },
+          "description": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GameMetadataField": {
+        "type": "object",
+        "description": "Game-specific card attribute",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][A-Za-z0-9]{0,39}$"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 0
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "string_list",
+              "boolean"
+            ],
+            "minLength": 1,
+            "pattern": "^(string|number|string_list|boolean)$"
+          },
+          "filterable": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 0
+            },
+            "maxItems": 60,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "type"
+        ]
+      },
+      "GameRequest": {
+        "type": "object",
+        "description": "Game creation or change",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Required on creation, ignored on update",
+            "example": "lorcana",
+            "maxLength": 32,
+            "minLength": 2,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "shortName": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 0
+          },
+          "publisher": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "HIDDEN"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 10000,
+            "minimum": 0
+          },
+          "schema": {
+            "$ref": "#/components/schemas/GameSchema"
+          }
+        },
+        "required": [
+          "name",
+          "publisher",
+          "schema",
+          "shortName",
+          "sortOrder",
+          "status"
+        ]
+      },
+      "GameSchema": {
+        "type": "object",
+        "description": "Vocabularies and metadata fields of a game",
+        "properties": {
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            },
+            "maxItems": 20,
+            "minItems": 0
+          },
+          "editions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            },
+            "maxItems": 20,
+            "minItems": 1
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z]{2}$"
+            },
+            "maxItems": 30,
+            "minItems": 1
+          },
+          "finishes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            },
+            "maxItems": 20,
+            "minItems": 1
+          },
+          "rarities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 0
+            },
+            "maxItems": 40,
+            "minItems": 0
+          },
+          "metadataFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameMetadataField"
+            },
+            "maxItems": 40,
+            "minItems": 0
+          },
+          "summaryFields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 10,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "conditions",
+          "editions",
+          "finishes",
+          "languages",
+          "metadataFields",
+          "rarities",
+          "summaryFields"
+        ]
+      },
+      "GameResponse": {
+        "type": "object",
+        "description": "Supported trading card game",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "name": {
+            "type": "string",
+            "example": "Yu-Gi-Oh! Trading Card Game"
+          },
+          "shortName": {
+            "type": "string",
+            "example": "Yu-Gi-Oh!"
+          },
+          "publisher": {
+            "type": "string",
+            "example": "Konami"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "HIDDEN"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "schema": {
+            "$ref": "#/components/schemas/GameSchema"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateFeatureFlagRequest": {
+        "type": "object",
+        "description": "Feature flag change",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "rolloutPercent": {
+            "type": "integer",
+            "format": "int32",
+            "example": 100,
+            "maximum": 100,
+            "minimum": 0
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "FeatureFlag": {
+        "type": "object",
+        "description": "Feature flag (admin view)",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "advertising"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rolloutPercent": {
+            "type": "integer",
+            "format": "int32",
+            "example": 100,
+            "maximum": 100,
+            "minimum": 0
+          },
+          "description": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminCardRequest": {
+        "type": "object",
+        "description": "Card creation or change",
+        "properties": {
+          "gameSlug": {
+            "type": "string",
+            "example": "yugioh",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 0
+          },
+          "cardType": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 0
+          },
+          "subtype": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 0
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CardDetail": {
+        "type": "object",
+        "description": "Card with metadata and printings",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "game": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "cardType": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "primaryImageUrl": {
+            "type": "string"
+          },
+          "printings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrintingSummary"
+            }
+          }
+        }
+      },
       "PingJobResponse": {
         "type": "object",
         "properties": {
@@ -3411,6 +7170,271 @@
           "reason"
         ]
       },
+      "GrantEntitlementRequest": {
+        "type": "object",
+        "description": "Entitlement grant",
+        "properties": {
+          "featureKey": {
+            "type": "string",
+            "example": "binder.views.per_day",
+            "maxLength": 64,
+            "minLength": 0
+          },
+          "value": {
+            "type": "string",
+            "example": "unlimited",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "featureKey"
+        ]
+      },
+      "Entitlement": {
+        "type": "object",
+        "description": "Per-user override of a plan feature or limit",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "featureKey": {
+            "type": "string",
+            "example": "binder.views.per_day"
+          },
+          "value": {
+            "type": "string",
+            "description": "Features: true/false (null = true). Limits: a number (null = unlimited)"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "SUBSCRIPTION",
+              "ADMIN_GRANT",
+              "PROMO",
+              "CREDIT_PURCHASE"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "grantedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CatalogSyncRequest": {
+        "type": "object",
+        "description": "Catalog sync request",
+        "properties": {
+          "gameSlug": {
+            "type": "string",
+            "example": "yugioh",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "provider": {
+            "type": "string",
+            "example": "mock",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "INCREMENTAL"
+            ]
+          }
+        },
+        "required": [
+          "gameSlug",
+          "mode",
+          "provider"
+        ]
+      },
+      "CatalogSyncRun": {
+        "type": "object",
+        "description": "Catalog import run",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "mock"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "INCREMENTAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED"
+            ]
+          },
+          "requestedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "setsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "printingsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "PageResponseSetSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/SetSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "PageResponsePrintingSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/PrintingSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "SetDetail": {
+        "type": "object",
+        "description": "Card set with a page of its printings",
+        "properties": {
+          "set": {
+            "$ref": "#/components/schemas/SetSummary"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "printings": {
+            "$ref": "#/components/schemas/PageResponsePrintingSummary"
+          }
+        }
+      },
       "LegalDocument": {
         "type": "object",
         "description": "A published legal document",
@@ -3452,6 +7476,77 @@
           "url",
           "version"
         ]
+      },
+      "Plan": {
+        "type": "object",
+        "description": "Subscription plan with its features and limits",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "PREMIUM"
+          },
+          "name": {
+            "type": "string",
+            "example": "Premium"
+          },
+          "description": {
+            "type": "string"
+          },
+          "monthlyPrice": {
+            "type": "number",
+            "example": 4.99
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanFeature"
+            }
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanLimit"
+            }
+          }
+        }
+      },
+      "PlanLimit": {
+        "type": "object",
+        "description": "Usage limit of a plan",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "binder.views.per_day"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "COUNTER",
+              "CAP"
+            ]
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "DAY",
+              "MONTH",
+              "TOTAL"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "null means unlimited",
+            "example": 30
+          },
+          "description": {
+            "type": "string"
+          }
+        }
       },
       "MetaResponse": {
         "type": "object",
@@ -3623,6 +7718,133 @@
           "documentType",
           "version"
         ]
+      },
+      "LimitStatus": {
+        "type": "object",
+        "description": "Effective usage limit of the caller",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "binder.views.per_day"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "COUNTER",
+              "CAP"
+            ]
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "DAY",
+              "MONTH",
+              "TOTAL"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Effective limit; null means unlimited",
+            "example": 30
+          },
+          "used": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "remaining": {
+            "type": "integer",
+            "format": "int64",
+            "example": 18
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "planCode": {
+            "type": "string",
+            "example": "FREE"
+          },
+          "overridden": {
+            "type": "boolean"
+          },
+          "upgradeUrl": {
+            "type": "string",
+            "example": "/premium"
+          }
+        }
+      },
+      "MyEntitlement": {
+        "type": "object",
+        "description": "Active entitlement of the caller",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "featureKey": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "SUBSCRIPTION",
+              "ADMIN_GRANT",
+              "PROMO",
+              "CREDIT_PURCHASE"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "grantedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MyPlan": {
+        "type": "object",
+        "description": "The caller's plan, limits, features and entitlements",
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LimitStatus"
+            }
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "example": {
+              "filters.advanced": false,
+              "ads.enabled": true
+            }
+          },
+          "entitlements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyEntitlement"
+            }
+          },
+          "upgradeUrl": {
+            "type": "string",
+            "example": "/premium"
+          }
+        }
       },
       "PingResponse": {
         "type": "object",
@@ -3829,6 +8051,79 @@
           "label",
           "slug"
         ]
+      },
+      "PageResponseCardSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/CardSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "CardSuggestion": {
+        "type": "object",
+        "description": "Autocomplete entry (card or printing)",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CARD",
+              "PRINTING"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "game": {
+            "type": "string"
+          },
+          "setCode": {
+            "type": "string"
+          },
+          "printingCode": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          }
+        }
       },
       "AdminUserSummary": {
         "type": "object",
@@ -4153,6 +8448,43 @@
           "status"
         ]
       },
+      "PageResponseCatalogSyncRun": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/CatalogSyncRun"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
       "PageResponseAuditLogEntry": {
         "type": "object",
         "description": "Offset-paginated list",
@@ -4291,6 +8623,37 @@
             "items": {
               "type": "string"
             }
+          },
+          "limitKey": {
+            "type": "string",
+            "description": "Limit that was reached (LIMIT_REACHED), e.g. binder.views.per_day"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Effective limit of the caller (LIMIT_REACHED)"
+          },
+          "used": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Usage in the current window, or the requested value of a cap (LIMIT_REACHED)"
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the window resets (LIMIT_REACHED; absent for totals and caps)"
+          },
+          "planCode": {
+            "type": "string",
+            "description": "The caller's plan (LIMIT_REACHED), e.g. FREE"
+          },
+          "upgradeUrl": {
+            "type": "string",
+            "description": "Where to send the user to upgrade (LIMIT_REACHED): /premium"
+          },
+          "feature": {
+            "type": "string",
+            "description": "Feature flag that is off for the caller (FEATURE_DISABLED)"
           }
         },
         "required": [

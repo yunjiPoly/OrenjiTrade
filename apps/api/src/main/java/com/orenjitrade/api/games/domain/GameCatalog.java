@@ -4,9 +4,8 @@ import java.util.List;
 
 /**
  * The games module's service interface for game slugs ({@code yugioh}, {@code pokemon}, {@code
- * mtg}, {@code riftbound}). Until the Phase 2 catalogue lands it is backed by the {@code
- * orenji.games.slugs} property ({@code ConfiguredGameCatalog}); the database-backed catalogue will
- * replace that implementation without touching callers.
+ * mtg}, {@code riftbound}, ...). Backed by the {@code game} table ({@link GameService}): only
+ * ACTIVE games are listed, so hiding a game in the admin console removes it from profile choices.
  */
 public interface GameCatalog {
 

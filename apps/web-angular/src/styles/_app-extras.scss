@@ -1,0 +1,63 @@
+// App-level custom properties and styles for DOM rendered outside Angular's view encapsulation
+// (Leaflet markers, Material overlays). Component styles stay in their components.
+
+// Accent colours of the four games (decorative card art, game chips). Mid-tone values that keep
+// white text readable on light and dark surfaces.
+html {
+  --game-pokemon: #d97706;
+  --game-yugioh: #7c3aed;
+  --game-mtg: #15803d;
+  --game-riftbound: #0284c7;
+}
+
+// Map pins drawn by the Leaflet adapter (L.divIcon with these classes).
+.orenji-map-pin {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+}
+
+.orenji-map-pin__dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--color-primary);
+  border: 3px solid #fff;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.35);
+}
+
+.orenji-map-pin--collector .orenji-map-pin__dot {
+  background: var(--color-accent);
+}
+
+.orenji-map-pin--self .orenji-map-pin__dot {
+  background: var(--color-ink);
+}
+
+.leaflet-marker-draggable {
+  cursor: grab;
+}
+
+// Leaflet containers take the token font and a focus ring consistent with the app.
+.leaflet-container {
+  font-family: var(--font-body);
+  background: var(--color-surface-variant);
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-width) * -1);
+  }
+}
+
+// Dialog widths used by feature dialogs.
+.app-dialog--md {
+  width: min(560px, calc(100vw - 32px));
+}
+
+// Error toast panel (errorInterceptor) keeps the danger accent.
+.app-toast--error {
+  --mat-snack-bar-button-color: var(--color-warning);
+}

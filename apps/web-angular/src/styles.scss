@@ -4,6 +4,7 @@
 // 3. Base element styles, accessibility helpers and small utilities. Everything else lives in components.
 @use '@angular/material' as mat;
 @use './theme/theme-colors' as brand;
+@use './styles/app-extras';
 
 @import '../../../packages/design-tokens/dist/tokens.css';
 

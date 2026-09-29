@@ -25,6 +25,7 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     PublicServiceInterface,
+    GetPlaceholderImageRequestParams,
     GetPublicMediaRequestParams
 } from './public.serviceInterface';
 
@@ -37,6 +38,62 @@ export class PublicService extends BaseService implements PublicServiceInterface
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Card placeholder image (SVG)
+     * &#x60;file&#x60; is &#x60;&lt;card slug&gt;.svg&#x60;. Generated on the server from the card name; no scripts or external references. Public cache for a day, ETag.
+     * @endpoint get /api/v1/public/placeholder-images/{game}/{file}
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getPlaceholderImage(requestParameters: GetPlaceholderImageRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'image/svg+xml' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Blob>;
+    public getPlaceholderImage(requestParameters: GetPlaceholderImageRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'image/svg+xml' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Blob>>;
+    public getPlaceholderImage(requestParameters: GetPlaceholderImageRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'image/svg+xml' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Blob>>;
+    public getPlaceholderImage(requestParameters: GetPlaceholderImageRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'image/svg+xml' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const game = requestParameters?.game;
+        if (game === null || game === undefined) {
+            throw new Error('Required parameter game was null or undefined when calling getPlaceholderImage.');
+        }
+        const file = requestParameters?.file;
+        if (file === null || file === undefined) {
+            throw new Error('Required parameter file was null or undefined when calling getPlaceholderImage.');
+        }
+        const ifNoneMatch = requestParameters?.ifNoneMatch;
+
+        let localVarHeaders = this.defaultHeaders;
+        if (ifNoneMatch !== undefined && ifNoneMatch !== null) {
+            localVarHeaders = localVarHeaders.set('If-None-Match', String(ifNoneMatch));
+        }
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'image/svg+xml',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let localVarPath = `/api/v1/public/placeholder-images/${this.configuration.encodeParam({name: "game", value: game, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}/${this.configuration.encodeParam({name: "file", value: file, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: "blob",
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**

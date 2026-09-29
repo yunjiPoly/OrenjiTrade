@@ -1,0 +1,863 @@
+{
+  "game": "riftbound",
+  "sets": [
+    {
+      "id": "rb-set-rfa",
+      "code": "RFA",
+      "name": "Riftborn Awakening",
+      "releaseDate": "2025-06-20",
+      "totalCards": 220,
+      "series": "Season One",
+      "metadata": {}
+    },
+    {
+      "id": "rb-set-spf",
+      "code": "SPF",
+      "name": "Spiritforged Paths",
+      "releaseDate": "2025-09-12",
+      "totalCards": 220,
+      "series": "Season One",
+      "metadata": {}
+    },
+    {
+      "id": "rb-set-unt",
+      "code": "UNT",
+      "name": "Unleashed Tides",
+      "releaseDate": "2026-01-16",
+      "totalCards": 220,
+      "series": "Season Two",
+      "metadata": {}
+    },
+    {
+      "id": "rb-set-arc",
+      "code": "ARC",
+      "name": "Arcane Convergence",
+      "releaseDate": "2026-04-10",
+      "totalCards": 220,
+      "series": "Season Two",
+      "metadata": {}
+    }
+  ],
+  "cards": [
+    {
+      "id": "rb-c001",
+      "name": "Emberveil Duelist",
+      "cardType": "Unit",
+      "subtype": "Fury",
+      "text": "Fictional Fury unit from Riftborn Awakening.",
+      "metadata": {
+        "domain": "Fury",
+        "energy": 3,
+        "might": 4,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p001a",
+          "set": "RFA",
+          "number": "001",
+          "code": "RFA-001",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 3.5,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p001b",
+          "set": "RFA",
+          "number": "001",
+          "code": "RFA-001",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c002",
+      "name": "Stoneward Sentinel",
+      "cardType": "Unit",
+      "subtype": "Body",
+      "text": "Fictional Body unit from Spiritforged Paths.",
+      "metadata": {
+        "domain": "Body",
+        "energy": 4,
+        "might": 5,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p002a",
+          "set": "SPF",
+          "number": "002",
+          "code": "SPF-002",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.6,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p002b",
+          "set": "SPF",
+          "number": "002",
+          "code": "SPF-002",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 1.08,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c003",
+      "name": "Whisperleaf Scout",
+      "cardType": "Unit",
+      "subtype": "Calm",
+      "text": "Fictional Calm unit from Unleashed Tides.",
+      "metadata": {
+        "domain": "Calm",
+        "energy": 2,
+        "might": 2,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p003a",
+          "set": "UNT",
+          "number": "003",
+          "code": "UNT-003",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p003b",
+          "set": "UNT",
+          "number": "003",
+          "code": "UNT-003",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.18,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c004",
+      "name": "Chronoflux Adept",
+      "cardType": "Unit",
+      "subtype": "Mind",
+      "text": "Fictional Mind unit from Arcane Convergence.",
+      "metadata": {
+        "domain": "Mind",
+        "energy": 3,
+        "might": 3,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p004a",
+          "set": "ARC",
+          "number": "004",
+          "code": "ARC-004",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 2.8,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p004b",
+          "set": "ARC",
+          "number": "004",
+          "code": "ARC-004",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c005",
+      "name": "Riftstorm Surge",
+      "cardType": "Spell",
+      "subtype": "Chaos",
+      "text": "Fictional Chaos spell from Riftborn Awakening.",
+      "metadata": {
+        "domain": "Chaos",
+        "energy": 2,
+        "might": 0,
+        "type": "Spell"
+      },
+      "printings": [
+        {
+          "id": "rb-p005a",
+          "set": "RFA",
+          "number": "021",
+          "code": "RFA-021",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.4,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p005b",
+          "set": "RFA",
+          "number": "021",
+          "code": "RFA-021",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.72,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c006",
+      "name": "Bastion of Dawn",
+      "cardType": "Unit",
+      "subtype": "Order",
+      "text": "Fictional Order unit from Spiritforged Paths.",
+      "metadata": {
+        "domain": "Order",
+        "energy": 5,
+        "might": 6,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p006a",
+          "set": "SPF",
+          "number": "022",
+          "code": "SPF-022",
+          "rarity": "Epic",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 11.0,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p006b",
+          "set": "SPF",
+          "number": "022",
+          "code": "SPF-022",
+          "rarity": "Epic",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "FOIL",
+          "price": 19.8,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c007",
+      "name": "Kaelen, Rift Warden",
+      "cardType": "Champion",
+      "subtype": "Order",
+      "text": "Fictional Order champion from Unleashed Tides.",
+      "metadata": {
+        "domain": "Order",
+        "energy": 6,
+        "might": 7,
+        "type": "Champion"
+      },
+      "printings": [
+        {
+          "id": "rb-p007a",
+          "set": "UNT",
+          "number": "023",
+          "code": "UNT-023",
+          "rarity": "Epic",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 24.0,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p007b",
+          "set": "UNT",
+          "number": "023",
+          "code": "UNT-023",
+          "rarity": "Epic",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c008",
+      "name": "Soulbrand Gauntlet",
+      "cardType": "Gear",
+      "subtype": "Fury",
+      "text": "Fictional Fury gear from Arcane Convergence.",
+      "metadata": {
+        "domain": "Fury",
+        "energy": 1,
+        "might": 0,
+        "type": "Gear"
+      },
+      "printings": [
+        {
+          "id": "rb-p008a",
+          "set": "ARC",
+          "number": "024",
+          "code": "ARC-024",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.15,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p008b",
+          "set": "ARC",
+          "number": "024",
+          "code": "ARC-024",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.27,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c009",
+      "name": "Tranquil Grove Keeper",
+      "cardType": "Unit",
+      "subtype": "Calm",
+      "text": "Fictional Calm unit from Riftborn Awakening.",
+      "metadata": {
+        "domain": "Calm",
+        "energy": 4,
+        "might": 4,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p009a",
+          "set": "RFA",
+          "number": "041",
+          "code": "RFA-041",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.45,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p009b",
+          "set": "RFA",
+          "number": "041",
+          "code": "RFA-041",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.81,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c010",
+      "name": "Mindshard Oracle",
+      "cardType": "Unit",
+      "subtype": "Mind",
+      "text": "Fictional Mind unit from Spiritforged Paths.",
+      "metadata": {
+        "domain": "Mind",
+        "energy": 5,
+        "might": 3,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p010a",
+          "set": "SPF",
+          "number": "042",
+          "code": "SPF-042",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.9,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p010b",
+          "set": "SPF",
+          "number": "042",
+          "code": "SPF-042",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c011",
+      "name": "Ironroot Brawler",
+      "cardType": "Unit",
+      "subtype": "Body",
+      "text": "Fictional Body unit from Unleashed Tides.",
+      "metadata": {
+        "domain": "Body",
+        "energy": 3,
+        "might": 4,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p011a",
+          "set": "UNT",
+          "number": "043",
+          "code": "UNT-043",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p011b",
+          "set": "UNT",
+          "number": "043",
+          "code": "UNT-043",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "FOIL",
+          "price": 0.18,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c012",
+      "name": "Havoc Imp",
+      "cardType": "Unit",
+      "subtype": "Chaos",
+      "text": "Fictional Chaos unit from Arcane Convergence.",
+      "metadata": {
+        "domain": "Chaos",
+        "energy": 1,
+        "might": 1,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p012a",
+          "set": "ARC",
+          "number": "044",
+          "code": "ARC-044",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p012b",
+          "set": "ARC",
+          "number": "044",
+          "code": "ARC-044",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.18,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c013",
+      "name": "Lysara, Voice of Tides",
+      "cardType": "Legend",
+      "subtype": "Calm",
+      "text": "Fictional Calm legend from Riftborn Awakening.",
+      "metadata": {
+        "domain": "Calm",
+        "energy": 7,
+        "might": 6,
+        "type": "Legend"
+      },
+      "printings": [
+        {
+          "id": "rb-p013a",
+          "set": "RFA",
+          "number": "061",
+          "code": "RFA-061",
+          "rarity": "Showcase",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 65.0,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p013b",
+          "set": "RFA",
+          "number": "061",
+          "code": "RFA-061",
+          "rarity": "Showcase",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c014",
+      "name": "Arcane Convergence Rite",
+      "cardType": "Spell",
+      "subtype": "Mind",
+      "text": "Fictional Mind spell from Spiritforged Paths.",
+      "metadata": {
+        "domain": "Mind",
+        "energy": 4,
+        "might": 0,
+        "type": "Spell"
+      },
+      "printings": [
+        {
+          "id": "rb-p014a",
+          "set": "SPF",
+          "number": "062",
+          "code": "SPF-062",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.4,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p014b",
+          "set": "SPF",
+          "number": "062",
+          "code": "SPF-062",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 2.52,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c015",
+      "name": "Blazing Onslaught",
+      "cardType": "Spell",
+      "subtype": "Fury",
+      "text": "Fictional Fury spell from Unleashed Tides.",
+      "metadata": {
+        "domain": "Fury",
+        "energy": 3,
+        "might": 0,
+        "type": "Spell"
+      },
+      "printings": [
+        {
+          "id": "rb-p015a",
+          "set": "UNT",
+          "number": "063",
+          "code": "UNT-063",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.35,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p015b",
+          "set": "UNT",
+          "number": "063",
+          "code": "UNT-063",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.63,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c016",
+      "name": "Vanguard Shieldbearer",
+      "cardType": "Unit",
+      "subtype": "Order",
+      "text": "Fictional Order unit from Arcane Convergence.",
+      "metadata": {
+        "domain": "Order",
+        "energy": 2,
+        "might": 3,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p016a",
+          "set": "ARC",
+          "number": "064",
+          "code": "ARC-064",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p016b",
+          "set": "ARC",
+          "number": "064",
+          "code": "ARC-064",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c017",
+      "name": "Chaos Rift Colossus",
+      "cardType": "Unit",
+      "subtype": "Chaos",
+      "text": "Fictional Chaos unit from Riftborn Awakening.",
+      "metadata": {
+        "domain": "Chaos",
+        "energy": 8,
+        "might": 9,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p017a",
+          "set": "RFA",
+          "number": "081",
+          "code": "RFA-081",
+          "rarity": "Epic",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 8.5,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p017b",
+          "set": "RFA",
+          "number": "081",
+          "code": "RFA-081",
+          "rarity": "Epic",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 15.3,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c018",
+      "name": "Mistveil Assassin",
+      "cardType": "Unit",
+      "subtype": "Chaos",
+      "text": "Fictional Chaos unit from Spiritforged Paths.",
+      "metadata": {
+        "domain": "Chaos",
+        "energy": 3,
+        "might": 3,
+        "type": "Unit"
+      },
+      "printings": [
+        {
+          "id": "rb-p018a",
+          "set": "SPF",
+          "number": "082",
+          "code": "SPF-082",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 2.1,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p018b",
+          "set": "SPF",
+          "number": "082",
+          "code": "SPF-082",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 3.78,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c019",
+      "name": "Oathkeeper Blade",
+      "cardType": "Gear",
+      "subtype": "Order",
+      "text": "Fictional Order gear from Unleashed Tides.",
+      "metadata": {
+        "domain": "Order",
+        "energy": 2,
+        "might": 0,
+        "type": "Gear"
+      },
+      "printings": [
+        {
+          "id": "rb-p019a",
+          "set": "UNT",
+          "number": "083",
+          "code": "UNT-083",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.3,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p019b",
+          "set": "UNT",
+          "number": "083",
+          "code": "UNT-083",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rb-c020",
+      "name": "Élan the Unbound",
+      "cardType": "Champion",
+      "subtype": "Fury",
+      "text": "Fictional Fury champion from Arcane Convergence.",
+      "metadata": {
+        "domain": "Fury",
+        "energy": 6,
+        "might": 6,
+        "type": "Champion"
+      },
+      "printings": [
+        {
+          "id": "rb-p020a",
+          "set": "ARC",
+          "number": "084",
+          "code": "ARC-084",
+          "rarity": "Showcase",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 48.0,
+          "metadata": {}
+        },
+        {
+          "id": "rb-p020b",
+          "set": "ARC",
+          "number": "084",
+          "code": "ARC-084",
+          "rarity": "Showcase",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 86.4,
+          "metadata": {
+            "foilPattern": "rift"
+          }
+        }
+      ]
+    }
+  ]
+}

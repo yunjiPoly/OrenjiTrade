@@ -15,6 +15,12 @@ export interface AuthChange {
 export type ReauthenticationMethod = { kind: 'password'; password: string } | { kind: 'google' };
 
 /**
+ * How long to wait for Firebase to restore a persisted session before treating the visitor as
+ * anonymous (IndexedDB blocked, SDK stuck). A late answer still updates the state.
+ */
+export const AUTH_READY_TIMEOUT_MS = 5000;
+
+/**
  * Firebase Authentication facade exposed as signals.
  *
  * - `init()` runs from an app initializer once `/config.json` is loaded: it initialises the SDK,
@@ -45,6 +51,16 @@ export class AuthService {
   /** False when the environment has no Firebase configuration at all. */
   readonly available = this.availableState.asReadonly();
   readonly isAuthenticated = computed(() => this.authStateState() === 'authenticated');
+  readonly emailVerified = computed(() => this.userState()?.emailVerified ?? false);
+  /** Firebase sign-in providers of the current user (`password`, `google.com`, ...). */
+  readonly providerIds = computed(() =>
+    (this.userState()?.providerData ?? []).map((provider) => provider.providerId),
+  );
+  /** True when the user can re-authenticate with a password (otherwise with Google). */
+  readonly hasPasswordProvider = computed(() => this.providerIds().includes('password'));
+  private readonly usesEmulatorState = signal(false);
+  /** True when every Firebase call goes to the local Auth emulator. */
+  readonly usesEmulator = this.usesEmulatorState.asReadonly();
   /** Synchronous change feed for services that must react before change detection runs. */
   readonly changes$ = new Subject<AuthChange>();
 
@@ -62,8 +78,16 @@ export class AuthService {
       return;
     }
     try {
-      this.port.init(config.firebase, config.firebaseAuthEmulatorHost);
+      await this.port.init(config.firebase, config.firebaseAuthEmulatorHost);
+      this.usesEmulatorState.set(!!config.firebaseAuthEmulatorHost);
       this.port.onIdTokenChanged((user) => void this.onIdentityChange(user));
+      setTimeout(() => {
+        if (this.authStateState() === 'loading') {
+          console.warn('[OrenjiTrade] Firebase did not restore the session in time.');
+          this.authStateState.set('anonymous');
+          this.resolveReady();
+        }
+      }, AUTH_READY_TIMEOUT_MS);
     } catch (error) {
       console.warn('[OrenjiTrade] Firebase Authentication failed to initialise.', error);
       this.becomeUnavailable();
@@ -163,7 +187,9 @@ export class AuthService {
     }
     const previousUid = this.userState()?.uid ?? null;
     const previousToken = this.idTokenState();
-    this.userState.set(user);
+    // Firebase mutates its user object in place (reload, profile updates): store a copy so the
+    // signal notifies its readers.
+    this.userState.set(user ? snapshotUser(user) : null);
     this.idTokenState.set(token);
     this.authStateState.set(user ? 'authenticated' : 'anonymous');
     this.resolveReady();
@@ -177,4 +203,15 @@ export class AuthService {
     this.authStateState.set('anonymous');
     this.resolveReady();
   }
+}
+
+function snapshotUser(user: AuthUser): AuthUser {
+  return {
+    uid: user.uid,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    providerData: user.providerData.map((provider) => ({ providerId: provider.providerId })),
+  };
 }

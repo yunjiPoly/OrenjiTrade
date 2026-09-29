@@ -1,11 +1,15 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { SessionService } from '../../core/auth/session.service';
 import { ADMIN_SECTIONS } from './admin-sections';
 
-/** Admin console frame: section navigation on the left, routed content on the right. */
+/**
+ * Admin console frame: section navigation on the left, routed content on the right.
+ * Moderators only see the moderation sections; later-phase sections stay listed but disabled.
+ */
 @Component({
   selector: 'app-admin-shell',
   imports: [
@@ -19,16 +23,19 @@ import { ADMIN_SECTIONS } from './admin-sections';
   template: `
     <div class="admin">
       <nav class="admin__nav" aria-label="Admin sections">
-        <p class="admin__eyebrow">Admin console</p>
+        <p class="admin__eyebrow">
+          Admin console
+          <span class="admin__role">{{ session.isAdmin() ? 'Administrator' : 'Moderator' }}</span>
+        </p>
         <mat-nav-list class="admin__list">
-          @for (section of sections; track section.id) {
+          @for (section of sections(); track section.id) {
             @if (section.phase === null) {
               <a
                 mat-list-item
                 [routerLink]="['/admin', section.path]"
                 routerLinkActive="admin__item--active"
                 ariaCurrentWhenActive="page"
-                [routerLinkActiveOptions]="{ exact: true }"
+                [routerLinkActiveOptions]="{ exact: section.path === '' }"
               >
                 <mat-icon matListItemIcon aria-hidden="true">{{ section.icon }}</mat-icon>
                 <span matListItemTitle>{{ section.label }}</span>
@@ -67,12 +74,29 @@ import { ADMIN_SECTIONS } from './admin-sections';
       padding: var(--spacing-3) 0;
     }
     .admin__eyebrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin: 0 var(--spacing-4) var(--spacing-2);
       font-size: var(--font-size-xs);
       font-weight: var(--font-weight-semibold);
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--color-text-muted);
+    }
+    .admin__role {
+      padding: 2px var(--spacing-2);
+      border-radius: var(--radius-pill);
+      background: var(--color-primary-container);
+      color: var(--color-on-primary-container);
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .admin__list {
+      --mat-list-list-item-disabled-state-layer-color: transparent;
+      --mat-list-list-item-disabled-state-layer-opacity: 0;
+      --mat-list-list-item-disabled-label-text-opacity: 0.5;
+      --mat-list-list-item-disabled-leading-icon-opacity: 0.5;
     }
     .admin__item--active {
       --mat-list-list-item-label-text-color: var(--color-primary);
@@ -99,5 +123,10 @@ import { ADMIN_SECTIONS } from './admin-sections';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminShellComponent {
-  protected readonly sections = ADMIN_SECTIONS;
+  protected readonly session = inject(SessionService);
+  protected readonly sections = computed(() =>
+    this.session.isAdmin()
+      ? ADMIN_SECTIONS
+      : ADMIN_SECTIONS.filter((section) => section.area === 'moderation'),
+  );
 }

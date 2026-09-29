@@ -209,6 +209,41 @@ public class OpenApiConfig {
                         .description(
                                 "Open obligations preventing an account deletion"
                                         + " (DELETION_BLOCKED), e.g. OPEN_DISPUTE"));
+        schema.addProperty(
+                "limitKey",
+                new StringSchema()
+                        .description(
+                                "Limit that was reached (LIMIT_REACHED), e.g."
+                                        + " binder.views.per_day"));
+        schema.addProperty(
+                "limit",
+                new IntegerSchema().description("Effective limit of the caller (LIMIT_REACHED)"));
+        schema.addProperty(
+                "used",
+                new IntegerSchema()
+                        .format("int64")
+                        .description(
+                                "Usage in the current window, or the requested value of a cap"
+                                        + " (LIMIT_REACHED)"));
+        schema.addProperty(
+                "resetsAt",
+                new StringSchema()
+                        .format("date-time")
+                        .description(
+                                "When the window resets (LIMIT_REACHED; absent for totals and"
+                                        + " caps)"));
+        schema.addProperty(
+                "planCode",
+                new StringSchema().description("The caller's plan (LIMIT_REACHED), e.g. FREE"));
+        schema.addProperty(
+                "upgradeUrl",
+                new StringSchema()
+                        .description(
+                                "Where to send the user to upgrade (LIMIT_REACHED): /premium"));
+        schema.addProperty(
+                "feature",
+                new StringSchema()
+                        .description("Feature flag that is off for the caller (FEATURE_DISABLED)"));
         schema.required(
                 List.of(
                         "type",

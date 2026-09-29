@@ -44,6 +44,34 @@ export interface ProblemDetail {
      * Open obligations preventing an account deletion (DELETION_BLOCKED), e.g. OPEN_DISPUTE
      */
     blockers?: Array<string>;
+    /**
+     * Limit that was reached (LIMIT_REACHED), e.g. binder.views.per_day
+     */
+    limitKey?: string;
+    /**
+     * Effective limit of the caller (LIMIT_REACHED)
+     */
+    limit?: number;
+    /**
+     * Usage in the current window, or the requested value of a cap (LIMIT_REACHED)
+     */
+    used?: number;
+    /**
+     * When the window resets (LIMIT_REACHED; absent for totals and caps)
+     */
+    resetsAt?: string;
+    /**
+     * The caller\'s plan (LIMIT_REACHED), e.g. FREE
+     */
+    planCode?: string;
+    /**
+     * Where to send the user to upgrade (LIMIT_REACHED): /premium
+     */
+    upgradeUrl?: string;
+    /**
+     * Feature flag that is off for the caller (FEATURE_DISABLED)
+     */
+    feature?: string;
 }
 export enum ProblemDetailErrorCodeEnum {
     ValidationFailed = 'VALIDATION_FAILED',

@@ -10,3 +10,11 @@ export { PageHeaderComponent } from './page-header/page-header.component';
 export { SearchFieldComponent } from './search-field/search-field.component';
 export { SkeletonComponent, type SkeletonVariant } from './skeleton/skeleton.component';
 export { WordmarkComponent, type WordmarkSize } from './wordmark/wordmark.component';
+export { AvatarComponent, type AvatarSize } from './avatar/avatar.component';
+export { CardArtComponent } from './card-art/card-art.component';
+export {
+  ConfirmDialogComponent,
+  type ConfirmDialogData,
+} from './confirm-dialog/confirm-dialog.component';
+export { GameChipComponent } from './game-chip/game-chip.component';
+export { SectionCardComponent } from './section-card/section-card.component';

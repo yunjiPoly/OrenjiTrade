@@ -15,7 +15,11 @@ import {
 } from '@angular/router';
 import { routes } from './app.routes';
 import { provideApiClient } from './core/api/provide-api-client';
+import { authInterceptor } from './core/auth/auth.interceptor';
+import { provideAuth } from './core/auth/provide-auth';
+import { sessionInterceptor } from './core/auth/session.interceptor';
 import { provideAppConfig } from './core/config/app-config.service';
+import { acceptHeaderInterceptor } from './core/http/accept-header.interceptor';
 import { apiBaseUrlInterceptor } from './core/http/api-base-url.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
 import { requestIdInterceptor } from './core/http/request-id.interceptor';
@@ -32,12 +36,23 @@ export const appConfig: ApplicationConfig = {
       withViewTransitions(),
     ),
     { provide: TitleStrategy, useClass: OrenjiTitleStrategy },
-    // Interceptor order matters: base URL tagging -> request id -> error mapping/toast.
+    // Interceptor order matters: base URL tagging -> Accept fix for bodiless operations ->
+    // request id -> account-state redirects ->
+    // bearer token (+ one retry on 401) -> error mapping/toast (innermost, so the outer
+    // interceptors see normalised ApiError instances).
     provideHttpClient(
-      withInterceptors([apiBaseUrlInterceptor, requestIdInterceptor, errorInterceptor]),
+      withInterceptors([
+        apiBaseUrlInterceptor,
+        acceptHeaderInterceptor,
+        requestIdInterceptor,
+        sessionInterceptor,
+        authInterceptor,
+        errorInterceptor,
+      ]),
     ),
     provideAppConfig(),
     provideApiClient(),
+    provideAuth(),
     // Material Symbols Rounded is the icon family of the design system (see index.html).
     provideAppInitializer(() => {
       inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-rounded');

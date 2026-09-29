@@ -193,9 +193,6 @@ orenji:
     # STORAGE_PROVIDER=gcs it defaults to https://storage.googleapis.com/<bucket>.
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
     gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
-  games:
-    # Game slugs accepted in profiles until the games module (Phase 2) owns the catalogue.
-    slugs: yugioh,pokemon,mtg,riftbound
   location:
     # HMAC-SHA256 key seeding the deterministic public-point jitter (ADR 0004). No default outside
     # the local and test profiles: the application refuses to start without it.

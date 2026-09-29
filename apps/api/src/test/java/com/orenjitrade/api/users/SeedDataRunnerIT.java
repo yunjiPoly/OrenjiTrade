@@ -38,7 +38,17 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(seedDataRunner.contributors())
                 .extracting(contributor -> contributor.name())
                 .containsExactly(
-                        "user accounts", "auth emulator users", "profiles", "trading areas");
+                        "user accounts",
+                        "auth emulator users",
+                        "profiles",
+                        "trading areas",
+                        "catalog");
+        // The catalog seed imported the four fictional mock catalogs (idempotently).
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM card WHERE external_ref ->> 'provider' ="
+                                        + " 'mock'"))
+                .isEqualTo(80);
 
         UUID adminId = UUID.fromString("00000000-0000-4000-8000-000000000011");
         Map<String, Object> admin = testUsers.row(adminId);

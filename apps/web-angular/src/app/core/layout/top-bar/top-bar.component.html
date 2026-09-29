@@ -35,25 +35,7 @@
 
       <app-theme-toggle />
 
-      <button
-        matIconButton
-        type="button"
-        aria-label="Account"
-        matTooltip="Account"
-        [matMenuTriggerFor]="accountMenu"
-      >
-        <mat-icon>account_circle</mat-icon>
-      </button>
-      <mat-menu #accountMenu="matMenu" xPosition="before" aria-label="Account">
-        <a mat-menu-item routerLink="/settings">
-          <mat-icon>login</mat-icon>
-          <span>Sign in</span>
-        </a>
-        <a mat-menu-item routerLink="/settings">
-          <mat-icon>settings</mat-icon>
-          <span>Settings</span>
-        </a>
-      </mat-menu>
+      <app-account-menu />
     </div>
   </mat-toolbar>
 </header>

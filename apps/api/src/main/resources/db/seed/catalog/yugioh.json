@@ -1,0 +1,871 @@
+{
+  "game": "yugioh",
+  "sets": [
+    {
+      "id": "ygo-set-azr",
+      "code": "AZR",
+      "name": "Azure Dawn",
+      "releaseDate": "2024-02-09",
+      "totalCards": 60,
+      "series": "Core Booster",
+      "metadata": {
+        "packSize": 9
+      }
+    },
+    {
+      "id": "ygo-set-glm",
+      "code": "GLM",
+      "name": "Gilded Labyrinth of Mirrors",
+      "releaseDate": "2024-05-10",
+      "totalCards": 60,
+      "series": "Core Booster",
+      "metadata": {
+        "packSize": 9
+      }
+    },
+    {
+      "id": "ygo-set-shv",
+      "code": "SHV",
+      "name": "Shadowvale Legacy",
+      "releaseDate": "2024-08-16",
+      "totalCards": 60,
+      "series": "Special Pack",
+      "metadata": {
+        "packSize": 9
+      }
+    },
+    {
+      "id": "ygo-set-tmp",
+      "code": "TMP",
+      "name": "Tempest Monarchs",
+      "releaseDate": "2025-01-17",
+      "totalCards": 60,
+      "series": "Core Booster",
+      "metadata": {
+        "packSize": 9
+      }
+    }
+  ],
+  "cards": [
+    {
+      "id": "ygo-c001",
+      "name": "Azure-Eyes Sky Dragon",
+      "cardType": "Monster",
+      "subtype": "Normal",
+      "text": "A legendary dragon whose azure gaze splits the clouds before every storm.",
+      "metadata": {
+        "attribute": "LIGHT",
+        "level": 8,
+        "atk": 3000,
+        "def": 2500,
+        "monsterType": "Dragon"
+      },
+      "printings": [
+        {
+          "id": "ygo-p001a",
+          "set": "AZR",
+          "number": "EN001",
+          "code": "AZR-EN001",
+          "rarity": "Ultra Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 42.0,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p001b",
+          "set": "AZR",
+          "number": "FR001",
+          "code": "AZR-FR001",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "NORMAL",
+          "price": 33.6,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c002",
+      "name": "Obsidian Magician Adept",
+      "cardType": "Monster",
+      "subtype": "Normal",
+      "text": "An apprentice of the obsidian tower who has mastered forbidden light.",
+      "metadata": {
+        "attribute": "DARK",
+        "level": 7,
+        "atk": 2500,
+        "def": 2100,
+        "monsterType": "Spellcaster"
+      },
+      "printings": [
+        {
+          "id": "ygo-p002a",
+          "set": "GLM",
+          "number": "EN002",
+          "code": "GLM-EN002",
+          "rarity": "Ultra Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 24.5,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p002b",
+          "set": "GLM",
+          "number": "EN002",
+          "code": "GLM-EN002",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 14.7,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c003",
+      "name": "Mirrorblade Knight",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Once per turn: you can reflect the ATK of one opponent's monster onto this card until the End Phase.",
+      "metadata": {
+        "attribute": "EARTH",
+        "level": 4,
+        "atk": 1800,
+        "def": 1200,
+        "monsterType": "Warrior"
+      },
+      "printings": [
+        {
+          "id": "ygo-p003a",
+          "set": "SHV",
+          "number": "EN003",
+          "code": "SHV-EN003",
+          "rarity": "Super Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 6.75,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p003b",
+          "set": "SHV",
+          "number": "EN003",
+          "code": "SHV-EN003",
+          "rarity": "Super Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 4.05,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c004",
+      "name": "Ember Wyrmling",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "When this card is destroyed by battle: add one FIRE Dragon from your Deck to your hand.",
+      "metadata": {
+        "attribute": "FIRE",
+        "level": 3,
+        "atk": 1300,
+        "def": 900,
+        "monsterType": "Dragon"
+      },
+      "printings": [
+        {
+          "id": "ygo-p004a",
+          "set": "TMP",
+          "number": "EN004",
+          "code": "TMP-EN004",
+          "rarity": "Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.25,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p004b",
+          "set": "TMP",
+          "number": "EN004",
+          "code": "TMP-EN004",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c005",
+      "name": "Lantern Fox Spirit",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Quick Effect: discard this card to light the way; negate one attack this turn.",
+      "metadata": {
+        "attribute": "FIRE",
+        "level": 2,
+        "atk": 800,
+        "def": 1600,
+        "monsterType": "Beast"
+      },
+      "printings": [
+        {
+          "id": "ygo-p005a",
+          "set": "AZR",
+          "number": "EN011",
+          "code": "AZR-EN011",
+          "rarity": "Secret Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 18.0,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p005b",
+          "set": "AZR",
+          "number": "EN011",
+          "code": "AZR-EN011",
+          "rarity": "Secret Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 10.8,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c006",
+      "name": "Clockwork Sentinel Mk-II",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Cannot be destroyed by card effects while you control another Machine monster.",
+      "metadata": {
+        "attribute": "EARTH",
+        "level": 5,
+        "atk": 2100,
+        "def": 2300,
+        "monsterType": "Machine"
+      },
+      "printings": [
+        {
+          "id": "ygo-p006a",
+          "set": "GLM",
+          "number": "EN012",
+          "code": "GLM-EN012",
+          "rarity": "Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.9,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p006b",
+          "set": "GLM",
+          "number": "FR012",
+          "code": "GLM-FR012",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "NORMAL",
+          "price": 0.72,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c007",
+      "name": "Tidecaller Mermaid",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "When summoned: add one WATER monster with 1500 or less DEF from your Graveyard to your hand.",
+      "metadata": {
+        "attribute": "WATER",
+        "level": 4,
+        "atk": 1600,
+        "def": 1500,
+        "monsterType": "Aqua"
+      },
+      "printings": [
+        {
+          "id": "ygo-p007a",
+          "set": "SHV",
+          "number": "EN013",
+          "code": "SHV-EN013",
+          "rarity": "Common",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.25,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p007b",
+          "set": "SHV",
+          "number": "EN013",
+          "code": "SHV-EN013",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c008",
+      "name": "Thunderwing Roc",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "When this card attacks a Defense Position monster, inflict piercing damage.",
+      "metadata": {
+        "attribute": "WIND",
+        "level": 6,
+        "atk": 2400,
+        "def": 1700,
+        "monsterType": "Winged Beast"
+      },
+      "printings": [
+        {
+          "id": "ygo-p008a",
+          "set": "TMP",
+          "number": "EN014",
+          "code": "TMP-EN014",
+          "rarity": "Super Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 3.4,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p008b",
+          "set": "TMP",
+          "number": "EN014",
+          "code": "TMP-EN014",
+          "rarity": "Super Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 2.04,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c009",
+      "name": "Gravehollow Fiend",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "If this card is sent to the Graveyard: each player sends the top card of their Deck to the Graveyard.",
+      "metadata": {
+        "attribute": "DARK",
+        "level": 4,
+        "atk": 1900,
+        "def": 0,
+        "monsterType": "Fiend"
+      },
+      "printings": [
+        {
+          "id": "ygo-p009a",
+          "set": "AZR",
+          "number": "EN021",
+          "code": "AZR-EN021",
+          "rarity": "Common",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.2,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p009b",
+          "set": "AZR",
+          "number": "EN021",
+          "code": "AZR-EN021",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.12,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c010",
+      "name": "Starlit Unicorn",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Once per turn: gain 500 Life Points for each LIGHT monster you control.",
+      "metadata": {
+        "attribute": "LIGHT",
+        "level": 4,
+        "atk": 1700,
+        "def": 1400,
+        "monsterType": "Beast"
+      },
+      "printings": [
+        {
+          "id": "ygo-p010a",
+          "set": "GLM",
+          "number": "EN022",
+          "code": "GLM-EN022",
+          "rarity": "Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.8,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p010b",
+          "set": "GLM",
+          "number": "EN022",
+          "code": "GLM-EN022",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c011",
+      "name": "Chevalier Épée-Miroir",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "A knight of the mirrored court; its blade answers every attack twice.",
+      "metadata": {
+        "attribute": "LIGHT",
+        "level": 7,
+        "atk": 2600,
+        "def": 2000,
+        "monsterType": "Warrior"
+      },
+      "printings": [
+        {
+          "id": "ygo-p011a",
+          "set": "SHV",
+          "number": "EN023",
+          "code": "SHV-EN023",
+          "rarity": "Ultimate Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 55.0,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p011b",
+          "set": "SHV",
+          "number": "FR023",
+          "code": "SHV-FR023",
+          "rarity": "Ultimate Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "NORMAL",
+          "price": 44.0,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c012",
+      "name": "Verdant Moth Queen",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Special Summon from your hand by banishing two Insect monsters from your Graveyard.",
+      "metadata": {
+        "attribute": "EARTH",
+        "level": 6,
+        "atk": 2200,
+        "def": 1800,
+        "monsterType": "Insect"
+      },
+      "printings": [
+        {
+          "id": "ygo-p012a",
+          "set": "TMP",
+          "number": "EN024",
+          "code": "TMP-EN024",
+          "rarity": "Super Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 2.1,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p012b",
+          "set": "TMP",
+          "number": "EN024",
+          "code": "TMP-EN024",
+          "rarity": "Super Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.26,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c013",
+      "name": "Frostbite Sorceress",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Monsters your opponent controls lose 300 ATK during your turn.",
+      "metadata": {
+        "attribute": "WATER",
+        "level": 5,
+        "atk": 2000,
+        "def": 1900,
+        "monsterType": "Spellcaster"
+      },
+      "printings": [
+        {
+          "id": "ygo-p013a",
+          "set": "AZR",
+          "number": "EN031",
+          "code": "AZR-EN031",
+          "rarity": "Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.1,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p013b",
+          "set": "AZR",
+          "number": "EN031",
+          "code": "AZR-EN031",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c014",
+      "name": "Halo Seraph Guardian",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Cannot be targeted by Trap effects. Once per duel: negate a card effect that would destroy it.",
+      "metadata": {
+        "attribute": "LIGHT",
+        "level": 8,
+        "atk": 2800,
+        "def": 2400,
+        "monsterType": "Fairy"
+      },
+      "printings": [
+        {
+          "id": "ygo-p014a",
+          "set": "GLM",
+          "number": "EN032",
+          "code": "GLM-EN032",
+          "rarity": "Starlight Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 120.0,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p014b",
+          "set": "GLM",
+          "number": "EN032",
+          "code": "GLM-EN032",
+          "rarity": "Starlight Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 72.0,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c015",
+      "name": "Radiant Barrier Veil",
+      "cardType": "Trap",
+      "subtype": "Normal",
+      "text": "When an opponent's monster declares an attack: banish that monster until the End Phase.",
+      "metadata": {
+        "property": "Normal"
+      },
+      "printings": [
+        {
+          "id": "ygo-p015a",
+          "set": "SHV",
+          "number": "EN033",
+          "code": "SHV-EN033",
+          "rarity": "Common",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.35,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p015b",
+          "set": "SHV",
+          "number": "EN033",
+          "code": "SHV-EN033",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.21,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c016",
+      "name": "Sudden Eclipse",
+      "cardType": "Spell",
+      "subtype": "Quick-Play",
+      "text": "Change all face-up monsters on the field to face-down Defense Position.",
+      "metadata": {
+        "property": "Quick-Play"
+      },
+      "printings": [
+        {
+          "id": "ygo-p016a",
+          "set": "TMP",
+          "number": "EN034",
+          "code": "TMP-EN034",
+          "rarity": "Super Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 4.2,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p016b",
+          "set": "TMP",
+          "number": "FR034",
+          "code": "TMP-FR034",
+          "rarity": "Super Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "NORMAL",
+          "price": 3.36,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c017",
+      "name": "Mirror Maze Trap",
+      "cardType": "Trap",
+      "subtype": "Continuous",
+      "text": "Each turn, the first monster your opponent summons is sent to the maze and cannot attack.",
+      "metadata": {
+        "property": "Continuous"
+      },
+      "printings": [
+        {
+          "id": "ygo-p017a",
+          "set": "AZR",
+          "number": "EN041",
+          "code": "AZR-EN041",
+          "rarity": "Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.7,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p017b",
+          "set": "AZR",
+          "number": "EN041",
+          "code": "AZR-EN041",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.42,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c018",
+      "name": "Monarch's Tempest Decree",
+      "cardType": "Spell",
+      "subtype": "Field",
+      "text": "All WIND monsters gain 400 ATK. Once per turn: return one Spell to its owner's hand.",
+      "metadata": {
+        "property": "Field"
+      },
+      "printings": [
+        {
+          "id": "ygo-p018a",
+          "set": "GLM",
+          "number": "EN042",
+          "code": "GLM-EN042",
+          "rarity": "Secret Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 12.0,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p018b",
+          "set": "GLM",
+          "number": "EN042",
+          "code": "GLM-EN042",
+          "rarity": "Secret Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 7.2,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c019",
+      "name": "Cursed Hourglass Relic",
+      "cardType": "Spell",
+      "subtype": "Equip",
+      "text": "The equipped monster cannot attack for two turns, then gains 1000 ATK.",
+      "metadata": {
+        "property": "Equip"
+      },
+      "printings": [
+        {
+          "id": "ygo-p019a",
+          "set": "SHV",
+          "number": "EN043",
+          "code": "SHV-EN043",
+          "rarity": "Common",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.15,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p019b",
+          "set": "SHV",
+          "number": "EN043",
+          "code": "SHV-EN043",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "ygo-c020",
+      "name": "Shadowvale Revenant King",
+      "cardType": "Monster",
+      "subtype": "Effect",
+      "text": "Must be Special Summoned by tributing three DARK monsters. Cannot be destroyed by battle.",
+      "metadata": {
+        "attribute": "DARK",
+        "level": 9,
+        "atk": 3100,
+        "def": 2200,
+        "monsterType": "Fiend"
+      },
+      "printings": [
+        {
+          "id": "ygo-p020a",
+          "set": "TMP",
+          "number": "EN044",
+          "code": "TMP-EN044",
+          "rarity": "Ultra Rare",
+          "edition": "FIRST_EDITION",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 30.0,
+          "metadata": {
+            "artist": "Studio Orenji"
+          }
+        },
+        {
+          "id": "ygo-p020b",
+          "set": "TMP",
+          "number": "EN044",
+          "code": "TMP-EN044",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 18.0,
+          "metadata": {}
+        }
+      ]
+    }
+  ]
+}

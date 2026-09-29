@@ -1,0 +1,94 @@
+@if (!loaded() && store.error(); as error) {
+  <app-error-state
+    title="We could not load your profile"
+    [message]="error.message"
+    [requestId]="error.requestId"
+    (retry)="load()"
+  />
+} @else if (!loaded()) {
+  <div class="section-skeleton" aria-busy="true">
+    <span class="visually-hidden">Loading your profile</span>
+    <app-skeleton variant="list" lines="1" />
+    <app-skeleton variant="list" lines="3" />
+  </div>
+} @else {
+  <app-section-card
+    heading="Profile picture"
+    headingId="settings-avatar"
+    description="Shown on your profile, in messages and on the map preview."
+  >
+    <app-avatar-uploader
+      [currentUrl]="store.profile()?.avatarUrl"
+      [name]="store.profile()?.displayName"
+      [busy]="avatarBusy()"
+      [serverError]="avatarError()"
+      (upload)="uploadAvatar($event)"
+      (remove)="removeAvatar()"
+    />
+  </app-section-card>
+
+  <app-section-card
+    heading="Public details"
+    headingId="settings-details"
+    description="What collectors see on your profile."
+  >
+    <form
+      [formGroup]="form"
+      (ngSubmit)="saveDetails()"
+      novalidate
+      aria-labelledby="settings-details"
+    >
+      <app-profile-fields [form]="form" />
+      <h3 class="section-sub">Games</h3>
+      <app-game-picker [value]="games()" (valueChange)="setGames($event)" />
+      <h3 class="section-sub">Languages</h3>
+      <app-language-picker [value]="languages()" (valueChange)="setLanguages($event)" />
+      @if (detailsError(); as message) {
+        <p class="section-error" role="alert">{{ message }}</p>
+      }
+      <div class="section-actions">
+        @if (session.handle(); as handle) {
+          <a matButton [routerLink]="['/collectors', handle]">
+            <mat-icon aria-hidden="true">visibility</mat-icon>
+            View public profile
+          </a>
+        }
+        <button matButton="filled" type="submit" [disabled]="savingDetails() || !detailsDirty()">
+          @if (savingDetails()) {
+            <mat-spinner diameter="18" aria-hidden="true" />
+          }
+          Save details
+        </button>
+      </div>
+    </form>
+  </app-section-card>
+
+  <app-section-card
+    heading="Tags"
+    headingId="settings-tags"
+    description="Up to 12 tags describing how you collect and trade."
+  >
+    <app-tag-picker
+      [selected]="tags()"
+      (selectedChange)="setTags($event)"
+      [customLabels]="customTags()"
+      (customLabelsChange)="setCustomTags($event)"
+    />
+    @if (tagsError(); as message) {
+      <p class="section-error" role="alert">{{ message }}</p>
+    }
+    <div class="section-actions">
+      <button
+        matButton="filled"
+        type="button"
+        [disabled]="savingTags() || !tagsDirty()"
+        (click)="saveTags()"
+      >
+        @if (savingTags()) {
+          <mat-spinner diameter="18" aria-hidden="true" />
+        }
+        Save tags
+      </button>
+    </div>
+  </app-section-card>
+}

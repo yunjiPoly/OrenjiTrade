@@ -1,0 +1,997 @@
+{
+  "game": "mtg",
+  "sets": [
+    {
+      "id": "mtg-set-tdx",
+      "code": "TDX",
+      "name": "Tidebound Expanse",
+      "releaseDate": "2024-04-19",
+      "totalCards": 280,
+      "series": "Expansion",
+      "metadata": {
+        "block": "Orenji Saga"
+      }
+    },
+    {
+      "id": "mtg-set-evd",
+      "code": "EVD",
+      "name": "Everdusk Reaches",
+      "releaseDate": "2024-07-26",
+      "totalCards": 280,
+      "series": "Expansion",
+      "metadata": {
+        "block": "Orenji Saga"
+      }
+    },
+    {
+      "id": "mtg-set-krh",
+      "code": "KRH",
+      "name": "Kronhold Ruins",
+      "releaseDate": "2024-11-15",
+      "totalCards": 280,
+      "series": "Expansion",
+      "metadata": {
+        "block": "Orenji Saga"
+      }
+    },
+    {
+      "id": "mtg-set-skf",
+      "code": "SKF",
+      "name": "Skyforge Ascendant",
+      "releaseDate": "2025-03-14",
+      "totalCards": 280,
+      "series": "Expansion",
+      "metadata": {
+        "block": "Orenji Saga"
+      }
+    }
+  ],
+  "cards": [
+    {
+      "id": "mtg-c001",
+      "name": "Tidebinder Sovereign",
+      "cardType": "Creature",
+      "subtype": "Merfolk Noble",
+      "text": "Fictional legendary creature — merfolk noble from Tidebound Expanse.",
+      "metadata": {
+        "manaCost": "{2}{U}{U}",
+        "manaValue": 4,
+        "colorIdentity": [
+          "U"
+        ],
+        "typeLine": "Legendary Creature — Merfolk Noble",
+        "power": "3",
+        "toughness": "5"
+      },
+      "printings": [
+        {
+          "id": "mtg-p001a",
+          "set": "TDX",
+          "number": "001",
+          "code": "TDX-001",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 21.0,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p001b",
+          "set": "TDX",
+          "number": "001",
+          "code": "TDX-001",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "ja",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c002",
+      "name": "Emberkin Raider",
+      "cardType": "Creature",
+      "subtype": "Goblin Warrior",
+      "text": "Fictional creature — goblin warrior from Everdusk Reaches.",
+      "metadata": {
+        "manaCost": "{1}{R}",
+        "manaValue": 2,
+        "colorIdentity": [
+          "R"
+        ],
+        "typeLine": "Creature — Goblin Warrior",
+        "power": "2",
+        "toughness": "1"
+      },
+      "printings": [
+        {
+          "id": "mtg-p002a",
+          "set": "EVD",
+          "number": "002",
+          "code": "EVD-002",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p002b",
+          "set": "EVD",
+          "number": "002",
+          "code": "EVD-002",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.21,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c003",
+      "name": "Thornwood Druid",
+      "cardType": "Creature",
+      "subtype": "Elf Druid",
+      "text": "Fictional creature — elf druid from Kronhold Ruins.",
+      "metadata": {
+        "manaCost": "{1}{G}",
+        "manaValue": 2,
+        "colorIdentity": [
+          "G"
+        ],
+        "typeLine": "Creature — Elf Druid",
+        "power": "1",
+        "toughness": "2"
+      },
+      "printings": [
+        {
+          "id": "mtg-p003a",
+          "set": "KRH",
+          "number": "003",
+          "code": "KRH-003",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.35,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p003b",
+          "set": "KRH",
+          "number": "003",
+          "code": "KRH-003",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.73,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c004",
+      "name": "Glimmerwing Sprite",
+      "cardType": "Creature",
+      "subtype": "Faerie",
+      "text": "Fictional creature — faerie from Skyforge Ascendant.",
+      "metadata": {
+        "manaCost": "{U}",
+        "manaValue": 1,
+        "colorIdentity": [
+          "U"
+        ],
+        "typeLine": "Creature — Faerie",
+        "power": "1",
+        "toughness": "1"
+      },
+      "printings": [
+        {
+          "id": "mtg-p004a",
+          "set": "SKF",
+          "number": "004",
+          "code": "SKF-004",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p004b",
+          "set": "SKF",
+          "number": "004",
+          "code": "SKF-004",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.21,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c005",
+      "name": "Ashen Revenant",
+      "cardType": "Creature",
+      "subtype": "Zombie Knight",
+      "text": "Fictional creature — zombie knight from Tidebound Expanse.",
+      "metadata": {
+        "manaCost": "{3}{B}{B}",
+        "manaValue": 5,
+        "colorIdentity": [
+          "B"
+        ],
+        "typeLine": "Creature — Zombie Knight",
+        "power": "5",
+        "toughness": "4"
+      },
+      "printings": [
+        {
+          "id": "mtg-p005a",
+          "set": "TDX",
+          "number": "026",
+          "code": "TDX-026",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 2.4,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p005b",
+          "set": "TDX",
+          "number": "026",
+          "code": "TDX-026",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 5.04,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c006",
+      "name": "Sunforged Paladin",
+      "cardType": "Creature",
+      "subtype": "Human Knight",
+      "text": "Fictional creature — human knight from Everdusk Reaches.",
+      "metadata": {
+        "manaCost": "{2}{W}{W}",
+        "manaValue": 4,
+        "colorIdentity": [
+          "W"
+        ],
+        "typeLine": "Creature — Human Knight",
+        "power": "4",
+        "toughness": "4"
+      },
+      "printings": [
+        {
+          "id": "mtg-p006a",
+          "set": "EVD",
+          "number": "027",
+          "code": "EVD-027",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 3.1,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p006b",
+          "set": "EVD",
+          "number": "027",
+          "code": "EVD-027",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c007",
+      "name": "Stormcaller's Epiphany",
+      "cardType": "Sorcery",
+      "subtype": null,
+      "text": "Fictional sorcery from Kronhold Ruins.",
+      "metadata": {
+        "manaCost": "{3}{U}{R}",
+        "manaValue": 5,
+        "colorIdentity": [
+          "U",
+          "R"
+        ],
+        "typeLine": "Sorcery"
+      },
+      "printings": [
+        {
+          "id": "mtg-p007a",
+          "set": "KRH",
+          "number": "028",
+          "code": "KRH-028",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 12.5,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p007b",
+          "set": "KRH",
+          "number": "028",
+          "code": "KRH-028",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 26.25,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c008",
+      "name": "Verdant Pathfinder",
+      "cardType": "Creature",
+      "subtype": "Human Scout",
+      "text": "Fictional creature — human scout from Skyforge Ascendant.",
+      "metadata": {
+        "manaCost": "{G}",
+        "manaValue": 1,
+        "colorIdentity": [
+          "G"
+        ],
+        "typeLine": "Creature — Human Scout",
+        "power": "1",
+        "toughness": "1"
+      },
+      "printings": [
+        {
+          "id": "mtg-p008a",
+          "set": "SKF",
+          "number": "029",
+          "code": "SKF-029",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.05,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p008b",
+          "set": "SKF",
+          "number": "029",
+          "code": "SKF-029",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "ja",
+          "finish": "FOIL",
+          "price": 0.11,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c009",
+      "name": "Kronhold Colossus",
+      "cardType": "Creature",
+      "subtype": "Golem",
+      "text": "Fictional artifact creature — golem from Tidebound Expanse.",
+      "metadata": {
+        "manaCost": "{7}",
+        "manaValue": 7,
+        "colorIdentity": [],
+        "typeLine": "Artifact Creature — Golem",
+        "power": "7",
+        "toughness": "7"
+      },
+      "printings": [
+        {
+          "id": "mtg-p009a",
+          "set": "TDX",
+          "number": "051",
+          "code": "TDX-051",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.6,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p009b",
+          "set": "TDX",
+          "number": "051",
+          "code": "TDX-051",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 3.36,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c010",
+      "name": "Everdusk Lich",
+      "cardType": "Creature",
+      "subtype": "Zombie Wizard",
+      "text": "Fictional legendary creature — zombie wizard from Everdusk Reaches.",
+      "metadata": {
+        "manaCost": "{2}{B}{B}{B}",
+        "manaValue": 5,
+        "colorIdentity": [
+          "B"
+        ],
+        "typeLine": "Legendary Creature — Zombie Wizard",
+        "power": "4",
+        "toughness": "5"
+      },
+      "printings": [
+        {
+          "id": "mtg-p010a",
+          "set": "EVD",
+          "number": "052",
+          "code": "EVD-052",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 18.0,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p010b",
+          "set": "EVD",
+          "number": "052",
+          "code": "EVD-052",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 37.8,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c011",
+      "name": "Skyforge Anvil",
+      "cardType": "Artifact",
+      "subtype": null,
+      "text": "Fictional artifact from Kronhold Ruins.",
+      "metadata": {
+        "manaCost": "{2}",
+        "manaValue": 2,
+        "colorIdentity": [],
+        "typeLine": "Artifact"
+      },
+      "printings": [
+        {
+          "id": "mtg-p011a",
+          "set": "KRH",
+          "number": "053",
+          "code": "KRH-053",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.5,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p011b",
+          "set": "KRH",
+          "number": "053",
+          "code": "KRH-053",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c012",
+      "name": "Réquiem des Marées",
+      "cardType": "Instant",
+      "subtype": null,
+      "text": "Fictional instant from Skyforge Ascendant.",
+      "metadata": {
+        "manaCost": "{1}{U}{B}",
+        "manaValue": 3,
+        "colorIdentity": [
+          "U",
+          "B"
+        ],
+        "typeLine": "Instant"
+      },
+      "printings": [
+        {
+          "id": "mtg-p012a",
+          "set": "SKF",
+          "number": "054",
+          "code": "SKF-054",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 4.3,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p012b",
+          "set": "SKF",
+          "number": "054",
+          "code": "SKF-054",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 9.03,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c013",
+      "name": "Cinderpeak Dragon",
+      "cardType": "Creature",
+      "subtype": "Dragon",
+      "text": "Fictional creature — dragon from Tidebound Expanse.",
+      "metadata": {
+        "manaCost": "{4}{R}{R}",
+        "manaValue": 6,
+        "colorIdentity": [
+          "R"
+        ],
+        "typeLine": "Creature — Dragon",
+        "power": "6",
+        "toughness": "5"
+      },
+      "printings": [
+        {
+          "id": "mtg-p013a",
+          "set": "TDX",
+          "number": "076",
+          "code": "TDX-076",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 9.8,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p013b",
+          "set": "TDX",
+          "number": "076",
+          "code": "TDX-076",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 20.58,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c014",
+      "name": "Harbor Lookout",
+      "cardType": "Creature",
+      "subtype": "Human Soldier",
+      "text": "Fictional creature — human soldier from Everdusk Reaches.",
+      "metadata": {
+        "manaCost": "{1}{W}",
+        "manaValue": 2,
+        "colorIdentity": [
+          "W"
+        ],
+        "typeLine": "Creature — Human Soldier",
+        "power": "2",
+        "toughness": "2"
+      },
+      "printings": [
+        {
+          "id": "mtg-p014a",
+          "set": "EVD",
+          "number": "077",
+          "code": "EVD-077",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.05,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p014b",
+          "set": "EVD",
+          "number": "077",
+          "code": "EVD-077",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.11,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c015",
+      "name": "Mossback Wurm",
+      "cardType": "Creature",
+      "subtype": "Wurm",
+      "text": "Fictional creature — wurm from Kronhold Ruins.",
+      "metadata": {
+        "manaCost": "{4}{G}{G}",
+        "manaValue": 6,
+        "colorIdentity": [
+          "G"
+        ],
+        "typeLine": "Creature — Wurm",
+        "power": "6",
+        "toughness": "6"
+      },
+      "printings": [
+        {
+          "id": "mtg-p015a",
+          "set": "KRH",
+          "number": "078",
+          "code": "KRH-078",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.25,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p015b",
+          "set": "KRH",
+          "number": "078",
+          "code": "KRH-078",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "ja",
+          "finish": "FOIL",
+          "price": 0.53,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c016",
+      "name": "Whisper of the Deep",
+      "cardType": "Instant",
+      "subtype": null,
+      "text": "Fictional instant from Skyforge Ascendant.",
+      "metadata": {
+        "manaCost": "{U}",
+        "manaValue": 1,
+        "colorIdentity": [
+          "U"
+        ],
+        "typeLine": "Instant"
+      },
+      "printings": [
+        {
+          "id": "mtg-p016a",
+          "set": "SKF",
+          "number": "079",
+          "code": "SKF-079",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.15,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p016b",
+          "set": "SKF",
+          "number": "079",
+          "code": "SKF-079",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": null,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c017",
+      "name": "Gravebloom Ritual",
+      "cardType": "Sorcery",
+      "subtype": null,
+      "text": "Fictional sorcery from Tidebound Expanse.",
+      "metadata": {
+        "manaCost": "{1}{B}{G}",
+        "manaValue": 3,
+        "colorIdentity": [
+          "B",
+          "G"
+        ],
+        "typeLine": "Sorcery"
+      },
+      "printings": [
+        {
+          "id": "mtg-p017a",
+          "set": "TDX",
+          "number": "101",
+          "code": "TDX-101",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.45,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p017b",
+          "set": "TDX",
+          "number": "101",
+          "code": "TDX-101",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 0.95,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c018",
+      "name": "Aetherlight Beacon",
+      "cardType": "Artifact",
+      "subtype": null,
+      "text": "Fictional artifact from Everdusk Reaches.",
+      "metadata": {
+        "manaCost": "{3}",
+        "manaValue": 3,
+        "colorIdentity": [],
+        "typeLine": "Artifact"
+      },
+      "printings": [
+        {
+          "id": "mtg-p018a",
+          "set": "EVD",
+          "number": "102",
+          "code": "EVD-102",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 2.0,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p018b",
+          "set": "EVD",
+          "number": "102",
+          "code": "EVD-102",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 4.2,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c019",
+      "name": "Rimefang Sentinel",
+      "cardType": "Creature",
+      "subtype": "Spirit Soldier",
+      "text": "Fictional creature — spirit soldier from Kronhold Ruins.",
+      "metadata": {
+        "manaCost": "{2}{W}{U}",
+        "manaValue": 4,
+        "colorIdentity": [
+          "W",
+          "U"
+        ],
+        "typeLine": "Creature — Spirit Soldier",
+        "power": "3",
+        "toughness": "4"
+      },
+      "printings": [
+        {
+          "id": "mtg-p019a",
+          "set": "KRH",
+          "number": "103",
+          "code": "KRH-103",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 1.3,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p019b",
+          "set": "KRH",
+          "number": "103",
+          "code": "KRH-103",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 2.73,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mtg-c020",
+      "name": "Chaosflare Elemental",
+      "cardType": "Creature",
+      "subtype": "Elemental",
+      "text": "Fictional creature — elemental from Skyforge Ascendant.",
+      "metadata": {
+        "manaCost": "{X}{R}{R}",
+        "manaValue": 2,
+        "colorIdentity": [
+          "R"
+        ],
+        "typeLine": "Creature — Elemental",
+        "power": "*",
+        "toughness": "*"
+      },
+      "printings": [
+        {
+          "id": "mtg-p020a",
+          "set": "SKF",
+          "number": "104",
+          "code": "SKF-104",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 7.2,
+          "metadata": {
+            "artist": "Orenji Illustration Guild",
+            "frame": "2015"
+          }
+        },
+        {
+          "id": "mtg-p020b",
+          "set": "SKF",
+          "number": "104",
+          "code": "SKF-104",
+          "rarity": "Mythic Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "FOIL",
+          "price": 15.12,
+          "metadata": {
+            "frame": "2015"
+          }
+        }
+      ]
+    }
+  ]
+}

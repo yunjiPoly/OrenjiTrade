@@ -25,3 +25,23 @@ export function newRequestId(): string {
     return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
+
+/**
+ * Opt a request out of the session redirects (428 -> consent page, 403 ACCOUNT_SUSPENDED ->
+ * suspended page). Used by `SessionService` itself and by flows that handle those errors inline.
+ */
+export const SKIP_SESSION_REDIRECT = new HttpContextToken<boolean>(() => false);
+
+/** Paths (after the base URL) that never carry the user's ID token. */
+const PUBLIC_API_PATH = /^\/api\/v1\/(public\/|meta(?:$|[/?#]))/;
+
+/** True for `/api/v1/public/**` and `/api/v1/meta`, absolute or relative. */
+export function isPublicApiUrl(url: string): boolean {
+  let path = url;
+  try {
+    path = new URL(url, 'http://relative.invalid').pathname;
+  } catch {
+    // Keep the raw value; the regular expression still works for relative paths.
+  }
+  return PUBLIC_API_PATH.test(path);
+}

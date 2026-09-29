@@ -97,6 +97,57 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                             .as("summary of %s %s", operation.getKey(), path)
                                             .isNotEmpty());
         }
+        // Phase 2 (catalog, feature flags, plans and limits).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/games",
+                        "/api/v1/games/{slug}",
+                        "/api/v1/sets",
+                        "/api/v1/sets/{id}",
+                        "/api/v1/cards",
+                        "/api/v1/cards/suggest",
+                        "/api/v1/cards/{id}",
+                        "/api/v1/cards/{id}/printings",
+                        "/api/v1/printings/{id}",
+                        "/api/v1/public/placeholder-images/{game}/{file}",
+                        "/api/v1/public/feature-flags",
+                        "/api/v1/plans",
+                        "/api/v1/me/plan",
+                        "/api/v1/admin/feature-flags",
+                        "/api/v1/admin/feature-flags/{key}",
+                        "/api/v1/admin/plans",
+                        "/api/v1/admin/plans/{code}",
+                        "/api/v1/admin/usage-limits",
+                        "/api/v1/admin/usage-limits/{id}",
+                        "/api/v1/admin/users/{id}/entitlements",
+                        "/api/v1/admin/users/{id}/entitlements/{entitlementId}",
+                        "/api/v1/admin/games",
+                        "/api/v1/admin/games/{slug}",
+                        "/api/v1/admin/sets",
+                        "/api/v1/admin/sets/{id}",
+                        "/api/v1/admin/cards",
+                        "/api/v1/admin/cards/{id}",
+                        "/api/v1/admin/cards/{id}/printings",
+                        "/api/v1/admin/printings/{id}",
+                        "/api/v1/admin/catalog/sync",
+                        "/api/v1/admin/catalog/sync-runs",
+                        "/api/v1/admin/catalog/sync-runs/{id}",
+                        "/api/v1/admin/catalog/providers")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation ->
+                                    assertThat(operation.getValue().path("summary").asString())
+                                            .as("summary of %s %s", operation.getKey(), path)
+                                            .isNotEmpty());
+        }
+        JsonNode searchCards = paths.path("/api/v1/cards").path("get");
+        assertThat(searchCards.path("security")).isEmpty();
+        assertThat(searchCards.path("responses").has("401")).isFalse();
+        assertThat(paths.has("/api/v1/test-probes/limits/{key}/consume"))
+                .as("test probes must not be exported")
+                .isFalse();
         assertThat(paths.has("/error")).as("/error must not be exported").isFalse();
 
         JsonNode getMe = paths.path("/api/v1/me").path("get");
@@ -128,6 +179,26 @@ class OpenApiExportTest extends AbstractIntegrationTest {
         assertThat(schemas.has("ProblemDetail")).isTrue();
         assertThat(schemas.path("ProblemDetail").path("properties").path("errorCode").path("enum"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("ACCOUNT_SUSPENDED"));
+        assertThat(schemas.path("ProblemDetail").path("properties").has("limitKey")).isTrue();
+        assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isTrue();
+        for (String schema :
+                java.util.List.of(
+                        "CardSummary",
+                        "CardDetail",
+                        "PrintingSummary",
+                        "PrintingDetail",
+                        "SetSummary",
+                        "SetDetail",
+                        "CardSuggestion",
+                        "GameResponse",
+                        "GameSchema",
+                        "Plan",
+                        "MyPlan",
+                        "LimitStatus",
+                        "FeatureFlag",
+                        "CatalogSyncRun")) {
+            assertThat(schemas.has(schema)).as(schema).isTrue();
+        }
         assertThat(document.path("components").path("securitySchemes").has("bearerAuth")).isTrue();
         assertThat(document.path("components").path("securitySchemes").has("serviceToken"))
                 .isTrue();
