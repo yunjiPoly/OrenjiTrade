@@ -75,7 +75,8 @@ class StubCardIdentifier:
 
     def identify(self, image: Image.Image) -> list[Candidate]:
         seed = dhash(image)
-        rng = random.Random(seed)
+        # Deterministic fixture selection, not security-sensitive randomness.
+        rng = random.Random(seed)  # noqa: S311
         count = min(self._max_candidates, len(self._fixtures))
         picks = rng.sample(self._fixtures, k=count)
         confidence = round(0.55 + 0.40 * rng.random(), 4)

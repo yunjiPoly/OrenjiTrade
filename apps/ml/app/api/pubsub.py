@@ -19,7 +19,7 @@ from app.api.deps import HttpClientDep, IdentifierDep, SettingsDep
 from app.config import Settings
 from app.errors import ApiError
 from app.events.models import CARD_SCAN_REQUESTED, CardScanRequested, PubSubPushEnvelope
-from app.events.scan_worker import SERVICE_TOKEN_HEADER, deliver_scan_result, process_scan_request
+from app.events.scan_worker import SERVICE_AUTH_HEADER, deliver_scan_result, process_scan_request
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,9 @@ def require_service_token(request: Request, settings: Settings) -> None:
     expected = settings.service_auth_token
     if not expected:
         return
-    provided = request.headers.get(SERVICE_TOKEN_HEADER, "")
+    provided = request.headers.get(SERVICE_AUTH_HEADER, "")
     if not secrets.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
-        raise ApiError(401, "UNAUTHORIZED", f"A valid {SERVICE_TOKEN_HEADER} header is required.")
+        raise ApiError(401, "UNAUTHORIZED", f"A valid {SERVICE_AUTH_HEADER} header is required.")
 
 
 async def _read_envelope(request: Request) -> PubSubPushEnvelope | None:

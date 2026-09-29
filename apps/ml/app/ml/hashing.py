@@ -40,7 +40,8 @@ def _dct_matrix(size: int) -> NDArray[np.float64]:
     """Orthonormal DCT-II basis so that `basis @ block @ basis.T` is the 2-D DCT of `block`."""
     k = np.arange(size, dtype=np.float64)[:, None]
     n = np.arange(size, dtype=np.float64)[None, :]
-    basis = np.cos(np.pi * (2.0 * n + 1.0) * k / (2.0 * size)) * np.sqrt(2.0 / size)
+    basis: NDArray[np.float64] = np.cos(np.pi * (2.0 * n + 1.0) * k / (2.0 * size))
+    basis *= np.sqrt(2.0 / size)
     basis[0, :] = 1.0 / np.sqrt(size)
     return basis
 

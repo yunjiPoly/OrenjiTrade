@@ -4,6 +4,8 @@ pytest-asyncio==1.4.0
 pytest-cov==7.1.0
 httpx==0.28.1
 respx==0.23.1
+# Starlette 1.x's TestClient prefers httpx2 (falls back to httpx with a deprecation warning).
+httpx2==2.13.1
 ruff==0.16.9
 mypy==2.3.1
 # Pillow, numpy, pydantic, httpx and python-json-logger ship their own type hints (py.typed),

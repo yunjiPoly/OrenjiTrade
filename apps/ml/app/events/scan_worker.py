@@ -18,7 +18,7 @@ from app.observability import REQUEST_ID_HEADER, current_request_id, new_request
 
 logger = logging.getLogger(__name__)
 
-SERVICE_TOKEN_HEADER = "X-Service-Token"
+SERVICE_AUTH_HEADER = "X-Service-Token"
 GCS_SCHEME = "gs://"
 
 
@@ -83,7 +83,7 @@ async def deliver_scan_result(
     """POST the result to the API. Returns False (after logging) instead of raising."""
     headers = {REQUEST_ID_HEADER: current_request_id() or new_request_id()}
     if settings.service_auth_token:
-        headers[SERVICE_TOKEN_HEADER] = settings.service_auth_token
+        headers[SERVICE_AUTH_HEADER] = settings.service_auth_token
     payload = result.model_dump(mode="json")
     log_extra = {"scanId": result.scan_id, "status": result.status.value}
     try:
