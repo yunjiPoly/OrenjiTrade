@@ -88,8 +88,12 @@ public class SecurityConfig {
                             headers.contentTypeOptions(Customizer.withDefaults());
                             headers.frameOptions(frame -> frame.deny());
                             headers.referrerPolicy(
-                                    referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
-                            headers.permissionsPolicyHeader(policy -> policy.policy(PERMISSIONS_POLICY));
+                                    referrer ->
+                                            referrer.policy(
+                                                    ReferrerPolicy
+                                                            .STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+                            headers.permissionsPolicyHeader(
+                                    policy -> policy.policy(PERMISSIONS_POLICY));
                             OrenjiSecurityProperties.Hsts hsts = properties.hsts();
                             if (hsts.enabled()) {
                                 headers.httpStrictTransportSecurity(
@@ -127,7 +131,8 @@ public class SecurityConfig {
             }
         }
         configuration.setAllowCredentials(true);
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("X-Request-Id", "Location", "ETag", "Retry-After"));
         configuration.setMaxAge(Duration.ofHours(1));

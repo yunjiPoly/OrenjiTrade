@@ -1,7 +1,7 @@
 /**
  * Community module.
  *
- * Public community channels and posts (per game, region, looking-for, new listings, trades,
+ * <p>Public community channels and posts (per game, region, looking-for, new listings, trades,
  * general).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

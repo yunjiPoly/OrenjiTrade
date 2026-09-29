@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -68,7 +69,8 @@ class ProblemDetailsExceptionHandlerTest {
         mockMvc.perform(get("/probe/not-found"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.type").value("https://api.orenjitrade.com/problems/not-found"))
+                .andExpect(
+                        jsonPath("$.type").value("https://api.orenjitrade.com/problems/not-found"))
                 .andExpect(jsonPath("$.title").value("Not found"))
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.detail").value("Card not found"))
@@ -115,7 +117,8 @@ class ProblemDetailsExceptionHandlerTest {
                                         .content("{\"name\": "))
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"))
-                        .andExpect(jsonPath("$.message").value("Request body is missing or malformed"))
+                        .andExpect(
+                                jsonPath("$.message").value("Request body is missing or malformed"))
                         .andExpect(jsonPath("$.requestId").value(REQUEST_ID))
                         .andReturn()
                         .getResponse()
@@ -160,7 +163,10 @@ class ProblemDetailsExceptionHandlerTest {
         String body =
                 mockMvc.perform(get("/probe/boom"))
                         .andExpect(status().isInternalServerError())
-                        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                        .andExpect(
+                                content()
+                                        .contentTypeCompatibleWith(
+                                                MediaType.APPLICATION_PROBLEM_JSON))
                         .andExpect(jsonPath("$.errorCode").value("INTERNAL_ERROR"))
                         .andExpect(jsonPath("$.message").value("An unexpected error occurred"))
                         .andExpect(jsonPath("$.requestId").value(REQUEST_ID))
@@ -179,7 +185,10 @@ class ProblemDetailsExceptionHandlerTest {
     void accessDeniedForAnonymousIsUnauthenticated() throws Exception {
         mockMvc.perform(get("/probe/denied"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer realm=\"OrenjiTrade\""))
+                .andExpect(
+                        header().string(
+                                        HttpHeaders.WWW_AUTHENTICATE,
+                                        "Bearer realm=\"OrenjiTrade\""))
                 .andExpect(jsonPath("$.errorCode").value("UNAUTHENTICATED"));
     }
 
@@ -191,7 +200,9 @@ class ProblemDetailsExceptionHandlerTest {
         mockMvc.perform(get("/probe/denied"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value("You do not have permission to perform this action"));
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("You do not have permission to perform this action"));
     }
 
     @Test
@@ -204,7 +215,7 @@ class ProblemDetailsExceptionHandlerTest {
     @Test
     void maxUploadSizeIsPayloadTooLarge() throws Exception {
         mockMvc.perform(get("/probe/too-large"))
-                .andExpect(status().isPayloadTooLarge())
+                .andExpect(status().is(HttpStatus.CONTENT_TOO_LARGE.value()))
                 .andExpect(jsonPath("$.errorCode").value("PAYLOAD_TOO_LARGE"))
                 .andExpect(jsonPath("$.requestId").value(REQUEST_ID));
     }
@@ -243,7 +254,8 @@ class ProblemDetailsExceptionHandlerTest {
         @GetMapping("/validation-exception")
         void validationException() {
             throw ApiException.validation(
-                    "Validation failed", List.of(new ProblemFieldError("name", "must not be blank")));
+                    "Validation failed",
+                    List.of(new ProblemFieldError("name", "must not be blank")));
         }
 
         @PostMapping(value = "/validate", consumes = MediaType.APPLICATION_JSON_VALUE)

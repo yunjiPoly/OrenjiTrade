@@ -1,0 +1,203 @@
+name: Deploy
+
+# Deploys already-built images to Cloud Run.
+#   * automatically to dev after a successful "Docker build" on main
+#   * manually to dev/staging/prod with an explicit image tag (git sha or vX.Y.Z)
+#
+# GitHub environments dev, staging and prod must exist (Settings > Environments). staging and
+# prod carry "Required reviewers" (at least one maintainer, not the person who triggered) and a
+# deployment branch policy limited to main and v* tags; see docs/deployment/environments.md.
+# Environment-level variables override the repository ones:
+#   GCP_PROJECT_ID, GCP_REGION, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_DEPLOYER_SA  (target project)
+#   GCP_IMAGE_REGISTRY  <region>-docker.pkg.dev/<build project>/orenjitrade  (where images were pushed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        required: true
+        options: [dev, staging, prod]
+        default: dev
+      image_tag:
+        description: Image tag to deploy (git sha from Docker build, or vX.Y.Z)
+        type: string
+        required: true
+  workflow_run:
+    workflows: ["Docker build"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+    steps:
+      - id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ github.event.inputs.environment }}
+          INPUT_TAG: ${{ github.event.inputs.image_tag }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "environment=$INPUT_ENV" >> "$GITHUB_OUTPUT"
+            echo "image_tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "image_tag=$RUN_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: Deploy to ${{ needs.resolve.outputs.environment }}
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ needs.resolve.outputs.environment }}
+      url: ${{ steps.urls.outputs.web_url }}
+    env:
+      ENVIRONMENT: ${{ needs.resolve.outputs.environment }}
+      IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+      IMAGE_REGISTRY: ${{ vars.GCP_IMAGE_REGISTRY || format('{0}-docker.pkg.dev/{1}/orenjitrade', vars.GCP_REGION, vars.GCP_PROJECT_ID) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Remember current revisions (for rollback)
+        id: previous
+        run: |
+          for s in api web ml; do
+            rev=$(gcloud run services describe "orenjitrade-$s-$ENVIRONMENT" \
+              --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" \
+              --format 'value(status.latestReadyRevisionName)' 2>/dev/null || echo "none")
+            echo "$s=$rev" >> "$GITHUB_OUTPUT"
+            echo "$s previous revision: $rev"
+          done
+
+      - name: Deploy api
+        id: deploy-api
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: orenjitrade-api-${{ env.ENVIRONMENT }}
+          region: ${{ vars.GCP_REGION }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          image: ${{ env.IMAGE_REGISTRY }}/api:${{ env.IMAGE_TAG }}
+          labels: |
+            git-sha=${{ github.sha }}
+
+      - name: Deploy web
+        id: deploy-web
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: orenjitrade-web-${{ env.ENVIRONMENT }}
+          region: ${{ vars.GCP_REGION }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          image: ${{ env.IMAGE_REGISTRY }}/web:${{ env.IMAGE_TAG }}
+          labels: |
+            git-sha=${{ github.sha }}
+
+      - name: Deploy ml
+        id: deploy-ml
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: orenjitrade-ml-${{ env.ENVIRONMENT }}
+          region: ${{ vars.GCP_REGION }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          image: ${{ env.IMAGE_REGISTRY }}/ml:${{ env.IMAGE_TAG }}
+          labels: |
+            git-sha=${{ github.sha }}
+
+      - name: Smoke test api (Cloud Run URL, authenticated because ingress is LB-only)
+        env:
+          API_URL: ${{ steps.deploy-api.outputs.url }}
+        run: |
+          # The api only admits internal + load-balancer traffic, so the smoke test goes through
+          # the public hostname when one is configured for this environment; otherwise it
+          # verifies the revision is Ready.
+          set -euo pipefail
+          case "$ENVIRONMENT" in
+            prod)    HOST="api.orenjitrade.com" ;;
+            staging) HOST="staging-api.orenjitrade.com" ;;
+            *)       HOST="dev-api.orenjitrade.com" ;;
+          esac
+          if getent hosts "$HOST" >/dev/null 2>&1; then
+            for i in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "https://$HOST/actuator/health/readiness" || true)
+              [ "$code" = "200" ] && break
+              echo "readiness returned $code, retrying ($i/30)"; sleep 10
+            done
+            [ "$code" = "200" ] || { echo "::error::api readiness never returned 200"; exit 1; }
+            curl -fsS "https://$HOST/api/v1/meta" | tee meta.json
+            jq -e --arg tag "$IMAGE_TAG" '.version != null' meta.json >/dev/null
+          else
+            echo "No public hostname resolves for $ENVIRONMENT yet; checking revision readiness instead."
+            gcloud run services describe "orenjitrade-api-$ENVIRONMENT" --region "${{ vars.GCP_REGION }}" \
+              --project "${{ vars.GCP_PROJECT_ID }}" --format 'value(status.conditions[0].status)' | grep -q True
+          fi
+          echo "Cloud Run URL: $API_URL"
+
+      - name: Smoke test web
+        run: |
+          set -euo pipefail
+          case "$ENVIRONMENT" in
+            prod)    HOST="www.orenjitrade.com" ;;
+            staging) HOST="staging.orenjitrade.com" ;;
+            *)       HOST="dev.orenjitrade.com" ;;
+          esac
+          if getent hosts "$HOST" >/dev/null 2>&1; then
+            curl -fsS -o /dev/null -w 'web / -> %{http_code}\n' "https://$HOST/"
+          else
+            gcloud run services describe "orenjitrade-web-$ENVIRONMENT" --region "${{ vars.GCP_REGION }}" \
+              --project "${{ vars.GCP_PROJECT_ID }}" --format 'value(status.conditions[0].status)' | grep -q True
+          fi
+
+      - name: Deployment URLs
+        id: urls
+        run: |
+          case "$ENVIRONMENT" in
+            prod)    echo "web_url=https://www.orenjitrade.com" ;;
+            staging) echo "web_url=https://staging.orenjitrade.com" ;;
+            *)       echo "web_url=https://dev.orenjitrade.com" ;;
+          esac >> "$GITHUB_OUTPUT"
+
+      - name: Rollback hint
+        if: always()
+        env:
+          PREV_API: ${{ steps.previous.outputs.api }}
+          PREV_WEB: ${{ steps.previous.outputs.web }}
+          PREV_ML: ${{ steps.previous.outputs.ml }}
+        run: |
+          {
+            echo "## Deployed \`$IMAGE_TAG\` to **$ENVIRONMENT**"
+            echo
+            echo "Rollback (route 100% traffic back to the previous revision, see docs/deployment/runbooks.md):"
+            echo '```bash'
+            for s in api web ml; do
+              case $s in api) prev="$PREV_API";; web) prev="$PREV_WEB";; ml) prev="$PREV_ML";; esac
+              echo "gcloud run services update-traffic orenjitrade-$s-$ENVIRONMENT --region ${{ vars.GCP_REGION }} --project ${{ vars.GCP_PROJECT_ID }} --to-revisions $prev=100"
+            done
+            echo '```'
+            echo "Or re-run this workflow with the previous image tag."
+          } >> "$GITHUB_STEP_SUMMARY"

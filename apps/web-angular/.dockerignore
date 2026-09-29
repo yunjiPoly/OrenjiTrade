@@ -1,0 +1,24 @@
+# Ignore rules for the web image. The build context is the REPOSITORY ROOT
+# (docker build -f apps/web-angular/Dockerfile .), so BuildKit reads the copy of this file
+# named `Dockerfile.dockerignore` next to the Dockerfile. Keep both files identical.
+**/node_modules
+**/dist
+**/.angular
+**/coverage
+**/playwright-report
+**/test-results
+**/blob-report
+**/.git
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+
+# Other applications and infrastructure are not needed for the web image.
+apps/api
+apps/ml
+apps/mobile
+infrastructure
+docs
+.github
+packages/shared-types

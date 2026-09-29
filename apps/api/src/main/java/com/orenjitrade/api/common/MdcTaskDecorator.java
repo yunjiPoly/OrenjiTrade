@@ -7,8 +7,8 @@ import org.springframework.core.task.TaskDecorator;
 
 /**
  * Copies the submitting thread's MDC (notably {@code requestId}) onto the thread that executes an
- * async task and restores the previous MDC afterwards, so background log lines stay correlated
- * with the HTTP request that triggered them.
+ * async task and restores the previous MDC afterwards, so background log lines stay correlated with
+ * the HTTP request that triggered them.
  */
 public final class MdcTaskDecorator implements TaskDecorator {
 

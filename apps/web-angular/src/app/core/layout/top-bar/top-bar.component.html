@@ -17,7 +17,7 @@
       }
     </nav>
 
-    <app-search-field class="top-bar__search" (search)="search.emit($event)" />
+    <app-search-field class="top-bar__search" (querySubmit)="querySubmit.emit($event)" />
 
     <div class="top-bar__actions">
       <button

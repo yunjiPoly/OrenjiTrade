@@ -41,7 +41,8 @@ public class OpenApiConfig {
     @Bean
     OpenAPI orenjiOpenApi(ObjectProvider<BuildProperties> buildProperties) {
         @Nullable BuildProperties build = buildProperties.getIfAvailable();
-        String version = build != null && build.getVersion() != null ? build.getVersion() : FALLBACK_VERSION;
+        String version =
+                build != null && build.getVersion() != null ? build.getVersion() : FALLBACK_VERSION;
         return new OpenAPI()
                 .info(
                         new Info()
@@ -50,13 +51,15 @@ public class OpenApiConfig {
                                 .description(
                                         "REST API of OrenjiTrade, the geographic discovery network"
                                             + " for trading cards. Generated from the Spring Boot"
-                                            + " application by `./gradlew exportOpenApi` (apps/api)."
-                                            + " Do not edit by hand.")
+                                            + " application by `./gradlew exportOpenApi`"
+                                            + " (apps/api). Do not edit by hand.")
                                 .license(new License().name("Proprietary")))
                 .servers(
                         List.of(
                                 new Server().url("http://localhost:8080").description("local"),
-                                new Server().url("https://api.orenjitrade.com").description("production")))
+                                new Server()
+                                        .url("https://api.orenjitrade.com")
+                                        .description("production")))
                 .components(
                         new Components()
                                 .addSecuritySchemes(
@@ -91,7 +94,15 @@ public class OpenApiConfig {
         schema.addProperty("requestId", new StringSchema());
         schema.addProperty("timestamp", new StringSchema().format("date-time"));
         schema.addProperty("errors", new ArraySchema().items(fieldError));
-        schema.required(List.of("type", "title", "status", "errorCode", "message", "requestId", "timestamp"));
+        schema.required(
+                List.of(
+                        "type",
+                        "title",
+                        "status",
+                        "errorCode",
+                        "message",
+                        "requestId",
+                        "timestamp"));
         return schema;
     }
 }

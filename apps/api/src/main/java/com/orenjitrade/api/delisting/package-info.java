@@ -1,7 +1,7 @@
 /**
  * Delisting module.
  *
- * Auto-delisting of stale inventory: configurable freshness policies, scheduled evaluation,
+ * <p>Auto-delisting of stale inventory: configurable freshness policies, scheduled evaluation,
  * warnings and restore.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

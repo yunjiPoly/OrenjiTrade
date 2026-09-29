@@ -1,7 +1,7 @@
 /**
  * Payments module.
  *
- * PaymentProvider abstraction with Stripe Connect adapter and FakePaymentProvider; protected
+ * <p>PaymentProvider abstraction with Stripe Connect adapter and FakePaymentProvider; protected
  * transactions, disputes and webhooks (feature flagged, ADR 0011).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

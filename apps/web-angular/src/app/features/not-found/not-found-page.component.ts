@@ -11,8 +11,8 @@ import { RouterLink } from '@angular/router';
       <p class="not-found__code mono" aria-hidden="true">404</p>
       <h1>Page not found</h1>
       <p class="not-found__text">
-        The page you were looking for does not exist or has moved. Check the address, or head
-        back to the map to find collectors near you.
+        The page you were looking for does not exist or has moved. Check the address, or head back
+        to the map to find collectors near you.
       </p>
       <a matButton="filled" routerLink="/map">
         <mat-icon aria-hidden="true">map</mat-icon>

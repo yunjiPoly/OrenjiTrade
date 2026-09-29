@@ -48,7 +48,8 @@ class TimeProviderTest {
 
     @Test
     void fallsBackToSystemUtcClockWithoutClockBean() {
-        ObjectProvider<Clock> clocks = new DefaultListableBeanFactory().getBeanProvider(Clock.class);
+        ObjectProvider<Clock> clocks =
+                new DefaultListableBeanFactory().getBeanProvider(Clock.class);
 
         TimeProvider provider = new TimeProvider(clocks);
 

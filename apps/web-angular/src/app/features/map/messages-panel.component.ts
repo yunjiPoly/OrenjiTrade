@@ -11,7 +11,12 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.com
     <aside class="messages-panel" id="map-messages-panel" aria-labelledby="map-messages-title">
       <header class="messages-panel__header">
         <h2 id="map-messages-title" class="messages-panel__title">Messages</h2>
-        <button matIconButton type="button" aria-label="Close messages panel" (click)="close.emit()">
+        <button
+          matIconButton
+          type="button"
+          aria-label="Close messages panel"
+          (click)="closeRequested.emit()"
+        >
           <mat-icon>close</mat-icon>
         </button>
       </header>
@@ -46,5 +51,5 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.com
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MessagesPanelComponent {
-  readonly close = output<void>();
+  readonly closeRequested = output<void>();
 }

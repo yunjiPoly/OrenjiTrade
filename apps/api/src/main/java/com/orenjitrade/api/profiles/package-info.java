@@ -1,7 +1,7 @@
 /**
  * Profiles module.
  *
- * Public collector profiles: display name, avatar, bio, games of interest and tags.
+ * <p>Public collector profiles: display name, avatar, bio, games of interest and tags.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

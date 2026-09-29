@@ -1,7 +1,7 @@
 /**
  * Search module.
  *
- * Unified search over cards, printings, sets, collectors and public binders using PostgreSQL
+ * <p>Unified search over cards, printings, sets, collectors and public binders using PostgreSQL
  * full-text search and pg_trgm (ADR 0012); geographic collector search on public_point.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

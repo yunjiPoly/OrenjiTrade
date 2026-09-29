@@ -105,7 +105,9 @@ class RequestIdFilterTest {
         AtomicReference<String> mdcDuringChain = new AtomicReference<>();
 
         filter.doFilter(
-                request, response, (req, res) -> mdcDuringChain.set(MDC.get(RequestIdFilter.MDC_KEY)));
+                request,
+                response,
+                (req, res) -> mdcDuringChain.set(MDC.get(RequestIdFilter.MDC_KEY)));
 
         assertThat(mdcDuringChain.get()).isEqualTo("already-assigned");
         assertThat(response.getHeader(RequestIdFilter.HEADER)).isEqualTo("already-assigned");

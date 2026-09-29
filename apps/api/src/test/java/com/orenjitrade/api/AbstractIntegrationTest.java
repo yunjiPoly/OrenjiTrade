@@ -33,7 +33,8 @@ public abstract class AbstractIntegrationTest {
 
     protected static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer(
-                            DockerImageName.parse(POSTGIS_IMAGE).asCompatibleSubstituteFor("postgres"))
+                            DockerImageName.parse(POSTGIS_IMAGE)
+                                    .asCompatibleSubstituteFor("postgres"))
                     .withDatabaseName("orenjitrade_test");
 
     protected static final GenericContainer<?> REDIS =

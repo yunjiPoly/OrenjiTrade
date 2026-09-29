@@ -1,7 +1,7 @@
 /**
  * Games module.
  *
- * Supported trading card games and their game-specific metadata schemas (ADR 0005).
+ * <p>Supported trading card games and their game-specific metadata schemas (ADR 0005).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

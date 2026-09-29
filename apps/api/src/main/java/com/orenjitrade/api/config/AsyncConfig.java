@@ -17,8 +17,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * Bounded application executor for {@code @Async} methods, Spring Modulith's {@code
- * @ApplicationModuleListener}s and Spring MVC async requests. Tasks inherit the caller's MDC
+ * Bounded application executor for {@code @Async} methods, Spring Modulith's
+ * {@code @ApplicationModuleListener}s and Spring MVC async requests. Tasks inherit the caller's MDC
  * (request id) through {@link MdcTaskDecorator}. Declared as {@code applicationTaskExecutor} so
  * Spring Boot's auto-configured executor backs off.
  */

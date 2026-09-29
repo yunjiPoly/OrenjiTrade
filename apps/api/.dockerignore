@@ -1,0 +1,28 @@
+# Build outputs and caches
+build/
+.gradle/
+out/
+bin/
+*.class
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# Local state
+.local-storage/
+*.log
+.env
+.env.*
+
+# Docs and tests are not needed inside the image build context
+README.md
+HELP.md
+src/test/

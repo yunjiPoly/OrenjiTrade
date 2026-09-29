@@ -1,7 +1,7 @@
 /**
  * Moderation module.
  *
- * Moderator tooling shared by reports, community and messaging: actions, notes and escalation.
+ * <p>Moderator tooling shared by reports, community and messaging: actions, notes and escalation.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

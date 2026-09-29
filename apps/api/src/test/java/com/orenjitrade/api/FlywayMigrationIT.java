@@ -53,7 +53,8 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
                 jdbc.queryForObject("SELECT unaccent_immutable('Pokémon Émilie')", String.class);
         String volatility =
                 jdbc.queryForObject(
-                        "SELECT provolatile::text FROM pg_proc WHERE proname = 'unaccent_immutable'",
+                        "SELECT provolatile::text FROM pg_proc WHERE proname ="
+                                + " 'unaccent_immutable'",
                         String.class);
 
         assertThat(result).isEqualTo("Pokemon Emilie");
@@ -64,7 +65,8 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
     void createsModulithEventPublicationTable() {
         Boolean exists =
                 jdbc.queryForObject(
-                        "SELECT to_regclass('public.event_publication') IS NOT NULL", Boolean.class);
+                        "SELECT to_regclass('public.event_publication') IS NOT NULL",
+                        Boolean.class);
         List<String> columns =
                 jdbc.queryForList(
                         "SELECT column_name FROM information_schema.columns"

@@ -33,9 +33,8 @@ describe('AppShellComponent', () => {
   });
 
   it('renders the primary navigation links', () => {
-    const labels = Array.from(
-      element.querySelectorAll('nav[aria-label="Primary"] a'),
-      (a) => a.textContent?.replace(/\s+/g, ' ').trim(),
+    const labels = Array.from(element.querySelectorAll('nav[aria-label="Primary"] a'), (a) =>
+      a.textContent?.replace(/\s+/g, ' ').trim(),
     );
     expect(labels).toEqual([
       expect.stringContaining('Map'),

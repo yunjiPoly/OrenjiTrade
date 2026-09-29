@@ -13,7 +13,7 @@ import { TopBarComponent } from '../top-bar/top-bar.component';
   imports: [RouterOutlet, TopBarComponent, FooterComponent, BottomNavComponent],
   template: `
     <a class="skip-link" href="#main-content">Skip to main content</a>
-    <app-top-bar (search)="onSearch($event)" />
+    <app-top-bar (querySubmit)="onSearch($event)" />
     <main id="main-content" class="shell__main" tabindex="-1">
       <router-outlet />
     </main>

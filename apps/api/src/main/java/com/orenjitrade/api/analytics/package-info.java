@@ -1,7 +1,7 @@
 /**
  * Analytics module.
  *
- * Schema-versioned analytics events (no PII, grid-cell geography only) published through the
+ * <p>Schema-versioned analytics events (no PII, grid-cell geography only) published through the
  * EventTransport to Pub/Sub and BigQuery; consumes domain events only.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

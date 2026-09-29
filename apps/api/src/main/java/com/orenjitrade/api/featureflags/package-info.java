@@ -1,8 +1,8 @@
 /**
  * Feature flags module.
  *
- * Feature flags and configurable business rules stored in the database, edited through /admin and
- * cached in Redis (ADR 0014).
+ * <p>Feature flags and configurable business rules stored in the database, edited through /admin
+ * and cached in Redis (ADR 0014).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

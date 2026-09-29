@@ -9,15 +9,14 @@ export const routes: Routes = [
   {
     path: 'map',
     title: 'Map',
-    loadComponent: () => import('./features/map/map-page.component').then((m) => m.MapPageComponent),
+    loadComponent: () =>
+      import('./features/map/map-page.component').then((m) => m.MapPageComponent),
   },
   {
     path: 'inventory',
     title: 'Inventory',
     loadComponent: () =>
-      import('./features/inventory/inventory-page.component').then(
-        (m) => m.InventoryPageComponent,
-      ),
+      import('./features/inventory/inventory-page.component').then((m) => m.InventoryPageComponent),
   },
   {
     path: 'search',
@@ -29,9 +28,7 @@ export const routes: Routes = [
     path: 'community',
     title: 'Community',
     loadComponent: () =>
-      import('./features/community/community-page.component').then(
-        (m) => m.CommunityPageComponent,
-      ),
+      import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
   },
   {
     path: 'wishlist',

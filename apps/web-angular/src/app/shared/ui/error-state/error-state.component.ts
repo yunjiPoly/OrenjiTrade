@@ -17,7 +17,9 @@ import { MatIconModule } from '@angular/material/icon';
           <p class="error-state__message">{{ message() }}</p>
         }
         @if (requestId()) {
-          <p class="error-state__request">Request id <span class="mono">{{ requestId() }}</span></p>
+          <p class="error-state__request">
+            Request id <span class="mono">{{ requestId() }}</span>
+          </p>
         }
       </div>
       <button matButton="outlined" type="button" class="error-state__retry" (click)="retry.emit()">

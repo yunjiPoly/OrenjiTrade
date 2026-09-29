@@ -6,8 +6,7 @@ export const LEGAL_ROUTES: Routes = [
   {
     path: '',
     title: 'Legal',
-    loadComponent: () =>
-      import('./legal-index.component').then((m) => m.LegalIndexComponent),
+    loadComponent: () => import('./legal-index.component').then((m) => m.LegalIndexComponent),
   },
   ...LEGAL_DOCUMENT_LIST.map((doc) => ({
     path: doc.key,

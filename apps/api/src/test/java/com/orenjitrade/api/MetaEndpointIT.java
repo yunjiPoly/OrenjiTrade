@@ -55,7 +55,13 @@ class MetaEndpointIT extends AbstractIntegrationTest {
     @Test
     void generatesRequestIdWhenAbsent() {
         EntityExchangeResult<byte[]> result =
-                http.get().uri("/api/v1/meta").exchange().expectStatus().isOk().expectBody().returnResult();
+                http.get()
+                        .uri("/api/v1/meta")
+                        .exchange()
+                        .expectStatus()
+                        .isOk()
+                        .expectBody()
+                        .returnResult();
 
         String requestId = result.getResponseHeaders().getFirst(RequestIdFilter.HEADER);
         assertThat(requestId).isNotNull();

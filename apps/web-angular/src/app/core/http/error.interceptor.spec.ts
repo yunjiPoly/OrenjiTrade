@@ -37,7 +37,7 @@ describe('errorInterceptor', () => {
 
   async function failWith(
     status: number,
-    body: unknown,
+    body: object | string | null,
     options: { context?: HttpContext; statusText?: string } = {},
   ): Promise<ApiError> {
     const promise = firstValueFrom(http.get('/api/v1/meta', { context: options.context }));

@@ -22,7 +22,9 @@ describe('FreshnessBadgeComponent', () => {
   let fixture: ComponentFixture<FreshnessBadgeComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [FreshnessBadgeComponent] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [FreshnessBadgeComponent],
+    }).compileComponents();
     fixture = TestBed.createComponent(FreshnessBadgeComponent);
     fixture.componentRef.setInput('now', NOW);
   });

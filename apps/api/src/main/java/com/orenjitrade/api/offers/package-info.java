@@ -1,7 +1,7 @@
 /**
  * Offers module.
  *
- * Cash, trade and mixed offers with lifecycle OPEN -> COUNTERED -> ACCEPTED ->
+ * <p>Cash, trade and mixed offers with lifecycle OPEN -> COUNTERED -> ACCEPTED ->
  * DECLINED/CANCELLED/EXPIRED and full history.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

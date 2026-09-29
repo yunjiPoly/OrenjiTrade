@@ -1,7 +1,7 @@
 /**
  * Binders module.
  *
- * Binders group inventory items and carry their own visibility; public binder views.
+ * <p>Binders group inventory items and carry their own visibility; public binder views.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

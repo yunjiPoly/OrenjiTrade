@@ -32,7 +32,12 @@ describe('AppConfigService', () => {
     expect(service.loadError()).toBeNull();
     expect(service.apiBaseUrl()).toBe('https://api.example.test');
     expect(service.environment()).toBe('staging');
-    expect(service.firebase()).toEqual({ apiKey: 'k', authDomain: 'a', projectId: 'p', appId: 'id' });
+    expect(service.firebase()).toEqual({
+      apiKey: 'k',
+      authDomain: 'a',
+      projectId: 'p',
+      appId: 'id',
+    });
     expect(service.wsBaseUrl()).toBe(DEFAULT_APP_CONFIG.wsBaseUrl);
   });
 

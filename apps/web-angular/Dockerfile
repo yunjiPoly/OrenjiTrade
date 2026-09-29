@@ -51,10 +51,10 @@ ENV PORT=8080 \
     ENVIRONMENT=production
 
 RUN rm -f /etc/nginx/conf.d/default.conf
-COPY apps/web-angular/nginx.conf /etc/nginx/templates/default.conf.template
+COPY apps/web-angular/nginx.conf /etc/nginx/orenji/default.conf.template
 COPY apps/web-angular/config.template.json /usr/share/nginx/html/config.template.json
-COPY apps/web-angular/docker-entrypoint.sh /docker-entrypoint.d/40-orenji-config.sh
-RUN chmod +x /docker-entrypoint.d/40-orenji-config.sh
+COPY apps/web-angular/docker-entrypoint.sh /usr/local/bin/orenji-entrypoint.sh
+RUN chmod +x /usr/local/bin/orenji-entrypoint.sh
 
 COPY --from=build /workspace/apps/web-angular/dist/web-angular/browser/ /usr/share/nginx/html/
 
@@ -62,6 +62,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD wget -qO- "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 || exit 1
 
-# The nginx image's own entrypoint runs /docker-entrypoint.d/*.sh (our config renderer)
-# and then starts nginx in the foreground.
-CMD ["nginx", "-g", "daemon off;"]
+# Renders config.json + nginx config from the environment, then starts nginx on $PORT.
+ENTRYPOINT ["/usr/local/bin/orenji-entrypoint.sh"]

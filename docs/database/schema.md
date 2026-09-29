@@ -73,8 +73,48 @@ Detailed column lists are appended per phase below as migrations land.
 
 ## Migrations
 
-| Version | Purpose |
-| --- | --- |
-| V001 | Extensions (`postgis`, `pg_trgm`, `unaccent`, `pgcrypto`), helper functions |
+| Version | File | Purpose |
+| --- | --- | --- |
+| V001 | `V001__extensions.sql` | Extensions (`postgis`, `pg_trgm`, `unaccent`, `pgcrypto`) and the `unaccent_immutable(text)` helper |
+| V002 | `V002__event_publication.sql` | Spring Modulith 2.1 event publication registry (`event_publication`, transactional outbox) |
 
 (Sections for later phases are added as they are implemented.)
+
+### V001 — extensions and helper functions
+
+All statements are idempotent (`CREATE EXTENSION IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`), so
+the migration also succeeds on a database that the local `docker compose` init script already
+prepared.
+
+| Object | Purpose |
+| --- | --- |
+| extension `postgis` | `geography(Point, 4326)` columns, `ST_DWithin`, GiST indexes (collector search) |
+| extension `pg_trgm` | trigram GIN indexes for fuzzy card / collector name search |
+| extension `unaccent` | accent-insensitive search (`Pokémon` matches `Pokemon`) |
+| extension `pgcrypto` | `gen_random_uuid()` primary keys, `digest()` |
+| function `unaccent_immutable(text) RETURNS text` | `IMMUTABLE PARALLEL SAFE STRICT` wrapper around `unaccent('public.unaccent', ...)`; required because `unaccent()` itself is only `STABLE` and therefore cannot back generated `tsvector` columns or expression indexes |
+
+### V002 — `event_publication` (Spring Modulith outbox)
+
+Copied verbatim from `spring-modulith-events-jdbc` 2.1.1 (`schemas/v2/schema-postgresql.sql`, the
+current non-legacy structure). `spring.modulith.events.jdbc.schema-initialization.enabled` is
+`false`: Flyway owns the table. Rows are written in the same transaction as the domain change and
+completed (`completion-mode=update`) once every `@ApplicationModuleListener` succeeded; incomplete
+rows are republished on restart. The optional `event_publication_archive` table
+(`completion-mode=archive`) is not created.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `listener_id` | `text` | fully qualified listener method |
+| `event_type` | `text` | event class name |
+| `serialized_event` | `text` | JSON (Jackson 3) |
+| `publication_date` | `timestamptz` | when the event was published |
+| `completion_date` | `timestamptz` | null while outstanding |
+| `status` | `text` | `PUBLISHED`, `PROCESSING`, `RESUBMITTED`, `FAILED`, `COMPLETED` (managed by Modulith) |
+| `completion_attempts` | `int` | retry counter |
+| `last_resubmission_date` | `timestamptz` | last republish |
+
+Indexes: `event_publication_serialized_event_hash_idx` (hash on `serialized_event`, used by
+Modulith to complete publications) and `event_publication_by_completion_date_idx`
+(`completion_date`, used to find outstanding / completed rows).

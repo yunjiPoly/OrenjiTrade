@@ -1,7 +1,7 @@
 /**
  * Donations module.
  *
- * Voluntary donations through the payment provider abstraction.
+ * <p>Voluntary donations through the payment provider abstraction.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

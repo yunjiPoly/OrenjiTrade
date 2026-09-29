@@ -8,7 +8,14 @@ import { ADMIN_SECTIONS } from './admin-sections';
 /** Admin console frame: section navigation on the left, routed content on the right. */
 @Component({
   selector: 'app-admin-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatListModule, MatIconModule, MatTooltipModule],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    MatListModule,
+    MatIconModule,
+    MatTooltipModule,
+  ],
   template: `
     <div class="admin">
       <nav class="admin__nav" aria-label="Admin sections">

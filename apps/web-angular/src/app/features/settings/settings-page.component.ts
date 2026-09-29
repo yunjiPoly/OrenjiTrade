@@ -21,8 +21,8 @@ import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.com
       <section class="settings__section" aria-labelledby="settings-appearance">
         <h2 id="settings-appearance">Appearance</h2>
         <p>
-          Theme: <strong>{{ theme.preference() }}</strong> (currently {{ theme.resolved() }}).
-          Use the theme button in the toolbar to change it; the choice is stored on this device.
+          Theme: <strong>{{ theme.preference() }}</strong> (currently {{ theme.resolved() }}). Use
+          the theme button in the toolbar to change it; the choice is stored on this device.
         </p>
       </section>
 

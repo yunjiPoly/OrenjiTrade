@@ -35,7 +35,8 @@ public class RequestIdFilter extends OncePerRequestFilter {
     public static final String REQUEST_ATTRIBUTE = RequestIdFilter.class.getName() + ".requestId";
     public static final int MAX_LENGTH = 64;
 
-    private static final Pattern SAFE_ID = Pattern.compile("^[A-Za-z0-9._~-]{1," + MAX_LENGTH + "}$");
+    private static final Pattern SAFE_ID =
+            Pattern.compile("^[A-Za-z0-9._~-]{1," + MAX_LENGTH + "}$");
 
     @Override
     protected void doFilterInternal(

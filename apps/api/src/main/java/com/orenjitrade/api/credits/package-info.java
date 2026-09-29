@@ -1,7 +1,7 @@
 /**
  * Credits module.
  *
- * Append-only credit ledger with derived balances.
+ * <p>Append-only credit ledger with derived balances.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

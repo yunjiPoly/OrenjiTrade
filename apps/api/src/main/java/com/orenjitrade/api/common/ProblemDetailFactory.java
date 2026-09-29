@@ -19,9 +19,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The single place that shapes RFC 9457 problem responses. Used by {@link
- * ProblemDetailsExceptionHandler} for exceptions raised inside Spring MVC and by the Spring Security
- * entry point / access-denied handler for failures that happen before a controller is reached, so
- * every error the API emits has the same shape:
+ * ProblemDetailsExceptionHandler} for exceptions raised inside Spring MVC and by the Spring
+ * Security entry point / access-denied handler for failures that happen before a controller is
+ * reached, so every error the API emits has the same shape:
  *
  * <pre>{@code
  * {
@@ -92,7 +92,9 @@ public class ProblemDetailFactory {
         }
         if (detail.getTitle() == null
                 || detail.getTitle().isBlank()
-                || HttpStatusCode.valueOf(detail.getStatus()).toString().equals(detail.getTitle())) {
+                || HttpStatusCode.valueOf(detail.getStatus())
+                        .toString()
+                        .equals(detail.getTitle())) {
             detail.setTitle(errorCode.title());
         }
         String safeMessage =

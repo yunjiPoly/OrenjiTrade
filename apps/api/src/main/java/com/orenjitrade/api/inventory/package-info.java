@@ -1,7 +1,8 @@
 /**
  * Inventory module.
  *
- * Collector inventory items: quantity, condition, pricing, availability, visibility and freshness.
+ * <p>Collector inventory items: quantity, condition, pricing, availability, visibility and
+ * freshness.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

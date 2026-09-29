@@ -1,11 +1,6 @@
 /** What a collector is willing to do with an inventory item. */
 export type Availability =
-  | 'COLLECTION_ONLY'
-  | 'TRADE'
-  | 'SALE'
-  | 'TRADE_OR_SALE'
-  | 'ACCEPTING_OFFERS'
-  | 'NOT_AVAILABLE';
+  'COLLECTION_ONLY' | 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'ACCEPTING_OFFERS' | 'NOT_AVAILABLE';
 
 export interface AvailabilityInfo {
   label: string;
@@ -15,7 +10,11 @@ export interface AvailabilityInfo {
 }
 
 export const AVAILABILITIES: Record<Availability, AvailabilityInfo> = {
-  COLLECTION_ONLY: { label: 'Collection only', icon: 'collections_bookmark', modifier: 'collection' },
+  COLLECTION_ONLY: {
+    label: 'Collection only',
+    icon: 'collections_bookmark',
+    modifier: 'collection',
+  },
   TRADE: { label: 'Trade', icon: 'swap_horiz', modifier: 'trade' },
   SALE: { label: 'Sale', icon: 'sell', modifier: 'sale' },
   TRADE_OR_SALE: { label: 'Trade or sale', icon: 'sync_alt', modifier: 'trade-or-sale' },

@@ -31,7 +31,8 @@ public class MetaController {
             @Value("${orenji.environment:local}") String environment,
             TimeProvider timeProvider) {
         @Nullable BuildProperties build = buildProperties.getIfAvailable();
-        this.version = build != null && build.getVersion() != null ? build.getVersion() : FALLBACK_VERSION;
+        this.version =
+                build != null && build.getVersion() != null ? build.getVersion() : FALLBACK_VERSION;
         this.environment = environment;
         this.timeProvider = timeProvider;
     }

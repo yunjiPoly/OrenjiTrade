@@ -1,7 +1,7 @@
 /**
  * Location module.
  *
- * The only module allowed to read precise coordinates. Derives user_location.public_point (1 km
+ * <p>The only module allowed to read precise coordinates. Derives user_location.public_point (1 km
  * grid snap + deterministic jitter) from the chosen trading area; every public query uses
  * public_point only (ADR 0004).
  *

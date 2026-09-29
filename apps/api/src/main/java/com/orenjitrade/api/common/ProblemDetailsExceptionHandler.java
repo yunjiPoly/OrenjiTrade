@@ -148,7 +148,8 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
 
     /** Catch-all: anything unexpected is a 500 with a generic message. */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> handleUnexpected(
+            Exception ex, HttpServletRequest request) {
         ProblemDetail detail =
                 problems.create(
                         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -195,7 +196,9 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
                             String parameter =
                                     result.getMethodParameter().getParameterName() != null
                                             ? result.getMethodParameter().getParameterName()
-                                            : "parameter" + result.getMethodParameter().getParameterIndex();
+                                            : "parameter"
+                                                    + result.getMethodParameter()
+                                                            .getParameterIndex();
                             for (MessageSourceResolvable error : result.getResolvableErrors()) {
                                 String field =
                                         error instanceof FieldError fieldError
@@ -231,7 +234,8 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
-        return handleExceptionInternal(ex, notFoundProblem(status, request), headers, status, request);
+        return handleExceptionInternal(
+                ex, notFoundProblem(status, request), headers, status, request);
     }
 
     @Override
@@ -240,7 +244,8 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
-        return handleExceptionInternal(ex, notFoundProblem(status, request), headers, status, request);
+        return handleExceptionInternal(
+                ex, notFoundProblem(status, request), headers, status, request);
     }
 
     @Override
@@ -278,7 +283,9 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
         return handleExceptionInternal(ex, detail, headers, status, request);
     }
 
-    /** Logs framework-handled problems; the body itself is shaped in {@link #createResponseEntity}. */
+    /**
+     * Logs framework-handled problems; the body itself is shaped in {@link #createResponseEntity}.
+     */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(
             Exception ex,
@@ -307,7 +314,10 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
      */
     @Override
     protected ResponseEntity<Object> createResponseEntity(
-            @Nullable Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
+            @Nullable Object body,
+            HttpHeaders headers,
+            HttpStatusCode statusCode,
+            WebRequest request) {
         if (body instanceof ProblemDetail detail) {
             if (detail.getProperties() == null
                     || !detail.getProperties().containsKey(ProblemDetailFactory.ERROR_CODE)) {

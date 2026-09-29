@@ -1,7 +1,7 @@
 /**
  * Ads module.
  *
- * Internal advertising framework: campaigns, placements, creatives, impressions, clicks and
+ * <p>Internal advertising framework: campaigns, placements, creatives, impressions, clicks and
  * budgets; always labelled Sponsored.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

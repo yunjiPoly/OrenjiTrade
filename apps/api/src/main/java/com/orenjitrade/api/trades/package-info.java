@@ -1,7 +1,7 @@
 /**
  * Trades module.
  *
- * Trades created from accepted offers: statuses, buyer and seller views, shipment and receipt
+ * <p>Trades created from accepted offers: statuses, buyer and seller views, shipment and receipt
  * confirmation.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

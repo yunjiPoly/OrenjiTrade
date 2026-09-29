@@ -1,8 +1,8 @@
 /**
  * Auth module.
  *
- * Identity verification: Firebase ID token verification (IdentityTokenVerifier), the bearer token
- * filter, the AuthenticatedUser principal and first-login provisioning. Never trusts
+ * <p>Identity verification: Firebase ID token verification (IdentityTokenVerifier), the bearer
+ * token filter, the AuthenticatedUser principal and first-login provisioning. Never trusts
  * client-provided user ids (ADR 0008).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

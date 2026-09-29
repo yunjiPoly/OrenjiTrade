@@ -1,7 +1,7 @@
 /**
  * Messaging module.
  *
- * Private conversations and messages, blocking, realtime delivery over WebSocket (STOMP) with
+ * <p>Private conversations and messages, blocking, realtime delivery over WebSocket (STOMP) with
  * Redis fan-out.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

@@ -107,7 +107,7 @@ tasks.test {
 }
 
 // ./gradlew exportOpenApi -> boots the app against Testcontainers and writes docs/api/openapi.json.
-val exportOpenApi by tasks.registering(Test::class) {
+tasks.register<Test>("exportOpenApi") {
     description = "Exports the OpenAPI contract to docs/api/openapi.json (requires Docker)."
     group = "documentation"
     testClassesDirs = sourceSets.test.get().output.classesDirs
@@ -123,10 +123,22 @@ val exportOpenApi by tasks.registering(Test::class) {
     shouldRunAfter(tasks.test)
 }
 
+// Used by the Dockerfile to warm the dependency cache layer before the sources are copied.
+tasks.register("resolveDependencies") {
+    description = "Downloads every compile/runtime/test dependency (Docker layer caching)."
+    group = "build setup"
+    doLast {
+        listOf("compileClasspath", "runtimeClasspath", "testCompileClasspath", "testRuntimeClasspath", "annotationProcessor")
+            .mapNotNull { configurations.findByName(it) }
+            .forEach { it.resolve() }
+    }
+}
+
 spotless {
     java {
         target("src/**/*.java")
-        googleJavaFormat("1.36.1").aosp().reflowLongStrings()
+        // 1.28.0 is the newest release that runs on the JDK 17 that contributors may use for Gradle itself.
+        googleJavaFormat("1.28.0").aosp().reflowLongStrings()
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()

@@ -1,7 +1,7 @@
 /**
  * Notifications module.
  *
- * In-app notification centre plus push (FCM) and email adapters behind provider abstractions;
+ * <p>In-app notification centre plus push (FCM) and email adapters behind provider abstractions;
  * idempotent, rate limited dispatch.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

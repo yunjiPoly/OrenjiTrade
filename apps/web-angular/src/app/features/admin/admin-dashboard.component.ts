@@ -36,8 +36,8 @@ const TILES: readonly DashboardTile[] = [
         }
       </ul>
       <p class="dashboard__note">
-        {{ pendingSections }} admin sections are planned; each becomes available with its
-        phase. Every admin action will be recorded in the audit log.
+        {{ pendingSections }} admin sections are planned; each becomes available with its phase.
+        Every admin action will be recorded in the audit log.
       </p>
     </div>
   `,

@@ -23,7 +23,10 @@ public record OrenjiSecurityProperties(@DefaultValue Cors cors, @DefaultValue Hs
             allowedOrigins =
                     allowedOrigins == null
                             ? List.of()
-                            : allowedOrigins.stream().map(String::trim).filter(s -> !s.isEmpty()).toList();
+                            : allowedOrigins.stream()
+                                    .map(String::trim)
+                                    .filter(s -> !s.isEmpty())
+                                    .toList();
         }
 
         @Override

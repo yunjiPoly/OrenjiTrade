@@ -1,10 +1,10 @@
 #!/bin/sh
-# Renders runtime configuration for the OrenjiTrade web container.
+# Entrypoint of the OrenjiTrade web container.
 #
-# Executed by the nginx image entrypoint (/docker-entrypoint.d/) before nginx starts:
 #   1. /usr/share/nginx/html/config.json  <- config.template.json + environment
 #   2. /etc/nginx/conf.d/default.conf     <- nginx.conf template + environment
-# Cloud Run sets PORT; everything else has a safe local default.
+#   3. exec nginx in the foreground on $PORT (Cloud Run sets PORT; default 8080)
+# Every other variable has a safe local default; none of them is a secret.
 set -eu
 
 : "${PORT:=8080}"
@@ -32,6 +32,8 @@ envsubst '${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_API_KEY} ${FIREBASE_AUTH_DOM
 
 # Only substitute our own variables so nginx's $uri, $host, ... survive.
 envsubst '${PORT} ${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_AUTH_DOMAIN}' \
-  < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
+  < /etc/nginx/orenji/default.conf.template > /etc/nginx/conf.d/default.conf
 
 echo "[orenji-web] config.json rendered (environment=${ENVIRONMENT}, api=${API_BASE_URL}); listening on :${PORT}"
+
+exec nginx -g 'daemon off;'

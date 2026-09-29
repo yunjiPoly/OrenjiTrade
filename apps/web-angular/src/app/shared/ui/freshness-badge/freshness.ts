@@ -18,7 +18,10 @@ export const FRESHNESS_THRESHOLD_DAYS = { fresh: 14, aging: 30, stale: 45 } as c
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Derives the freshness bucket from the last update/confirmation date. */
-export function freshnessFromDate(value: DateInput, now: Date | number = Date.now()): FreshnessState {
+export function freshnessFromDate(
+  value: DateInput,
+  now: Date | number = Date.now(),
+): FreshnessState {
   const date = toDate(value);
   if (!date) {
     return 'hidden';

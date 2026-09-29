@@ -14,7 +14,10 @@ test.describe('app shell', () => {
 
   test('navigates to the inventory page', async ({ page }) => {
     await page.goto('/map');
-    await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Inventory' }).click();
+    await page
+      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('link', { name: 'Inventory' })
+      .click();
     await expect(page).toHaveURL(/\/inventory$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
     await expect(page.getByText('No cards yet')).toBeVisible();
@@ -22,7 +25,10 @@ test.describe('app shell', () => {
 
   test('renders the map page with its placeholder canvas and filters', async ({ page }) => {
     await page.goto('/inventory');
-    await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Map' }).click();
+    await page
+      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('link', { name: 'Map' })
+      .click();
     await expect(page).toHaveURL(/\/map$/);
     await expect(page.getByText('Map loads in Phase 4')).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();

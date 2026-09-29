@@ -5,8 +5,12 @@
     <app-page-header [title]="doc.title" [subtitle]="doc.summary" />
 
     <p class="legal__meta">
-      <span>Effective date: <strong>{{ effectiveDate() }}</strong></span>
-      <span>Version <span class="mono">{{ doc.version }}</span></span>
+      <span
+        >Effective date: <strong>{{ effectiveDate() }}</strong></span
+      >
+      <span
+        >Version <span class="mono">{{ doc.version }}</span></span
+      >
       <span>Last updated {{ doc.lastUpdated }}</span>
     </p>
 

@@ -1,11 +1,6 @@
 /** Card condition vocabulary (games may narrow it through their GameSchema). */
 export type CardCondition =
-  | 'MINT'
-  | 'NEAR_MINT'
-  | 'LIGHTLY_PLAYED'
-  | 'MODERATELY_PLAYED'
-  | 'HEAVILY_PLAYED'
-  | 'DAMAGED';
+  'MINT' | 'NEAR_MINT' | 'LIGHTLY_PLAYED' | 'MODERATELY_PLAYED' | 'HEAVILY_PLAYED' | 'DAMAGED';
 
 export interface CardConditionInfo {
   abbreviation: string;

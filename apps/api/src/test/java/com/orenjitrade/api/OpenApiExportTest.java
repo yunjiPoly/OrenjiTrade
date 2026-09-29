@@ -19,9 +19,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Exports the OpenAPI contract to {@code docs/api/openapi.json}. Runs only through {@code
- * ./gradlew exportOpenApi} (tag {@code openapi}, excluded from the regular test task) because it
- * writes into the repository.
+ * Exports the OpenAPI contract to {@code docs/api/openapi.json}. Runs only through {@code ./gradlew
+ * exportOpenApi} (tag {@code openapi}, excluded from the regular test task) because it writes into
+ * the repository.
  */
 @Tag("openapi")
 class OpenApiExportTest extends AbstractIntegrationTest {
@@ -54,7 +54,12 @@ class OpenApiExportTest extends AbstractIntegrationTest {
         assertThat(document.path("info").path("title").asString()).isEqualTo("OrenjiTrade API");
         assertThat(document.path("info").path("version").asString()).isEqualTo("0.1.0");
         assertThat(document.path("paths").has("/api/v1/meta")).isTrue();
-        assertThat(document.path("paths").path("/api/v1/meta").path("get").path("operationId").asString())
+        assertThat(
+                        document.path("paths")
+                                .path("/api/v1/meta")
+                                .path("get")
+                                .path("operationId")
+                                .asString())
                 .isEqualTo("getMeta");
         assertThat(document.path("components").path("schemas").has("MetaResponse")).isTrue();
         assertThat(document.path("components").path("schemas").has("ProblemDetail")).isTrue();
@@ -76,7 +81,7 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .withObjectNameValueSpacing(Separators.Spacing.AFTER))
                         .withObjectIndenter(indenter)
                         .withArrayIndenter(indenter);
-        return jsonMapper.writer(printer).writeValueAsString(document) + "\n";
+        return jsonMapper.writer().with(printer).writeValueAsString(document) + "\n";
     }
 
     private static Path resolveExportFile() {

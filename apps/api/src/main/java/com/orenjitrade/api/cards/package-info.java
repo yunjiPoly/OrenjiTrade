@@ -1,7 +1,7 @@
 /**
  * Cards module.
  *
- * Card catalog: cards, sets, printings and images; CardProvider import pipeline and catalog
+ * <p>Card catalog: cards, sets, printings and images; CardProvider import pipeline and catalog
  * search.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

@@ -7,7 +7,7 @@
       [opened]="panelOpened()"
       (openedChange)="panelOpened.set($event)"
     >
-      <app-messages-panel (close)="panelOpened.set(false)" />
+      <app-messages-panel (closeRequested)="panelOpened.set(false)" />
     </mat-sidenav>
 
     <mat-sidenav-content class="map-page__content">

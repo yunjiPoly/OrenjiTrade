@@ -1,7 +1,7 @@
 /**
  * Audit module.
  *
- * Immutable audit log of every administrative and moderation action.
+ * <p>Immutable audit log of every administrative and moderation action.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

@@ -35,5 +35,5 @@ export class TopBarComponent {
   protected readonly navLinks = PRIMARY_NAV_LINKS;
   /** Placeholder until the notification centre (Phase 6) provides a real count. */
   protected readonly unreadNotifications = signal(0);
-  readonly search = output<string>();
+  readonly querySubmit = output<string>();
 }

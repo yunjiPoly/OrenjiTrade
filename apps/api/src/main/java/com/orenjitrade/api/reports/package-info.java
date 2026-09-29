@@ -1,7 +1,7 @@
 /**
  * Reports module.
  *
- * Collector reports filed by users (reason required) and their review lifecycle OPEN ->
+ * <p>Collector reports filed by users (reason required) and their review lifecycle OPEN ->
  * UNDER_REVIEW -> ACTIONED/DISMISSED.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

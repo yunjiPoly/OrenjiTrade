@@ -10,8 +10,15 @@ import { SearchFieldComponent } from '../../shared/ui/search-field/search-field.
   imports: [PageHeaderComponent, SearchFieldComponent, EmptyStateComponent],
   template: `
     <div class="page">
-      <app-page-header title="Search" subtitle="Cards, sets, collectors and public binders near you.">
-        <app-search-field class="search__field" [initialQuery]="query()" (search)="onSearch($event)" />
+      <app-page-header
+        title="Search"
+        subtitle="Cards, sets, collectors and public binders near you."
+      >
+        <app-search-field
+          class="search__field"
+          [initialQuery]="query()"
+          (querySubmit)="onSearch($event)"
+        />
       </app-page-header>
 
       @if (query()) {

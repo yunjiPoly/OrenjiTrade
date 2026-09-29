@@ -12,7 +12,13 @@ import { map } from 'rxjs';
  */
 @Component({
   selector: 'app-search-field',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
+  imports: [
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatIconModule,
+    MatButtonModule,
+  ],
   template: `
     <form class="search-field" role="search" (ngSubmit)="submit()">
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-field__field">
@@ -49,7 +55,7 @@ export class SearchFieldComponent {
   readonly label = input('Search cards and collectors');
   /** Pre-fills the field (e.g. from the `q` query parameter). */
   readonly initialQuery = input('');
-  readonly search = output<string>();
+  readonly querySubmit = output<string>();
 
   protected readonly query = new FormControl('', { nonNullable: true });
   protected readonly hasValue = toSignal(this.query.valueChanges.pipe(map((v) => v.length > 0)), {
@@ -68,7 +74,7 @@ export class SearchFieldComponent {
   protected submit(): void {
     const value = this.query.value.trim();
     if (value) {
-      this.search.emit(value);
+      this.querySubmit.emit(value);
     }
   }
 

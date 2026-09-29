@@ -1,7 +1,7 @@
 /**
  * Users module.
  *
- * User accounts, roles (USER, PREMIUM_USER, MODERATOR, ADMIN, SUPER_ADMIN), suspension, terms
+ * <p>User accounts, roles (USER, PREMIUM_USER, MODERATOR, ADMIN, SUPER_ADMIN), suspension, terms
  * acceptance and the account deletion framework.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

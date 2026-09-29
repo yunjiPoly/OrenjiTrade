@@ -47,9 +47,9 @@ public enum ErrorCode {
     }
 
     /**
-     * Maps an HTTP status produced by the framework (for exceptions we do not handle explicitly)
-     * to the closest error code. Unmapped 4xx statuses are reported as {@link #VALIDATION_FAILED}
-     * (the request itself is wrong), unmapped 5xx statuses as {@link #INTERNAL_ERROR}.
+     * Maps an HTTP status produced by the framework (for exceptions we do not handle explicitly) to
+     * the closest error code. Unmapped 4xx statuses are reported as {@link #VALIDATION_FAILED} (the
+     * request itself is wrong), unmapped 5xx statuses as {@link #INTERNAL_ERROR}.
      */
     public static ErrorCode forStatus(HttpStatusCode status) {
         return switch (status.value()) {

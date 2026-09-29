@@ -1,7 +1,7 @@
 /**
  * Billing module.
  *
- * Plans, plan features, subscriptions, usage limits and entitlements (freemium model, DB
+ * <p>Plans, plan features, subscriptions, usage limits and entitlements (freemium model, DB
  * configurable).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

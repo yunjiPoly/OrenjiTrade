@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
-/** End-to-end shape of RFC 9457 problem responses, including the ones written by Spring Security. */
+/**
+ * End-to-end shape of RFC 9457 problem responses, including the ones written by Spring Security.
+ */
 class ProblemDetailsIT extends AbstractIntegrationTest {
 
     @Test
