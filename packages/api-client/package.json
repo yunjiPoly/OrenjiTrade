@@ -12,11 +12,28 @@
     "src"
   ],
   "scripts": {
-    "generate": "openapi-generator-cli generate -i ../../docs/api/openapi.json -g typescript-angular -o ./src --additional-properties=ngVersion=22.0.0,providedInRoot=true,withInterfaces=true,useSingleRequestParameter=true,stringEnums=true,supportsES6=true",
+    "generate": "npm install --prefix tools --no-audit --no-fund && npm run generate --prefix tools",
     "clean": "node -e \"require('node:fs').rmSync('src', { recursive: true, force: true })\""
   },
-  "devDependencies": {
-    "@openapitools/openapi-generator-cli": "^2.41.0"
+  "peerDependencies": {
+    "@angular/common": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/common": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    },
+    "tslib": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

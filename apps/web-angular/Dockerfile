@@ -26,8 +26,10 @@ RUN cd packages/design-tokens && npm run build
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/api-client/src/ ./packages/api-client/src/
 
-# App dependencies (file: links resolve against ../../packages/*).
+# App dependencies (file: links resolve against ../../packages/*). The postinstall script
+# links the generated client's Angular/rxjs peers to this app's node_modules.
 COPY apps/web-angular/package.json apps/web-angular/package-lock.json ./apps/web-angular/
+COPY apps/web-angular/scripts/ ./apps/web-angular/scripts/
 RUN cd apps/web-angular && npm ci --no-audit --no-fund
 
 # App sources and production build.
