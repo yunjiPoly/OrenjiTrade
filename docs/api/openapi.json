@@ -1,0 +1,70 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OrenjiTrade API",
+    "description": "Placeholder contract. Regenerated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    { "url": "http://localhost:8080", "description": "local" },
+    { "url": "https://api.orenjitrade.com", "description": "production" }
+  ],
+  "paths": {
+    "/api/v1/meta": {
+      "get": {
+        "tags": ["meta"],
+        "operationId": "getMeta",
+        "summary": "Build and environment metadata (public)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MetaResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MetaResponse": {
+        "type": "object",
+        "required": ["name", "version", "environment", "serverTime"],
+        "properties": {
+          "name": { "type": "string", "example": "OrenjiTrade API" },
+          "version": { "type": "string", "example": "0.1.0" },
+          "environment": { "type": "string", "example": "local" },
+          "serverTime": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProblemDetail": {
+        "type": "object",
+        "description": "RFC 9457 problem details with OrenjiTrade extensions",
+        "properties": {
+          "type": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "errorCode": { "type": "string", "example": "VALIDATION_FAILED" },
+          "message": { "type": "string" },
+          "requestId": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

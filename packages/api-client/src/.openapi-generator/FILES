@@ -1,0 +1,17 @@
+README.md
+api.base.service.ts
+api.module.ts
+api/api.ts
+api/meta.service.ts
+api/meta.serviceInterface.ts
+configuration.ts
+encoder.ts
+index.ts
+model/metaResponse.ts
+model/models.ts
+model/problemDetail.ts
+model/problemDetailErrorsInner.ts
+param.ts
+provide-api.ts
+query.params.ts
+variables.ts

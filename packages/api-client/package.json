@@ -1,0 +1,24 @@
+{
+  "name": "@orenji/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generated Angular HttpClient services and models for the OrenjiTrade API (source: docs/api/openapi.json). Consumed as TypeScript source by apps/web-angular.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "generate": "openapi-generator-cli generate -i ../../docs/api/openapi.json -g typescript-angular -o ./src --additional-properties=ngVersion=22.0.0,providedInRoot=true,withInterfaces=true,useSingleRequestParameter=true,stringEnums=true,supportsES6=true",
+    "clean": "node -e \"require('node:fs').rmSync('src', { recursive: true, force: true })\""
+  },
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.41.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

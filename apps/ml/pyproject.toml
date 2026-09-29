@@ -1,0 +1,56 @@
+[project]
+name = "orenjitrade-ml"
+version = "0.1.0"
+description = "OrenjiTrade ML service: card identification and duplicate detection (FastAPI)."
+readme = "README.md"
+requires-python = ">=3.12"
+# Runtime and development dependencies are pinned in requirements.txt / requirements-dev.txt.
+dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests"]
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use bare asserts (S101) and fictional shared secrets / tokens (S105, S106).
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+strict = true
+ignore_missing_imports = true
+warn_unreachable = true
+pretty = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
+exclude_also = ['if TYPE_CHECKING:', '^\s*\.\.\.$']
