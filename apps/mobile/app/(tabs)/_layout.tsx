@@ -1,70 +1,49 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import type { ComponentProps } from 'react';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useTheme } from '@/src/theme/useTheme';
+
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+/** Tab order is a product decision (CLAUDE.md): Map | Inventory | Search | Messages | Wishlist | Profile. */
+export const TABS = [
+  { name: 'index', title: 'Map', icon: 'map-marker-radius-outline', iconFocused: 'map-marker-radius' },
+  { name: 'inventory', title: 'Inventory', icon: 'cards-outline', iconFocused: 'cards' },
+  { name: 'search', title: 'Search', icon: 'magnify', iconFocused: 'magnify' },
+  { name: 'messages', title: 'Messages', icon: 'message-text-outline', iconFocused: 'message-text' },
+  { name: 'wishlist', title: 'Wishlist', icon: 'heart-outline', iconFocused: 'heart' },
+  { name: 'profile', title: 'Profile', icon: 'account-circle-outline', iconFocused: 'account-circle' },
+] as const satisfies readonly { name: string; title: string; icon: IconName; iconFocused: IconName }[];
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { palette } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-        }}
-      />
+        tabBarActiveTintColor: palette.primary,
+        tabBarInactiveTintColor: palette.textMuted,
+        tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border },
+        headerStyle: { backgroundColor: palette.surface },
+        headerTintColor: palette.ink,
+        headerShadowVisible: false,
+        headerTitleAlign: 'center',
+      }}
+    >
+      {TABS.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarAccessibilityLabel: `${tab.title} tab`,
+            tabBarIcon: ({ color, focused, size }) => (
+              <MaterialCommunityIcons name={focused ? tab.iconFocused : tab.icon} color={color} size={size} />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

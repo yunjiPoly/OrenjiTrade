@@ -39,7 +39,9 @@ def unsupported_media_type(field: str) -> ApiError:
 
 
 def image_too_large(field: str, max_bytes: int) -> ApiError:
-    return ApiError(413, "IMAGE_TOO_LARGE", f"{field} exceeds the maximum size of {max_bytes} bytes.")
+    return ApiError(
+        413, "IMAGE_TOO_LARGE", f"{field} exceeds the maximum size of {max_bytes} bytes."
+    )
 
 
 def ensure_supported_content_type(content_type: str | None, *, field: str) -> str:

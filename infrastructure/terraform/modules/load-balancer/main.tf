@@ -128,7 +128,6 @@ resource "google_compute_backend_service" "this" {
   name                  = "${var.name}-${each.key}"
   description           = "Serverless NEG backend for ${each.value.cloud_run_service_name}"
   load_balancing_scheme = "EXTERNAL_MANAGED"
-  protocol              = "HTTPS"
   timeout_sec           = each.value.timeout_sec
   enable_cdn            = false
   security_policy       = var.restrict_to_cloudflare ? google_compute_security_policy.cloudflare_only[0].id : null

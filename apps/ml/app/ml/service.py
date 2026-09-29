@@ -35,7 +35,10 @@ async def identify_image(identifier: CardIdentifier, image: Image.Image) -> Iden
     except Exception:
         reason = f"model backend '{identifier.backend}' failed"
         logger.warning(
-            "Identification degraded: %s", reason, exc_info=True, extra={"backend": identifier.backend}
+            "Identification degraded: %s",
+            reason,
+            exc_info=True,
+            extra={"backend": identifier.backend},
         )
         return IdentificationOutcome(degraded=True, reason=reason)
     ranked = sorted(candidates, key=lambda candidate: candidate.confidence, reverse=True)
