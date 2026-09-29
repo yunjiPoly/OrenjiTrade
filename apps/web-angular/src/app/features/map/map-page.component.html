@@ -1,0 +1,47 @@
+<div class="map-page">
+  <mat-sidenav-container class="map-page__container" [hasBackdrop]="!isWide()">
+    <mat-sidenav
+      class="map-page__panel"
+      position="end"
+      [mode]="panelMode()"
+      [opened]="panelOpened()"
+      (openedChange)="panelOpened.set($event)"
+    >
+      <app-messages-panel (close)="panelOpened.set(false)" />
+    </mat-sidenav>
+
+    <mat-sidenav-content class="map-page__content">
+      <section class="map-canvas" aria-label="Map canvas">
+        <app-empty-state
+          icon="map"
+          title="Map loads in Phase 4"
+          description="Collectors near you will appear here at approximate positions. Exact locations are never shown."
+        />
+      </section>
+
+      <button
+        matIconButton
+        type="button"
+        class="map-page__panel-toggle"
+        [attr.aria-label]="toggleLabel()"
+        [attr.aria-expanded]="panelOpened()"
+        aria-controls="map-messages-panel"
+        [matTooltip]="toggleLabel()"
+        (click)="togglePanel()"
+      >
+        <mat-icon>{{ panelOpened() ? 'chat_bubble' : 'chat' }}</mat-icon>
+      </button>
+
+      <div class="map-filters" role="toolbar" aria-label="Map filters">
+        <mat-chip-listbox class="map-filters__chips" aria-label="Filter collectors">
+          @for (filter of filters; track filter.id) {
+            <mat-chip-option disabled matTooltip="Available in Phase 4">
+              <mat-icon matChipAvatar aria-hidden="true">{{ filter.icon }}</mat-icon>
+              {{ filter.label }}
+            </mat-chip-option>
+          }
+        </mat-chip-listbox>
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>

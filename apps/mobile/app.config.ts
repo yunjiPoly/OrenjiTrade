@@ -27,7 +27,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/images/icon.png',
   scheme: 'orenjitrade',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
   runtimeVersion: { policy: 'appVersion' },
   ios: {
     bundleIdentifier: 'com.orenjitrade.app',
@@ -100,7 +99,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-image-picker',
       {
-        photosPermission: 'OrenjiTrade needs access to your photos to add card pictures to a binder.',
+        photosPermission:
+          'OrenjiTrade needs access to your photos to add card pictures to a binder.',
         cameraPermission: 'OrenjiTrade uses the camera to photograph your cards.',
         microphonePermission: false,
       },

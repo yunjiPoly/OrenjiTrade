@@ -9,7 +9,9 @@ import { ApiError } from './ApiError';
 export const REQUEST_ID_HEADER = 'X-Request-Id';
 export const DEFAULT_API_BASE_URL = 'http://localhost:8080';
 
-export function resolveApiBaseUrl(raw: string | undefined = process.env.EXPO_PUBLIC_API_BASE_URL): string {
+export function resolveApiBaseUrl(
+  raw: string | undefined = process.env.EXPO_PUBLIC_API_BASE_URL
+): string {
   const trimmed = raw?.trim();
   return (trimmed ? trimmed : DEFAULT_API_BASE_URL).replace(/\/+$/, '');
 }

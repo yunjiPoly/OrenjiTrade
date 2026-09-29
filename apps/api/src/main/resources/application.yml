@@ -1,0 +1,294 @@
+# ---------------------------------------------------------------------------------------------
+# OrenjiTrade API configuration.
+#
+# Environment variables mirror /.env.example (DATABASE_URL, REDIS_URL, CORS_ALLOWED_ORIGINS, ...).
+# Profiles: local (default) | dev | staging | prod | test. Profile documents follow the base one.
+# Never put secrets here; everything sensitive is injected through the environment.
+# ---------------------------------------------------------------------------------------------
+spring:
+  application:
+    name: orenjitrade-api
+  profiles:
+    default: local
+  main:
+    banner-mode: off
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  mvc:
+    problemdetails:
+      enabled: true
+    contentnegotiation:
+      favor-parameter: false
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/orenjitrade}
+    username: ${DATABASE_USERNAME:orenjitrade}
+    password: ${DATABASE_PASSWORD:orenjitrade_local}
+    hikari:
+      pool-name: orenji-db
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 10000
+      max-lifetime: 1800000
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only verifies that entities match it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        default_batch_fetch_size: 50
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-migration-naming: true
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          # The event_publication table is created by V002__event_publication.sql.
+          enabled: false
+      republish-outstanding-events-on-restart: true
+      completion-mode: update
+  web:
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+      include-exception: false
+  autoconfigure:
+    exclude:
+      # Identity comes from Firebase ID tokens (auth module); no generated in-memory user.
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+server:
+  port: ${SERVER_PORT:${PORT:8080}}
+  # Trust X-Forwarded-* from Cloudflare / the Google load balancer.
+  forward-headers-strategy: native
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+      group:
+        # /actuator/health/liveness: the JVM is alive; never depends on infrastructure.
+        liveness:
+          include: livenessState,ping
+        # /actuator/health/readiness: the instance can serve traffic.
+        readiness:
+          include: readinessState,db,redis
+  info:
+    build:
+      enabled: true
+    env:
+      enabled: false
+    java:
+      enabled: false
+    os:
+      enabled: false
+
+springdoc:
+  api-docs:
+    enabled: ${orenji.openapi.enabled}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${orenji.openapi.enabled}
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+  default-produces-media-type: application/json
+  show-actuator: false
+  writer-with-default-pretty-printer: true
+
+logging:
+  level:
+    root: INFO
+    com.orenjitrade: INFO
+
+# --- OrenjiTrade settings (bound by records in com.orenjitrade.api.config and the modules) ------
+orenji:
+  # local | development | staging | production | test (reported by GET /api/v1/meta)
+  environment: ${ORENJI_ENV:local}
+  openapi:
+    # springdoc + Swagger UI. true for local/dev/test, false for staging/prod (see profiles).
+    enabled: false
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081,http://localhost:19006}
+    hsts:
+      enabled: true
+  async:
+    core-size: 4
+    max-size: 16
+    queue-capacity: 500
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID:orenjitrade-local}
+    auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+  google-cloud:
+    project: ${GOOGLE_CLOUD_PROJECT:}
+    region: ${GOOGLE_CLOUD_REGION:northamerica-northeast1}
+  events:
+    # local (in-process, transactional outbox) | pubsub
+    transport: ${EVENTS_TRANSPORT:local}
+    pubsub:
+      emulator-host: ${PUBSUB_EMULATOR_HOST:}
+      topic-domain-events: ${PUBSUB_TOPIC_DOMAIN_EVENTS:domain-events}
+      topic-analytics: ${PUBSUB_TOPIC_ANALYTICS:analytics-events}
+  storage:
+    # local | gcs
+    provider: ${STORAGE_PROVIDER:local}
+    local-root: ${STORAGE_LOCAL_ROOT:./.local-storage}
+    gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
+  payments:
+    # fake | stripe
+    provider: ${PAYMENT_PROVIDER:fake}
+  push:
+    # log | fcm
+    provider: ${PUSH_PROVIDER:log}
+  email:
+    # log | sendgrid | ses
+    provider: ${EMAIL_PROVIDER:log}
+    from: ${EMAIL_FROM:no-reply@orenjitrade.com}
+  ml:
+    service-url: ${ML_SERVICE_URL:http://localhost:8000}
+    timeout-ms: ${ML_SERVICE_TIMEOUT_MS:1500}
+  rate-limit:
+    default-per-minute: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}
+
+---
+# --- local: developer machine against docker compose ------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: local
+orenji:
+  environment: ${ORENJI_ENV:local}
+  openapi:
+    enabled: true
+  security:
+    hsts:
+      enabled: false
+logging:
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint} %clr(%5p) %clr([%X{requestId:-}]){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+  level:
+    com.orenjitrade: DEBUG
+
+---
+# --- dev: shared development environment on Google Cloud --------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: dev
+orenji:
+  environment: ${ORENJI_ENV:development}
+  openapi:
+    enabled: true
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        environment: ${orenji.environment}
+
+---
+# --- staging ----------------------------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: staging
+orenji:
+  environment: ${ORENJI_ENV:staging}
+  openapi:
+    enabled: false
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        environment: ${orenji.environment}
+
+---
+# --- prod -------------------------------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:20}
+orenji:
+  environment: ${ORENJI_ENV:production}
+  openapi:
+    enabled: false
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        environment: ${orenji.environment}
+  level:
+    com.orenjitrade: INFO
+
+---
+# --- test: integration tests (Testcontainers supply the datasource and Redis) -------------------
+spring:
+  config:
+    activate:
+      on-profile: test
+orenji:
+  environment: test
+  openapi:
+    enabled: true
+  security:
+    cors:
+      allowed-origins: http://localhost:4200,http://localhost:8081
+    hsts:
+      enabled: false
+management:
+  endpoint:
+    health:
+      # Expose component statuses (not details) so readiness tests can assert db + redis.
+      show-components: always
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%X{requestId:-}] --- [%15.15t] %-40.40logger{39} : %m%n%wEx"
+  level:
+    com.orenjitrade: DEBUG
+    org.testcontainers: INFO

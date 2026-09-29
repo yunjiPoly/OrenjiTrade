@@ -35,14 +35,21 @@ export function EmptyState({
       <View style={[styles.iconWrap, { backgroundColor: palette.primaryContainer }]}>
         <MaterialCommunityIcons name={icon} size={32} color={palette.onPrimaryContainer} />
       </View>
-      <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>{title}</Text>
+      <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>
+        {title}
+      </Text>
       {description ? (
         <Text style={[textStyle('md'), styles.description, { color: palette.textMuted }]}>
           {description}
         </Text>
       ) : null}
       {actionLabel && onAction ? (
-        <Button label={actionLabel} onPress={onAction} style={styles.action} testID={`${testID}-action`} />
+        <Button
+          label={actionLabel}
+          onPress={onAction}
+          style={styles.action}
+          testID={`${testID}-action`}
+        />
       ) : null}
     </View>
   );

@@ -21,7 +21,10 @@ export function OfflineBanner() {
       testID="offline-banner"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
-      style={[styles.banner, { backgroundColor: palette.warning, paddingTop: insets.top + spacing[1] }]}
+      style={[
+        styles.banner,
+        { backgroundColor: palette.warning, paddingTop: insets.top + spacing[1] },
+      ]}
     >
       <MaterialCommunityIcons name="wifi-off" size={16} color={palette.onPrimary} />
       <Text style={[styles.text, { color: palette.onPrimary }]}>

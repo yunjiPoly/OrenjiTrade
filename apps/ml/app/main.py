@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from app import __version__
 from app.api import duplicates, health, identify, pubsub
 from app.api.deps import build_http_client
+from app.body_limit import BodyLimitMiddleware
 from app.config import Settings, get_settings
 from app.errors import register_exception_handlers
 from app.ml.identifier import get_identifier
@@ -57,11 +58,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "the API treats it as optional and degrades gracefully when it is unavailable."
         ),
         lifespan=lifespan,
-        max_body_size=2 * settings.max_image_bytes + _BODY_OVERHEAD_BYTES,
     )
     app.state.settings = settings
     app.state.identifier = get_identifier(settings)
 
+    # Middleware added last runs outermost: request ids wrap everything, including the
+    # body-size ceiling (FastAPI does not honour Starlette's `max_body_size`, and Starlette's
+    # own limiter answers in plain text, so a problem-aware variant is used).
+    app.add_middleware(
+        BodyLimitMiddleware,
+        max_body_size=2 * settings.max_image_bytes + _BODY_OVERHEAD_BYTES,
+    )
     app.add_middleware(RequestIdMiddleware)
     register_exception_handlers(app)
 

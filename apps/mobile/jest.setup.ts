@@ -18,9 +18,8 @@ jest.mock('expo-crypto', () => ({
 jest.mock('react-native-maps', () => {
   const React = require('react');
   const { View } = require('react-native');
-  const MockMapView = React.forwardRef(
-    (props: Record<string, unknown>, ref: React.Ref<unknown>) =>
-      React.createElement(View, { ...props, ref, testID: props.testID ?? 'mock-map-view' })
+  const MockMapView = React.forwardRef((props: Record<string, unknown>, ref: React.Ref<unknown>) =>
+    React.createElement(View, { ...props, ref, testID: props.testID ?? 'mock-map-view' })
   );
   MockMapView.displayName = 'MockMapView';
   const MockMarker = (props: Record<string, unknown>) => React.createElement(View, props);
@@ -33,8 +32,11 @@ jest.mock('react-native-maps', () => {
   };
 });
 
-// `react-native-safe-area-context` provides a jest mock with zero insets.
-jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock'));
+// `react-native-safe-area-context` provides a jest mock (default export) with zero insets.
+jest.mock(
+  'react-native-safe-area-context',
+  () => require('react-native-safe-area-context/jest/mock').default
+);
 
 // --- Quiet known-noisy warnings ------------------------------------------------------------------
 

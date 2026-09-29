@@ -27,7 +27,11 @@ class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundary
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.warn('[CollectorMap] map failed to render, showing placeholder', error, info.componentStack);
+    console.warn(
+      '[CollectorMap] map failed to render, showing placeholder',
+      error,
+      info.componentStack
+    );
   }
 
   override render(): ReactNode {
@@ -63,7 +67,7 @@ function NativeMap() {
       userInterfaceStyle={scheme}
       showsUserLocation={false}
       showsMyLocationButton={false}
-      showsPointsOfInterest={false}
+      showsPointsOfInterests={false}
       toolbarEnabled={false}
       accessibilityLabel="Map of approximate collector locations"
     />

@@ -6,14 +6,13 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
+      "@/*": ["./*"],
       "@orenji/shared-types": [
         "../../packages/shared-types/src",
         "./src/types/shared-types-fallback"
       ]
-    }
+    },
+    "types": ["jest", "node"]
   },
   "include": [
     "**/*.ts",
@@ -23,12 +22,5 @@
     "app.config.ts",
     "jest.setup.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "android",
-    "ios",
-    "dist",
-    "web-build",
-    ".maestro"
-  ]
+  "exclude": ["node_modules", "android", "ios", "dist", "web-build", ".maestro"]
 }

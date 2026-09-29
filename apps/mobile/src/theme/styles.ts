@@ -55,7 +55,10 @@ export const motion = {
   slow: 320,
 } as const;
 
-export function textStyle(size: keyof typeof fontSize, variant: 'body' | 'heading' = 'body'): TextStyle {
+export function textStyle(
+  size: keyof typeof fontSize,
+  variant: 'body' | 'heading' = 'body'
+): TextStyle {
   const px = fontSize[size];
   return {
     fontSize: px,

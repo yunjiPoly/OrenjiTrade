@@ -18,7 +18,10 @@ export function isDistanceBucket(value: unknown): value is DistanceBucket {
  * Formats a server-provided distance bucket for display, e.g. `~4 km`.
  * Unknown values (a bucket added server-side before the app is updated) degrade to `nearby`.
  */
-export function formatDistanceBucket(bucket: string | null | undefined, unit: DistanceUnit = 'km'): string {
+export function formatDistanceBucket(
+  bucket: string | null | undefined,
+  unit: DistanceUnit = 'km'
+): string {
   if (!isDistanceBucket(bucket)) {
     return 'nearby';
   }

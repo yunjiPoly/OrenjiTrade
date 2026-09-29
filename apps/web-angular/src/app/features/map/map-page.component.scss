@@ -1,0 +1,67 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.map-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: max(420px, calc(100dvh - 64px - 96px));
+}
+
+.map-page__container {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: transparent;
+}
+
+.map-page__panel {
+  width: min(360px, 90vw);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.map-page__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-canvas {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  background-color: var(--color-surface-variant);
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.map-page__panel-toggle {
+  position: absolute;
+  top: var(--spacing-3);
+  right: var(--spacing-3);
+  z-index: 2;
+  background: var(--color-surface);
+  box-shadow: var(--elevation-floating);
+}
+
+.map-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  overflow-x: auto;
+}
+
+.map-filters__chips {
+  --mat-chip-container-height: 32px;
+}

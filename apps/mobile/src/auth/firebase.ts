@@ -1,7 +1,16 @@
 import { Platform } from 'react-native';
 
 import type { FirebaseApp, FirebaseOptions } from 'firebase/app';
-import type { Auth } from 'firebase/auth';
+import type { Auth, Persistence } from 'firebase/auth';
+
+/**
+ * `getReactNativePersistence` ships in the React Native build of `@firebase/auth` (selected by
+ * Metro through the `react-native` export condition) but the package's `types` condition wins in
+ * TypeScript, so the public typings omit it. This narrow type documents the runtime contract.
+ */
+type ReactNativeAuthModule = typeof import('firebase/auth') & {
+  getReactNativePersistence: (storage: unknown) => Persistence;
+};
 
 /**
  * Lazy Firebase bootstrap. Nothing here runs at import time: the SDK is loaded with dynamic
@@ -69,7 +78,7 @@ export function getFirebaseAuth(): Promise<Auth> {
   if (authPromise === null) {
     authPromise = (async () => {
       const app = await getFirebaseApp();
-      const authModule = await import('firebase/auth');
+      const authModule = (await import('firebase/auth')) as unknown as ReactNativeAuthModule;
 
       let auth: Auth;
       if (Platform.OS === 'web') {

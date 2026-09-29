@@ -15,7 +15,9 @@ export default function InventoryScreen() {
   return (
     <Screen scroll testID="screen-inventory">
       <View style={styles.section}>
-        <Text style={[textStyle('sm'), styles.sectionTitle, { color: palette.textMuted }]}>Binders</Text>
+        <Text style={[textStyle('sm'), styles.sectionTitle, { color: palette.textMuted }]}>
+          Binders
+        </Text>
         <SkeletonList rows={2} rowHeight={88} />
       </View>
       <View style={styles.badges}>

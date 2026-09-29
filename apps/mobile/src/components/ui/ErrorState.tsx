@@ -56,7 +56,9 @@ export function ErrorState({
           color={palette.danger}
         />
       </View>
-      <Text style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}>{resolvedTitle}</Text>
+      <Text style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}>
+        {resolvedTitle}
+      </Text>
       <Text style={[textStyle('sm'), styles.message, { color: palette.textMuted }]}>
         {describe(error, message)}
       </Text>
@@ -67,7 +69,13 @@ export function ErrorState({
         </Text>
       ) : null}
       {onRetry ? (
-        <Button label={retryLabel} variant="secondary" onPress={onRetry} style={styles.action} testID={`${testID}-retry`} />
+        <Button
+          label={retryLabel}
+          variant="secondary"
+          onPress={onRetry}
+          style={styles.action}
+          testID={`${testID}-retry`}
+        />
       ) : null}
     </View>
   );

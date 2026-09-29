@@ -44,7 +44,11 @@ export class ApiError extends Error implements SharedApiError {
   }
 
   /** Builds an `ApiError` from a failed response body (RFC 9457 Problem Details or anything else). */
-  static fromProblem(status: number, body: unknown, fallbackRequestId: string | null = null): ApiError {
+  static fromProblem(
+    status: number,
+    body: unknown,
+    fallbackRequestId: string | null = null
+  ): ApiError {
     const problem = (body !== null && typeof body === 'object' ? body : {}) as ProblemDetail;
     const fieldErrors: Record<string, string> = {};
     for (const entry of problem.errors ?? []) {

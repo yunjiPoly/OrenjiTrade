@@ -26,9 +26,17 @@ export function Button({
   const { palette } = useTheme();
 
   const background =
-    variant === 'primary' ? palette.primary : variant === 'secondary' ? palette.surfaceVariant : 'transparent';
+    variant === 'primary'
+      ? palette.primary
+      : variant === 'secondary'
+        ? palette.surfaceVariant
+        : 'transparent';
   const color =
-    variant === 'primary' ? palette.onPrimary : variant === 'secondary' ? palette.ink : palette.accent;
+    variant === 'primary'
+      ? palette.onPrimary
+      : variant === 'secondary'
+        ? palette.ink
+        : palette.accent;
 
   return (
     <Pressable
@@ -41,7 +49,10 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        { backgroundColor: background, borderColor: variant === 'ghost' ? 'transparent' : palette.border },
+        {
+          backgroundColor: background,
+          borderColor: variant === 'ghost' ? 'transparent' : palette.border,
+        },
         pressed && styles.pressed,
         disabled && styles.disabled,
         style,

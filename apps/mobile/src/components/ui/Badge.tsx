@@ -8,12 +8,7 @@ export type Freshness = 'FRESH' | 'AGING' | 'STALE' | 'HIDDEN';
 
 /** Card condition vocabulary (games may narrow it through their GameSchema). */
 export type CardCondition =
-  | 'MINT'
-  | 'NEAR_MINT'
-  | 'LIGHTLY_PLAYED'
-  | 'MODERATELY_PLAYED'
-  | 'HEAVILY_PLAYED'
-  | 'DAMAGED';
+  'MINT' | 'NEAR_MINT' | 'LIGHTLY_PLAYED' | 'MODERATELY_PLAYED' | 'HEAVILY_PLAYED' | 'DAMAGED';
 
 export type BadgeProps =
   | { variant: 'freshness'; value: Freshness; style?: StyleProp<ViewStyle>; testID?: string }
@@ -59,7 +54,10 @@ export function freshnessColor(value: Freshness, palette: Palette): string {
   }
 }
 
-function conditionTone(value: CardCondition, palette: Palette): { background: string; color: string } {
+function conditionTone(
+  value: CardCondition,
+  palette: Palette
+): { background: string; color: string } {
   switch (value) {
     case 'MINT':
     case 'NEAR_MINT':
@@ -89,7 +87,11 @@ export function Badge(props: BadgeProps) {
       <View
         testID={props.testID ?? `badge-freshness-${props.value}`}
         accessibilityLabel={`Freshness: ${label}`}
-        style={[styles.base, { backgroundColor: palette.surfaceVariant, borderColor: palette.border }, props.style]}
+        style={[
+          styles.base,
+          { backgroundColor: palette.surfaceVariant, borderColor: palette.border },
+          props.style,
+        ]}
       >
         <View style={[styles.dot, { backgroundColor: color }]} />
         <Text style={[styles.label, { color: palette.ink }]}>{label}</Text>
@@ -102,7 +104,11 @@ export function Badge(props: BadgeProps) {
     <View
       testID={props.testID ?? `badge-condition-${props.value}`}
       accessibilityLabel={`Condition: ${CONDITION_LABELS[props.value]}`}
-      style={[styles.base, { backgroundColor: tone.background, borderColor: 'transparent' }, props.style]}
+      style={[
+        styles.base,
+        { backgroundColor: tone.background, borderColor: 'transparent' },
+        props.style,
+      ]}
     >
       <Text style={[styles.label, styles.mono, { color: tone.color }]}>
         {CONDITION_ABBREVIATIONS[props.value]}

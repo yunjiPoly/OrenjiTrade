@@ -83,7 +83,26 @@ def problem_response(
     errors: list[dict[str, Any]] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
-    request_id = request_id_for(request)
+    return problem_json_response(
+        status=status,
+        error_code=error_code,
+        message=message,
+        request_id=request_id_for(request),
+        errors=errors,
+        headers=headers,
+    )
+
+
+def problem_json_response(
+    *,
+    status: int,
+    error_code: str,
+    message: str,
+    request_id: str,
+    errors: list[dict[str, Any]] | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> JSONResponse:
+    """Build a problem response without a `Request` (usable from raw ASGI middleware)."""
     try:
         title = HTTPStatus(status).phrase
     except ValueError:

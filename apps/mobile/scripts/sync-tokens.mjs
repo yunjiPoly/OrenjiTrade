@@ -24,7 +24,11 @@ const FALLBACK_TOKENS = {
   font: {
     display: { web: '"Sora", system-ui, sans-serif', mobile: 'Sora', use: 'wordmark, page titles' },
     body: { web: '"Inter", system-ui, sans-serif', mobile: 'Inter', use: 'everything else' },
-    mono: { web: '"JetBrains Mono", monospace', mobile: 'monospace', use: 'set codes, collector numbers' },
+    mono: {
+      web: '"JetBrains Mono", monospace',
+      mobile: 'monospace',
+      use: 'set codes, collector numbers',
+    },
   },
   fontSize: { xs: 12, sm: 14, md: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30, '4xl': 36 },
   lineHeight: { body: 1.5, heading: 1.2 },
@@ -180,10 +184,14 @@ if (existsSync(tokensJsonPath)) {
     merged = deepMerge(FALLBACK_TOKENS, normalise(raw));
     source = 'packages/design-tokens/tokens.json (merged over fallback)';
   } catch (error) {
-    console.warn(`[sync-tokens] Could not parse ${tokensJsonPath}: ${error.message}. Using fallback.`);
+    console.warn(
+      `[sync-tokens] Could not parse ${tokensJsonPath}: ${error.message}. Using fallback.`
+    );
   }
 } else {
-  console.warn('[sync-tokens] packages/design-tokens/tokens.json not found. Using fallback values.');
+  console.warn(
+    '[sync-tokens] packages/design-tokens/tokens.json not found. Using fallback values.'
+  );
 }
 
 const output = `/* eslint-disable */

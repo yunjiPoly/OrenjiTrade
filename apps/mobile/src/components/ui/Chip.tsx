@@ -58,7 +58,16 @@ function toneColors(tone: ChipTone, palette: Palette, selected: boolean) {
 }
 
 /** Compact selectable label (filters, availability, theme picker). */
-export function Chip({ label, tone = 'neutral', icon, selected = false, onPress, disabled = false, style, testID }: ChipProps) {
+export function Chip({
+  label,
+  tone = 'neutral',
+  icon,
+  selected = false,
+  onPress,
+  disabled = false,
+  style,
+  testID,
+}: ChipProps) {
   const { palette } = useTheme();
   const colors = toneColors(tone, palette, selected);
 

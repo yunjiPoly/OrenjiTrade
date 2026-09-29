@@ -21,7 +21,9 @@ export function MapPlaceholder({ reason, testID = 'map-placeholder' }: MapPlaceh
   return (
     <View testID={testID} style={[styles.container, { backgroundColor: palette.surfaceVariant }]}>
       <MaterialCommunityIcons name="map-outline" size={48} color={palette.textMuted} />
-      <Text style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}>{MAP_OVERLAY_MESSAGE}</Text>
+      <Text style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}>
+        {MAP_OVERLAY_MESSAGE}
+      </Text>
       <Text style={[textStyle('sm'), styles.detail, { color: palette.textMuted }]}>{detail}</Text>
     </View>
   );

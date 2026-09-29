@@ -22,7 +22,9 @@ const THEME_OPTIONS: { value: ThemeOverride; label: string }[] = [
 function SectionTitle({ children }: { children: string }) {
   const { palette } = useTheme();
   return (
-    <Text style={[textStyle('sm'), styles.sectionTitle, { color: palette.textMuted }]}>{children}</Text>
+    <Text style={[textStyle('sm'), styles.sectionTitle, { color: palette.textMuted }]}>
+      {children}
+    </Text>
   );
 }
 
@@ -103,7 +105,11 @@ export default function ProfileScreen() {
         <Card testID="session-card">
           <View style={styles.row}>
             <View style={[styles.avatar, { backgroundColor: palette.primaryContainer }]}>
-              <MaterialCommunityIcons name="account-outline" size={28} color={palette.onPrimaryContainer} />
+              <MaterialCommunityIcons
+                name="account-outline"
+                size={28}
+                color={palette.onPrimaryContainer}
+              />
             </View>
             <View style={styles.grow}>
               <Text style={[textStyle('md'), styles.cardTitle, { color: palette.ink }]}>
@@ -116,7 +122,11 @@ export default function ProfileScreen() {
           </View>
           {session.status === 'anonymous' ? (
             <View style={styles.actions}>
-              <Button label="Sign in" onPress={() => router.push('/(auth)/sign-in')} style={styles.grow} />
+              <Button
+                label="Sign in"
+                onPress={() => router.push('/(auth)/sign-in')}
+                style={styles.grow}
+              />
               <Button
                 label="Create account"
                 variant="secondary"
@@ -157,7 +167,13 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing[4], gap: spacing[2] },
   cardTitle: { fontWeight: fontWeight.semibold },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   grow: { flex: 1 },
   actions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[2] },
   chips: { flexDirection: 'row', gap: spacing[2] },

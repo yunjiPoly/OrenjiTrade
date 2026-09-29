@@ -58,6 +58,7 @@ class ServiceJsonFormatter(JsonFormatter):
         super().add_fields(log_data, record, message_dict)
         extras = dict(log_data)
         extras.pop("message", None)
+        extras.pop("color_message", None)  # uvicorn's ANSI duplicate of `message`
         request_id = extras.pop("requestId", None) or request_id_var.get()
         ordered: dict[str, Any] = {
             "timestamp": iso_timestamp(datetime.fromtimestamp(record.created, tz=UTC)),

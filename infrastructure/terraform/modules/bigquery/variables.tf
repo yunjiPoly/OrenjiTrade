@@ -19,7 +19,7 @@ variable "dataset_id" {
   default     = "orenjitrade_analytics"
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9_]{1,1024}$", var.dataset_id))
+    condition     = can(regex("^[A-Za-z0-9_]+$", var.dataset_id)) && length(var.dataset_id) <= 1024
     error_message = "dataset_id may only contain letters, digits and underscores."
   }
 }

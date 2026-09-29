@@ -1,0 +1,75 @@
+@if (document(); as doc) {
+  <article class="page legal">
+    <app-legal-draft-banner />
+
+    <app-page-header [title]="doc.title" [subtitle]="doc.summary" />
+
+    <p class="legal__meta">
+      <span>Effective date: <strong>{{ effectiveDate() }}</strong></span>
+      <span>Version <span class="mono">{{ doc.version }}</span></span>
+      <span>Last updated {{ doc.lastUpdated }}</span>
+    </p>
+
+    <nav class="legal__toc" aria-label="Sections">
+      <ol>
+        @if (doc.definitions.length) {
+          <li><a routerLink="." fragment="definitions">Definitions</a></li>
+        }
+        @for (section of doc.sections; track section.id) {
+          <li>
+            <a routerLink="." [fragment]="section.id">{{ section.heading }}</a>
+          </li>
+        }
+        <li><a routerLink="." fragment="contact">Contact</a></li>
+      </ol>
+    </nav>
+
+    @if (doc.definitions.length) {
+      <section id="definitions" class="legal__section">
+        <h2>Definitions</h2>
+        <dl class="legal__definitions">
+          @for (definition of doc.definitions; track definition.term) {
+            <dt>{{ definition.term }}</dt>
+            <dd>{{ definition.definition }}</dd>
+          }
+        </dl>
+      </section>
+    }
+
+    @for (section of doc.sections; track section.id; let sectionIndex = $index) {
+      <section [id]="section.id" class="legal__section">
+        <h2>{{ sectionIndex + 1 }}. {{ section.heading }}</h2>
+        <ol class="legal__clauses">
+          @for (clause of section.clauses; track $index; let clauseIndex = $index) {
+            <li>
+              <span class="legal__clause-number">{{ sectionIndex + 1 }}.{{ clauseIndex + 1 }}</span>
+              <span>{{ clause }}</span>
+            </li>
+          }
+        </ol>
+      </section>
+    }
+
+    <section id="contact" class="legal__section">
+      <h2>Contact</h2>
+      <p>{{ doc.contact }}</p>
+    </section>
+
+    <nav class="legal__related" aria-label="Other legal documents">
+      <span>See also:</span>
+      @for (other of otherDocuments(); track other.key) {
+        <a [routerLink]="['/legal', other.key]">{{ other.title }}</a>
+      }
+    </nav>
+  </article>
+} @else {
+  <div class="page">
+    <app-error-state
+      title="Unknown legal document"
+      message="This document does not exist. Use the legal index to find what you need."
+      retryLabel="Open legal index"
+      (retry)="openIndex()"
+    />
+    <p class="legal__fallback"><a routerLink="/legal">Go to the legal index</a></p>
+  </div>
+}

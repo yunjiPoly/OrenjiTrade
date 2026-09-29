@@ -21,8 +21,10 @@ export default function SignInScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const emailError = submitted && !EMAIL_PATTERN.test(email) ? 'Enter a valid email address.' : null;
-  const passwordError = submitted && password.length < 8 ? 'Password must be at least 8 characters.' : null;
+  const emailError =
+    submitted && !EMAIL_PATTERN.test(email) ? 'Enter a valid email address.' : null;
+  const passwordError =
+    submitted && password.length < 8 ? 'Password must be at least 8 characters.' : null;
 
   const onSubmit = () => {
     setSubmitted(true);
@@ -69,7 +71,10 @@ export default function SignInScreen() {
         />
         <Button label="Sign in" onPress={onSubmit} testID="sign-in-submit" />
         {notice ? (
-          <Text accessibilityRole="alert" style={[textStyle('sm'), styles.notice, { color: palette.info }]}>
+          <Text
+            accessibilityRole="alert"
+            style={[textStyle('sm'), styles.notice, { color: palette.info }]}
+          >
             {notice}
           </Text>
         ) : null}
@@ -77,7 +82,11 @@ export default function SignInScreen() {
 
       <View style={styles.footer}>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>New to OrenjiTrade?</Text>
-        <Link href="/(auth)/sign-up" replace style={[textStyle('sm'), styles.link, { color: palette.accent }]}>
+        <Link
+          href="/(auth)/sign-up"
+          replace
+          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+        >
           Create an account
         </Link>
       </View>
@@ -90,6 +99,11 @@ const styles = StyleSheet.create({
   wordmark: { fontWeight: fontWeight.bold },
   form: { gap: spacing[4] },
   notice: { textAlign: 'center' },
-  footer: { flexDirection: 'row', justifyContent: 'center', gap: spacing[1], marginTop: spacing[8] },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing[1],
+    marginTop: spacing[8],
+  },
   link: { fontWeight: fontWeight.semibold },
 });

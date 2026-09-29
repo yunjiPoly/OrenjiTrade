@@ -14,9 +14,15 @@ export function MapOverlay() {
       <View
         testID="map-overlay"
         accessibilityRole="text"
-        style={[styles.card, elevation.floating, { backgroundColor: background, borderColor: palette.border }]}
+        style={[
+          styles.card,
+          elevation.floating,
+          { backgroundColor: background, borderColor: palette.border },
+        ]}
       >
-        <Text style={[textStyle('md'), styles.text, { color: palette.ink }]}>{MAP_OVERLAY_MESSAGE}</Text>
+        <Text style={[textStyle('md'), styles.text, { color: palette.ink }]}>
+          {MAP_OVERLAY_MESSAGE}
+        </Text>
         <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
           Positions are approximate by design. Exact locations are never shown.
         </Text>
@@ -27,7 +33,11 @@ export function MapOverlay() {
 
 const styles = StyleSheet.create({
   wrap: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'flex-end',
     padding: spacing[4],
