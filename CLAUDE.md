@@ -33,6 +33,12 @@ branding assets are supplied.
 | Maps | PostGIS is the geographic source of truth. Google Maps in production; UI map code sits behind a `MapAdapter` (Leaflet fallback when no key) |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
+### ON HOLD by owner instruction (2026-09-29): Python ML card recognition
+Do **not** start Phase 11 (ML card identification model, the camera → upload → Pub/Sub → ML
+worker scan pipeline, `/v1/identify` beyond the existing stub, mobile card scanning) until the
+owner explicitly lifts this hold. Leave `apps/ml` as the Phase 0 skeleton; keep the `mlScanning`
+feature flag off. Everything else proceeds.
+
 ### Explicitly out of scope for the MVP (do not build)
 Stores, events/meetups, binder-to-binder matching, unboxing-video evidence, Kubernetes/GKE,
 microservices, Kafka, Elasticsearch, service mesh, a homemade payment processor, storing card

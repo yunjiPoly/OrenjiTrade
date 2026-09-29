@@ -130,10 +130,12 @@ _In progress: workflow `phase1-auth-users` (workspace + backend A → regen → 
 
 ## Phase 11 — ML
 
-- [ ] Card scanning pipeline: upload → storage → event → ML worker → candidates → user confirmation → inventory
-- [ ] ML service `/v1/identify` with confidence, graceful degradation
-- [ ] Mobile camera scan flow
-- [ ] Tests: pytest for service; API tolerance when ML unavailable
+**[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
+
+- [!] Card scanning pipeline: upload → storage → event → ML worker → candidates → user confirmation → inventory
+- [!] ML service `/v1/identify` with confidence, graceful degradation
+- [!] Mobile camera scan flow
+- [!] Tests: pytest for service; API tolerance when ML unavailable
 
 ## Phase 12 — Data Platform
 
