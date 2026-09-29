@@ -187,3 +187,12 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
 Report handling: acknowledge within 2 business days, triage within 5, fix per the SLA above,
 credit the reporter if they wish. Follow `docs/deployment/runbooks.md` section 8 for the
 incident process.
+
+## Code scanning availability
+
+CodeQL (`.github/workflows/codeql.yml`) and the Trivy filesystem scan (`ci.yml`, job
+`security`) always run. Uploading their SARIF results to GitHub Code Scanning requires GitHub
+Advanced Security, which private personal repositories do not have, so the upload steps are
+gated on the repository variable `CODE_SCANNING_ENABLED=true`. Until it is set, results are
+attached to each run as workflow artifacts (`codeql-<language>-sarif`, `trivy-fs-sarif`) and the
+Trivy gate step (fail on CRITICAL/HIGH) remains the enforced check.

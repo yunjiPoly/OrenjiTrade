@@ -42,6 +42,19 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           queries: security-and-quality
+      # Results are uploaded to Code Scanning only when the repository has GitHub Advanced
+      # Security (repository variable CODE_SCANNING_ENABLED=true); otherwise the analysis still
+      # runs and the SARIF is kept as a workflow artifact for review.
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
+          upload: ${{ vars.CODE_SCANNING_ENABLED == 'true' && 'always' || 'never' }}
+          output: codeql-results
+      - name: Keep CodeQL SARIF as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-${{ matrix.language }}-sarif
+          path: codeql-results
+          retention-days: 14
+          if-no-files-found: ignore
