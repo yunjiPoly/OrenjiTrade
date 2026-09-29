@@ -12,6 +12,7 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { MetaResponse } from '../model/models';
+import { ProblemDetail } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';

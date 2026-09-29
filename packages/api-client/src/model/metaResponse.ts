@@ -9,6 +9,9 @@
  */
 
 
+/**
+ * Build and environment metadata
+ */
 export interface MetaResponse { 
     name: string;
     version: string;

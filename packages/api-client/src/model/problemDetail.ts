@@ -14,15 +14,29 @@ import { ProblemDetailErrorsInner } from './problemDetailErrorsInner';
  * RFC 9457 problem details with OrenjiTrade extensions
  */
 export interface ProblemDetail { 
-    type?: string;
-    title?: string;
-    status?: number;
+    type: string;
+    title: string;
+    status: number;
     detail?: string;
     instance?: string;
-    errorCode?: string;
-    message?: string;
-    requestId?: string;
-    timestamp?: string;
+    errorCode: ProblemDetailErrorCodeEnum;
+    message: string;
+    requestId: string;
+    timestamp: string;
     errors?: Array<ProblemDetailErrorsInner>;
 }
+export enum ProblemDetailErrorCodeEnum {
+    ValidationFailed = 'VALIDATION_FAILED',
+    NotFound = 'NOT_FOUND',
+    Forbidden = 'FORBIDDEN',
+    Unauthenticated = 'UNAUTHENTICATED',
+    Conflict = 'CONFLICT',
+    RateLimited = 'RATE_LIMITED',
+    PayloadTooLarge = 'PAYLOAD_TOO_LARGE',
+    UnsupportedMediaType = 'UNSUPPORTED_MEDIA_TYPE',
+    InternalError = 'INTERNAL_ERROR',
+    ServiceUnavailable = 'SERVICE_UNAVAILABLE'
+};
+
+
 

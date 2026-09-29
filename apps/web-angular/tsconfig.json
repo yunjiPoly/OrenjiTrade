@@ -13,11 +13,15 @@
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "ES2022",
-    "module": "preserve"
-    /* Workspace packages (`@orenji/api-client`, `@orenji/design-tokens`) are npm `file:` links
-       in node_modules and are compiled from their TypeScript source. Their `@angular/*`, `rxjs`
-       and `tslib` imports resolve through links created by scripts/link-workspace-peers.mjs
-       (postinstall), so no `paths`/`preserveSymlinks` tricks are needed here. */
+    "module": "preserve",
+    /* Workspace packages are compiled as part of this app from their TypeScript source.
+       The generated client's `@angular/*`, `rxjs` and `tslib` imports resolve through links
+       created by scripts/link-workspace-peers.mjs (postinstall), so `preserveSymlinks` is not
+       needed (it would make `ng serve` crawl node_modules on Windows). */
+    "paths": {
+      "@orenji/api-client": ["../../packages/api-client/src/index.ts"],
+      "@orenji/design-tokens": ["../../packages/design-tokens/dist/tokens.ts"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
