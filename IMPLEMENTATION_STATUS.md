@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-09-29 (session 1, paused after Phase 0)
+**Last updated:** 2026-09-29 (session 1, Phase 1 in progress)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -26,11 +26,13 @@ documentation is updated. Each completed item lists location, tests, migrations,
 - [x] Dockerfiles for api, web (repo-root context), ml
 - [x] CI (`.github/workflows/ci.yml` + docker-build, deploy, e2e, codeql, dependabot) — runs on PR #1; fixed in session: `pull-requests: read` for paths-filter, Trivy tag `v0.36.0`, `actions: read` for SARIF/CodeQL, CodeQL v4, executable bit on `gradlew`/entrypoints, shared-types install before mobile typecheck
 - [x] Terraform skeleton: 15 modules + dev/staging/prod environments + Cloudflare Terraform, all `terraform validate` clean (providers google 7.46, cloudflare 5.26); Cloudflare setup documented in `infrastructure/cloudflare/README.md`; deployment/security docs in `docs/deployment/`, `docs/security/`. Independent verifier interrupted by the pause (re-run `terraform fmt -check -recursive infrastructure` + validate per env). Debt: plan/apply unproven without GCP credentials; `/internal/*` endpoints must verify Google OIDC tokens app-side; Memorystore TLS off until the API trusts the CA.
-- [-] Everything builds — locally verified per area by builders; the PR CI run on `e5957dd`/`03004b8` was still executing at pause time (Terraform ×4 and change detection green)
+- [x] Everything builds — PR #1 CI on `0d68c8a`: API (Gradle incl. Testcontainers), Web, Mobile, ML, Terraform ×4 and change detection green; the web and infra verifications interrupted by the pause were re-executed by those CI jobs. Security job: Trivy gate fixed by the non-root web image; SARIF uploads gated on `CODE_SCANNING_ENABLED` (no GHAS on this private repo)
 
 ## Phase 1 — Auth + Users
 
-- [ ] Identity provider abstraction (`IdentityTokenVerifier`), Firebase adapter, emulator wiring, test stub
+_In progress: workflow `phase1-auth-users` (workspace + backend A → regen → backend B ∥ web auth ∥ mobile auth → regen → web/mobile integration → E2E)._
+
+- [-] Identity provider abstraction (`IdentityTokenVerifier`), Firebase adapter, emulator wiring, test stub
 - [ ] Bearer token filter → `AuthenticatedUser` principal; user auto-provisioning on first login
 - [ ] `user_account`, roles (USER, PREMIUM_USER, MODERATOR, ADMIN, SUPER_ADMIN), suspension
 - [ ] Profile: display name, avatar (signed upload), bio, games, tags
