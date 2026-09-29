@@ -9,8 +9,8 @@
  * the repo) it reads, and creates, an `openapitools.json` wherever the shell happens to be. Passing
  * the absolute `--openapitools` path pins it to this folder, so no stray config files appear.
  *
- * `--skip-validate-spec`: the generator's OpenAPI 3.1 validator rejects `info.license` without an
- * `identifier`; the contract itself is validated by the API build.
+ * The spec is validated by the generator (no `--skip-validate-spec`): `OpenApiConfig` sets
+ * `info.license.url`, which is what the OpenAPI 3.1 validator used to reject.
  */
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
@@ -30,7 +30,6 @@ const args = [
   'typescript-angular',
   '-o',
   resolve(here, '../src'),
-  '--skip-validate-spec',
   '--additional-properties=ngVersion=22.0.0,providedInRoot=true,withInterfaces=true,useSingleRequestParameter=true,stringEnums=true,supportsES6=true',
 ];
 

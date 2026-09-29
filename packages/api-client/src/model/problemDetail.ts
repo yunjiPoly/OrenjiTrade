@@ -8,6 +8,7 @@
  * Do not edit the class manually.
  */
 import { ProblemDetailErrorsInner } from './problemDetailErrorsInner';
+import { ProblemDetailRequiredConsentsInner } from './problemDetailRequiredConsentsInner';
 
 
 /**
@@ -23,15 +24,38 @@ export interface ProblemDetail {
     message: string;
     requestId: string;
     timestamp: string;
+    /**
+     * Per-field errors of VALIDATION_FAILED problems
+     */
     errors?: Array<ProblemDetailErrorsInner>;
+    /**
+     * Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)
+     */
+    requiredConsents?: Array<ProblemDetailRequiredConsentsInner>;
+    /**
+     * End of a temporary suspension (ACCOUNT_SUSPENDED)
+     */
+    suspendedUntil?: string;
+    /**
+     * Seconds to wait (RATE_LIMITED problems)
+     */
+    retryAfterSeconds?: number;
 }
 export enum ProblemDetailErrorCodeEnum {
     ValidationFailed = 'VALIDATION_FAILED',
     NotFound = 'NOT_FOUND',
     Forbidden = 'FORBIDDEN',
     Unauthenticated = 'UNAUTHENTICATED',
+    ReauthenticationRequired = 'REAUTHENTICATION_REQUIRED',
+    AccountSuspended = 'ACCOUNT_SUSPENDED',
+    FeatureDisabled = 'FEATURE_DISABLED',
+    MessagingBlocked = 'MESSAGING_BLOCKED',
     Conflict = 'CONFLICT',
+    HandleTaken = 'HANDLE_TAKEN',
+    DeletionBlocked = 'DELETION_BLOCKED',
+    TermsAcceptanceRequired = 'TERMS_ACCEPTANCE_REQUIRED',
     RateLimited = 'RATE_LIMITED',
+    LimitReached = 'LIMIT_REACHED',
     PayloadTooLarge = 'PAYLOAD_TOO_LARGE',
     UnsupportedMediaType = 'UNSUPPORTED_MEDIA_TYPE',
     InternalError = 'INTERNAL_ERROR',

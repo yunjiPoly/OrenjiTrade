@@ -100,6 +100,17 @@ constructor({ accessToken, apiKeys, basePath, credentials, encodeParam, encoder,
                     : this.accessToken;
             };
         }
+
+        // init default serviceToken credential
+        if (!this.credentials['serviceToken']) {
+            this.credentials['serviceToken'] = () => {
+                if (this.apiKeys === null || this.apiKeys === undefined) {
+                    return undefined;
+                } else {
+                    return this.apiKeys['serviceToken'] || this.apiKeys['X-Service-Token'];
+                }
+            };
+        }
     }
 
     /**

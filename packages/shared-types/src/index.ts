@@ -11,10 +11,25 @@ import type { components, operations, paths } from './schema';
 
 export type { components, operations, paths };
 
-/** Convenience aliases for the most-used DTOs. */
+/** Convenience aliases for the most-used DTOs (Phase 0 meta + Phase 1 auth/users). */
 export type Schemas = components['schemas'];
 export type MetaResponse = Schemas['MetaResponse'];
 export type ProblemDetail = Schemas['ProblemDetail'];
+export type MeResponse = Schemas['MeResponse'];
+export type OnboardingStatus = Schemas['OnboardingStatus'];
+export type RequiredConsent = Schemas['RequiredConsent'];
+export type ConsentRequest = Schemas['ConsentRequest'];
+export type LegalDocument = Schemas['LegalDocument'];
+export type PingResponse = Schemas['PingResponse'];
+export type AdminUserSummary = Schemas['AdminUserSummary'];
+export type AdminUserDetail = Schemas['AdminUserDetail'];
+export type AuditLogEntry = Schemas['AuditLogEntry'];
+export type PageResponseAdminUserSummary = Schemas['PageResponseAdminUserSummary'];
+export type PageResponseAuditLogEntry = Schemas['PageResponseAuditLogEntry'];
+
+/** Wire-level enums, derived from the contract so they never drift from the server. */
+export type UserRole = Schemas['UpdateRolesRequest']['roles'][number];
+export type ErrorCode = ProblemDetail['errorCode'];
 
 /** Normalised API error shared by web and mobile (mirrors `ApiError` in apps/web-angular). */
 export interface ApiError {

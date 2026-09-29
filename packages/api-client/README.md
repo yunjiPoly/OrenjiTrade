@@ -37,9 +37,9 @@ npm run generate:api                          # regenerates api-client AND share
 ```
 
 `tools/openapitools.json` pins the generator version. The CLI downloads that exact JAR on first
-use, so regeneration is reproducible across machines and CI. `--skip-validate-spec` is passed
-because the generator's OpenAPI 3.1 validator is stricter than the specification (it rejects a
-`license` without `identifier`); the contract itself is validated by the API build.
+use, so regeneration is reproducible across machines and CI. The generator validates the spec
+(no `--skip-validate-spec`): its OpenAPI 3.1 validator requires `info.license` to carry an
+`identifier` or a `url`, and `OpenApiConfig` in `apps/api` sets the `url`.
 
 Generator options (see `tools/generate.mjs`):
 
@@ -88,7 +88,7 @@ export class ApiVersionComponent {
 | `package.json`              | name, `generate` script (delegates to `tools/`)      |
 | `tools/package.json`        | generator devDependency, `generate` -> `generate.mjs` |
 | `tools/openapitools.json`   | pinned generator version                             |
-| `src/api/*.service.ts`      | one service per OpenAPI tag                          |
+| `src/api/*.service.ts`      | one service per OpenAPI tag (`MeService`, `LegalService`, `AdminUsersService`, `AdminAuditService`, `InternalService`, `MetaService`) |
 | `src/model/*.ts`            | DTO interfaces                                       |
 | `src/configuration.ts`      | `Configuration` (base path, credentials, encoders)   |
 | `src/provide-api.ts`        | `provideApi()` helper for `ApplicationConfig`        |
