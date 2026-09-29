@@ -6,21 +6,26 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.media.ArraySchema;
+import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.Arrays;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 
 /**
  * OpenAPI document metadata. Active only when {@code orenji.openapi.enabled=true} (local, dev,
@@ -36,6 +41,8 @@ public class OpenApiConfig {
 
     public static final String BEARER_SCHEME = "bearerAuth";
     public static final String PROBLEM_DETAIL_SCHEMA = "ProblemDetail";
+    static final String PROBLEM_DETAIL_REF = "#/components/schemas/" + PROBLEM_DETAIL_SCHEMA;
+    static final String DEFAULT_RESPONSE = "default";
     static final String FALLBACK_VERSION = "dev";
 
     @Bean
@@ -68,9 +75,53 @@ public class OpenApiConfig {
                                                 .type(SecurityScheme.Type.HTTP)
                                                 .scheme("bearer")
                                                 .bearerFormat("JWT")
-                                                .description("Firebase Authentication ID token"))
-                                .addSchemas(PROBLEM_DETAIL_SCHEMA, problemDetailSchema()))
+                                                .description("Firebase Authentication ID token")))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
+    }
+
+    /**
+     * Runs after springdoc has scanned the controllers (which is when {@code components.schemas} is
+     * rebuilt): registers the {@code ProblemDetail} schema and documents that every operation may
+     * answer with an RFC 9457 problem ({@code default} response).
+     */
+    @Bean
+    OpenApiCustomizer problemDetailOpenApiCustomizer() {
+        return openApi -> {
+            Components components =
+                    openApi.getComponents() != null ? openApi.getComponents() : new Components();
+            components.addSchemas(PROBLEM_DETAIL_SCHEMA, problemDetailSchema());
+            openApi.setComponents(components);
+            if (openApi.getPaths() == null) {
+                return;
+            }
+            openApi.getPaths()
+                    .values()
+                    .forEach(
+                            pathItem ->
+                                    pathItem.readOperations()
+                                            .forEach(
+                                                    operation -> {
+                                                        ApiResponses responses =
+                                                                operation.getResponses() != null
+                                                                        ? operation.getResponses()
+                                                                        : new ApiResponses();
+                                                        responses.putIfAbsent(
+                                                                DEFAULT_RESPONSE,
+                                                                problemResponse());
+                                                        operation.setResponses(responses);
+                                                    }));
+        };
+    }
+
+    private static ApiResponse problemResponse() {
+        return new ApiResponse()
+                .description("Error (RFC 9457 problem details)")
+                .content(
+                        new Content()
+                                .addMediaType(
+                                        MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                                        new io.swagger.v3.oas.models.media.MediaType()
+                                                .schema(new Schema<>().$ref(PROBLEM_DETAIL_REF))));
     }
 
     /** RFC 9457 problem with OrenjiTrade extensions; mirrors {@code ProblemDetailFactory}. */

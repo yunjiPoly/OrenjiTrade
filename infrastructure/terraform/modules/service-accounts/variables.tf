@@ -50,7 +50,7 @@ variable "service_accounts" {
     github-deployer = {
       display_name  = "OrenjiTrade GitHub Actions deployer"
       description   = "Impersonated through Workload Identity Federation; pushes images and deploys Cloud Run."
-      project_roles = ["roles/run.developer", "roles/iam.serviceAccountTokenCreator"]
+      project_roles = ["roles/run.developer"]
       act_as        = ["api-run", "web-run", "ml-run"]
     }
   }

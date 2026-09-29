@@ -69,7 +69,7 @@ dev registry where `docker-build.yml` publishes; staging/prod Cloud Run service 
 | `ml-run` | ml Cloud Run | log/metric/trace writers; objectViewer on media bucket; secret accessor on `service-token` |
 | `scheduler` | Cloud Scheduler OIDC | invoker on api |
 | `pubsub-push` | Pub/Sub push OIDC | invoker on api and ml |
-| `github-deployer` | GitHub Actions via WIF | run.developer, serviceAccountTokenCreator, actAs the three runtime SAs, artifactregistry.writer |
+| `github-deployer` | GitHub Actions via WIF | run.developer, actAs the three runtime SAs, artifactregistry.writer (impersonation via the WIF `workloadIdentityUser` binding) |
 
 ## Promotion flow
 

@@ -12,11 +12,10 @@ import org.testcontainers.utility.DockerImageName;
  * ServiceConnection} (datasource URL/credentials and {@code spring.data.redis.*} are derived from
  * the running containers, overriding {@code application.yml}).
  *
- * <p>The containers are static singletons started once per JVM and shared by every test class,
- * so a full run costs one container start-up; Testcontainers' Ryuk reaper removes them when the
- * JVM exits. Import this class ({@code @Import(TestcontainersConfiguration.class)}) rather than
- * nesting it inside a test class, which Spring Framework 7.1 would treat as the sole context
- * configuration.
+ * <p>The containers are static singletons started once per JVM and shared by every test class, so a
+ * full run costs one container start-up; Testcontainers' Ryuk reaper removes them when the JVM
+ * exits. Import this class ({@code @Import(TestcontainersConfiguration.class)}) rather than nesting
+ * it inside a test class, which Spring Framework 7.1 would treat as the sole context configuration.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -27,7 +26,8 @@ public class TestcontainersConfiguration {
 
     static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer(
-                            DockerImageName.parse(POSTGIS_IMAGE).asCompatibleSubstituteFor("postgres"))
+                            DockerImageName.parse(POSTGIS_IMAGE)
+                                    .asCompatibleSubstituteFor("postgres"))
                     .withDatabaseName("orenjitrade_test");
 
     static final GenericContainer<?> REDIS =
