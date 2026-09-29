@@ -1,13 +1,14 @@
 import { Slot } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
-import TabLayout, { TABS } from '@/app/(tabs)/_layout';
+import TabLayout from '@/app/(tabs)/_layout';
 import MapScreen from '@/app/(tabs)/index';
 import InventoryScreen from '@/app/(tabs)/inventory';
 import MessagesScreen from '@/app/(tabs)/messages';
 import ProfileScreen from '@/app/(tabs)/profile';
 import SearchScreen from '@/app/(tabs)/search';
 import WishlistScreen from '@/app/(tabs)/wishlist';
+import { TABS } from '@/src/navigation/tabs';
 
 import { TestProviders } from '../test-utils';
 

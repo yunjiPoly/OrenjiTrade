@@ -102,9 +102,11 @@ export const lightColors = ${JSON.stringify(color.light, null, 2)} as const;
 
 export const darkColors = ${JSON.stringify(color.dark, null, 2)} as const;
 
-export const colors = { light: lightColors, dark: darkColors } as const;
+/** Replaces literal leaf types with \`string\` so light and dark share one structural type. */
+type Widen<T> = { readonly [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 
-export const tokens = ${JSON.stringify(rest, null, 2)} as const;
+/** Colour token structure shared by both themes (leaf values are CSS colour strings). */
+export type ColorTokens = Widen<typeof lightColors>;
 
 /** A resolved colour scheme. */
 export type Theme = 'light' | 'dark';
@@ -113,7 +115,9 @@ export type ThemePreference = Theme | 'system';
 export const THEMES: readonly Theme[] = ['light', 'dark'];
 export const THEME_PREFERENCES: readonly ThemePreference[] = ['light', 'dark', 'system'];
 
-export type ColorTokens = typeof lightColors;
+export const colors: Readonly<Record<Theme, ColorTokens>> = { light: lightColors, dark: darkColors };
+
+export const tokens = ${JSON.stringify(rest, null, 2)} as const;
 export type ColorToken = keyof ColorTokens;
 export type StatusToken = keyof ColorTokens['status'];
 export type AvailabilityToken = keyof ColorTokens['availability'];
