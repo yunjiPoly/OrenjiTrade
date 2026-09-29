@@ -116,6 +116,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/binders/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder the caller's binders
+         * @description The listed binders come first in the given order; the others keep their relative order after them. 400 for duplicates, 404 when an id is not one of the caller's binders. Returns every binder in the new order.
+         */
+        put: operations["reorderBinders"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users/{id}/roles": {
         parameters: {
             query?: never;
@@ -256,6 +276,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/delist-policies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a delist policy (ADMIN)
+         * @description 400 unless 1 <= agingAfterDays < staleAfterDays < hiddenAfterDays <= 3650 and 0 <= warnBeforeHiddenDays < hiddenAfterDays. Takes effect on every instance at once (cache evicted) and on the next freshness job run. Audited (`delist_policy.update`).
+         */
+        put: operations["updateDelistPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/cards/{id}": {
         parameters: {
             query?: never;
@@ -290,6 +330,46 @@ export interface paths {
          * @description Records a `ping` job run and answers `{ "ok": true }`.
          */
         post: operations["pingInternalJobs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/jobs/freshness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recompute listing freshness (service auth)
+         * @description Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.
+         */
+        post: operations["runFreshnessJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/jobs/delist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause listings of unresponsive owners (service auth)
+         * @description Daily. Pauses the public listings of owners whose unresponsiveness strikes reached the policy's maxStrikes. Strike tracking arrives with Phases 5/7: until then the run is recorded and nobody is paused. Never deletes.
+         */
+        post: operations["runDelistJob"];
         delete?: never;
         options?: never;
         head?: never;
@@ -375,6 +455,174 @@ export interface paths {
          * @description Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
          */
         post: operations["acceptConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's items (filters, sort, pages)
+         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), name (A-Z) or price (highest first); `direction` overrides the order.
+         */
+        get: operations["listInventoryItems"];
+        put?: never;
+        /**
+         * Add an item
+         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead.
+         */
+        post: operations["createInventoryItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{id}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to an item
+         * @description Multipart part `file`: JPEG, PNG or WebP up to 8 MB (type sniffed from the content). Re-encoded as JPEG, at most 1600 px on the long side, without any metadata (EXIF/GPS stripped). At most 4 photos per item (409). 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (60 per hour).
+         */
+        post: operations["uploadInventoryItemImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an item is still available
+         * @description Refreshes `confirmedAt` (and the binder's): freshness back to ACTIVE, a HIDDEN item becomes public again when its visibility allows it.
+         */
+        post: operations["confirmInventoryItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk operation on the caller's items
+         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE. Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
+         */
+        post: operations["bulkUpdateInventoryItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/binders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's binders
+         * @description In the caller's order (see PUT /binders/reorder).
+         */
+        get: operations["listMyBinders"];
+        put?: never;
+        /**
+         * Create a binder
+         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the plan's binder limit.
+         */
+        post: operations["createBinder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/binders/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a binder private
+         * @description Its items keep their own visibility.
+         */
+        post: operations["unpublishBinder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/binders/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a binder
+         * @description PUBLIC / UNTIL_DISABLED: public without an end date; ONE_HOUR / ONE_DAY: TEMPORARILY_PUBLIC until now + 1 h / 24 h. Publishing confirms the binder and its items (hidden stale items come back). Items still need their own visibility PUBLIC (the default inside a binder) to show.
+         */
+        post: operations["publishBinder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/binders/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a binder is still available
+         * @description Refreshes the confirmation of the binder and every item in it: freshness back to ACTIVE, HIDDEN listings restored.
+         */
+        post: operations["confirmBinder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -546,6 +794,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of the caller's items */
+        get: operations["getInventoryItem"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an item
+         * @description Soft delete: the item disappears everywhere; its photos are removed.
+         */
+        delete: operations["deleteInventoryItem"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an item (any subset of the fields)
+         * @description Absent fields are unchanged. `askingPrice`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it.
+         */
+        patch: operations["updateInventoryItem"];
+        trace?: never;
+    };
+    "/api/v1/binders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of the caller's binders */
+        get: operations["getBinder"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a binder
+         * @description Its items become unfiled (they keep their visibility only when the binder was PUBLIC without an end date, otherwise they become PRIVATE), or are deleted with `deleteItems=true`.
+         */
+        delete: operations["deleteBinder"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a binder (any subset of the fields)
+         * @description Absent fields are unchanged; `publicUntil` and `coverPrintingId` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish).
+         */
+        patch: operations["updateBinder"];
+        trace?: never;
+    };
     "/api/v1/tags": {
         parameters: {
             query?: never;
@@ -675,6 +973,46 @@ export interface paths {
          * @description Map of flag key to effective value. Anonymous callers see flags rolled out to everybody; with a bearer token, partial rollouts are evaluated for the caller. Flags change live through the admin console.
          */
         get: operations["getFeatureFlags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/binders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A public binder (auth optional)
+         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries a region label and, for signed-in callers with a trading area, a distance bucket; never coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
+         */
+        get: operations["getPublicBinder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/binders/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public items of a public binder (auth optional)
+         * @description 404 unless the binder is public right now. Only items that are public right now, by card name. Never private notes or coordinates.
+         */
+        get: operations["listPublicBinderItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -841,6 +1179,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Totals of the caller's inventory
+         * @description Item and copy totals, items per visibility and game, freshness counts, items public right now and the next temporary publication end.
+         */
+        get: operations["getInventorySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/games": {
         parameters: {
             query?: never;
@@ -893,6 +1251,46 @@ export interface paths {
          * @description Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` is null unless the collector is discoverable; `distanceBucket` needs a trading area on the caller's side and `showDistance` on the collector's. Coordinates are the derived public point only (3 decimals).
          */
         get: operations["getCollector"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/collectors/{handle}/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public items of a collector across binders (auth optional)
+         * @description Only items that are public right now, by card name. 404 when the collector is suspended, pending deletion, deleted, has a PRIVATE profile or a block exists. Never private notes or coordinates.
+         */
+        get: operations["listCollectorInventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/collectors/{handle}/binders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public binders of a collector (auth optional)
+         * @description Only binders that are public right now and hold at least one public item, in the owner's order. 404 when the collector is suspended, pending deletion, deleted, has a PRIVATE profile or a block exists. Empty when the collector is neither discoverable nor has a PUBLIC profile.
+         */
+        get: operations["listCollectorBinders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -973,6 +1371,26 @@ export interface paths {
          * @description Printing-code prefixes (`AZR-EN0`) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD).
          */
         get: operations["suggestCards"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/binders/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Items of one of the caller's binders
+         * @description Same filters and sort as GET /inventory/items. 404 when the binder is not the caller's (others use GET /public/binders/{id}/items).
+         */
+        get: operations["listBinderItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1081,6 +1499,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/delist-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List delist policies (ADMIN)
+         * @description Freshness thresholds in days since the last owner confirmation.
+         */
+        get: operations["listDelistPolicies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/catalog/sync-runs": {
         parameters: {
             query?: never;
@@ -1170,6 +1608,23 @@ export interface paths {
          * @description Re-activates the account (and its map presence). 404 when the request is not the caller's, 409 when it is no longer pending.
          */
         delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{id}/images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a photo of an item */
+        delete: operations["deleteInventoryItemImage"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1408,6 +1863,79 @@ export interface components {
             source: "MANUAL" | "DEVICE";
             /** @example Plateau-Mont-Royal, Montréal */
             label?: string | null;
+        };
+        /** @description New order of the caller's binders */
+        ReorderBindersRequest: {
+            binderIds: string[];
+        };
+        /** @description A binder of the caller */
+        BinderResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @example Trade binder */
+            name: string;
+            description: string;
+            /** @enum {string} */
+            kind: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /**
+             * Format: date-time
+             * @description End of a TEMPORARILY_PUBLIC publication
+             */
+            publicUntil?: string | null;
+            /**
+             * Format: int32
+             * @description Position in the caller's list
+             */
+            sortOrder: number;
+            /**
+             * Format: int64
+             * @description Items in the binder
+             */
+            itemCount: number;
+            /**
+             * Format: int64
+             * @description Items of the binder that are public right now
+             */
+            publicItemCount: number;
+            /** @description Whether the binder is public right now (visibility, expiry, freshness and the owner's privacy settings) */
+            effectivePublic: boolean;
+            /**
+             * @example [
+             *       "yugioh"
+             *     ]
+             */
+            games: string[];
+            /** Format: uri */
+            coverImageUrl?: string | null;
+            /**
+             * Format: uuid
+             * @description Printing chosen as cover
+             */
+            coverPrintingId?: string | null;
+            freshness: components["schemas"]["Freshness"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description Freshness of a listing */
+        Freshness: {
+            /**
+             * @description ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)
+             * @enum {string}
+             */
+            state: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
+            /** Format: date-time */
+            confirmedAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @example Updated 3 hours ago */
+            label: string;
         };
         UpdateRolesRequest: {
             /**
@@ -1734,6 +2262,75 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        /** @description New freshness thresholds (days) */
+        UpdateDelistPolicyRequest: {
+            name?: string;
+            /**
+             * Format: int32
+             * @example 15
+             */
+            agingAfterDays: number;
+            /**
+             * Format: int32
+             * @example 31
+             */
+            staleAfterDays: number;
+            /**
+             * Format: int32
+             * @example 46
+             */
+            hiddenAfterDays: number;
+            /**
+             * Format: int32
+             * @example 5
+             */
+            warnBeforeHiddenDays: number;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            maxStrikes?: number;
+        };
+        /** @description Auto-delist freshness policy */
+        DelistPolicyResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @example Default */
+            name: string;
+            active: boolean;
+            /**
+             * Format: int32
+             * @example 15
+             */
+            agingAfterDays: number;
+            /**
+             * Format: int32
+             * @example 31
+             */
+            staleAfterDays: number;
+            /**
+             * Format: int32
+             * @example 46
+             */
+            hiddenAfterDays: number;
+            /**
+             * Format: int32
+             * @example 5
+             */
+            warnBeforeHiddenDays: number;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            maxStrikes: number;
+            /**
+             * Format: uuid
+             * @description Last admin editor; null for the default
+             */
+            updatedBy?: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         /** @description Card creation or change */
         AdminCardRequest: {
             /** @example yugioh */
@@ -1764,6 +2361,34 @@ export interface components {
         };
         PingJobResponse: {
             ok: boolean;
+        };
+        FreshnessJobResponse: {
+            /** Format: int32 */
+            expired: number;
+            /** Format: int32 */
+            itemsAged: number;
+            /** Format: int32 */
+            itemsStaled: number;
+            /** Format: int32 */
+            itemsHidden: number;
+            /** Format: int32 */
+            itemsRestored: number;
+            /** Format: int32 */
+            binderStateChanges: number;
+            /** Format: int32 */
+            itemsWarned: number;
+            /** Format: int32 */
+            bindersWarned: number;
+            /** Format: int32 */
+            published: number;
+            /** Format: int32 */
+            unpublished: number;
+        };
+        DelistJobResponse: {
+            /** Format: int32 */
+            ownersEvaluated: number;
+            /** Format: int32 */
+            listingsPaused: number;
         };
         AccountDeletionJobResponse: {
             /**
@@ -1829,6 +2454,179 @@ export interface components {
             documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
             /** @example 2026-09-01 */
             version: string;
+        };
+        /** @description A new inventory item */
+        CreateInventoryItemRequest: {
+            /** Format: uuid */
+            printingId: string;
+            /** Format: int32 */
+            quantity?: number;
+            /** @example NEAR_MINT */
+            condition?: string;
+            /** @example en */
+            language?: string;
+            /** @example FIRST_EDITION */
+            edition?: string;
+            /** @example NORMAL */
+            finish?: string;
+            /** @example 45 */
+            askingPrice?: number;
+            /** @example CAD */
+            currency?: string;
+            /** @enum {string} */
+            availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            acceptsOffers?: boolean;
+            notes?: string;
+            publicNotes?: string;
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /** Format: date-time */
+            publicUntil?: string;
+            /** Format: uuid */
+            binderId?: string;
+        };
+        /** @description Binder holding an inventory item */
+        InventoryBinderRef: {
+            /** Format: uuid */
+            id: string;
+            /** @example Trade binder */
+            name: string;
+        };
+        /** @description Card of an inventory item */
+        InventoryCardRef: {
+            /** Format: uuid */
+            id: string;
+            /** @example Azure-Eyes Sky Dragon */
+            name: string;
+            /** @example yugioh */
+            game: string;
+        };
+        /** @description Owner photo of an inventory item */
+        InventoryItemImage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uri */
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            /** Format: int32 */
+            sortOrder: number;
+        };
+        /** @description An inventory item of the caller */
+        InventoryItemResponse: {
+            /** Format: uuid */
+            id: string;
+            printing: components["schemas"]["PrintingSummary"];
+            card: components["schemas"]["InventoryCardRef"];
+            /** @description Null when unfiled */
+            binder?: components["schemas"]["InventoryBinderRef"];
+            /**
+             * Format: int32
+             * @example 1
+             */
+            quantity: number;
+            /** @example NEAR_MINT */
+            condition: string;
+            /** @example en */
+            language: string;
+            /** @example FIRST_EDITION */
+            edition: string;
+            /** @example NORMAL */
+            finish: string;
+            /** @example 45 */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+            /** @enum {string} */
+            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            acceptsOffers: boolean;
+            /** @description Private notes (only ever returned to the owner) */
+            notes: string;
+            publicNotes: string;
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /**
+             * Format: date-time
+             * @description End of a TEMPORARILY_PUBLIC publication
+             */
+            publicUntil?: string | null;
+            /** @description Whether the item is public right now (visibility, expiry, binder, freshness, the owner's account and privacy settings) */
+            effectivePublic: boolean;
+            freshness: components["schemas"]["Freshness"];
+            images: components["schemas"]["InventoryItemImage"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description A bulk operation on the caller's items */
+        BulkInventoryRequest: {
+            itemIds: string[];
+            /** @enum {string} */
+            action: "SET_VISIBILITY" | "MOVE_TO_BINDER" | "SET_AVAILABILITY" | "CONFIRM" | "DELETE";
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /** Format: date-time */
+            publicUntil?: string;
+            /** Format: uuid */
+            binderId?: string;
+            /** @enum {string} */
+            availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+        };
+        /** @description Outcome of a bulk operation */
+        BulkInventoryResponse: {
+            /**
+             * Format: int32
+             * @description Items changed
+             */
+            updated: number;
+            skipped: components["schemas"]["BulkSkipped"][];
+        };
+        /** @description Item skipped by a bulk operation */
+        BulkSkipped: {
+            /** Format: uuid */
+            itemId: string;
+            /**
+             * @description NOT_FOUND (unknown, deleted or not the caller's item) or UNCHANGED (already in the requested state)
+             * @enum {string}
+             */
+            reason: "NOT_FOUND" | "UNCHANGED";
+        };
+        /** @description A new binder */
+        CreateBinderRequest: {
+            /** @example Trade binder */
+            name: string;
+            description?: string;
+            /** @enum {string} */
+            kind?: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /** Format: date-time */
+            publicUntil?: string;
+            /** Format: uuid */
+            coverPrintingId?: string;
+        };
+        /** @description How to publish a binder */
+        PublishBinderRequest: {
+            /**
+             * @description PUBLIC and UNTIL_DISABLED: public without an end date; ONE_HOUR / ONE_DAY: TEMPORARILY_PUBLIC for 1 h / 24 h
+             * @enum {string}
+             */
+            mode: "PUBLIC" | "ONE_HOUR" | "ONE_DAY" | "UNTIL_DISABLED";
         };
         SuspendUserRequest: {
             /** @example Repeated spam reports */
@@ -1907,6 +2705,49 @@ export interface components {
             /** Format: int32 */
             printingsUpserted?: number;
             error?: string;
+        };
+        /** @description Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it. */
+        UpdateInventoryItemRequest: {
+            /** Format: uuid */
+            printingId?: string;
+            /** Format: int32 */
+            quantity?: number;
+            condition?: string;
+            language?: string;
+            edition?: string;
+            finish?: string;
+            askingPrice?: number | null;
+            currency?: string;
+            /** @enum {string} */
+            availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            acceptsOffers?: boolean;
+            notes?: string | null;
+            publicNotes?: string | null;
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /** Format: date-time */
+            publicUntil?: string | null;
+            /** Format: uuid */
+            binderId?: string | null;
+        };
+        /** @description Any subset of the fields; absent fields are unchanged. Making the binder public confirms it and its items. */
+        UpdateBinderRequest: {
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            kind?: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /**
+             * @description PRIVATE, PUBLIC or TEMPORARILY_PUBLIC (until publicUntil, at most 30 days ahead)
+             * @enum {string}
+             */
+            visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+            /** Format: date-time */
+            publicUntil?: string | null;
+            /** Format: uuid */
+            coverPrintingId?: string | null;
         };
         /** @description Offset-paginated list */
         PageResponseSetSummary: {
@@ -1988,6 +2829,113 @@ export interface components {
              */
             url: string;
             requiredAtRegistration: boolean;
+        };
+        /** @description Owner of a public binder */
+        PublicBinderOwner: {
+            /** Format: uuid */
+            id: string;
+            /** @example collector1 */
+            handle: string;
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            /** @description Null unless the collector is discoverable */
+            location?: components["schemas"]["PublicOwnerLocation"];
+        };
+        /** @description A public binder with its owner */
+        PublicBinderResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            kind: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /**
+             * Format: date-time
+             * @description End of a temporary publication
+             */
+            publicUntil?: string | null;
+            owner: components["schemas"]["PublicBinderOwner"];
+            freshness: components["schemas"]["Freshness"];
+            /**
+             * Format: int64
+             * @description Public items
+             */
+            itemCount: number;
+            games: string[];
+            /** Format: uri */
+            coverImageUrl?: string | null;
+        };
+        /** @description Approximate location (never a point) */
+        PublicOwnerLocation: {
+            /** @example Plateau-Mont-Royal, Montréal */
+            publicLabel: string;
+            /**
+             * @description Null unless the request is signed in, the caller has a trading area and the owner shows distances
+             * @enum {string|null}
+             */
+            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
+        };
+        /** @description Offset-paginated list */
+        PageResponsePublicInventoryItem: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["PublicInventoryItem"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
+        };
+        /** @description A public inventory item */
+        PublicInventoryItem: {
+            /** Format: uuid */
+            id: string;
+            printing: components["schemas"]["PrintingSummary"];
+            card: components["schemas"]["InventoryCardRef"];
+            /** @description Public binder holding the item, if any */
+            binder?: components["schemas"]["InventoryBinderRef"];
+            /**
+             * Format: int32
+             * @example 1
+             */
+            quantity: number;
+            /** @example NEAR_MINT */
+            condition: string;
+            /** @example en */
+            language: string;
+            /** @example FIRST_EDITION */
+            edition: string;
+            /** @example NORMAL */
+            finish: string;
+            /** @example 45 */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+            /** @enum {string} */
+            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            acceptsOffers: boolean;
+            publicNotes: string;
+            images: components["schemas"]["InventoryItemImage"][];
+            freshness: components["schemas"]["Freshness"];
         };
         /** @description Subscription plan with its features and limits */
         Plan: {
@@ -2147,6 +3095,72 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description Totals of the caller's inventory */
+        InventorySummaryResponse: {
+            /** Format: int64 */
+            totalItems: number;
+            /** Format: int64 */
+            totalQuantity: number;
+            byVisibility: components["schemas"]["VisibilityCounts"];
+            /** @description Items per game slug */
+            byGame: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            agingCount: number;
+            /** Format: int64 */
+            staleCount: number;
+            /** Format: int64 */
+            hiddenCount: number;
+            /**
+             * Format: int64
+             * @description Items public right now
+             */
+            effectivePublicCount: number;
+            /**
+             * Format: date-time
+             * @description Earliest future end of a temporary publication (items or binders)
+             */
+            nextExpiry?: string | null;
+        };
+        /** @description Items per visibility */
+        VisibilityCounts: {
+            /** Format: int64 */
+            PRIVATE: number;
+            /** Format: int64 */
+            PUBLIC: number;
+            /** Format: int64 */
+            TEMPORARILY_PUBLIC: number;
+        };
+        /** @description Offset-paginated list */
+        PageResponseInventoryItemResponse: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["InventoryItemResponse"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
+        };
         /** @description Approximate location (never precise) */
         CollectorLocation: {
             /** @example Plateau-Mont-Royal, Montréal */
@@ -2208,6 +3222,29 @@ export interface components {
             slug: string;
             /** @example Trader */
             label: string;
+        };
+        /** @description Public binder of a collector */
+        PublicBinderSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            kind: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /**
+             * Format: date-time
+             * @description End of a temporary publication
+             */
+            publicUntil?: string | null;
+            /**
+             * Format: int64
+             * @description Public items
+             */
+            itemCount: number;
+            games: string[];
+            /** Format: uri */
+            coverImageUrl?: string | null;
+            freshness: components["schemas"]["Freshness"];
         };
         /** @description Offset-paginated list */
         PageResponseCardSummary: {
@@ -3047,6 +4084,75 @@ export interface operations {
             };
         };
     };
+    reorderBinders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderBindersRequest"];
+            };
+        };
+        responses: {
+            /** @description Binders in the new order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateUserRoles: {
         parameters: {
             query?: never;
@@ -3542,6 +4648,77 @@ export interface operations {
             };
         };
     };
+    updateDelistPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDelistPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DelistPolicyResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateCard: {
         parameters: {
             query?: never;
@@ -3629,6 +4806,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PingJobResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    runFreshnessJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreshnessJobResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    runDelistJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DelistJobResponse"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -4034,6 +5305,816 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listInventoryItems: {
+        parameters: {
+            query?: {
+                /** @description Card name, printing code or set */
+                query?: string;
+                /** @description Game slug */
+                game?: string;
+                binderId?: string;
+                /** @description Only items without a binder */
+                unfiled?: boolean;
+                visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+                availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+                /** @description Condition code, e.g. NEAR_MINT */
+                condition?: string;
+                freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
+                /** @description updated | name | price */
+                sort?: "updated" | "name" | "price";
+                /** @description asc | desc (default: desc for updated and price, asc for name) */
+                direction?: "asc" | "desc";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseInventoryItemResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    createInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInventoryItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description binderId is not one of the caller's binders */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    uploadInventoryItemImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The item with its photos */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description CONFLICT: the item already has 4 photos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description PAYLOAD_TOO_LARGE */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description UNSUPPORTED_MEDIA_TYPE */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    confirmInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Confirmed item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, deleted or not the caller's item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    bulkUpdateInventoryItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkInventoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Outcome */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkInventoryResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listMyBinders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    createBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBinderRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`binders.max`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    unpublishBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private binder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    publishBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishBinderRequest"];
+            };
+        };
+        responses: {
+            /** @description Published binder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    confirmBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Confirmed binder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4754,6 +6835,469 @@ export interface operations {
             };
         };
     };
+    getInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, deleted or not the caller's item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, deleted or not the caller's item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInventoryItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, deleted or not the caller's item (or binder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The binder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteBinder: {
+        parameters: {
+            query?: {
+                /** @description Also delete the binder's items */
+                deleteItems?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBinderRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated binder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     searchTags: {
         parameters: {
             query?: {
@@ -5053,6 +7597,112 @@ export interface operations {
                     "application/json": {
                         [key: string]: boolean;
                     };
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getPublicBinder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The binder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBinderResponse"];
+                };
+            };
+            /** @description Unknown or non-public binder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`binder.views.per_day`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listPublicBinderItems: {
+        parameters: {
+            query?: {
+                /** @description Game slug */
+                game?: string;
+                /** @description Card name, printing code or set */
+                query?: string;
+                availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of public items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponsePublicInventoryItem"];
+                };
+            };
+            /** @description Unknown or non-public binder */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -5579,6 +8229,71 @@ export interface operations {
             };
         };
     };
+    getInventorySummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventorySummaryResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listGames: {
         parameters: {
             query?: never;
@@ -5706,6 +8421,112 @@ export interface operations {
             };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listCollectorInventory: {
+        parameters: {
+            query?: {
+                /** @description Game slug */
+                game?: string;
+                /** @description Card name, printing code or set */
+                query?: string;
+                availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of public items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponsePublicInventoryItem"];
+                };
+            };
+            /** @description Unknown or hidden collector */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listCollectorBinders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public binders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBinderSummary"][];
+                };
+            };
+            /** @description Unknown or hidden collector */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5887,6 +8708,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardSuggestion"][];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listBinderItems: {
+        parameters: {
+            query?: {
+                /** @description Card name, printing code or set */
+                query?: string;
+                /** @description Game slug */
+                game?: string;
+                visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+                availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+                condition?: string;
+                freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
+                /** @description updated | name | price */
+                sort?: "updated" | "name" | "price";
+                direction?: "asc" | "desc";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of items */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseInventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -6197,6 +9108,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureFlag"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listDelistPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DelistPolicyResponse"][];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -6567,6 +9543,81 @@ export interface operations {
                 };
             };
             /** @description Unknown request */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteInventoryItemImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown item or photo */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -86,8 +86,10 @@ public class SecurityConfig {
                     "/error");
 
     /**
-     * Read-only catalog and plan routes that never require authentication (Phase 2 contract:
-     * "catalog reads are public"). GET only; the same paths stay protected for other methods.
+     * Read-only catalog and plan routes (Phase 2 contract: "catalog reads are public") and the
+     * public listings of a collector (Phase 3 contract "Public views", privacy enforced by the
+     * service) that never require authentication. GET only; the same paths stay protected for other
+     * methods. A bearer token is still honoured when present (viewer-specific details).
      */
     public static final List<String> PUBLIC_GET_PATTERNS =
             List.of(
@@ -98,7 +100,9 @@ public class SecurityConfig {
                     "/api/v1/cards",
                     "/api/v1/cards/**",
                     "/api/v1/printings/*",
-                    "/api/v1/plans");
+                    "/api/v1/plans",
+                    "/api/v1/collectors/*/binders",
+                    "/api/v1/collectors/*/inventory");
 
     private static final String PERMISSIONS_POLICY =
             "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(),"

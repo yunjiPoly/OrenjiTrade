@@ -32,6 +32,17 @@ export function newRequestId(): string {
  */
 export const SKIP_SESSION_REDIRECT = new HttpContextToken<boolean>(() => false);
 
+/**
+ * Send the signed-in user's ID token even to a public route. Used where a public endpoint
+ * personalises its answer for a caller (feature-flag rollouts evaluated per account).
+ */
+export const ATTACH_ID_TOKEN = new HttpContextToken<boolean>(() => false);
+
+/**
+ * Opt a request out of the global LIMIT_REACHED dialog (the caller explains the limit itself).
+ */
+export const SKIP_LIMIT_DIALOG = new HttpContextToken<boolean>(() => false);
+
 /** Paths (after the base URL) that never carry the user's ID token. */
 const PUBLIC_API_PATH = /^\/api\/v1\/(public\/|meta(?:$|[/?#]))/;
 

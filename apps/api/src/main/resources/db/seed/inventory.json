@@ -1,0 +1,163 @@
+{
+  "binders": [
+    {
+      "id": "00000000-0000-4000-8b00-000000000101",
+      "owner": "01",
+      "name": "Yu-Gi-Oh! trade binder",
+      "description": "Duplicates and trade bait. Happy to meet on the Plateau on weekends.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 1,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000010101", "printing": "ygo-p001a", "quantity": 1, "condition": "NEAR_MINT", "price": "45.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true, "publicNotes": "Pack fresh, sleeved since opening.", "notes": "Pulled at the spring locals." },
+        { "id": "00000000-0000-4000-8c00-000000010102", "printing": "ygo-p005a", "quantity": 2, "condition": "LIGHTLY_PLAYED", "price": "16.00", "availability": "TRADE", "acceptsOffers": false, "publicNotes": "Light edge wear on one copy." },
+        { "id": "00000000-0000-4000-8c00-000000010103", "printing": "ygo-p014b", "quantity": 1, "condition": "NEAR_MINT", "price": "70.00", "availability": "SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000010104", "printing": "ygo-p018a", "quantity": 3, "condition": "NEAR_MINT", "price": "11.50", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000010105", "printing": "ygo-p003b", "quantity": 4, "condition": "MODERATELY_PLAYED", "availability": "TRADE", "acceptsOffers": false, "publicNotes": "Playset, great for casual decks." }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000102",
+      "owner": "01",
+      "name": "Pokémon holo binder",
+      "description": "Holos and ex cards for sale. Prices in CAD, offers welcome on most.",
+      "kind": "SALE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 3,
+      "sortOrder": 1,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000010201", "printing": "pkm-p001a", "quantity": 1, "condition": "NEAR_MINT", "price": "38.00", "availability": "SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000010202", "printing": "pkm-p013a", "quantity": 1, "condition": "MINT", "price": "95.00", "availability": "SALE", "acceptsOffers": true, "publicNotes": "Centered, no whitening." },
+        { "id": "00000000-0000-4000-8c00-000000010203", "printing": "pkm-p015a", "quantity": 1, "condition": "NEAR_MINT", "price": "24.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000010204", "printing": "pkm-p006a", "quantity": 2, "condition": "NEAR_MINT", "price": "13.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000103",
+      "owner": "01",
+      "name": "Personal collection",
+      "description": "Keepers. Not for trade.",
+      "kind": "COLLECTION",
+      "visibility": "PRIVATE",
+      "confirmedDaysAgo": 10,
+      "sortOrder": 2,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000010301", "printing": "ygo-p011a", "quantity": 1, "condition": "MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE", "notes": "Grading candidate, keep in the top loader." },
+        { "id": "00000000-0000-4000-8c00-000000010302", "printing": "pkm-p020a", "quantity": 1, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE" }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000201",
+      "owner": "02",
+      "name": "Magic trades",
+      "description": "Looking for playables for my Verdun pod. Trades first.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 2,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000020101", "printing": "mtg-p001a", "quantity": 1, "condition": "NEAR_MINT", "price": "21.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000020102", "printing": "mtg-p007b", "quantity": 1, "condition": "NEAR_MINT", "price": "26.00", "availability": "TRADE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000020103", "printing": "mtg-p010a", "quantity": 2, "condition": "LIGHTLY_PLAYED", "price": "16.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000020104", "printing": "mtg-p013a", "quantity": 1, "condition": "NEAR_MINT", "price": "9.50", "availability": "SALE", "acceptsOffers": false }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000301",
+      "owner": "03",
+      "name": "Vintage Yu-Gi-Oh! singles",
+      "description": "First editions from my old collection.",
+      "kind": "SALE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 40,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000030101", "printing": "ygo-p002a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "24.00", "availability": "SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000030102", "printing": "ygo-p020a", "quantity": 1, "condition": "NEAR_MINT", "price": "30.00", "availability": "SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000030103", "printing": "ygo-p016a", "quantity": 2, "condition": "MODERATELY_PLAYED", "price": "4.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000401",
+      "owner": "04",
+      "name": "Riftbound playset for the weekend",
+      "description": "Open for trades until tomorrow; bring your spare commons.",
+      "kind": "TRADE",
+      "visibility": "TEMPORARILY_PUBLIC",
+      "publicForHours": 24,
+      "confirmedDaysAgo": 0,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000040101", "printing": "rb-p001a", "quantity": 3, "condition": "NEAR_MINT", "price": "3.50", "availability": "TRADE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000040102", "printing": "rb-p006a", "quantity": 1, "condition": "NEAR_MINT", "price": "11.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000040103", "printing": "rb-p013a", "quantity": 1, "condition": "NEAR_MINT", "price": "65.00", "availability": "SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000501",
+      "owner": "05",
+      "name": "Singles for sale, offers welcome",
+      "description": "Pokémon and Magic singles. Shipping or Mile End pickup.",
+      "kind": "SALE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 5,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000050101", "printing": "pkm-p019a", "quantity": 1, "condition": "NEAR_MINT", "price": "18.50", "availability": "SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000050102", "printing": "pkm-p010a", "quantity": 2, "condition": "NEAR_MINT", "price": "3.00", "availability": "SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000050103", "printing": "mtg-p005b", "quantity": 1, "condition": "NEAR_MINT", "price": "5.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000050104", "printing": "mtg-p020a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "7.00", "availability": "SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000050105", "printing": "pkm-p018a", "quantity": 1, "condition": "NEAR_MINT", "price": "2.20", "availability": "SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000601",
+      "owner": "06",
+      "name": "High-end Magic",
+      "description": "Foils and rarities. Serious offers only.",
+      "kind": "SALE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 50,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000060101", "printing": "mtg-p010b", "quantity": 1, "condition": "NEAR_MINT", "price": "38.00", "availability": "SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000060102", "printing": "mtg-p001b", "quantity": 1, "condition": "NEAR_MINT", "price": "60.00", "availability": "SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000060103", "printing": "ygo-p014a", "quantity": 1, "condition": "NEAR_MINT", "price": "120.00", "availability": "SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000701",
+      "owner": "07",
+      "name": "My Pokémon",
+      "description": "Private collection.",
+      "kind": "COLLECTION",
+      "visibility": "PRIVATE",
+      "confirmedDaysAgo": 3,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000070101", "printing": "pkm-p017a", "quantity": 1, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE" },
+        { "id": "00000000-0000-4000-8c00-000000070102", "printing": "pkm-p008a", "quantity": 3, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE" }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000801",
+      "owner": "08",
+      "name": "Extras for trade",
+      "description": "Single copies of commons and uncommons. Old Port meetups.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 1,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000080101", "printing": "rb-p002a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.60", "availability": "TRADE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000080102", "printing": "rb-p009a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "0.45", "availability": "TRADE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000080103", "printing": "pkm-p012a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.20", "availability": "TRADE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000080104", "printing": "pkm-p016a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.10", "availability": "TRADE", "acceptsOffers": false }
+      ]
+    }
+  ],
+  "unfiled": [
+    { "id": "00000000-0000-4000-8c00-000000010001", "owner": "01", "printing": "pkm-p002a", "quantity": 6, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "confirmedDaysAgo": 7, "notes": "Bulk from the prerelease." }
+  ]
+}

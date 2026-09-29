@@ -1,4 +1,4 @@
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -8,6 +8,7 @@ import { acceptHeaderInterceptor } from '../http/accept-header.interceptor';
 import { apiBaseUrlInterceptor } from '../http/api-base-url.interceptor';
 import { isApiError } from '../http/api-error';
 import { errorInterceptor } from '../http/error.interceptor';
+import { ATTACH_ID_TOKEN } from '../http/http-context';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
 
@@ -85,6 +86,18 @@ describe('authInterceptor', () => {
       expect(req.request.headers.has('Authorization')).toBe(false);
       req.flush({});
     }
+  });
+
+  it('sends the token to a public route that asks for it (per-account flag rollouts)', async () => {
+    http
+      .get('/api/v1/public/feature-flags', {
+        context: new HttpContext().set(ATTACH_ID_TOKEN, true),
+      })
+      .subscribe();
+    await settle();
+    const req = backend.expectOne(`${API}/api/v1/public/feature-flags`);
+    expect(req.request.headers.get('Authorization')).toBe('Bearer token-1');
+    req.flush({});
   });
 
   it('sends no header while signed out', async () => {

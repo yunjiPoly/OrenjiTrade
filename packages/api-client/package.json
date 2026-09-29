@@ -11,6 +11,7 @@
   "files": [
     "src"
   ],
+  "sideEffects": false,
   "scripts": {
     "generate": "npm install --prefix tools --no-audit --no-fund && npm run generate --prefix tools",
     "clean": "node -e \"require('node:fs').rmSync('src', { recursive: true, force: true })\""

@@ -1,26 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import type { ProblemDetail } from '@orenji/api-client';
 
-/** Shape of the RFC 9457 Problem Details body produced by the API (`ProblemDetail` in the contract). */
-export interface ProblemDetailBody {
-  type?: string;
-  title?: string;
-  status?: number;
-  detail?: string;
-  instance?: string;
-  errorCode?: string;
-  message?: string;
-  requestId?: string;
-  timestamp?: string;
-  errors?: { field?: string; message?: string }[];
-  /** `TERMS_ACCEPTANCE_REQUIRED` (428): the document versions still to accept. */
-  requiredConsents?: { documentType?: string; version?: string }[];
-  /** `ACCOUNT_SUSPENDED` (403): end of a temporary suspension, when known. */
-  suspendedUntil?: string;
-  /** `RATE_LIMITED` (429). */
-  retryAfterSeconds?: number;
-  /** `DELETION_BLOCKED` (409): open obligations that prevent the account deletion. */
-  blockers?: string[];
-}
+/**
+ * The RFC 9457 Problem Details body produced by the API, typed from the generated `ProblemDetail`
+ * (every field optional because a proxy or an older server may send less). Extensions include
+ * `requiredConsents` (428), `suspendedUntil` (403 ACCOUNT_SUSPENDED), `retryAfterSeconds`
+ * (429 RATE_LIMITED), `blockers` (409 DELETION_BLOCKED), `limitKey`/`limit`/`used`/`resetsAt`/
+ * `planCode`/`upgradeUrl` (429 LIMIT_REACHED) and `feature` (404 FEATURE_DISABLED).
+ * `errorCode` stays a plain string so codes added by a newer server still flow through.
+ */
+export type ProblemDetailBody = Partial<Omit<ProblemDetail, 'errorCode'>> & { errorCode?: string };
 
 export interface ApiErrorShape {
   errorCode: string;

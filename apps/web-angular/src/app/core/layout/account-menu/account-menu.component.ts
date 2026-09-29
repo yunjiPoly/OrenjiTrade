@@ -9,6 +9,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService } from '../../auth/session.service';
+import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 
 /**
  * Account entry of the top bar. Signed out: sign in / create account. Signed in: avatar trigger
@@ -70,6 +71,12 @@ import { SessionService } from '../../auth/session.service';
           <mat-icon>settings</mat-icon>
           <span>Settings</span>
         </a>
+        @if (premiumPlans()) {
+          <a mat-menu-item routerLink="/premium">
+            <mat-icon>workspace_premium</mat-icon>
+            <span>Premium</span>
+          </a>
+        }
         @if (session.canAccessAdmin()) {
           <a mat-menu-item routerLink="/admin">
             <mat-icon>admin_panel_settings</mat-icon>
@@ -151,6 +158,7 @@ export class AccountMenuComponent {
   protected readonly auth = inject(AuthService);
   protected readonly session = inject(SessionService);
   protected readonly loading = computed(() => this.auth.authState() === 'loading');
+  protected readonly premiumPlans = inject(FeatureFlagsService).enabled(FEATURE.premiumPlans);
 
   protected async signOut(): Promise<void> {
     await this.auth.signOut();

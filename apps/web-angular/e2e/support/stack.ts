@@ -266,3 +266,54 @@ export function decimalsOf(value: number): number {
   }
   return text.includes('.') ? text.split('.')[1].length : 0;
 }
+
+/** A small stand-in card picture (SVG) for {@link stubCardImages}. */
+const STUB_CARD_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 680"><rect width="488" height="680" rx="24" fill="#ede9fe"/></svg>';
+
+/**
+ * Serves the catalog's placeholder card pictures from memory. They are static images, but the
+ * API counts every one of them against its anonymous per-IP rate limit (60/min), and a results
+ * grid loads dozens: without this, parallel specs would starve each other's anonymous JSON calls.
+ * Card data still comes from the real API; `catalog.spec.ts` checks one real picture separately.
+ */
+export async function stubCardImages(page: Page): Promise<void> {
+  await page.route('**/api/v1/public/placeholder-images/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/svg+xml', body: STUB_CARD_SVG }),
+  );
+}
+
+/** `Authorization` header for direct API calls. */
+export function authHeader(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
+export type StaffRole = 'MODERATOR' | 'ADMIN' | 'SUPER_ADMIN';
+
+export interface StaffMember extends OnboardedCollector {
+  /** Takes the staff roles back (the account stays a plain fictional collector). */
+  demote(): Promise<void>;
+}
+
+/**
+ * A fresh collector promoted by the seed super admin. Specs that click through the admin console
+ * use their own staff account so they never share the seed accounts' per-user rate limit with
+ * other specs (or with a second run in the same minute).
+ */
+export async function createStaffMember(
+  api: APIRequestContext,
+  prefix: string,
+  roles: StaffRole[],
+): Promise<StaffMember> {
+  const member = await createOnboardedCollector(api, prefix);
+  const setRoles = async (next: string[]): Promise<void> => {
+    const superAdmin = await emulatorSignIn(api, 'superadmin@orenjitrade.test', SEED_PASSWORD);
+    const response = await api.put(`${API_URL}/api/v1/admin/users/${member.id}/roles`, {
+      headers: authHeader(superAdmin),
+      data: { roles: next },
+    });
+    expect(response.ok(), `roles ${next.join(', ')} for ${member.handle}`).toBeTruthy();
+  };
+  await setRoles(['USER', ...roles]);
+  return { ...member, demote: () => setRoles(['USER']) };
+}

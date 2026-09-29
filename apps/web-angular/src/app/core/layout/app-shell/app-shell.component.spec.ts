@@ -3,6 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideApiClient } from '../../api/provide-api-client';
+import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { AppShellComponent } from './app-shell.component';
 
 describe('AppShellComponent', () => {
@@ -32,12 +33,28 @@ describe('AppShellComponent', () => {
     expect(wordmark?.getAttribute('href')).toBe('/map');
   });
 
-  it('renders the primary navigation links', () => {
-    const labels = Array.from(element.querySelectorAll('nav[aria-label="Primary"] a'), (a) =>
+  function primaryLinks(): (string | undefined)[] {
+    return Array.from(element.querySelectorAll('nav[aria-label="Primary"] a'), (a) =>
       a.textContent?.replace(/\s+/g, ' ').trim(),
     );
-    expect(labels).toEqual([
+  }
+
+  it('renders the primary navigation links, hiding flag-gated ones until the flags allow them', () => {
+    expect(primaryLinks()).toEqual([
       expect.stringContaining('Map'),
+      expect.stringContaining('Cards'),
+      expect.stringContaining('Inventory'),
+      expect.stringContaining('Wishlist'),
+    ]);
+  });
+
+  it('shows Community once the publicChat flag is on', async () => {
+    TestBed.inject(FeatureFlagsService).set({ publicChat: true });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(primaryLinks()).toEqual([
+      expect.stringContaining('Map'),
+      expect.stringContaining('Cards'),
       expect.stringContaining('Inventory'),
       expect.stringContaining('Community'),
       expect.stringContaining('Wishlist'),

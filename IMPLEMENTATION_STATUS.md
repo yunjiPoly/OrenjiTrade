@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-09-29 (session 1, stage 2 independently verified: web Phase 1 complete, backend Phase 2 catalog + platform rules complete; stage 3 next)
+**Last updated:** 2026-09-29 (session 1, stage 3 independently verified: web Phase 2 catalog + platform rules complete, backend Phase 3 inventory + binders + freshness complete; stage 4 next)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -51,27 +51,31 @@ _Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1
 
 ## Phase 2 — Card Catalog
 
-_Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 354 API tests / 55 classes green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI re-exported (59 paths, no Phase 1 path/schema lost), clients regenerated, live smoke on `api-phase2.jar`). Web card search/detail is the next stage._
+_Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 354 API tests / 55 classes green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI re-exported (59 paths, no Phase 1 path/schema lost), clients regenerated, live smoke on `api-phase2.jar`). Web Phase 2 complete (stage 3, independently re-verified: 153 web unit tests / 31 files, 26/26 Playwright specs against `api-phase3.jar`, 0 skipped). Mobile deferred by owner decision._
 
 - [x] `game`, `card`, `card_set`, `card_printing`, `card_image` with JSONB metadata — migrations V012 (`game` with a `GameSchema` jsonb per game) and V013 (`card_set`, `card`, `card_printing`, `card_image`, `catalog_sync_run`; generated tsvector columns, trigram, jsonb GIN and printing-code indexes). `games` module: `GameService` implements `GameCatalog` from the DB (ACTIVE games only), replacing `ConfiguredGameCatalog`/`GamesProperties`/`orenji.games.slugs`. Tests GamesIT (3)
 - [x] `CardProvider` interface + `MockCardProvider` + import/sync pipeline — `apps/api/.../cards`: `CardProvider` (contract shape), `MockCardProvider` (profiles local/dev/test), idempotent `CatalogImportService` (keyed by `external_ref`, per-game advisory lock, only changed rows rewritten, stable slugs), `POST /admin/catalog/sync` → 202 + `CatalogSyncRequestedEvent` handled by an `@ApplicationModuleListener`, `GET /admin/catalog/sync-runs[/{id}]`, `GET /admin/catalog/providers`. Tests CatalogImportIT (3). Debt: no real provider adapter yet (mock only, by design locally)
 - [x] Seed catalog: Yu-Gi-Oh!, Pokémon, Magic: The Gathering, Riftbound (fictional-safe subset) — `db/seed/catalog/{yugioh,pokemon,mtg,riftbound}.json`, 4 sets / 20 cards / 40 printings per game, invented names, per-game metadata; imported at local/dev startup by `CatalogSeedContributor` (order 400). Server-generated SVG placeholders `GET /public/placeholder-images/{game}/{slug}.svg` (escaped, no scripts, CSP, 1-day cache, ETag/304) — tests CatalogMetadataIT (5), PlaceholderImageIT (3)
 - [x] Catalog search: FTS + trigram, filters (game, set, rarity, language, edition) — `CatalogQueryRepository`: `ts_rank_cd` FTS, trigram fallback under 5 hits, accent-insensitive, printing-code short-circuit, set/rarity/language/edition filters and typed `metadata.<key>` filters (jsonb containment, validated against the `GameSchema`), `GET /cards/suggest` — tests CatalogSearchIT (9), CatalogTextTest (4)
 - [x] `/api/v1/games`, `/api/v1/cards`, `/api/v1/cards/{id}/printings`, `/api/v1/sets` — plus `/games/{slug}`, `/cards/{id}`, `/printings/{id}`, `/sets/{id}`; public GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`, also exempt from the account-state and 428 terms checks); admin writes `POST/PUT /admin/games`, `/admin/sets`, `/admin/cards`, `POST /admin/cards/{id}/printings`, `PUT /admin/printings/{id}` (audited, schema-validated) — tests AdminCatalogIT (3), CatalogSearchIT. Deviation: OpenAPI path is `/public/placeholder-images/{game}/{file}` (file = `<slug>.svg`)
-- [ ] Web + mobile card search UI (autocomplete) and card detail — web is the next stage; mobile deferred by owner decision
+- [x] Web card search UI (autocomplete) and card detail — `apps/web-angular/src/app`: `shared/catalog` (top-bar `CardSearchBoxComponent` on `GET /cards/suggest`: 250 ms debounce, keyboard navigation, printing suggestions open the card with `?printing=`, Enter without a highlight searches `/cards?q=`, deferred chunk; `GamesStore` on `GET /games`, card image/tile/grid, catalog labels), `features/catalog` (`/cards` with query, game pills and set/rarity/language/edition filters from the `GameSchema`, all state in the URL, paginated grid, printing-code badge; `/cards/:id` with schema-driven attributes, selected printing and printings table with market prices; `/sets/:id` with a paginated checklist), `/search` previews matching cards, profile game picker now from `GET /games`. Skeleton/empty/error-with-retry states. Tests: Vitest units (card search params, card metadata, catalog labels, search box), Playwright `e2e/catalog.spec.ts` (4: keyboard autocomplete → card detail → printings → set page; filters kept in the URL across reload; printing-code search from the page and the autocomplete; not-found state). Deviations/debt: `metadata.<key>` filters not exposed (the generator emits no dynamic query parameters); no `/sets` index page yet; "Who has this near me" / "Add to wishlist" disabled until Phases 4/6; E2E specs serve placeholder card images from memory (`stubCardImages`) because the API counts each image against the anonymous 60/min per-IP rate limit shared by the parallel suite
+- [ ] Mobile card search UI and card detail — deferred by owner decision
 - [x] Tests: provider contract, search ranking, JSONB metadata per game — CatalogImportIT, CatalogSearchIT, CatalogMetadataIT, AdminCatalogIT, PlaceholderImageIT, GamesIT, CatalogTextTest
 - [x] Platform rules (ADR 0014, plan item 2): feature flags — `featureflags` module, migration V010 (7 default flags), `FeatureFlags.isEnabled/require/evaluateAll` (60 s Redis cache evicted after commit, deterministic CRC32 rollout bucket per account), `GET /public/feature-flags`, `GET /admin/feature-flags`, `PUT /admin/feature-flags/{key}` (SUPER_ADMIN, audited); local/dev seed enables `protectedPayments`, `advertising`, `donations` (fake providers), `mlScanning` stays off; `FEATURE_DISABLED` now renders 404 with a `feature` extension — tests FeatureFlagsIT (4). Plans/limits/entitlements: see Phase 10. `common/cache/RedisJsonCache` fail-open read-through cache. Debt: no contract document covers the feature-flag endpoints (the exported `openapi.json` is the field-level truth)
+- [x] Web platform rules + catalog admin (stage 3) — `core/feature-flags` (`FeatureFlagsService` on `GET /public/feature-flags`, sends the ID token when signed in via the new `ATTACH_ID_TOKEN` context so rollouts are per account, flags off until known, reload on sign-in/out; `featureGuard(key, label)` guards `/community` (`publicChat`)), `core/limits` (429 `LIMIT_REACHED` interceptor + lazy dialog: limit label/key, used/limit, reset time, plan, Premium value from `GET /plans`, "See Premium" while `premiumPlans` is on; snackbar fallback; opt out with `SKIP_LIMIT_DIALOG`), `features/premium` (`/premium`: plans + `GET /me/plan` usage; upgrade disabled until Phase 10), `features/admin/games` (list incl. hidden, schema JSON editor with live validation, format and preview), `features/admin/cards` (search, `/admin/cards/:id` editor with schema-driven attributes and printing dialog, mock catalog sync panel polling runs), `features/admin/feature-flags` (switch with confirmation, SUPER_ADMIN; read-only for ADMIN), `features/admin/usage-limits` (plans × limits matrix, inline edit, Enter/Escape, SUPER_ADMIN), audit labels for Phase 2 actions. Fixes: `SearchFieldComponent` now handles the native submit event (it used `(ngSubmit)` without a form directive); footer `/meta` probe sends the token when signed in and loads lazily. Tests: Vitest units (feature flags, feature guard, limit-reached parsing/interceptor/dialog, schema validation, limit matrix, cell editor, plan labels), Playwright `e2e/admin-rules.spec.ts` (4: SUPER_ADMIN flag switch with cancel + confirm persisting after reload, inline PREMIUM limit edit persisting and shown on `/premium`, ADMIN read-only, game schema validation + mock sync; state restored through the API). Verifier fix: `packages/api-client/package.json` now declares `"sideEffects": false` so unused generated services are tree-shaken (initial bundle 927.77 kB → 835.50 kB after the Phase 3 regeneration; 900 kB warning budget). Debt: admin UI for user entitlements (`/admin/users/{id}/entitlements`), plan editing (`PUT /admin/plans/{code}`) and set/printing creation is not built yet; the limit-reached dialog has unit tests only (E2E once web `/inventory` can reach `binders.max`)
 
 ## Phase 3 — Inventory + Binders
 
-- [ ] `binder`, `inventory_item` (quantity, condition, language, printing, edition, price, availability, visibility, notes)
-- [ ] Visibility: PRIVATE / PUBLIC / TEMPORARILY_PUBLIC (until timestamp); binder-level too
-- [ ] Freshness fields: created/updated/confirmed/lastOwnerActivity + freshness status calc
-- [ ] Bulk operations: select, change visibility, move binder
-- [ ] Public binder views + collector public profile endpoint
-- [ ] Web `/inventory` page (filters, table/grid, edit drawer, bulk bar, binder manager)
-- [ ] Mobile inventory tab optimised for card management
-- [ ] Tests: visibility enforcement, ownership, bulk ops, freshness
+_Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 413 API tests / 67 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (81 paths, previously 59, no path or schema lost; every contract route present); clients regenerated; live check on `.local-dev/api-snapshots/api-phase3.jar` (seeds 10 binders / 36 items)). Web `/inventory` and public binder pages are the next stage; mobile deferred by owner decision. Module order `delisting` ← `binders` ← `inventory` (inventory implements the `binders` `BinderContents` extension point, no cycle)._
+
+- [x] `binder`, `inventory_item` (quantity, condition, language, printing, edition, price, availability, visibility, notes) — migrations V021 (`binder`, generated `search_vector` + GIN) and V022 (`inventory_item` with the contract indexes and the `trg_inventory_item_binder_count` trigger maintaining `binder.item_count`, `inventory_item_image`, `inventory_freshness_event`); `binders` (`BinderService`: CRUD, publish PUBLIC/ONE_HOUR/ONE_DAY/UNTIL_DISABLED, unpublish, confirm, reorder, delete that unfiles or `?deleteItems=true`; `binders.max` via `Limits.consume` + a `LimitUsageSource`) and `inventory` (`InventoryService`: CRUD, PATCH with absent-vs-null semantics through `common/PartialUpdate`, soft delete, confirm, ≤ 4 photos re-encoded to JPEG ≤ 1600 px through `ObjectStorage` (rate-limited 60/hour), summary); export contributors and deletion participants for both; seed `db/seed/inventory.json` (`InventorySeedContributor`, order 500) — tests InventoryIT (9), BinderIT (8, incl. `binders.max` → 429), ItemImageProcessorTest (4), PartialUpdateTest (4), DeletionIT (extended), SeedDataRunnerIT (extended)
+- [x] Visibility: PRIVATE / PUBLIC / TEMPORARILY_PUBLIC (until timestamp); binder-level too — `binders/domain/PublicVisibilityRules` (SQL fragments + pure Java twin evaluated live on every public read; `publicUntil` ≤ 30 days ahead), `ListingReconciler` keeps a materialised `publicly_listed` flag so `InventoryItemPublished`/`Unpublished` and `BinderPublished`/`Unpublished` fire once per transition (Modulith outbox), re-run on suspend/unsuspend/`PrivacySettingsChangedEvent` (new, published by `PrivacySettingsService.update`) — tests VisibilityIT (4), VisibilityRulesTest (5), EventsIT (3)
+- [x] Freshness fields: created/updated/confirmed/lastOwnerActivity + freshness status calc — V020 `delist_policy` (exactly one active row; seed ACTIVE 0–14 / AGING 15–30 / STALE 31–45 / HIDDEN 46+, warn 5 days before hiding, `max_strikes` 3), `delisting` (`FreshnessPolicy`, `FreshnessLabels` "Updated 3 hours ago", `DelistPolicyService` Redis-cached + audited admin update, `FreshnessEventLog`), `FreshnessService`/`FreshnessJob` `POST /internal/jobs/freshness` (hourly `@Scheduled` under `local`; expired temporary publications → PRIVATE, AGED/STALED/HIDDEN/RESTORED/WARNED events, `BinderFreshnessChanged`, `BinderFreshnessWarning`; never deletes), `DelistJob` `POST /internal/jobs/delist` (records a `job_run`, no-op until strikes exist), `GET/PUT /admin/delist-policies` (Phase 7 contract, ADR 0014) — tests FreshnessPolicyTest (5), FreshnessJobIT (5), AdminDelistPolicyIT (2)
+- [x] Bulk operations: select, change visibility, move binder — `POST /inventory/items/bulk` (`SET_VISIBILITY`, `MOVE_TO_BINDER`, `SET_AVAILABILITY`, `CONFIRM`, `DELETE`; one transaction; per-id ownership, `skipped[].reason` NOT_FOUND/UNCHANGED) — tests BulkOperationsIT (4)
+- [x] Public binder views + collector public profile endpoint — `GET /collectors/{handle}/binders`, `GET /public/binders/{id}` (owner block with region label + distance bucket only; `binder.views.per_day` consumed once per binder and UTC day for signed-in non-owners), `GET /public/binders/{id}/items`, `GET /collectors/{handle}/inventory` (`PublicInventoryItem`, never `notes`); routes added to `SecurityConfig.PUBLIC_GET_PATTERNS` — tests PublicBinderIT (3), GeoPrivacyContractTest `publicListingsNeverCarryCoordinatesOrPrivateNotes` (every public listing route of the seeded collectors, anonymous and signed in: no coordinates, ≤ 3 decimals, no private notes, logs clean). Contract deviations (documented in `apps/api/README.md`, contract docs not yet edited): PRIVATE profiles never publish; additive columns (`binder.freshness_state`/`warned_at`/`publicly_listed`/`listing_changed_at`, `inventory_item.warned_at`/`publicly_listed`/`listing_changed_at`, `inventory_freshness_event.owner_id`, `delist_policy.max_strikes`/`created_at`) and response fields (`BinderResponse.sortOrder`/`effectivePublic`/`games`/`coverPrintingId`, `PublicInventoryItem.binder`, `PublicBinderResponse.kind`/`publicUntil`/`coverImageUrl`, summary `agingCount`/`effectivePublicCount`, list params `unfiled`/`direction`); photo upload answers 201 with the item. Debt: photos JPEG not WebP; binder names/descriptions and public notes not yet run through `TextModerationService` (Phase 7); web must send the token on `GET /public/binders/{id}` for `binder.views.per_day` to count
+- [ ] Web `/inventory` page (filters, table/grid, edit drawer, bulk bar, binder manager) — next stage (stage 4)
+- [ ] Mobile inventory tab optimised for card management — deferred by owner decision
+- [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web/mobile flow tests come with their UI stages
 
 ## Phase 4 — Map + Geographic Search (flagship)
 
@@ -106,7 +110,7 @@ _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 
 - [ ] References; duplicate prevention; admin moderation
 - [ ] Collector report modal (reasons list), lifecycle OPEN → UNDER_REVIEW → ACTIONED/DISMISSED
 - [ ] Audit log on every admin/moderator action
-- [ ] Auto-delist policies (configurable table) + scheduler + warnings + restore
+- [-] Auto-delist policies (configurable table) + scheduler + warnings + restore — built early with Phase 3: `delist_policy` (V020), `GET/PUT /admin/delist-policies` (audited), hourly freshness job with WARNED/HIDDEN/RESTORED events, `POST /internal/jobs/delist` (no-op until unresponsive strikes exist) — tests FreshnessJobIT, AdminDelistPolicyIT. Pending: strike tracking (Phase 5+), admin stale-listing review UI, warning notifications (Phase 6)
 - [ ] Admin console `/admin` (dashboard, users, listings, binders, games, cards, community, reports, moderation, transactions, disputes, payments, ratings, ads, subscriptions, usage limits, credits, notifications, analytics, auto-delist rules, feature flags, audit logs, system health)
 - [ ] Tests: rating eligibility, report flow, admin RBAC, audit generation, delist state machine
 
@@ -128,7 +132,7 @@ _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 
 ## Phase 10 — Freemium + Credits + Ads + Donations
 
 - [x] Plans, plan features, usage limits, usage counters, entitlements (DB-configurable) — built early in stage 2 (plan item 2). `billing` module, migration V011 (`plan`, `plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; FREE and PREMIUM seeded with the contract limits; `user_account.plan_code` now a FK to `plan.code`). `Limits.check/consume/checkValue/overview` (atomic conditional upsert, Redis mirror written after commit), `LimitReachedException` → 429 LIMIT_REACHED (`limitKey`, `limit`, `used`, `resetsAt`, `planCode`, `upgradeUrl: "/premium"`), `Entitlements.has` + admin grant/revoke (audited, most generous active entitlement wins), `PlanService` Redis cache, `LimitUsageSource` SPI for TOTAL counts (e.g. `binders.max` in Phase 3). Endpoints `GET /plans` (public), `GET /me/plan`, `GET/PUT /admin/plans[/{code}]`, `GET/PUT /admin/usage-limits[/{id}]`, `GET/POST /admin/users/{id}/entitlements`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` — tests LimitsIT (5), LimitRulesTest (4). Debt: `subscription` table, `POST /me/subscription/checkout|cancel`, billing webhooks and `GET /admin/subscriptions` remain for Phase 10 proper; no feature consumes limits yet (Phase 3+)
-- [-] Limit-reached UX with upgrade prompt — API side done (429 LIMIT_REACHED with extensions, generated `ProblemDetail` carries them); web limit-reached dialog pending (stage 3 web)
+- [-] Limit-reached UX with upgrade prompt — API side done (429 LIMIT_REACHED with extensions, generated `ProblemDetail` carries them; Phase 3 consumes `binders.max` (BinderIT) and `binder.views.per_day` (PublicBinderIT)); web limit-reached dialog + interceptor + `/premium` built in stage 3 (`core/limits`, `features/premium`; Vitest units). Pending: an E2E that hits a real limit from the web (`binders.max` once web `/inventory` exists) and checkout (Phase 10)
 - [ ] Credit ledger (append-only) + derived balance
 - [ ] Ads framework (campaign, advertiser, placement, creative, impression, click, conversion, budget, targeting) with internal admin-managed campaigns; "Sponsored" labelling
 - [ ] Donations via provider abstraction
@@ -172,20 +176,20 @@ _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 
 | 4 | Choose approximate trading location | [x] web E2E `auth.spec.ts` (Leaflet trading-area picker, radius) + `settings.spec.ts`; LocationIT, GeoPrivacyContractTest |
 | 5 | Select TCG interests | [x] web E2E `auth.spec.ts` onboarding (games + tags); ProfileIT, TagIT |
 | 6 | Open dedicated inventory page | [ ] |
-| 7 | Create private inventory | [ ] |
-| 8 | Create multiple binders | [ ] |
-| 9 | Move cards between binders | [ ] |
-| 10 | Toggle private/public visibility | [ ] |
-| 11 | Publish a binder | [ ] |
+| 7 | Create private inventory | [-] API proven (InventoryIT: private items, owner-only reads, other users 404); web `/inventory` pending |
+| 8 | Create multiple binders | [-] API proven (BinderIT: create, rename, reorder, `binders.max` 429); web pending |
+| 9 | Move cards between binders | [-] API proven (BulkOperationsIT `MOVE_TO_BINDER`, InventoryIT PATCH `binderId`); web pending |
+| 10 | Toggle private/public visibility | [-] API proven (VisibilityIT incl. TEMPORARILY_PUBLIC expiry, BulkOperationsIT `SET_VISIBILITY`); web pending |
+| 11 | Publish a binder | [-] API proven (BinderIT publish modes, PublicBinderIT, EventsIT `BinderPublished`); web pending |
 | 12 | Another user opens the map | [ ] |
 | 13 | Public collectors at approximate positions | [ ] |
 | 14 | Click collector marker | [ ] |
 | 15 | Collector preview appears | [ ] |
 | 16 | Open full profile | [ ] |
-| 17 | View public binder | [ ] |
-| 18 | Search for a card | [-] API proven (CatalogSearchIT: FTS, typo, accent, printing code, filters; suggest); web UI pending |
+| 17 | View public binder | [-] API proven (PublicBinderIT, GeoPrivacyContractTest public listings); web public binder page pending |
+| 18 | Search for a card | [x] web E2E `catalog.spec.ts` (keyboard autocomplete → card detail → printings → set; URL filters; printing-code search) + CatalogSearchIT |
 | 19 | Nearby collectors with that card | [ ] |
-| 20 | Exact coordinates never exposed | [-] GeoPrivacyContractTest covers collector profiles, admin user detail and logs; web E2E `settings.spec.ts` asserts every JSON response has ≤ 3 decimals for lat/lng; map/search endpoints (Phase 4) pending |
+| 20 | Exact coordinates never exposed | [-] GeoPrivacyContractTest covers collector profiles, admin user detail, Phase 3 public binder/inventory listings (anonymous and signed in) and logs; web E2E `settings.spec.ts` asserts every JSON response has ≤ 3 decimals for lat/lng; map/search endpoints (Phase 4) pending |
 | 21 | Private messaging | [ ] |
 | 22 | Public community chat | [ ] |
 | 23 | Create wishlist | [ ] |
@@ -196,17 +200,17 @@ _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 
 | 28 | Report collector via popup | [ ] |
 | 29 | Reason required + confirm | [ ] |
 | 30 | Admin reviews reports | [ ] |
-| 31 | Auto-delisting detects stale inventory | [ ] |
+| 31 | Auto-delisting detects stale inventory | [-] API proven (FreshnessJobIT: AGING/STALE/HIDDEN from `confirmed_at` and the active `delist_policy`, one warning per confirmation cycle, nothing deleted; InventoryIT: confirm restores HIDDEN; FreshnessPolicyTest); admin review UI pending |
 | 32 | Admin reviews stale listings | [ ] |
 | 33 | Admin suspends accounts | [x] web E2E `admin.spec.ts` (suspend + unsuspend, role restrictions); AdminUsersIT |
 | 34 | Admin actions in audit log | [x] web E2E `admin.spec.ts` (audit log shows suspend/unsuspend); AuditIT; Phase 2 admin writes audited (AdminCatalogIT, FeatureFlagsIT, LimitsIT) |
-| 35 | Freemium limits work | [-] API proven (LimitsIT: FREE limit → 429 LIMIT_REACHED, live admin edits); no feature consumes limits yet, web dialog pending |
+| 35 | Freemium limits work | [-] API proven (LimitsIT: FREE limit → 429 LIMIT_REACHED, live admin edits; BinderIT `binders.max`, PublicBinderIT `binder.views.per_day`); web E2E `admin-rules.spec.ts` edits a limit that reaches `/premium`; web limit-reached dialog unit-tested, E2E pending |
 | 36 | Premium entitlements override | [-] API proven (LimitsIT, LimitRulesTest: PREMIUM plan and entitlements override FREE limits); web pending |
 | 37 | Account deletion works | [x] web E2E `settings.spec.ts` (re-authentication, grace period, cancel; JSON export download); DeletionIT, ExportIT |
 | 38 | Legal pages exist | [-] draft placeholders on web; counsel review pending |
 | 39 | CI runs automatically | [-] runs on PRs; first fully green run pending |
-| 40 | E2E covers critical workflows | [-] Phase 1 web flows covered (18 Playwright specs: auth, onboarding, settings, deletion, admin); later phases pending |
-| 41 | Runs locally | [-] infra + every app builds/tests locally; web Phase 1 runs end to end against docker compose + Auth emulator + snapshot jar `.local-dev/api-snapshots/api-phase2.jar` (catalog seeded at startup); later phases and one-command tooling pending |
+| 40 | E2E covers critical workflows | [-] Phase 1 + 2 web flows covered (26 Playwright specs: smoke, auth, onboarding, settings, deletion, admin, catalog, admin platform rules); later phases pending |
+| 41 | Runs locally | [-] infra + every app builds/tests locally; web Phases 1–2 run end to end against docker compose + Auth emulator + snapshot jar `.local-dev/api-snapshots/api-phase3.jar` (catalog and inventory seeded at startup); later phases and one-command tooling pending |
 | 42 | Deploys to Google Cloud | [ ] |
 | 43 | Cloudflare configuration documented | [x] |
 | 44 | Production architecture supports www.orenjitrade.com | [ ] |
@@ -228,8 +232,9 @@ web N, every stage independently re-verified, clients regenerated and committed)
    settings, collector page, admin users/audit (**done**, stage 2 verified).
 2. Phase 2 — catalog + platform rules (feature flags, plans, usage limits, entitlements)
    (backend **done**, V010–V013, stage 2 verified) → web card search/detail, admin
-   games/cards/flags/limits, limit-reached dialog (**next**).
-3. Phase 3 — inventory, binders, freshness → web /inventory, public binder pages.
+   games/cards/flags/limits, limit-reached dialog (**done**, stage 3 verified).
+3. Phase 3 — inventory, binders, freshness (backend **done**, V020–V022, stage 3 verified) →
+   web /inventory, public binder pages (**next**).
 4. Phase 4 — nearby collectors, unified search, card holders, minimal analytics events → web
    /map (Leaflet) and /search.
 5. Phase 5 — private chat (STOMP realtime), blocking, community channels → web messages panel,
@@ -244,18 +249,24 @@ web N, every stage independently re-verified, clients regenerated and committed)
 
 Migration ranges reserved per phase: P1 V004–V009, P2 V010–V019, …, P10 V090–V099.
 
-**Exact next task — stage 3 (web Phase 2 ∥ backend Phase 3):**
-- Web: card search with autocomplete (`GET /cards`, `/cards/suggest`, game/set/rarity/language/
-  edition and `metadata.<key>` filters from the `GameSchema`), card detail with printings
-  (`/cards/{id}`, `/cards/{id}/printings`, `/printings/{id}`), set pages (`/sets`, `/sets/{id}`),
-  game list from `GET /games` (replace the hard-coded `shared/domain/games.ts` list), public
-  feature flags (`GET /public/feature-flags`) and plan (`GET /plans`, `GET /me/plan`), a
-  limit-reached dialog for 429 `LIMIT_REACHED` (upgrade link `/premium`), and admin sections
-  games (schema editor), cards/sets/printings, catalog sync runs, feature flags (SUPER_ADMIN),
-  plans and usage limits, user entitlements. Generated `@orenji/api-client` only; Playwright E2E
-  against `.local-dev/api-snapshots/api-phase2.jar` on :8080 (catalog seeded at startup).
-- Backend: Phase 3 inventory + binders per `docs/api/contracts/phase3-inventory.md` (binders,
-  inventory items, visibility incl. TEMPORARILY_PUBLIC, freshness, bulk operations, public binder
-  views; `binders.max` through the `LimitUsageSource` SPI and `binder.views.per_day` through
-  `Limits.consume`), migrations from V020, GeoPrivacyContractTest extended to any new response
-  that carries a location.
+**Exact next task — stage 4 (web Phase 3 ∥ backend Phase 4):**
+- Web: `/inventory` per the "Web `/inventory` page" section of
+  `docs/api/contracts/phase3-inventory.md` (binder list with All cards / Unfiled / binders and
+  counts, search + game + visibility segmented control + availability/condition/freshness
+  filters, sort, grid/table toggle, edit side panel with photos, confirm and delete, multi-select
+  bulk bar incl. temporary publication with a duration picker, "Add card" dialog on
+  `/cards/suggest` → printing picker → details form, binder manager dialog: create/rename/
+  publish with duration/reorder/delete, summary strip with stale count and "Confirm all");
+  public binder page `/binders/:id` (send the ID token when signed in so
+  `binder.views.per_day` counts) and the collector page's binder list/inventory
+  (`/collectors/{handle}/binders`, `/collectors/{handle}/inventory`); enable the "Binder" button
+  on the collector page; Playwright E2E incl. the limit-reached dialog on `binders.max` and a
+  ≤ 3-decimal check on every JSON response. Carry-over debt from stage 3: admin user
+  entitlements and plan editing UI, `/sets` index. Generated `@orenji/api-client` only; E2E
+  against `.local-dev/api-snapshots/api-phase3.jar` on :8080 (catalog + inventory seeded).
+- Backend: Phase 4 per `docs/api/contracts/phase4-map-search.md` — `GET /collectors/nearby`
+  (PostGIS `ST_DWithin` on `public_point`, bucketed distances), `GET /collectors/{handle}/preview`,
+  unified `GET /search`, `GET /search/card-holders` (ranking fresh > stale), `GET /search/suggest`,
+  minimal analytics events (local logging adapter, no PII/precise location); consume
+  `InventoryItemPublished`/`Unpublished` where the contract needs it; migrations from V030;
+  GeoPrivacyContractTest extended to every new geo response.

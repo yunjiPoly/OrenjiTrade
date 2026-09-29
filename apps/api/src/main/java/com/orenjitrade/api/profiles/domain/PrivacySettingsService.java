@@ -3,15 +3,18 @@ package com.orenjitrade.api.profiles.domain;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.location.domain.DiscoverabilityPolicy;
 import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.profiles.events.PrivacySettingsChangedEvent;
 import com.orenjitrade.api.profiles.infra.PrivacySettingsRepository;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Privacy settings ({@code GET|PUT /api/v1/me/settings/privacy}). Also the location module's {@link
  * DiscoverabilityPolicy}: turning {@code discoverable} on or off immediately derives or clears the
- * stored public point (ADR 0004), in the same transaction.
+ * stored public point (ADR 0004), in the same transaction. Every save publishes {@link
+ * PrivacySettingsChangedEvent} (the inventory re-evaluates the collector's public listings).
  */
 @Service
 public class PrivacySettingsService implements DiscoverabilityPolicy {
@@ -19,14 +22,17 @@ public class PrivacySettingsService implements DiscoverabilityPolicy {
     private final PrivacySettingsRepository repository;
     private final LocationService locationService;
     private final TimeProvider timeProvider;
+    private final ApplicationEventPublisher events;
 
     public PrivacySettingsService(
             PrivacySettingsRepository repository,
             LocationService locationService,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            ApplicationEventPublisher events) {
         this.repository = repository;
         this.locationService = locationService;
         this.timeProvider = timeProvider;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +58,7 @@ public class PrivacySettingsService implements DiscoverabilityPolicy {
         if (wasDiscoverable != requested.discoverable()) {
             locationService.refreshPublicPoint(userId);
         }
+        events.publishEvent(new PrivacySettingsChangedEvent(userId, timeProvider.now()));
         return settings.toView();
     }
 

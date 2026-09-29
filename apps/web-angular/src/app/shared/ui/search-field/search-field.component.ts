@@ -20,7 +20,7 @@ import { map } from 'rxjs';
     MatButtonModule,
   ],
   template: `
-    <form class="search-field" role="search" (ngSubmit)="submit()">
+    <form class="search-field" role="search" (submit)="submit($event)">
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-field__field">
         <mat-icon matPrefix aria-hidden="true">search</mat-icon>
         <input
@@ -71,7 +71,9 @@ export class SearchFieldComponent {
     });
   }
 
-  protected submit(): void {
+  /** Plain `<form>` (no form directive): handle the native submit and keep the page in place. */
+  protected submit(event: Event): void {
+    event.preventDefault();
     const value = this.query.value.trim();
     if (value) {
       this.querySubmit.emit(value);

@@ -142,6 +142,52 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                             .as("summary of %s %s", operation.getKey(), path)
                                             .isNotEmpty());
         }
+        // Phase 3 (inventory, binders, public binders, freshness, delisting).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/inventory/items",
+                        "/api/v1/inventory/items/{id}",
+                        "/api/v1/inventory/items/{id}/confirm",
+                        "/api/v1/inventory/items/{id}/images",
+                        "/api/v1/inventory/items/{id}/images/{imageId}",
+                        "/api/v1/inventory/items/bulk",
+                        "/api/v1/inventory/summary",
+                        "/api/v1/binders",
+                        "/api/v1/binders/{id}",
+                        "/api/v1/binders/{id}/publish",
+                        "/api/v1/binders/{id}/unpublish",
+                        "/api/v1/binders/{id}/confirm",
+                        "/api/v1/binders/{id}/items",
+                        "/api/v1/binders/reorder",
+                        "/api/v1/collectors/{handle}/binders",
+                        "/api/v1/collectors/{handle}/inventory",
+                        "/api/v1/public/binders/{id}",
+                        "/api/v1/public/binders/{id}/items",
+                        "/api/v1/admin/delist-policies",
+                        "/api/v1/admin/delist-policies/{id}",
+                        "/internal/jobs/freshness",
+                        "/internal/jobs/delist")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation ->
+                                    assertThat(operation.getValue().path("summary").asString())
+                                            .as("summary of %s %s", operation.getKey(), path)
+                                            .isNotEmpty());
+        }
+        JsonNode publicBinder = paths.path("/api/v1/public/binders/{id}").path("get");
+        assertThat(publicBinder.path("security")).isEmpty();
+        assertThat(
+                        paths.path("/api/v1/inventory/items/{id}")
+                                .path("patch")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asString())
+                .isEqualTo("#/components/schemas/UpdateInventoryItemRequest");
         JsonNode searchCards = paths.path("/api/v1/cards").path("get");
         assertThat(searchCards.path("security")).isEmpty();
         assertThat(searchCards.path("responses").has("401")).isFalse();
@@ -196,7 +242,16 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "MyPlan",
                         "LimitStatus",
                         "FeatureFlag",
-                        "CatalogSyncRun")) {
+                        "CatalogSyncRun",
+                        "InventoryItemResponse",
+                        "PublicInventoryItem",
+                        "BinderResponse",
+                        "PublicBinderSummary",
+                        "PublicBinderResponse",
+                        "InventorySummaryResponse",
+                        "BulkInventoryResponse",
+                        "Freshness",
+                        "DelistPolicyResponse")) {
             assertThat(schemas.has(schema)).as(schema).isTrue();
         }
         assertThat(document.path("components").path("securitySchemes").has("bearerAuth")).isTrue();

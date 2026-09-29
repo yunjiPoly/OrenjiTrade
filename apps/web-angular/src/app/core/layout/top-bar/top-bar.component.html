@@ -3,7 +3,7 @@
     <app-wordmark class="top-bar__wordmark" />
 
     <nav class="top-bar__nav" aria-label="Primary">
-      @for (link of navLinks; track link.path) {
+      @for (link of navLinks(); track link.path) {
         <a
           matButton
           class="top-bar__link"
@@ -17,7 +17,18 @@
       }
     </nav>
 
-    <app-search-field class="top-bar__search" (querySubmit)="querySubmit.emit($event)" />
+    <!-- The autocomplete (Material autocomplete + overlay) is a lazy chunk; the plain search
+         field stands in until the browser is idle and keeps Enter-to-search working. -->
+    @defer (on idle) {
+      <app-card-search-box class="top-bar__search" />
+    } @placeholder {
+      <app-search-field
+        class="top-bar__search"
+        label="Search cards"
+        placeholder="Search cards or printing codes"
+        (querySubmit)="querySubmit.emit($event)"
+      />
+    }
 
     <div class="top-bar__actions">
       <button

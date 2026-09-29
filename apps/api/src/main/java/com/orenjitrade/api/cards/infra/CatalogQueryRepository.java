@@ -286,6 +286,11 @@ public class CatalogQueryRepository {
 
     /** Printings by id (other modules, Phase 3 inventory), in ACTIVE games only. */
     public List<PrintingSummary> printings(Collection<UUID> ids) {
+        return printings(ids, true);
+    }
+
+    /** Printings by id; {@code activeOnly=false} includes printings of hidden games. */
+    public List<PrintingSummary> printings(Collection<UUID> ids, boolean activeOnly) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -294,9 +299,11 @@ public class CatalogQueryRepository {
                                 "SELECT "
                                         + PRINTING_COLUMNS
                                         + PRINTING_FROM
-                                        + " WHERE p.id IN (:ids) AND g.status = 'ACTIVE'"
+                                        + " WHERE p.id IN (:ids)"
+                                        + " AND (g.status = 'ACTIVE' OR NOT :activeOnly)"
                                         + PRINTING_ORDER)
                         .param("ids", ids)
+                        .param("activeOnly", activeOnly)
                         .query(this::mapPrinting)
                         .list();
         return withImages(rows);

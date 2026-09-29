@@ -57,6 +57,6 @@ export class AppShellComponent {
   private readonly router = inject(Router);
 
   protected onSearch(query: string): void {
-    void this.router.navigate(['/search'], { queryParams: { q: query } });
+    void this.router.navigate(['/cards'], { queryParams: { q: query } });
   }
 }

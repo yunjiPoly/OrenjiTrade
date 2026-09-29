@@ -1,0 +1,188 @@
+<div class="admin-page">
+  <a class="edit__back" routerLink="/admin/cards">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon>
+    All cards
+  </a>
+
+  @if (notFound()) {
+    <app-empty-state
+      icon="style"
+      title="Card not found"
+      description="It may belong to a hidden game or no longer exist."
+    />
+  } @else if (error(); as error) {
+    <app-error-state
+      title="This card could not load"
+      [message]="message(error)"
+      [requestId]="error.requestId"
+      (retry)="load(id())"
+    />
+  } @else if (card(); as card) {
+    <header class="edit__header">
+      <img class="edit__thumb" [src]="card.primaryImageUrl" alt="" width="72" height="100" />
+      <div class="edit__heading">
+        <app-game-chip [slug]="card.game ?? ''" />
+        <h1 class="edit__title">{{ card.name }}</h1>
+        <p class="admin-muted">
+          <span class="mono">{{ card.slug }}</span> ·
+          <a [routerLink]="['/cards', card.id]">Public page</a>
+        </p>
+      </div>
+    </header>
+
+    <section class="admin-card edit__section" aria-labelledby="card-form-title">
+      <h2 id="card-form-title">Card</h2>
+      <form class="edit__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <mat-form-field appearance="outline" class="edit__wide">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" maxlength="200" />
+          @if (form.controls.name.hasError('required')) {
+            <mat-error>A name is required.</mat-error>
+          } @else if (serverErrors()['name']) {
+            <mat-error>{{ serverErrors()['name'] }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Card type</mat-label>
+          <input matInput formControlName="cardType" maxlength="80" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Subtype</mat-label>
+          <input matInput formControlName="subtype" maxlength="80" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="edit__wide">
+          <mat-label>Card text</mat-label>
+          <textarea matInput formControlName="text" rows="3" maxlength="4000"></textarea>
+        </mat-form-field>
+
+        @if (fields().length) {
+          <fieldset class="edit__meta edit__wide">
+            <legend>Attributes</legend>
+            <div class="edit__meta-grid">
+              @for (field of fields(); track field.key) {
+                @if (metadata.controls[field.key]; as control) {
+                  @switch (field.type) {
+                    @case ('boolean') {
+                      <mat-checkbox class="edit__check" [formControl]="control">
+                        {{ field.label }}
+                      </mat-checkbox>
+                    }
+                    @case ('string_list') {
+                      <mat-form-field appearance="outline">
+                        <mat-label>{{ field.label }}</mat-label>
+                        @if (field.options?.length) {
+                          <mat-select [formControl]="control" multiple>
+                            @for (option of field.options; track option) {
+                              <mat-option [value]="option">{{ option }}</mat-option>
+                            }
+                          </mat-select>
+                        } @else {
+                          <input
+                            matInput
+                            [formControl]="control"
+                            placeholder="Separate values with commas"
+                          />
+                        }
+                        @if (fieldError(field); as message) {
+                          <mat-error>{{ message }}</mat-error>
+                        }
+                      </mat-form-field>
+                    }
+                    @default {
+                      <mat-form-field appearance="outline">
+                        <mat-label>{{ field.label }}</mat-label>
+                        @if (field.options?.length) {
+                          <mat-select [formControl]="control">
+                            <mat-option value="">None</mat-option>
+                            @for (option of field.options; track option) {
+                              <mat-option [value]="option">{{ option }}</mat-option>
+                            }
+                          </mat-select>
+                        } @else {
+                          <input
+                            matInput
+                            [type]="field.type === 'number' ? 'number' : 'text'"
+                            [formControl]="control"
+                          />
+                        }
+                        @if (fieldError(field); as message) {
+                          <mat-hint class="edit__error">{{ message }}</mat-hint>
+                        }
+                      </mat-form-field>
+                    }
+                  }
+                }
+              }
+            </div>
+          </fieldset>
+        }
+
+        <div class="edit__actions edit__wide">
+          <button matButton="filled" type="submit" [disabled]="saving()">
+            <mat-icon aria-hidden="true">save</mat-icon>
+            {{ saving() ? 'Saving…' : 'Save card' }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-card edit__section" aria-labelledby="printings-title">
+      <h2 id="printings-title">Printings</h2>
+      @if ((card.printings ?? []).length) {
+        <div class="edit__table-wrap">
+          <table class="edit__table" aria-label="Printings">
+            <thead>
+              <tr>
+                <th scope="col">Code</th>
+                <th scope="col">Set</th>
+                <th scope="col">No.</th>
+                <th scope="col">Rarity</th>
+                <th scope="col">Edition</th>
+                <th scope="col">Language</th>
+                <th scope="col">Finish</th>
+                <th scope="col">Price</th>
+                <th scope="col"><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (printing of card.printings ?? []; track printing.id) {
+                <tr>
+                  <td class="mono">{{ printing.printingCode || '—' }}</td>
+                  <td>{{ printing.setCode }}</td>
+                  <td class="mono">{{ printing.collectorNumber }}</td>
+                  <td>{{ printing.rarity || '—' }}</td>
+                  <td>{{ edition(printing.edition) }}</td>
+                  <td>{{ language(printing.language) }}</td>
+                  <td>{{ finish(printing.finish) }}</td>
+                  <td>{{ price(printing.marketPrice) ?? '—' }}</td>
+                  <td>
+                    <button
+                      matButton
+                      type="button"
+                      [disabled]="editingPrinting() !== null"
+                      [attr.aria-label]="
+                        'Edit printing ' + (printing.printingCode || printing.collectorNumber)
+                      "
+                      (click)="editPrinting(printing)"
+                    >
+                      <mat-icon aria-hidden="true">edit</mat-icon>
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="admin-muted">No printings yet.</p>
+      }
+    </section>
+  } @else {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading card</span>
+      <app-skeleton width="50%" height="2rem" />
+      <app-skeleton variant="list" lines="5" />
+    </div>
+  }
+</div>

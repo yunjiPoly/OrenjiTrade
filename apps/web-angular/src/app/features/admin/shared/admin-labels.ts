@@ -29,6 +29,20 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'account.deletion.request': 'Requested account deletion',
   'account.deletion.cancel': 'Cancelled account deletion',
   'account.deletion.complete': 'Completed account deletion',
+  'game.create': 'Created a game',
+  'game.update': 'Changed a game',
+  'card_set.create': 'Created a card set',
+  'card_set.update': 'Changed a card set',
+  'card.create': 'Created a card',
+  'card.update': 'Changed a card',
+  'card_printing.create': 'Added a printing',
+  'card_printing.update': 'Changed a printing',
+  'catalog.sync.request': 'Requested a catalog sync',
+  'feature_flag.update': 'Changed a feature flag',
+  'plan.update': 'Changed a plan',
+  'usage_limit.update': 'Changed a usage limit',
+  'entitlement.grant': 'Granted an entitlement',
+  'entitlement.revoke': 'Revoked an entitlement',
 };
 
 export function auditActionLabel(action: string): string {

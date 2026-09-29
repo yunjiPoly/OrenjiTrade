@@ -1,15 +1,28 @@
-import { ChangeDetectionStrategy, Component, booleanAttribute, input, model } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  booleanAttribute,
+  computed,
+  inject,
+  input,
+  model,
+} from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { GAMES } from '../../domain/games';
+import { GamesStore } from '../../catalog/games.store';
+import { GAMES, GameInfo, gameInfo } from '../../domain/games';
 import { CardArtComponent } from '../../ui/card-art/card-art.component';
 
-/** Selectable game tiles with card art (toggle buttons, keyboard accessible). */
+/**
+ * Selectable game tiles with card art (toggle buttons, keyboard accessible). The list comes from
+ * `GET /games` (hidden games disappear); the built-in list stands in while it loads or when the
+ * API cannot be reached.
+ */
 @Component({
   selector: 'app-game-picker',
   imports: [MatIconModule, CardArtComponent],
   template: `
     <div class="games" role="group" [attr.aria-label]="label()">
-      @for (game of games; track game.slug) {
+      @for (game of games(); track game.slug) {
         @let selected = value().includes(game.slug);
         <button
           type="button"
@@ -87,7 +100,29 @@ export class GamePickerComponent {
   readonly value = model<string[]>([]);
   readonly label = input('Games you collect or play');
   readonly disabled = input(false, { transform: booleanAttribute });
-  protected readonly games = GAMES;
+  private readonly store = inject(GamesStore);
+  protected readonly games = computed<readonly GameInfo[]>(() => {
+    const games = this.store.games();
+    if (!games) {
+      return GAMES;
+    }
+    return games
+      .filter((game) => !!game.slug)
+      .map((game) => {
+        const known = gameInfo(game.slug ?? '');
+        return known.label !== game.slug
+          ? known
+          : {
+              ...known,
+              label: game.shortName || game.name || known.label,
+              shortLabel: game.shortName || known.shortLabel,
+            };
+      });
+  });
+
+  constructor() {
+    void this.store.load();
+  }
 
   protected toggle(slug: string): void {
     this.value.update((current) =>

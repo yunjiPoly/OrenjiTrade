@@ -127,6 +127,98 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    /**
+     * Phase 3 public listings of the seeded collectors (binders, binder items, collector
+     * inventory), anonymous and signed in: no coordinate at all (the owner block carries a label
+     * and a distance bucket only), every number with at most 3 decimals, no private location keys
+     * and never the private item notes.
+     */
+    @Test
+    void publicListingsNeverCarryCoordinatesOrPrivateNotes(CapturedOutput output) {
+        String viewer = uniqueUid("geo-listings");
+        provisionCompliant(viewer);
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/location/trading-area",
+                viewer,
+                Map.of("lat", 45.51739, "lng", -73.58914, "radiusKm", 10),
+                200);
+        int publicBinders = 0;
+        for (String handle : DISCOVERABLE) {
+            for (String caller : java.util.Arrays.asList(null, viewer)) {
+                JsonNode binders =
+                        callJson(
+                                HttpMethod.GET,
+                                "/api/v1/collectors/" + handle + "/binders",
+                                caller,
+                                null,
+                                200);
+                assertPublicListing(binders, handle);
+                JsonNode inventory =
+                        callJson(
+                                HttpMethod.GET,
+                                "/api/v1/collectors/" + handle + "/inventory?size=100",
+                                caller,
+                                null,
+                                200);
+                assertPublicListing(inventory, handle);
+                for (JsonNode binder : binders) {
+                    String id = binder.path("id").asString();
+                    JsonNode detail =
+                            callJson(
+                                    HttpMethod.GET,
+                                    "/api/v1/public/binders/" + id,
+                                    caller,
+                                    null,
+                                    200);
+                    assertPublicListing(detail, handle);
+                    assertThat(detail.path("owner").has("publicPoint")).isFalse();
+                    assertThat(detail.path("owner").path("location").path("publicLabel").asString())
+                            .isEqualTo(testUsers.locationOf(idOf(handle)).get("public_label"));
+                    assertPublicListing(
+                            callJson(
+                                    HttpMethod.GET,
+                                    "/api/v1/public/binders/" + id + "/items?size=100",
+                                    caller,
+                                    null,
+                                    200),
+                            handle);
+                    publicBinders++;
+                }
+            }
+        }
+        assertThat(publicBinders).as("seeded public binders were checked").isPositive();
+        // The private-only collector exposes nothing.
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/collectors/collector7/inventory",
+                                        viewer,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isZero();
+        String logs = output.getAll();
+        assertThat(logs).doesNotContain("45.51739").doesNotContain("-73.58914");
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
+    private static void assertPublicListing(JsonNode document, String handle) {
+        assertOnlyPublicPrecision(document, handle);
+        assertThat(coordinatePairs(document))
+                .as("coordinates in a listing of %s", handle)
+                .isEmpty();
+        assertNoPrivateLocationKeys(document, handle);
+        assertThat(document.toString())
+                .as("private notes in a listing of %s", handle)
+                .doesNotContain("\"notes\"")
+                .doesNotContain("Grading candidate")
+                .doesNotContain("Pulled at the spring locals");
+    }
+
     private static void assertNoPrivateLocationKeys(JsonNode node, String handle) {
         String text = node.toString();
         assertThat(text)

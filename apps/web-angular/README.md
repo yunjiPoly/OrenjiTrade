@@ -92,10 +92,16 @@ Only public values belong here (Firebase web config, referrer-restricted Maps ke
 4. `sessionInterceptor` — reports 428 `TERMS_ACCEPTANCE_REQUIRED` and 403 `ACCOUNT_SUSPENDED`
    from any call to `SessionService`, which routes to `/auth/consent` or `/auth/suspended`
    (opt out with `SKIP_SESSION_REDIRECT`).
-5. `authInterceptor` — `Authorization: Bearer <Firebase ID token>` on every API route except
-   `/api/v1/public/**` and `/api/v1/meta`; waits for Firebase to restore the session; on a 401
-   forces one token refresh and retries once (never for `REAUTHENTICATION_REQUIRED`).
-6. `errorInterceptor` — maps RFC 9457 Problem Details to `ApiError`
+5. `limitReachedInterceptor` — any 429 `LIMIT_REACHED` opens the limit-reached dialog
+   (`core/limits`, lazy chunk: limit key and label, used/limit, reset time, the premium benefit
+   and a "See Premium" link to `/premium` while the `premiumPlans` flag is on). The error still
+   reaches the caller; opt out with `SKIP_LIMIT_DIALOG`.
+6. `authInterceptor` — `Authorization: Bearer <Firebase ID token>` on every API route except
+   `/api/v1/public/**` and `/api/v1/meta` (unless the request sets `ATTACH_ID_TOKEN`, used by
+   the feature flags and the footer's `/meta` probe so signed-in calls count against the
+   account, not the anonymous per-IP rate limit); waits for Firebase to restore the session; on
+   a 401 forces one token refresh and retries once (never for `REAUTHENTICATION_REQUIRED`).
+7. `errorInterceptor` — maps RFC 9457 Problem Details to `ApiError`
    (`errorCode`, `message`, `requestId`, `status`, `fieldErrors`, raw `problem` extensions) and
    shows a `MatSnackBar` toast for 5xx/network failures. Opt out per request with
    `silentErrors()` / `SKIP_ERROR_TOAST`. `friendlyError()` turns an `ApiError` into safe copy.
@@ -129,11 +135,44 @@ Routes: `/auth/sign-in`, `/auth/sign-up` (required legal documents from
 `/auth/reset-password`, `/auth/consent`, `/auth/suspended` (suspension or pending deletion with
 cancel + export), `/onboarding` (profile, interests, trading area), `/settings/{profile,
 privacy, notifications, trading-area, account, appearance}`, `/collectors/:handle`,
-`/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`.
+`/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
+`/cards`, `/cards/:id`, `/sets/:id`, `/premium`, `/admin/games`, `/admin/cards[/:id]`,
+`/admin/feature-flags`, `/admin/usage-limits`.
 
 Local accounts: `docs/development/test-accounts.md` (password `LocalDev!2026`, emulator only).
 In the emulator no email is sent: verification and reset links appear in the emulator logs and
 the Emulator UI (http://localhost:4000/auth).
+
+## Catalog and platform rules (Phase 2)
+
+- **Feature flags** (`core/feature-flags`): `FeatureFlagsService` loads
+  `GET /public/feature-flags` (with the ID token when signed in, so partial rollouts are
+  evaluated per account) on the first navigation outside `/auth/**`, and again after a sign-in
+  or sign-out. `isEnabled()` / `enabled()` are `false` until known, so switched-off features
+  never flash. Used by the top bar (Community needs `publicChat`), the account menu and the
+  limit dialog (`premiumPlans`); `featureGuard(key, label)` protects flag-gated routes
+  (`/community`).
+- **Limits**: `LimitReachedService` + interceptor (see HTTP layer); `PlansStore`
+  (`GET /plans`, shared by `/premium` and the dialog); `/premium` lists the plans and, signed
+  in, the collector's usage (`GET /me/plan`). Checkout arrives with billing (Phase 10).
+- **Catalog** (`features/catalog`, `shared/catalog`): top-bar `CardSearchBoxComponent`
+  (`GET /cards/suggest`, 250 ms debounce, 2+ characters, arrow keys + Enter, printing
+  suggestions open the card with that printing selected, Enter without a highlighted
+  suggestion searches `/cards?q=`; deferred chunk with the plain search field as placeholder);
+  `/cards` (query + game pills + set/rarity/language/edition from the game's `GameSchema`,
+  every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
+  (`?printing=` selects a printing; hero picture, attributes rendered from the schema's
+  `metadataFields`, printings table with market prices, "Who has this near me" and "Add to
+  wishlist" shown as coming soon); `/sets/:id` (cards + paginated checklist); `/search` (the
+  mobile Search tab) previews matching cards. `GamesStore` (`GET /games`) also feeds the profile
+  game picker, so hidden games disappear there.
+- **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
+  live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
+  latest runs), `/admin/cards/:id` (card fields, schema-driven attributes, printings dialog),
+  `/admin/feature-flags` (switch with confirmation; SUPER_ADMIN, read-only for ADMIN),
+  `/admin/usage-limits` (plans x limits, inline edit with validation; SUPER_ADMIN).
+- Not in the generated client, so not in the UI yet: `metadata.<key>` catalog filters (the
+  generator did not emit the dynamic query parameters).
 
 ## Maps
 
@@ -174,7 +213,9 @@ src/app/
     api/        provideApiClient()  (generated client wiring)
     auth/       AuthService, FirebaseAuthPort, SessionService, guards, interceptors, roles
     config/     AppConfigService    (/config.json)
+    feature-flags/ FeatureFlagsService, featureGuard
     http/       interceptors, ApiError, friendlyError, HttpContext tokens
+    limits/     limit-reached interceptor, service and dialog
     layout/     app-shell, top-bar, account-menu, session-banner, bottom-nav (<960px), footer,
                 api-version, theme-toggle
     routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade")
@@ -184,9 +225,15 @@ src/app/
     onboarding/ three-step wizard
     settings/   shell + profile, privacy, notifications, trading-area, account, appearance
     collectors/ public profile (container + presentational view)
-    admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog), audit logs
+    admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog), audit logs,
+                games (schema editor), cards (search, editor, printing dialog, sync panel),
+                feature flags, usage limits
+    catalog/    card search (filters, URL params), card detail (metadata, printings), set page
+    premium/    plans and usage
     map, inventory, search, community, wishlist, messages, legal, not-found
   shared/
+    catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
+    plans/      PlansStore, plan and limit wording
     domain/     games, distance / last-active labels, coordinate rounding
     location/   TradingAreaPicker, city presets, MyLocationStore
     map/        MapAdapter, Leaflet + Google adapters, factory, approximate-area map
@@ -220,7 +267,10 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   mapping, 428/403 handling, consents), guards, roles, friendly errors, map adapter factory
   (Leaflet default, Google with key, fallback), trading-area picker (fake adapter), profile
   form rules, avatar validation, admin helpers, sign-in page, `relativeTime`, freshness,
-  `AppConfigService`, legal pages.
+  `AppConfigService`, legal pages; Phase 2: feature flags (deferral on account pages, reload on
+  sign-in, guard), limit-reached parsing/interceptor/dialog, card search box, catalog labels,
+  card search params, card metadata, game schema validation, usage-limit matrix and cell
+  editor, admin metadata form, plan labels.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -230,6 +280,13 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     discoverability with a check that every JSON response carries at most 3 decimals for
     `lat`/`lng`, JSON export download, profile edits, deletion with re-authentication and
     cancel, admin suspend/unsuspend and the audit log, moderator/collector restrictions.
+  - `e2e/catalog.spec.ts` (autocomplete to card detail with keyboard, printings and set page,
+    filters in the URL, printing-code search, not-found) and `e2e/admin-rules.spec.ts` (super
+    admin switches a flag with confirmation and edits a usage limit inline, both persist after a
+    reload and are restored afterwards; admins read-only; game schema validation; mock catalog
+    sync). Catalog pictures are served from memory in these specs (`stubCardImages`): the API
+    counts every placeholder image against its anonymous 60/min per-IP rate limit, which the
+    parallel suite shares.
     They skip with a clear message only when the API (`E2E_API_URL`, default
     `http://localhost:8080`) or the Auth emulator (`E2E_AUTH_EMULATOR_URL`, default
     `http://localhost:9099`) is unreachable.

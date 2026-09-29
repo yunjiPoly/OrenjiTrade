@@ -1,8 +1,13 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { LEGAL_DOCUMENT_LIST } from '../../../features/legal/legal-content';
 import { WordmarkComponent } from '../../../shared/ui/wordmark/wordmark.component';
 import { ApiVersionComponent } from '../api-version/api-version.component';
+
+/** Sign-in, sign-up and the other account steps. */
+const ACCOUNT_PAGE = /^\/auth(\/|\?|#|$)/;
 
 @Component({
   selector: 'app-footer',
@@ -22,7 +27,17 @@ import { ApiVersionComponent } from '../api-version/api-version.component';
         </nav>
         <div class="footer__meta">
           <span>(c) 2026 OrenjiTrade</span>
-          <app-api-version />
+          <!-- The version probe (chunk and GET /meta) loads once the footer is on screen, and not
+               on the account pages, which stay free of background requests. -->
+          @if (showVersion()) {
+            @defer (on viewport) {
+              <app-api-version />
+            } @placeholder {
+              <span class="footer__version-slot" aria-hidden="true"></span>
+            }
+          } @else {
+            <span class="footer__version-slot" aria-hidden="true"></span>
+          }
         </div>
       </div>
     </footer>
@@ -73,9 +88,23 @@ import { ApiVersionComponent } from '../api-version/api-version.component';
       align-items: center;
       gap: var(--spacing-4);
     }
+    .footer__version-slot {
+      display: inline-block;
+      min-width: 9rem;
+      min-height: 24px;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FooterComponent {
+  private readonly router = inject(Router);
   protected readonly legalDocuments = LEGAL_DOCUMENT_LIST;
+  /** False until a navigation settled (the first page may be an account page) and on them. */
+  protected readonly showVersion = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => !ACCOUNT_PAGE.test(event.urlAfterRedirects)),
+    ),
+    { initialValue: this.router.navigated && !ACCOUNT_PAGE.test(this.router.url) },
+  );
 }

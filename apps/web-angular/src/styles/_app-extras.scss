@@ -61,3 +61,74 @@ html {
 .app-toast--error {
   --mat-snack-bar-button-color: var(--color-warning);
 }
+
+// Card autocomplete panel (app-card-search-box renders its options in a Material overlay).
+.csb-panel {
+  --mat-option-label-text-size: var(--font-size-sm);
+
+  .csb-option {
+    min-height: 60px;
+  }
+
+  .csb-option__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    width: 100%;
+  }
+
+  .csb-option__img {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 50px;
+    border-radius: 3px;
+    object-fit: cover;
+    background: var(--color-surface-variant);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+  }
+
+  .csb-option__text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .csb-option__name {
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .csb-option__meta {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+
+  .csb-option__kind {
+    flex: 0 0 auto;
+    padding: 2px var(--spacing-2);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-container);
+    color: var(--color-on-accent-container);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .csb-option--info {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .csb-option--all {
+    border-top: 1px solid var(--color-border);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+
+    .mat-icon {
+      color: var(--color-primary);
+    }
+  }
+}

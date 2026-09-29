@@ -27,6 +27,17 @@ export function friendlyError(error: ApiError): FriendlyError {
           : 'Too many requests in a short time. Try again in a moment.',
       };
     }
+    case 'LIMIT_REACHED':
+      return {
+        title: 'Plan limit reached',
+        message:
+          'You reached a limit of your plan. It resets soon, or Premium raises it right away.',
+      };
+    case 'FEATURE_DISABLED':
+      return {
+        title: 'Not available right now',
+        message: 'This feature is currently turned off. Please try again later.',
+      };
     case 'UNAUTHENTICATED':
       return { title: 'Please sign in', message: 'Your session has ended. Sign in to continue.' };
     case 'REAUTHENTICATION_REQUIRED':

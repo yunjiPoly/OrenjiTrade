@@ -6,7 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MetaResponse, MetaService } from '@orenji/api-client';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { ApiError, toApiError } from '../../http/api-error';
-import { silentErrors } from '../../http/http-context';
+import { ATTACH_ID_TOKEN, silentErrors } from '../../http/http-context';
 
 /**
  * Shows "API v{version} - {environment}" from `GET /api/v1/meta` through the generated client.
@@ -80,7 +80,9 @@ export class ApiVersionComponent {
     this.loading.set(true);
     this.error.set(null);
     this.metaService
-      .getMeta('body', false, { context: silentErrors() })
+      // Signed-in visitors send their token so the probe counts against their own rate limit,
+      // not the anonymous per-IP budget.
+      .getMeta('body', false, { context: silentErrors().set(ATTACH_ID_TOKEN, true) })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (meta) => {

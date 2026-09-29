@@ -3,13 +3,16 @@ export interface NavLink {
   path: string;
   /** Material Symbols name. */
   icon: string;
+  /** Feature flag that must be on for the link to show (`GET /public/feature-flags`). */
+  feature?: string;
 }
 
 /** Desktop top-bar links (>= 960px). */
 export const PRIMARY_NAV_LINKS: readonly NavLink[] = [
   { label: 'Map', path: '/map', icon: 'map' },
+  { label: 'Cards', path: '/cards', icon: 'playing_cards' },
   { label: 'Inventory', path: '/inventory', icon: 'style' },
-  { label: 'Community', path: '/community', icon: 'forum' },
+  { label: 'Community', path: '/community', icon: 'forum', feature: 'publicChat' },
   { label: 'Wishlist', path: '/wishlist', icon: 'favorite' },
 ];
 

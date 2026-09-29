@@ -23,8 +23,8 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { id: 'users', label: 'Users', icon: 'group', path: 'users', phase: null, area: 'admin' },
   { id: 'listings', label: 'Listings', icon: 'style', path: 'listings', phase: 3, area: 'admin' },
   { id: 'binders', label: 'Binders', icon: 'menu_book', path: 'binders', phase: 3, area: 'admin' },
-  { id: 'games', label: 'Games', icon: 'playing_cards', path: 'games', phase: 2, area: 'admin' },
-  { id: 'cards', label: 'Cards', icon: 'view_carousel', path: 'cards', phase: 2, area: 'admin' },
+  { id: 'games', label: 'Games', icon: 'playing_cards', path: 'games', phase: null, area: 'admin' },
+  { id: 'cards', label: 'Cards', icon: 'view_carousel', path: 'cards', phase: null, area: 'admin' },
   {
     id: 'community',
     label: 'Community',
@@ -74,7 +74,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Usage limits',
     icon: 'speed',
     path: 'usage-limits',
-    phase: 10,
+    phase: null,
     area: 'admin',
   },
   { id: 'credits', label: 'Credits', icon: 'toll', path: 'credits', phase: 10, area: 'admin' },
@@ -107,7 +107,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Feature flags',
     icon: 'toggle_on',
     path: 'feature-flags',
-    phase: 7,
+    phase: null,
     area: 'admin',
   },
   {

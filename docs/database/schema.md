@@ -33,6 +33,9 @@ update it in the same change.
 | `payment_*` | Financial | Provider tokens only; never card numbers |
 | `entitlement.note` | Admin free text | Admin console only; never returned to the account owner (`GET /me/plan` omits it) nor logged |
 | `usage_counter` | Per-user usage | Owner (`GET /me/plan`) and admins only; never in analytics with the user id |
+| `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
+| `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
+| `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
 
 ## Entity overview
 
@@ -89,6 +92,9 @@ Detailed column lists are appended per phase below as migrations land.
 | V011 | `V011__plans_limits.sql` | Phase 2 (Phase 10 foundation): `plan` (+ FREE, PREMIUM), `plan_feature`, `usage_limit` (+ contract limits), `usage_counter`, `entitlement`; `user_account.plan_code` → FK to `plan.code` |
 | V012 | `V012__games.sql` | Phase 2: `game` (+ yugioh, pokemon, mtg, riftbound with their GameSchema) |
 | V013 | `V013__catalog.sql` | Phase 2: `card_set`, `card`, `card_printing`, `card_image`, `catalog_sync_run`; FTS + trigram + JSONB GIN indexes |
+| V020 | `V020__delist_policy.sql` | Phase 3: `delist_policy` (+ the single active default policy ACTIVE 0-14 / AGING 15-30 / STALE 31-45 / HIDDEN 46+ days, warn 5 days before hiding) |
+| V021 | `V021__binder.sql` | Phase 3: `binder` (visibility, temporary publication, freshness, materialised public listing flag, generated `search_vector`) |
+| V022 | `V022__inventory.sql` | Phase 3: `inventory_item`, trigger `trg_inventory_item_binder_count` (maintains `binder.item_count`), `inventory_item_image`, `inventory_freshness_event` |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -609,3 +615,141 @@ partial: equality and prefix autocomplete), `ix_card_printing_metadata` (GIN),
 | `error` | `text` | client-safe summary, never a stack trace |
 
 Indexes: `ix_catalog_sync_run_created_at`, `ix_catalog_sync_run_game (game_id, created_at DESC)`.
+
+### Phase 3 — effective public visibility (V020–V022)
+
+An item is public ⇔ `visibility` is `PUBLIC`, or `TEMPORARILY_PUBLIC` with `public_until > now()`
+∧ its binder is public (or it has none) ∧ `freshness_state <> 'HIDDEN'` ∧ it is not deleted ∧ its
+game is `ACTIVE` ∧ the owner is listed. A binder is public ⇔ the same visibility/expiry rule ∧ the
+binder's `freshness_state <> 'HIDDEN'` ∧ the owner is listed. The owner is listed ⇔
+`user_account.status = 'ACTIVE'` (or `SUSPENDED` with `suspended_until <= now()`) ∧
+(`privacy_settings.discoverable` ∨ `profile_visibility = 'PUBLIC'`) ∧ `profile_visibility <>
+'PRIVATE'`. The SQL lives in `PublicVisibilityRules` (binders module) and
+`InventoryItemRepository.LISTED`; every public read re-evaluates it. `publicly_listed` only
+materialises the last evaluation so the API emits `InventoryItemPublished` /
+`InventoryItemUnpublished` / `BinderPublished` / `BinderUnpublished` exactly once per transition
+(reconciled after every write, on account state and privacy changes, and hourly by the freshness
+job, which also catches expiries).
+
+### V020 — `delist_policy` (ADR 0014)
+
+Freshness thresholds as data. Exactly one row is active (`uq_delist_policy_active`, a unique index
+on the constant `true` restricted to active rows). Cached in Redis (`orenji:cache:delist-policy:v1`,
+60 s) and evicted after every admin write (`PUT /api/v1/admin/delist-policies/{id}`, audited
+`delist_policy.update`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `name` | `text` | 1-80 characters |
+| `active` | `boolean` | the policy the freshness job applies |
+| `aging_after_days` | `integer` | first day of AGING (default 15) |
+| `stale_after_days` | `integer` | first day of STALE (default 31) |
+| `hidden_after_days` | `integer` | first day of HIDDEN (default 46); `ck_delist_policy_order`: `1 <= aging < stale < hidden <= 3650` |
+| `warn_before_hidden_days` | `integer` | warning lead time (default 5); `0 <= warn < hidden` |
+| `max_strikes` | `integer` | 1-100 (default 3); unresponsiveness strikes before the `delist` job pauses listings (strike tracking arrives with Phases 5/7) |
+| `updated_by` | `uuid` | FK → `user_account.id` (`ON DELETE SET NULL`); `NULL` for the migration default |
+| `created_at`, `updated_at` | `timestamptz` | |
+
+An age of *n* days means `confirmed_at <= now() - n days`; `FreshnessPolicy` (Java) and the job's
+SQL use the same cut-offs.
+
+### V021 — `binder`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `name` | `text` | 1-80 characters |
+| `description` | `text` | ≤ 1 000 characters, default `''` |
+| `kind` | `text` | `COLLECTION` (default), `TRADE`, `SALE`, `DECK`, `CUSTOM` |
+| `visibility` | `text` | `PRIVATE` (default), `PUBLIC`, `TEMPORARILY_PUBLIC`; `ck_binder_public_until`: `public_until` is set exactly for `TEMPORARILY_PUBLIC` |
+| `public_until` | `timestamptz` | end of a temporary publication (≤ 30 days ahead, checked by the API; publish modes ONE_HOUR / ONE_DAY); expired ones are turned `PRIVATE` by the freshness job (reads already treat them as private) |
+| `sort_order` | `integer` | position in the owner's list (`PUT /binders/reorder`) |
+| `cover_printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); chosen cover |
+| `item_count` | `integer` | ≥ 0; non-deleted items, maintained by `trg_inventory_item_binder_count` only |
+| `freshness_state` | `text` | `ACTIVE`, `AGING`, `STALE`, `HIDDEN` (derived by the freshness job); a HIDDEN binder is not public |
+| `warned_at` | `timestamptz` | pre-hide warning of the current confirmation cycle (reset by a confirmation) |
+| `publicly_listed` | `boolean` | materialised effective visibility (events only) |
+| `listing_changed_at` | `timestamptz` | last flip of `publicly_listed` |
+| `created_at`, `updated_at` | `timestamptz` | |
+| `confirmed_at` | `timestamptz` | last confirmation: binder created, published or confirmed, or an item created, confirmed or moved into it |
+| `last_owner_activity_at` | `timestamptz` | last owner write on the binder or its items |
+| `search_vector` | `tsvector` | generated: name (A) + description (B), `simple` config + `unaccent_immutable` (public binder search, Phase 4) |
+
+Indexes: `ix_binder_owner_sort (owner_id, sort_order, created_at)`, `ix_binder_search_vector` (GIN),
+`ix_binder_listed_owner (owner_id) WHERE publicly_listed`, `ix_binder_confirmed_at`,
+`ix_binder_expiry (public_until) WHERE visibility = 'TEMPORARILY_PUBLIC'`.
+
+Deleting a binder (`DELETE /binders/{id}`) unfiles its items (they keep their visibility only when
+the binder was `PUBLIC` without an end date, otherwise they become `PRIVATE`) or soft-deletes them
+with `?deleteItems=true`.
+
+### V022 — inventory items, photos and freshness events
+
+#### `inventory_item`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `binder_id` | `uuid` | FK → `binder.id` (`ON DELETE SET NULL`); `NULL` = unfiled |
+| `printing_id` | `uuid` | FK → `card_printing.id` (`RESTRICT`) |
+| `quantity` | `integer` | 1-9 999 |
+| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`) |
+| `language`, `edition`, `finish` | `text` | default to the printing's values; ISO 639-1 / upper-case codes |
+| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price |
+| `currency` | `char(3)` | ISO 4217, default `CAD` |
+| `availability` | `text` | `COLLECTION_ONLY` (default), `TRADE`, `SALE`, `TRADE_OR_SALE`, `NOT_AVAILABLE` |
+| `accepts_offers` | `boolean` | |
+| `notes` | `text` | **PRIVATE** owner notes (≤ 2 000); owner and export only |
+| `public_notes` | `text` | ≤ 500, shown on public listings |
+| `visibility` | `text` | `PRIVATE`, `PUBLIC`, `TEMPORARILY_PUBLIC` (`ck_inventory_item_public_until` as for binders). API default: `PUBLIC` inside a binder (the binder decides), `PRIVATE` unfiled |
+| `public_until` | `timestamptz` | end of a temporary publication (≤ 30 days ahead) |
+| `freshness_state` | `text` | `ACTIVE`, `AGING`, `STALE`, `HIDDEN`, derived by the freshness job; a confirmation resets it to `ACTIVE` |
+| `hidden_reason` | `text` | `STALE_UNCONFIRMED` (freshness job); `OWNER_PAUSED`, `MODERATION` reserved for Phase 7 |
+| `warned_at` | `timestamptz` | pre-hide warning of the current confirmation cycle |
+| `publicly_listed` | `boolean` | materialised effective visibility (events only) |
+| `listing_changed_at` | `timestamptz` | last flip of `publicly_listed` |
+| `created_at`, `updated_at` | `timestamptz` | `updated_at` = last owner edit |
+| `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
+| `last_owner_activity_at` | `timestamptz` | last owner write |
+| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account) |
+
+Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
+`ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS
+NULL`, `ix_inventory_item_public_discovery (printing_id, availability, freshness_state) WHERE
+publicly_listed`. Also `ix_inventory_item_binder`, `ix_inventory_item_owner_updated`,
+`ix_inventory_item_confirmed_at` (freshness job), `ix_inventory_item_expiry`,
+`ix_inventory_item_listed_owner`.
+
+Trigger `trg_inventory_item_binder_count` (`AFTER INSERT OR DELETE OR UPDATE OF binder_id,
+deleted_at`, row level) keeps `binder.item_count` equal to the binder's non-deleted items.
+
+#### `inventory_item_image`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `item_id` | `uuid` | FK → `inventory_item.id` (cascade); at most 4 per item (API) |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg` |
+| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side) |
+| `sort_order` | `integer` | position |
+| `created_at` | `timestamptz` | |
+
+#### `inventory_freshness_event`
+
+Append-only trail of freshness transitions (audit + notification de-duplication, Phase 6).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `item_id` | `uuid` | FK → `inventory_item.id` (cascade) |
+| `binder_id` | `uuid` | FK → `binder.id` (cascade); `ck_inventory_freshness_event_target`: exactly one of `item_id`, `binder_id` |
+| `event` | `text` | `WARNED` (once per confirmation cycle, public listings only), `AGED`, `STALED`, `HIDDEN`, `RESTORED` (left HIDDEN: confirmation or a more lenient policy) |
+| `created_at` | `timestamptz` | |
+
+Indexes: `ix_inventory_freshness_event_item`, `ix_inventory_freshness_event_binder` (partial),
+`ix_inventory_freshness_event_owner`.

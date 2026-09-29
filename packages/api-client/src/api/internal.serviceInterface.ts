@@ -12,6 +12,8 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { AccountDeletionJobResponse } from '../model/models';
+import { DelistJobResponse } from '../model/models';
+import { FreshnessJobResponse } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 
@@ -37,5 +39,19 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/account-deletion
 */
     runAccountDeletionJob(extraHttpRequestParams?: any): Observable<AccountDeletionJobResponse>;
+
+    /**
+     * Pause listings of unresponsive owners (service auth)
+     * Daily. Pauses the public listings of owners whose unresponsiveness strikes reached the policy\&#39;s maxStrikes. Strike tracking arrives with Phases 5/7: until then the run is recorded and nobody is paused. Never deletes.
+     * @endpoint post /internal/jobs/delist
+*/
+    runDelistJob(extraHttpRequestParams?: any): Observable<DelistJobResponse>;
+
+    /**
+     * Recompute listing freshness (service auth)
+     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.
+     * @endpoint post /internal/jobs/freshness
+*/
+    runFreshnessJob(extraHttpRequestParams?: any): Observable<FreshnessJobResponse>;
 
 }

@@ -143,7 +143,8 @@ privacy settings from `db/seed/profiles.json`; discoverable: collectors 1-6, 8 a
 `trading areas` (order 300: `db/seed/locations.json`, public neighbourhood centroids, 5 km radius;
 public points derived by the server). Both only insert missing rows, so local edits survive restarts.
 Phase 2 adds `feature flags` (order 50, local/dev only) and `catalog` (order 400, the four mock
-catalogs); see "Catalog and platform rules" below.
+catalogs); see "Catalog and platform rules" below. Phase 3 adds `inventory` (order 500, binders and
+items of the fictional collectors); see "Inventory, binders, freshness" below.
 Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for the premium account)
 and `LocalDev!2026`; see `docs/development/test-accounts.md`.
 
@@ -274,8 +275,9 @@ token of an account with pending consents or a suspension does not block them (s
 - Rules are cached in Redis through `common.cache.RedisJsonCache` (60 s TTL, explicit eviction after
   every admin write and after commit, fail-open to the database). Usage counters are mirrored in
   Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check` fast path.
-- No Phase 2 route consumes a limit yet (binder views arrive with Phase 3, radius with Phase 4); the
-  integration tests exercise the HTTP behaviour through a test-only, OpenAPI-hidden probe controller.
+- Phase 3 consumes `binders.max` (binder creation) and `binder.views.per_day` (public binder views);
+  the radius cap arrives with Phase 4. The integration tests also exercise the HTTP behaviour through
+  a test-only, OpenAPI-hidden probe controller.
 
 ### Card catalog
 
@@ -312,6 +314,100 @@ four mock catalogs through `CatalogImportService` (idempotent; one sync run per 
   `GET /admin/catalog/providers`, `GET /admin/users/{id}/entitlements`.
 - `INCREMENTAL` syncs pass the last successful run's start to the provider; the mock provider has no
   change tracking and returns everything (still idempotent).
+
+## Inventory, binders, freshness (Phase 3)
+
+Contract: `docs/api/contracts/phase3-inventory.md`. Modules: `delisting` (policy, pure freshness
+rules, freshness event log, `delist` job, admin policy endpoints) ← `binders` (binders, effective
+visibility rules, public binder views, `BinderContents` extension point) ← `inventory` (items,
+photos, bulk operations, public item lists, reconciliation of the publication events, `freshness`
+job; implements `BinderContents`). Owner routes need a bearer token and accepted terms; the public
+routes are permitAll GETs (`/api/v1/public/**` plus `SecurityConfig.PUBLIC_GET_PATTERNS`
+`/api/v1/collectors/*/binders` and `/api/v1/collectors/*/inventory`) that still honour a token
+(distance buckets, binder-view limit, the owner's own view).
+
+| Route | Module | Notes |
+| --- | --- | --- |
+| `GET /api/v1/inventory/items?query=&game=&binderId=&unfiled=&visibility=&availability=&condition=&freshness=&sort=updated\|name\|price&direction=&page=&size=` | inventory | the caller's items; `query` = card name (FTS + substring, accent-insensitive), printing-code prefix, set code/name |
+| `POST /api/v1/inventory/items` | inventory | 201 + `Location`; defaults: quantity 1, condition NEAR_MINT (must be one of the game's `GameSchema.conditions`), language/edition/finish of the printing, CAD, COLLECTION_ONLY; visibility PUBLIC inside a binder (the binder decides), PRIVATE unfiled; TEMPORARILY_PUBLIC needs `publicUntil` ≤ 30 days ahead |
+| `GET/PATCH/DELETE /api/v1/inventory/items/{id}` | inventory | PATCH = any subset (absent = unchanged, `askingPrice`/`publicUntil`/`binderId`/`notes`/`publicNotes` may be null); DELETE = soft delete (photos removed) |
+| `POST /api/v1/inventory/items/{id}/confirm` | inventory | `confirmed_at` = now, freshness ACTIVE (HIDDEN → RESTORED), also confirms its binder |
+| `POST /api/v1/inventory/items/{id}/images`, `DELETE .../images/{imageId}` | inventory | multipart `file` (JPEG/PNG/WebP sniffed, ≤ 8 MB), re-encoded JPEG ≤ 1600 px without metadata into `ObjectStorage` (`inventory/<owner>/<random>.jpg`, served by `/api/v1/public/media/**`); ≤ 4 per item (409); 201 returns the item; rate-limited 60/hour |
+| `POST /api/v1/inventory/items/bulk` | inventory | `SET_VISIBILITY`, `MOVE_TO_BINDER` (`binderId` null = unfiled), `SET_AVAILABILITY`, `CONFIRM`, `DELETE`; one transaction; every id checked against the caller (`skipped[].reason` NOT_FOUND / UNCHANGED) |
+| `GET /api/v1/inventory/summary` | inventory | totals, `byVisibility`, `byGame`, `agingCount`, `staleCount`, `hiddenCount`, `effectivePublicCount`, `nextExpiry` (items and binders) |
+| `GET/POST /api/v1/binders`, `GET/PATCH/DELETE /api/v1/binders/{id}` | binders | owner only (others 404); create consumes `binders.max` (429 LIMIT_REACHED, usage = binder count through a `LimitUsageSource`); DELETE unfiles the items (kept visibility only for a PUBLIC binder, otherwise PRIVATE) or soft-deletes them with `?deleteItems=true` |
+| `POST /api/v1/binders/{id}/publish` `{mode}`, `.../unpublish`, `.../confirm`, `PUT /api/v1/binders/reorder` | binders | PUBLIC / UNTIL_DISABLED → PUBLIC; ONE_HOUR / ONE_DAY → TEMPORARILY_PUBLIC until now + 1 h / 24 h; publishing and confirming confirm the binder and its items |
+| `GET /api/v1/binders/{id}/items` | inventory | the caller's items of one binder (same filters) |
+| `GET /api/v1/collectors/{handle}/binders` | binders | public binders with ≥ 1 public item (`PublicBinderSummary`) |
+| `GET /api/v1/public/binders/{id}` | binders | `PublicBinderResponse` with an owner block (handle, display name, avatar, `location: {publicLabel, distanceBucket}`, never a point); signed-in visitors other than the owner consume `binder.views.per_day` once per binder and UTC day (Redis de-duplication, 429 beyond the plan) |
+| `GET /api/v1/public/binders/{id}/items`, `GET /api/v1/collectors/{handle}/inventory` | inventory | `PublicInventoryItem` pages (no `notes`, no coordinates) |
+| `GET /api/v1/admin/delist-policies`, `PUT /api/v1/admin/delist-policies/{id}` | delisting | ADMIN+ (Phase 7 contract, built with the table); ordering validated, audited `delist_policy.update`, cache evicted |
+| `POST /internal/jobs/freshness` (hourly), `POST /internal/jobs/delist` (daily) | inventory, delisting | service auth; `@Scheduled` stand-ins under `local` (`FreshnessScheduler` every hour, `DelistScheduler` daily); both record a `job_run` |
+
+### Effective public visibility
+
+Item public ⇔ visibility PUBLIC or TEMPORARILY_PUBLIC not expired ∧ binder public (or none) ∧
+freshness ≠ HIDDEN ∧ not deleted ∧ game ACTIVE ∧ owner listed. Binder public ⇔ same visibility and
+expiry rule ∧ binder freshness ≠ HIDDEN ∧ owner listed. Owner listed ⇔ account ACTIVE (or a temporary
+suspension already over) ∧ (discoverable ∨ profile PUBLIC) ∧ profile ≠ PRIVATE. Public collectors are
+404 when suspended, pending deletion, deleted, PRIVATE or blocked (`BlockRelationProvider`, Phase 5).
+`PublicVisibilityRules` holds the SQL fragments and a pure Java twin (`VisibilityRulesTest`); every
+public read evaluates them live (expiries apply at once).
+
+### Publication events and freshness
+
+- `ListingReconciler` stores the last evaluation in `publicly_listed` (items and binders) and emits
+  `InventoryItemPublished {itemId, ownerId, printingId, cardId, gameSlug, availability, askingPrice,
+  currency, publishedAt}`, `InventoryItemUnpublished`, `BinderPublished`, `BinderUnpublished` once per
+  flip, inside the transaction (Modulith outbox). It runs after every write, on
+  `UserSuspendedEvent` / `UserUnsuspendedEvent` / `PrivacySettingsChangedEvent` (async
+  `@ApplicationModuleListener`s), from the deletion participant, and in the hourly job (expiries,
+  suspensions that ended). Seed data is reconciled silently.
+- The freshness job: expired temporary publications → PRIVATE; freshness re-derived from
+  `confirmed_at` and the active `delist_policy` (items and binders, both directions; AGED / STALED /
+  HIDDEN / RESTORED rows in `inventory_freshness_event`, `BinderFreshnessChanged`); reconciliation
+  (HIDDEN → `InventoryItemUnpublished`); publicly listed items and binders in the warning window
+  (`warn_before_hidden_days`) get one WARNED row per confirmation cycle and one
+  `BinderFreshnessWarning {ownerId, binderId|null, itemCount, hidesAt}` per binder (null = unfiled
+  items) and run. Nothing is ever deleted.
+- Account deletion: the inventory participant unpublishes everything at the request (the owner is no
+  longer listed), republishes on cancellation and purges items, photos (after commit) and, through the
+  binders participant, binders. Export sections `inventory` (with private notes: the owner's own data)
+  and `binders`.
+
+### Seed (Phase 3)
+
+`inventory` (order 500, `db/seed/inventory.json`): 10 binders / 36 items for the fictional
+collectors from the seeded mock printings (CAD prices, several accepting offers): fresh public
+binders for collectors 1, 2, 5, 8 (plus a private binder and an unfiled lot for collector1), a
+STALE binder (40 days) for collector3, a HIDDEN binder (50 days, hidden until confirmed) for
+collector6, a binder public for 24 h for collector4 and private-only inventory for collector7 (not
+discoverable). Stable ids `00000000-0000-4000-8b00-…` (binders) and `…-8c00-…` (items); inserted once
+(`ON CONFLICT DO NOTHING`), dates relative to the first seed run.
+
+### Deviations from the Phase 3 contract
+
+- The owner rule additionally excludes PRIVATE profiles (the contract says "discoverable or
+  profile public"; a discoverable collector with a PRIVATE profile publishes nothing).
+- Additive columns: `binder.freshness_state` / `warned_at` / `publicly_listed` /
+  `listing_changed_at`, `inventory_item.warned_at` / `publicly_listed` / `listing_changed_at`,
+  `inventory_freshness_event.owner_id`, `delist_policy.max_strikes` / `created_at`. Binder freshness
+  is derived from `binder.confirmed_at` like items; a HIDDEN binder is not public.
+- Additive response fields: `BinderResponse.sortOrder`, `effectivePublic`, `games`,
+  `coverPrintingId`; `PublicInventoryItem.binder`; `PublicBinderResponse.kind`, `publicUntil`,
+  `coverImageUrl`; summary `agingCount`, `effectivePublicCount`; list parameters `unfiled`,
+  `direction`; `PublicBinderSummary` = `{id, name, description, kind, publicUntil, itemCount, games,
+  coverImageUrl, freshness}`. Events carry `ownerId` and a timestamp; `BinderUnpublished` and
+  `BinderFreshnessWarning` are additional.
+- Defaults the contract leaves open: item visibility PUBLIC inside a binder / PRIVATE unfiled;
+  unfiling (PATCH `binderId: null`, bulk move to none, binder deletion) keeps the item's visibility
+  only when the source binder is PUBLIC without an end date; making an item public and publishing a
+  binder count as confirmations; the job turns expired temporary publications PRIVATE.
+- Photo upload answers 201 with the item; photos are JPEG (no JDK WebP encoder), ≤ 1600 px.
+- `binder.views.per_day` is consumed on `GET /public/binders/{id}` only, for signed-in visitors
+  other than the owner (web clients must send their token on that route for it to count).
+- `POST /internal/jobs/delist` records runs but pauses nobody until strike tracking exists.
+- Text of binders and public notes is not yet run through `TextModerationService` (Phase 7).
 
 ## Build, format, test
 
@@ -370,7 +466,9 @@ the `unaccent_immutable(text)` helper; `V002__event_publication.sql` creates the
 Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql` (`plan`,
 `plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; `user_account.plan_code` becomes a FK),
 `V012__games.sql` (`game` with GameSchema) and `V013__catalog.sql` (`card_set`, `card`,
-`card_printing`, `card_image`, `catalog_sync_run`).
+`card_printing`, `card_image`, `catalog_sync_run`). Phase 3 adds `V020__delist_policy.sql`
+(`delist_policy`), `V021__binder.sql` (`binder`) and `V022__inventory.sql` (`inventory_item` with the
+`binder.item_count` trigger, `inventory_item_image`, `inventory_freshness_event`).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -398,8 +496,13 @@ com.orenjitrade.api
 │                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
 ├── featureflags/ feature_flag, FeatureFlags (Redis cache), public + admin endpoints
 ├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements)
-└── inventory binders search wishlist messaging community ratings reports offers trades
-    payments credits donations ads analytics delisting
+├── delisting/   delist_policy, FreshnessPolicy / FreshnessLabels, freshness event log, delist job,
+│                /admin/delist-policies
+├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
+├── inventory/   items, photos, bulk operations, public item lists, ListingReconciler (publication
+│                events), freshness job (implements BinderContents)
+└── search wishlist messaging community ratings reports offers trades payments credits donations
+    ads analytics
                                                           (documented in each package-info.java)
 ```
 

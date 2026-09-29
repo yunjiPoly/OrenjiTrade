@@ -3,8 +3,10 @@ package com.orenjitrade.api.users;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
+import com.orenjitrade.api.TestDomainEventsConfiguration.RecordedDomainEvents;
 import com.orenjitrade.api.auth.infra.NoopIdentityAdminClient;
 import com.orenjitrade.api.common.seed.SeedDataRunner;
+import com.orenjitrade.api.inventory.events.InventoryItemPublished;
 import com.orenjitrade.api.users.infra.SeedAccounts;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +29,93 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
 
     @Autowired private NoopIdentityAdminClient identityAdminClient;
 
+    @Autowired private RecordedDomainEvents events;
+
+    @Test
+    void seedsInventoryPerTheSeedPlanWithoutPublicationEvents() {
+        int binders =
+                testUsers.count(
+                        "SELECT count(*) FROM binder WHERE id::text LIKE"
+                                + " '00000000-0000-4000-8b00-%'");
+        int items =
+                testUsers.count(
+                        "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
+                                + " '00000000-0000-4000-8c00-%'");
+        assertThat(binders).isEqualTo(10);
+        assertThat(items).isEqualTo(36);
+        seedDataRunner.seedAll();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM binder WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-8b00-%'"))
+                .isEqualTo(binders);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-8c00-%'"))
+                .isEqualTo(items);
+
+        Map<String, Object> fresh = binderRow("00000000-0000-4000-8b00-000000000101");
+        assertThat(fresh.get("visibility")).isEqualTo("PUBLIC");
+        assertThat(fresh.get("freshness_state")).isEqualTo("ACTIVE");
+        assertThat(fresh.get("item_count")).isEqualTo(5);
+        assertThat(fresh.get("publicly_listed")).isEqualTo(true);
+        assertThat(binderRow("00000000-0000-4000-8b00-000000000103").get("visibility"))
+                .isEqualTo("PRIVATE");
+        Map<String, Object> stale = binderRow("00000000-0000-4000-8b00-000000000301");
+        assertThat(stale.get("freshness_state")).isEqualTo("STALE");
+        assertThat(stale.get("publicly_listed")).isEqualTo(true);
+        Map<String, Object> hidden = binderRow("00000000-0000-4000-8b00-000000000601");
+        assertThat(hidden.get("freshness_state")).isEqualTo("HIDDEN");
+        assertThat(hidden.get("publicly_listed")).isEqualTo(false);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE binder_id ="
+                                        + " '00000000-0000-4000-8b00-000000000601' AND"
+                                        + " freshness_state = 'HIDDEN' AND hidden_reason ="
+                                        + " 'STALE_UNCONFIRMED'"))
+                .isEqualTo(3);
+        Map<String, Object> temporary = binderRow("00000000-0000-4000-8b00-000000000401");
+        assertThat(temporary.get("visibility")).isEqualTo("TEMPORARILY_PUBLIC");
+        assertThat(temporary.get("public_until")).isNotNull();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE owner_id ="
+                                        + " '00000000-0000-4000-8000-000000000007' AND"
+                                        + " publicly_listed"))
+                .as("collector7 is private only")
+                .isZero();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-8c00-%' AND currency <> 'CAD'"))
+                .isZero();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-8c00-%' AND accepts_offers AND"
+                                        + " publicly_listed"))
+                .isGreaterThanOrEqualTo(5);
+        assertThat(
+                        events.of(
+                                InventoryItemPublished.class,
+                                event ->
+                                        event.itemId()
+                                                .toString()
+                                                .startsWith("00000000-0000-4000-8c00-")))
+                .as("seed data is not announced as newly published")
+                .isEmpty();
+    }
+
+    private Map<String, Object> binderRow(String id) {
+        return testUsers
+                .query(
+                        "SELECT visibility, public_until, freshness_state, item_count,"
+                                + " publicly_listed FROM binder WHERE id = ?",
+                        UUID.fromString(id))
+                .get(0);
+    }
+
     @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
@@ -42,7 +131,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "auth emulator users",
                         "profiles",
                         "trading areas",
-                        "catalog");
+                        "catalog",
+                        "inventory");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

@@ -69,3 +69,10 @@
     display: none;
   }
 }
+
+// Five links fit next to the search box from 960px; drop their icons until there is room.
+@media (min-width: 960px) and (max-width: 1199px) {
+  .top-bar__link mat-icon {
+    display: none;
+  }
+}

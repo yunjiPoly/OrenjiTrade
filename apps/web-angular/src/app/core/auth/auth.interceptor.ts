@@ -2,7 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/comm
 import { inject } from '@angular/core';
 import { catchError, from, switchMap, throwError } from 'rxjs';
 import { isApiError } from '../http/api-error';
-import { IS_API_REQUEST, isPublicApiUrl } from '../http/http-context';
+import { ATTACH_ID_TOKEN, IS_API_REQUEST, isPublicApiUrl } from '../http/http-context';
 import { AuthService } from './auth.service';
 
 const AUTHORIZATION = 'Authorization';
@@ -21,7 +21,8 @@ function isRetryableUnauthorized(error: unknown): boolean {
 
 /**
  * Adds `Authorization: Bearer <Firebase ID token>` to OrenjiTrade API requests, except the public
- * routes (`/api/v1/public/**`, `/api/v1/meta`) and requests that already carry the header.
+ * routes (`/api/v1/public/**`, `/api/v1/meta`, unless the request sets `ATTACH_ID_TOKEN`) and
+ * requests that already carry the header.
  * Waits for Firebase to restore the session first, so the very first request after a reload is
  * authenticated. On a 401 it forces one token refresh and retries the request once.
  *
@@ -30,7 +31,7 @@ function isRetryableUnauthorized(error: unknown): boolean {
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (
     !req.context.get(IS_API_REQUEST) ||
-    isPublicApiUrl(req.url) ||
+    (isPublicApiUrl(req.url) && !req.context.get(ATTACH_ID_TOKEN)) ||
     req.headers.has(AUTHORIZATION)
   ) {
     return next(req);

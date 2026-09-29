@@ -232,6 +232,12 @@ orenji:
         limit: 10
         window-seconds: 3600
         key-by: USER
+      - name: inventory-image-upload
+        path-patterns: ["/api/v1/inventory/items/*/images"]
+        methods: [POST]
+        limit: 60
+        window-seconds: 3600
+        key-by: USER
       - name: export
         path-patterns: ["/api/v1/me/export"]
         methods: [GET]

@@ -4,9 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.TestDeletionConfiguration;
+import com.orenjitrade.api.TestDomainEventsConfiguration.RecordedDomainEvents;
 import com.orenjitrade.api.auth.infra.NoopIdentityAdminClient;
 import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
 import com.orenjitrade.api.auth.web.ServiceAuthFilter;
+import com.orenjitrade.api.binders.events.BinderUnpublished;
+import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.inventory.InventoryTestSupport;
+import com.orenjitrade.api.inventory.events.InventoryItemPublished;
+import com.orenjitrade.api.inventory.events.InventoryItemUnpublished;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,6 +40,10 @@ class DeletionIT extends AbstractIntegrationTest {
     static final String SERVICE_TOKEN = "local-service-token";
 
     @Autowired private NoopIdentityAdminClient identityAdminClient;
+
+    @Autowired private CatalogImportService importService;
+
+    @Autowired private RecordedDomainEvents events;
 
     private static Map<String, Object> request(String reason) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -294,6 +304,121 @@ class DeletionIT extends AbstractIntegrationTest {
         // Processing twice is harmless.
         runJob();
         assertThat(testUsers.row(id).get("status")).isEqualTo("DELETED");
+    }
+
+    @Test
+    void aDeletionRequestHidesPublicInventoryAndThePurgeRemovesIt() throws IOException {
+        InventoryTestSupport.ensureCatalog(importService);
+        String uid = uniqueUid("del-inventory");
+        UUID id = provisionCompliant(uid);
+        String handle = me(uid).path("handle").asString();
+        callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, discoverable(), 200);
+        String binderId =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                uid,
+                                InventoryTestSupport.binder("Leaving soon", "PUBLIC"),
+                                201)
+                        .path("id")
+                        .asString();
+        Map<String, Object> body =
+                InventoryTestSupport.item(InventoryTestSupport.printing(testUsers, "mtg-p010a"));
+        body.put("binderId", binderId);
+        String itemId =
+                callJson(HttpMethod.POST, "/api/v1/inventory/items", uid, body, 201)
+                        .path("id")
+                        .asString();
+        String photoUrl = uploadItemPhoto(uid, itemId);
+        callJson(HttpMethod.GET, "/api/v1/public/binders/" + binderId, null, null, 200);
+        assertThat(publishedCount(itemId)).isEqualTo(1);
+
+        String requestId =
+                callJson(HttpMethod.POST, "/api/v1/me/deletion-requests", uid, request(null), 201)
+                        .path("id")
+                        .asString();
+        // Hidden at once: public views, public lists and the materialised flags.
+        callJson(HttpMethod.GET, "/api/v1/public/binders/" + binderId, null, null, 404);
+        callJson(HttpMethod.GET, "/api/v1/public/binders/" + binderId + "/items", null, null, 404);
+        callJson(HttpMethod.GET, "/api/v1/collectors/" + handle + "/inventory", null, null, 404);
+        callJson(HttpMethod.GET, "/api/v1/collectors/" + handle + "/binders", null, null, 404);
+        assertThat(unpublishedCount(itemId)).isEqualTo(1);
+        assertThat(
+                        events.of(
+                                BinderUnpublished.class,
+                                event -> event.binderId().toString().equals(binderId)))
+                .hasSize(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE id = ? AND"
+                                        + " publicly_listed",
+                                UUID.fromString(itemId)))
+                .isZero();
+
+        // Cancelling restores the listings.
+        callJson(HttpMethod.DELETE, "/api/v1/me/deletion-requests/" + requestId, uid, null, 204);
+        callJson(HttpMethod.GET, "/api/v1/public/binders/" + binderId, null, null, 200);
+        assertThat(publishedCount(itemId)).isEqualTo(2);
+
+        // The purge deletes items, photos and binders for good.
+        String second =
+                callJson(HttpMethod.POST, "/api/v1/me/deletion-requests", uid, request(null), 201)
+                        .path("id")
+                        .asString();
+        testUsers.update(
+                "UPDATE account_deletion_request SET scheduled_for = now() - interval '1 minute'"
+                        + " WHERE id = ?",
+                UUID.fromString(second));
+        assertThat(runJob().path("failed").asInt()).isZero();
+        assertThat(testUsers.count("SELECT count(*) FROM inventory_item WHERE owner_id = ?", id))
+                .isZero();
+        assertThat(testUsers.count("SELECT count(*) FROM binder WHERE owner_id = ?", id)).isZero();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item_image WHERE item_id = ?",
+                                UUID.fromString(itemId)))
+                .isZero();
+        http.get().uri(URI.create(photoUrl).getPath()).exchange().expectStatus().isNotFound();
+        assertThat(unpublishedCount(itemId)).isEqualTo(2);
+    }
+
+    private long publishedCount(String itemId) {
+        return events.of(
+                        InventoryItemPublished.class,
+                        event -> event.itemId().toString().equals(itemId))
+                .size();
+    }
+
+    private long unpublishedCount(String itemId) {
+        return events.of(
+                        InventoryItemUnpublished.class,
+                        event -> event.itemId().toString().equals(itemId))
+                .size();
+    }
+
+    private String uploadItemPhoto(String uid, String itemId) {
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part(
+                        "file",
+                        new ByteArrayResource(InventoryTestSupport.png(80, 60)) {
+                            @Override
+                            public String getFilename() {
+                                return "card.png";
+                            }
+                        })
+                .contentType(MediaType.IMAGE_PNG);
+        EntityExchangeResult<byte[]> result =
+                http.post()
+                        .uri("/api/v1/inventory/items/" + itemId + "/images")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(uid))
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(builder.build())
+                        .exchange()
+                        .expectStatus()
+                        .isCreated()
+                        .expectBody()
+                        .returnResult();
+        return json(result).path("images").get(0).path("url").asString();
     }
 
     @Test

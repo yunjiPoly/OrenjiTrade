@@ -1,0 +1,153 @@
+<div class="page detail">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a routerLink="/cards">Cards</a>
+    @if (card(); as card) {
+      <mat-icon class="crumbs__sep" aria-hidden="true">chevron_right</mat-icon>
+      <a routerLink="/cards" [queryParams]="{ game: card.game }">{{ gameLabel() }}</a>
+      <mat-icon class="crumbs__sep" aria-hidden="true">chevron_right</mat-icon>
+      <span aria-current="page">{{ card.name }}</span>
+    }
+  </nav>
+
+  @if (notFound()) {
+    <app-empty-state
+      icon="style"
+      title="Card not found"
+      description="This card does not exist or is no longer in the catalog."
+    >
+      <a actions matButton="filled" routerLink="/cards">Browse the catalog</a>
+    </app-empty-state>
+  } @else if (error(); as error) {
+    <app-error-state
+      title="This card could not load"
+      [message]="errorMessage()"
+      [requestId]="error.requestId"
+      (retry)="reload()"
+    />
+  } @else if (card(); as card) {
+    <div class="detail__grid">
+      <div class="detail__media">
+        <app-card-image
+          class="detail__image"
+          [src]="heroImage()"
+          [alt]="heroAlt()"
+          [game]="card.game ?? ''"
+          [eager]="true"
+        />
+        @if (selected(); as printing) {
+          <p class="detail__caption">
+            <span class="mono">{{ printing.printingCode }}</span>
+            · {{ printing.setName }}
+          </p>
+        }
+      </div>
+
+      <div class="detail__info">
+        <app-game-chip [slug]="card.game ?? ''" />
+        <h1 class="detail__name">{{ card.name }}</h1>
+        @if (typeLine()) {
+          <p class="detail__type">{{ typeLine() }}</p>
+        }
+        @if (card.text) {
+          <blockquote class="detail__text">{{ card.text }}</blockquote>
+        }
+
+        <div class="detail__ctas">
+          <button
+            matButton="filled"
+            type="button"
+            disabled
+            disabledInteractive
+            matTooltip="Coming soon: collectors near you who own, trade or sell this card"
+          >
+            <mat-icon aria-hidden="true">near_me</mat-icon>
+            Who has this near me
+          </button>
+          <button
+            matButton="outlined"
+            type="button"
+            disabled
+            disabledInteractive
+            matTooltip="Coming soon: wishlists with match alerts"
+          >
+            <mat-icon aria-hidden="true">favorite</mat-icon>
+            Add to wishlist
+          </button>
+        </div>
+
+        @if (selected(); as printing) {
+          <section class="detail__printing" aria-labelledby="selected-printing-title">
+            <div class="detail__printing-head">
+              <h2 id="selected-printing-title" class="detail__h2">Selected printing</h2>
+              <a class="detail__set-link" [routerLink]="['/sets', printing.setId]">
+                {{ printing.setName }} ({{ printing.setCode }})
+              </a>
+            </div>
+            <ul class="detail__chips" aria-label="Printing details">
+              <li class="chip chip--code mono">{{ printing.printingCode }}</li>
+              @if (printing.rarity) {
+                <li class="chip chip--rarity">
+                  <mat-icon aria-hidden="true">diamond</mat-icon>
+                  {{ printing.rarity }}
+                </li>
+              }
+              <li class="chip">{{ edition(printing.edition) }}</li>
+              <li class="chip">{{ language(printing.language) }}</li>
+              <li class="chip">{{ finish(printing.finish) }}</li>
+            </ul>
+            <div class="detail__price" data-testid="selected-price">
+              @if (selectedPrice(); as price) {
+                <span class="detail__price-value">{{ price }}</span>
+                <span class="detail__price-note">
+                  Market price
+                  @if (printing.marketPrice?.updatedAt; as updatedAt) {
+                    · {{ updatedAt | date: 'mediumDate' : 'UTC' }}
+                  }
+                </span>
+              } @else {
+                <span class="detail__price-note">No market price for this printing yet.</span>
+              }
+            </div>
+          </section>
+        }
+
+        <section class="detail__attributes" aria-labelledby="attributes-title">
+          <h2 id="attributes-title" class="detail__h2">Attributes</h2>
+          <app-card-metadata
+            [fields]="schema()?.metadataFields ?? null"
+            [metadata]="card.metadata"
+          />
+        </section>
+      </div>
+    </div>
+
+    <section class="detail__printings" aria-labelledby="printings-title">
+      <h2 id="printings-title" class="detail__h2">
+        Printings <span class="detail__count">{{ printings().length }}</span>
+      </h2>
+      @if (printings().length) {
+        <app-printings-table
+          mode="card"
+          [printings]="printings()"
+          [selectedId]="selected()?.id ?? null"
+          [label]="'Printings of ' + card.name"
+          (pick)="selectPrinting($event)"
+        />
+      } @else {
+        <p class="detail__muted">No printings are recorded for this card yet.</p>
+      }
+    </section>
+  } @else {
+    <div class="detail__grid" aria-busy="true">
+      <span class="visually-hidden">Loading card</span>
+      <div class="detail__media">
+        <app-skeleton class="detail__image-skeleton" height="100%" />
+      </div>
+      <div class="detail__info">
+        <app-skeleton width="30%" height="1.5rem" />
+        <app-skeleton width="70%" height="2.5rem" />
+        <app-skeleton variant="list" lines="4" />
+      </div>
+    </div>
+  }
+</div>

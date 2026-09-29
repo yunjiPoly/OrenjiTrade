@@ -213,6 +213,14 @@ public class CatalogService {
         return queries.printings(ids);
     }
 
+    /**
+     * Printings by id including those of hidden games (an owner's inventory keeps showing cards of
+     * a game an admin hid); unknown ids are skipped.
+     */
+    public List<PrintingSummary> printingsIncludingHidden(Collection<UUID> ids) {
+        return queries.printings(ids, false);
+    }
+
     /** Name of a card for its placeholder image. */
     public Optional<String> cardName(String gameSlug, String cardSlug) {
         return queries.cardName(gameSlug, cardSlug);

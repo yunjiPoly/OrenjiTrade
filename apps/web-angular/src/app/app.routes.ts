@@ -6,6 +6,8 @@ import {
   authGuard,
   onboardingGuard,
 } from './core/auth/auth.guards';
+import { FEATURE } from './core/feature-flags/feature-flags.service';
+import { featureGuard } from './core/feature-flags/feature.guard';
 
 /**
  * Top-level routes. Every page is lazy (`loadComponent` / `loadChildren`) so the initial bundle
@@ -39,9 +41,30 @@ export const routes: Routes = [
       import('./features/search/search-page.component').then((m) => m.SearchPageComponent),
   },
   {
+    path: 'cards',
+    canActivate: [onboardingGuard],
+    loadChildren: () => import('./features/catalog/catalog.routes').then((m) => m.CATALOG_ROUTES),
+  },
+  {
+    path: 'sets/:id',
+    title: 'Set',
+    canActivate: [onboardingGuard],
+    loadComponent: () =>
+      import('./features/catalog/set-detail/set-detail-page.component').then(
+        (m) => m.SetDetailPageComponent,
+      ),
+  },
+  {
+    path: 'premium',
+    title: 'Premium',
+    canActivate: [accountStateGuard],
+    loadComponent: () =>
+      import('./features/premium/premium-page.component').then((m) => m.PremiumPageComponent),
+  },
+  {
     path: 'community',
     title: 'Community',
-    canActivate: [onboardingGuard],
+    canActivate: [onboardingGuard, featureGuard(FEATURE.publicChat, 'Community')],
     loadComponent: () =>
       import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
   },
