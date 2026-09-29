@@ -63,6 +63,7 @@ crash.log
 
 # --- Docker / local data ---
 .local-storage/
+.local-dev/
 infrastructure/docker/data/
 *.local.yml
 

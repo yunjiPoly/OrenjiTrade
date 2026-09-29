@@ -212,8 +212,30 @@ _In progress: workflow `phase1-auth-users` (workspace + backend A → regen → 
 
 ## NEXT TASK
 
-Session paused by the user after Phase 0 with all five scaffolds built. Resume in this order:
+**Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
+everything must run locally, build a functional **web** application first, then mobile. Phase 11
+(ML card recognition) is on hold. Mobile partial auth work is parked on branch
+`wip/mobile-auth-partial`.
 
-1. Re-run the two interrupted independent verifications: web (`cd apps/web-angular && npm run lint && npm run format:check && npm test && npm run build`) and infra (`terraform fmt -check -recursive infrastructure`, then `terraform init -backend=false && terraform validate` in each `infrastructure/terraform/environments/*` and `infrastructure/cloudflare/terraform`). Confirm PR #1 CI is green (`gh pr checks 1`).
-2. ~~Root npm workspace~~ done in `d85a93f`. Remaining prerequisites handled inside the Phase 1 workflow: `info.license.url` in `OpenApiConfig`, `/error` excluded from springdoc. Original text: add a root `package.json` with npm workspaces (`apps/web-angular`, `apps/mobile`, `packages/*`), drop `apps/web-angular/scripts/link-workspace-peers.mjs` and the CI "Install shared-types dependencies" step, keep the generator CLI in `packages/api-client/tools/`; set `info.license.url` in `OpenApiConfig` and remove `--skip-validate-spec`; exclude `/error` from springdoc if it reappears.
-3. Launch the Phase 1 workflow per `docs/api/contracts/phase1-auth-users.md` (backend auth/users/audit/consents/rate-limit → backend profiles/tags/location/privacy/deletion → OpenAPI export + client regeneration → web + mobile integration → E2E with the Firebase emulator). Orchestrator notes for this plan were kept in the session scratchpad; the contract document is the durable source.
+Execution plan (workflow `web-mvp-local`, one vertical slice per phase, backend N+1 overlapping
+web N, every stage independently re-verified, clients regenerated and committed):
+
+1. Phase 1 remainder — profiles, tags, approximate location, settings, collector profile,
+   deletion/export (backend; V004–V007 drafted) → web auth, onboarding, settings, collector page,
+   admin users/audit.
+2. Phase 2 — catalog + platform rules (feature flags, plans, usage limits, entitlements) → web
+   card search/detail, admin games/cards/flags/limits, limit-reached dialog.
+3. Phase 3 — inventory, binders, freshness → web /inventory, public binder pages.
+4. Phase 4 — nearby collectors, unified search, card holders, minimal analytics events → web
+   /map (Leaflet) and /search.
+5. Phase 5 — private chat (STOMP realtime), blocking, community channels → web messages panel,
+   /messages, /community.
+6. Phase 6 — wishlist, matching, notifications (log push/email) → web wishlist, notification centre.
+7. Phase 7 — ratings, references, collector reports, moderation, delisting admin → web report
+   dialog, ratings, admin console sections.
+8. Phase 8 — offers and trades → web offer dialog, inbox, trade page.
+9. Phase 9 — payment protection with the fake provider, shipping, disputes → web flows + admin.
+10. Phase 10 — plans/billing (fake), credits, ads (internal), donations (fake) → web pages + admin.
+11. Local environment tooling (one-command dev, reset/seed, docs) and the web acceptance E2E suite.
+
+Migration ranges reserved per phase: P1 V004–V009, P2 V010–V019, …, P10 V090–V099.
