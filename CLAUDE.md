@@ -66,7 +66,9 @@ logs, analytics events, admin exports, or seed screenshots.
 - Root package `com.orenjitrade.api`. One package per module:
   `auth users profiles location games cards inventory binders search wishlist messaging
   community notifications ratings reports offers trades payments billing credits donations
-  ads moderation admin audit analytics featureflags delisting common config`.
+  ads moderation admin audit analytics featureflags delisting jobs common config`.
+  `auth` is the lowest business module (owns `Role`, `AccountStatus`, `AuthenticatedUser`, the
+  `AccountResolver` SPI); `users` implements that SPI. `jobs` owns `job_run` and `/internal/jobs/*`.
 - Inside a module: `api/` (controllers + request/response DTOs), `domain/` (entities, value
   objects, domain services), `infra/` (repositories, external adapters), `events/`.
   Entities are never returned from controllers. Cross-module calls go through the other

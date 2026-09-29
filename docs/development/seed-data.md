@@ -3,7 +3,7 @@
 All seed data is fictional. Locations are public landmarks or neighbourhood centroids in the
 Montréal area, never residential addresses. Seed runs from `SeedDataRunner` (profile `local`,
 `dev`) using SQL/JSON files in `apps/api/src/main/resources/db/seed/`, idempotently (upserts keyed
-by stable UUIDs). Emulator auth users are created by `scripts/seed-auth-emulator.mjs`.
+by stable UUIDs). Emulator auth users are created by the same runner through the Firebase Admin SDK when the emulator host is configured.
 
 ## Collectors
 
@@ -19,7 +19,7 @@ Stable ids use the pattern `00000000-0000-4000-8000-0000000000NN`.
 | 06 | collector6 | Ethan Walsh | Westmount (45.483, -73.598) | Trader, High-End | Magic, Yu-Gi-Oh! | public binder 50 days old (HIDDEN until confirmed) |
 | 07 | collector7 | Amara Diallo | Rosemont (45.549, -73.577) | Player, Competitive, Local Meetups | Pokémon | private only (not discoverable) |
 | 08 | collector8 | Noah Kim | Old Port, Montréal (45.507, -73.554) | Collector, Casual | Riftbound, Pokémon | public binder, low quantity items |
-| 09 | premium-user | Camille Roy | Outremont (45.518, -73.610) | Collector, Trader | all four | premium plan, saved searches |
+| 09 | premium_user | Camille Roy | Outremont (45.518, -73.610) | Collector, Trader | all four | premium plan, saved searches |
 | 10 | moderator | Jordan Lavoie | Griffintown (45.493, -73.561) | — | — | MODERATOR |
 | 11 | admin | Alex Morin | Downtown Montréal (45.501, -73.567) | — | — | ADMIN |
 | 12 | superadmin | Sam Gagnon | Downtown Montréal (45.503, -73.571) | — | — | SUPER_ADMIN |
