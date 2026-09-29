@@ -11,6 +11,8 @@ concurrency:
 
 permissions:
   contents: read
+  # dorny/paths-filter lists changed files through the PR API on pull_request events.
+  pull-requests: read
 
 env:
   NODE_VERSION: "24"
