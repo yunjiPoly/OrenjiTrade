@@ -22,19 +22,6 @@ module.exports = defineConfig([
     rules: {
       // Exhaustive switches rely on `assertNever`; keep them honest.
       'no-fallthrough': 'error',
-      // Only `import type` may reference the shared-types package: it is a types-only dependency.
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: '@orenji/shared-types',
-              importNames: ['default'],
-              message: 'Import types only (`import type { paths } ...`).',
-            },
-          ],
-        },
-      ],
     },
   },
 ]);

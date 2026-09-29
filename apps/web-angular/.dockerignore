@@ -14,11 +14,16 @@
 !**/.env.example
 **/*.log
 
-# Other applications and infrastructure are not needed for the web image.
+# Other applications and infrastructure are not needed for the web image. The package.json of
+# apps/mobile and packages/shared-types are the exceptions: `npm ci` validates the root lockfile
+# against EVERY workspace manifest, so they must be in the context (nothing else of them is).
 apps/api
 apps/ml
-apps/mobile
+apps/mobile/*
+!apps/mobile/package.json
 infrastructure
 docs
 .github
-packages/shared-types
+packages/shared-types/*
+!packages/shared-types/package.json
+packages/api-client/tools

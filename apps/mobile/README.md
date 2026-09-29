@@ -15,11 +15,17 @@ Read the root `CLAUDE.md` and `docs/architecture/adr/0006-angular-web-react-nati
 ## Run
 
 ```bash
+npm ci                        # ONCE, at the repository root (npm workspaces: web + mobile + packages/*)
 cd apps/mobile
-npm install
 cp .env.example .env          # optional; defaults target http://localhost:8080
 npx expo start                # press i / a / w, or scan the QR code with Expo Go
 ```
+
+Never run `npm install` inside this folder: the root `package-lock.json` is the only lockfile.
+Every script below also works from the repository root as `npm run <script> -w apps/mobile`
+(CI does exactly that). Expo's Metro config detects the workspace root automatically (SDK 52+),
+so there is no `metro.config.js`; `@orenji/shared-types` resolves through the root
+`node_modules` like any other dependency.
 
 Testing on a physical phone? Set `EXPO_PUBLIC_API_BASE_URL` in `.env` to your machine's LAN IP
 (for example `http://192.168.1.20:8080`); `localhost` points at the phone itself.
@@ -60,17 +66,18 @@ src/
   lib/                    relativeTime, formatDistanceBucket, assertNever
   store/                  zustand store (theme override, session prefs, last map region), persisted
   theme/                  tokens.ts (generated), palette, ThemeProvider, useTheme
-  types/                  fallback for @orenji/shared-types + env typings
+  types/                  env typings (EXPO_PUBLIC_* declarations)
 scripts/sync-tokens.mjs   regenerates src/theme/tokens.ts from packages/design-tokens/tokens.json
 .maestro/smoke.yaml       Maestro smoke flow
 ```
 
 ### Shared packages
 
-- **Types**: `import type { paths, MetaResponse } from '@orenji/shared-types'` resolves through a
-  tsconfig path to `packages/shared-types/src`; when that package is missing it falls back to
-  `src/types/shared-types-fallback`. Only `import type` is allowed (enforced by ESLint) so the
-  package is never bundled by Metro.
+- **API types + client**: `@orenji/shared-types` (`packages/shared-types`) is a workspace
+  dependency. `src/api/client.ts` builds the app client with its `createApiClient()` (bearer
+  token from the session, `X-Request-Id` from `expo-crypto`) and adds the RFC 9457 → `ApiError`
+  middleware; screens import `paths`, `MetaResponse`, ... from the same package. Regenerate it
+  with `npm run generate:api` at the repo root whenever `docs/api/openapi.json` changes.
 - **Design tokens**: `npm run sync:tokens` regenerates `src/theme/tokens.ts` from
   `packages/design-tokens/tokens.json` (merged over built-in fallback values so the app always
   compiles). Commit the generated file.

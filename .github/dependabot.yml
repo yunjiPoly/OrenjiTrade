@@ -16,11 +16,13 @@ updates:
       gradle-minor-patch:
         update-types: [minor, patch]
 
+  # One npm workspace (root package-lock.json covers apps/web-angular, apps/mobile, packages/*).
+  # packages/api-client/tools is deliberately NOT a workspace (generator CLI kept apart), so it
+  # keeps its own lockfile and is listed separately.
   - package-ecosystem: npm
     directories:
-      - /apps/web-angular
-      - /apps/mobile
-      - /packages/*
+      - /
+      - /packages/api-client/tools
     schedule:
       interval: weekly
       day: monday

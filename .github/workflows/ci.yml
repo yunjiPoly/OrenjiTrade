@@ -45,9 +45,15 @@ jobs:
             web:
               - 'apps/web-angular/**'
               - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.npmrc'
             mobile:
               - 'apps/mobile/**'
               - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.npmrc'
             ml:
               - 'apps/ml/**'
             infra:
@@ -103,27 +109,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/web-angular/package-lock.json
-      - name: Build design tokens
-        working-directory: packages/design-tokens
-        run: |
-          if [ -f package-lock.json ]; then npm ci; fi
-          if [ -f package.json ]; then npm run build --if-present; fi
-      - name: Install web dependencies
-        working-directory: apps/web-angular
+          cache-dependency-path: package-lock.json
+      # One install for the whole npm workspace (apps/web-angular, apps/mobile, packages/*).
+      - name: Install workspace dependencies
         run: npm ci
+      - name: Build design tokens
+        run: npm run build:tokens
       - name: Lint
-        working-directory: apps/web-angular
-        run: npm run lint
+        run: npm run lint -w apps/web-angular
       - name: Format check
-        working-directory: apps/web-angular
-        run: npm run format:check
+        run: npm run format:check -w apps/web-angular
       - name: Unit tests
-        working-directory: apps/web-angular
-        run: npm test
+        run: npm run test -w apps/web-angular
       - name: Build
-        working-directory: apps/web-angular
-        run: npm run build
+        run: npm run build -w apps/web-angular
 
   mobile:
     name: Mobile (Expo)
@@ -133,30 +132,23 @@ jobs:
     timeout-minutes: 20
     env:
       CI: "true"
-    defaults:
-      run:
-        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
-      # apps/mobile type-checks packages/shared-types/src through a tsconfig path alias, so that
-      # package's own dependencies (openapi-fetch) must be installed too until a root npm
-      # workspace replaces the alias (tracked for Phase 1).
-      - name: Install shared-types dependencies
-        working-directory: packages/shared-types
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
-      - run: npm ci
+          cache-dependency-path: package-lock.json
+      # One install for the whole npm workspace; @orenji/shared-types is a workspace dependency
+      # of apps/mobile, so its own dependencies (openapi-fetch) come with it.
+      - name: Install workspace dependencies
+        run: npm ci
       - name: Typecheck
-        run: npm run typecheck
+        run: npm run typecheck -w apps/mobile
       - name: Lint
-        run: npm run lint
+        run: npm run lint -w apps/mobile
       - name: Unit tests
-        run: npm test
+        run: npm run test -w apps/mobile
 
   ml:
     name: ML (FastAPI)
@@ -268,13 +260,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: npm audit (web)
-        if: hashFiles('apps/web-angular/package-lock.json') != ''
-        working-directory: apps/web-angular
-        run: npm audit --audit-level=high
-      - name: npm audit (mobile)
-        if: hashFiles('apps/mobile/package-lock.json') != ''
-        working-directory: apps/mobile
+      # The root package-lock.json covers every npm workspace (web, mobile, packages/*).
+      - name: npm audit (npm workspace)
+        if: hashFiles('package-lock.json') != ''
         run: npm audit --audit-level=high
       - uses: actions/setup-python@v5
         with:

@@ -47,6 +47,7 @@ OrenjiTrade/
 │   ├── api-client/     Generated Angular client from OpenAPI
 │   ├── shared-types/   Generated TypeScript types + openapi-fetch helper (mobile)
 │   └── design-tokens/  Colours, typography, spacing → CSS variables + TS
+├── package.json        npm workspaces root (apps/web-angular, apps/mobile, packages/*): one `npm ci`, one lockfile
 ├── infrastructure/
 │   ├── terraform/      GCP modules + environments (dev, staging, prod)
 │   ├── docker/         Local emulator images, Postgres init
@@ -76,7 +77,16 @@ No Google Cloud, Stripe, Firebase or Google Maps credentials are required locall
 git clone <repo> OrenjiTrade && cd OrenjiTrade
 cp .env.example .env                      # defaults already match docker-compose
 docker compose up -d                      # PostGIS :5432, Redis :6379, Firebase Auth emulator :9099 (UI :4000)
+npm ci                                    # ONCE, at the repo root: installs web + mobile + packages/* (npm workspaces)
 ```
+
+The JavaScript side of the repository is a single npm workspace: the root `package.json` lists
+`apps/web-angular`, `apps/mobile` and `packages/*`, and the root `package-lock.json` is the
+only lockfile (`packages/api-client/tools` keeps its own on purpose, it is generator tooling).
+Never run `npm install` inside an app folder; run `npm ci` at the root and then either `cd`
+into the app or use `npm run <script> -w apps/<app>` from the root. Root shortcuts:
+`npm run build:tokens`, `npm run generate:api`, `npm run lint`, `npm test`, `npm run typecheck`
+(the last three fan out to every workspace that has the script).
 
 ### Database
 
@@ -98,9 +108,9 @@ cd apps/api
 ### Web
 
 ```bash
-cd apps/web-angular
-npm ci
-npm start                                                    # http://localhost:4200
+# after `npm ci` at the repo root
+npm start -w apps/web-angular                                # http://localhost:4200 (builds design tokens first)
+# or: cd apps/web-angular && npm start
 ```
 
 Runtime configuration is read from `public/config.json` (API URL, Firebase web config, optional
@@ -109,8 +119,8 @@ Google Maps key). Without a Maps key the map falls back to Leaflet/OpenStreetMap
 ### Mobile
 
 ```bash
+# after `npm ci` at the repo root
 cd apps/mobile
-npm ci
 cp .env.example .env         # EXPO_PUBLIC_API_BASE_URL should point at your machine's LAN IP for devices
 npx expo start
 ```
@@ -140,9 +150,9 @@ Secret Manager and Cloud Run environment configuration, never in Git.
 | --- | --- | --- |
 | API unit + integration | `cd apps/api && ./gradlew test` | Testcontainers starts PostGIS + Redis; Docker required |
 | API OpenAPI export | `./gradlew exportOpenApi` | writes `docs/api/openapi.json` |
-| Web unit | `cd apps/web-angular && npm test` | Angular test runner |
-| Web E2E | `npm run e2e` | Playwright, starts the dev server |
-| Mobile | `cd apps/mobile && npm run typecheck && npm test` | jest-expo; Maestro flows in `.maestro/` |
+| Web unit | `npm run test -w apps/web-angular` | Angular test runner (`npm test` at the root runs web + mobile) |
+| Web E2E | `npm run e2e -w apps/web-angular` | Playwright, starts the dev server |
+| Mobile | `npm run typecheck -w apps/mobile && npm run test -w apps/mobile` | jest-expo; Maestro flows in `.maestro/` |
 | ML | `cd apps/ml && pytest` | plus `ruff check .` and `mypy app` |
 | Infra | `terraform validate` in each `infrastructure/terraform/environments/*` | |
 
@@ -154,8 +164,8 @@ The OpenAPI document is generated from the Spring Boot application (`./gradlew e
 into `docs/api/openapi.json`. Regenerate clients afterwards:
 
 ```bash
-cd packages/api-client && npm run generate      # Angular services
-cd packages/shared-types && npm run generate    # TypeScript types for mobile
+npm run generate:api                            # at the repo root: Angular services + TypeScript types for mobile
+# individually: npm run generate -w packages/api-client / npm run generate -w packages/shared-types
 ```
 
 CI fails if the committed spec drifts from the code.
@@ -164,7 +174,7 @@ CI fails if the committed spec drifts from the code.
 
 ```bash
 docker build -t orenjitrade/api apps/api
-docker build -t orenjitrade/web -f apps/web-angular/Dockerfile .     # context = repo root (needs packages/)
+docker build -t orenjitrade/web -f apps/web-angular/Dockerfile .     # context = repo root (root lockfile + packages/)
 docker build -t orenjitrade/ml apps/ml
 ```
 

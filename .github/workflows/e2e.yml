@@ -71,14 +71,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/web-angular/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # One install for the whole npm workspace (root package-lock.json covers apps/web-angular,
+      # apps/mobile and packages/*), then the design tokens and the web build.
+      - name: Install workspace dependencies
+        run: npm ci
       - name: Build design tokens and web app
         run: |
-          if [ -f packages/design-tokens/package-lock.json ]; then (cd packages/design-tokens && npm ci && npm run build --if-present); fi
-          cd apps/web-angular
-          npm ci
-          npm run build
+          npm run build:tokens
+          npm run build -w apps/web-angular
 
       - name: Wait for API readiness
         run: |

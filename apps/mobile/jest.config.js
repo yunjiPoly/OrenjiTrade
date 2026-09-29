@@ -13,7 +13,6 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
-    '^@orenji/shared-types$': '<rootDir>/src/types/shared-types-fallback/index.ts',
   },
   collectCoverageFrom: ['src/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', '!src/theme/tokens.ts'],
   clearMocks: true,

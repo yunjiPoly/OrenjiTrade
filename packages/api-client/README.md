@@ -13,7 +13,8 @@ this package is regenerated from it (ADR 0006: DTO changes propagate by regenera
 packages/api-client/
   package.json          name, exports (src/index.ts), optional peer deps, `generate` script
   src/                  GENERATED — services, models, configuration, provide-api
-  tools/                code-generation tooling with its own package.json + lockfile
+  tools/                code-generation tooling with its own package.json + lockfile (NOT a workspace)
+    generate.mjs        runs the CLI with an explicit --openapitools path (no stray config copies)
     openapitools.json   pinned generator version (7.25.0)
     node_modules/       @openapitools/openapi-generator-cli and its dependencies
 ```
@@ -29,10 +30,9 @@ those must never be installed next to the generated sources (Node-style resoluti
 cd apps/api && ./gradlew exportOpenApi        # writes docs/api/openapi.json
 
 # 2. Regenerate this package (installs tools/ on first use; needs Java 11+)
-cd packages/api-client
-npm run generate                              # -> src/
+npm run generate -w packages/api-client       # from the repo root -> src/
 
-# or, from apps/web-angular:
+# or, everything at once (also from the repo root):
 npm run generate:api                          # regenerates api-client AND shared-types
 ```
 
@@ -41,7 +41,7 @@ use, so regeneration is reproducible across machines and CI. `--skip-validate-sp
 because the generator's OpenAPI 3.1 validator is stricter than the specification (it rejects a
 `license` without `identifier`); the contract itself is validated by the API build.
 
-Generator options (see `tools/package.json`):
+Generator options (see `tools/generate.mjs`):
 
 | Option                           | Why                                                                   |
 | -------------------------------- | --------------------------------------------------------------------- |
@@ -57,15 +57,15 @@ Generator options (see `tools/package.json`):
 
 ## How the web app consumes it
 
-1. `apps/web-angular/package.json` declares `"@orenji/api-client": "file:../../packages/api-client"`
-   and `tsconfig.json` maps `@orenji/api-client` to `../../packages/api-client/src/index.ts`, so
-   the generated TypeScript is compiled as part of the app (strict mode, AOT).
+1. `apps/web-angular/package.json` declares `"@orenji/api-client": "*"` (a workspace dependency
+   resolved by the root `npm ci`) and `tsconfig.json` maps `@orenji/api-client` to
+   `../../packages/api-client/src/index.ts`, so the generated TypeScript is compiled as part of
+   the app (strict mode, AOT).
 2. The generated code imports `@angular/core`, `@angular/common/http`, `rxjs` and `tslib`. They
-   are declared here as **optional peer dependencies** (never installed here) and
-   `apps/web-angular/scripts/link-workspace-peers.mjs` (run on `postinstall` and before
-   start/build/test/lint) links `packages/api-client/node_modules/<peer>` to the web app's
-   copies. TypeScript, esbuild and Vite resolve those links to their real path, so the bundle
-   contains exactly one Angular and one rxjs.
+   are declared here as **optional peer dependencies** and are hoisted to the repository's root
+   `node_modules` by the workspace install (the web app depends on them), so the generated
+   sources resolve the very same copies the app uses: exactly one Angular and one rxjs in the
+   bundle, no link script, no `preserveSymlinks`.
 
 Wiring lives in `apps/web-angular/src/app/core/api/provide-api-client.ts`: the base path is
 kept empty so every generated call is a relative `/api/...` request that the app's
@@ -86,7 +86,7 @@ export class ApiVersionComponent {
 | Path                        | Purpose                                              |
 | --------------------------- | ---------------------------------------------------- |
 | `package.json`              | name, `generate` script (delegates to `tools/`)      |
-| `tools/package.json`        | generator devDependency + generator command          |
+| `tools/package.json`        | generator devDependency, `generate` -> `generate.mjs` |
 | `tools/openapitools.json`   | pinned generator version                             |
 | `src/api/*.service.ts`      | one service per OpenAPI tag                          |
 | `src/model/*.ts`            | DTO interfaces                                       |

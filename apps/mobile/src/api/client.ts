@@ -1,12 +1,16 @@
-import type { paths } from '@orenji/shared-types';
+import {
+  REQUEST_ID_HEADER,
+  createApiClient as createSharedApiClient,
+  type ApiClient as SharedApiClient,
+} from '@orenji/shared-types';
 import * as Crypto from 'expo-crypto';
-import createClient, { type Middleware } from 'openapi-fetch';
+import type { Middleware } from 'openapi-fetch';
 
 import { getIdToken } from '@/src/auth/tokenProvider';
 
 import { ApiError } from './ApiError';
 
-export const REQUEST_ID_HEADER = 'X-Request-Id';
+export { REQUEST_ID_HEADER };
 export const DEFAULT_API_BASE_URL = 'http://localhost:8080';
 
 export function resolveApiBaseUrl(
@@ -43,21 +47,12 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
-/** Adds `Authorization` (when signed in) and `X-Request-Id`, and turns failures into `ApiError`. */
+/**
+ * Turns every non-2xx response and every transport failure into an `ApiError`.
+ * `Authorization` and `X-Request-Id` are added by the shared client factory
+ * (`createApiClient` in `@orenji/shared-types`).
+ */
 export const apiMiddleware: Middleware = {
-  async onRequest({ request }) {
-    if (!request.headers.has(REQUEST_ID_HEADER)) {
-      request.headers.set(REQUEST_ID_HEADER, newRequestId());
-    }
-    if (!request.headers.has('Accept')) {
-      request.headers.set('Accept', 'application/json, application/problem+json');
-    }
-    const token = await getIdToken();
-    if (token) {
-      request.headers.set('Authorization', `Bearer ${token}`);
-    }
-    return request;
-  },
   async onResponse({ request, response }) {
     if (response.ok) {
       return response;
@@ -78,16 +73,21 @@ export interface CreateApiClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-/** Builds a typed client. The default export below is the app-wide singleton. */
-export function createApiClient(options: CreateApiClientOptions = {}) {
-  const client = createClient<paths>({
-    baseUrl: options.baseUrl ?? API_BASE_URL,
+export type ApiClient = SharedApiClient;
+
+/**
+ * Builds a typed client on top of the shared factory: bearer token from the session
+ * (`tokenProvider`), `X-Request-Id` from `expo-crypto`, RFC 9457 errors mapped to `ApiError`.
+ * The default export below is the app-wide singleton.
+ */
+export function createApiClient(options: CreateApiClientOptions = {}): ApiClient {
+  const client = createSharedApiClient(options.baseUrl ?? API_BASE_URL, getIdToken, {
     fetch: options.fetch,
+    headers: { Accept: 'application/json, application/problem+json' },
+    requestId: newRequestId,
   });
   client.use(apiMiddleware);
   return client;
 }
-
-export type ApiClient = ReturnType<typeof createApiClient>;
 
 export const api: ApiClient = createApiClient();

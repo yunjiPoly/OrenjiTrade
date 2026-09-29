@@ -6,11 +6,7 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": ["./*"],
-      "@orenji/shared-types": [
-        "../../packages/shared-types/src",
-        "./src/types/shared-types-fallback"
-      ]
+      "@/*": ["./*"]
     },
     "types": ["jest", "node"]
   },

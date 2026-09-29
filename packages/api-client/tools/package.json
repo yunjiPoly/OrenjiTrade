@@ -4,7 +4,7 @@
   "private": true,
   "description": "Code-generation tooling for @orenji/api-client. Kept in its own package so the generator's dependencies (rxjs, tslib, ...) never sit next to the generated Angular sources.",
   "scripts": {
-    "generate": "openapi-generator-cli generate -i ../../../docs/api/openapi.json -g typescript-angular -o ../src --skip-validate-spec --additional-properties=ngVersion=22.0.0,providedInRoot=true,withInterfaces=true,useSingleRequestParameter=true,stringEnums=true,supportsES6=true"
+    "generate": "node generate.mjs"
   },
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "^2.41.0"

@@ -1,0 +1,25 @@
+{
+  "name": "orenjitrade",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OrenjiTrade monorepo root: one npm workspace for the Angular web app, the Expo mobile app and the shared packages. apps/api (Gradle) and apps/ml (pip) are not npm packages.",
+  "license": "UNLICENSED",
+  "packageManager": "npm@11.19.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "apps/web-angular",
+    "apps/mobile",
+    "packages/design-tokens",
+    "packages/api-client",
+    "packages/shared-types"
+  ],
+  "scripts": {
+    "build:tokens": "npm run build -w packages/design-tokens",
+    "generate:api": "npm run generate -w packages/api-client && npm run generate -w packages/shared-types",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

@@ -8,27 +8,31 @@ Read [`CLAUDE.md`](../../CLAUDE.md) and ADR 0006 before changing conventions.
 ## Run
 
 ```bash
-npm ci                      # installs deps, links packages/design-tokens + packages/api-client
+npm ci                      # ONCE, at the repository root (npm workspaces: web + mobile + packages/*)
+cd apps/web-angular
 npm start                   # builds design tokens, then ng serve on http://localhost:4200
 ```
+
+Every script below also works from the repository root as `npm run <script> -w apps/web-angular`
+(CI does exactly that). Never run `npm install` inside this folder: the root
+`package-lock.json` is the only lockfile.
 
 The API is expected on `http://localhost:8080` (`cd apps/api && ./gradlew bootRun`). When it is
 down the app still renders; the footer shows "API unavailable" with a retry button and no page
 breaks.
 
-| Script                 | What it does                                                                |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `npm start`            | dev server (`prestart` prepares the workspace, see below)                   |
-| `npm run build`        | production build with budgets (`dist/web-angular/browser`)                  |
-| `npm run build:prod`   | same, explicit configuration                                                |
-| `npm run build:dev`    | development build (source maps, no optimisation)                            |
-| `npm run lint`         | ESLint (angular-eslint, templates included)                                 |
-| `npm run format`       | Prettier write / `npm run format:check` verifies                            |
-| `npm test`             | unit tests once (`ng test --watch=false`); `npm run test:watch`             |
-| `npm run e2e`          | Playwright (chromium) — starts `npm start` unless :4200 already runs        |
-| `npm run generate:api` | regenerates `packages/api-client` and `packages/shared-types`               |
-| `npm run tokens:build` | rebuilds `packages/design-tokens/dist`                                      |
-| `npm run workspace:*`  | `workspace:link` links workspace peers, `workspace:prepare` = tokens + link |
+| Script                 | What it does                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| `npm start`            | dev server (`prestart` prepares the workspace, see below)                                |
+| `npm run build`        | production build with budgets (`dist/web-angular/browser`)                               |
+| `npm run build:prod`   | same, explicit configuration                                                             |
+| `npm run build:dev`    | development build (source maps, no optimisation)                                         |
+| `npm run lint`         | ESLint (angular-eslint, templates included)                                              |
+| `npm run format`       | Prettier write / `npm run format:check` verifies                                         |
+| `npm test`             | unit tests once (`ng test --watch=false`); `npm run test:watch`                          |
+| `npm run e2e`          | Playwright (chromium) — starts `npm start` unless :4200 already runs                     |
+| `npm run generate:api` | delegates to the root `generate:api` (api-client + shared-types)                         |
+| `npm run tokens:build` | `npm run build -w @orenji/design-tokens` (also the `pre*` hook of start/build/test/lint) |
 
 ## Workspace packages
 
@@ -38,20 +42,18 @@ The app consumes two packages from `packages/` as TypeScript source:
   `dist/tokens.ts` (`Theme` types used by `ThemeService`).
 - `@orenji/api-client` — the generated Angular services (`MetaService`, ...).
 
-How it is wired (no npm workspaces at the repo root, so this is explicit):
+How it is wired (root npm workspace):
 
-1. `package.json` lists both as `file:../../packages/...` dependencies; npm symlinks them into
-   `node_modules/@orenji/*`.
+1. `package.json` lists both as workspace dependencies (`"*"`); the root `npm ci` symlinks them
+   into `<repo>/node_modules/@orenji/*`.
 2. `tsconfig.json` `paths` map `@orenji/api-client` → `../../packages/api-client/src/index.ts`
    and `@orenji/design-tokens` → `../../packages/design-tokens/dist/tokens.ts`, so both compile
    as part of this app (strict mode, AOT) and changes trigger rebuilds in `ng serve`.
-3. `scripts/link-workspace-peers.mjs` (runs on `postinstall` and via `workspace:prepare` before
-   start/build/test/lint) links the api-client's optional peer dependencies (`@angular/core`,
-   `@angular/common`, `rxjs`, `tslib`) from this app's `node_modules` into
-   `packages/api-client/node_modules`. The generated code resolves them from its real path to the
-   app's single copy — no `preserveSymlinks` (which makes `ng serve` crawl `node_modules` on
-   Windows) and no second copy of Angular.
-4. The design tokens are rebuilt by the same `pre*` hooks; `dist/` is git-ignored.
+3. The generated client imports `@angular/core`, `@angular/common/http`, `rxjs` and `tslib`
+   (declared there as optional peer dependencies). They are hoisted to the root `node_modules`
+   by the workspace install, so the generated code resolves them from its real path to the same
+   single copy this app uses — no `preserveSymlinks`, no link script, no second Angular.
+4. The design tokens are rebuilt by the `pre*` hooks (`tokens:build`); `dist/` is git-ignored.
 
 ## Runtime configuration (`config.json`)
 
@@ -155,7 +157,9 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
 ## Docker (Cloud Run)
 
 Multi-stage image: `node:24-alpine` builds tokens + app, `nginx:1.27-alpine` serves it.
-**The build context is the repository root** because the image needs `packages/`:
+**The build context is the repository root** because the image installs from the root
+`package-lock.json` (`npm ci --workspace apps/web-angular --workspace packages/design-tokens
+--workspace packages/api-client`) and needs `packages/`:
 
 ```bash
 # from the repo root

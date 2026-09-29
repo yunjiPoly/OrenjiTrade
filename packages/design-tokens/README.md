@@ -9,15 +9,15 @@ tokens.json  --(node build.mjs)-->  dist/tokens.css   CSS custom properties
                                     dist/tokens.ts    typed constants + Theme types
 ```
 
-`dist/` is git-ignored and always regenerated: run `npm run build` here, or rely on the web
-app's `prebuild` / `prestart` hooks (`apps/web-angular`), which call this script.
+`dist/` is git-ignored and always regenerated: run `npm run build:tokens` at the repository
+root, or rely on the web app's `prebuild` / `prestart` hooks (`apps/web-angular`), which call
+this script.
 
 ## Build
 
 ```bash
-cd packages/design-tokens
-npm run build     # writes dist/tokens.css and dist/tokens.ts
-npm run check     # CI: fails when dist/ is missing or stale
+npm run build:tokens                        # at the repo root: writes dist/tokens.css and dist/tokens.ts
+npm run check -w packages/design-tokens     # CI: fails when dist/ is missing or stale
 ```
 
 No dependencies; requires Node 20+.

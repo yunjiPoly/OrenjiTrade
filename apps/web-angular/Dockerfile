@@ -1,7 +1,8 @@
 # OrenjiTrade web (Angular) — static build served by nginx on Cloud Run.
 #
-# The build context MUST be the repository root, because the app consumes
-# packages/design-tokens and packages/api-client as npm `file:` links:
+# The build context MUST be the repository root: apps/web-angular is a workspace of the root
+# npm workspace (package.json + package-lock.json at the repository root) and consumes
+# packages/design-tokens and packages/api-client through it:
 #
 #   docker build -f apps/web-angular/Dockerfile -t orenjitrade-web .
 #   docker run --rm -p 8080:8080 -e API_BASE_URL=http://localhost:8081 orenjitrade-web
@@ -16,28 +17,28 @@ WORKDIR /workspace
 ENV NG_CLI_ANALYTICS=false \
     CI=true
 
-# Shared packages first (better layer caching; they change less often than the app).
-COPY packages/design-tokens/package.json packages/design-tokens/package-lock.json ./packages/design-tokens/
-WORKDIR /workspace/packages/design-tokens
-RUN npm ci --no-audit --no-fund
-COPY packages/design-tokens/ ./
-RUN npm run build
-WORKDIR /workspace
-
-# The generated client is consumed as source; it has no runtime dependencies of its own.
+# Workspace manifests first (better layer caching: dependencies change less often than sources).
+# `npm ci` validates the single lockfile against EVERY workspace's package.json, so the mobile
+# app's manifest must be present too, even though nothing else from apps/mobile is used here.
+COPY package.json package-lock.json .npmrc ./
+COPY apps/web-angular/package.json ./apps/web-angular/
+COPY apps/mobile/package.json ./apps/mobile/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
 COPY packages/api-client/package.json ./packages/api-client/
-COPY packages/api-client/src/ ./packages/api-client/src/
+COPY packages/shared-types/package.json ./packages/shared-types/
+# Install only what the web build needs (the app and the two packages it consumes).
+RUN npm ci --workspace apps/web-angular --workspace packages/design-tokens --workspace packages/api-client \
+    --include-workspace-root=false --no-audit --no-fund
 
-# App dependencies (file: links resolve against ../../packages/*). The postinstall script
-# links the generated client's Angular/rxjs peers to this app's node_modules.
-COPY apps/web-angular/package.json apps/web-angular/package-lock.json ./apps/web-angular/
-COPY apps/web-angular/scripts/ ./apps/web-angular/scripts/
-WORKDIR /workspace/apps/web-angular
-RUN npm ci --no-audit --no-fund
+# Shared packages (consumed as TypeScript source), then the app sources.
+COPY packages/design-tokens/ ./packages/design-tokens/
+COPY packages/api-client/ ./packages/api-client/
+COPY apps/web-angular/ ./apps/web-angular/
 
-# App sources and production build.
-COPY apps/web-angular/ ./
-RUN npx ng build --configuration production
+# Design tokens (dist/ is git-ignored) and the production build (`prebuild` rebuilds the tokens
+# too; the explicit step keeps the failure obvious when tokens.json is broken).
+RUN npm run build:tokens \
+    && npm run build -w apps/web-angular
 
 # -------------------------------------------------------------- runtime stage
 # nginx-unprivileged runs as the unprivileged `nginx` user (UID 101): pid file in /tmp,

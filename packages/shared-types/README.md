@@ -13,15 +13,18 @@ propagate by regeneration, never by hand-editing (see ADR 0006).
 ## Regenerate
 
 ```bash
-cd packages/shared-types
-npm install
-npm run generate      # docs/api/openapi.json -> src/schema.d.ts
-npm run typecheck     # tsc --noEmit
+npm ci                                       # once, at the repository root (npm workspaces)
+npm run generate -w packages/shared-types    # docs/api/openapi.json -> src/schema.d.ts
+npm run typecheck -w packages/shared-types   # tsc --noEmit
 ```
 
 The contract itself is exported from the Spring Boot application
-(`cd apps/api && ./gradlew exportOpenApi`), never edited by hand. From `apps/web-angular`,
-`npm run generate:api` regenerates this package and `packages/api-client` together.
+(`cd apps/api && ./gradlew exportOpenApi`), never edited by hand. `npm run generate:api` at
+the repository root regenerates this package and `packages/api-client` together.
+
+This package is a workspace of the root npm workspace and a real dependency of `apps/mobile`
+(`"@orenji/shared-types": "*"`): the mobile app uses `createApiClient()` at runtime, and Metro
+resolves the package through the root `node_modules`.
 
 ## Usage
 
