@@ -20,7 +20,7 @@
   ],
   "security": [
     {
-      "bearerAuth": [ ]
+      "bearerAuth": []
     }
   ],
   "tags": [
@@ -47,142 +47,52 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
           }
         },
-        "security": [ ]
-      }
-    },
-    "/error": {
-      "get": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error_2",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error_1",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error_3",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "options": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error_6",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "head": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error_5",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "problem-detail-error-controller"
-        ],
-        "operationId": "error_4",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
+        "security": []
       }
     }
   },
   "components": {
     "schemas": {
+      "MetaResponse": {
+        "type": "object",
+        "description": "Build and environment metadata",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "OrenjiTrade API"
+          },
+          "version": {
+            "type": "string",
+            "example": "0.1.0"
+          },
+          "environment": {
+            "type": "string",
+            "example": "local"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "environment",
+          "name",
+          "serverTime",
+          "version"
+        ]
+      },
       "ProblemDetail": {
         "type": "object",
         "description": "RFC 9457 problem details with OrenjiTrade extensions",
@@ -253,34 +163,6 @@
           "timestamp",
           "title",
           "type"
-        ]
-      },
-      "MetaResponse": {
-        "type": "object",
-        "description": "Build and environment metadata",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "OrenjiTrade API"
-          },
-          "version": {
-            "type": "string",
-            "example": "0.1.0"
-          },
-          "environment": {
-            "type": "string",
-            "example": "local"
-          },
-          "serverTime": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "environment",
-          "name",
-          "serverTime",
-          "version"
         ]
       }
     },
