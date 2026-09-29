@@ -1,7 +1,25 @@
-import type { ApiError as SharedApiError, ProblemDetail } from '@orenji/shared-types';
+import type {
+  ApiError as SharedApiError,
+  ProblemDetail,
+  RequiredConsent,
+} from '@orenji/shared-types';
 
 export const NETWORK_ERROR_CODE = 'NETWORK_ERROR';
 export const UNKNOWN_ERROR_CODE = 'UNKNOWN_ERROR';
+
+/** Error codes from `docs/api/README.md` the app reacts to specifically. */
+export const TERMS_ACCEPTANCE_REQUIRED_CODE = 'TERMS_ACCEPTANCE_REQUIRED';
+export const ACCOUNT_SUSPENDED_CODE = 'ACCOUNT_SUSPENDED';
+export const REAUTHENTICATION_REQUIRED_CODE = 'REAUTHENTICATION_REQUIRED';
+
+type DocumentType = RequiredConsent['documentType'];
+
+function isRequiredConsent(value: {
+  documentType?: string;
+  version?: string;
+}): value is RequiredConsent {
+  return typeof value.documentType === 'string' && typeof value.version === 'string';
+}
 
 /**
  * Error thrown by the API client for every non-2xx response and for transport failures.
@@ -41,6 +59,34 @@ export class ApiError extends Error implements SharedApiError {
 
   get isUnauthorized(): boolean {
     return this.status === 401;
+  }
+
+  /** `428 TERMS_ACCEPTANCE_REQUIRED`: the user must accept `requiredConsents` first. */
+  get isConsentRequired(): boolean {
+    return this.status === 428 || this.errorCode === TERMS_ACCEPTANCE_REQUIRED_CODE;
+  }
+
+  /** `403 ACCOUNT_SUSPENDED` (also sent for DELETION_REQUESTED accounts). */
+  get isSuspended(): boolean {
+    return this.status === 403 && this.errorCode === ACCOUNT_SUSPENDED_CODE;
+  }
+
+  /** `401 REAUTHENTICATION_REQUIRED`: the ID token's `auth_time` is too old for this action. */
+  get isReauthenticationRequired(): boolean {
+    return this.status === 401 && this.errorCode === REAUTHENTICATION_REQUIRED_CODE;
+  }
+
+  /** Documents to accept, from the `requiredConsents` extension of a 428 problem. */
+  get requiredConsents(): RequiredConsent[] {
+    return (this.problem?.requiredConsents ?? []).filter(isRequiredConsent).map((entry) => ({
+      documentType: entry.documentType as DocumentType,
+      version: entry.version,
+    }));
+  }
+
+  /** End of a temporary suspension, from the `suspendedUntil` extension of a 403 problem. */
+  get suspendedUntil(): string | null {
+    return this.problem?.suspendedUntil ?? null;
   }
 
   /** Builds an `ApiError` from a failed response body (RFC 9457 Problem Details or anything else). */
