@@ -1,0 +1,86 @@
+# OrenjiTrade local development infrastructure.
+#   docker compose up -d
+# Only infrastructure runs here; the applications run on the host (see README.md).
+# Nothing in this file needs cloud credentials or real payment keys.
+
+name: orenjitrade
+
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: orenjitrade-postgres
+    environment:
+      POSTGRES_DB: orenjitrade
+      POSTGRES_USER: orenjitrade
+      POSTGRES_PASSWORD: orenjitrade_local
+      # UTC everywhere; the app converts for display.
+      TZ: UTC
+      PGTZ: UTC
+    command: >
+      postgres
+        -c shared_preload_libraries=pg_stat_statements
+        -c pg_stat_statements.track=all
+        -c log_min_duration_statement=500
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orenjitrade -d orenjitrade"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: orenjitrade-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  # Firebase Authentication emulator (Identity Platform locally). Pure Node, no Java needed.
+  # Emulator UI: http://localhost:4000   Auth endpoint: http://localhost:9099
+  firebase-auth:
+    build:
+      context: ./infrastructure/docker/firebase-emulator
+    container_name: orenjitrade-firebase-auth
+    environment:
+      FIREBASE_PROJECT_ID: orenjitrade-local
+    ports:
+      - "${FIREBASE_AUTH_PORT:-9099}:9099"
+      - "${FIREBASE_UI_PORT:-4000}:4000"
+    volumes:
+      - firebase-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9099/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    restart: unless-stopped
+
+  # Optional: Google Pub/Sub emulator. The API uses the in-process event bus by default
+  # (EVENTS_TRANSPORT=local); set EVENTS_TRANSPORT=pubsub + PUBSUB_EMULATOR_HOST to exercise it.
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    container_name: orenjitrade-pubsub
+    command: ["gcloud", "beta", "emulators", "pubsub", "start", "--host-port=0.0.0.0:8085", "--project=orenjitrade-local"]
+    ports:
+      - "${PUBSUB_PORT:-8085}:8085"
+    profiles: ["pubsub"]
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  firebase-data:
