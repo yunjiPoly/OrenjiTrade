@@ -210,9 +210,9 @@ variable "sql_disk_size_gb" {
 }
 
 variable "sql_transaction_log_retention_days" {
-  description = "Days of PITR transaction logs."
+  description = "Days of PITR transaction logs (7 is the Cloud SQL Enterprise edition maximum; ENTERPRISE_PLUS allows up to 35)."
   type        = number
-  default     = 14
+  default     = 7
 }
 
 variable "sql_retained_backups" {

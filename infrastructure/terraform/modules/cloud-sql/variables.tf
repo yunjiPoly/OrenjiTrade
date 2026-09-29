@@ -87,13 +87,18 @@ variable "point_in_time_recovery_enabled" {
 }
 
 variable "transaction_log_retention_days" {
-  description = "Days of transaction logs kept for PITR (1-35)."
+  description = "Days of transaction logs kept for PITR (1-7 on ENTERPRISE, 1-35 on ENTERPRISE_PLUS)."
   type        = number
   default     = 7
 
   validation {
     condition     = var.transaction_log_retention_days >= 1 && var.transaction_log_retention_days <= 35
     error_message = "transaction_log_retention_days must be between 1 and 35."
+  }
+
+  validation {
+    condition     = var.edition == "ENTERPRISE_PLUS" || var.transaction_log_retention_days <= 7
+    error_message = "Cloud SQL Enterprise edition retains at most 7 days of transaction logs; use ENTERPRISE_PLUS for up to 35."
   }
 }
 

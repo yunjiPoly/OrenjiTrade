@@ -9,7 +9,7 @@ production. Configuration values come from `infrastructure/terraform/modules/clo
 
 | Data | Where | Backup mechanism | Retention | Restore path |
 | --- | --- | --- | --- | --- |
-| Transactional data (users, inventory, binders, messages, offers, audit log, feature flags) | Cloud SQL PostgreSQL 17 | Automated daily backups (07:00 UTC) + point-in-time recovery from WAL | dev/staging 7 backups, 7 days WAL; prod 30 backups, 14 days WAL | Clone/restore (below) |
+| Transactional data (users, inventory, binders, messages, offers, audit log, feature flags) | Cloud SQL PostgreSQL 17 | Automated daily backups (07:00 UTC) + point-in-time recovery from WAL | dev/staging 7 backups, 7 days WAL; prod 30 backups, 7 days WAL (Enterprise edition maximum) | Clone/restore (below) |
 | User media (avatars, card photos) | GCS `<project>-media` | Object versioning (prod) + soft delete 7 days; regional bucket with Google's 11 nines durability | non-current versions: 3 kept; `tmp/` purged after 2 days | Restore version / undelete (below) |
 | Analytics events | BigQuery `orenjitrade_analytics.events` | BigQuery time travel (7 days) + fail-safe (7 days); source of truth is the Pub/Sub topic for 7 days | prod partitions never expire | `SELECT ... FOR SYSTEM_TIME AS OF` |
 | Redis (caches, rate limits, presence) | Memorystore | RDB snapshot every 12 h in prod | ephemeral by design; nothing authoritative | Warm-up on restart; no restore needed |
@@ -26,8 +26,9 @@ image retention.
 ### Settings (Terraform)
 
 - `backup_configuration.enabled = true`, `start_time = 07:00 UTC`,
-  `point_in_time_recovery_enabled = true`, `transaction_log_retention_days` 7 (dev/staging) or
-  14 (prod), `retained_backups` 7 or 30, `backup_location` defaults to the instance region
+  `point_in_time_recovery_enabled = true`, `transaction_log_retention_days` 7 (the Cloud SQL
+  Enterprise edition maximum; `ENTERPRISE_PLUS` allows up to 35), `retained_backups` 7
+  (dev/staging) or 30 (prod), `backup_location` defaults to the instance region
   (set `backup_location = "northamerica-northeast2"` for cross-region copies if the
   organisation requires it).
 - `deletion_protection = true` in prod at both Terraform and API level; `final_backup` is taken

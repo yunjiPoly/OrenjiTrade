@@ -15,7 +15,7 @@ in each environment's git-ignored `terraform.tfvars` and in GitHub environment v
 | Web host | `localhost:4200` | `dev.orenjitrade.com` | `staging.orenjitrade.com` | `www.orenjitrade.com` |
 | API host | `localhost:8080` | `dev-api.orenjitrade.com` | `staging-api.orenjitrade.com` | `api.orenjitrade.com` |
 | Spring profile | `local` | `development` | `staging` | `production` |
-| Cloud SQL | `postgis/postgis:17-3.5` container | `db-f1-micro`, ZONAL, PITR 7 d, 7 backups | `db-g1-small`, ZONAL, PITR 7 d, 7 backups | `db-custom-2-7680`, REGIONAL (HA), PITR 14 d, 30 backups |
+| Cloud SQL | `postgis/postgis:17-3.5` container | `db-f1-micro`, ZONAL, PITR 7 d, 7 backups | `db-g1-small`, ZONAL, PITR 7 d, 7 backups | `db-custom-2-7680`, REGIONAL (HA), PITR 7 d, 30 backups |
 | Redis | `redis:7` container | BASIC 1 GB | BASIC 1 GB | STANDARD_HA 5 GB + 1 replica, RDB persistence |
 | api Cloud Run | `gradlew bootRun` | 1 vCPU / 1 GiB, 0-3 instances | 1 vCPU / 1 GiB, 0-5 | 2 vCPU / 2 GiB, **1**-20 instances |
 | web Cloud Run | `npm start` | 1 vCPU / 256 MiB, 0-3 | 1 vCPU / 256 MiB, 0-5 | 1 vCPU / 512 MiB, 1-10 |
