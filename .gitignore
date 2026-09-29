@@ -62,6 +62,7 @@ htmlcov/
 crash.log
 
 # --- Docker / local data ---
+.local-storage/
 infrastructure/docker/data/
 *.local.yml
 

@@ -8,10 +8,11 @@ name: Docker build
 #   GCP_REGION                      northamerica-northeast1
 # Images: <region>-docker.pkg.dev/<project>/orenjitrade/<service>:<git sha> and :latest (main).
 
+# Cloud deployment is intentionally deferred (owner decision 2026-09-29, see
+# docs/deployment/DEFERRED.md). The automatic triggers are disabled so pushes to main never
+# try to reach Google Cloud. Restore them when Phase 14 starts:
+#   push: { branches: [main], tags: ["v*"] }
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:

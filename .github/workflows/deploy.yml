@@ -24,10 +24,9 @@ on:
         description: Image tag to deploy (git sha from Docker build, or vX.Y.Z)
         type: string
         required: true
-  workflow_run:
-    workflows: ["Docker build"]
-    types: [completed]
-    branches: [main]
+  # Automatic dev deployment after "Docker build" is disabled while cloud deployment is deferred
+  # (docs/deployment/DEFERRED.md). Restore when Phase 14 starts:
+  # workflow_run: { workflows: ["Docker build"], types: [completed], branches: [main] }
 
 permissions:
   contents: read
