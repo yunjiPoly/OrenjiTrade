@@ -4,7 +4,8 @@
     "title": "OrenjiTrade API",
     "description": "REST API of OrenjiTrade, the geographic discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
     "license": {
-      "name": "Proprietary"
+      "name": "Proprietary",
+      "url": "https://www.orenjitrade.com/legal/terms"
     },
     "version": "0.1.0"
   },
@@ -25,11 +26,459 @@
   ],
   "tags": [
     {
+      "name": "legal",
+      "description": "Published legal documents"
+    },
+    {
+      "name": "internal",
+      "description": "Internal job triggers (service token / Google OIDC)"
+    },
+    {
+      "name": "admin-users",
+      "description": "Account management (admin console)"
+    },
+    {
+      "name": "me",
+      "description": "The authenticated collector's own account"
+    },
+    {
       "name": "meta",
       "description": "Build and environment metadata"
+    },
+    {
+      "name": "admin-audit",
+      "description": "Audit log (admin console)"
     }
   ],
   "paths": {
+    "/api/v1/admin/users/{id}/roles": {
+      "put": {
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Replace the roles of an account (ADMIN, SUPER_ADMIN)",
+        "description": "USER is always kept. Only a SUPER_ADMIN may grant or revoke ADMIN or SUPER_ADMIN, and nobody can remove their own SUPER_ADMIN. Audited.",
+        "operationId": "updateUserRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRolesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Roles updated"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/jobs/ping": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Connectivity check for schedulers (service auth)",
+        "description": "Records a `ping` job run and answers `{ \"ok\": true }`.",
+        "operationId": "pingInternalJobs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PingJobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/consents": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Accept a legal document version",
+        "description": "Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.",
+        "operationId": "acceptConsent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Consent recorded"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/unsuspend": {
+      "post": {
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Lift a suspension (ADMIN, SUPER_ADMIN)",
+        "description": "409 when the account is not suspended. Audited.",
+        "operationId": "unsuspendUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unsuspended"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/suspend": {
+      "post": {
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Suspend an account (ADMIN, SUPER_ADMIN)",
+        "description": "Blocks every API call of the account (403 ACCOUNT_SUSPENDED) and disables the identity-provider user. Audited.",
+        "operationId": "suspendUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuspendUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Suspended"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/legal/documents": {
+      "get": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Current legal documents (public)",
+        "operationId": "listLegalDocuments",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LegalDocument"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "tags": [
@@ -48,6 +497,16 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Error (RFC 9457 problem details)",
             "content": {
@@ -61,10 +520,659 @@
         },
         "security": []
       }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Current account",
+        "description": "Provisions the account on the first call. Exempt from the terms-acceptance check so clients can discover `requiredConsents`.",
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/ping": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Authenticated connectivity check",
+        "description": "Cheapest authenticated call: refreshes the caller's last-active timestamp and is subject to the terms-acceptance check like every other route.",
+        "operationId": "pingMe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PingResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "List accounts (ADMIN, SUPER_ADMIN)",
+        "description": "Newest first. `query` matches handle, email and display name.",
+        "operationId": "listUsers",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Case-insensitive substring of handle, email or display name",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "SUSPENDED",
+                "DELETION_REQUESTED",
+                "DELETED"
+              ]
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "USER",
+                "PREMIUM_USER",
+                "MODERATOR",
+                "ADMIN",
+                "SUPER_ADMIN"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminUserSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Account detail (ADMIN, SUPER_ADMIN)",
+        "description": "Account, roles, consents, public location label (never coordinates), pending deletion request and recent audit entries.",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "admin-audit"
+        ],
+        "summary": "List audit-log entries (ADMIN, SUPER_ADMIN)",
+        "description": "Newest first. Every filter is optional; `from` is inclusive, `to` exclusive.",
+        "operationId": "listAuditLogs",
+        "parameters": [
+          {
+            "name": "actorId",
+            "in": "query",
+            "description": "Acting account id",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "targetType",
+            "in": "query",
+            "description": "Target type, e.g. USER",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetId",
+            "in": "query",
+            "description": "Target id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Exact action name, e.g. user.suspend",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Lower bound of occurredAt (inclusive)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Upper bound of occurredAt (exclusive)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAuditLogEntry"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "UpdateRolesRequest": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "description": "Complete role set; USER is always kept",
+            "example": [
+              "USER",
+              "MODERATOR"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "USER",
+                "PREMIUM_USER",
+                "MODERATOR",
+                "ADMIN",
+                "SUPER_ADMIN"
+              ]
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "PingJobResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "ConsentRequest": {
+        "type": "object",
+        "description": "Acceptance of one legal document version",
+        "properties": {
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "TERMS",
+              "PRIVACY",
+              "COMMUNITY_GUIDELINES",
+              "MARKETPLACE_POLICY",
+              "PAYMENT_PROTECTION",
+              "REFUND_DISPUTE",
+              "COOKIES",
+              "ACCEPTABLE_USE"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-09-01",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "documentType",
+          "version"
+        ]
+      },
+      "SuspendUserRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "example": "Repeated spam reports",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "End of the suspension; null for indefinite"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "LegalDocument": {
+        "type": "object",
+        "description": "A published legal document",
+        "properties": {
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "TERMS",
+              "PRIVACY",
+              "COMMUNITY_GUIDELINES",
+              "MARKETPLACE_POLICY",
+              "PAYMENT_PROTECTION",
+              "REFUND_DISPUTE",
+              "COOKIES",
+              "ACCEPTABLE_USE"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-09-01"
+          },
+          "title": {
+            "type": "string",
+            "example": "Terms of Service"
+          },
+          "url": {
+            "type": "string",
+            "description": "Path on the web app",
+            "example": "/legal/terms"
+          },
+          "requiredAtRegistration": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentType",
+          "requiredAtRegistration",
+          "title",
+          "url",
+          "version"
+        ]
+      },
       "MetaResponse": {
         "type": "object",
         "description": "Build and environment metadata",
@@ -92,6 +1200,526 @@
           "serverTime",
           "version"
         ]
+      },
+      "MeResponse": {
+        "type": "object",
+        "description": "The calling collector's own account",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Maïka Tremblay"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "USER",
+                "PREMIUM_USER",
+                "MODERATOR",
+                "ADMIN",
+                "SUPER_ADMIN"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "DELETION_REQUESTED",
+              "DELETED"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastActiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "onboarding": {
+            "$ref": "#/components/schemas/OnboardingStatus"
+          },
+          "requiredConsents": {
+            "type": "array",
+            "description": "Current legal document versions still to accept; while non-empty every non-exempt route answers 428",
+            "items": {
+              "$ref": "#/components/schemas/RequiredConsent"
+            }
+          },
+          "plan": {
+            "type": "string",
+            "example": "FREE"
+          }
+        },
+        "required": [
+          "createdAt",
+          "emailVerified",
+          "handle",
+          "id",
+          "onboarding",
+          "plan",
+          "requiredConsents",
+          "roles",
+          "status"
+        ]
+      },
+      "OnboardingStatus": {
+        "type": "object",
+        "description": "Which onboarding steps the user completed",
+        "properties": {
+          "profileComplete": {
+            "type": "boolean"
+          },
+          "tradingAreaSet": {
+            "type": "boolean"
+          },
+          "interestsSet": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "interestsSet",
+          "profileComplete",
+          "tradingAreaSet"
+        ]
+      },
+      "RequiredConsent": {
+        "type": "object",
+        "description": "A legal document version that must be accepted",
+        "properties": {
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "TERMS",
+              "PRIVACY",
+              "COMMUNITY_GUIDELINES",
+              "MARKETPLACE_POLICY",
+              "PAYMENT_PROTECTION",
+              "REFUND_DISPUTE",
+              "COOKIES",
+              "ACCEPTABLE_USE"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-09-01"
+          }
+        },
+        "required": [
+          "documentType",
+          "version"
+        ]
+      },
+      "PingResponse": {
+        "type": "object",
+        "description": "Authenticated connectivity check",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "ok",
+          "serverTime"
+        ]
+      },
+      "AdminUserSummary": {
+        "type": "object",
+        "description": "Account as listed in the admin console",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "DELETION_REQUESTED",
+              "DELETED"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "USER",
+                "PREMIUM_USER",
+                "MODERATOR",
+                "ADMIN",
+                "SUPER_ADMIN"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "plan": {
+            "type": "string",
+            "example": "FREE"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastActiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "suspendedUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt",
+          "emailVerified",
+          "handle",
+          "id",
+          "plan",
+          "roles",
+          "status"
+        ]
+      },
+      "PageResponseAdminUserSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "AdminUserDetail": {
+        "type": "object",
+        "description": "Account detail for the admin console",
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AdminUserSummary"
+          },
+          "suspensionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "consents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentSummary"
+            }
+          },
+          "locationLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Public trading-area label; coordinates are never exposed"
+          },
+          "deletionRequest": {
+            "type": "null",
+            "$ref": "#/components/schemas/DeletionRequestSummary"
+          },
+          "recentAuditEntries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEntry"
+            }
+          }
+        },
+        "required": [
+          "account",
+          "consents",
+          "recentAuditEntries",
+          "updatedAt"
+        ]
+      },
+      "AuditActor": {
+        "type": "object",
+        "description": "Actor of an audit-log entry",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Acting account id; absent for SYSTEM actions"
+          },
+          "handle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Handle of the acting account when it still exists"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN",
+              "SYSTEM"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "description": "Audit-log entry",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditActor"
+          },
+          "action": {
+            "type": "string",
+            "example": "user.suspend"
+          },
+          "targetType": {
+            "type": "string",
+            "example": "USER"
+          },
+          "targetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Structured details; never contains coordinates"
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "actor",
+          "details",
+          "id",
+          "occurredAt",
+          "targetType"
+        ]
+      },
+      "ConsentSummary": {
+        "type": "object",
+        "description": "An accepted legal document version",
+        "properties": {
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "TERMS",
+              "PRIVACY",
+              "COMMUNITY_GUIDELINES",
+              "MARKETPLACE_POLICY",
+              "PAYMENT_PROTECTION",
+              "REFUND_DISPUTE",
+              "COOKIES",
+              "ACCEPTABLE_USE"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-09-01"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "acceptedAt",
+          "documentType",
+          "version"
+        ]
+      },
+      "DeletionRequestSummary": {
+        "type": "object",
+        "description": "Pending account deletion request",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "example": "PENDING"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduledFor": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "requestedAt",
+          "scheduledFor",
+          "status"
+        ]
+      },
+      "PageResponseAuditLogEntry": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEntry"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
       },
       "ProblemDetail": {
         "type": "object",
@@ -121,8 +1749,16 @@
               "NOT_FOUND",
               "FORBIDDEN",
               "UNAUTHENTICATED",
+              "REAUTHENTICATION_REQUIRED",
+              "ACCOUNT_SUSPENDED",
+              "FEATURE_DISABLED",
+              "MESSAGING_BLOCKED",
               "CONFLICT",
+              "HANDLE_TAKEN",
+              "DELETION_BLOCKED",
+              "TERMS_ACCEPTANCE_REQUIRED",
               "RATE_LIMITED",
+              "LIMIT_REACHED",
               "PAYLOAD_TOO_LARGE",
               "UNSUPPORTED_MEDIA_TYPE",
               "INTERNAL_ERROR",
@@ -142,6 +1778,7 @@
           },
           "errors": {
             "type": "array",
+            "description": "Per-field errors of VALIDATION_FAILED problems",
             "items": {
               "type": "object",
               "properties": {
@@ -153,6 +1790,31 @@
                 }
               }
             }
+          },
+          "requiredConsents": {
+            "type": "array",
+            "description": "Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "documentType": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "suspendedUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "End of a temporary suspension (ACCOUNT_SUSPENDED)"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Seconds to wait (RATE_LIMITED problems)"
           }
         },
         "required": [
@@ -172,6 +1834,12 @@
         "description": "Firebase Authentication ID token",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      },
+      "serviceToken": {
+        "type": "apiKey",
+        "description": "Shared service token for /internal/** (alternative: a Google OIDC bearer token)",
+        "name": "X-Service-Token",
+        "in": "header"
       }
     }
   }

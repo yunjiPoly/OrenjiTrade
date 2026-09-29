@@ -8,13 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** Verifies that the Flyway baseline (V001, V002) applies cleanly to PostGIS 17. */
+/** Verifies that the Flyway migrations (V001–V003) apply cleanly to PostGIS 17. */
 class FlywayMigrationIT extends AbstractIntegrationTest {
 
     @Autowired private JdbcTemplate jdbc;
 
     @Test
-    void appliesV001AndV002() {
+    void appliesV001ToV003() {
         List<Map<String, Object>> history =
                 jdbc.queryForList(
                         "SELECT version, description FROM flyway_schema_history"
@@ -22,10 +22,10 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
 
         assertThat(history)
                 .extracting(row -> Integer.parseInt(String.valueOf(row.get("version"))))
-                .contains(1, 2);
+                .contains(1, 2, 3);
         assertThat(history)
                 .extracting(row -> String.valueOf(row.get("description")))
-                .contains("extensions", "event publication");
+                .contains("extensions", "event publication", "users");
     }
 
     @Test
@@ -93,5 +93,46 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
                 .contains(
                         "event_publication_serialized_event_hash_idx",
                         "event_publication_by_completion_date_idx");
+    }
+
+    @Test
+    void createsUserTablesWithConstraintsAndSeedDocuments() {
+        List<String> tables =
+                jdbc.queryForList(
+                        "SELECT table_name FROM information_schema.tables"
+                                + " WHERE table_schema = 'public'",
+                        String.class);
+        assertThat(tables)
+                .contains(
+                        "user_account",
+                        "user_role",
+                        "legal_document",
+                        "user_consent",
+                        "audit_log",
+                        "job_run");
+
+        List<String> userIndexes =
+                jdbc.queryForList(
+                        "SELECT indexname FROM pg_indexes WHERE tablename = 'user_account'",
+                        String.class);
+        assertThat(userIndexes).contains("uq_user_account_handle_lower");
+
+        List<String> auditIndexes =
+                jdbc.queryForList(
+                        "SELECT indexname FROM pg_indexes WHERE tablename = 'audit_log'",
+                        String.class);
+        assertThat(auditIndexes)
+                .contains("ix_audit_log_target", "ix_audit_log_actor", "ix_audit_log_occurred_at");
+
+        Integer documents =
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM legal_document WHERE current", Integer.class);
+        Integer required =
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM legal_document WHERE current AND"
+                                + " required_at_registration",
+                        Integer.class);
+        assertThat(documents).isEqualTo(8);
+        assertThat(required).isEqualTo(4);
     }
 }

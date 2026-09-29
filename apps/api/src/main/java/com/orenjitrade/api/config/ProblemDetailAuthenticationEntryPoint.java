@@ -1,5 +1,6 @@
 package com.orenjitrade.api.config;
 
+import com.orenjitrade.api.auth.web.InvalidBearerTokenException;
 import com.orenjitrade.api.common.ErrorCode;
 import com.orenjitrade.api.common.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,10 +15,16 @@ import org.springframework.stereotype.Component;
 
 /**
  * Renders "no or invalid credentials" as a 401 RFC 9457 problem with {@code errorCode
- * UNAUTHENTICATED}, using the same factory as the MVC exception handler.
+ * UNAUTHENTICATED}, using the same factory as the MVC exception handler. A rejected bearer token
+ * ({@link InvalidBearerTokenException}) keeps its client-safe explanation and adds the {@code
+ * error="invalid_token"} hint to {@code WWW-Authenticate} (RFC 6750).
  */
 @Component
 public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
+    static final String DEFAULT_MESSAGE = "Authentication is required to access this resource";
+    static final String CHALLENGE = "Bearer realm=\"OrenjiTrade\"";
+    static final String INVALID_TOKEN_CHALLENGE = CHALLENGE + ", error=\"invalid_token\"";
 
     private final ProblemDetailFactory problems;
 
@@ -31,14 +38,20 @@ public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntr
             HttpServletResponse response,
             AuthenticationException authException)
             throws IOException {
+        boolean invalidToken = authException instanceof InvalidBearerTokenException;
+        String message =
+                invalidToken && authException.getMessage() != null
+                        ? authException.getMessage()
+                        : DEFAULT_MESSAGE;
         ProblemDetail detail =
                 problems.create(
                         HttpStatus.UNAUTHORIZED,
                         ErrorCode.UNAUTHENTICATED,
-                        "Authentication is required to access this resource",
+                        message,
                         null,
                         request.getRequestURI());
-        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer realm=\"OrenjiTrade\"");
+        response.setHeader(
+                HttpHeaders.WWW_AUTHENTICATE, invalidToken ? INVALID_TOKEN_CHALLENGE : CHALLENGE);
         problems.write(response, detail);
     }
 }

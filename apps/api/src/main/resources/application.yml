@@ -86,7 +86,8 @@ spring:
 
 server:
   port: ${SERVER_PORT:${PORT:8080}}
-  # Trust X-Forwarded-* from Cloudflare / the Google load balancer.
+  # Trust X-Forwarded-* from Cloudflare / the Google load balancer (the rate limiter then keys
+  # anonymous requests by request.getRemoteAddr()).
   forward-headers-strategy: native
   shutdown: graceful
   compression:
@@ -129,6 +130,8 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: alpha
     tags-sorter: alpha
+  # The servlet error dispatch target is not part of the contract (it is also @Hidden).
+  paths-to-exclude: /error
   default-produces-media-type: application/json
   show-actuator: false
   writer-with-default-pretty-printer: true
@@ -150,12 +153,26 @@ orenji:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081,http://localhost:19006}
     hsts:
       enabled: true
+    admin:
+      # /api/v1/admin/** additionally requires an ID token issued after a second factor.
+      require-mfa: true
+    # Shared secret accepted as X-Service-Token on /internal/** (Cloud Scheduler, Pub/Sub, ML).
+    # The default only works locally; staging/prod refuse to start with it (see profiles below).
+    service-token: ${SERVICE_TOKEN:local-service-token}
+    # Google OIDC alternative for /internal/**: expected audience (the Cloud Run URL) and the
+    # service-account emails allowed to invoke. Empty audience disables the OIDC path.
+    internal-audience: ${INTERNAL_AUDIENCE:}
+    internal-invokers: ${INTERNAL_INVOKERS:}
+  consents:
+    # Server-side salt for the SHA-256 hash of the client IP stored with each consent.
+    ip-salt: ${CONSENT_IP_SALT:local-consent-salt}
   async:
     core-size: 4
     max-size: 16
     queue-capacity: 500
   firebase:
     project-id: ${FIREBASE_PROJECT_ID:orenjitrade-local}
+    # Empty => Application Default Credentials against the real project.
     auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
   google-cloud:
     project: ${GOOGLE_CLOUD_PROJECT:}
@@ -185,8 +202,42 @@ orenji:
   ml:
     service-url: ${ML_SERVICE_URL:http://localhost:8000}
     timeout-ms: ${ML_SERVICE_TIMEOUT_MS:1500}
-  rate-limit:
-    default-per-minute: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}
+  seed:
+    # SeedDataRunner: fictional accounts (+ emulator users) for local/dev only.
+    enabled: false
+    emulator-password: ${SEED_EMULATOR_PASSWORD:LocalDev!2026}
+  ratelimit:
+    # Fixed windows in Redis. First matching policy wins, so specific ones come first.
+    # Contract table: docs/api/contracts/phase1-auth-users.md#rate-limiting
+    enabled: true
+    policies:
+      - name: avatar-export
+        path-patterns: ["/api/v1/me/profile/avatar", "/api/v1/me/export"]
+        methods: [POST, GET]
+        limit: 10
+        window-seconds: 3600
+        key-by: USER
+      - name: deletion-requests
+        path-patterns: ["/api/v1/me/deletion-requests", "/api/v1/me/deletion-requests/**"]
+        limit: 5
+        window-seconds: 86400
+        key-by: USER
+      - name: tags-search
+        path-patterns: ["/api/v1/tags"]
+        methods: [GET]
+        limit: 60
+        window-seconds: 60
+        key-by: USER
+      - name: default-authenticated
+        path-patterns: ["/api/**"]
+        limit: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}
+        window-seconds: 60
+        key-by: USER
+      - name: default-anonymous
+        path-patterns: ["/api/**"]
+        limit: ${RATE_LIMIT_ANONYMOUS_PER_MINUTE:60}
+        window-seconds: 60
+        key-by: IP
 
 ---
 # --- local: developer machine against docker compose ------------------------------------------
@@ -201,6 +252,12 @@ orenji:
   security:
     hsts:
       enabled: false
+    admin:
+      require-mfa: false
+  firebase:
+    auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
+  seed:
+    enabled: true
 logging:
   pattern:
     console: "%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint} %clr(%5p) %clr([%X{requestId:-}]){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
@@ -216,6 +273,8 @@ spring:
 orenji:
   environment: ${ORENJI_ENV:development}
   openapi:
+    enabled: true
+  seed:
     enabled: true
 logging:
   structured:
@@ -236,6 +295,9 @@ orenji:
   environment: ${ORENJI_ENV:staging}
   openapi:
     enabled: false
+  security:
+    # No default: ServiceTokenStartupValidator fails the start-up when SERVICE_TOKEN is unset.
+    service-token: ${SERVICE_TOKEN:}
 logging:
   structured:
     format:
@@ -258,6 +320,8 @@ orenji:
   environment: ${ORENJI_ENV:production}
   openapi:
     enabled: false
+  security:
+    service-token: ${SERVICE_TOKEN:}
 logging:
   structured:
     format:
@@ -284,6 +348,16 @@ orenji:
       allowed-origins: http://localhost:4200,http://localhost:8081
     hsts:
       enabled: false
+    admin:
+      require-mfa: false
+    internal-invokers: scheduler@orenjitrade-test.iam.gserviceaccount.com
+  firebase:
+    auth-emulator-host: ""
+  seed:
+    enabled: false
+  ratelimit:
+    # Off by default; RateLimitIT switches it on with a tiny policy.
+    enabled: false
 management:
   endpoint:
     health:

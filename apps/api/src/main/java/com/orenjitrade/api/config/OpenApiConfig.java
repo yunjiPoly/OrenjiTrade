@@ -1,8 +1,10 @@
 package com.orenjitrade.api.config;
 
+import com.orenjitrade.api.auth.web.ServiceAuthFilter;
 import com.orenjitrade.api.common.ErrorCode;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.media.ArraySchema;
@@ -40,10 +42,13 @@ import org.springframework.http.MediaType;
 public class OpenApiConfig {
 
     public static final String BEARER_SCHEME = "bearerAuth";
+    public static final String SERVICE_TOKEN_SCHEME = "serviceToken";
     public static final String PROBLEM_DETAIL_SCHEMA = "ProblemDetail";
+    public static final String LICENSE_URL = "https://www.orenjitrade.com/legal/terms";
     static final String PROBLEM_DETAIL_REF = "#/components/schemas/" + PROBLEM_DETAIL_SCHEMA;
     static final String DEFAULT_RESPONSE = "default";
     static final String FALLBACK_VERSION = "dev";
+    static final String INTERNAL_PREFIX = "/internal/";
 
     @Bean
     OpenAPI orenjiOpenApi(ObjectProvider<BuildProperties> buildProperties) {
@@ -60,7 +65,7 @@ public class OpenApiConfig {
                                             + " for trading cards. Generated from the Spring Boot"
                                             + " application by `./gradlew exportOpenApi`"
                                             + " (apps/api). Do not edit by hand.")
-                                .license(new License().name("Proprietary")))
+                                .license(new License().name("Proprietary").url(LICENSE_URL)))
                 .servers(
                         List.of(
                                 new Server().url("http://localhost:8080").description("local"),
@@ -75,14 +80,26 @@ public class OpenApiConfig {
                                                 .type(SecurityScheme.Type.HTTP)
                                                 .scheme("bearer")
                                                 .bearerFormat("JWT")
-                                                .description("Firebase Authentication ID token")))
+                                                .description("Firebase Authentication ID token"))
+                                .addSecuritySchemes(
+                                        SERVICE_TOKEN_SCHEME,
+                                        new SecurityScheme()
+                                                .type(SecurityScheme.Type.APIKEY)
+                                                .in(SecurityScheme.In.HEADER)
+                                                .name(ServiceAuthFilter.SERVICE_TOKEN_HEADER)
+                                                .description(
+                                                        "Shared service token for /internal/**"
+                                                                + " (alternative: a Google OIDC"
+                                                                + " bearer token)")))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
     }
 
     /**
      * Runs after springdoc has scanned the controllers (which is when {@code components.schemas} is
-     * rebuilt): registers the {@code ProblemDetail} schema and documents that every operation may
-     * answer with an RFC 9457 problem ({@code default} response).
+     * rebuilt): registers the {@code ProblemDetail} schema and documents the problem responses
+     * every operation may answer with: {@code default}, {@code 429} everywhere, {@code 401}, {@code
+     * 403} and {@code 428} on authenticated routes. {@code /internal/**} operations accept the
+     * service token or an OIDC bearer token.
      */
     @Bean
     OpenApiCustomizer problemDetailOpenApiCustomizer() {
@@ -95,27 +112,46 @@ public class OpenApiConfig {
                 return;
             }
             openApi.getPaths()
-                    .values()
                     .forEach(
-                            pathItem ->
+                            (path, pathItem) ->
                                     pathItem.readOperations()
-                                            .forEach(
-                                                    operation -> {
-                                                        ApiResponses responses =
-                                                                operation.getResponses() != null
-                                                                        ? operation.getResponses()
-                                                                        : new ApiResponses();
-                                                        responses.putIfAbsent(
-                                                                DEFAULT_RESPONSE,
-                                                                problemResponse());
-                                                        operation.setResponses(responses);
-                                                    }));
+                                            .forEach(operation -> document(path, operation)));
         };
     }
 
-    private static ApiResponse problemResponse() {
+    private static void document(String path, Operation operation) {
+        ApiResponses responses =
+                operation.getResponses() != null ? operation.getResponses() : new ApiResponses();
+        boolean internal = path.startsWith(INTERNAL_PREFIX);
+        if (internal) {
+            operation.setSecurity(
+                    List.of(
+                            new SecurityRequirement().addList(SERVICE_TOKEN_SCHEME),
+                            new SecurityRequirement().addList(BEARER_SCHEME)));
+        }
+        boolean secured = operation.getSecurity() == null || !operation.getSecurity().isEmpty();
+        if (secured) {
+            responses.putIfAbsent(
+                    "401", problemResponse("Unauthenticated (missing or invalid token)"));
+            responses.putIfAbsent("403", problemResponse("Forbidden (role, MFA or account state)"));
+            if (!internal) {
+                responses.putIfAbsent(
+                        "428",
+                        problemResponse(
+                                "Terms acceptance required (extension `requiredConsents[]`)"));
+            }
+        }
+        if (!internal) {
+            responses.putIfAbsent("429", problemResponse("Rate limited (`Retry-After` header)"));
+        }
+        responses.putIfAbsent(
+                DEFAULT_RESPONSE, problemResponse("Error (RFC 9457 problem details)"));
+        operation.setResponses(responses);
+    }
+
+    private static ApiResponse problemResponse(String description) {
         return new ApiResponse()
-                .description("Error (RFC 9457 problem details)")
+                .description(description)
                 .content(
                         new Content()
                                 .addMediaType(
@@ -129,6 +165,10 @@ public class OpenApiConfig {
         ObjectSchema fieldError = new ObjectSchema();
         fieldError.addProperty("field", new StringSchema());
         fieldError.addProperty("message", new StringSchema());
+
+        ObjectSchema requiredConsent = new ObjectSchema();
+        requiredConsent.addProperty("documentType", new StringSchema());
+        requiredConsent.addProperty("version", new StringSchema());
 
         ObjectSchema schema = new ObjectSchema();
         schema.description("RFC 9457 problem details with OrenjiTrade extensions");
@@ -144,7 +184,24 @@ public class OpenApiConfig {
         schema.addProperty("message", new StringSchema());
         schema.addProperty("requestId", new StringSchema());
         schema.addProperty("timestamp", new StringSchema().format("date-time"));
-        schema.addProperty("errors", new ArraySchema().items(fieldError));
+        schema.addProperty(
+                "errors",
+                new ArraySchema()
+                        .items(fieldError)
+                        .description("Per-field errors of VALIDATION_FAILED problems"));
+        schema.addProperty(
+                "requiredConsents",
+                new ArraySchema()
+                        .items(requiredConsent)
+                        .description("Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)"));
+        schema.addProperty(
+                "suspendedUntil",
+                new StringSchema()
+                        .format("date-time")
+                        .description("End of a temporary suspension (ACCOUNT_SUSPENDED)"));
+        schema.addProperty(
+                "retryAfterSeconds",
+                new IntegerSchema().description("Seconds to wait (RATE_LIMITED problems)"));
         schema.required(
                 List.of(
                         "type",

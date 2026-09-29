@@ -8,14 +8,33 @@ import org.springframework.http.HttpStatusCode;
  * Stable, client-facing error codes. Every RFC 9457 problem response carries exactly one of these
  * in its {@code errorCode} extension property so clients can branch on it instead of parsing
  * messages.
+ *
+ * <p>The enum is part of the public contract (it is rendered into the OpenAPI {@code ProblemDetail}
+ * schema): add codes, never rename or remove them.
  */
 public enum ErrorCode {
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Validation failed"),
     NOT_FOUND(HttpStatus.NOT_FOUND, "Not found"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Unauthenticated"),
+    /** The ID token is valid but too old for a sensitive operation (re-login required). */
+    REAUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "Re-authentication required"),
+    /** The account is suspended, pending deletion or deleted. */
+    ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "Account suspended"),
+    /** A feature flag disables the requested capability. */
+    FEATURE_DISABLED(HttpStatus.FORBIDDEN, "Feature disabled"),
+    /** The recipient does not accept messages from the caller (privacy settings or block). */
+    MESSAGING_BLOCKED(HttpStatus.FORBIDDEN, "Messaging blocked"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
+    /** The requested handle is already used (case-insensitively) or reserved. */
+    HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),
+    /** Account deletion cannot proceed because of open obligations ({@code blockers[]}). */
+    DELETION_BLOCKED(HttpStatus.CONFLICT, "Deletion blocked"),
+    /** The caller has not accepted the current version of a required legal document. */
+    TERMS_ACCEPTANCE_REQUIRED(HttpStatus.PRECONDITION_REQUIRED, "Terms acceptance required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
+    /** A freemium usage limit was reached ({@code limit}, {@code used}, {@code upgradeUrl}). */
+    LIMIT_REACHED(HttpStatus.TOO_MANY_REQUESTS, "Limit reached"),
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload too large"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error"),
@@ -59,6 +78,7 @@ public enum ErrorCode {
             case 409 -> CONFLICT;
             case 413 -> PAYLOAD_TOO_LARGE;
             case 415 -> UNSUPPORTED_MEDIA_TYPE;
+            case 428 -> TERMS_ACCEPTANCE_REQUIRED;
             case 429 -> RATE_LIMITED;
             case 503 -> SERVICE_UNAVAILABLE;
             default -> status.is5xxServerError() ? INTERNAL_ERROR : VALIDATION_FAILED;

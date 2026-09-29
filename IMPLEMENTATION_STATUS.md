@@ -32,19 +32,22 @@ documentation is updated. Each completed item lists location, tests, migrations,
 
 _In progress: workflow `phase1-auth-users` (workspace + backend A → regen → backend B ∥ web auth ∥ mobile auth → regen → web/mobile integration → E2E)._
 
-- [-] Identity provider abstraction (`IdentityTokenVerifier`), Firebase adapter, emulator wiring, test stub
-- [ ] Bearer token filter → `AuthenticatedUser` principal; user auto-provisioning on first login
-- [ ] `user_account`, roles (USER, PREMIUM_USER, MODERATOR, ADMIN, SUPER_ADMIN), suspension
+- [x] Identity provider abstraction (`IdentityTokenVerifier`), Firebase adapter (emulator via static owner token, ADC in cloud), `StaticIdentityTokenVerifier` for tests, `IdentityAdminClient` — `apps/api/.../auth`; tests AuthenticationIT (13), unit verifier tests
+- [x] Bearer token filter → `AuthenticatedUser` principal; provisioning on first login with derived handle; last-active throttled via Redis — `auth` + `users`
+- [x] `user_account`, `user_role`, suspension + DELETION_REQUESTED gating (403 ACCOUNT_SUSPENDED), admin MFA authorization manager, service-token/OIDC auth for `/internal/**`, `jobs` module (`job_run`) — migration V003; tests RbacIT, AdminMfaIT, AdminUsersIT, ServiceAuthIT
 - [ ] Profile: display name, avatar (signed upload), bio, games, tags
 - [ ] Tag system (`tag`, `profile_tag`), searchable, admin moderation hooks
 - [ ] Privacy settings entity + defaults favouring safety
 - [ ] Approximate location: trading-area selection, public point derivation, geo privacy test
 - [ ] Account settings (notification prefs, messaging permissions, discoverability)
 - [ ] Account deletion framework (request → job → anonymise/remove → audit)
-- [ ] Terms acceptance with version + timestamp at registration
+- [x] Terms acceptance: `legal_document` (8 seeded, v2026-09-01) + `user_consent` (version, timestamp, hashed IP, UA), 428 TERMS_ACCEPTANCE_REQUIRED enforcement, `GET /public/legal/documents`, `POST /me/consents` — tests TermsIT, ConsentIT
 - [ ] Web: register/login/verify/reset, onboarding (games, tags, trading area), settings pages
 - [ ] Mobile: login/register, profile tab, settings
-- [ ] Tests: auth filter, RBAC, ownership, geo privacy contract, deletion job
+- [-] Tests: auth filter, RBAC, audit, rate limit, consent, seed (196 API tests green after stage A); geo privacy contract + deletion job pending stage B
+- [x] Audit log (`audit_log`, `AuditService`, `GET /admin/audit-logs`) and admin user endpoints (list/get/suspend/unsuspend/roles), every write audited — tests AuditIT
+- [x] Rate limiting (Redis Lua token bucket, property-driven policies, X-RateLimit headers, fail-open) — tests RateLimitIT
+- [x] Seed accounts: 12 fictional users + roles + consents, Firebase emulator users created by the runner — SeedDataRunnerIT
 
 ## Phase 2 — Card Catalog
 
