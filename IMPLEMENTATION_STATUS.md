@@ -7,26 +7,26 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-09-29 (session 1)
+**Last updated:** 2026-09-29 (session 1, paused after Phase 0)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
 
 ## Phase 0 — Foundation
 
-- [-] Monorepo structure (`apps/`, `packages/`, `infrastructure/`, `docs/`, `.github/`)
-- [-] Root docs: `README.md`, `CLAUDE.md`, `IMPLEMENTATION_STATUS.md`
-- [-] Architecture docs: `docs/architecture/ARCHITECTURE.md`, ADRs 0001–0013
-- [-] Local infra: `docker-compose.yml` (PostGIS 17, Redis, Firebase Auth emulator), `.env.example`
-- [ ] Spring Boot API skeleton (`apps/api`): Gradle KTS, Java 21 toolchain, Boot 4.1, Flyway V001 (extensions), actuator health/readiness, Problem Details handler, request-id filter, structured JSON logging, springdoc OpenAPI (local profile), Testcontainers PostGIS base test
-- [ ] Angular web skeleton (`apps/web-angular`): Angular 22, Material M3, design tokens, app shell (top bar, routes `/map`, `/inventory`, `/admin`), strict TS, ESLint, Playwright config
-- [ ] Mobile skeleton (`apps/mobile`): Expo 57, expo-router tabs, strict TS, jest-expo, Maestro folder
-- [ ] ML skeleton (`apps/ml`): FastAPI, `/health`, `/v1/identify` stub, pytest, Dockerfile
-- [ ] Shared packages: `packages/design-tokens`, `packages/api-client` (generated Angular client), `packages/shared-types` (OpenAPI types)
-- [ ] Dockerfiles for api, web (nginx), ml
-- [ ] CI (`.github/workflows/ci.yml`): lint, format, unit, integration (Testcontainers), security scan, Docker build
-- [ ] Terraform skeleton: modules + `environments/{dev,staging,prod}`; Cloudflare DNS documentation
-- [ ] Everything builds: `gradlew build`, `ng build`, `tsc --noEmit` (mobile), `pytest`, `terraform validate`
+- [x] Monorepo structure (`apps/`, `packages/`, `infrastructure/`, `docs/`, `.github/`)
+- [x] Root docs: `README.md`, `CLAUDE.md`, `IMPLEMENTATION_STATUS.md`
+- [x] Architecture docs: `docs/architecture/ARCHITECTURE.md`, ADRs 0001–0014, phase contracts in `docs/api/contracts/`
+- [x] Local infra: `docker-compose.yml` (PostGIS 17, Redis 7, Firebase Auth emulator), `.env.example` — verified healthy locally
+- [x] Spring Boot API skeleton (`apps/api`) — Boot 4.1.1 / Java 21 toolchain; Problem Details handler, request-id filter, SecurityConfig, springdoc (non-prod), Flyway V001+V002, Testcontainers base (`postgis/postgis:17-3.5` + Redis), Spotless, layered Dockerfile. Tests: 30 unit + 20 integration, all green; independently verified. `./gradlew exportOpenApi` writes `docs/api/openapi.json`. Debt: google-java-format pinned 1.28 until Gradle runs on JDK 21; OpenAPI `info.license` lacks `identifier`/`url` (client generator needs `--skip-validate-spec`).
+- [x] Angular web skeleton (`apps/web-angular`) — Angular 22 + Material 3 theme from tokens, app shell (top bar, bottom nav <960px, footer), lazy routes incl. map/inventory placeholders, admin shell, 8 legal draft pages, shared UI (empty/error/skeleton/badges/chips), `config.json` loader, interceptors (base URL, request id, ProblemDetail→ApiError), theme service, Playwright smoke (5 pass), 38 unit tests, Dockerfile + nginx + entrypoint. Builder verified; independent verifier was interrupted by the pause (re-run `npm run lint && npm run format:check && npm test && npm run build`). Debt: workspace peers linked via `scripts/link-workspace-peers.mjs` until a root npm workspace exists.
+- [x] Mobile skeleton (`apps/mobile`) — Expo 57 + expo-router six tabs, typed openapi-fetch client, tokens sync, offline banner, 29 jest tests, Maestro smoke flow, deep links; expo-doctor 21/21. Independently verified. Debt: RNTL pinned 13.3.3; fonts not bundled; EAS project id placeholder; shared-types consumed as types only until root npm workspace.
+- [x] ML skeleton (`apps/ml`) — FastAPI factory, `/health`, `/ready`, `/v1/identify` (stub identifier + perceptual hashing), `/v1/duplicates`, Pub/Sub push handler with SSRF guards, problem-details errors, pytest ≥85 % coverage, Dockerfile (3.12 image smoke-tested). Independently verified.
+- [x] Shared packages: `packages/design-tokens` (JSON → CSS/TS), `packages/api-client` (typescript-angular generated; generator CLI isolated in `tools/`), `packages/shared-types` (openapi-typescript + fetch helper)
+- [x] Dockerfiles for api, web (repo-root context), ml
+- [x] CI (`.github/workflows/ci.yml` + docker-build, deploy, e2e, codeql, dependabot) — runs on PR #1; fixed in session: `pull-requests: read` for paths-filter, Trivy tag `v0.36.0`, `actions: read` for SARIF/CodeQL, CodeQL v4, executable bit on `gradlew`/entrypoints, shared-types install before mobile typecheck
+- [x] Terraform skeleton: 15 modules + dev/staging/prod environments + Cloudflare Terraform, all `terraform validate` clean (providers google 7.46, cloudflare 5.26); Cloudflare setup documented in `infrastructure/cloudflare/README.md`; deployment/security docs in `docs/deployment/`, `docs/security/`. Independent verifier interrupted by the pause (re-run `terraform fmt -check -recursive infrastructure` + validate per env). Debt: plan/apply unproven without GCP credentials; `/internal/*` endpoints must verify Google OIDC tokens app-side; Memorystore TLS off until the API trusts the CA.
+- [-] Everything builds — locally verified per area by builders; the PR CI run on `e5957dd`/`03004b8` was still executing at pause time (Terraform ×4 and change detection green)
 
 ## Phase 1 — Auth + Users
 
@@ -193,17 +193,20 @@ documentation is updated. Each completed item lists location, tests, migrations,
 | 35 | Freemium limits work | [ ] |
 | 36 | Premium entitlements override | [ ] |
 | 37 | Account deletion works | [ ] |
-| 38 | Legal pages exist | [ ] |
-| 39 | CI runs automatically | [ ] |
+| 38 | Legal pages exist | [-] draft placeholders on web; counsel review pending |
+| 39 | CI runs automatically | [-] runs on PRs; first fully green run pending |
 | 40 | E2E covers critical workflows | [ ] |
-| 41 | Runs locally | [ ] |
+| 41 | Runs locally | [-] infra + every app builds/tests locally; no product flows yet |
 | 42 | Deploys to Google Cloud | [ ] |
-| 43 | Cloudflare configuration documented | [ ] |
+| 43 | Cloudflare configuration documented | [x] |
 | 44 | Production architecture supports www.orenjitrade.com | [ ] |
 
 ---
 
 ## NEXT TASK
 
-Phase 0: scaffold `apps/api`, `apps/web-angular`, `apps/mobile`, `apps/ml`, packages, Dockerfiles,
-CI, and Terraform skeleton; make every application build; then begin Phase 1.
+Session paused by the user after Phase 0 with all five scaffolds built. Resume in this order:
+
+1. Re-run the two interrupted independent verifications: web (`cd apps/web-angular && npm run lint && npm run format:check && npm test && npm run build`) and infra (`terraform fmt -check -recursive infrastructure`, then `terraform init -backend=false && terraform validate` in each `infrastructure/terraform/environments/*` and `infrastructure/cloudflare/terraform`). Confirm PR #1 CI is green (`gh pr checks 1`).
+2. Phase 1 integration prerequisites: add a root `package.json` with npm workspaces (`apps/web-angular`, `apps/mobile`, `packages/*`), drop `apps/web-angular/scripts/link-workspace-peers.mjs` and the CI "Install shared-types dependencies" step, keep the generator CLI in `packages/api-client/tools/`; set `info.license.url` in `OpenApiConfig` and remove `--skip-validate-spec`; exclude `/error` from springdoc if it reappears.
+3. Launch the Phase 1 workflow per `docs/api/contracts/phase1-auth-users.md` (backend auth/users/audit/consents/rate-limit → backend profiles/tags/location/privacy/deletion → OpenAPI export + client regeneration → web + mobile integration → E2E with the Firebase emulator). Orchestrator notes for this plan were kept in the session scratchpad; the contract document is the durable source.

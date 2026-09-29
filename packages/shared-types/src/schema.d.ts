@@ -25,6 +25,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Build and environment metadata */
         MetaResponse: {
             /** @example OrenjiTrade API */
             name: string;
@@ -38,17 +39,21 @@ export interface components {
         /** @description RFC 9457 problem details with OrenjiTrade extensions */
         ProblemDetail: {
             /** Format: uri */
-            type?: string;
-            title?: string;
-            status?: number;
+            type: string;
+            title: string;
+            /** Format: int32 */
+            status: number;
             detail?: string;
             instance?: string;
-            /** @example VALIDATION_FAILED */
-            errorCode?: string;
-            message?: string;
-            requestId?: string;
+            /**
+             * @example VALIDATION_FAILED
+             * @enum {string}
+             */
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "CONFLICT" | "RATE_LIMITED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
+            message: string;
+            requestId: string;
             /** Format: date-time */
-            timestamp?: string;
+            timestamp: string;
             errors?: {
                 field?: string;
                 message?: string;
@@ -79,6 +84,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetaResponse"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
