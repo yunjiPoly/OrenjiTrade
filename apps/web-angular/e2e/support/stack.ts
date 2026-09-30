@@ -53,12 +53,18 @@ export async function checkStack(): Promise<StackStatus> {
   }
 }
 
-/** Registers the stack check: every test of the file skips (with the reason) when it is down. */
+/**
+ * Registers the stack check: every test of the file skips (with the reason) when it is down.
+ * With `E2E_REQUIRE_STACK=1` (CI) an unreachable stack fails the run instead of skipping it.
+ */
 export function requireStack(): void {
   let status: StackStatus = { ok: false, reason: 'Stack check did not run' };
   test.beforeAll(async () => {
     status = await checkStack();
     if (!status.ok) {
+      if (process.env['E2E_REQUIRE_STACK'] === '1') {
+        throw new Error(`[e2e] E2E_REQUIRE_STACK=1 and the stack is down: ${status.reason}`);
+      }
       console.warn(`[e2e] Skipping: ${status.reason}`);
     }
   });

@@ -13,6 +13,9 @@
 **/.env.*
 !**/.env.example
 **/*.log
+# Local developer state at the repository root (API snapshot jars, logs, E2E jars: >1 GB).
+.local-dev
+.expo
 
 # Other applications and infrastructure are not needed for the web image. The package.json of
 # apps/mobile and packages/shared-types are the exceptions: `npm ci` validates the root lockfile

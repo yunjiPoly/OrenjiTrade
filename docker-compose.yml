@@ -1,7 +1,11 @@
-# OrenjiTrade local development infrastructure.
-#   docker compose up -d
-# Only infrastructure runs here; the applications run on the host (see README.md).
-# Nothing in this file needs cloud credentials or real payment keys.
+# OrenjiTrade local development stack (docs/development/local-setup.md).
+#   npm run infra:up                             infrastructure only (docker compose up -d --build --wait)
+#   npm run dev                                  infrastructure + API (bootRun) + web (ng serve) on the host
+#   docker compose --profile app up -d --build --wait
+#                                                everything in Docker: infrastructure + API + web images
+# Nothing in this file needs cloud credentials or real payment keys; every provider is a local
+# fake or log implementation. Data lives in the named volumes orenjitrade_* (npm run infra:reset
+# deletes them).
 
 name: orenjitrade
 
@@ -67,6 +71,9 @@ services:
       timeout: 5s
       retries: 18
       start_period: 20s
+    # Accounts are exported to /data/export on shutdown (entrypoint.sh); give the export time
+    # before Docker sends SIGKILL.
+    stop_grace_period: 30s
     restart: unless-stopped
 
   # Optional: Google Pub/Sub emulator. The API uses the in-process event bus by default
@@ -80,7 +87,106 @@ services:
     profiles: ["pubsub"]
     restart: unless-stopped
 
+  # ------------------------------------------------------------------------------------------
+  # Optional "app" profile: the API and the web app as containers, so the whole stack runs with
+  # only Docker (no JDK / Node needed on the host):
+  #   docker compose --profile app up -d --build --wait
+  #   docker compose --profile app stop api web          (infrastructure keeps running)
+  # Same URLs as a host run: web http://localhost:4200, API http://localhost:8080. It uses the same
+  # database and emulator as `npm run dev`, so stop one before starting the other (ports 8080/4200).
+
+  # One-shot: makes the media volume writable for the API's unprivileged `orenji` user (a fresh
+  # named volume is owned by root).
+  api-media-init:
+    profiles: ["app"]
+    build:
+      context: ./apps/api
+    image: orenjitrade/api:local
+    container_name: orenjitrade-api-media-init
+    user: root
+    entrypoint: ["sh", "-c", "chown -R orenji:orenji /app/.local-storage"]
+    volumes:
+      - api-media:/app/.local-storage
+    restart: "no"
+
+  api:
+    profiles: ["app"]
+    build:
+      context: ./apps/api
+    image: orenjitrade/api:local
+    container_name: orenjitrade-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      firebase-auth:
+        condition: service_healthy
+      api-media-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      ORENJI_ENV: local
+      TZ: UTC
+      # Service names on the compose network instead of localhost.
+      DATABASE_URL: jdbc:postgresql://postgres:5432/orenjitrade
+      DATABASE_USERNAME: orenjitrade
+      DATABASE_PASSWORD: orenjitrade_local
+      REDIS_URL: redis://redis:6379
+      FIREBASE_PROJECT_ID: orenjitrade-local
+      FIREBASE_AUTH_EMULATOR_HOST: firebase-auth:9099
+      STORAGE_PROVIDER: local
+      STORAGE_LOCAL_ROOT: /app/.local-storage
+      EVENTS_TRANSPORT: local
+      PAYMENT_PROVIDER: fake
+      BILLING_PROVIDER: fake
+      DONATION_PROVIDER: fake
+      PUSH_PROVIDER: log
+      EMAIL_PROVIDER: log
+      # The browser reaches the web app on the host port.
+      CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-4200},http://localhost:8081,http://localhost:19006
+      ADS_WEB_BASE_URL: http://localhost:${WEB_PORT:-4200}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - api-media:/app/.local-storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/readiness >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    # Not restarted automatically: it would take port 8080 from a host `npm run dev` after a reboot.
+    restart: "no"
+
+  web:
+    profiles: ["app"]
+    build:
+      # Repository-root context (root package-lock.json + packages/); see apps/web-angular/Dockerfile.
+      context: .
+      dockerfile: apps/web-angular/Dockerfile
+    image: orenjitrade/web:local
+    container_name: orenjitrade-web
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      PORT: "8080"
+      ENVIRONMENT: local
+      # Rendered into config.json: these URLs are used by the BROWSER, hence localhost.
+      API_BASE_URL: http://localhost:${API_PORT:-8080}
+      WS_BASE_URL: ws://localhost:${API_PORT:-8080}/ws
+      FIREBASE_API_KEY: demo-local-key
+      FIREBASE_AUTH_DOMAIN: orenjitrade-local.firebaseapp.com
+      FIREBASE_PROJECT_ID: orenjitrade-local
+      FIREBASE_AUTH_EMULATOR_HOST: localhost:${FIREBASE_AUTH_PORT:-9099}
+    ports:
+      - "${WEB_PORT:-4200}:8080"
+    restart: "no"
+
 volumes:
   postgres-data:
   redis-data:
   firebase-data:
+  # Uploaded media of the Docker "app" profile API (a host-run API uses apps/api/.local-storage).
+  api-media:
