@@ -13,7 +13,7 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
 /**
  * Left panel of the map: the collectors as a list ("List" toggle) or, in holders mode, the
  * collectors near you who list the chosen card, with their prices. Loading, empty and error
- * states included.
+ * states included. The map page projects its sponsored placement (`[sponsored]`) above the list.
  */
 @Component({
   selector: 'app-discovery-panel',
@@ -60,6 +60,7 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
       }
 
       <div class="panel__body" [attr.aria-busy]="loading()">
+        <ng-content select="[sponsored]" />
         @if (error(); as error) {
           <app-error-state
             compact

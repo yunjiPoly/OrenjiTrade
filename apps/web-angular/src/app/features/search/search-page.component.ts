@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import type { SearchSuggestion } from '@orenji/api-client';
+import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
@@ -22,6 +23,7 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
  *   nearby holders);
  * - `?card=` / `?printing=` "who near me has this card" with every filter and sort;
  * - no query: an invitation to search.
+ * Results views carry the SEARCH_SPONSORED placement (labelled "Sponsored", hidden without ads).
  */
 @Component({
   selector: 'app-search-page',
@@ -32,6 +34,7 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
     CardHoldersComponent,
     EmptyStateComponent,
     PageHeaderComponent,
+    SponsoredSlotComponent,
     UnifiedResultsComponent,
     UnifiedSearchBoxComponent,
   ],
@@ -43,6 +46,7 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
           <mat-icon aria-hidden="true">chevron_right</mat-icon>
           <span aria-current="page">Card holders</span>
         </nav>
+        <app-sponsored-slot class="search__sponsored" placement="SEARCH_SPONSORED" layout="row" />
         <app-card-holders
           [target]="target"
           [filters]="params().filters"
@@ -65,6 +69,7 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
         </app-page-header>
 
         @if (params().q) {
+          <app-sponsored-slot class="search__sponsored" placement="SEARCH_SPONSORED" layout="row" />
           <app-unified-results [q]="params().q" [tab]="params().tab" (tabChange)="onTab($event)" />
         } @else {
           <app-empty-state
@@ -88,6 +93,9 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
   styles: `
     .search__field {
       max-width: 640px;
+    }
+    .search__sponsored {
+      margin-bottom: var(--spacing-5);
     }
     .crumbs {
       display: flex;

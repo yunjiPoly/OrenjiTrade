@@ -188,7 +188,8 @@ test.describe('admin platform rules', () => {
       await expect(
         premium.getByRole('listitem').filter({ hasText: 'Saved searches' }),
       ).toContainText(String(next));
-      await expect(premium.getByRole('button', { name: 'Upgrade to Premium' })).toBeDisabled();
+      // Checkout is live since Phase 10: a FREE member can upgrade.
+      await expect(premium.getByRole('button', { name: 'Upgrade to Premium' })).toBeEnabled();
     } finally {
       const response = await request.put(`${API_URL}/api/v1/admin/usage-limits/${original.id}`, {
         headers: authHeader(token),

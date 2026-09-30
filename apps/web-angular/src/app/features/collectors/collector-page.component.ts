@@ -31,6 +31,7 @@ import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
+import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
 import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
@@ -64,6 +65,7 @@ type ViewState =
     EmptyStateComponent,
     ErrorStateComponent,
     SkeletonComponent,
+    SponsoredSlotComponent,
   ],
   template: `
     <div class="page">
@@ -135,6 +137,13 @@ type ViewState =
               [isOwn]="isOwn()"
               (summaryChange)="onSummary($event)"
             />
+            @if (!isOwn()) {
+              <app-sponsored-slot
+                class="collector-sponsored"
+                placement="COLLECTOR_PROFILE"
+                layout="row"
+              />
+            }
           }
         }
       }
@@ -143,6 +152,10 @@ type ViewState =
   styles: `
     .collector-ratings {
       margin-top: var(--spacing-5);
+    }
+    .collector-sponsored {
+      max-width: 960px;
+      margin-top: var(--spacing-6);
     }
     .collector-skeleton {
       display: flex;

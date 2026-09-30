@@ -73,6 +73,20 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'dispute.resolve': 'Resolved a dispute',
   'payment.refund': 'Refunded a payment',
   'payments.settings.update': 'Changed the payment rules',
+  'subscription.cancel': 'Cancelled a subscription',
+  'credits.grant': 'Granted or adjusted credits',
+  'credits.product.update': 'Changed a credit product',
+  'credits.settings.update': 'Changed the referral rules',
+  'ads.advertiser.create': 'Created an advertiser',
+  'ads.advertiser.update': 'Changed an advertiser',
+  'ads.campaign.create': 'Created an ad campaign',
+  'ads.campaign.update': 'Changed an ad campaign',
+  'ads.targeting.update': 'Changed ad targeting',
+  'ads.creative.create': 'Added an ad creative',
+  'ads.creative.update': 'Changed an ad creative',
+  'ads.placement.update': 'Changed an ad placement',
+  'donation.refund': 'Refunded a donation',
+  'donations.settings.update': 'Changed the accepted donations',
 };
 
 export function auditActionLabel(action: string): string {

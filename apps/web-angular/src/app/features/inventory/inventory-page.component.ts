@@ -61,6 +61,7 @@ import {
   InventoryParamChange,
   InventoryToolbarComponent,
 } from './toolbar/inventory-toolbar.component';
+import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
 
 /**
  * `/inventory`: the collector's cards and binders (Phase 3). Binder list on the left, filters on
@@ -88,6 +89,7 @@ import {
     ListingsPausedBannerComponent,
     PageHeaderComponent,
     SkeletonComponent,
+    SponsoredSlotComponent,
   ],
   templateUrl: './inventory-page.component.html',
   styleUrl: './inventory-page.component.scss',

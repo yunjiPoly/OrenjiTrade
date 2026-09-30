@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import type { Plan } from '@orenji/api-client';
 import {
@@ -11,10 +11,13 @@ import {
   humanizeKey,
 } from '../../shared/plans/plan-labels';
 
-/** One plan: price, description, limits and features, with the call to action for the viewer. */
+/**
+ * One plan: price, description, limits and features, with the call to action for the viewer
+ * (create an account, sign in to upgrade, upgrade, continue an open checkout, current plan).
+ */
 @Component({
   selector: 'app-plan-card',
-  imports: [RouterLink, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <article
       class="plan"
@@ -67,17 +70,40 @@ import {
           } @else {
             <button matButton="outlined" type="button" disabled>Included</button>
           }
+        } @else if (!signedIn()) {
+          <a
+            matButton="filled"
+            routerLink="/auth/sign-in"
+            [queryParams]="{ returnUrl: '/premium' }"
+          >
+            <mat-icon aria-hidden="true">login</mat-icon>
+            Sign in to upgrade
+          </a>
+        } @else if (checkoutUrl(); as url) {
+          <a matButton="filled" [routerLink]="url">
+            <mat-icon aria-hidden="true">shopping_cart_checkout</mat-icon>
+            Continue to checkout
+          </a>
         } @else {
           <button
             matButton="filled"
             type="button"
-            disabled
-            disabledInteractive
-            matTooltip="Coming soon: subscriptions open with billing"
+            [disabled]="busy() || locked()"
+            [attr.aria-describedby]="locked() ? 'plan-locked-' + plan().code : null"
+            (click)="upgrade.emit(plan().code ?? '')"
           >
-            <mat-icon aria-hidden="true">workspace_premium</mat-icon>
-            Upgrade to {{ plan().name }}
+            @if (busy()) {
+              <mat-spinner diameter="18" aria-hidden="true" />
+            } @else {
+              <mat-icon aria-hidden="true">workspace_premium</mat-icon>
+            }
+            {{ busy() ? 'Opening the checkout…' : 'Upgrade to ' + plan().name }}
           </button>
+          @if (locked()) {
+            <p class="plan__muted plan__hint" [id]="'plan-locked-' + plan().code">
+              Your current subscription must end before you can switch plans.
+            </p>
+          }
         }
       </div>
     </article>
@@ -168,8 +194,17 @@ import {
     .plan__cta {
       margin-top: auto;
     }
-    .plan__cta > * {
+    .plan__cta > a,
+    .plan__cta > button {
       width: 100%;
+    }
+    .plan__cta mat-spinner {
+      display: inline-block;
+      margin-right: var(--spacing-2);
+    }
+    .plan__hint {
+      margin: var(--spacing-2) 0 0;
+      font-size: var(--font-size-xs);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -179,6 +214,15 @@ export class PlanCardComponent {
   readonly current = input(false);
   readonly highlight = input(false);
   readonly signedIn = input(false);
+  /** A checkout is being opened. */
+  readonly busy = input(false);
+  /** Same-app path of an open checkout of this plan ("Continue to checkout"). */
+  readonly checkoutUrl = input<string | null>(null);
+  /** Another live subscription blocks a checkout (409 ALREADY_SUBSCRIBED otherwise). */
+  readonly locked = input(false);
+
+  /** "Upgrade" (the plan code); the page opens the checkout. */
+  readonly upgrade = output<string>();
 
   protected readonly price = computed(() =>
     formatPlanPrice(this.plan().monthlyPrice, this.plan().currency, 'en-CA', false),

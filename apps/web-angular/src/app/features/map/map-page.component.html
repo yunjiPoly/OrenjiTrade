@@ -121,7 +121,15 @@
             (closed)="closeList()"
             (clearHolders)="clearHolders()"
             (addToWishlist)="addHoldersToWishlist()"
-          />
+          >
+            <app-sponsored-slot
+              sponsored
+              class="stage__sponsored"
+              placement="MAP_PANEL"
+              variant="compact"
+              [game]="params().game"
+            />
+          </app-discovery-panel>
         }
 
         @if (store.preview().kind !== 'idle') {

@@ -209,6 +209,80 @@ export const ADMIN_ROUTES: Routes = [
           ),
       },
       {
+        path: 'plans',
+        title: 'Plans · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-plans-page.component').then((m) => m.AdminPlansPageComponent),
+      },
+      {
+        path: 'subscriptions',
+        title: 'Subscriptions · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-subscriptions-page.component').then(
+            (m) => m.AdminSubscriptionsPageComponent,
+          ),
+      },
+      {
+        path: 'subscriptions/:id',
+        title: 'Subscription · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-subscription-detail-page.component').then(
+            (m) => m.AdminSubscriptionDetailPageComponent,
+          ),
+      },
+      {
+        path: 'credits',
+        title: 'Credits · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-credits-page.component').then((m) => m.AdminCreditsPageComponent),
+      },
+      {
+        path: 'ads',
+        title: 'Ads · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-ads-page.component').then((m) => m.AdminAdsPageComponent),
+      },
+      {
+        path: 'ads/campaigns/:id',
+        title: 'Campaign · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-ad-campaign-page.component').then(
+            (m) => m.AdminAdCampaignPageComponent,
+          ),
+      },
+      {
+        path: 'donations',
+        title: 'Donations · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-donations-page.component').then(
+            (m) => m.AdminDonationsPageComponent,
+          ),
+      },
+      {
+        path: 'donations/:id',
+        title: 'Donation · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./billing/admin-donation-detail-page.component').then(
+            (m) => m.AdminDonationDetailPageComponent,
+          ),
+      },
+      {
         path: 'notifications',
         title: 'Notifications · Admin',
         canActivate: [adminGuard],

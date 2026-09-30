@@ -1,48 +1,64 @@
-import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
   effect,
   inject,
+  input,
   signal,
   untracked,
 } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MyPlan, PlansService } from '@orenji/api-client';
-import { firstValueFrom } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
-import { ApiError, toApiError } from '../../core/http/api-error';
+import { ApiError, isApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
-import { silentErrors } from '../../core/http/http-context';
-import { RelativeTimePipe } from '../../shared/pipes/relative-time.pipe';
-import { formatLimitValue, humanizeKey } from '../../shared/plans/plan-labels';
+import { ActiveBoostsComponent } from '../../shared/billing/active-boosts.component';
+import { isEntitling } from '../../shared/billing/billing-labels';
+import { humanizeKey } from '../../shared/plans/plan-labels';
 import { PlansStore } from '../../shared/plans/plans.store';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '../../shared/ui/confirm-dialog/confirm-dialog.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
+import { PremiumStore } from './data/premium.store';
 import { PlanCardComponent } from './plan-card.component';
+import { SubscriptionCardComponent } from './subscription-card.component';
+import { usageRows } from './usage-meters';
+import { UsageMetersComponent } from './usage-meters.component';
 
 /**
- * `/premium`: the plans (`GET /plans`) side by side and, for signed-in collectors, their current
- * usage (`GET /me/plan`). Checkout arrives with billing; until then the upgrade button explains
- * it is coming. Hidden while the `premiumPlans` flag is off.
+ * `/premium`: the plans (`GET /plans`) side by side and, for signed-in members, their live
+ * subscription, usage and active boosts (`GET /me/plan`). "Upgrade" opens a checkout at the
+ * billing provider (the local fake checkout `/checkout/fake-billing/:ref`); the subscription can
+ * be cancelled at the period end or at once. The limit-reached dialog's "See Premium" lands here.
+ * Hidden while the `premiumPlans` flag is off (a live subscription stays manageable).
  */
 @Component({
   selector: 'app-premium-page',
   imports: [
-    DatePipe,
+    RouterLink,
+    MatButtonModule,
     MatIconModule,
-    RelativeTimePipe,
+    ActiveBoostsComponent,
     EmptyStateComponent,
     ErrorStateComponent,
     PageHeaderComponent,
     PlanCardComponent,
     SkeletonComponent,
+    SubscriptionCardComponent,
+    UsageMetersComponent,
   ],
+  providers: [PremiumStore],
   template: `
     <div class="page premium">
       <app-page-header
@@ -50,178 +66,224 @@ import { PlanCardComponent } from './plan-card.component';
         subtitle="More binder views and alerts, a wider map radius, advanced filters and no ads."
       />
 
+      @if (welcome()) {
+        <p class="premium__welcome" role="status" data-testid="premium-welcome">
+          <mat-icon aria-hidden="true">celebration</mat-icon>
+          <span>
+            <strong>Welcome to Premium!</strong> Your new limits apply right away. Thank you for
+            supporting OrenjiTrade.
+          </span>
+        </p>
+      }
+      @if (checkoutError(); as problem) {
+        <p class="premium__problem" role="alert">
+          <mat-icon aria-hidden="true">error</mat-icon>
+          {{ problem }}
+        </p>
+      }
+
       @if (flags.status() === 'idle' || flags.status() === 'loading') {
         <div class="premium__plans" aria-busy="true">
           <span class="visually-hidden">Loading plans</span>
           <app-skeleton variant="card" />
           <app-skeleton variant="card" />
         </div>
-      } @else if (!premiumEnabled()) {
+      } @else if (!premiumEnabled() && !subscription()) {
         <app-empty-state
           icon="workspace_premium"
           title="Premium is not available yet"
           description="Every collector uses the free plan for now. We will let you know when Premium opens."
         />
-      } @else if (plans.error(); as error) {
-        <app-error-state
-          title="Plans could not load"
-          [message]="message(error)"
-          [requestId]="error.requestId"
-          (retry)="plans.load(true)"
-        />
-      } @else if (plans.plans(); as list) {
-        @if (list.length === 0) {
-          <app-empty-state icon="workspace_premium" title="No plans are offered right now" />
-        } @else {
-          <div class="premium__plans">
-            @for (plan of list; track plan.code) {
-              <app-plan-card
-                [plan]="plan"
-                [current]="currentPlan() === plan.code"
-                [highlight]="plan.code === 'PREMIUM'"
-                [signedIn]="auth.isAuthenticated()"
-              />
-            }
-          </div>
-        }
       } @else {
-        <div class="premium__plans" aria-busy="true">
-          <span class="visually-hidden">Loading plans</span>
-          <app-skeleton variant="card" />
-          <app-skeleton variant="card" />
-        </div>
+        @if (subscription(); as live) {
+          <app-subscription-card
+            class="premium__subscription"
+            [subscription]="live"
+            [busy]="store.busy() !== null"
+            (cancelAtPeriodEnd)="cancel(true)"
+            (cancelNow)="cancel(false)"
+          />
+        }
+
+        @if (premiumEnabled()) {
+          @if (plans.error(); as error) {
+            <app-error-state
+              title="Plans could not load"
+              [message]="message(error)"
+              [requestId]="error.requestId"
+              (retry)="plans.load(true)"
+            />
+          } @else if (plans.plans(); as list) {
+            @if (list.length === 0) {
+              <app-empty-state icon="workspace_premium" title="No plans are offered right now" />
+            } @else {
+              <div class="premium__plans">
+                @for (plan of list; track plan.code) {
+                  <app-plan-card
+                    [plan]="plan"
+                    [current]="currentPlan() === plan.code"
+                    [highlight]="plan.code === 'PREMIUM'"
+                    [signedIn]="auth.isAuthenticated()"
+                    [busy]="upgrading() === plan.code"
+                    [checkoutUrl]="openCheckout(plan.code)"
+                    [locked]="lockedBy(plan.code)"
+                    (upgrade)="upgrade($event)"
+                  />
+                }
+              </div>
+            }
+          } @else {
+            <div class="premium__plans" aria-busy="true">
+              <span class="visually-hidden">Loading plans</span>
+              <app-skeleton variant="card" />
+              <app-skeleton variant="card" />
+            </div>
+          }
+        }
       }
 
       @if (auth.isAuthenticated()) {
-        <section class="usage" aria-labelledby="usage-title">
-          <h2 id="usage-title" class="usage__title">Your usage</h2>
-          @if (usageError(); as error) {
+        <section class="premium__section" aria-labelledby="usage-title">
+          <h2 id="usage-title" class="premium__title">Your usage</h2>
+          @if (store.error(); as error) {
             <app-error-state
               compact
               title="Your usage could not load"
               [message]="message(error)"
-              (retry)="loadUsage()"
+              (retry)="store.load()"
             />
-          } @else if (usage(); as mine) {
-            <ul class="usage__list">
-              @for (limit of mine.limits ?? []; track limit.key) {
-                <li class="usage__item">
-                  <span class="usage__label">{{ limitLabel(limit.key) }}</span>
-                  <span class="usage__value">
-                    {{ limit.used ?? 0 }} / {{ value(limit.limit) }}
-                  </span>
-                  @if (limit.limit !== null && limit.limit !== undefined && limit.limit > 0) {
-                    <span class="usage__bar" aria-hidden="true">
-                      <span
-                        class="usage__fill"
-                        [class.usage__fill--full]="limit.allowed === false"
-                        [style.width.%]="percent(limit.used, limit.limit)"
-                      ></span>
-                    </span>
-                  }
-                  @if (limit.resetsAt) {
-                    <span class="usage__reset">
-                      Resets {{ limit.resetsAt | relativeTime }} ({{
-                        limit.resetsAt | date: 'short'
-                      }})
-                    </span>
-                  }
-                </li>
-              }
-            </ul>
+          } @else if (store.myPlan(); as mine) {
+            <app-usage-meters [rows]="usage()" />
+            @if ((mine.entitlements ?? []).length) {
+              <h3 class="premium__subtitle">Active boosts</h3>
+              <app-active-boosts [entitlements]="mine.entitlements ?? []" />
+            }
           } @else {
             <app-skeleton variant="list" lines="3" />
           }
         </section>
+
+        @if (creditsEnabled() && currentPlan() !== 'PREMIUM') {
+          <aside class="premium__credits" aria-label="Credits">
+            <mat-icon aria-hidden="true">toll</mat-icon>
+            <p>
+              <strong>Only need it for a day?</strong>
+              Unlock advanced filters, unlimited binder views or a wider map for 24 hours with your
+              OrenjiTrade credits.
+            </p>
+            <a matButton="tonal" routerLink="/credits">Use credits</a>
+          </aside>
+        }
       }
     </div>
   `,
   styles: `
+    .premium {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-6);
+    }
+    .premium > * {
+      max-width: 880px;
+    }
     .premium__plans {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: var(--spacing-5);
-      max-width: 880px;
     }
-    .usage {
-      max-width: 880px;
-      margin-top: var(--spacing-10);
+    .premium__welcome,
+    .premium__problem {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-3);
+      margin: 0;
+      padding: var(--spacing-3) var(--spacing-4);
+      border-radius: var(--radius-md);
     }
-    .usage__title {
+    .premium__welcome {
+      border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+      background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
+    }
+    .premium__welcome mat-icon {
+      color: var(--color-success);
+    }
+    .premium__problem {
+      border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+      background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+    }
+    .premium__problem mat-icon {
+      color: var(--color-danger);
+    }
+    .premium__title {
       margin-bottom: var(--spacing-3);
       font-size: var(--font-size-xl);
     }
-    .usage__list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: var(--spacing-3);
-      margin: 0;
-      padding: 0;
-      list-style: none;
+    .premium__subtitle {
+      margin: var(--spacing-5) 0 var(--spacing-3);
+      font-size: var(--font-size-lg);
     }
-    .usage__item {
+    .premium__credits {
       display: flex;
       flex-wrap: wrap;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: var(--spacing-1) var(--spacing-2);
-      padding: var(--spacing-3) var(--spacing-4);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background: var(--color-surface);
+      align-items: center;
+      gap: var(--spacing-3) var(--spacing-4);
+      padding: var(--spacing-4) var(--spacing-5);
+      border: 1px dashed var(--color-border-strong);
+      border-radius: var(--radius-lg);
     }
-    .usage__label {
-      font-size: var(--font-size-sm);
+    .premium__credits mat-icon {
+      color: var(--color-accent);
     }
-    .usage__value {
-      font-weight: var(--font-weight-semibold);
-      font-variant-numeric: tabular-nums;
-    }
-    .usage__bar {
-      flex: 1 0 100%;
-      height: 6px;
-      border-radius: var(--radius-pill);
-      background: var(--color-surface-variant);
-      overflow: hidden;
-    }
-    .usage__fill {
-      display: block;
-      height: 100%;
-      background: var(--color-primary);
-    }
-    .usage__fill--full {
-      background: var(--color-danger);
-    }
-    .usage__reset {
-      flex: 1 0 100%;
+    .premium__credits p {
+      flex: 1 1 260px;
+      margin: 0;
       color: var(--color-text-muted);
-      font-size: var(--font-size-xs);
+    }
+    .premium__credits strong {
+      color: var(--color-ink);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PremiumPageComponent {
-  private readonly plansApi = inject(PlansService);
   private readonly session = inject(SessionService);
+  private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
   protected readonly auth = inject(AuthService);
   protected readonly flags = inject(FeatureFlagsService);
   protected readonly plans = inject(PlansStore);
+  protected readonly store = inject(PremiumStore);
+
+  /** `?checkout=success` after the fake billing checkout. */
+  readonly checkout = input<string | undefined>();
 
   protected readonly premiumEnabled = this.flags.enabled(FEATURE.premiumPlans);
-  protected readonly usage = signal<MyPlan | null>(null);
-  protected readonly usageError = signal<ApiError | null>(null);
+  protected readonly creditsEnabled = this.flags.enabled(FEATURE.credits);
+  protected readonly upgrading = signal<string | null>(null);
+  protected readonly checkoutError = signal<string | null>(null);
+  protected readonly subscription = this.store.subscription;
   protected readonly currentPlan = computed(
-    () => this.usage()?.plan?.code ?? this.session.me()?.plan ?? null,
+    () => this.store.planCode() ?? this.session.me()?.plan ?? null,
   );
-  protected readonly value = formatLimitValue;
+  protected readonly welcome = computed(
+    () =>
+      this.checkout() === 'success' && this.currentPlan() !== null && this.currentPlan() !== 'FREE',
+  );
+  protected readonly usage = computed(() =>
+    usageRows(
+      this.store.myPlan()?.limits,
+      (key) => this.plans.limitDescription(key) ?? humanizeKey(key),
+    ),
+  );
 
   constructor() {
     void this.plans.load();
     effect(() => {
       if (this.auth.isAuthenticated()) {
-        untracked(() => void this.loadUsage());
+        untracked(() => void this.store.load());
       } else {
-        this.usage.set(null);
+        untracked(() => this.store.clear());
       }
     });
   }
@@ -230,22 +292,98 @@ export class PremiumPageComponent {
     return friendlyMessage(error);
   }
 
-  protected limitLabel(key: string | undefined): string {
-    return this.plans.limitDescription(key ?? '') ?? humanizeKey(key ?? '');
+  /** Same-app path of the open checkout of `planCode`, if any. */
+  protected openCheckout(planCode: string | undefined): string | null {
+    const live = this.subscription();
+    return live?.status === 'PENDING' && live.planCode === planCode && live.checkoutUrl
+      ? live.checkoutUrl
+      : null;
   }
 
-  protected percent(used: number | undefined, limit: number): number {
-    return Math.min(100, Math.round(((used ?? 0) / limit) * 100));
+  /** A live subscription of another plan blocks switching (the API answers 409). */
+  protected lockedBy(planCode: string | undefined): boolean {
+    const live = this.subscription();
+    return !!live && isEntitling(live.status) && live.planCode !== planCode;
   }
 
-  protected async loadUsage(): Promise<void> {
-    this.usageError.set(null);
-    try {
-      this.usage.set(
-        await firstValueFrom(this.plansApi.getMyPlan('body', false, { context: silentErrors() })),
-      );
-    } catch (error) {
-      this.usageError.set(toApiError(error));
+  protected async upgrade(planCode: string): Promise<void> {
+    this.checkoutError.set(null);
+    this.upgrading.set(planCode);
+    const result = await this.store.startCheckout(planCode);
+    this.upgrading.set(null);
+    if (!result.ok) {
+      this.checkoutError.set(result.message);
+      return;
     }
+    if (result.target.kind === 'app') {
+      await this.router.navigateByUrl(result.target.path);
+    } else {
+      window.location.assign(result.target.url);
+    }
+  }
+
+  protected async cancel(atPeriodEnd: boolean): Promise<void> {
+    const live = this.subscription();
+    if (!live) {
+      return;
+    }
+    const pending = live.status === 'PENDING';
+    const end = live.currentPeriodEnd
+      ? new Date(live.currentPeriodEnd).toLocaleDateString('en-CA', { dateStyle: 'long' })
+      : null;
+    const data: ConfirmDialogData = pending
+      ? {
+          title: 'Close the open checkout?',
+          message: 'Nothing was charged. You can start a new checkout from the plans any time.',
+          confirmLabel: 'Close the checkout',
+          cancelLabel: 'Keep it open',
+        }
+      : atPeriodEnd
+        ? {
+            title: 'Cancel Premium at the end of the period?',
+            message: end
+              ? `Premium stays until ${end}. After that you are back on the free plan and its limits.`
+              : 'Premium stays until the end of the paid period, then you are back on the free plan.',
+            confirmLabel: 'Cancel at period end',
+            cancelLabel: 'Keep Premium',
+          }
+        : {
+            title: 'Cancel Premium now?',
+            message:
+              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist, map radius and ads).',
+            confirmLabel: 'Cancel now',
+            cancelLabel: 'Keep Premium',
+            tone: 'danger',
+          };
+    const confirmed = await new Promise<boolean>((resolve) =>
+      this.dialog
+        .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, { data })
+        .afterClosed()
+        .subscribe((answer) => resolve(answer === true)),
+    );
+    if (!confirmed) {
+      return;
+    }
+    const result = await this.store.cancel(pending ? false : atPeriodEnd);
+    if (isApiError(result)) {
+      this.snackBar.open(
+        result.status === 404 ? 'There is no subscription to cancel.' : friendlyMessage(result),
+        'OK',
+        { duration: 6000 },
+      );
+      return;
+    }
+    await this.session.load();
+    this.snackBar.open(
+      pending
+        ? 'The checkout is closed.'
+        : result.status === 'CANCELLED' || result.status === 'EXPIRED'
+          ? 'Premium is cancelled. You are on the free plan now.'
+          : end
+            ? `Premium is cancelled and ends on ${end}.`
+            : 'Premium is cancelled at the end of the period.',
+      'OK',
+      { duration: 6000 },
+    );
   }
 }
