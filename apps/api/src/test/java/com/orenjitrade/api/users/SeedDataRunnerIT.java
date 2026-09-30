@@ -350,6 +350,56 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void seedsASubscriptionCreditsCampaignsAndDonationsIdempotently() {
+        UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
+        UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
+        UUID collector8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM subscription WHERE id ="
+                                        + " '00000000-0000-4000-a000-000000000001' AND user_id = ?"
+                                        + " AND status = 'ACTIVE' AND provider = 'fake'",
+                                premiumId))
+                .isEqualTo(1);
+        int entries = testUsers.count("SELECT count(*) FROM credit_ledger_entry");
+        seedDataRunner.seedAll();
+        assertThat(testUsers.count("SELECT count(*) FROM credit_ledger_entry"))
+                .as("idempotent")
+                .isEqualTo(entries);
+        assertThat(
+                        testUsers.count(
+                                "SELECT COALESCE(SUM(amount), 0) FROM credit_ledger_entry WHERE"
+                                        + " user_id = ?",
+                                collector1))
+                .isGreaterThanOrEqualTo(300);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM referral_redemption WHERE referee_id = ?",
+                                collector8))
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM ad_campaign WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-a200-%'"))
+                .isEqualTo(3);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM ad_creative WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-a200-%' AND status = 'ACTIVE'"))
+                .isEqualTo(6);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM donation WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-a300-%' AND status = 'SUCCEEDED'"))
+                .isEqualTo(2);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM advertiser WHERE contact_email LIKE"
+                                        + " '%.example'"))
+                .isPositive();
+    }
+
+    @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
@@ -374,7 +424,11 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "reports",
                         "offers",
                         "trades",
-                        "payments");
+                        "payments",
+                        "subscriptions",
+                        "credits",
+                        "ads",
+                        "donations");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

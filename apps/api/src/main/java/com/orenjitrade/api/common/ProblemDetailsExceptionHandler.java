@@ -393,7 +393,8 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
                 detail.getProperties() != null
                         ? detail.getProperties().get(ProblemDetailFactory.ERROR_CODE)
                         : null;
-        if (detail.getStatus() >= 500) {
+        // 501 NOT_IMPLEMENTED answers a reserved route (Phase 10 mobile receipts): not a failure.
+        if (detail.getStatus() >= 500 && detail.getStatus() != 501) {
             log.error(
                     "Request failed requestId={} status={} errorCode={} path={}",
                     requestId,

@@ -17,6 +17,10 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { BillingWebhookReceipt } from '../model/billingWebhookReceipt';
+// @ts-ignore
+import { DonationWebhookReceipt } from '../model/donationWebhookReceipt';
+// @ts-ignore
 import { PaymentWebhookReceipt } from '../model/paymentWebhookReceipt';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
@@ -27,6 +31,8 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     WebhooksServiceInterface,
+    ReceiveBillingWebhookRequestParams,
+    ReceiveDonationWebhookRequestParams,
     ReceivePaymentWebhookRequestParams
 } from './webhooks.serviceInterface';
 
@@ -39,6 +45,156 @@ export class WebhooksService extends BaseService implements WebhooksServiceInter
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Billing provider webhook
+     * Called by the active billing provider only (fake: X-Fake-Signature; stripe: Stripe-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider\&#39;s event id: a retry answers duplicate&#x3D;true) and applied after the 200 (activation, renewal, past due, cancellation). 404 for another provider; 413 above 256 KB.
+     * @endpoint post /api/v1/webhooks/billing/{provider}
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public receiveBillingWebhook(requestParameters: ReceiveBillingWebhookRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<BillingWebhookReceipt>;
+    public receiveBillingWebhook(requestParameters: ReceiveBillingWebhookRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<BillingWebhookReceipt>>;
+    public receiveBillingWebhook(requestParameters: ReceiveBillingWebhookRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<BillingWebhookReceipt>>;
+    public receiveBillingWebhook(requestParameters: ReceiveBillingWebhookRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const provider = requestParameters?.provider;
+        if (provider === null || provider === undefined) {
+            throw new Error('Required parameter provider was null or undefined when calling receiveBillingWebhook.');
+        }
+        const xFakeSignature = requestParameters?.xFakeSignature;
+        const stripeSignature = requestParameters?.stripeSignature;
+        const body = requestParameters?.body;
+
+        let localVarHeaders = this.defaultHeaders;
+        if (xFakeSignature !== undefined && xFakeSignature !== null) {
+            localVarHeaders = localVarHeaders.set('X-Fake-Signature', String(xFakeSignature));
+        }
+        if (stripeSignature !== undefined && stripeSignature !== null) {
+            localVarHeaders = localVarHeaders.set('Stripe-Signature', String(stripeSignature));
+        }
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/webhooks/billing/${this.configuration.encodeParam({name: "provider", value: provider, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<BillingWebhookReceipt>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: body,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Donation provider webhook
+     * Called by the active donation provider only (fake: X-Fake-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider\&#39;s event id) and applied after the 200. 404 for another provider or while donations is off for everybody (FEATURE_DISABLED); 413 above 256 KB.
+     * @endpoint post /api/v1/webhooks/donations/{provider}
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public receiveDonationWebhook(requestParameters: ReceiveDonationWebhookRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<DonationWebhookReceipt>;
+    public receiveDonationWebhook(requestParameters: ReceiveDonationWebhookRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<DonationWebhookReceipt>>;
+    public receiveDonationWebhook(requestParameters: ReceiveDonationWebhookRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<DonationWebhookReceipt>>;
+    public receiveDonationWebhook(requestParameters: ReceiveDonationWebhookRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const provider = requestParameters?.provider;
+        if (provider === null || provider === undefined) {
+            throw new Error('Required parameter provider was null or undefined when calling receiveDonationWebhook.');
+        }
+        const xFakeSignature = requestParameters?.xFakeSignature;
+        const body = requestParameters?.body;
+
+        let localVarHeaders = this.defaultHeaders;
+        if (xFakeSignature !== undefined && xFakeSignature !== null) {
+            localVarHeaders = localVarHeaders.set('X-Fake-Signature', String(xFakeSignature));
+        }
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/webhooks/donations/${this.configuration.encodeParam({name: "provider", value: provider, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<DonationWebhookReceipt>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: body,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**

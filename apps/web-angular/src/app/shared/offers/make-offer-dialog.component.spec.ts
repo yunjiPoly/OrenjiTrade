@@ -1,9 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { InventoryItemResponse, InventoryService, OffersService } from '@orenji/api-client';
 import { of, throwError } from 'rxjs';
+import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { MakeOfferDialogComponent, MakeOfferDialogData } from './make-offer-dialog.component';
 import { offerTargetFromItem } from './offer-target';
 import { offerResponse, publicItem } from './testing/offer-fixtures';
@@ -34,11 +36,19 @@ describe('MakeOfferDialogComponent', () => {
   let element: HTMLElement;
   let offers: Record<string, ReturnType<typeof vi.fn>>;
   let close: ReturnType<typeof vi.fn>;
+  let protectedPayments: ReturnType<typeof signal<boolean>>;
 
   async function create(data: MakeOfferDialogData): Promise<void> {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        {
+          provide: FeatureFlagsService,
+          useValue: {
+            enabled: (key: string) =>
+              key === 'protectedPayments' ? protectedPayments : signal(false),
+          },
+        },
         { provide: OffersService, useValue: offers },
         {
           provide: InventoryService,
@@ -79,6 +89,7 @@ describe('MakeOfferDialogComponent', () => {
 
   beforeEach(() => {
     close = vi.fn();
+    protectedPayments = signal(false);
     offers = {
       createOffer: vi.fn(() => of(offerResponse({ id: 'offer-new' }))),
       counterOffer: vi.fn(() => of(offerResponse({ id: 'offer-counter' }))),
@@ -116,6 +127,36 @@ describe('MakeOfferDialogComponent', () => {
     });
     expect(request.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
     expect(close).toHaveBeenCalledWith({ offer: expect.objectContaining({ id: 'offer-new' }) });
+  });
+
+  it('asks for payment protection on cash offers while the feature is on', async () => {
+    protectedPayments.set(true);
+    await create({ target: offerTargetFromItem(publicItem(), SELLER) });
+    const option = element.querySelector('[data-testid="protection-option"]');
+    expect(option?.textContent).toContain('Use payment protection');
+    expect(option?.textContent).toContain('the payment provider holds the money');
+    expect(element.textContent?.toLowerCase()).not.toContain('escrow');
+    element.querySelector<HTMLInputElement>('[data-testid="protection-option"] input')?.click();
+    await type('input[formcontrolname="cashAmount"]', '40');
+    expect(element.querySelector('[data-testid="offer-summary"]')?.textContent).toContain(
+      'with payment protection',
+    );
+    await submit();
+    const [request] = offers['createOffer'].mock.calls[0];
+    expect(request.createOfferRequest).toMatchObject({
+      kind: 'CASH',
+      cashAmount: 40,
+      protectionRequested: true,
+    });
+    // Trade offers have no cash part: no protection option.
+    button('Trade').click();
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid="protection-option"]')).toBeNull();
+  });
+
+  it('hides payment protection while the feature is off', async () => {
+    await create({ target: offerTargetFromItem(publicItem(), SELLER) });
+    expect(element.querySelector('[data-testid="protection-option"]')).toBeNull();
   });
 
   it('adds the buyer’s own cards with copies to a trade offer', async () => {

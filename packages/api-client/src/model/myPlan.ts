@@ -9,6 +9,7 @@
  */
 import { MyEntitlement } from './myEntitlement';
 import { LimitStatus } from './limitStatus';
+import { MySubscription } from './mySubscription';
 import { Plan } from './plan';
 
 
@@ -21,5 +22,6 @@ export interface MyPlan {
     features?: { [key: string]: boolean; };
     entitlements?: Array<MyEntitlement>;
     upgradeUrl?: string;
+    subscription?: MySubscription;
 }
 

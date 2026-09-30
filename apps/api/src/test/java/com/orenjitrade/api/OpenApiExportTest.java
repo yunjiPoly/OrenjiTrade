@@ -318,6 +318,74 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .isNotEmpty();
                             });
         }
+        // Phase 10 (subscriptions, credits, referrals, ads, donations, admin).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/me/plan",
+                        "/api/v1/me/subscription/checkout",
+                        "/api/v1/me/subscription/cancel",
+                        "/api/v1/me/subscription/mobile-receipt",
+                        "/api/v1/billing/fake/{ref}",
+                        "/api/v1/billing/fake/{ref}/confirm",
+                        "/api/v1/webhooks/billing/{provider}",
+                        "/api/v1/admin/subscriptions",
+                        "/api/v1/admin/subscriptions/{id}",
+                        "/api/v1/admin/subscriptions/{id}/cancel",
+                        "/internal/jobs/subscriptions-period",
+                        "/api/v1/me/credits",
+                        "/api/v1/me/credits/spend",
+                        "/api/v1/me/referrals",
+                        "/api/v1/me/referrals/redeem",
+                        "/api/v1/admin/credits/grant",
+                        "/api/v1/admin/credits/ledger",
+                        "/api/v1/admin/credits/products",
+                        "/api/v1/admin/credits/products/{key}",
+                        "/api/v1/admin/credits/settings",
+                        "/internal/jobs/credits-reconcile",
+                        "/api/v1/ads",
+                        "/api/v1/ads/{creativeId}/impression",
+                        "/api/v1/ads/{creativeId}/click",
+                        "/api/v1/admin/ads/advertisers",
+                        "/api/v1/admin/ads/advertisers/{id}",
+                        "/api/v1/admin/ads/placements",
+                        "/api/v1/admin/ads/placements/{key}",
+                        "/api/v1/admin/ads/campaigns",
+                        "/api/v1/admin/ads/campaigns/{id}",
+                        "/api/v1/admin/ads/campaigns/{id}/targeting",
+                        "/api/v1/admin/ads/campaigns/{id}/creatives",
+                        "/api/v1/admin/ads/campaigns/{id}/stats",
+                        "/api/v1/admin/ads/creatives/{id}",
+                        "/internal/ads/clicks/{clickId}/conversions",
+                        "/api/v1/donations/checkout",
+                        "/api/v1/me/donations",
+                        "/api/v1/donations/fake/{ref}",
+                        "/api/v1/donations/fake/{ref}/confirm",
+                        "/api/v1/webhooks/donations/{provider}",
+                        "/api/v1/public/donations/supporters",
+                        "/api/v1/admin/donations",
+                        "/api/v1/admin/donations/{id}",
+                        "/api/v1/admin/donations/{id}/refund",
+                        "/api/v1/admin/donations/settings")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation -> {
+                                assertThat(operation.getValue().path("summary").asString())
+                                        .as("summary of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                                assertThat(operation.getValue().path("tags"))
+                                        .as("tags of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                            });
+        }
+        assertThat(paths.path("/api/v1/ads").path("get").path("security")).isEmpty();
+        assertThat(
+                        paths.path("/api/v1/me/subscription/mobile-receipt")
+                                .path("post")
+                                .path("responses")
+                                .has("501"))
+                .isTrue();
         assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("422")).isTrue();
         assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("429")).isTrue();
         assertThat(paths.path("/api/v1/public/report-reasons").path("get").path("security"))

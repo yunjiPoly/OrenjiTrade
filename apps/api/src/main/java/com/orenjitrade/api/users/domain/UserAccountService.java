@@ -431,6 +431,31 @@ public class UserAccountService {
         return account.toSnapshot();
     }
 
+    /**
+     * Applies a billing decision (Phase 10 subscriptions): sets {@code plan_code} and grants or
+     * revokes {@link Role#PREMIUM_USER}. Publishes {@link UserRolesChangedEvent} when the roles
+     * change. Callers (the billing module) record the reason in their own history.
+     */
+    @Transactional
+    public UserAccountSnapshot applyPlan(UUID userId, String planCode, boolean premiumRole) {
+        UserAccount account = load(userId);
+        Set<Role> previous = account.roleSet();
+        Instant now = timeProvider.now();
+        if (!planCode.equals(account.getPlanCode())) {
+            account.changePlan(planCode, now);
+        }
+        if (premiumRole) {
+            account.grantRole(Role.PREMIUM_USER, null, now);
+        } else {
+            account.revokeRole(Role.PREMIUM_USER, now);
+        }
+        Set<Role> current = account.roleSet();
+        if (!previous.equals(current)) {
+            events.publishEvent(new UserRolesChangedEvent(userId, previous, current, now));
+        }
+        return account.toSnapshot();
+    }
+
     private UserAccount load(UUID userId) {
         return repository
                 .findWithRolesById(userId)

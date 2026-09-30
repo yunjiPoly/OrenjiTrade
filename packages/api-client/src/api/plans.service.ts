@@ -44,7 +44,7 @@ export class PlansService extends BaseService implements PlansServiceInterface {
 
     /**
      * The caller\&#39;s plan, limits with usage, features and entitlements
-     * Limits carry the effective value (entitlements override the plan), the usage of the current window and when it resets (UTC day or month; null for totals and caps).
+     * Limits carry the effective value (entitlements override the plan), the usage of the current window and when it resets (UTC day or month; null for totals and caps). subscription is the live subscription (PENDING checkout, TRIAL, ACTIVE or PAST_DUE), absent otherwise.
      * @endpoint get /api/v1/me/plan
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.

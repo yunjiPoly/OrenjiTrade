@@ -125,6 +125,23 @@ export const routes: Routes = [
     loadChildren: () => import('./features/trades/trades.routes').then((m) => m.TRADES_ROUTES),
   },
   {
+    // The local fake payment provider's checkout (the buyer of a protected trade only).
+    path: 'checkout/fake/:ref',
+    title: 'Checkout',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () =>
+      import('./features/checkout/fake-checkout-page.component').then(
+        (m) => m.FakeCheckoutPageComponent,
+      ),
+  },
+  {
+    path: 'disputes/:id',
+    title: 'Dispute',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () =>
+      import('./features/disputes/dispute-page.component').then((m) => m.DisputePageComponent),
+  },
+  {
     path: 'collectors/:handle',
     title: 'Collector',
     canActivate: [accountStateGuard],

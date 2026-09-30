@@ -53,6 +53,8 @@ export interface OfferFormValue {
   cards: TradeLine[];
   message: string;
   expiresInHours: number;
+  /** Ask for payment protection (cash part only; Phase 9, `protectedPayments` flag). */
+  protectionRequested: boolean;
 }
 
 export type OfferForm = FormGroup<{
@@ -62,6 +64,7 @@ export type OfferForm = FormGroup<{
   cards: FormControl<TradeLine[]>;
   message: FormControl<string>;
   expiresInHours: FormControl<number>;
+  protectionRequested: FormControl<boolean>;
 }>;
 
 function kindOf(control: AbstractControl): OfferKind | null {
@@ -140,6 +143,7 @@ export function createOfferForm(initial: OfferFormValue): OfferForm {
       nonNullable: true,
       validators: [Validators.required, Validators.min(1), Validators.max(168)],
     }),
+    protectionRequested: new FormControl(initial.protectionRequested, { nonNullable: true }),
   });
   // The parts' validators depend on the kind: re-run them once the group exists and on change.
   const revalidate = () => {
@@ -211,6 +215,7 @@ export function toCreateRequest(itemId: string, value: OfferFormValue): CreateOf
     ...(kindHasCards(value.kind) ? { tradeItemIds: tradeItems(value) } : {}),
     ...(message ? { message } : {}),
     expiresInHours: value.expiresInHours,
+    ...(kindHasCash(value.kind) && value.protectionRequested ? { protectionRequested: true } : {}),
   };
 }
 
@@ -299,6 +304,7 @@ export function newOfferValue(kinds: readonly OfferKind[], currency: string): Of
     cards: [],
     message: '',
     expiresInHours: OFFER_DEFAULT_EXPIRY_HOURS,
+    protectionRequested: false,
   };
 }
 
@@ -313,5 +319,7 @@ export function counterValue(offer: OfferResponse, fallbackCurrency: string): Of
       .filter((line): line is TradeLine => line !== null),
     message: '',
     expiresInHours: OFFER_DEFAULT_EXPIRY_HOURS,
+    // Counter-offers keep the negotiation's choice (the API does not take it again).
+    protectionRequested: offer.protectionRequested,
   };
 }

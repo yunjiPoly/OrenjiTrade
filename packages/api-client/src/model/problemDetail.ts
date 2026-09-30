@@ -72,6 +72,26 @@ export interface ProblemDetail {
      * Feature flag that is off for the caller (FEATURE_DISABLED)
      */
     feature?: string;
+    /**
+     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED)
+     */
+    currentStatus?: string;
+    /**
+     * The caller\'s live subscription (ALREADY_SUBSCRIBED)
+     */
+    subscriptionId?: string;
+    /**
+     * The caller\'s credit balance (INSUFFICIENT_CREDITS)
+     */
+    balance?: number;
+    /**
+     * Credits the action needs (INSUFFICIENT_CREDITS)
+     */
+    cost?: number;
+    /**
+     * Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT
+     */
+    reason?: string;
 }
 export enum ProblemDetailErrorCodeEnum {
     ValidationFailed = 'VALIDATION_FAILED',
@@ -101,6 +121,9 @@ export enum ProblemDetailErrorCodeEnum {
     DisputeWindowClosed = 'DISPUTE_WINDOW_CLOSED',
     EvidenceLimitReached = 'EVIDENCE_LIMIT_REACHED',
     WebhookSignatureInvalid = 'WEBHOOK_SIGNATURE_INVALID',
+    AlreadySubscribed = 'ALREADY_SUBSCRIBED',
+    InsufficientCredits = 'INSUFFICIENT_CREDITS',
+    ReferralNotAllowed = 'REFERRAL_NOT_ALLOWED',
     Conflict = 'CONFLICT',
     HandleTaken = 'HANDLE_TAKEN',
     DeletionBlocked = 'DELETION_BLOCKED',
@@ -110,6 +133,7 @@ export enum ProblemDetailErrorCodeEnum {
     PayloadTooLarge = 'PAYLOAD_TOO_LARGE',
     UnsupportedMediaType = 'UNSUPPORTED_MEDIA_TYPE',
     InternalError = 'INTERNAL_ERROR',
+    NotImplemented = 'NOT_IMPLEMENTED',
     ServiceUnavailable = 'SERVICE_UNAVAILABLE'
 };
 

@@ -93,6 +93,21 @@ public enum ErrorCode {
     EVIDENCE_LIMIT_REACHED(HttpStatus.CONFLICT, "Evidence limit reached"),
     /** A payment provider webhook failed signature verification (Phase 9; stored as IGNORED). */
     WEBHOOK_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, "Invalid webhook signature"),
+    /**
+     * The caller already holds a live subscription (Phase 10; extensions {@code subscriptionId},
+     * {@code currentStatus}); cancel it or wait for the end of its period first.
+     */
+    ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "Already subscribed"),
+    /**
+     * The credit balance does not cover a spend or a negative adjustment (Phase 10; extensions
+     * {@code balance}, {@code cost}). Credits are never bought with money through this API.
+     */
+    INSUFFICIENT_CREDITS(HttpStatus.CONFLICT, "Insufficient credits"),
+    /**
+     * A referral code cannot be redeemed by the caller (Phase 10; extension {@code reason}: SELF,
+     * ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT).
+     */
+    REFERRAL_NOT_ALLOWED(HttpStatus.CONFLICT, "Referral not allowed"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),
@@ -109,6 +124,11 @@ public enum ErrorCode {
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload too large"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error"),
+    /**
+     * The route is reserved for a capability that does not exist yet (Phase 10: App Store / Google
+     * Play receipt validation).
+     */
+    NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented"),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Service unavailable");
 
     private static final String PROBLEM_TYPE_BASE = "https://api.orenjitrade.com/problems/";
@@ -151,6 +171,7 @@ public enum ErrorCode {
             case 415 -> UNSUPPORTED_MEDIA_TYPE;
             case 428 -> TERMS_ACCEPTANCE_REQUIRED;
             case 429 -> RATE_LIMITED;
+            case 501 -> NOT_IMPLEMENTED;
             case 503 -> SERVICE_UNAVAILABLE;
             default -> status.is5xxServerError() ? INTERNAL_ERROR : VALIDATION_FAILED;
         };

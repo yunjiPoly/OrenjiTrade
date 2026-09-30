@@ -139,6 +139,76 @@ export const ADMIN_ROUTES: Routes = [
           import('./binders/admin-binders-page.component').then((m) => m.AdminBindersPageComponent),
       },
       {
+        path: 'transactions',
+        title: 'Transactions · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./payments/admin-transactions-page.component').then(
+            (m) => m.AdminTransactionsPageComponent,
+          ),
+      },
+      {
+        path: 'disputes',
+        title: 'Disputes · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./disputes/admin-disputes-page.component').then(
+            (m) => m.AdminDisputesPageComponent,
+          ),
+      },
+      {
+        path: 'disputes/:id',
+        title: 'Dispute · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./disputes/admin-dispute-detail-page.component').then(
+            (m) => m.AdminDisputeDetailPageComponent,
+          ),
+      },
+      {
+        path: 'payments',
+        title: 'Payments · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./payments/admin-payments-page.component').then(
+            (m) => m.AdminPaymentsPageComponent,
+          ),
+      },
+      {
+        path: 'payments/webhooks',
+        title: 'Webhook events · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./payments/admin-webhooks-page.component').then(
+            (m) => m.AdminWebhooksPageComponent,
+          ),
+      },
+      {
+        path: 'payments/settings',
+        title: 'Payment rules · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./payments/admin-payment-settings-page.component').then(
+            (m) => m.AdminPaymentSettingsPageComponent,
+          ),
+      },
+      {
+        path: 'payments/:id',
+        title: 'Payment · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./payments/admin-payment-detail-page.component').then(
+            (m) => m.AdminPaymentDetailPageComponent,
+          ),
+      },
+      {
         path: 'notifications',
         title: 'Notifications · Admin',
         canActivate: [adminGuard],

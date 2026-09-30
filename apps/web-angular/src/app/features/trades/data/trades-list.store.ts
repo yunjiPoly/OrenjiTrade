@@ -46,6 +46,15 @@ export function tradesRequest(
   };
 }
 
+/** Notifications that change a row of the list (a new trade, a status, a payment step). */
+const LIST_REFRESH_TYPES = new Set<string>([
+  'TRADE_UPDATE',
+  'OFFER_ACCEPTED',
+  'PAYMENT_UPDATE',
+  'SHIPMENT_STATUS',
+  'DISPUTE_UPDATE',
+]);
+
 /**
  * `/trades`: the caller's trades (both sides), most recent activity first, with a status filter
  * and cursor pages; re-read on trade / accepted-offer notifications and realtime reconnections.
@@ -82,10 +91,7 @@ export class TradesListStore {
     this.started = true;
     this.center.pushed$
       .pipe(
-        filter(
-          (notification) =>
-            notification.type === 'TRADE_UPDATE' || notification.type === 'OFFER_ACCEPTED',
-        ),
+        filter((notification) => LIST_REFRESH_TYPES.has(notification.type)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => void this.list.refresh());
