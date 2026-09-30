@@ -223,6 +223,15 @@ _Backend complete (workflow `web-mvp-local` stage 5, independently re-verified: 
 
 ## NEXT TASK
 
+> **PAUSED by the owner on 2026-09-30 during stage 6.** Stages 1–5 are verified and committed
+> (backend Phases 1–5, web Phases 1–4). Unverified partial stage-6 work (web Phase 5 messaging UI,
+> backend Phase 6 wishlist/notifications) is left in the working tree and backed up on branch
+> `wip/stage6-partial`. To resume: re-run workflow script `web-mvp-local` with
+> `resumeFromRunId: wf_b3572cd8-a92` (stages 1–5 replay from cache; stage 6 agents continue from the
+> partial files). Root `app.json`, `eas.json` and the `react-native-worklets` bump in
+> `apps/mobile/package.json` / `package-lock.json` were not created by the build workflow and are
+> left untouched for the owner.
+
 **Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
 everything must run locally, build a functional **web** application first, then mobile. Phase 11
 (ML card recognition) is on hold. Mobile partial auth work is parked on branch
