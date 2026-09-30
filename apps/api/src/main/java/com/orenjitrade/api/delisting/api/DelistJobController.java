@@ -25,18 +25,31 @@ public class DelistJobController {
             operationId = "runDelistJob",
             summary = "Pause listings of unresponsive owners (service auth)",
             description =
-                    "Daily. Pauses the public listings of owners whose unresponsiveness strikes"
-                        + " reached the policy's maxStrikes. Strike tracking arrives with Phases"
-                        + " 5/7: until then the run is recorded and nobody is paused. Never"
-                        + " deletes.")
+                    "Nightly. Counts the conversations waiting for each collector's answer (the"
+                        + " other participant's last message of the last 30 days, older than the"
+                        + " policy's unansweredAfterHours), stores the strikes (unanswered"
+                        + " conversations since the owner's last resume) and pauses the public"
+                        + " listings of owners who reached the policy's maxStrikes (they resume by"
+                        + " confirming, POST /me/listings/resume). Also ends timed pauses. Never"
+                        + " deletes. Records a job run.")
     public DelistJobResponse run() {
         DelistJob.Result result = job.run();
-        return new DelistJobResponse(result.ownersEvaluated(), result.listingsPaused());
+        return new DelistJobResponse(
+                result.ownersEvaluated(),
+                result.listingsPaused(),
+                result.ownersWithStrikes(),
+                result.pausesExpired());
     }
 
     /** Response of {@code POST /internal/jobs/delist}. */
     @Schema(name = "DelistJobResponse")
     public record DelistJobResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED) int ownersEvaluated,
-            @Schema(requiredMode = RequiredMode.REQUIRED) int listingsPaused) {}
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Collectors with at least one unanswered conversation")
+                    int ownersEvaluated,
+            @Schema(requiredMode = RequiredMode.REQUIRED) int listingsPaused,
+            @Schema(requiredMode = RequiredMode.REQUIRED) int ownersWithStrikes,
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Timed pauses that ended")
+                    int pausesExpired) {}
 }

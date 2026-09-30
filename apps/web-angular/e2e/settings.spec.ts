@@ -1,19 +1,7 @@
-import { Response, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import {
-  API_URL,
-  coordinates,
-  createOnboardedCollector,
-  decimalsOf,
-  requireStack,
-  signInThroughUi,
-} from './support/stack';
-
-interface CoordinateSample {
-  url: string;
-  path: string;
-  value: number;
-}
+import { tooPrecise, watchCoordinates } from './support/inventory';
+import { API_URL, createOnboardedCollector, requireStack, signInThroughUi } from './support/stack';
 
 /**
  * Settings against the real local stack: discoverability (and the ADR 0004 precision rule on
@@ -29,24 +17,8 @@ test.describe('settings', () => {
     test.setTimeout(90_000);
     const collector = await createOnboardedCollector(request, 'privacy', { tradingArea: true });
 
-    const samples: CoordinateSample[] = [];
-    const pending: Promise<void>[] = [];
-    page.on('response', (response: Response) => {
-      const type = response.headers()['content-type'] ?? '';
-      if (!type.includes('json')) {
-        return;
-      }
-      pending.push(
-        response
-          .json()
-          .then((body: unknown) => {
-            for (const sample of coordinates(body)) {
-              samples.push({ url: response.url(), ...sample });
-            }
-          })
-          .catch(() => undefined),
-      );
-    });
+    // Bounded body reads: a response aborted by a navigation must not hang the spec.
+    const watcher = watchCoordinates(page);
 
     await signInThroughUi(page, collector.email, collector.password);
     await page.goto('/settings/privacy');
@@ -85,10 +57,10 @@ test.describe('settings', () => {
     // Phase 5: Devon accepts messages from members with a profile.
     await expect(page.getByRole('button', { name: 'Message Devon Okafor' })).toBeEnabled();
 
-    await Promise.all(pending);
-    const apiSamples = samples.filter((sample) => sample.url.startsWith(API_URL));
+    await watcher.settle();
+    const apiSamples = watcher.samples.filter((sample) => sample.url.startsWith(API_URL));
     expect(apiSamples.length, 'the API returned coordinates to check').toBeGreaterThan(0);
-    const precise = samples.filter((sample) => decimalsOf(sample.value) > 3);
+    const precise = tooPrecise(watcher.samples);
     expect(precise, `coordinates with more than 3 decimals: ${JSON.stringify(precise)}`).toEqual(
       [],
     );

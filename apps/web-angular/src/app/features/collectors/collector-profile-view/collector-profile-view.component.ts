@@ -8,6 +8,7 @@ import type {
   CollectorProfileResponse,
   PublicBinderSummary,
   PublicInventoryItem,
+  WishlistSummaryEntry,
 } from '@orenji/api-client';
 import {
   LAST_ACTIVE_LABELS,
@@ -23,8 +24,12 @@ import { CardArtComponent } from '../../../shared/ui/card-art/card-art.component
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { CollectorWishlistComponent } from '../collector-wishlist/collector-wishlist.component';
 
-/** Presentational public profile: header, actions, about, location, ratings, binders and cards. */
+/**
+ * Presentational public profile: header, actions, about, location, ratings, binders, cards and
+ * the public wishlist ("Looking for").
+ */
 @Component({
   selector: 'app-collector-profile-view',
   imports: [
@@ -36,6 +41,7 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
     ApproximateAreaMapComponent,
     AvatarComponent,
     CardArtComponent,
+    CollectorWishlistComponent,
     EmptyStateComponent,
     GameChipComponent,
     PublicBinderCardComponent,
@@ -56,6 +62,8 @@ export class CollectorProfileViewComponent {
   /** Preview of the public cards (`null` while loading) and their total. */
   readonly publicItems = input<readonly PublicInventoryItem[] | null>(null);
   readonly publicItemCount = input(0);
+  /** Public wishlist (`null` while loading; empty when hidden). */
+  readonly wishlist = input<readonly WishlistSummaryEntry[] | null>(null);
   readonly retryBinders = output<void>();
   /** The conversation with this collector is being opened. */
   readonly messaging = input(false);

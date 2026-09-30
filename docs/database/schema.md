@@ -43,6 +43,11 @@ update it in the same change.
 | `wishlist_match.distance_bucket` | Derived distance class | Computed from the two stored **public points** only; the metres are never stored or returned |
 | `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
 | `push_token.token` | Device secret | Never returned by the API (export lists platform and dates only), never logged (the log provider logs the device count) |
+| `collector_report.details`, `moderator_note.body`, `collector_report.resolution_note` | Reporter and moderator free text | Moderators and admins only (`/admin/reports/**`); never returned to the reporter or the reported collector, never in events or analytics (`collector_reported` carries reason and context source only); report details of decided reports are erased when the reporter's account is deleted |
+| `collector_report.context.conversationId` | Pointer to a private conversation | Lets moderators read that conversation only, through the messaging module; each detail view is audited (`report.conversation.view`) |
+| `rating.hidden_reason`, `reference.hidden_reason`, `user_responsiveness.pause_reason` | Moderator notes | Admin console and audit log only; the owner's listing status omits the pause reason |
+| `rating.comment`, `reference.body` | Public member text | Public on the profile unless hidden; banned terms refused; never in analytics (`rating_submitted` has a comment flag only) |
+| `user_account.banned_at` | Moderation decision | Admin views only |
 | Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
 
 ## Entity overview
@@ -73,7 +78,13 @@ erDiagram
   OFFER ||--o| TRADE : becomes
   TRADE ||--o| PAYMENT : secured_by
   TRADE ||--o| DISPUTE : may_have
+  USER_ACCOUNT ||--o{ INTERACTION : takes_part
+  INTERACTION ||--o{ RATING : rated_by
   USER_ACCOUNT ||--o{ RATING : gives
+  USER_ACCOUNT ||--o{ REFERENCE : writes
+  USER_ACCOUNT ||--o| RATING_SUMMARY : summarised
+  COLLECTOR_REPORT ||--o{ MODERATOR_NOTE : has
+  USER_ACCOUNT ||--o| USER_RESPONSIVENESS : strikes
   USER_ACCOUNT ||--o{ COLLECTOR_REPORT : files
   USER_ACCOUNT ||--o{ NOTIFICATION : receives
   USER_ACCOUNT ||--o{ CREDIT_LEDGER_ENTRY : has
@@ -109,6 +120,10 @@ Detailed column lists are appended per phase below as migrations land.
 | V042 | `V042__moderation_flags.sql` | Phase 5: `moderation_flag`, `ck_moderation_rule_rate_pattern`, message/post banned terms, rate and repeated-content rules |
 | V050 | `V050__wishlist.sql` | Phase 6: `wishlist_item` (card or printing target, filters, radius, trade preference, private notes), `wishlist_match` (one row per wishlist item and inventory item) |
 | V051 | `V051__notifications.sql` | Phase 6: `notification` (in-app rows + channel delivery state, unique `dedup_key`), `push_token` |
+| V060 | `V060__ratings.sql` | Phase 7: `interaction` (rating eligibility), `rating`, `rating_summary`, `reference` |
+| V061 | `V061__collector_reports.sql` | Phase 7: `collector_report`, `moderator_note`; `moderation_rule` kind REPORT_THRESHOLD and scope REPORT (+ report rate and threshold rules); `moderation_flag` reason REPORT_THRESHOLD; `user_account.banned_at` |
+| V062 | `V062__listing_pauses_and_strikes.sql` | Phase 7: `user_responsiveness` (strikes and listing pauses); `delist_policy.unanswered_after_hours` |
+| V063 | `V063__analytics_daily_count.sql` | Phase 7: `analytics_daily_count` (local analytics aggregate for the admin summary) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -1067,3 +1082,174 @@ Index: `ix_push_token_user (user_id, last_seen_at DESC) WHERE invalid_at IS NULL
 Redis keys of this phase: none of its own. The daily alert counter is the `Limits` mirror of
 `usage_counter` (`orenji:usage:*`), and realtime notifications travel on the Phase 5 channel
 `rt:user:{userId}` to `/user/queue/notifications`.
+
+### Phase 7 — ratings, reports, moderation, delisting, admin console (V060–V063)
+
+No table of this phase stores a location. Interactions, ratings and references only link accounts;
+the report threshold, the listing pause and the strikes are rules over ids and timestamps. Private
+message bodies are read by moderators only for the conversation a report names
+(`collector_report.context.conversationId`), through the messaging module, and that access is
+audited (`report.conversation.view`). Configurable numbers stay data (ADR 0014): the report rate
+and threshold are `moderation_rule` rows, the unanswered window and the strikes limit are
+`delist_policy` columns.
+
+### V060 — interactions, ratings, references
+
+#### `interaction`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `kind` | `text` | `TRADE`, `OFFER_ACCEPTED`, `CONVERSATION_QUALIFIED` |
+| `user_a`, `user_b` | `uuid` | FK → `user_account.id` (cascade); `ck_interaction_pair_order`: `user_a < user_b` in PostgreSQL uuid order (the API inserts with `LEAST`/`GREATEST`) |
+| `subject_type` | `text` | `TRADE`, `OFFER`, `CONVERSATION` (follows the kind) |
+| `subject_id` | `uuid` | the trade, offer or conversation; no FK (other modules / later phases) |
+| `occurred_at` | `timestamptz` | when the interaction happened |
+
+Constraint `uq_interaction_kind_subject (kind, subject_id)`: `InteractionService.record` is
+idempotent. Indexes: `ix_interaction_pair (user_a, user_b, occurred_at DESC)` (eligibility),
+`ix_interaction_user_b (user_b, occurred_at DESC)` (export).
+
+#### `rating`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `interaction_id` | `uuid` | FK → `interaction.id` (cascade) |
+| `rater_id`, `ratee_id` | `uuid` | FK → `user_account.id` (cascade); `ck_rating_not_self` |
+| `overall` | `smallint` | 1-5, required |
+| `communication`, `condition_accuracy`, `shipping`, `meetup_reliability` | `smallint` | optional, 1-5 |
+| `comment` | `text` | public on the ratee's profile, ≤ 600 (`ck_rating_comment`) |
+| `created_at`, `updated_at` | `timestamptz` | the author may edit for 14 days after `created_at` |
+| `moderation_state` | `text` | `OK`, `HIDDEN` |
+| `hidden_reason` | `text` | **moderator note**, ≤ 500; admin console and audit log only |
+| `hidden_by`, `hidden_at` | `uuid`, `timestamptz` | moderator (FK, set null) and time of the hide |
+
+Constraint `uq_rating_interaction_rater (interaction_id, rater_id)` (409 `ALREADY_RATED`). Indexes:
+`ix_rating_ratee_created (ratee_id, created_at DESC, id DESC)` (profile pages, keyset cursor),
+`ix_rating_rater (rater_id, created_at DESC)` (export, deletion),
+`ix_rating_hidden (hidden_at DESC) WHERE moderation_state = 'HIDDEN'` (moderator list).
+
+#### `rating_summary`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | `uuid` | PK, FK → `user_account.id` (cascade) |
+| `average` | `numeric(3,2)` | mean `overall` of the OK ratings (`NULL` without ratings); served with one decimal |
+| `count` | `integer` | OK ratings |
+| `communication_avg`, `condition_accuracy_avg`, `shipping_avg`, `meetup_reliability_avg` | `numeric(3,2)` | means of the given breakdown scores |
+| `updated_at` | `timestamptz` | last recomputation |
+
+Recomputed by the ratings module (single upsert from `rating`) on every rating write, hide, unhide
+and deletion; read by `RatingSummaryProvider` (profiles, previews, markers, nearby ranking; one query
+per map page). Index `ix_rating_summary_average (average DESC NULLS LAST, count DESC)`.
+
+#### `reference`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `author_id`, `subject_id` | `uuid` | FK → `user_account.id` (cascade); `ck_reference_not_self` |
+| `body` | `text` | public, 1-400 (`ck_reference_body`) |
+| `created_at`, `updated_at` | `timestamptz` | |
+| `moderation_state` | `text` | `OK`, `HIDDEN` |
+| `hidden_reason`, `hidden_by`, `hidden_at` | | moderator hide (reason ≤ 500, admin only) |
+
+Constraint `uq_reference_author_subject (author_id, subject_id)`. Indexes:
+`ix_reference_subject_created (subject_id, created_at DESC, id DESC)`, `ix_reference_author`.
+
+### V061 — collector reports, moderator notes, report rules, ban mark
+
+#### `collector_report`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `reporter_id`, `reported_user_id` | `uuid` | FK → `user_account.id` (cascade); `ck_collector_report_not_self` (the API answers 422 `CANNOT_REPORT_SELF` first) |
+| `reason` | `text` | `SCAM`, `COUNTERFEIT`, `HARASSMENT`, `SPAM`, `INAPPROPRIATE_BEHAVIOR`, `MISLEADING_LISTINGS`, `OTHER` |
+| `details` | `text` | **PRIVATE** reporter text, ≤ 1000; moderators and admins only; erased from decided reports when the reporter's account is deleted |
+| `context` | `jsonb` | object `{source: PROFILE\|CONVERSATION\|POST\|BINDER, conversationId?, postId?, binderId?}` (`ck_collector_report_context`); validated by the API (a conversation between the two, a post or binder of the reported collector); read per row only, no GIN index |
+| `status` | `text` | `OPEN`, `UNDER_REVIEW`, `ACTIONED`, `DISMISSED` |
+| `created_at`, `updated_at` | `timestamptz` | |
+| `assigned_to`, `assigned_at` | `uuid`, `timestamptz` | moderator in charge (FK, set null) |
+| `resolved_at`, `resolved_by` | `timestamptz`, `uuid` | decision time and moderator |
+| `resolution_note` | `text` | **moderator note**, ≤ 1000 (admin console and the audit of suspensions) |
+| `resolution_action` | `text` | `NONE`, `WARNING`, `LISTINGS_PAUSED`, `SUSPENDED`, `BANNED`; `ck_collector_report_resolved`: decided ⇔ `resolved_at` and `resolution_action` set |
+
+Indexes: `uq_collector_report_open_pair (reporter_id, reported_user_id) WHERE status IN ('OPEN',
+'UNDER_REVIEW')` (409 `REPORT_ALREADY_OPEN`; inserts use `ON CONFLICT … DO NOTHING` on it),
+`ix_collector_report_status_created (status, created_at DESC, id DESC)` (queue),
+`ix_collector_report_reported_created (reported_user_id, created_at DESC)` (threshold, history),
+`ix_collector_report_reporter_created (reporter_id, created_at DESC)` (`GET /me/reports`),
+`ix_collector_report_assigned (assigned_to) WHERE status IN ('OPEN', 'UNDER_REVIEW')`.
+
+#### `moderator_note`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `report_id` | `uuid` | FK → `collector_report.id` (cascade) |
+| `author_id` | `uuid` | FK → `user_account.id` (set null) |
+| `body` | `text` | **PRIVATE** moderator text, 1-2000; never shown to members; the audit entry `report.note` carries the note id only |
+| `created_at` | `timestamptz` | |
+
+Index `ix_moderator_note_report (report_id, created_at)`.
+
+#### Changes to Phase 1/5 tables
+
+- `moderation_rule.kind` also allows `REPORT_THRESHOLD`, `moderation_rule.scope` also `REPORT`;
+  `ck_moderation_rule_report_scope`: scope REPORT only with RATE_LIMIT or REPORT_THRESHOLD, and
+  REPORT_THRESHOLD only with scope REPORT. Seed rows: `RATE_LIMIT 5/86400 BLOCK REPORT` (reports per
+  reporter and day) and `REPORT_THRESHOLD 3/604800 BLOCK REPORT` (3 open reports from distinct
+  reporters within 7 days flag the account; BLOCK also pauses its listings pending review).
+- `moderation_flag.reason` also allows `REPORT_THRESHOLD` (subject `USER`).
+- `user_account.banned_at timestamptz`: the ban mark of a report decision (status `SUSPENDED` without
+  end); cleared when an admin lifts the suspension. Admin views only.
+
+### V062 — listing pauses and unresponsiveness strikes
+
+#### `user_responsiveness`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | `uuid` | PK, FK → `user_account.id` (cascade) |
+| `unanswered_conversations_30d` | `integer` | conversations of the last 30 days whose last message, from the other participant, waited longer than `delist_policy.unanswered_after_hours` (blocked pairs excluded); nightly |
+| `strikes` | `integer` | those waiting since after `strikes_reset_at`; the delist job pauses listings at `delist_policy.max_strikes` |
+| `strikes_reset_at` | `timestamptz` | the owner's last resume |
+| `evaluated_at` | `timestamptz` | last nightly evaluation |
+| `paused_at` | `timestamptz` | start of the pause in force (`NULL` = not paused) |
+| `paused_until` | `timestamptz` | optional end of the pause (admin pauses); `NULL` while paused = until resumed; `ck_user_responsiveness_pause_until` |
+| `pause_source` | `text` | `UNRESPONSIVE` (owner resumes by confirming), `REPORT_THRESHOLD`, `MODERATION`, `ADMIN`; `ck_user_responsiveness_pause`: set ⇔ `paused_at` set |
+| `pause_reason` | `text` | **moderator/admin note**, ≤ 500; admin views only (the owner's status omits it) |
+| `paused_by` | `uuid` | FK → `user_account.id` (set null); `NULL` for the job and the threshold |
+| `updated_at` | `timestamptz` | |
+
+A pause is part of the effective public visibility: `ListingPauseRules.NOT_PAUSED` (`NOT EXISTS
+(SELECT 1 FROM user_responsiveness … WHERE user_id = u.id AND paused_at IS NOT NULL AND (paused_until
+IS NULL OR paused_until > :now))`, a primary-key lookup) is inside the owner rule of items and
+binders (`PublicVisibilityRules.OWNER_LISTINGS_PUBLIC`), so every public read hides a paused
+collector's listings; the materialised `publicly_listed` flags follow through `ListingsPaused` /
+`ListingsResumed`. Nothing is deleted. Pause and resume history is the audit log
+(`listings.pause`, `listings.resume`, target USER). Indexes: `ix_user_responsiveness_paused
+(paused_at) WHERE paused_at IS NOT NULL`, `ix_user_responsiveness_strikes (strikes DESC) WHERE
+strikes > 0`.
+
+#### Changes to `delist_policy`
+
+`unanswered_after_hours integer NOT NULL DEFAULT 72` (`ck_delist_policy_unanswered`: 1-720), edited
+with the other thresholds through `PUT /admin/delist-policies/{id}` (audited).
+
+### V063 — `analytics_daily_count`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `day` | `date` | UTC day; PK with `event_type` |
+| `event_type` | `text` | analytics event type (`ck_analytics_daily_count_type`) |
+| `count` | `bigint` | events of that type that day |
+| `updated_at` | `timestamptz` | |
+
+Local aggregate of the analytics publisher (one upsert per event on the async executor) read by
+`GET /admin/analytics/summary`. Counts only: no actor hashes, payloads, ids or geography.
+
+Redis keys of this phase: `idem:report:<reporterId>:<Idempotency-Key>` (report id, 24 h) and the
+Phase 5 moderation windows `mod:rate:REPORT:<ruleId>:<reporterId>` (reports per day).

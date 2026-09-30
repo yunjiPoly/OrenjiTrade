@@ -235,6 +235,68 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .isNotEmpty();
                             });
         }
+        // Phase 7 (ratings, references, reports, moderation, delisting, admin console).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/ratings/eligibility",
+                        "/api/v1/ratings",
+                        "/api/v1/ratings/{id}",
+                        "/api/v1/references",
+                        "/api/v1/collectors/{handle}/ratings",
+                        "/api/v1/collectors/{handle}/references",
+                        "/api/v1/admin/ratings",
+                        "/api/v1/admin/ratings/{id}/hide",
+                        "/api/v1/admin/ratings/{id}/unhide",
+                        "/api/v1/admin/references/{id}/hide",
+                        "/api/v1/admin/references/{id}/unhide",
+                        "/api/v1/public/report-reasons",
+                        "/api/v1/reports/collectors",
+                        "/api/v1/me/reports",
+                        "/api/v1/admin/reports",
+                        "/api/v1/admin/reports/{id}",
+                        "/api/v1/admin/reports/{id}/assign",
+                        "/api/v1/admin/reports/{id}/notes",
+                        "/api/v1/admin/reports/{id}/resolve",
+                        "/api/v1/admin/users/{id}/history",
+                        "/api/v1/admin/moderation/rules",
+                        "/api/v1/admin/moderation/rules/{id}",
+                        "/api/v1/admin/listings",
+                        "/api/v1/admin/listings/stale",
+                        "/api/v1/admin/listings/{itemId}/restore",
+                        "/api/v1/admin/listings/{itemId}/hide",
+                        "/api/v1/admin/binders",
+                        "/api/v1/admin/binders/{id}/unpublish",
+                        "/api/v1/admin/users/{id}/pause-listings",
+                        "/api/v1/admin/users/{id}/resume-listings",
+                        "/api/v1/admin/users/{id}/listing-status",
+                        "/api/v1/me/listings/status",
+                        "/api/v1/me/listings/resume",
+                        "/api/v1/admin/dashboard",
+                        "/api/v1/admin/notifications/stats",
+                        "/api/v1/admin/notifications/broadcast",
+                        "/api/v1/admin/analytics/summary",
+                        "/api/v1/admin/system/health")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation -> {
+                                assertThat(operation.getValue().path("summary").asString())
+                                        .as("summary of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                                assertThat(operation.getValue().path("tags"))
+                                        .as("tags of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                            });
+        }
+        assertThat(paths.path("/api/v1/public/report-reasons").path("get").path("security"))
+                .isEmpty();
+        assertThat(
+                        paths.path("/api/v1/reports/collectors")
+                                .path("post")
+                                .path("responses")
+                                .has("409"))
+                .isTrue();
         assertThat(
                         paths.path("/api/v1/wishlist/{id}")
                                 .path("patch")
@@ -298,7 +360,11 @@ class OpenApiExportTest extends AbstractIntegrationTest {
         assertThat(schemas.path("ProblemDetail").path("properties").path("errorCode").path("enum"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("ACCOUNT_SUSPENDED"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("MESSAGE_BLOCKED"))
-                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("DUPLICATE_POST"));
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("DUPLICATE_POST"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("RATING_NOT_ELIGIBLE"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("ALREADY_RATED"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("REPORT_ALREADY_OPEN"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("CANNOT_REPORT_SELF"));
         assertThat(schemas.path("ProblemDetail").path("properties").has("limitKey")).isTrue();
         assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isTrue();
         for (String schema :
@@ -336,7 +402,22 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CommunityChannel",
                         "PostResponse",
                         "ReplyResponse",
-                        "ModerationFlag")) {
+                        "ModerationFlag",
+                        "RatingResponse",
+                        "CollectorRatingsPage",
+                        "RatingEligibility",
+                        "ReferenceResponse",
+                        "ReportConfirmation",
+                        "ReportSummary",
+                        "ReportDetail",
+                        "ModerationHistory",
+                        "ModerationRule",
+                        "StaleListing",
+                        "ListingStatus",
+                        "AdminDashboard",
+                        "NotificationStats",
+                        "AnalyticsSummary",
+                        "SystemHealth")) {
             assertThat(schemas.has(schema)).as(schema).isTrue();
         }
         assertThat(document.path("components").path("securitySchemes").has("bearerAuth")).isTrue();

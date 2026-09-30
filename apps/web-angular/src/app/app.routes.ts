@@ -8,6 +8,7 @@ import {
 } from './core/auth/auth.guards';
 import { FEATURE } from './core/feature-flags/feature-flags.service';
 import { featureGuard } from './core/feature-flags/feature.guard';
+import { optionalParamMatcher } from './core/routing/optional-param.matcher';
 
 /**
  * Top-level routes. Every page is lazy (`loadComponent` / `loadChildren`) so the initial bundle
@@ -85,11 +86,21 @@ export const routes: Routes = [
       import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
   },
   {
-    path: 'wishlist',
+    // `/wishlist` and `/wishlist/:id` (the matches drawer of one wish) share the page instance.
+    matcher: optionalParamMatcher('wishlist', 'id'),
     title: 'Wishlist',
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/wishlist/wishlist-page.component').then((m) => m.WishlistPageComponent),
+  },
+  {
+    path: 'notifications',
+    title: 'Notifications',
+    canActivate: [onboardingGuard],
+    loadComponent: () =>
+      import('./features/notifications/notifications-page.component').then(
+        (m) => m.NotificationsPageComponent,
+      ),
   },
   {
     path: 'messages',

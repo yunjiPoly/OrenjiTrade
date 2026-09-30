@@ -52,6 +52,10 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
             <mat-icon aria-hidden="true">layers_clear</mat-icon>
             Show everyone
           </button>
+          <button matButton type="button" (click)="addToWishlist.emit()">
+            <mat-icon aria-hidden="true">favorite</mat-icon>
+            Add to wishlist
+          </button>
         </div>
       }
 
@@ -181,6 +185,8 @@ export class DiscoveryPanelComponent {
   readonly retry = output<void>();
   readonly closed = output<void>();
   readonly clearHolders = output<void>();
+  /** "Add to wishlist" in holders mode (the map page opens the wishlist dialog). */
+  readonly addToWishlist = output<void>();
 
   protected readonly title = computed(() =>
     this.holders() ? `Holders of ${this.holdersName() ?? 'this card'}` : 'Collectors nearby',
@@ -195,7 +201,7 @@ export class DiscoveryPanelComponent {
   });
   protected readonly emptyHint = computed(() =>
     this.holders()
-      ? 'Try a larger distance, fewer filters, or add it to your wishlist when wishlists arrive.'
+      ? 'Try a larger distance or fewer filters, or add it to your wishlist: we will tell you when someone nearby lists it.'
       : 'Try a larger distance, fewer filters, or another area of the map.',
   );
   protected readonly errorMessage = computed(() => {

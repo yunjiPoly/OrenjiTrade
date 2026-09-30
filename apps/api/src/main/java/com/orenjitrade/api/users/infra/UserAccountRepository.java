@@ -46,6 +46,25 @@ public interface UserAccountRepository
                     + " null")
     int touchLastActive(@Param("id") UUID id, @Param("now") Instant now);
 
+    /**
+     * Ids of accounts able to receive notices (ACTIVE, or SUSPENDED with an elapsed end), oldest
+     * first; with {@code staffOnly} only those holding MODERATOR, ADMIN or SUPER_ADMIN.
+     */
+    @Query(
+            value =
+                    "SELECT u.id FROM user_account u WHERE (u.status = 'ACTIVE' OR (u.status ="
+                            + " 'SUSPENDED' AND u.suspended_until IS NOT NULL AND"
+                            + " u.suspended_until <= :now)) AND (:staffOnly = false OR EXISTS"
+                            + " (SELECT 1 FROM user_role r WHERE r.user_id = u.id AND r.role IN"
+                            + " ('MODERATOR', 'ADMIN', 'SUPER_ADMIN'))) ORDER BY u.created_at, u.id"
+                            + " LIMIT :limit OFFSET :offset",
+            nativeQuery = true)
+    List<UUID> findReachableIds(
+            @Param("now") Instant now,
+            @Param("staffOnly") boolean staffOnly,
+            @Param("limit") int limit,
+            @Param("offset") long offset);
+
     interface HandleProjection {
         UUID getId();
 

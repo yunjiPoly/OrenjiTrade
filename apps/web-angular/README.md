@@ -292,7 +292,8 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   STOMP 1.2 over a native WebSocket (`stomp-frames.ts` codec + `stomp-connection.ts` client, a
   lazy chunk, heartbeats both ways, no dependency) at `wsBaseUrl` (`/config.json`, derived from
   `apiBaseUrl` when empty) with the ID token as `access_token`. Subscribes only to
-  `/user/queue/messages|receipts|typing|presence`, sends only `/app/typing`. `state` signal
+  `/user/queue/messages|receipts|typing|presence|notifications` (the last one since Phase 6),
+  sends only `/app/typing`. `state` signal
   (`disabled | connecting | connected | reconnecting`, shown by `RealtimeStatusComponent` as
   "Live" / "Reconnecting…"); exponential backoff 1 s → 30 s with jitter, immediate retry when the
   browser comes back online or the tab becomes visible; a failure before CONNECTED forces a fresh
@@ -338,6 +339,65 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   edit, archive/restore with `POST/PATCH /admin/community/channels`) and the automatic moderation
   flags (`GET /admin/moderation/flags` by state, resolve with an optional note); `?tab=flags`.
 
+## Wishlist, matching and notifications (Phase 6)
+
+Contract: `docs/api/contracts/phase6-wishlist-notifications.md` ("Web / mobile"). Generated client
+only (`WishlistService`, `NotificationsService`; plan cap from `PlansService.getMyPlan`, location
+state from `LocationService.getMyLocation`). No web push registration (no FCM locally).
+
+- **Notification centre** (`core/notifications`): `NotificationCenter` (started by
+  `provideNotifications()`, follows the session like `RealtimeService`): unread count
+  (`GET /notifications/unread-count`), the latest 8 for the bell menu (`GET /notifications`),
+  `markRead` (optimistic, `POST /notifications/{id}/read`) and `markAllRead`
+  (`POST /notifications/read-all`); every push on `/user/queue/notifications` (a
+  `NotificationResponse`) raises the count once, joins the menu, is announced to screen readers
+  and re-emitted on `pushed$`; reads made anywhere go out on `readChanges$`; the count is re-read
+  after each reconnection and after the caller's own read receipts (reading a conversation marks
+  its MESSAGE notifications read server side). `notification-kinds.ts`: icon / tone / label per
+  type and the page a notification opens (`data.deepLink` when it is a safe in-app path, else a
+  path rebuilt from its ids; the SYSTEM limit notice opens `/premium`).
+- **Top-bar bell** (`core/layout/notification-bell`): unread badge (bumps on arrival, "99+"),
+  `aria-label` "Notifications, N unread", `data-realtime` = connection state; menu with the latest
+  notifications (tinted icon per type, unread dot, relative time), opening one marks it read and
+  follows its deep link, "Mark all as read", "See all notifications"; signed-out visitors are
+  invited to sign in.
+- **`/notifications`** (`features/notifications`): `NotificationFeedStore` (cursor pages
+  "Load older notifications", `?unread=1` filter, live prepends, reads applied from anywhere,
+  the unread view drops what became read, re-read after reconnection), day sections (Today,
+  Yesterday, Earlier this week, Older), per-row "Mark as read", "Mark all as read", link to
+  Settings → Notifications.
+- **`/wishlist`, `/wishlist/:id`** (`features/wishlist`; one route through
+  `core/routing/optional-param.matcher.ts`, so the page survives opening a drawer):
+  `WishlistStore` (`GET /wishlist`, alerts on/off with an optimistic `PATCH {active}`,
+  `DELETE` with confirmation, plan usage of `wishlist.items.max`, match readiness from
+  `GET /me/location`, quiet re-read on a pushed WISHLIST_MATCH and on reconnection) → summary
+  (wishes, with matches, matches nearby, usage meter with a Premium link from 80 %), filter
+  (All / With matches / Paused), `WishCardComponent` (card art, printing or "Any printing",
+  criteria chips, private note, matches button, alerts switch, menu: edit, see matches,
+  remove) and `MatchReadinessComponent` (explains that matches need a trading area and
+  discoverability, with a link to the setting). `/wishlist/:id` (the notification deep link)
+  opens `WishlistMatchesSheetComponent` in a side sheet: `WishlistMatchesStore`
+  (`GET /wishlist/{id}/matches` cursor pages, new matches pushed for this wish arrive live,
+  optimistic dismiss `POST /wishlist/matches/{id}/dismiss`) → `WishMatchCardComponent`
+  (collector: avatar, approximate place, distance bucket, rating, activity; listing: picture,
+  printing, condition / availability / offers chips, price, freshness, public note; Message
+  through `ConversationStarterService`, View binder, On the map, Dismiss). Closing the sheet goes
+  back to `/wishlist`.
+- **Add/edit dialog** (`shared/wishlist`, a lazy chunk opened by `WishlistActions` from the
+  wishlist page, card detail, the card holders view and the map's holders panel; signed-out
+  visitors go to sign in first): card autocomplete (`GET /cards/suggest`; a printing suggestion
+  preselects it) → printing or "Any printing" → minimum condition, edition, language, rarity
+  (any printing only) from the game's `GameSchema`, maximum price + currency, radius slider
+  bounded by `map.radius.max_km` (`GET /me/plan`, at most 100 km), trade preference, private
+  notes, alerts switch (`wishlist-form.ts`: form, defaults, create/PATCH bodies, messages).
+  Inline errors: 409 identical wish, 429 `LIMIT_REACHED` (the limit dialog opens as well), field
+  errors of a 400. A new wish is confirmed with its matches found at once.
+- **Collector page**: "Looking for" (`GET /collectors/{handle}/wishlist`, only when the collector
+  shows it; 404 hides the section).
+- **Limitation (API)**: matching measures distances between stored public points, which exist
+  only for discoverable collectors with a trading area, so a wisher who is not on the map gets no
+  match; the page says so (`MatchReadinessComponent`).
+
 ## Maps
 
 Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers (pins, avatar and
@@ -379,20 +439,21 @@ src/app/
     api/        provideApiClient()  (generated client wiring)
     auth/       AuthService, FirebaseAuthPort, SessionService, guards, interceptors, roles
     realtime/   RealtimeService (STOMP over WebSocket), frame codec, lazy STOMP connection
+    notifications/ NotificationCenter, notification kinds and links, notification entry
     config/     AppConfigService    (/config.json)
     feature-flags/ FeatureFlagsService, featureGuard
     http/       interceptors, ApiError, friendlyError, HttpContext tokens
     limits/     limit-reached interceptor, service and dialog
-    layout/     app-shell, top-bar, account-menu, session-banner, bottom-nav (<960px), footer,
-                api-version, theme-toggle
-    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade")
+    layout/     app-shell, top-bar, notification-bell, account-menu, session-banner, bottom-nav
+                (<960px), footer, api-version, theme-toggle
+    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade"), optional-param matcher
     theme/      ThemeService
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
     settings/   shell + profile, privacy, notifications, trading-area, blocked users, account,
                 appearance
-    collectors/ public profile (container + presentational view)
+    collectors/ public profile (container + presentational view, public wishlist)
     admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog), audit logs,
                 games (schema editor), cards (search, editor, printing dialog, sync panel),
                 feature flags, usage limits, community (channels, moderation flags)
@@ -413,7 +474,10 @@ src/app/
                 post item, replies, moderator remove dialog
     search/     /search: data/ (params), unified results (tabs, collector result), card holders
                 (filters form, result row)
-    wishlist, legal, not-found
+    wishlist/   /wishlist: data/ (WishlistStore, WishlistMatchesStore), list (wish card, summary,
+                match readiness), matches (side sheet, match card)
+    notifications/ /notifications: data/ (NotificationFeedStore, day groups)
+    legal, not-found
   shared/
     catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
     inventory/  inventory labels, item chips, public item card, public binder card
@@ -426,6 +490,7 @@ src/app/
     profile/    profile form, game / language / tag pickers, MyProfileStore
     links/      card / binder link pickers (autocomplete), shared link card
     messaging/  ConversationStarterService, BlockActionsService
+    wishlist/   WishlistActions, add/edit dialog (card picker, criteria fields), form, labels
     pipes/      relativeTime, mediaUrl
     ui/         avatar, card-art, confirm-dialog, game-chip, section-card, empty-state,
                 error-state, skeleton, page-header, freshness-badge, condition-chip,
@@ -472,7 +537,13 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   merging), `ConversationsStore` and `ThreadStore` (pushes, unread counts, paging, send errors,
   typing throttle), composer, conversation list (badges, keyboard), link choices, conversation
   starter, blocked users settings, community helpers and store, admin community helpers,
-  media URLs.
+  media URLs; Phase 6: notification kinds and safe deep links, `NotificationCenter` (session
+  following, pushes counted once, optimistic reads, resync and receipt re-reads), notification
+  bell (badge, label, menu, mark read / all), `NotificationFeedStore` and day groups, optional
+  parameter matcher, wishlist labels and form (slider cap, create / PATCH bodies, validation,
+  server errors), `WishlistActions`, `WishlistStore` (filters, readiness, live re-reads,
+  optimistic alerts, removal), `WishlistMatchesStore` (paging, live matches, dismiss rollback),
+  wish card.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -512,6 +583,18 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     `MESSAGING_BLOCKED`; A unblocks B in Settings → Blocked users. A second test starts a
     conversation from a profile (full page), rejects a text file, sends a photo, shows the 422
     moderation refusal inline and reopens the conversation from the list by keyboard.
+  - `e2e/wishlist.spec.ts` (two collectors at a random rural point no other spec uses): A adds
+    a wish through the dialog (autocomplete, minimum condition, maximum price, radius slider
+    bounded by the FREE plan), sees its chips, adds a second wish from the card page and gets the
+    identical one refused inline (409), removes it with confirmation; B lists the card nearby:
+    A's bell badge and match count rise live without a reload, the bell menu entry opens
+    `/wishlist/<id>` with the matches drawer (B's approximate place, distance bucket, price,
+    binder link), a second copy arrives live in the open drawer and is dismissed, A messages B
+    from the match, `/notifications` filters unread ones and marks all read, A's profile shows the
+    public wishlist; B's binder is unpublished afterwards. A second test fills a FREE wishlist
+    (20 wishes), pauses alerts and filters, sees the trading-area hint and gets the limit dialog
+    (429 `wishlist.items.max`) with the inline explanation. Every JSON response has at most 3
+    decimals for `lat`/`lng`.
   - `e2e/community.spec.ts`: `/community` opens the first regional channel; a collector moves to
     Montréal / Pokémon, posts with a card link, is refused a duplicate (409) and a banned term
     (422) inline, edits the post; a second collector replies inline; the author sees the reply

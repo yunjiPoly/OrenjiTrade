@@ -10,5 +10,7 @@ public enum FlagReason {
     /** A FLAG rate rule was exceeded by the author. */
     RATE_THRESHOLD,
     /** The author repeated the same text more often than a THRESHOLD rule allows. */
-    REPEATED_CONTENT
+    REPEATED_CONTENT,
+    /** Open reports from distinct reporters crossed the REPORT_THRESHOLD rule (Phase 7). */
+    REPORT_THRESHOLD
 }

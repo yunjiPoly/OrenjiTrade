@@ -26,5 +26,9 @@ export interface DelistPolicyResponse {
      */
     updatedBy?: string | null;
     updatedAt: string;
+    /**
+     * Hours after which a conversation waiting for the owner\'s answer counts as unanswered (one strike each)
+     */
+    unansweredAfterHours: number;
 }
 

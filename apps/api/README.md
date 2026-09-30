@@ -738,6 +738,148 @@ matches, notifications and push tokens.
 - `DELETE /me/push-tokens/{token}` needs tokens without `/` (FCM and Expo tokens qualify; URL-encode
   `[` / `]`).
 
+## Ratings, reports, moderation, delisting, admin console (Phase 7)
+
+Contract: `docs/api/contracts/phase7-ratings-reports-admin.md`. Modules `ratings` (interactions,
+ratings, references, `rating_summary`), `reports` (collector reports, moderator notes, the report
+threshold, decisions, moderation history), `moderation` (report rules, rule CRUD), `delisting`
+(listing pauses, unresponsiveness strikes), `inventory` / `binders` (admin listing and binder
+views), `notifications` (statistics, broadcast), `analytics` (local aggregate, summary) and `admin`
+(dashboard, system health). Migrations V060–V063.
+
+| Route | Who | Notes |
+| --- | --- | --- |
+| `GET /api/v1/ratings/eligibility?userId=` | member | `{eligible, interactions: [{id, kind, occurredAt, alreadyRated}]}`; eligible = at least one interaction with the collector not rated yet by the caller; 400 for oneself |
+| `POST /api/v1/ratings` | member | `{interactionId, overall 1-5, communication?, conditionAccuracy?, shipping?, meetupReliability?, comment ≤ 600}` → 201 `RatingResponse` (with `editableUntil`); 403 `RATING_NOT_ELIGIBLE` (unknown interaction or not the caller's), 409 `ALREADY_RATED` (extension `ratingId`), 400 for scores or banned terms (PROFILE rules); the rated collector gets RATING_RECEIVED (dedup `rating:<id>`, never the comment) |
+| `PUT /api/v1/ratings/{id}` | author | same body without `interactionId`; 404 for others; 409 `RATING_EDIT_WINDOW_CLOSED` (extension `editableUntil`) after 14 days; no new notification |
+| `GET /api/v1/collectors/{handle}/ratings?cursor=&limit=` | member | `{items: RatingResponse[], nextCursor, hasMore, summary: {average, count, communication, conditionAccuracy, shipping, meetupReliability}}` (averages one decimal, HIDDEN ratings neither listed nor counted); 404 when the profile is not visible to the caller |
+| `POST /api/v1/references`, `GET /api/v1/collectors/{handle}/references` | member | one reference per author and collector (≤ 400, banned terms refused), needs an interaction (403 `RATING_NOT_ELIGIBLE`), 409 for a second one; cursor list of visible references |
+| `GET /api/v1/admin/ratings?rateeId=&raterId=&state=`, `POST /api/v1/admin/ratings/{id}/hide {reason}` / `unhide`, `POST /api/v1/admin/references/{id}/hide` / `unhide` | MODERATOR+ | 409 when already (un)hidden; audited `rating.hide` / `rating.unhide` / `reference.hide` / `reference.unhide`; the summary is refreshed |
+| `GET /api/v1/public/report-reasons` | anyone | `[{code, label, description}]` in dialog order (SCAM, COUNTERFEIT, HARASSMENT, SPAM, INAPPROPRIATE_BEHAVIOR, MISLEADING_LISTINGS, OTHER) |
+| `POST /api/v1/reports/collectors` | member | `{reportedUserId, reason, details ≤ 1000, context?: {source: PROFILE\|CONVERSATION\|POST\|BINDER, conversationId?, postId?, binderId?}}` → 201 `{id, status: OPEN, createdAt, reason, reportedUserId}`; 422 `CANNOT_REPORT_SELF`, 404 unknown/deleted collector, 409 `REPORT_ALREADY_OPEN` (extension `reportId`), 400 when the context is not the caller's conversation with the collector / the collector's post / binder, 429 `RATE_LIMITED` beyond the REPORT rate rule (5 per day); `Idempotency-Key` header repeats the original answer for 24 h (Redis, fail-open); publishes `CollectorReported` |
+| `GET /api/v1/me/reports` | member | the caller's reports (status, reason, reported collector; never notes or decisions) |
+| `GET /api/v1/admin/reports?status=&reason=&reportedUserId=&assignedTo=&page=&size=` | MODERATOR+ | `PageResponse<ReportSummary>` with `openReportsAgainstUser` |
+| `GET /api/v1/admin/reports/{id}` | MODERATOR+ | `ReportDetail`: reporter, reported collector (status, suspension, ban mark), context, `moderatorNotes`, `history` (recent reports, ratings received, posts/replies removed, suspension and pause audit entries, current listing status, open account flags) and, only when the context names a conversation, that conversation's latest 50 messages (audited `report.conversation.view`) |
+| `POST /api/v1/admin/reports/{id}/assign {assigneeId?}` | MODERATOR+ | to the caller or another active moderator; OPEN → UNDER_REVIEW; 409 when decided; audited `report.assign` |
+| `POST /api/v1/admin/reports/{id}/notes {body}` | MODERATOR+ | 201 note; audited `report.note` (note id only) |
+| `POST /api/v1/admin/reports/{id}/resolve {status, action, note, notifyReporter, suspendUntil?}` | MODERATOR+ (SUSPENDED/BANNED: ADMIN+) | ACTIONED with WARNING (SYSTEM notice `data.kind=MODERATION_WARNING` to the collector), LISTINGS_PAUSED (pause source MODERATION), SUSPENDED (`UserAccountService.suspend` with the note as reason, optional future `suspendUntil`, identity user disabled, audited `user.suspend`) or BANNED (suspension without end + `user_account.banned_at`, audited `user.ban`); DISMISSED with NONE. An administrator's account needs a SUPER_ADMIN; nobody decides a report about themselves. Audited `REPORT_RESOLVED` with the action in the same transaction; `notifyReporter` sends REPORT_DECISION ("reviewed and took action" / "did not find a violation", no specifics). When no report against the collector stays open: their REPORT_THRESHOLD flags are resolved and, for NONE/WARNING, the review pause is lifted |
+| `GET /api/v1/admin/users/{id}/history` | ADMIN+ | the same history as the report detail, never private messages |
+| `GET /api/v1/admin/moderation/rules?scope=&kind=` | MODERATOR+ | every rule (`ModerationRule`) |
+| `POST /api/v1/admin/moderation/rules`, `PUT …/{id}`, `DELETE …/{id}` | ADMIN+ (403 for moderators) | kind/scope combinations checked (BANNED_TERM for MESSAGE/POST/TAG/PROFILE, RATE_LIMIT for MESSAGE/POST/REPORT, THRESHOLD for MESSAGE/POST, REPORT_THRESHOLD for REPORT), regular expressions compiled, rate patterns `<count>/<seconds>`; audited `moderation.rule.create/update/delete`; caches dropped after commit (other instances within 60 s) |
+| `GET /api/v1/admin/listings?query=&state=&game=&ownerId=`, `GET /api/v1/admin/listings/stale?state=STALE\|HIDDEN` | ADMIN+ | listings (items made public or temporarily public) / the review list oldest confirmation first: `StaleListing {item, owner {id, handle}, confirmedAt, state, warnedAt}`; never private notes |
+| `POST /api/v1/admin/listings/{itemId}/restore`, `POST …/{itemId}/hide {reason}` | ADMIN+ | restore confirms the item on the owner's behalf (ACTIVE, RESTORED freshness event; audited `listing.restore`); hide makes it PRIVATE (audited `listing.hide`) |
+| `GET /api/v1/admin/binders?query=&ownerId=&visibility=`, `POST /api/v1/admin/binders/{id}/unpublish {reason}` | ADMIN+ | every binder with the owner's handle; unpublish makes it PRIVATE (audited `binder.unpublish`) |
+| `POST /api/v1/admin/users/{id}/pause-listings {reason, until?}`, `POST …/resume-listings {note?}`, `GET …/listing-status` | ADMIN+ | 409 when already paused / not paused; audited `listings.pause` / `listings.resume` |
+| `GET /api/v1/me/listings/status`, `POST /api/v1/me/listings/resume` | member | the caller's pause (without the moderator's reason) and strikes; resume lifts UNRESPONSIVE pauses only (409 otherwise) and restarts the strikes |
+| `GET /api/v1/admin/dashboard` | ADMIN+ | accounts (total, active, suspended, new 7 d), active collectors 7 d, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, notifications whose push/email failed in 24 h; `openDisputes` and `webhookFailures24h` are 0 until Phase 9 |
+| `GET /api/v1/admin/notifications/stats?days=7` | ADMIN+ | counts by type and channel state (realtime, push, email), unread, failures of 24 h, push tokens active/invalid |
+| `POST /api/v1/admin/notifications/broadcast {title, body, audience: ALL\|STAFF, deepLink?}` | SUPER_ADMIN (403 otherwise) | one SYSTEM notice per reachable account (dedup `broadcast:<id>:<user>`, preferences apply); audited `notification.broadcast` |
+| `GET /api/v1/admin/analytics/summary?days=7` | ADMIN+ | totals and daily counts per event type from the local aggregate (`source: local-aggregate`, `transport: log\|pubsub`) |
+| `GET /api/v1/admin/system/health` | ADMIN+ | actuator status and component statuses (no details), outbox backlog (incomplete, oldest, failed publications), notifications waiting for dispatch, last run / last success / failures in 24 h of every job |
+| `POST /internal/jobs/delist` | service auth | nightly strikes and pauses (below); `{ownersEvaluated, listingsPaused, ownersWithStrikes, pausesExpired}` |
+
+RBAC (`SecurityConfig.MODERATOR_PATTERNS`): MODERATOR reaches `/admin/community/**`,
+`/admin/moderation/**`, `/admin/reports/**`, `/admin/ratings/**` and `/admin/references/**`; every other
+admin route needs ADMIN or SUPER_ADMIN; the services add ADMIN for moderation-rule writes and for
+SUSPENDED/BANNED decisions, SUPER_ADMIN for feature flags, plans, usage limits and broadcasts
+(`AdminAuthorizationIT` checks the matrix over every admin route).
+
+### Interactions and ratings
+
+`InteractionService.record(kind, userA, userB, subjectType, subjectId)` (TRADE / OFFER_ACCEPTED /
+CONVERSATION_QUALIFIED; idempotent per kind and subject; the pair is stored in PostgreSQL uuid order
+through `LEAST`/`GREATEST`) is the API Phase 8 calls for accepted offers and trades.
+`ConversationQualificationListener` (`@ApplicationModuleListener` on `MessageSent`) records
+CONVERSATION_QUALIFIED once both participants sent at least 3 messages (deleted and SYSTEM messages
+not counted; only counts leave the messaging module). `rating_summary` is recomputed from the OK
+ratings on every write, hide and unhide and feeds the profiles module's `RatingSummaryProvider`:
+collector profiles, previews and markers show the average and count, and the nearby ranking reads a
+whole page of summaries in one query (`RatingSummaryProvider.ratingsOf`, used by `MarkerAssembler`).
+`RatingSubmitted` feeds the analytics event `rating_submitted` (interaction kind, score, comment flag,
+ratee hash).
+
+### Reports, threshold and moderation rules
+
+Report rules are `moderation_rule` rows (ADR 0014): `RATE_LIMIT` scope REPORT `5/86400` BLOCK (per
+reporter, Redis fixed window through `ModerationService.check(REPORT, null, reporter)`) and
+`REPORT_THRESHOLD` scope REPORT `3/604800` BLOCK. After every committed report
+(`ReportThresholdListener` on `CollectorReported`) `ReportThresholdService` counts the distinct
+reporters of open reports against the collector within the window; at the limit it opens one
+`moderation_flag` (subject USER, reason REPORT_THRESHOLD) and, for BLOCK, pauses the collector's
+public listings pending review (source REPORT_THRESHOLD, audited as SYSTEM). It never suspends or
+bans. `CollectorReported` also feeds the analytics event `collector_reported` (reason and context
+source only).
+
+### Listing pauses and strikes
+
+A pause lives in `user_responsiveness` (`paused_at`, optional `paused_until`, `pause_source`
+UNRESPONSIVE / REPORT_THRESHOLD / MODERATION / ADMIN, `pause_reason`, `paused_by`).
+`ListingPauseRules.NOT_PAUSED` (a correlated lookup on the owner alias `u`) is part of
+`PublicVisibilityRules.OWNER_LISTINGS_PUBLIC`, used by the effective public visibility of items
+(`InventoryItemRepository.LISTED`) and binders (`binderEffectivelyPublic`): every public read, the
+map's listing counts, search, card holders and wishlist matching ignore a paused collector's listings,
+while the collector stays on the map. `ListingsPaused` / `ListingsResumed` make the inventory module
+reconcile the owner (materialised flags and publication events) and `ListingsPaused` sends a SYSTEM
+notice (`data.kind=LISTINGS_PAUSED`, `source`, never the reason). Nothing is ever deleted.
+
+The nightly `delist` job (`DelistJob`, `@Scheduled` daily under `local`) asks every
+`ResponsivenessSource` (implemented by the messaging module: conversations whose last message came
+from the other participant, blocked pairs excluded) for conversations waiting since between 30 days
+and `delist_policy.unanswered_after_hours` (72 h) ago, stores `unanswered_conversations_30d` and the
+strikes (those waiting since after `strikes_reset_at`, the owner's last resume), pauses owners with
+strikes ≥ `max_strikes` (3) who have something public (source UNRESPONSIVE) and clears timed pauses
+that ended. The owner resumes by confirming (`POST /me/listings/resume`), which resets the strikes.
+
+### Admin analytics aggregate
+
+`AnalyticsPublisher` also counts every event in `analytics_daily_count` (V063; `JdbcAnalyticsAggregate`
+on the async executor, whatever the transport; counts only). `GET /admin/analytics/summary` reads it
+(`source: local-aggregate`); a BigQuery reader belongs to the deferred cloud work.
+
+### Seed (Phase 7)
+
+`RatingSeedContributor` ("ratings", after "notifications"): interactions
+`00000000-0000-4000-9b00-00000000000N` (the seeded collector1–collector2 conversation, qualified but
+left unrated; a completed trade between them with the reserved trade id
+`00000000-0000-4000-9d00-000000000001`; an accepted offer from collector5 to collector1 with the reserved
+offer id `00000000-0000-4000-9c00-000000000002` — Phase 8 seeds may create these rows), ratings
+collector2 → collector1 (5), collector1 → collector2 (5), collector5 → collector1 (4), collector2's
+reference for collector1, refreshed summaries (collector1: 4.5 from 2). `ReportSeedContributor`
+("reports"): one OPEN SPAM report `00000000-0000-4000-9e00-000000000001` from collector4 against
+collector6. Fictional texts only; inserted once; nothing notified.
+
+### Account data
+
+Export sections `ratings` (ratings given and received, references written and received) and
+`reports` (the reports the account filed). Deletion removes the ratings and references the account
+wrote (the rated collectors' summaries are refreshed), references about it and its summary, and erases
+the free text of its decided reports (the reports stay as moderation records).
+
+### Deviations from the Phase 7 contract
+
+- The audit action of a decision is `REPORT_RESOLVED` as the contract says; the other new actions
+  follow the existing dotted style (`report.assign`, `report.note`, `report.conversation.view`,
+  `rating.hide`, `listings.pause`, `listing.restore`, `binder.unpublish`, `moderation.rule.update`,
+  `notification.broadcast`, `user.ban`).
+- The listing pause and the strikes share `user_responsiveness` (the contract columns plus
+  `paused_at`, `pause_source`, `pause_reason`, `paused_by`, `strikes_reset_at`, `evaluated_at`);
+  `paused_until` is the optional end of a pause (NULL = until resumed; strike pauses last until the
+  owner confirms). `delist_policy.unanswered_after_hours` (72) is new policy data.
+- A paused collector stays on the map (only their listings are hidden); the contract does not say.
+- The ban mark is `user_account.banned_at`; unsuspending an account clears it (`AdminUserDetail.bannedAt`
+  is additive).
+- Report decisions: `note` is required; `suspendUntil` (future, SUSPENDED only) carries the
+  "optional until"; SUSPENDED/BANNED need ADMIN (moderators get 403); DISMISSED needs action NONE.
+- References reuse `403 RATING_NOT_ELIGIBLE` without an interaction and answer `409 CONFLICT` for a
+  second reference. Moderators also hide/unhide references (`/admin/references/{id}/hide|unhide`).
+- Additive routes: `GET /admin/ratings`, `PUT /ratings/{id}` (the "editable for 14 days"), `GET
+  /admin/users/{id}/listing-status`, `GET /me/listings/status`, `POST /me/listings/resume` (the
+  contract's "resume by confirming"), `POST /admin/listings/{itemId}/hide` (admin "hide" = PRIVATE),
+  `POST/DELETE /admin/moderation/rules` (rules CRUD), `?assignedTo=` on the report list.
+- `GET /collectors/{handle}/ratings` answers `{items, nextCursor, hasMore, summary}` (the cursor page
+  plus the summary in one document); the report detail's notes are `moderatorNotes`.
+- `openDisputes` and `webhookFailures24h` of the dashboard are 0 until Phase 9 creates those tables.
+
 ## Build, format, test
 
 ```bash
@@ -804,7 +946,11 @@ Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql
 eight launch channels, `community_post`, `community_reply`) and `V042__moderation_flags.sql`
 (`moderation_flag`, the rate-pattern check and the Phase 5 moderation rules). Phase 6 adds
 `V050__wishlist.sql` (`wishlist_item`, `wishlist_match`) and `V051__notifications.sql`
-(`notification`, `push_token`).
+(`notification`, `push_token`). Phase 7 adds `V060__ratings.sql` (`interaction`, `rating`,
+`rating_summary`, `reference`), `V061__collector_reports.sql` (`collector_report`, `moderator_note`, the
+REPORT moderation rules and flag reason, `user_account.banned_at`),
+`V062__listing_pauses_and_strikes.sql` (`user_responsiveness`, `delist_policy.unanswered_after_hours`)
+and `V063__analytics_daily_count.sql` (`analytics_daily_count`).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -821,31 +967,36 @@ com.orenjitrade.api
 ├── users/       UserAccount + roles, provisioning, consents + legal documents, /me endpoints,
 │                terms filter, seed accounts (implements auth's AccountResolver)
 ├── audit/       AuditService (append-only audit_log), GET /api/v1/admin/audit-logs
-├── admin/       /api/v1/admin/users (list, detail, suspend, unsuspend, roles)
-├── jobs/        job_run records, POST /internal/jobs/ping
+├── admin/       /api/v1/admin/users (list, detail, suspend, unsuspend, roles), dashboard,
+│                system health
+├── jobs/        job_run records (+ JobRunSummaries), POST /internal/jobs/ping
 ├── profiles/    profile, avatar, tags, privacy settings + PrivacyPolicyService, collector view
 ├── location/    user_location, ApproximateLocationService, StaticRegionGeocoder (ADR 0004)
 ├── notifications/ preferences, NotificationService (dedup, quiet hours, daily limits), dispatcher
 │                (realtime, PushProvider log/FCM, EmailProvider log), push tokens, event consumers
 ├── moderation/  moderation_rule + TextModerationService (banned terms), ModerationService
-│                (rates, repeated content), moderation_flag + /admin/moderation/flags
+│                (rates, repeated content, report threshold), moderation_flag +
+│                /admin/moderation/flags, rules CRUD /admin/moderation/rules
 ├── games/       game table + GameSchema, GameCatalog (profiles), /games, /admin/games
 ├── cards/       sets, cards, printings, images, CardProvider + MockCardProvider, idempotent
 │                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
 ├── featureflags/ feature_flag, FeatureFlags (Redis cache), public + admin endpoints
 ├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements)
-├── delisting/   delist_policy, FreshnessPolicy / FreshnessLabels, freshness event log, delist job,
-│                /admin/delist-policies
+├── delisting/   delist_policy, FreshnessPolicy / FreshnessLabels, freshness event log, delist job
+│                (strikes), listing pauses (user_responsiveness), /admin/delist-policies
 ├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
 ├── inventory/   items, photos, bulk operations, public item lists, ListingReconciler (publication
 │                events), freshness job (implements BinderContents)
 ├── search/      /collectors/nearby + preview, /search, /search/card-holders, /search/suggest,
 │                Redis nearby cache (Phase 4)
-├── analytics/   AnalyticsEvent, AnalyticsPublisher, log / Pub/Sub transports (Phase 4 slice)
+├── analytics/   AnalyticsEvent, AnalyticsPublisher, log / Pub/Sub transports, local daily
+│                aggregate + /admin/analytics/summary
 ├── messaging/   conversations, messages, uploads, blocks, STOMP /ws + Redis fan-out, presence
 ├── community/   channels, posts, replies, /admin/community (Phase 5)
 ├── wishlist/    wishlist items, WishlistMatcher (InventoryItemPublished), matches, rematch job
-└── ratings reports offers trades payments credits donations ads
+├── ratings/     interactions, ratings (14-day edits, summaries), references, admin hide/unhide
+├── reports/     collector reports, threshold, moderator review and decisions, history
+└── offers trades payments credits donations ads
                                                           (documented in each package-info.java)
 ```
 

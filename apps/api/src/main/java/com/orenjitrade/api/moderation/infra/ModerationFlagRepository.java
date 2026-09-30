@@ -138,6 +138,41 @@ public class ModerationFlagRepository {
                 .update();
     }
 
+    /** Resolves the open flags of a subject raised for one reason; returns their number. */
+    public int resolveSubject(
+            FlagSubjectType subjectType,
+            UUID subjectId,
+            FlagReason reason,
+            UUID resolvedBy,
+            String note,
+            Instant now) {
+        return jdbc.sql(
+                        "UPDATE moderation_flag SET resolved_at = :now, resolved_by = :by,"
+                                + " resolution_note = :note WHERE subject_type = :type AND"
+                                + " subject_id = :subjectId AND reason = :reason AND resolved_at"
+                                + " IS NULL")
+                .param("type", subjectType.name())
+                .param("subjectId", subjectId)
+                .param("reason", reason.name())
+                .param("by", resolvedBy)
+                .param("note", note)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /** Open flags of an account (subject USER), newest first. */
+    public List<ModerationFlagView> openForAccount(UUID userId) {
+        return jdbc.sql(
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM moderation_flag WHERE subject_type = 'USER' AND"
+                                + " subject_id = :id AND resolved_at IS NULL ORDER BY created_at"
+                                + " DESC")
+                .param("id", userId)
+                .query(ModerationFlagRepository::map)
+                .list();
+    }
+
     private static ModerationFlagView map(ResultSet rs, int rowNum) throws SQLException {
         Timestamp resolvedAt = rs.getTimestamp("resolved_at");
         return new ModerationFlagView(

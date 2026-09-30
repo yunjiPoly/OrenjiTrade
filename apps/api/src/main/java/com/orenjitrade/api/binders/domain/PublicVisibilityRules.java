@@ -3,6 +3,7 @@ package com.orenjitrade.api.binders.domain;
 import com.orenjitrade.api.auth.domain.AccountStatus;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import com.orenjitrade.api.delisting.domain.ListingPauseRules;
 import com.orenjitrade.api.profiles.domain.ProfileVisibility;
 import java.time.Duration;
 import java.time.Instant;
@@ -16,7 +17,9 @@ import org.jspecify.annotations.Nullable;
  * public (or it has none) ∧ its freshness is not HIDDEN ∧ the owner is listed. A binder is public ⇔
  * its visibility is PUBLIC or TEMPORARILY_PUBLIC not yet expired ∧ its freshness is not HIDDEN ∧
  * the owner is listed. The owner is listed ⇔ the account is ACTIVE (or its temporary suspension has
- * ended) ∧ the collector is discoverable or has a PUBLIC profile ∧ the profile is not PRIVATE.
+ * ended) ∧ the collector is discoverable or has a PUBLIC profile ∧ the profile is not PRIVATE ∧
+ * (for listings, Phase 7) no pause of the owner's listings is in force ({@link ListingPauseRules};
+ * a paused collector stays on the map without public listings).
  *
  * <p>The SQL fragments below (aliases {@code u} = {@code user_account}, {@code ps} = {@code
  * privacy_settings}, parameter {@code :now}) and the pure Java predicates express the same rules;
@@ -45,6 +48,13 @@ public final class PublicVisibilityRules {
                     + " OR COALESCE(ps.profile_visibility, 'MEMBERS') = 'PUBLIC')"
                     + " AND COALESCE(ps.profile_visibility, 'MEMBERS') <> 'PRIVATE')";
 
+    /**
+     * The owner's listings may be public: {@link #OWNER_LISTED} and no listing pause in force
+     * (needs {@link #ownerJoins} or any owner alias {@code u}).
+     */
+    public static final String OWNER_LISTINGS_PUBLIC =
+            "(" + OWNER_LISTED + " AND " + ListingPauseRules.NOT_PAUSED + ")";
+
     private PublicVisibilityRules() {}
 
     /** The binder aliased {@code alias} is itself public (visibility, expiry, freshness). */
@@ -62,7 +72,7 @@ public final class PublicVisibilityRules {
 
     /** The binder aliased {@code alias} is effectively public (needs {@link #ownerJoins}). */
     public static String binderEffectivelyPublic(String alias) {
-        return "(" + binderListed(alias) + " AND " + OWNER_LISTED + ")";
+        return "(" + binderListed(alias) + " AND " + OWNER_LISTINGS_PUBLIC + ")";
     }
 
     // ---------------------------------------------------------------------------------------
@@ -84,7 +94,19 @@ public final class PublicVisibilityRules {
         return visible && freshness != FreshnessState.HIDDEN;
     }
 
-    /** Whether an owner's listings may be public. */
+    /** Whether an owner's listings may be public, given whether a listing pause is in force. */
+    public static boolean isOwnerListed(
+            AccountStatus status,
+            @Nullable Instant suspendedUntil,
+            boolean discoverable,
+            ProfileVisibility profileVisibility,
+            boolean listingsPaused,
+            Instant now) {
+        return !listingsPaused
+                && isOwnerListed(status, suspendedUntil, discoverable, profileVisibility, now);
+    }
+
+    /** Whether an owner is listed (account state and privacy; pauses not considered). */
     public static boolean isOwnerListed(
             AccountStatus status,
             @Nullable Instant suspendedUntil,

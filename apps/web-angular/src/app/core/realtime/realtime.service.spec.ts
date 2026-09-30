@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import type { MessageResponse } from '@orenji/api-client';
+import type { MessageResponse, NotificationResponse } from '@orenji/api-client';
 import { AuthService } from '../auth/auth.service';
 import { SessionService } from '../auth/session.service';
 import { DEFAULT_APP_CONFIG } from '../config/app-config.model';
@@ -129,6 +129,7 @@ describe('RealtimeService', () => {
     expect(session.options.url).toBe('ws://api.test/ws?access_token=id-token%2Fwith%2Bchars');
     expect([...session.handlers.keys()].sort()).toEqual([
       '/user/queue/messages',
+      '/user/queue/notifications',
       '/user/queue/presence',
       '/user/queue/receipts',
       '/user/queue/typing',
@@ -148,6 +149,20 @@ describe('RealtimeService', () => {
     });
     expect(messages.map((message) => message.id)).toEqual(['m1']);
     expect(receipts).toHaveLength(1);
+
+    const notifications: NotificationResponse[] = [];
+    service.notifications$.subscribe((notification) => notifications.push(notification));
+    session.push('/user/queue/notifications', {
+      id: 'n1',
+      type: 'WISHLIST_MATCH',
+      title: 'Wishlist match: Emberfang Fox',
+      body: 'Emberfang Fox was listed ~1-5 km away.',
+      data: { deepLink: '/wishlist/w1' },
+      createdAt: '2026-09-30T12:00:00Z',
+      readAt: null,
+    });
+    session.push('/user/queue/notifications', { id: 'n2', type: 'SYSTEM' });
+    expect(notifications.map((notification) => notification.id)).toEqual(['n1']);
 
     service.sendTyping('c1');
     expect(session.sent).toEqual([{ destination: '/app/typing', body: '{"conversationId":"c1"}' }]);

@@ -96,6 +96,50 @@ public class PostRepository {
                 .optional();
     }
 
+    /**
+     * Posts and replies of an author that moderators removed, newest removal first (Phase 7
+     * moderator history): kind, id, channel slug, removal time and reason only.
+     */
+    public List<RemovedRow> removedOf(UUID authorId, int limit) {
+        return jdbc.sql(
+                        """
+                        SELECT x.kind, x.id, x.channel_slug, x.removed_at, x.removed_reason FROM (
+                            SELECT 'POST' AS kind, p.id, c.slug AS channel_slug, p.removed_at,
+                                   p.removed_reason
+                              FROM community_post p JOIN community_channel c ON c.id = p.channel_id
+                             WHERE p.author_id = :author AND p.moderation_state = 'REMOVED'
+                            UNION ALL
+                            SELECT 'REPLY' AS kind, r.id, c.slug AS channel_slug, r.removed_at,
+                                   r.removed_reason
+                              FROM community_reply r
+                              JOIN community_post p ON p.id = r.post_id
+                              JOIN community_channel c ON c.id = p.channel_id
+                             WHERE r.author_id = :author AND r.moderation_state = 'REMOVED') x
+                         ORDER BY x.removed_at DESC NULLS LAST, x.id LIMIT :limit
+                        """)
+                .param("author", authorId)
+                .param("limit", limit)
+                .query(
+                        (rs, rowNum) -> {
+                            Timestamp removedAt = rs.getTimestamp("removed_at");
+                            return new RemovedRow(
+                                    rs.getString("kind"),
+                                    rs.getObject("id", UUID.class),
+                                    rs.getString("channel_slug"),
+                                    removedAt == null ? null : removedAt.toInstant(),
+                                    rs.getString("removed_reason"));
+                        })
+                .list();
+    }
+
+    /** A removed post or reply (moderator history). */
+    public record RemovedRow(
+            String kind,
+            UUID id,
+            String channelSlug,
+            @Nullable Instant removedAt,
+            @Nullable String reason) {}
+
     /** Whether the author posted the same normalised text since {@code since} (not deleted). */
     public boolean duplicateExists(UUID authorId, String bodyHash, Instant since) {
         return jdbc.sql(

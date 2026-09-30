@@ -119,10 +119,17 @@ public class SecurityConfig {
 
     /**
      * The moderation subset of the admin console (Phase 5 contract "Moderator"; Phase 7 RBAC:
-     * MODERATOR sees Community and Moderation): MODERATOR, ADMIN and SUPER_ADMIN.
+     * MODERATOR sees Reports, Moderation, Community and Ratings): MODERATOR, ADMIN and SUPER_ADMIN.
+     * Within them the services still require ADMIN for moderation-rule changes and for suspending
+     * or banning through a report decision.
      */
     public static final List<String> MODERATOR_PATTERNS =
-            List.of("/api/v1/admin/community/**", "/api/v1/admin/moderation/**");
+            List.of(
+                    "/api/v1/admin/community/**",
+                    "/api/v1/admin/moderation/**",
+                    "/api/v1/admin/reports/**",
+                    "/api/v1/admin/ratings/**",
+                    "/api/v1/admin/references/**");
 
     private static final String PERMISSIONS_POLICY =
             "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(),"

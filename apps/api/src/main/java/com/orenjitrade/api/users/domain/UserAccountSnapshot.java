@@ -9,7 +9,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Immutable, detached view of a {@link UserAccount} handed to other modules (auth filter, admin,
- * controllers). Contains no location data by construction.
+ * controllers). Contains no location data by construction. {@code bannedAt} marks a ban (a
+ * suspension without end decided on a collector report, Phase 7).
  */
 public record UserAccountSnapshot(
         UUID id,
@@ -26,7 +27,8 @@ public record UserAccountSnapshot(
         Instant createdAt,
         Instant updatedAt,
         @Nullable Instant lastActiveAt,
-        @Nullable Instant deletedAt) {
+        @Nullable Instant deletedAt,
+        @Nullable Instant bannedAt) {
 
     public UserAccountSnapshot {
         roles = Set.copyOf(roles);

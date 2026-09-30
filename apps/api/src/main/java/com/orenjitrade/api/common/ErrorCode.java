@@ -34,6 +34,19 @@ public enum ErrorCode {
     POST_BLOCKED(HttpStatus.UNPROCESSABLE_CONTENT, "Post blocked"),
     /** The author already posted the same text within the last 24 hours. */
     DUPLICATE_POST(HttpStatus.CONFLICT, "Duplicate post"),
+    /**
+     * The caller has no interaction (completed trade, accepted offer or qualified conversation)
+     * with the collector they want to rate or write a reference for (Phase 7).
+     */
+    RATING_NOT_ELIGIBLE(HttpStatus.FORBIDDEN, "Rating not eligible"),
+    /** The caller already rated this interaction (Phase 7); edit the existing rating instead. */
+    ALREADY_RATED(HttpStatus.CONFLICT, "Already rated"),
+    /** A rating can only be edited within 14 days of its creation (Phase 7). */
+    RATING_EDIT_WINDOW_CLOSED(HttpStatus.CONFLICT, "Rating edit window closed"),
+    /** The caller already has an open report against this collector (Phase 7). */
+    REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
+    /** Collectors cannot report themselves (Phase 7). */
+    CANNOT_REPORT_SELF(HttpStatus.UNPROCESSABLE_CONTENT, "Cannot report self"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),

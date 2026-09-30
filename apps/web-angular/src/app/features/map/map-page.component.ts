@@ -34,6 +34,7 @@ import { MapCircle, MapViewport } from '../../shared/map/map-adapter';
 import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
+import { WishlistActions } from '../../shared/wishlist/wishlist-actions.service';
 import { AreaPromptComponent } from './area-prompt/area-prompt.component';
 import { CollectorPreviewCardComponent } from './collector-preview/collector-preview-card.component';
 import { MapDiscoveryStore } from './data/map-discovery.store';
@@ -88,6 +89,7 @@ export class MapPageComponent {
   private readonly gamesStore = inject(GamesStore);
   private readonly profileApi = inject(ProfileService);
   private readonly starter = inject(ConversationStarterService);
+  private readonly wishlist = inject(WishlistActions);
 
   /** Signed in: the Messages panel shows the collector's conversations. */
   protected readonly signedIn = inject(AuthService).isAuthenticated;
@@ -254,6 +256,16 @@ export class MapPageComponent {
 
   protected clearHolders(): void {
     this.navigate({ ...this.params(), card: null, printing: null, view: 'map' }, false);
+  }
+
+  /** Holders mode: put the card (or printing) on the wishlist. */
+  protected addHoldersToWishlist(): void {
+    const target = this.store.holders();
+    if (target) {
+      void this.wishlist.add(
+        target.kind === 'card' ? { cardId: target.id } : { printingId: target.id },
+      );
+    }
   }
 
   protected onViewport(viewport: MapViewport): void {

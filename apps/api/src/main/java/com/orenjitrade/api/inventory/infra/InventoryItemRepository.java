@@ -57,7 +57,7 @@ public class InventoryItemRepository {
                     + " AND (i.binder_id IS NULL OR "
                     + PublicVisibilityRules.binderListed("b")
                     + ") AND "
-                    + PublicVisibilityRules.OWNER_LISTED
+                    + PublicVisibilityRules.OWNER_LISTINGS_PUBLIC
                     + ")";
 
     private static final String COLUMNS =
@@ -206,6 +206,102 @@ public class InventoryItemRepository {
                 params,
                 query.page(),
                 query.size());
+    }
+
+    /**
+     * Admin console (Phase 7): listings (items the owner made public or temporarily public, not
+     * deleted), optionally by freshness state, game, owner and text, oldest confirmation first for
+     * STALE/HIDDEN reviews, otherwise newest change first. Rows carry the owner's handle and the
+     * warning time; never the owner's private notes (the caller drops them).
+     */
+    public AdminPage adminPage(
+            @Nullable FreshnessState state,
+            @Nullable String game,
+            @Nullable UUID ownerId,
+            @Nullable String text,
+            boolean staleReview,
+            int page,
+            int size,
+            Instant now) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("now", Timestamp.from(now));
+        StringBuilder where =
+                new StringBuilder(
+                        " WHERE i.deleted_at IS NULL AND i.visibility IN ('PUBLIC',"
+                                + " 'TEMPORARILY_PUBLIC')");
+        if (state != null) {
+            where.append(" AND i.freshness_state = :state");
+            params.put("state", state.name());
+        } else if (staleReview) {
+            where.append(" AND i.freshness_state IN ('STALE', 'HIDDEN')");
+        }
+        if (game != null) {
+            where.append(" AND g.slug = :game");
+            params.put("game", game);
+        }
+        if (ownerId != null) {
+            where.append(" AND i.owner_id = :ownerId");
+            params.put("ownerId", ownerId);
+        }
+        textFilter(text, where, params);
+        String order =
+                staleReview
+                        ? " ORDER BY i.confirmed_at ASC, i.id"
+                        : " ORDER BY i.updated_at DESC, i.id";
+        JdbcClient.StatementSpec count = jdbc.sql("SELECT count(*)" + FROM + where);
+        JdbcClient.StatementSpec select =
+                jdbc.sql(
+                        "SELECT "
+                                + COLUMNS
+                                + ", i.warned_at, u.handle AS owner_handle, p.printing_code"
+                                + FROM
+                                + where
+                                + order
+                                + " LIMIT :limit OFFSET :offset");
+        for (Map.Entry<String, Object> param : params.entrySet()) {
+            count = count.param(param.getKey(), param.getValue());
+            select = select.param(param.getKey(), param.getValue());
+        }
+        long total = count.query(Long.class).single();
+        List<AdminRow> rows =
+                select.param("limit", size)
+                        .param("offset", (long) page * size)
+                        .query(InventoryItemRepository::adminRow)
+                        .list();
+        return new AdminPage(rows, total);
+    }
+
+    /** One admin row (by id) whatever its visibility; empty for unknown or deleted items. */
+    public Optional<AdminRow> adminRow(UUID id, Instant now) {
+        return jdbc.sql(
+                        "SELECT "
+                                + COLUMNS
+                                + ", i.warned_at, u.handle AS owner_handle, p.printing_code"
+                                + FROM
+                                + " WHERE i.id = :id AND i.deleted_at IS NULL")
+                .param("id", id)
+                .param("now", Timestamp.from(now))
+                .query(InventoryItemRepository::adminRow)
+                .optional();
+    }
+
+    /** The owner of a live item, locking it; empty for unknown or deleted items. */
+    public Optional<UUID> lockOwnerOf(UUID id) {
+        return jdbc.sql(
+                        "SELECT owner_id FROM inventory_item WHERE id = :id AND deleted_at IS NULL"
+                                + " FOR UPDATE")
+                .param("id", id)
+                .query(UUID.class)
+                .optional();
+    }
+
+    private static AdminRow adminRow(ResultSet rs, int rowNum) throws SQLException {
+        Timestamp warnedAt = rs.getTimestamp("warned_at");
+        return new AdminRow(
+                map(rs, rowNum),
+                rs.getString("owner_handle"),
+                rs.getString("printing_code"),
+                warnedAt == null ? null : warnedAt.toInstant());
     }
 
     private Page page(String where, String order, Map<String, Object> params, int page, int size) {
@@ -800,6 +896,16 @@ public class InventoryItemRepository {
 
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}
+
+    /** An admin row: the item, its owner's handle, printing code and warning time. */
+    public record AdminRow(
+            ItemRow item,
+            String ownerHandle,
+            @Nullable String printingCode,
+            @Nullable Instant warnedAt) {}
+
+    /** One admin page with the total count. */
+    public record AdminPage(List<AdminRow> rows, long total) {}
 
     /** Counts per binder. */
     public record BinderStatsRow(

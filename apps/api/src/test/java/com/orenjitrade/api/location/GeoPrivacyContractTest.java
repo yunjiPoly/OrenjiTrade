@@ -531,6 +531,77 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    /**
+     * Phase 7: ratings, references, reports, listing status and every admin console response
+     * (report detail with history, users' history, stale and admin listings, binders, dashboard,
+     * notification statistics, analytics summary, system health) carry no coordinates, at most 3
+     * decimals and no private notes; the logs stay free of coordinates.
+     */
+    @Test
+    void ratingsReportsAndAdminConsoleResponsesNeverCarryCoordinates(CapturedOutput output) {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector4 = "seed-collector4:collector4@orenjitrade.test";
+        String seededReport = "00000000-0000-4000-9e00-000000000001";
+        UUID collector6 = idOf("collector6");
+
+        List<JsonNode> documents = new ArrayList<>();
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/collector1/ratings",
+                        collector4,
+                        null,
+                        200));
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/collector1/references",
+                        collector4,
+                        null,
+                        200));
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/ratings/eligibility?userId=" + idOf("collector2"),
+                        collector1,
+                        null,
+                        200));
+        documents.add(callJson(HttpMethod.GET, "/api/v1/me/reports", collector4, null, 200));
+        documents.add(
+                callJson(HttpMethod.GET, "/api/v1/me/listings/status", collector1, null, 200));
+        documents.add(callJson(HttpMethod.GET, "/api/v1/public/report-reasons", null, null, 200));
+        for (String path :
+                List.of(
+                        "/api/v1/admin/reports?size=100",
+                        "/api/v1/admin/reports/" + seededReport,
+                        "/api/v1/admin/users/" + collector6 + "/history",
+                        "/api/v1/admin/users/" + collector6 + "/listing-status",
+                        "/api/v1/admin/listings/stale?size=100",
+                        "/api/v1/admin/listings?size=100",
+                        "/api/v1/admin/binders?size=100",
+                        "/api/v1/admin/ratings?size=100",
+                        "/api/v1/admin/moderation/rules",
+                        "/api/v1/admin/dashboard",
+                        "/api/v1/admin/notifications/stats",
+                        "/api/v1/admin/analytics/summary",
+                        "/api/v1/admin/system/health")) {
+            documents.add(callJson(HttpMethod.GET, path, SEED_ADMIN, null, 200));
+        }
+        assertThat(documents.get(0).path("summary").path("count").asInt())
+                .as("collector1's seeded ratings")
+                .isEqualTo(2);
+        assertThat(documents.get(7).path("reportedUser").path("handle").asString())
+                .isEqualTo("collector6");
+        for (JsonNode document : documents) {
+            assertPublicListing(document, "phase 7 document");
+        }
+
+        String logs = output.getAll();
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
     /** At most 3 decimals, no private location keys, no private notes. */
     private static void assertSearchDocument(JsonNode document, String context) {
         assertOnlyPublicPrecision(document, context);

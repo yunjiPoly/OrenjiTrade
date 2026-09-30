@@ -596,6 +596,46 @@ public class CommunityService {
     // Region channels
     // ---------------------------------------------------------------------------------------
 
+    /** The author of a post, whatever its state (Phase 7 report context); empty when unknown. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> postAuthor(UUID postId) {
+        return posts.findAny(postId).map(PostRow::authorId);
+    }
+
+    /**
+     * Posts and replies of an author removed by moderators, newest first (Phase 7 moderator history
+     * of a reported collector).
+     */
+    @Transactional(readOnly = true)
+    public List<RemovedContent> removedContentOf(UUID authorId, int limit) {
+        return posts.removedOf(authorId, limit).stream()
+                .map(
+                        row ->
+                                new RemovedContent(
+                                        row.kind(),
+                                        row.id(),
+                                        row.channelSlug(),
+                                        row.removedAt(),
+                                        row.reason()))
+                .toList();
+    }
+
+    /**
+     * A post or reply a moderator removed.
+     *
+     * @param kind POST or REPLY
+     * @param id post or reply id
+     * @param channelSlug its channel
+     * @param removedAt when
+     * @param reason the moderator's reason
+     */
+    public record RemovedContent(
+            String kind,
+            UUID id,
+            String channelSlug,
+            @Nullable Instant removedAt,
+            @Nullable String reason) {}
+
     /**
      * Creates the region channel of the city of a {@code public_label} unless one exists (region
      * channels "are created per public_label city as users appear"). Labels without a city ("Near

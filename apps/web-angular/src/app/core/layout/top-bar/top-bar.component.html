@@ -31,18 +31,7 @@
     }
 
     <div class="top-bar__actions">
-      <button
-        matIconButton
-        type="button"
-        aria-label="Notifications"
-        matTooltip="Notifications"
-        [matBadge]="unreadNotifications()"
-        [matBadgeHidden]="unreadNotifications() === 0"
-        matBadgeSize="small"
-        matBadgeColor="primary"
-      >
-        <mat-icon>notifications</mat-icon>
-      </button>
+      <app-notification-bell />
 
       <app-theme-toggle />
 

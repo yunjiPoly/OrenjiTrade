@@ -11,6 +11,8 @@ import com.orenjitrade.api.analytics.domain.AnalyticsPublisher;
 import com.orenjitrade.api.analytics.infra.LogAnalyticsTransport;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
+import com.orenjitrade.api.ratings.domain.InteractionKind;
+import com.orenjitrade.api.ratings.domain.InteractionService;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -57,6 +59,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
 
     @Autowired private CatalogImportService importService;
     @Autowired private AnalyticsPublisher publisher;
+    @Autowired private InteractionService interactionService;
 
     @BeforeEach
     void catalog() {
@@ -359,6 +362,81 @@ class AnalyticsIT extends AbstractIntegrationTest {
                     .doesNotContain("\"lat\"")
                     .doesNotContain("21.37")
                     .doesNotContain("55.53");
+            assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
+        }
+    }
+
+    @Test
+    void phase7RatingAndReportEventsCarryNoIdsOrText(CapturedOutput output)
+            throws InterruptedException {
+        Instant start = Instant.now().minusSeconds(1);
+        String rater = uniqueUid("an-rater");
+        UUID raterId = provisionCompliant(rater);
+        String ratee = uniqueUid("an-ratee");
+        UUID rateeId = provisionCompliant(ratee);
+        UUID interactionId =
+                interactionService
+                        .record(
+                                InteractionKind.TRADE,
+                                raterId,
+                                rateeId,
+                                InteractionKind.TRADE.subjectType(),
+                                UUID.randomUUID())
+                        .id();
+        Map<String, Object> rating = new java.util.LinkedHashMap<>();
+        rating.put("interactionId", interactionId.toString());
+        rating.put("overall", 4);
+        rating.put("comment", "Secret rating comment");
+        String ratingId =
+                callJson(HttpMethod.POST, "/api/v1/ratings", rater, rating, 201)
+                        .path("id")
+                        .asString();
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("reportedUserId", rateeId.toString());
+        report.put("reason", "MISLEADING_LISTINGS");
+        report.put("details", "Secret report details");
+        String reportId =
+                callJson(HttpMethod.POST, "/api/v1/reports/collectors", rater, report, 201)
+                        .path("id")
+                        .asString();
+
+        String raterHash = publisher.actorHasher().hash(raterId);
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(20));
+        List<JsonNode> mine = List.of();
+        while (Instant.now().isBefore(deadline)) {
+            mine =
+                    parse(output.getAll(), start).stream()
+                            .filter(event -> raterHash.equals(event.path("actor_hash").asString()))
+                            .toList();
+            Set<String> types = new HashSet<>();
+            mine.forEach(event -> types.add(event.path("event_type").asString()));
+            if (types.containsAll(Set.of("rating_submitted", "collector_reported"))) {
+                break;
+            }
+            Thread.sleep(200);
+        }
+        JsonNode rated = first(mine, "rating_submitted");
+        assertThat(rated.path("payload").path("interaction_kind").asString()).isEqualTo("TRADE");
+        assertThat(rated.path("payload").path("overall").asInt()).isEqualTo(4);
+        assertThat(rated.path("payload").path("has_comment").asBoolean()).isTrue();
+        assertThat(rated.path("payload").path("ratee_hash").asString())
+                .isEqualTo(publisher.actorHasher().hash(rateeId));
+        JsonNode reported = first(mine, "collector_reported");
+        assertThat(reported.path("payload").path("reason").asString())
+                .isEqualTo("MISLEADING_LISTINGS");
+        assertThat(reported.path("payload").path("context_source").asString()).isEqualTo("PROFILE");
+        for (JsonNode event : mine) {
+            ObjectNode checked = (ObjectNode) event.deepCopy();
+            checked.remove("occurred_at");
+            String text = checked.toString();
+            assertThat(text)
+                    .doesNotContain("Secret rating comment")
+                    .doesNotContain("Secret report details")
+                    .doesNotContain(raterId.toString())
+                    .doesNotContain(rateeId.toString())
+                    .doesNotContain(ratingId)
+                    .doesNotContain(reportId)
+                    .doesNotContain(interactionId.toString());
             assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
         }
     }

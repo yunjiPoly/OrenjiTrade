@@ -11,14 +11,25 @@ import { HttpHeaders }                                       from '@angular/comm
 
 import { Observable }                                        from 'rxjs';
 
+import { CreateModerationRuleRequest } from '../model/models';
 import { ModerationFlag } from '../model/models';
+import { ModerationRule } from '../model/models';
 import { PageResponseModerationFlag } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { ResolveModerationFlagRequest } from '../model/models';
+import { UpdateModerationRuleRequest } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface CreateModerationRuleRequestParams {
+    createModerationRuleRequest: CreateModerationRuleRequest;
+}
+
+export interface DeleteModerationRuleRequestParams {
+    id: string;
+}
 
 export interface ListModerationFlagsRequestParams {
     state?: 'OPEN' | 'RESOLVED' | 'ALL';
@@ -27,15 +38,41 @@ export interface ListModerationFlagsRequestParams {
     size?: number;
 }
 
+export interface ListModerationRulesRequestParams {
+    scope?: 'MESSAGE' | 'POST' | 'TAG' | 'PROFILE' | 'REPORT';
+    kind?: 'BANNED_TERM' | 'RATE_LIMIT' | 'THRESHOLD' | 'REPORT_THRESHOLD';
+}
+
 export interface ResolveModerationFlagRequestParams {
     id: string;
     resolveModerationFlagRequest: ResolveModerationFlagRequest;
+}
+
+export interface UpdateModerationRuleRequestParams {
+    id: string;
+    updateModerationRuleRequest: UpdateModerationRuleRequest;
 }
 
 
 export interface AdminModerationServiceInterface {
     defaultHeaders: HttpHeaders;
     configuration: Configuration;
+
+    /**
+     * Create a moderation rule (ADMIN)
+     * 400 for an invalid kind/scope combination, regular expression or rate pattern; 403 for moderators. Audited (&#x60;moderation.rule.create&#x60;).
+     * @endpoint post /api/v1/admin/moderation/rules
+* @param requestParameters
+     */
+    createModerationRule(requestParameters: CreateModerationRuleRequestParams, extraHttpRequestParams?: any): Observable<ModerationRule>;
+
+    /**
+     * Delete a moderation rule (ADMIN)
+     * Flags raised by the rule keep their history. Audited (&#x60;moderation.rule.delete&#x60;).
+     * @endpoint delete /api/v1/admin/moderation/rules/{id}
+* @param requestParameters
+     */
+    deleteModerationRule(requestParameters: DeleteModerationRuleRequestParams, extraHttpRequestParams?: any): Observable<{}>;
 
     /**
      * List moderation flags (MODERATOR+)
@@ -46,11 +83,27 @@ export interface AdminModerationServiceInterface {
     listModerationFlags(requestParameters: ListModerationFlagsRequestParams, extraHttpRequestParams?: any): Observable<PageResponseModerationFlag>;
 
     /**
+     * List moderation rules (MODERATOR+)
+     * BANNED_TERM (regular expression on accent-stripped text), RATE_LIMIT and THRESHOLD (&#x60;&lt;count&gt;/&lt;seconds&gt;&#x60; per author) for MESSAGE, POST, TAG and PROFILE; RATE_LIMIT (reports per reporter) and REPORT_THRESHOLD (open reports from distinct reporters; BLOCK also pauses listings pending review) for REPORT.
+     * @endpoint get /api/v1/admin/moderation/rules
+* @param requestParameters
+     */
+    listModerationRules(requestParameters: ListModerationRulesRequestParams, extraHttpRequestParams?: any): Observable<Array<ModerationRule>>;
+
+    /**
      * Resolve a moderation flag (MODERATOR+)
      * Closes an open flag with an optional note. 409 when already resolved. Audited (&#x60;moderation.flag.resolve&#x60;).
      * @endpoint post /api/v1/admin/moderation/flags/{id}/resolve
 * @param requestParameters
      */
     resolveModerationFlag(requestParameters: ResolveModerationFlagRequestParams, extraHttpRequestParams?: any): Observable<ModerationFlag>;
+
+    /**
+     * Change a moderation rule (ADMIN)
+     * Pattern, action, scope and the active switch; omitted members stay. The kind cannot change. Takes effect within a minute on every instance. Audited (&#x60;moderation.rule.update&#x60;).
+     * @endpoint put /api/v1/admin/moderation/rules/{id}
+* @param requestParameters
+     */
+    updateModerationRule(requestParameters: UpdateModerationRuleRequestParams, extraHttpRequestParams?: any): Observable<ModerationRule>;
 
 }

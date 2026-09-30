@@ -1,6 +1,7 @@
 package com.orenjitrade.api.analytics.infra;
 
 import com.orenjitrade.api.analytics.domain.ActorHasher;
+import com.orenjitrade.api.analytics.domain.AnalyticsAggregate;
 import com.orenjitrade.api.analytics.domain.AnalyticsPublisher;
 import com.orenjitrade.api.analytics.domain.AnalyticsTransport;
 import com.orenjitrade.api.config.AsyncConfig;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -44,11 +46,17 @@ public class AnalyticsConfig {
     }
 
     @Bean
+    AnalyticsAggregate analyticsAggregate(JdbcClient jdbc) {
+        return new JdbcAnalyticsAggregate(jdbc);
+    }
+
+    @Bean
     AnalyticsPublisher analyticsPublisher(
             AnalyticsTransport transport,
             @Qualifier(AsyncConfig.APPLICATION_TASK_EXECUTOR) Executor executor,
-            ActorHasher actorHasher) {
-        return new AnalyticsPublisher(transport, executor, actorHasher);
+            ActorHasher actorHasher,
+            AnalyticsAggregate aggregate) {
+        return new AnalyticsPublisher(transport, executor, actorHasher, aggregate);
     }
 
     /** The transport selected by {@code orenji.events.transport}. */

@@ -25,6 +25,7 @@ import { apiBaseUrlInterceptor } from './core/http/api-base-url.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
 import { requestIdInterceptor } from './core/http/request-id.interceptor';
 import { limitReachedInterceptor } from './core/limits/limit-reached.interceptor';
+import { provideNotifications } from './core/notifications/notification-center.service';
 import { provideRealtime } from './core/realtime/realtime.service';
 import { OrenjiTitleStrategy } from './core/routing/orenji-title.strategy';
 import { ThemeService } from './core/theme/theme.service';
@@ -60,6 +61,8 @@ export const appConfig: ApplicationConfig = {
     provideFeatureFlags(),
     // STOMP realtime channel (Phase 5): connects while a collector is signed in; lazy client.
     provideRealtime(),
+    // Notification centre (Phase 6): unread badge + latest notifications, live over realtime.
+    provideNotifications(),
     // Material Symbols Rounded is the icon family of the design system (see index.html).
     provideAppInitializer(() => {
       inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-rounded');
