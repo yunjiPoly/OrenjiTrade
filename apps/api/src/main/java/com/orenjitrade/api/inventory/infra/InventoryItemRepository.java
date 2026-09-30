@@ -648,6 +648,34 @@ public class InventoryItemRepository {
                 .list();
     }
 
+    /**
+     * Locks the owner's non-deleted item and returns its quantity (Phase 8 trade transfers); empty
+     * for unknown, deleted or other owners' items.
+     */
+    public Optional<Integer> lockQuantity(UUID ownerId, UUID id) {
+        return jdbc.sql(
+                        "SELECT quantity FROM inventory_item WHERE id = :id AND owner_id ="
+                                + " :ownerId AND deleted_at IS NULL FOR UPDATE")
+                .param("id", id)
+                .param("ownerId", ownerId)
+                .query(Integer.class)
+                .optional();
+    }
+
+    /** Lowers the quantity of an item by {@code by} copies (callers keep at least one). */
+    public void decrementQuantity(UUID id, int by, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET quantity = quantity - :by, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NULL AND quantity > :by
+                        """)
+                .param("id", id)
+                .param("by", by)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
     public void touch(UUID id, Instant now) {
         jdbc.sql(
                         "UPDATE inventory_item SET updated_at = :now, last_owner_activity_at = :now"

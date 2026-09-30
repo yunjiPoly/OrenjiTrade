@@ -11,7 +11,7 @@ public enum MessageKind {
     CARD_LINK,
     /** A shared public binder ({@code binderId}); optional text. */
     BINDER_LINK,
-    /** Reserved for Phase 8 offers; refused with 400 until then. */
+    /** An offer between the two participants ({@code offerId}, Phase 8); optional text. */
     OFFER_LINK,
     /** A photo ({@code imageUploadId} from {@code POST /uploads/images}); optional caption. */
     IMAGE,

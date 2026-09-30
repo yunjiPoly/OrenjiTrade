@@ -148,4 +148,25 @@ describe('CollectorPreviewCardComponent', () => {
     element.querySelector<HTMLButtonElement>('button[aria-label="Close preview"]')!.click();
     expect(closed).toBe(2);
   });
+  it('offers Report to signed-in viewers of another collector only', async () => {
+    const state: PreviewState = {
+      kind: 'ready',
+      handle: 'maika',
+      preview: preview('maika', { displayName: 'Maïka Tremblay' }),
+    };
+    const reported: unknown[] = [];
+    fixture.componentInstance.reportRequested.subscribe((value) => reported.push(value));
+    await render(state, { signedIn: true });
+    const report = element.querySelector<HTMLButtonElement>(
+      'button[aria-label="Report Maïka Tremblay"]',
+    );
+    expect(report).not.toBeNull();
+    report?.click();
+    expect(reported).toEqual([expect.objectContaining({ handle: 'maika' })]);
+
+    await render(state, { signedIn: false });
+    expect(element.querySelector('button[aria-label="Report Maïka Tremblay"]')).toBeNull();
+    await render(state, { signedIn: true, isSelf: true });
+    expect(element.querySelector('button[aria-label="Report Maïka Tremblay"]')).toBeNull();
+  });
 });

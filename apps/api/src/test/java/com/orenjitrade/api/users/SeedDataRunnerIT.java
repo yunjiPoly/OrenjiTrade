@@ -235,6 +235,69 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void seedsOffersAndTradesOnTheReservedIds() {
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM offer WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9c00-%'"))
+                .isEqualTo(5);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM trade WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9d00-%' AND status = 'COMPLETED'"))
+                .isEqualTo(2);
+        assertThat(
+                        testUsers
+                                .query(
+                                        "SELECT status FROM offer WHERE id ="
+                                                + " '00000000-0000-4000-9c00-000000000003'")
+                                .get(0)
+                                .get("status"))
+                .isEqualTo("OPEN");
+        Map<String, Object> counter =
+                testUsers
+                        .query(
+                                "SELECT status, current_turn, parent_offer_id::text AS parent FROM"
+                                    + " offer WHERE id = '00000000-0000-4000-9c00-000000000005'")
+                        .get(0);
+        assertThat(counter.get("status")).isEqualTo("COUNTERED");
+        assertThat(counter.get("current_turn")).isEqualTo("BUYER");
+        assertThat(counter.get("parent")).isEqualTo("00000000-0000-4000-9c00-000000000004");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM interaction WHERE kind = 'TRADE' AND"
+                                        + " subject_id IN ('00000000-0000-4000-9d00-000000000001',"
+                                        + " '00000000-0000-4000-9d00-000000000002')"))
+                .as("both completed trades made their parties eligible")
+                .isEqualTo(2);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM interaction WHERE kind = 'OFFER_ACCEPTED'"
+                                        + " AND subject_id IN"
+                                        + " ('00000000-0000-4000-9c00-000000000001',"
+                                        + " '00000000-0000-4000-9c00-000000000002')"))
+                .isEqualTo(2);
+        JsonNode inbox =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/offers?role=seller&status=OPEN",
+                        "seed-collector1:collector1@orenjitrade.test",
+                        null,
+                        200);
+        assertThat(inbox.path("items").get(0).path("id").asString())
+                .isEqualTo("00000000-0000-4000-9c00-000000000003");
+        int events = testUsers.count("SELECT count(*) FROM offer_event");
+        seedDataRunner.seedAll();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM offer WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9c00-%'"))
+                .as("idempotent")
+                .isEqualTo(5);
+        assertThat(testUsers.count("SELECT count(*) FROM offer_event")).isEqualTo(events);
+    }
+
+    @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
@@ -256,7 +319,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "wishlist",
                         "notifications",
                         "ratings",
-                        "reports");
+                        "reports",
+                        "offers",
+                        "trades");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

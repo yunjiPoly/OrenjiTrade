@@ -36,6 +36,7 @@ import com.orenjitrade.api.profiles.domain.ViewerContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +68,10 @@ import tools.jackson.databind.node.ObjectNode;
  * {@link PrivacyPolicyService#canMessage}. Messages and receipts are pushed to both participants'
  * realtime sessions after commit; {@link MessageSent} and {@link MessageRead} are published inside
  * the transaction for later phases. Message text never reaches logs or events.
+ *
+ * <p>Phase 8: OFFER_LINK messages link an offer between the two participants, and the offers and
+ * trades modules post SYSTEM messages ({@link #postSystemMessage}) into the pair conversation; the
+ * linked offer's current state comes from the offers module's {@link OfferLinkResolver}.
  */
 @Service
 public class ConversationService {
@@ -91,6 +97,7 @@ public class ConversationService {
     private final PublicBinderService publicBinders;
     private final ImageUploadService uploads;
     private final RealtimePublisher realtime;
+    private final ObjectProvider<OfferLinkResolver> offerLinks;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
     private final JsonMapper jsonMapper;
@@ -108,6 +115,7 @@ public class ConversationService {
             PublicBinderService publicBinders,
             ImageUploadService uploads,
             RealtimePublisher realtime,
+            ObjectProvider<OfferLinkResolver> offerLinks,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
             JsonMapper jsonMapper) {
@@ -123,6 +131,7 @@ public class ConversationService {
         this.publicBinders = publicBinders;
         this.uploads = uploads;
         this.realtime = realtime;
+        this.offerLinks = offerLinks;
         this.events = events;
         this.timeProvider = timeProvider;
         this.jsonMapper = jsonMapper;
@@ -281,6 +290,19 @@ public class ConversationService {
                 node.put("ownerHandle", binder.ownerHandle());
                 linkName = binder.name();
             }
+            case OFFER_LINK -> {
+                UUID offerId = requireNonNull(input.offerId());
+                @Nullable OfferLinkResolver resolver = offerLinks.getIfAvailable();
+                @Nullable OfferLink offer =
+                        resolver == null || !resolver.isBetween(offerId, me, otherId)
+                                ? null
+                                : resolver.links(me, List.of(offerId)).get(offerId);
+                if (offer == null) {
+                    throw invalid("offerId", "Only offers between the two of you can be shared");
+                }
+                putOffer(payload, offer);
+                linkName = offer.summary();
+            }
             case IMAGE -> {
                 UUID uploadId = requireNonNull(input.imageUploadId());
                 upload =
@@ -292,7 +314,7 @@ public class ConversationService {
                                                         "Unknown, used or expired upload"));
             }
             default -> {
-                // TEXT: nothing to resolve (OFFER_LINK and SYSTEM were refused by validate()).
+                // TEXT: nothing to resolve (SYSTEM was refused by validate()).
             }
         }
 
@@ -383,6 +405,76 @@ public class ConversationService {
                     realtime.publish(otherId, RealtimeDestinations.RECEIPTS, receipt);
                     realtime.publish(me, RealtimeDestinations.RECEIPTS, receipt);
                 });
+    }
+
+    /**
+     * Posts a SYSTEM message (no sender) into the DIRECT conversation of two collectors, creating
+     * the conversation when absent (Phase 8 offer and trade updates; the offer itself is the
+     * consent to talk, so the messaging permission does not apply). Idempotent per {@link
+     * SystemNotice#dedupKey()}. Nothing is posted while a block exists in either direction or when
+     * one of the accounts is unknown. Pushed to both participants after commit; no {@link
+     * MessageSent} is published (the offers and trades modules notify on their own events).
+     *
+     * @return the message id (also for a repeated key), empty when nothing was posted
+     */
+    @Transactional
+    public Optional<UUID> postSystemMessage(SystemNotice notice) {
+        UUID initiator = notice.initiatorId();
+        UUID other = notice.otherId();
+        if (initiator.equals(other) || blocks.isBlockedEitherWay(initiator, other)) {
+            return Optional.empty();
+        }
+        Optional<UUID> existing = messages.findIdBySystemKey(notice.dedupKey());
+        if (existing.isPresent()) {
+            return existing;
+        }
+        if (members.cards(List.of(initiator, other)).size() < 2) {
+            return Optional.empty();
+        }
+        Instant now = timeProvider.now().truncatedTo(ChronoUnit.MICROS);
+        UUID conversationId =
+                conversations
+                        .findByPair(initiator, other)
+                        .orElseGet(
+                                () ->
+                                        conversations
+                                                .createDirect(
+                                                        UUID.randomUUID(), initiator, other, now)
+                                                .conversationId());
+        String body =
+                notice.body().length() > BODY_MAX
+                        ? notice.body().substring(0, BODY_MAX)
+                        : notice.body();
+        ObjectNode payload = jsonMapper.createObjectNode();
+        if (notice.offer() != null) {
+            putOffer(payload, notice.offer());
+        }
+        payload.put("systemKey", notice.dedupKey());
+        UUID messageId = UUID.randomUUID();
+        if (!messages.insertSystemIfAbsent(
+                messageId, conversationId, body, jsonMapper.writeValueAsString(payload), now)) {
+            return messages.findIdBySystemKey(notice.dedupKey());
+        }
+        conversations.updateLastMessage(
+                conversationId,
+                messageId,
+                now,
+                MessagePreviews.of(MessageKind.SYSTEM, body, null),
+                MessageKind.SYSTEM.name(),
+                null);
+        conversations.unarchive(conversationId);
+        MessageRow stored =
+                messages.find(conversationId, messageId)
+                        .orElseThrow(() -> new IllegalStateException("Message not stored"));
+        for (UUID recipient : List.of(initiator, other)) {
+            Participants participants = requireParticipants(recipient, conversationId);
+            MessageView view =
+                    views(List.of(stored), new Visible(participants.mine(), participants.other()))
+                            .get(0);
+            afterCommit(() -> realtime.publish(recipient, RealtimeDestinations.MESSAGES, view));
+        }
+        log.debug("System message {} posted in conversation {}", messageId, conversationId);
+        return Optional.of(messageId);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -523,10 +615,13 @@ public class ConversationService {
                                     "imageUploadId", "is required for IMAGE messages"));
                 }
             }
-            case OFFER_LINK ->
+            case OFFER_LINK -> {
+                if (input.offerId() == null) {
                     errors.add(
                             new ProblemFieldError(
-                                    "kind", "Offer messages become available with offers"));
+                                    "offerId", "is required for OFFER_LINK messages"));
+                }
+            }
             case SYSTEM ->
                     errors.add(new ProblemFieldError("kind", "SYSTEM messages cannot be sent"));
         }
@@ -538,6 +633,7 @@ public class ConversationService {
     /** Views of stored messages for one participant (links resolved in batches). */
     private List<MessageView> views(List<MessageRow> rows, Visible visible) {
         Set<UUID> printingIds = new LinkedHashSet<>();
+        Set<UUID> offerIds = new LinkedHashSet<>();
         List<UUID> imageMessages = new ArrayList<>();
         List<JsonNode> payloads = new ArrayList<>();
         for (MessageRow row : rows) {
@@ -547,11 +643,16 @@ public class ConversationService {
             if (printingId != null) {
                 printingIds.add(printingId);
             }
+            @Nullable UUID offerId = uuid(payload.path("offer").path("offerId"));
+            if (offerId != null) {
+                offerIds.add(offerId);
+            }
             if (payload.has("image")) {
                 imageMessages.add(row.id());
             }
         }
         Map<UUID, String> images = catalog.frontImageUrls(printingIds);
+        Map<UUID, OfferLink> offers = resolveOffers(visible.mine().userId(), offerIds);
         Map<UUID, AttachmentRow> attachments = messages.attachmentsOf(imageMessages);
         List<MessageView> result = new ArrayList<>();
         for (int index = 0; index < rows.size(); index++) {
@@ -568,7 +669,7 @@ public class ConversationService {
                             removed ? "" : row.body(),
                             removed
                                     ? MessagePayload.EMPTY
-                                    : payload(payload, images, attachments.get(row.id())),
+                                    : payload(payload, images, offers, attachments.get(row.id())),
                             row.createdAt(),
                             row.editedAt(),
                             readByOther(row, visible),
@@ -578,7 +679,10 @@ public class ConversationService {
     }
 
     private MessagePayload payload(
-            JsonNode payload, Map<UUID, String> images, @Nullable AttachmentRow attachment) {
+            JsonNode payload,
+            Map<UUID, String> images,
+            Map<UUID, OfferLink> offers,
+            @Nullable AttachmentRow attachment) {
         @Nullable CardLink card = null;
         JsonNode cardNode = payload.path("card");
         @Nullable UUID printingId = uuid(cardNode.path("printingId"));
@@ -604,6 +708,20 @@ public class ConversationService {
                             binderNode.path("name").asString(""),
                             binderNode.path("ownerHandle").asString(""));
         }
+        @Nullable OfferLink offer = null;
+        JsonNode offerNode = payload.path("offer");
+        @Nullable UUID offerId = uuid(offerNode.path("offerId"));
+        if (offerId != null) {
+            offer = offers.get(offerId);
+            if (offer == null) {
+                // The state stored with the message (the resolver answers for the parties only).
+                offer =
+                        new OfferLink(
+                                offerId,
+                                offerNode.path("status").asString(""),
+                                offerNode.path("summary").asString(""));
+            }
+        }
         @Nullable MessageImage image = null;
         if (attachment != null) {
             image =
@@ -612,10 +730,10 @@ public class ConversationService {
                             attachment.width(),
                             attachment.height());
         }
-        if (card == null && binder == null && image == null) {
+        if (card == null && binder == null && offer == null && image == null) {
             return MessagePayload.EMPTY;
         }
-        return new MessagePayload(card, binder, null, image);
+        return new MessagePayload(card, binder, offer, image);
     }
 
     private static boolean readByOther(MessageRow row, Visible visible) {
@@ -701,6 +819,30 @@ public class ConversationService {
             throw ApiException.notFound(NOT_FOUND);
         }
         return new Visible(participants.mine(), participants.other());
+    }
+
+    private void putOffer(ObjectNode payload, OfferLink offer) {
+        ObjectNode node = payload.putObject("offer");
+        node.put("offerId", offer.id().toString());
+        node.put("status", offer.status());
+        node.put("summary", offer.summary());
+    }
+
+    /** Current state of linked offers for a participant (empty without the offers module). */
+    private Map<UUID, OfferLink> resolveOffers(UUID viewerId, Collection<UUID> offerIds) {
+        if (offerIds.isEmpty()) {
+            return Map.of();
+        }
+        @Nullable OfferLinkResolver resolver = offerLinks.getIfAvailable();
+        if (resolver == null) {
+            return Map.of();
+        }
+        try {
+            return resolver.links(viewerId, offerIds);
+        } catch (RuntimeException e) {
+            log.warn("Offer links not resolved: {}", e.getClass().getSimpleName());
+            return Map.of();
+        }
     }
 
     private static @Nullable UUID uuid(JsonNode node) {

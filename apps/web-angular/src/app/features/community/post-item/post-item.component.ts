@@ -13,12 +13,12 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type { PostResponse, ReplyResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { SharedLinkCardComponent } from '../../../shared/links/shared-link-card.component';
 import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
+import { ReportActionsService } from '../../../shared/reports/report-actions.service';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import {
@@ -35,8 +35,7 @@ import {
 
 /**
  * One post of the feed: author, time, text, shared card/binder, reply toggle and the post menu
- * (edit and delete for the author, remove for moderators, block the author, and "Report
- * collector" disabled until Phase 7). Editing happens in place; replies open inline.
+ * (edit and delete for the author, remove for moderators, block and report the author). Editing happens in place; replies open inline.
  */
 @Component({
   selector: 'app-post-item',
@@ -46,7 +45,6 @@ import {
     MatButtonModule,
     MatIconModule,
     MatMenuModule,
-    MatTooltipModule,
     AvatarComponent,
     PostRepliesComponent,
     RelativeTimePipe,
@@ -61,6 +59,7 @@ export class PostItemComponent {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly blocks = inject(BlockActionsService);
+  private readonly reports = inject(ReportActionsService);
   private readonly repliesView = viewChild(PostRepliesComponent);
 
   readonly post = input.required<PostResponse>();
@@ -156,6 +155,20 @@ export class PostItemComponent {
     if (await this.blocks.block({ id: author.id, displayName: author.displayName })) {
       this.store.hideAuthor(author.id);
     }
+  }
+
+  /** "Report collector": the post author, with the POST context. */
+  protected async reportAuthor(): Promise<void> {
+    const post = this.post();
+    await this.reports.report(
+      {
+        id: post.author.id,
+        displayName: post.author.displayName,
+        handle: post.author.handle,
+        avatarUrl: post.author.avatarUrl,
+      },
+      { source: 'POST', postId: post.id },
+    );
   }
 
   protected async reply(body: string): Promise<void> {

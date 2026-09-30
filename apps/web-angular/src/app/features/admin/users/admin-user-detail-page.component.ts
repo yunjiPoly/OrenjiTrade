@@ -40,10 +40,12 @@ import { CONSENT_LABELS, auditActionLabel, summarizeDetails } from '../shared/ad
 import { StatusChipComponent } from '../shared/status-chip.component';
 import { RolesEditorComponent } from './roles-editor.component';
 import { SuspendDialogComponent, SuspendDialogData } from './suspend-dialog.component';
+import { UserModerationPanelComponent } from './user-moderation-panel.component';
 
 /**
- * `/admin/users/:id`: account detail with suspend/unsuspend, the roles editor, consents,
- * deletion state and the latest audit entries. Every write is audited by the API.
+ * `/admin/users/:id`: account detail with suspend/unsuspend, the roles editor, listing status
+ * with pause/resume and the moderation history, consents, deletion state and the latest audit
+ * entries. Every write is audited by the API.
  */
 @Component({
   selector: 'app-admin-user-detail-page',
@@ -60,6 +62,7 @@ import { SuspendDialogComponent, SuspendDialogData } from './suspend-dialog.comp
     SkeletonComponent,
     StatusChipComponent,
     RolesEditorComponent,
+    UserModerationPanelComponent,
   ],
   templateUrl: './admin-user-detail-page.component.html',
   styleUrls: ['../shared/admin-page.scss', './admin-user-detail-page.component.scss'],

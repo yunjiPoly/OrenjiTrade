@@ -106,6 +106,25 @@ public class PublicBinderService {
     }
 
     /**
+     * The owner block of a collector the viewer already deals with (Phase 8 offer and trade
+     * parties): handle, display name, avatar and, while the collector is discoverable, the region
+     * label with a distance bucket from the viewer's trading area. Unlike {@link #requireOwner} it
+     * does not hide PRIVATE profiles or blocked collectors (the parties know each other); never a
+     * point (ADR 0004). Empty for unknown accounts.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PublicOwner> ownerCard(@Nullable UUID viewerId, UUID accountId) {
+        return userAccountService
+                .findSnapshot(accountId)
+                .map(
+                        account ->
+                                ownerOf(
+                                        account,
+                                        privacySettingsService.settingsOf(account.id()),
+                                        viewerId));
+    }
+
+    /**
      * {@code GET /collectors/{handle}/binders}: the collector's effectively public binders holding
      * at least one effectively public item, in the owner's order.
      */

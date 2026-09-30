@@ -28,8 +28,8 @@ public final class MessagingRequests {
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description =
-                                    "TEXT, CARD_LINK, BINDER_LINK or IMAGE (OFFER_LINK arrives with"
-                                            + " offers; SYSTEM is never accepted)")
+                                    "TEXT, CARD_LINK, BINDER_LINK, OFFER_LINK or IMAGE (SYSTEM is"
+                                            + " never accepted)")
                     @NotNull
                     MessageKind kind,
             @Schema(
@@ -39,7 +39,8 @@ public final class MessagingRequests {
                     @Nullable String body,
             @Schema(description = "CARD_LINK: the printing to share") @Nullable UUID cardPrintingId,
             @Schema(description = "BINDER_LINK: a public binder") @Nullable UUID binderId,
-            @Schema(description = "OFFER_LINK (Phase 8)") @Nullable UUID offerId,
+            @Schema(description = "OFFER_LINK: an offer between the two participants")
+                    @Nullable UUID offerId,
             @Schema(description = "IMAGE: uploadId of POST /uploads/images (within 1 h)")
                     @Nullable UUID imageUploadId) {}
 

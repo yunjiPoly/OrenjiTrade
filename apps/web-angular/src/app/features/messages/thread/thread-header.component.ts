@@ -2,28 +2,21 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type { ConversationSummary } from '@orenji/api-client';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 
-export type ThreadMenuAction = 'mute' | 'unmute' | 'archive' | 'block' | 'unblock';
+export type ThreadMenuAction =
+  'mute' | 'unmute' | 'archive' | 'block' | 'unblock' | 'report' | 'rate';
 
 /**
  * Thread header: back to the list, the other collector (avatar, online dot, "typing…", link to
- * their profile) and the conversation menu: mute, archive, block/unblock and "Report collector"
- * (disabled until collector reports arrive with Phase 7).
+ * their profile) and the conversation menu: mute, archive, "Rate" (when the conversation or
+ * another interaction made the pair eligible), block/unblock and "Report collector".
  */
 @Component({
   selector: 'app-thread-header',
-  imports: [
-    RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatMenuModule,
-    MatTooltipModule,
-    AvatarComponent,
-  ],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatMenuModule, AvatarComponent],
   template: `
     @let c = conversation();
     <header class="head">
@@ -83,6 +76,12 @@ export type ThreadMenuAction = 'mute' | 'unmute' | 'archive' | 'block' | 'unbloc
           <mat-icon aria-hidden="true">archive</mat-icon>
           Archive
         </button>
+        @if (canRate()) {
+          <button mat-menu-item type="button" (click)="action.emit('rate')">
+            <mat-icon aria-hidden="true">star</mat-icon>
+            Rate {{ c.other.displayName }}
+          </button>
+        }
         @if (blocked()) {
           <button mat-menu-item type="button" (click)="action.emit('unblock')">
             <mat-icon aria-hidden="true">lock_open</mat-icon>
@@ -94,12 +93,10 @@ export type ThreadMenuAction = 'mute' | 'unmute' | 'archive' | 'block' | 'unbloc
             Block {{ c.other.displayName }}
           </button>
         }
-        <div matTooltip="Collector reports arrive soon" matTooltipPosition="left">
-          <button mat-menu-item type="button" disabled>
-            <mat-icon aria-hidden="true">flag</mat-icon>
-            Report collector
-          </button>
-        </div>
+        <button mat-menu-item type="button" class="head__danger" (click)="action.emit('report')">
+          <mat-icon aria-hidden="true">flag</mat-icon>
+          Report collector
+        </button>
       </mat-menu>
     </header>
   `,
@@ -170,6 +167,8 @@ export class ThreadHeaderComponent {
   readonly conversation = input.required<ConversationSummary>();
   readonly typing = input(false);
   readonly blocked = input(false);
+  /** An unrated interaction with the other collector exists (`GET /ratings/eligibility`). */
+  readonly canRate = input(false);
   readonly showBack = input(true);
   readonly back = output<void>();
   readonly action = output<ThreadMenuAction>();

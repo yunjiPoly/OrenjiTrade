@@ -185,7 +185,7 @@ test.describe('community channels', () => {
       const post = postOf(page, text);
       await expect(post).toBeVisible();
       await post.getByRole('button', { name: /^Post options/ }).click();
-      await expect(page.getByRole('menuitem', { name: 'Report collector' })).toBeDisabled();
+      await expect(page.getByRole('menuitem', { name: 'Report collector' })).toBeEnabled();
       await page.getByRole('menuitem', { name: 'Remove (moderator)' }).click();
       const dialog = page.getByRole('dialog', { name: 'Remove this post?' });
       await expect(dialog).toBeVisible();

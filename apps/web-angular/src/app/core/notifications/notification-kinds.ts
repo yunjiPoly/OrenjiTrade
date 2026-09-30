@@ -41,8 +41,15 @@ export function notificationKind(
   notification: Pick<NotificationResponse, 'type' | 'data'>,
 ): NotificationKind {
   const kind = KINDS[notification.type] ?? FALLBACK;
-  if (notification.type === 'SYSTEM' && notification.data?.['kind'] === 'LIMIT_REACHED') {
-    return { icon: 'workspace_premium', tone: 'system', label: 'Plan limit' };
+  if (notification.type === 'SYSTEM') {
+    switch (notification.data?.['kind']) {
+      case 'LIMIT_REACHED':
+        return { icon: 'workspace_premium', tone: 'system', label: 'Plan limit' };
+      case 'LISTINGS_PAUSED':
+        return { icon: 'pause_circle', tone: 'warning', label: 'Listings paused' };
+      case 'MODERATION_WARNING':
+        return { icon: 'report', tone: 'warning', label: 'Moderation' };
+    }
   }
   return kind;
 }
@@ -62,8 +69,9 @@ function idOf(data: NotificationResponse['data'] | undefined, key: string): stri
 
 /**
  * The page a notification opens: its `data.deepLink` (web path, e.g. `/wishlist/<id>`,
- * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/premium`) when it is a safe in-app
- * path, otherwise a path rebuilt from the ids it carries, otherwise the notification list.
+ * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/premium`,
+ * `/collectors/<handle>?tab=ratings`, `/settings/reports`) when it is a safe in-app path,
+ * otherwise a path rebuilt from the ids it carries, otherwise the notification list.
  */
 export function notificationLink(
   notification: Pick<NotificationResponse, 'type' | 'data'>,
@@ -88,8 +96,19 @@ export function notificationLink(
       const binder = idOf(data, 'binderId');
       return binder ? `/inventory?binder=${binder}` : '/inventory';
     }
+    case 'REPORT_DECISION':
+      return '/settings/reports';
     case 'SYSTEM':
-      return data?.['kind'] === 'LIMIT_REACHED' ? '/premium' : '/notifications';
+      switch (data?.['kind']) {
+        case 'LIMIT_REACHED':
+          return '/premium';
+        case 'LISTINGS_PAUSED':
+          return '/inventory';
+        case 'MODERATION_WARNING':
+          return '/legal/community-guidelines';
+        default:
+          return '/notifications';
+      }
     default:
       return '/notifications';
   }

@@ -14,6 +14,7 @@ import { Observable }                                        from 'rxjs';
 import { AccountDeletionJobResponse } from '../model/models';
 import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
+import { OfferExpiryJobResponse } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { UploadCleanupJobResponse } from '../model/models';
@@ -55,6 +56,13 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/freshness
 */
     runFreshnessJob(extraHttpRequestParams?: any): Observable<FreshnessJobResponse>;
+
+    /**
+     * Expire offers past their expiry (service auth)
+     * Hourly. Live OPEN / COUNTERED proposals whose expiresAt passed become EXPIRED (history entry; both parties get OFFER_EXPIRED and a SYSTEM message). Records a job run.
+     * @endpoint post /internal/jobs/offers-expire
+*/
+    runOfferExpiryJob(extraHttpRequestParams?: any): Observable<OfferExpiryJobResponse>;
 
     /**
      * Delete unattached image uploads (service auth)

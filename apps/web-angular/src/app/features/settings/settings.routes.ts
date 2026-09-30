@@ -44,6 +44,14 @@ export const SETTINGS_ROUTES: Routes = [
           ),
       },
       {
+        path: 'reports',
+        title: 'My reports',
+        loadComponent: () =>
+          import('./reports/my-reports-settings.component').then(
+            (m) => m.MyReportsSettingsComponent,
+          ),
+      },
+      {
         path: 'account',
         title: 'Account settings',
         loadComponent: () =>

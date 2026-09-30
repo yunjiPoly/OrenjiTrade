@@ -41,6 +41,8 @@
       (confirmAll)="confirmAll()"
     />
 
+    <app-listings-paused-banner (resumed)="store.refresh({ binders: true })" />
+
     @if (showPrivacyBanner()) {
       <aside class="inv__banner" aria-label="Visibility notice">
         <span class="inv__banner-icon" aria-hidden="true"><mat-icon>visibility_off</mat-icon></span>

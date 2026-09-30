@@ -17,6 +17,10 @@ public enum NotificationType {
     OFFER_ACCEPTED(NotificationCategory.OFFER, null),
     OFFER_COUNTERED(NotificationCategory.OFFER, null),
     OFFER_DECLINED(NotificationCategory.OFFER, null),
+    /** The buyer withdrew an open offer (Phase 8). */
+    OFFER_CANCELLED(NotificationCategory.OFFER, null),
+    /** An offer ran past its expiry without an answer (Phase 8 hourly job). */
+    OFFER_EXPIRED(NotificationCategory.OFFER, null),
     BINDER_EXPIRING(NotificationCategory.BINDER_FRESHNESS, null),
     BINDER_STALE_WARNING(NotificationCategory.BINDER_FRESHNESS, null),
     BINDER_HIDDEN(NotificationCategory.BINDER_FRESHNESS, null),

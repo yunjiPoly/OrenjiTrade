@@ -9,11 +9,14 @@ import com.orenjitrade.api.binders.events.PublicBinderViewed;
 import com.orenjitrade.api.cards.events.CardViewed;
 import com.orenjitrade.api.community.events.CommunityPostCreated;
 import com.orenjitrade.api.messaging.events.MessageSent;
+import com.orenjitrade.api.offers.events.OfferCreated;
+import com.orenjitrade.api.offers.events.OfferUpdated;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
 import com.orenjitrade.api.ratings.events.RatingSubmitted;
 import com.orenjitrade.api.reports.events.CollectorReported;
 import com.orenjitrade.api.search.events.CollectorPreviewed;
 import com.orenjitrade.api.search.events.SearchPerformed;
+import com.orenjitrade.api.trades.events.TradeUpdated;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
 import com.orenjitrade.api.wishlist.events.WishlistMatched;
 import java.time.Instant;
@@ -337,6 +340,69 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.COLLECTOR_REPORTED,
                             report.occurredAt(),
                             report.reporterId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(OfferCreated offer) {
+        emit(
+                AnalyticsEventTypes.OFFER_CREATED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("kind", offer.kind());
+                    payload.put("game", offer.game());
+                    payload.put("has_message", offer.hasMessage());
+                    payload.put("protection_requested", offer.protectionRequested());
+                    payload.put("seller_hash", hash(offer.sellerId()));
+                    return event(
+                            AnalyticsEventTypes.OFFER_CREATED,
+                            offer.occurredAt(),
+                            offer.buyerId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(OfferUpdated offer) {
+        emit(
+                AnalyticsEventTypes.OFFER_STATUS_CHANGED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("event", offer.event());
+                    payload.put("status", offer.status());
+                    payload.put("kind", offer.kind());
+                    payload.put("round", offer.round());
+                    payload.put("by_platform", offer.actorId() == null);
+                    return event(
+                            AnalyticsEventTypes.OFFER_STATUS_CHANGED,
+                            offer.occurredAt(),
+                            offer.actorId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(TradeUpdated trade) {
+        emit(
+                AnalyticsEventTypes.TRADE_STATUS_CHANGED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("event", trade.event());
+                    payload.put("status", trade.status());
+                    payload.put("kind", trade.kind());
+                    payload.put("protection_enabled", trade.protectionEnabled());
+                    payload.put("meetup", trade.meetup());
+                    return event(
+                            AnalyticsEventTypes.TRADE_STATUS_CHANGED,
+                            trade.occurredAt(),
+                            trade.actorId(),
                             null,
                             null,
                             payload);

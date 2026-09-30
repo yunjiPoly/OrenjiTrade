@@ -526,7 +526,7 @@ flags). Migrations V040–V042. Every route needs a signed-in, compliant account
 | `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`) |
 | `PATCH /api/v1/conversations/{id} {muted?, archived?}` | per participant; a new message un-archives for both |
 | `GET /api/v1/conversations/{id}/messages?cursor=&limit=50` | newest first; `readByOther` = the participant who did not send the message has read it; REMOVED messages keep their place with empty body and payload |
-| `POST /api/v1/conversations/{id}/messages {kind, body, cardPrintingId?, binderId?, offerId?, imageUploadId?}` | TEXT, CARD_LINK, BINDER_LINK (public binders only), IMAGE; OFFER_LINK and SYSTEM are 400; moderation (422 `MESSAGE_BLOCKED`, FLAG rules store the message `FLAGGED`), rate rule 30/min (429 `RATE_LIMITED` + `retryAfterSeconds`); publishes `MessageSent`; pushed to both participants on `/user/queue/messages` after commit |
+| `POST /api/v1/conversations/{id}/messages {kind, body, cardPrintingId?, binderId?, offerId?, imageUploadId?}` | TEXT, CARD_LINK, BINDER_LINK (public binders only), IMAGE, OFFER_LINK (an offer between the two participants, Phase 8); SYSTEM is 400; moderation (422 `MESSAGE_BLOCKED`, FLAG rules store the message `FLAGGED`), rate rule 30/min (429 `RATE_LIMITED` + `retryAfterSeconds`); publishes `MessageSent`; pushed to both participants on `/user/queue/messages` after commit |
 | `POST /api/v1/conversations/{id}/read {lastReadMessageId}` | 204; the marker only moves forward; publishes `MessageRead`; receipt `{conversationId, userId, lastReadMessageId, readAt}` on `/user/queue/receipts` of both participants |
 | `POST /api/v1/uploads/images` (multipart `file`, `kind=MESSAGE`) | 201 `{uploadId, url, width, height, expiresAt}`; sniffed JPEG/PNG/WebP up to 8 MB (413 / 415 / 400), re-encoded without metadata by the inventory `ItemImageProcessor`, `ImageUploadInspector` hook (allow-all default); attach within 1 h; rate-limited 30 per hour |
 | `POST /api/v1/users/{id}/block {reason?}`, `DELETE /api/v1/users/{id}/block`, `GET /api/v1/me/blocks` | idempotent; the reason is private and never echoed; publishes `UserBlocked` / `UserUnblocked` |
@@ -880,6 +880,122 @@ the free text of its decided reports (the reports stay as moderation records).
   plus the summary in one document); the report detail's notes are `moderatorNotes`.
 - `openDisputes` and `webhookFailures24h` of the dashboard are 0 until Phase 9 creates those tables.
 
+## Offers and trades (Phase 8)
+
+Contract: `docs/api/contracts/phase8-offers-trades.md`. Modules `offers` (offers, counter chain,
+history, expiry, the seller's offer settings, offer links of messages) and `trades` (trades opened by
+accepted offers, meetups, completion, cancellation); `trades` depends on `offers` and implements its
+`AcceptedOfferHandler` extension point, `offers` implements the messaging module's
+`OfferLinkResolver`. Migrations V070–V071. Every route needs a signed-in, compliant account; only
+the two parties of an offer or a trade ever see it (404 for anybody else).
+
+| Route | Notes |
+| --- | --- |
+| `POST /api/v1/offers` | `{itemId, kind?, cashAmount?, currency?, tradeItemIds?: [{inventoryItemId, quantity?}], message? ≤ 500, expiresInHours? 1-168 (72), protectionRequested?}` → 201 `OfferResponse` (+ `Location`). The card must be effectively public and visible to the caller (404 otherwise, blocks in either direction included; 400 for one's own card); `kind` defaults from the parts; 422 `OFFERS_NOT_ACCEPTED` when `acceptsOffers` is false, for NOT_AVAILABLE / COLLECTION_ONLY cards, cash on TRADE-only and trades on SALE-only cards, MIXED unless the card is TRADE_OR_SALE and the seller's `acceptsMixed` is on; trade cards must be the buyer's own non-deleted items with enough copies (400, public visibility not required); 409 `OFFER_ALREADY_OPEN` (extension `offerId`) while the buyer negotiates that card; `protectionRequested` needs a cash part (400) and the `protectedPayments` flag (404 `FEATURE_DISABLED`); consumes `offers.per_day` (429 `LIMIT_REACHED`, FREE 20 / PREMIUM 100); `Idempotency-Key` repeats the original answer for 24 h (Redis, fail-open) |
+| `GET /api/v1/offers?role=buyer\|seller&status=&cursor=&limit=20` | `CursorPage<OfferSummary>`: the live proposal of each negotiation, most recent activity first; `status` repeatable or comma separated; `yourTurn`, `allowedActions`, `counterparty` (`OfferParty`), the public card |
+| `GET /api/v1/offers/{id}` | `OfferResponse {id, rootOfferId, counterOf, latestOfferId, item (PublicInventoryItem), seller, buyer (OfferParty), viewerRole, kind, cashAmount, currency, tradeItems [{inventoryItemId, quantity, item}], message, status, currentTurn, superseded, expiresAt, version, protectionRequested, allowedActions, tradeId, history [OfferEvent {event, actorRole, reason, terms}], createdAt, updatedAt, closedAt}`; the first view by the party who has to answer is recorded (VIEWED) |
+| `POST /api/v1/offers/{id}/counter` | `{kind?, cashAmount?, currency?, tradeItemIds?, message?, expiresInHours?, version?}`; the party whose turn it is; without `kind` absent parts keep the current values and the kind follows the parts; the deal must change (400); the buyer's counter-offers follow the card's availability (422); answers the new proposal (status COUNTERED, other party's turn, fresh expiry) |
+| `POST /api/v1/offers/{id}/accept` | `{version?}` (optional body); the party whose turn it is; opens the trade (`tradeId`), records the OFFER_ACCEPTED interaction; 409 `ITEM_UNAVAILABLE` when the card left the seller's inventory, a trade card left the buyer's or every copy is promised in open trades |
+| `POST /api/v1/offers/{id}/decline`, `POST /api/v1/offers/{id}/cancel` | `{reason? ≤ 500, version?}` (optional body); decline: the party whose turn it is; cancel: the buyer while OPEN (403 for the seller) |
+| `GET/PUT /api/v1/me/settings/offers` | `{acceptsMixed}` (default true) |
+| `GET /api/v1/trades?role=&status=&cursor=&limit=20` | `CursorPage<TradeSummary>` with `nextAction` |
+| `GET /api/v1/trades/{id}` | `TradeResponse {id, offer (OfferResponse), viewerRole, counterparty, kind, cashAmount, currency, status, protectionEnabled, meetup, buyerMarkedMeetup, sellerMarkedMeetup, buyerConfirmedAt, sellerConfirmedAt, nextAction {actor, action}, allowedOperations, timeline [TradeEvent], payment: null, dispute: null, cancelReason, …}` |
+| `POST /api/v1/trades/{id}/meetup` | AGREED / AWAITING_PAYMENT, idempotent per party; both marks → `meetup = true`, payment protection dropped (AWAITING_PAYMENT → AGREED, PROTECTION_REMOVED) |
+| `POST /api/v1/trades/{id}/complete` | AGREED only (protected trades complete through Phase 9's receipt confirmation), idempotent per party; both confirmations → COMPLETED: `InventoryService.reserveAndTransfer` lowers the seller's card by 1 and the buyer's trade cards by their quantities (the last copy soft-deletes the item and unpublishes it), the TRADE interaction makes both parties eligible to rate |
+| `POST /api/v1/trades/{id}/cancel` | `{reason}` (required, ≤ 500); AGREED / AWAITING_PAYMENT only |
+| `POST /internal/jobs/offers-expire` | service auth; live OPEN / COUNTERED proposals past `expiresAt` → EXPIRED (actor NULL), `{expired}`, `job_run`; hourly `@Scheduled` under `local` (`OfferExpiryScheduler`) |
+
+### State machine
+
+`OfferStateMachine` (pure, `OfferStateMachineTest`): OPEN → COUNTERED → (COUNTERED)* → ACCEPTED |
+DECLINED | EXPIRED; OPEN → CANCELLED (buyer) | DECLINED (seller) | EXPIRED; ACCEPTED, DECLINED,
+CANCELLED, EXPIRED are terminal. Every proposal is an `offer` row: a counter-offer inserts a new
+row (COUNTERED, `parent_offer_id` = the answered row, `root_offer_id` = the chain root, the other
+party's turn) and the answered row becomes COUNTERED with `superseded_by`. Errors: 409 `NOT_YOUR_TURN`
+(the other party answers), 409 `INVALID_STATE_TRANSITION` (extension `currentStatus`), 409
+`STALE_OFFER` for a superseded proposal (extension `latestOfferId`) or a `version` other than the
+current one (extension `currentVersion`; transitions also use `UPDATE … WHERE version = :expected`
+under a row lock), 403 `FORBIDDEN` when the seller tries to cancel, 403 `TRADING_BLOCKED` to counter
+or accept while a block exists or the other party is suspended or deleted (declining and cancelling
+stay possible). Every transition appends an `offer_event` with a snapshot of the proposal.
+
+### Side effects (after commit, idempotent)
+
+`OfferCreated` / `OfferUpdated` → `OfferActivityListener` → `OfferActivity`: notifications
+OFFER_RECEIVED (seller), OFFER_COUNTERED (the party whose turn it is), OFFER_ACCEPTED (both, deep
+link `/trades/<id>`), OFFER_DECLINED, OFFER_CANCELLED (the other party), OFFER_EXPIRED (both;
+`OFFER_CANCELLED` and `OFFER_EXPIRED` are new notification types of category OFFER), dedup key
+`offer:<offerId>:<EVENT>:<recipient>`; and a SYSTEM message with the offer link in the pair
+conversation (created when absent, whatever the messaging permission; skipped while a block exists)
+through `ConversationService.postSystemMessage` (dedup `offer:<offerId>:<EVENT>`, pushed to both
+participants, no `MessageSent`). `TradeUpdated` → `TradeActivity`: TRADE_UPDATE to the other party
+(meetup proposed, completion confirmed, cancelled) or both (meetup agreed, completed) and SYSTEM
+messages for completion and cancellation. Texts carry card names, terms and display names only.
+OFFER_LINK messages (`POST /conversations/{id}/messages {kind: OFFER_LINK, offerId}`) are real now:
+the offer must be between the two participants (400 otherwise); OFFER_LINK and SYSTEM messages show
+the live proposal of the linked chain (`payload.offer {id, status, summary}`) through the offers
+module's `OfferLinkResolver`. Analytics: `offer_created` (kind, game, message and protection flags,
+seller hash), `offer_status_changed` (event, status, kind, round), `trade_status_changed` (event,
+status, kind, protection and meetup flags); never amounts, ids or text.
+
+### Seed (Phase 8)
+
+`OfferSeedContributor` ("offers", after "reports") and `TradeSeedContributor` ("trades"): the
+reserved Phase 7 ids get their rows — `00000000-0000-4000-9c00-000000000001` collector2's accepted
+TRADE offer for collector1's `ygo-p018a` with trade `…9d00…0001` (in-person meetup, COMPLETED; its
+OFFER_ACCEPTED interaction is added) and `…9c00…0002` collector5's accepted 30.00 CAD offer for
+collector1's `pkm-p006a` with trade `…9d00…0002` (COMPLETED; its TRADE interaction is added) —
+plus `…9c00…0003` collector5's OPEN 40.00 CAD offer for collector1's Azure-Eyes Sky Dragon
+(`ygo-p001a`, collector1's turn) and `…9c00…0004` / `…0005` collector6's MIXED offer (20.00 CAD +
+`mtg-p001b`) for collector2's `mtg-p001a`, countered by collector2 with 35.00 CAD + the card
+(COUNTERED, collector6's turn). Inserted once; the live proposals expire 7 days after the first
+seed run (the local hourly job then marks them EXPIRED). Nothing is notified, no SYSTEM message is
+posted and the seeded inventory quantities are left as they are.
+
+### Account data
+
+Export sections `offers` (the account's proposals; notes only for its own proposals) and `trades`.
+A deletion request withdraws the account's live negotiations; open trades block it (`409
+DELETION_BLOCKED`, blocker `OPEN_TRADE`); the purge erases the account's notes and reasons and its
+offer settings (the offer and trade rows stay for the other party).
+
+### Deviations from the Phase 8 contract
+
+- Counter chain: `parent_offer_id` is the answered proposal (the chain root is the additive
+  `root_offer_id`); the counter-offer row itself is COUNTERED (the live proposal), the answered row
+  COUNTERED with the additive `superseded_by` and `closed_at`. `offer_event.reason` (decline/cancel
+  reason) and `offer_event.seq`, `offer.item_snapshot`, `offer.protection_requested`,
+  `offer_trade_item.item_snapshot`/`position`, `trade.item_id`, the meetup and confirmation
+  columns, `trade.cancelled_by`/`cancel_reason`/`cancelled_at`/`version` and `trade_event.seq` are
+  additive; `offer.item_id` and the trade card ids are nullable (set null only by an account purge).
+- `accepts_mixed` is an offers-module setting (`offer_preferences`, `GET/PUT /me/settings/offers`),
+  not a column of the profiles module's tables. Kinds must fit the card's availability (CASH: SALE /
+  TRADE_OR_SALE, TRADE: TRADE / TRADE_OR_SALE, MIXED: TRADE_OR_SALE) besides `acceptsOffers`; a
+  seller's counter-offer may propose any kind.
+- `tradeItemIds` holds `{inventoryItemId, quantity}` objects as the contract's create body shows;
+  responses list `tradeItems [{inventoryItemId, quantity, item}]` rather than bare
+  `PublicInventoryItem`s. `OfferResponse` adds `rootOfferId`, `latestOfferId`, `viewerRole`,
+  `superseded`, `version`, `protectionRequested`, `allowedActions`, `tradeId`, `updatedAt`,
+  `closedAt`; `counterOf` is the parent proposal. Parties are `OfferParty` (handle, display name,
+  avatar, rating, region label and distance bucket; never a point).
+- The optimistic `version` is optional in the action bodies (`accept`/`decline`/`cancel` accept an
+  optional body); a counter-offer must change the deal (400); a counter resets the expiry to
+  `expiresInHours` (default 72).
+- Additive error codes `NOT_YOUR_TURN`, `INVALID_STATE_TRANSITION`, `ITEM_UNAVAILABLE`,
+  `TRADING_BLOCKED`; accepting needs an unpromised copy of the card (open trades on the item <
+  its quantity).
+- Offers from blocked collectors answer 404 (the card is not visible to them), as public views do.
+- Trades: `meetup` needs both parties' marks and then drops payment protection; `complete` is
+  AGREED-only and needs both confirmations; `cancel` requires a reason. `TradeResponse` adds
+  `viewerRole`, `counterparty`, the terms, the meetup and confirmation fields, `allowedOperations`,
+  `cancelReason` and dates; `nextAction` of AGREED trades is MEET for the party who has not
+  confirmed yet (the viewer first); `payment` and `dispute` (`PaymentSummary`, `DisputeSummary`
+  schemas) stay null until Phase 9. The seller's card leaves the inventory on completion; receivers
+  add received cards themselves (`POST /inventory/items`).
+- Notifications add the types `OFFER_CANCELLED` and `OFFER_EXPIRED`; OFFER_ACCEPTED and
+  OFFER_EXPIRED go to both parties. SYSTEM messages are posted for every offer transition and for
+  trade completion and cancellation (the contract names the creation).
+
 ## Build, format, test
 
 ```bash
@@ -950,7 +1066,9 @@ eight launch channels, `community_post`, `community_reply`) and `V042__moderatio
 `rating_summary`, `reference`), `V061__collector_reports.sql` (`collector_report`, `moderator_note`, the
 REPORT moderation rules and flag reason, `user_account.banned_at`),
 `V062__listing_pauses_and_strikes.sql` (`user_responsiveness`, `delist_policy.unanswered_after_hours`)
-and `V063__analytics_daily_count.sql` (`analytics_daily_count`).
+and `V063__analytics_daily_count.sql` (`analytics_daily_count`). Phase 8 adds `V070__offers.sql`
+(`offer`, `offer_trade_item`, `offer_event`, `offer_preferences`, `uq_message_system_key`) and
+`V071__trades.sql` (`trade`, `trade_event`).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -996,7 +1114,11 @@ com.orenjitrade.api
 ├── wishlist/    wishlist items, WishlistMatcher (InventoryItemPublished), matches, rematch job
 ├── ratings/     interactions, ratings (14-day edits, summaries), references, admin hide/unhide
 ├── reports/     collector reports, threshold, moderator review and decisions, history
-└── offers trades payments credits donations ads
+├── offers/      offers (counter chain, current_turn, versions, history), expiry job, offer settings,
+│                offer links of messages (Phase 8)
+├── trades/      trades from accepted offers: meetup, completion (inventory transfer, TRADE
+│                interaction), cancellation (Phase 8; payments and disputes arrive with Phase 9)
+└── payments credits donations ads
                                                           (documented in each package-info.java)
 ```
 

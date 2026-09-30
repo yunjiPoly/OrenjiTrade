@@ -611,6 +611,110 @@ public class InventoryService {
     }
 
     // ---------------------------------------------------------------------------------------
+    // Offers and trades (Phase 8)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Items by id for the two parties of an offer or a trade, whatever their visibility and
+     * including soft-deleted ones (a negotiated card stays readable after it left the inventory).
+     * Callers only ever map them to the public form (never the private notes). Unknown ids are
+     * absent.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, InventoryItemView> itemsForParties(Collection<UUID> itemIds) {
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, InventoryItemView> result = new LinkedHashMap<>();
+        for (InventoryItemView view :
+                views(
+                        items.findByIds(
+                                List.copyOf(new LinkedHashSet<>(itemIds)), timeProvider.now()))) {
+            result.put(view.row().id(), view);
+        }
+        return result;
+    }
+
+    /**
+     * The owner's non-deleted items among {@code itemIds} (Phase 8: the cards a buyer offers in
+     * trade must be their own and still in the inventory; public visibility is not required).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, InventoryItemView> liveItemsOf(UUID ownerId, Collection<UUID> itemIds) {
+        Map<UUID, InventoryItemView> result = new LinkedHashMap<>();
+        Instant now = timeProvider.now();
+        for (UUID id : new LinkedHashSet<>(itemIds)) {
+            items.findOwned(ownerId, id, now)
+                    .ifPresent(row -> result.put(row.id(), views(List.of(row)).get(0)));
+        }
+        return result;
+    }
+
+    /**
+     * Completes the inventory side of a trade (Phase 8 contract {@code
+     * InventoryService.reserveAndTransfer}): every line lowers the owner's item by the traded
+     * copies (the seller's card −1, the buyer's trade cards −quantity); an item whose last copy
+     * leaves is soft-deleted (photos removed) and unpublished. Items already deleted, or holding
+     * fewer copies than traded, transfer what is left: the exchange happened, the inventory only
+     * mirrors it. Joins the caller's transaction; the receiving collector adds the cards to their
+     * own inventory themselves.
+     *
+     * @return one result per line, in order
+     */
+    @Transactional
+    public List<TransferResult> reserveAndTransfer(List<TransferLine> lines) {
+        Instant now = timeProvider.now();
+        List<TransferResult> results = new ArrayList<>();
+        List<UUID> removed = new ArrayList<>();
+        List<UUID> touched = new ArrayList<>();
+        for (TransferLine line : lines) {
+            Optional<Integer> available = items.lockQuantity(line.ownerId(), line.itemId());
+            if (available.isEmpty() || line.quantity() < 1) {
+                results.add(new TransferResult(line.itemId(), line.quantity(), 0, 0, false));
+                continue;
+            }
+            int take = Math.min(line.quantity(), available.get());
+            int left = available.get() - take;
+            if (left == 0) {
+                softDelete(List.of(line.itemId()), now);
+                removed.add(line.itemId());
+            } else {
+                items.decrementQuantity(line.itemId(), take, now);
+            }
+            touched.add(line.itemId());
+            results.add(new TransferResult(line.itemId(), line.quantity(), take, left, left == 0));
+        }
+        if (!touched.isEmpty()) {
+            reconciler.items(touched);
+        }
+        if (!removed.isEmpty()) {
+            log.info("Trade transfer removed {} inventory item(s)", removed.size());
+        }
+        return results;
+    }
+
+    /**
+     * One side of a trade transfer.
+     *
+     * @param itemId the inventory item
+     * @param ownerId its owner (the party giving the card)
+     * @param quantity copies traded
+     */
+    public record TransferLine(UUID itemId, UUID ownerId, int quantity) {}
+
+    /**
+     * Outcome of a {@link TransferLine}.
+     *
+     * @param itemId the inventory item
+     * @param requested copies traded
+     * @param transferred copies taken from the item (fewer when it held less or was deleted)
+     * @param remaining copies left in the owner's inventory
+     * @param removed whether the item was soft-deleted (its last copy left)
+     */
+    public record TransferResult(
+            UUID itemId, int requested, int transferred, int remaining, boolean removed) {}
+
+    // ---------------------------------------------------------------------------------------
     // Binder side (BinderContents)
     // ---------------------------------------------------------------------------------------
 

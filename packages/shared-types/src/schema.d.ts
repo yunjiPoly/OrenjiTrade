@@ -48,6 +48,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/settings/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's offer settings
+         * @description acceptsMixed: whether MIXED offers are welcome (default true).
+         */
+        get: operations["getOfferSettings"];
+        /**
+         * Change the caller's offer settings
+         * @description acceptsMixed=false refuses new MIXED offers on the caller's cards (422 OFFERS_NOT_ACCEPTED); negotiations already open continue.
+         */
+        put: operations["updateOfferSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/settings/notifications": {
         parameters: {
             query?: never;
@@ -420,6 +444,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/jobs/offers-expire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Expire offers past their expiry (service auth)
+         * @description Hourly. Live OPEN / COUNTERED proposals whose expiresAt passed become EXPIRED (history entry; both parties get OFFER_EXPIRED and a SYSTEM message). Records a job run.
+         */
+        post: operations["runOfferExpiryJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/jobs/freshness": {
         parameters: {
             query?: never;
@@ -565,6 +609,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trades/{id}/meetup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the trade as an in-person meetup
+         * @description AGREED or AWAITING_PAYMENT trades; idempotent per party. Once both parties marked it, meetup is true and payment protection is dropped (AWAITING_PAYMENT goes back to AGREED). The other party gets TRADE_UPDATE. 409 INVALID_STATE_TRANSITION otherwise.
+         */
+        post: operations["markTradeMeetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trades/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the exchange
+         * @description AGREED trades; idempotent per party. When both parties confirmed, the trade is COMPLETED: the seller's card leaves their inventory (quantity −1, removed at 0), the buyer's trade cards leave theirs, and the TRADE interaction lets both parties rate each other; the received cards can be added with POST /inventory/items. Protected trades complete when the buyer confirms receipt (Phase 9): 409 INVALID_STATE_TRANSITION.
+         */
+        post: operations["completeTrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trades/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a trade before any payment
+         * @description Either party, while AGREED or AWAITING_PAYMENT (409 INVALID_STATE_TRANSITION otherwise); the required reason (≤ 500) is shown to the other party, who gets TRADE_UPDATE.
+         */
+        post: operations["cancelTrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/collectors": {
         parameters: {
             query?: never;
@@ -619,6 +723,110 @@ export interface paths {
          * @description overall 1-5 is required, the breakdown scores are optional (1-5), the comment at most 600 characters (banned terms refused). 403 RATING_NOT_ELIGIBLE when the interaction does not exist or is not the caller's; 409 ALREADY_RATED (extension ratingId) for a second rating of the same interaction. The collector gets a RATING_RECEIVED notification. The rating stays editable for 14 days (PUT /ratings/{id}).
          */
         post: operations["createRating"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's offers (sent and received)
+         * @description The live proposal of each negotiation, most recent activity first, cursor-paginated. role=buyer lists the offers the caller made, role=seller the offers on the caller's cards (both when absent); status filters (repeat or comma-separate, e.g. OPEN,COUNTERED).
+         */
+        get: operations["listOffers"];
+        put?: never;
+        /**
+         * Make an offer on a public card
+         * @description CASH (cashAmount), TRADE (tradeItemIds: the buyer's own non-deleted cards, public visibility not required) or MIXED (both). The card must be public and visible to the caller (404 otherwise, blocks included), accept offers and fit the kind: 422 OFFERS_NOT_ACCEPTED for cards without offers, NOT_AVAILABLE / COLLECTION_ONLY cards, cash on trade-only or trades on sale-only cards, and MIXED offers unless the card is TRADE_OR_SALE and the seller accepts mixed offers. One open offer per buyer and card (409 OFFER_ALREADY_OPEN, extension offerId); expiresInHours 1-168 (default 72); offers.per_day of the caller's plan (429 LIMIT_REACHED, FREE 20). The seller gets OFFER_RECEIVED and a SYSTEM message with the offer link appears in the pair conversation. An Idempotency-Key repeats the original answer for 24 hours.
+         */
+        post: operations["createOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline an offer
+         * @description Only the party whose turn it is (the seller for an OPEN offer). Optional reason (≤ 500) shown to the other party, who gets OFFER_DECLINED.
+         */
+        post: operations["declineOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/counter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Counter an offer
+         * @description Only the party whose turn it is (409 NOT_YOUR_TURN). Creates a new proposal (status COUNTERED, the other party's turn, fresh expiry) linked to the answered one, which becomes COUNTERED and superseded. Cards are always the buyer's; the buyer's counter-offers follow the card's availability (422 OFFERS_NOT_ACCEPTED). 409 STALE_OFFER for a superseded proposal or another version, 409 INVALID_STATE_TRANSITION for closed offers, 403 TRADING_BLOCKED for a block or an inactive party. The other party gets OFFER_COUNTERED.
+         */
+        post: operations["counterOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw an offer
+         * @description The buyer only (403 for the seller), while the offer is OPEN (409 INVALID_STATE_TRANSITION once countered or closed). The seller gets OFFER_CANCELLED.
+         */
+        post: operations["cancelOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an offer
+         * @description Only the party whose turn it is. Opens the trade (tradeId): AGREED, or AWAITING_PAYMENT when the buyer asked for payment protection and the protectedPayments feature is on. Records the OFFER_ACCEPTED interaction (both parties may rate each other) and notifies both. 409 ITEM_UNAVAILABLE when the card left the seller's inventory, a traded card left the buyer's, or every copy is promised in open trades.
+         */
+        post: operations["acceptOffer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -910,7 +1118,7 @@ export interface paths {
         put?: never;
         /**
          * Send a message
-         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h). OFFER_LINK and SYSTEM are refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
          */
         post: operations["sendMessage"];
         delete?: never;
@@ -1742,6 +1950,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's trades
+         * @description Most recent activity first, cursor-paginated. role=buyer / seller filters the caller's side (both when absent); status filters (repeat or comma-separate).
+         */
+        get: operations["listTrades"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trades/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One trade with its timeline and next action
+         * @description Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs (the last three are Phase 9), NONE otherwise. payment and dispute are null until Phase 9.
+         */
+        get: operations["getTrade"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tags": {
         parameters: {
             query?: never;
@@ -2048,6 +2296,26 @@ export interface paths {
          * @description Ordered for display (FREE first). `limit` null means unlimited.
          */
         get: operations["listPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One offer with its history
+         * @description Parties only (404 for anybody else). history covers the whole counter chain; latestOfferId points at the live proposal when a counter-offer replaced this one; allowedActions says what the caller may do now.
+         */
+        get: operations["getOffer"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3240,6 +3508,14 @@ export interface components {
             /** @description Default true */
             searchDiscoverable: boolean;
         };
+        UpdateOfferSettingsRequest: {
+            acceptsMixed: boolean;
+        };
+        /** @description The caller's offer settings */
+        OfferSettings: {
+            /** @description Whether MIXED (cash + cards) offers are welcome on the caller's TRADE_OR_SALE cards */
+            acceptsMixed: boolean;
+        };
         ChannelPreferencesRequest: {
             push: boolean;
             email: boolean;
@@ -3977,6 +4253,10 @@ export interface components {
         PingJobResponse: {
             ok: boolean;
         };
+        OfferExpiryJobResponse: {
+            /** Format: int32 */
+            expired: number;
+        };
         FreshnessJobResponse: {
             /** Format: int32 */
             expired: number;
@@ -4142,6 +4422,322 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        CollectorRating: {
+            /**
+             * Format: double
+             * @description Null until the first rating
+             */
+            average?: number | null;
+            /** Format: int32 */
+            count: number;
+        };
+        /** @description Dispute of a trade (Phase 9) */
+        DisputeSummary: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            reason: string;
+            /** Format: date-time */
+            openedAt: string;
+        };
+        /** @description Binder holding an inventory item */
+        InventoryBinderRef: {
+            /** Format: uuid */
+            id: string;
+            /** @example Trade binder */
+            name: string;
+        };
+        /** @description Card of an inventory item */
+        InventoryCardRef: {
+            /** Format: uuid */
+            id: string;
+            /** @example Azure-Eyes Sky Dragon */
+            name: string;
+            /** @example yugioh */
+            game: string;
+        };
+        /** @description Owner photo of an inventory item */
+        InventoryItemImage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uri */
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            /** Format: int32 */
+            sortOrder: number;
+        };
+        /** @description Entry of an offer's history */
+        OfferEvent: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The proposal concerned
+             */
+            offerId: string;
+            /** @enum {string} */
+            event: "CREATED" | "COUNTERED" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED" | "VIEWED";
+            /**
+             * @description Null for the platform (expiry)
+             * @enum {string|null}
+             */
+            actorRole?: "BUYER" | "SELLER" | null;
+            /** @description Decline / cancel reason */
+            reason?: string | null;
+            /** @description The proposal after the event */
+            terms: components["schemas"]["OfferTerms"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, a region label with a distance bucket */
+        OfferParty: {
+            /** Format: uuid */
+            id: string;
+            /** @example collector1 */
+            handle: string;
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            /** @description Null unless the collector is discoverable */
+            location?: components["schemas"]["PublicOwnerLocation"];
+            rating: components["schemas"]["CollectorRating"];
+        };
+        /** @description An offer as one of its two parties sees it */
+        OfferResponse: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description First proposal of the counter chain
+             */
+            rootOfferId: string;
+            /**
+             * Format: uuid
+             * @description The proposal this counter-offer answers (parent)
+             */
+            counterOf?: string | null;
+            /**
+             * Format: uuid
+             * @description The live proposal of the chain (this id unless a counter-offer replaced it)
+             */
+            latestOfferId: string;
+            /** @description The seller's card (public form); null only after the owner's account was purged */
+            item?: components["schemas"]["PublicInventoryItem"];
+            seller: components["schemas"]["OfferParty"];
+            buyer: components["schemas"]["OfferParty"];
+            /** @enum {string} */
+            viewerRole: "BUYER" | "SELLER";
+            /** @enum {string} */
+            kind: "CASH" | "TRADE" | "MIXED";
+            /** @example 40 */
+            cashAmount?: number | null;
+            /** @example CAD */
+            currency?: string | null;
+            tradeItems: components["schemas"]["OfferTradeItem"][];
+            /** @description Note of the proposing party */
+            message?: string | null;
+            /** @enum {string} */
+            status: "OPEN" | "COUNTERED" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED";
+            /**
+             * @description The party expected to answer this proposal
+             * @enum {string}
+             */
+            currentTurn: "BUYER" | "SELLER";
+            /** @description Whether a counter-offer replaced this proposal */
+            superseded: boolean;
+            /** Format: date-time */
+            expiresAt: string;
+            /**
+             * Format: int32
+             * @description Optimistic lock: send it back with counter / accept / decline / cancel (409 STALE_OFFER when it changed)
+             */
+            version: number;
+            protectionRequested: boolean;
+            /** @description What the caller may do now */
+            allowedActions: ("COUNTER" | "ACCEPT" | "DECLINE" | "CANCEL")[];
+            /**
+             * Format: uuid
+             * @description The trade of an accepted proposal
+             */
+            tradeId?: string | null;
+            /** @description History of the whole counter chain, oldest first */
+            history: components["schemas"]["OfferEvent"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            closedAt?: string | null;
+        };
+        /** @description Snapshot of a proposal */
+        OfferTerms: {
+            /** @enum {string} */
+            status: "OPEN" | "COUNTERED" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED";
+            /** @enum {string} */
+            kind: "CASH" | "TRADE" | "MIXED";
+            /** @example 40 */
+            cashAmount?: number | null;
+            /** @example CAD */
+            currency?: string | null;
+            tradeItems: components["schemas"]["OfferTermsItem"][];
+            message?: string | null;
+            /** @enum {string} */
+            currentTurn: "BUYER" | "SELLER";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: int32 */
+            version: number;
+        };
+        /** @description A card of a stored proposal */
+        OfferTermsItem: {
+            /** Format: uuid */
+            inventoryItemId?: string | null;
+            /** Format: int32 */
+            quantity: number;
+            cardName: string;
+            printingCode?: string | null;
+        };
+        /** @description A card of the buyer offered in trade */
+        OfferTradeItem: {
+            /** Format: uuid */
+            inventoryItemId?: string | null;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            quantity: number;
+            /** @description Public form of the card; null after an account purge */
+            item?: components["schemas"]["PublicInventoryItem"];
+        };
+        /** @description Payment protection of a trade (Phase 9) */
+        PaymentSummary: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            amount: number;
+            currency: string;
+            /** Format: date-time */
+            securedAt?: string | null;
+        };
+        /** @description A public inventory item */
+        PublicInventoryItem: {
+            /** Format: uuid */
+            id: string;
+            printing: components["schemas"]["PrintingSummary"];
+            card: components["schemas"]["InventoryCardRef"];
+            /** @description Public binder holding the item, if any */
+            binder?: components["schemas"]["InventoryBinderRef"];
+            /**
+             * Format: int32
+             * @example 1
+             */
+            quantity: number;
+            /** @example NEAR_MINT */
+            condition: string;
+            /** @example en */
+            language: string;
+            /** @example FIRST_EDITION */
+            edition: string;
+            /** @example NORMAL */
+            finish: string;
+            /** @example 45 */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+            /** @enum {string} */
+            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            acceptsOffers: boolean;
+            publicNotes: string;
+            images: components["schemas"]["InventoryItemImage"][];
+            freshness: components["schemas"]["Freshness"];
+        };
+        /** @description Approximate location (never a point) */
+        PublicOwnerLocation: {
+            /** @example Plateau-Mont-Royal, Montréal */
+            publicLabel: string;
+            /**
+             * @description Null unless the request is signed in, the caller has a trading area and the owner shows distances
+             * @enum {string|null}
+             */
+            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
+        };
+        /** @description Entry of a trade's timeline */
+        TradeEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @description CREATED, MEETUP_PROPOSED, MEETUP_AGREED, PROTECTION_REMOVED, COMPLETION_CONFIRMED, COMPLETED, CANCELLED (Phase 9 adds payment, shipping and dispute events) */
+            event: string;
+            /**
+             * @description Null for the platform
+             * @enum {string|null}
+             */
+            actorRole?: "BUYER" | "SELLER" | null;
+            /** @description Event data (statuses, roles, transfers of a completion, the cancel reason) */
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Who acts next on a trade and how */
+        TradeNextAction: {
+            /** @enum {string|null} */
+            actor?: "BUYER" | "SELLER" | null;
+            /** @enum {string} */
+            action: "PAY" | "SHIP" | "CONFIRM_RECEIPT" | "MEET" | "NONE";
+        };
+        /** @description A trade as one of its two parties sees it */
+        TradeResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @description The accepted offer (item, parties, terms, history) */
+            offer: components["schemas"]["OfferResponse"];
+            /** @enum {string} */
+            viewerRole: "BUYER" | "SELLER";
+            counterparty: components["schemas"]["OfferParty"];
+            /** @enum {string} */
+            kind: "CASH" | "TRADE" | "MIXED";
+            /** @example 40 */
+            cashAmount?: number | null;
+            /** @example CAD */
+            currency?: string | null;
+            /** @enum {string} */
+            status: "AGREED" | "AWAITING_PAYMENT" | "PAID" | "SHIPPED" | "RECEIVED" | "COMPLETED" | "CANCELLED" | "DISPUTED";
+            protectionEnabled: boolean;
+            /** @description Both parties marked an in-person meetup */
+            meetup: boolean;
+            buyerMarkedMeetup: boolean;
+            sellerMarkedMeetup: boolean;
+            /** Format: date-time */
+            buyerConfirmedAt?: string | null;
+            /** Format: date-time */
+            sellerConfirmedAt?: string | null;
+            nextAction: components["schemas"]["TradeNextAction"];
+            /** @description What the caller may call now */
+            allowedOperations: ("MARK_MEETUP" | "CONFIRM_COMPLETION" | "CANCEL")[];
+            /** @description Oldest first */
+            timeline: components["schemas"]["TradeEvent"][];
+            /** @description Payment protection (Phase 9); null for now */
+            payment?: components["schemas"]["PaymentSummary"];
+            /** @description Dispute (Phase 9); null for now */
+            dispute?: components["schemas"]["DisputeSummary"];
+            cancelReason?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt?: string | null;
+            /** Format: date-time */
+            cancelledAt?: string | null;
+        };
+        CancelTradeRequest: {
+            /** @description Reason shown to the other party */
+            reason: string;
+        };
         ReportCollectorRequest: {
             /** Format: uuid */
             reportedUserId: string;
@@ -4205,12 +4801,94 @@ export interface components {
             meetupReliability?: number;
             comment?: string;
         };
+        CreateOfferRequest: {
+            /**
+             * Format: uuid
+             * @description The seller's public inventory item
+             */
+            itemId: string;
+            /**
+             * @description CASH, TRADE or MIXED; derived from cashAmount and tradeItemIds when absent
+             * @enum {string}
+             */
+            kind?: "CASH" | "TRADE" | "MIXED";
+            /**
+             * @description Cash part (CASH, MIXED), 2 decimals
+             * @example 40
+             */
+            cashAmount?: number;
+            /**
+             * @description ISO 4217; default: the item's currency
+             * @example CAD
+             */
+            currency?: string;
+            /** @description The buyer's own cards in trade (TRADE, MIXED), at most 10; public visibility not required */
+            tradeItemIds?: components["schemas"]["OfferTradeItemRequest"][];
+            /** @description Optional note to the seller */
+            message?: string;
+            /**
+             * Format: int32
+             * @description 1-168, default 72
+             * @example 72
+             */
+            expiresInHours?: number;
+            /** @description Ask for payment protection (cash offers; needs the protectedPayments feature, Phase 9 flows) */
+            protectionRequested?: boolean;
+        };
+        OfferTradeItemRequest: {
+            /** Format: uuid */
+            inventoryItemId: string;
+            /**
+             * Format: int32
+             * @description Copies, default 1
+             * @example 1
+             */
+            quantity?: number;
+        };
+        CloseOfferRequest: {
+            /** @description Optional reason shown to the other party */
+            reason?: string;
+            /**
+             * Format: int32
+             * @description The version the caller saw (409 STALE_OFFER when it changed)
+             */
+            version?: number;
+        };
+        /** @description Without kind, absent parts keep the current proposal's values and the kind follows the parts; with kind, the terms are exactly the given parts. The counter-offer must change the cash amount or the cards. */
+        CounterOfferRequest: {
+            /** @enum {string} */
+            kind?: "CASH" | "TRADE" | "MIXED";
+            /** @example 45 */
+            cashAmount?: number;
+            /** @example CAD */
+            currency?: string;
+            /** @description The buyer's cards (always the buyer's inventory) */
+            tradeItemIds?: components["schemas"]["OfferTradeItemRequest"][];
+            message?: string;
+            /**
+             * Format: int32
+             * @description 1-168, default 72
+             */
+            expiresInHours?: number;
+            /**
+             * Format: int32
+             * @description The version the caller saw (409 STALE_OFFER when it changed)
+             */
+            version?: number;
+        };
+        AcceptOfferRequest: {
+            /**
+             * Format: int32
+             * @description The version the caller saw (409 STALE_OFFER when it changed)
+             */
+            version?: number;
+        };
         /** @description An in-app notification */
         NotificationResponse: {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "WISHLIST_MATCH" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "REPORT_DECISION" | "SYSTEM";
+            type: "WISHLIST_MATCH" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "REPORT_DECISION" | "SYSTEM";
             /** @example Wishlist match: Azure-Eyes */
             title: string;
             /** @example Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away */
@@ -4346,35 +5024,6 @@ export interface components {
             publicUntil?: string;
             /** Format: uuid */
             binderId?: string;
-        };
-        /** @description Binder holding an inventory item */
-        InventoryBinderRef: {
-            /** Format: uuid */
-            id: string;
-            /** @example Trade binder */
-            name: string;
-        };
-        /** @description Card of an inventory item */
-        InventoryCardRef: {
-            /** Format: uuid */
-            id: string;
-            /** @example Azure-Eyes Sky Dragon */
-            name: string;
-            /** @example yugioh */
-            game: string;
-        };
-        /** @description Owner photo of an inventory item */
-        InventoryItemImage: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uri */
-            url: string;
-            /** Format: int32 */
-            width: number;
-            /** Format: int32 */
-            height: number;
-            /** Format: int32 */
-            sortOrder: number;
         };
         /** @description An inventory item of the caller */
         InventoryItemResponse: {
@@ -4516,7 +5165,7 @@ export interface components {
         };
         SendMessageRequest: {
             /**
-             * @description TEXT, CARD_LINK, BINDER_LINK or IMAGE (OFFER_LINK arrives with offers; SYSTEM is never accepted)
+             * @description TEXT, CARD_LINK, BINDER_LINK, OFFER_LINK or IMAGE (SYSTEM is never accepted)
              * @enum {string}
              */
             kind: "TEXT" | "CARD_LINK" | "BINDER_LINK" | "OFFER_LINK" | "IMAGE" | "SYSTEM";
@@ -4534,7 +5183,7 @@ export interface components {
             binderId?: string;
             /**
              * Format: uuid
-             * @description OFFER_LINK (Phase 8)
+             * @description OFFER_LINK: an offer between the two participants
              */
             offerId?: string;
             /**
@@ -5230,15 +5879,6 @@ export interface components {
             /** @description Public items matching hasPrintingId / hasCardId / availability (empty without those filters) */
             matchingItems: components["schemas"]["MatchingItem"][];
         };
-        CollectorRating: {
-            /**
-             * Format: double
-             * @description Null until the first rating
-             */
-            average?: number | null;
-            /** Format: int32 */
-            count: number;
-        };
         /** @description Cursor-paginated list */
         CursorPageWishlistMatchResponse: {
             /** @description Items of the current slice */
@@ -5281,38 +5921,6 @@ export interface components {
              */
             freshness: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
         };
-        /** @description A public inventory item */
-        PublicInventoryItem: {
-            /** Format: uuid */
-            id: string;
-            printing: components["schemas"]["PrintingSummary"];
-            card: components["schemas"]["InventoryCardRef"];
-            /** @description Public binder holding the item, if any */
-            binder?: components["schemas"]["InventoryBinderRef"];
-            /**
-             * Format: int32
-             * @example 1
-             */
-            quantity: number;
-            /** @example NEAR_MINT */
-            condition: string;
-            /** @example en */
-            language: string;
-            /** @example FIRST_EDITION */
-            edition: string;
-            /** @example NORMAL */
-            finish: string;
-            /** @example 45 */
-            askingPrice?: number | null;
-            /** @example CAD */
-            currency: string;
-            /** @enum {string} */
-            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
-            acceptsOffers: boolean;
-            publicNotes: string;
-            images: components["schemas"]["InventoryItemImage"][];
-            freshness: components["schemas"]["Freshness"];
-        };
         /** @description A public item matching a wishlist item */
         WishlistMatchResponse: {
             /** Format: uuid */
@@ -5329,6 +5937,45 @@ export interface components {
             /** Format: date-time */
             matchedAt: string;
             dismissed: boolean;
+        };
+        /** @description Cursor-paginated list */
+        CursorPageTradeSummary: {
+            /** @description Items of the current slice */
+            items?: components["schemas"]["TradeSummary"][];
+            /** @description Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data */
+            nextCursor?: string | null;
+            /** @description Whether another slice exists */
+            hasMore?: boolean;
+        };
+        /** @description One of the caller's trades */
+        TradeSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            offerId: string;
+            item?: components["schemas"]["PublicInventoryItem"];
+            counterparty: components["schemas"]["OfferParty"];
+            /** @enum {string} */
+            viewerRole: "BUYER" | "SELLER";
+            /** @enum {string} */
+            kind: "CASH" | "TRADE" | "MIXED";
+            /** @example 40 */
+            cashAmount?: number | null;
+            /** @example CAD */
+            currency?: string | null;
+            /** Format: int32 */
+            tradeItemCount: number;
+            /** @enum {string} */
+            status: "AGREED" | "AWAITING_PAYMENT" | "PAID" | "SHIPPED" | "RECEIVED" | "COMPLETED" | "CANCELLED" | "DISPUTED";
+            protectionEnabled: boolean;
+            meetup: boolean;
+            nextAction: components["schemas"]["TradeNextAction"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt?: string | null;
         };
         /** @description Offset-paginated list */
         PageResponseSetSummary: {
@@ -5432,16 +6079,6 @@ export interface components {
             freshness: components["schemas"]["Freshness"];
             /** @description Owner block; present in search results (`GET /search`), absent in a collector's own binder list */
             owner?: components["schemas"]["PublicBinderOwner"];
-        };
-        /** @description Approximate location (never a point) */
-        PublicOwnerLocation: {
-            /** @example Plateau-Mont-Royal, Montréal */
-            publicLabel: string;
-            /**
-             * @description Null unless the request is signed in, the caller has a trading area and the owner shows distances
-             * @enum {string|null}
-             */
-            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
         };
         /** @description Printing and/or card the query resolved to (both null when ambiguous) */
         SearchResolution: {
@@ -5636,6 +6273,51 @@ export interface components {
              */
             limit?: number;
             description?: string;
+        };
+        /** @description Cursor-paginated list */
+        CursorPageOfferSummary: {
+            /** @description Items of the current slice */
+            items?: components["schemas"]["OfferSummary"][];
+            /** @description Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data */
+            nextCursor?: string | null;
+            /** @description Whether another slice exists */
+            hasMore?: boolean;
+        };
+        /** @description The live proposal of one of the caller's offers */
+        OfferSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            rootOfferId: string;
+            item?: components["schemas"]["PublicInventoryItem"];
+            counterparty: components["schemas"]["OfferParty"];
+            /** @enum {string} */
+            viewerRole: "BUYER" | "SELLER";
+            /** @enum {string} */
+            kind: "CASH" | "TRADE" | "MIXED";
+            /** @example 40 */
+            cashAmount?: number | null;
+            /** @example CAD */
+            currency?: string | null;
+            /** Format: int32 */
+            tradeItemCount: number;
+            /** @enum {string} */
+            status: "OPEN" | "COUNTERED" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED";
+            /** @enum {string} */
+            currentTurn: "BUYER" | "SELLER";
+            /** @description Whether the caller has to answer */
+            yourTurn: boolean;
+            allowedActions: ("COUNTER" | "ACCEPT" | "DECLINE" | "CANCEL")[];
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: int32 */
+            version: number;
+            /** Format: uuid */
+            tradeId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         /** @description Cursor-paginated list */
         CursorPageNotificationResponse: {
@@ -6772,7 +7454,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -6997,6 +7679,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrivacySettings"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getOfferSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferSettings"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateOfferSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOfferSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferSettings"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -8453,6 +9269,53 @@ export interface operations {
             };
         };
     };
+    runOfferExpiryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferExpiryJobResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     runFreshnessJob: {
         parameters: {
             query?: never;
@@ -9058,6 +9921,247 @@ export interface operations {
             };
         };
     };
+    markTradeMeetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    completeTrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    cancelTrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelTradeRequest"];
+            };
+        };
+        responses: {
+            /** @description The cancelled trade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     reportCollector: {
         parameters: {
             query?: never;
@@ -9285,6 +10389,534 @@ export interface operations {
                 };
             };
             /** @description ALREADY_RATED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listOffers: {
+        parameters: {
+            query?: {
+                /** @description buyer: offers made; seller: offers received */
+                role?: "buyer" | "seller";
+                /** @description Status filter */
+                status?: ("OPEN" | "COUNTERED" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED")[];
+                /** @description Opaque cursor of the previous slice */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One slice of offers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CursorPageOfferSummary"];
+                };
+            };
+            /** @description VALIDATION_FAILED (role, status, cursor or limit) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    createOffer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional retry key (24 h) */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOfferRequest"];
+            };
+        };
+        responses: {
+            /** @description The new offer (OPEN, the seller's turn) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND (card not visible) or FEATURE_DISABLED (payment protection) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description OFFER_ALREADY_OPEN */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description OFFERS_NOT_ACCEPTED */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (offers.per_day) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    declineOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseOfferRequest"];
+            };
+        };
+        responses: {
+            /** @description The declined offer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description STALE_OFFER, NOT_YOUR_TURN or INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    counterOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CounterOfferRequest"];
+            };
+        };
+        responses: {
+            /** @description The new counter-offer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description TRADING_BLOCKED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description STALE_OFFER, NOT_YOUR_TURN, INVALID_STATE_TRANSITION or ITEM_UNAVAILABLE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description OFFERS_NOT_ACCEPTED */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    cancelOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseOfferRequest"];
+            };
+        };
+        responses: {
+            /** @description The withdrawn offer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FORBIDDEN (the seller) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description STALE_OFFER or INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    acceptOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcceptOfferRequest"];
+            };
+        };
+        responses: {
+            /** @description The accepted offer with its tradeId */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description TRADING_BLOCKED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description STALE_OFFER, NOT_YOUR_TURN, INVALID_STATE_TRANSITION or ITEM_UNAVAILABLE */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14732,6 +16364,164 @@ export interface operations {
             };
         };
     };
+    listTrades: {
+        parameters: {
+            query?: {
+                /** @description buyer or seller */
+                role?: "buyer" | "seller";
+                /** @description Status filter */
+                status?: ("AGREED" | "AWAITING_PAYMENT" | "PAID" | "SHIPPED" | "RECEIVED" | "COMPLETED" | "CANCELLED" | "DISPUTED")[];
+                /** @description Opaque cursor of the previous slice */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One slice of trades */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CursorPageTradeSummary"];
+                };
+            };
+            /** @description VALIDATION_FAILED (role, status, cursor or limit) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getTrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     searchTags: {
         parameters: {
             query?: {
@@ -15503,6 +17293,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Plan"][];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The offer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */

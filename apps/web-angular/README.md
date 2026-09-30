@@ -310,8 +310,8 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   `POST /conversations/{id}/read` only while the thread is on screen and the tab visible, typing
   notices throttled to one per 3 s, "typing…" for 5 s, receipts turn "Sent" into "Seen", send
   errors inline: 403 `MESSAGING_BLOCKED`, 422 `MESSAGE_BLOCKED` (generic wording), 429 with the
-  wait) → `ThreadHeaderComponent` (profile link, mute, archive, block/unblock with confirmation,
-  "Report collector" disabled until Phase 7), `MessageListComponent` (day separators, sender
+  wait) → `ThreadHeaderComponent` (profile link, mute, archive, "Rate" when eligible (Phase 7),
+  block/unblock with confirmation, "Report collector"), `MessageListComponent` (day separators, sender
   groups, `role="log"`), `MessageBubbleComponent` (text, shared card / binder, photo, offer,
   removed) and `MessageComposerComponent` (Enter sends, Shift+Enter new line, attachment menu:
   card via `/cards/suggest` autocomplete, one of the caller's public binders, or a JPEG/PNG/WebP
@@ -333,7 +333,7 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   filter; groups by city, games, topics; collapses behind a button on narrow screens),
   channel header, `PostComposerComponent` (1–2000 characters, card / public binder links,
   Ctrl+Enter), `PostItemComponent` (edit in place, delete with confirmation, block the author,
-  moderator "Remove" with a required reason, "Report collector" disabled until Phase 7) and
+  moderator "Remove" with a required reason, "Report collector" (Phase 7)) and
   `PostRepliesComponent` (inline replies, Enter sends, delete own, moderator remove).
 - **Admin → Community** (`features/admin/community`, moderators and admins): channels (create,
   edit, archive/restore with `POST/PATCH /admin/community/channels`) and the automatic moderation
@@ -398,6 +398,74 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   only for discoverable collectors with a trading area, so a wisher who is not on the map gets no
   match; the page says so (`MatchReadinessComponent`).
 
+## Ratings, collector reports and the admin console (Phase 7)
+
+Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes and deviations in
+`apps/api/README.md`). Generated client only (`RatingsService`, `ReportsService`,
+`ListingHealthService`, `AdminReportsService`, `AdminRatingsService`, `AdminListingsService`,
+`AdminBindersService`, `AdminConsoleService`, `AdminNotificationsService`,
+`AdminAnalyticsService`, `AdminModerationService`, `AdminDelistingService`).
+
+- **Report collector** (`shared/reports`): `ReportActionsService.report(target, context)` opens
+  `ReportCollectorDialogComponent` (product spec § 23): the collector, "Why are you reporting
+  this user?" with the reasons of `GET /public/report-reasons` as radio buttons in server order
+  (cached by `ReportReasonsService`, retry on failure), optional details ≤ 1000, Cancel /
+  Confirm; Confirm stays disabled until a reason is chosen. `POST /reports/collectors` carries an
+  `Idempotency-Key` fixed for the dialog and the context (PROFILE, CONVERSATION + conversationId,
+  POST + postId, BINDER + binderId); refusals are explained inline (`report-errors.ts`: 409
+  `REPORT_ALREADY_OPEN` keeps Confirm disabled, 422 `CANNOT_REPORT_SELF`, 404, 429 daily limit, 400) and success turns the dialog into a "Report sent" confirmation (focus on Done). Entry
+  points: the collector profile (Report), the map preview (flag button, signed in), the
+  conversation menu, the community post menu and the public binder owner card.
+- **Settings → My reports** (`features/settings/reports`, `GET /me/reports`): reported
+  collector, reason, sent / reviewed times and where the review stands, never the decision's
+  specifics (the REPORT_DECISION notification links here).
+- **Ratings on the collector page** (`features/collectors/ratings`): `CollectorRatingsStore`
+  (component scoped: `GET /collectors/{handle}/ratings` summary + cursor pages of 5,
+  `GET /collectors/{handle}/references`, `GET /ratings/eligibility?userId=` for other collectors)
+  → `CollectorRatingsSectionComponent` ("Ratings & references": `RatingSummaryComponent` with
+  the average, stars, count and one bar per criterion; `RatingItemComponent` with rater,
+  interaction kind, date, comment and criteria, "Edit" on the viewer's own rating while
+  `editableUntil`; references; "Rate this collector" only when an unrated interaction exists and
+  "Write a reference" after any interaction, otherwise a hint explaining why). The profile's
+  side card follows the fresh summary; `?tab=ratings` (RATING_RECEIVED deep link) scrolls to the
+  section. Shared dialogs in `shared/ratings`: `RateCollectorDialogComponent` (interaction
+  picker, required overall score, optional communication / card condition / shipping / meetup
+  reliability, comment ≤ 600; `POST /ratings` or `PUT /ratings/{id}`; 403 / 409 / banned terms
+  inline), `WriteReferenceDialogComponent` (≤ 400, `POST /references`), `StarRatingInputComponent`
+  (radio group, roving tab stop, arrows / Home / End, Clear for optional criteria),
+  `StarRatingComponent` (read-only, partial stars), `RatingActionsService` (dialogs + snack bars).
+  The conversation menu offers "Rate <name>" when eligible.
+- **Paused listings** (`features/inventory/listing-status`): `/inventory` shows
+  `GET /me/listings/status`: a banner when public listings are paused (Resume listings with a
+  confirmation for UNRESPONSIVE pauses, `POST /me/listings/resume`; "under review" wording
+  otherwise, never the moderator's reason) and a reminder while unanswered conversations count
+  as strikes.
+- **Notifications**: RATING_RECEIVED, REPORT_DECISION (→ `/settings/reports`) and the SYSTEM
+  notices LISTINGS_PAUSED (→ `/inventory`) and MODERATION_WARNING (→ Community Guidelines) get
+  their icons and links.
+- **Admin console** (`features/admin`; moderators see Dashboard, Community, Reports,
+  Moderation and Ratings; transactions, disputes, payments, ads, subscriptions and credits stay
+  listed as later phases): Dashboard (`GET /admin/dashboard` tiles with links for admins; open /
+  under-review reports and open flags for moderators; quick links), **Reports** (`/admin/reports`
+  filters status, reason, "assigned to me", one collector in the URL; `/admin/reports/:id` with
+  the report, the reported conversation when there is one, reporter and reported collector
+  cards, the moderation history, moderator notes, Assign to me, Resolve dialog: take action
+  (warning, pause listings; suspend with an optional end or ban for admins only) or dismiss, a
+  required note, notify the reporter), **Moderation** (rules grouped by scope with kind / action
+  chips and rate patterns in words; create / edit / delete for admins with the API's validation
+  mirrored in `moderation-rule-labels.ts`; the flags queue), **Listings** (review queue of STALE
+  / HIDDEN listings and a search of every listing by card, game, freshness and owner; Restore on
+  the owner's behalf, Hide with a reason), **Binders** (search, visibility, Unpublish with a
+  reason), **Ratings** (visible / hidden, one collector; Hide with a reason, Restore), **Users**
+  (the user page gains the listing status with Pause (reason, optional end) / Resume and the
+  moderation history), **Notifications** (statistics per period, per type and per channel
+  state; broadcast composer for SUPER_ADMIN with a confirmation), **Analytics** (local
+  aggregate: total, events per day, totals per event), **Auto-delist rules** (policy editor with
+  a live freshness timeline and the API's ordering rules checked inline), **System health**
+  (components, outbox, pending notifications, scheduled jobs). Every write asks for a
+  confirmation (or a reason), shows "… The action is in the audit log." and appears in Audit
+  logs (new action labels; REPORT targets link to the report).
+
 ## Maps
 
 Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers (pins, avatar and
@@ -451,12 +519,16 @@ src/app/
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, trading-area, blocked users, account,
-                appearance
-    collectors/ public profile (container + presentational view, public wishlist)
-    admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog), audit logs,
-                games (schema editor), cards (search, editor, printing dialog, sync panel),
-                feature flags, usage limits, community (channels, moderation flags)
+    settings/   shell + profile, privacy, notifications, trading-area, blocked users, my
+                reports, account, appearance
+    collectors/ public profile (container + presentational view, public wishlist, ratings and
+                references section)
+    admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog, moderation
+                panel), audit logs, games (schema editor), cards (search, editor, printing
+                dialog, sync panel), feature flags, usage limits, community (channels, moderation
+                flags), reports (list, detail, resolve dialog, history, notes), moderation
+                (rules, flags), listings, binders, ratings, notifications, analytics, delist
+                (auto-delist editor), health
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table, stepper), bulk bar,
@@ -543,7 +615,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   parameter matcher, wishlist labels and form (slider cap, create / PATCH bodies, validation,
   server errors), `WishlistActions`, `WishlistStore` (filters, readiness, live re-reads,
   optimistic alerts, removal), `WishlistMatchesStore` (paging, live matches, dismiss rollback),
-  wish card.
+  wish card; Phase 7: report labels and refusals, the Report collector dialog (reasons in server
+  order, Confirm disabled until a reason, request with context and idempotency key, 409 inline,
+  retry), rating labels (rateable interactions, edit window, criteria, refusals), star input
+  (keyboard, clear, disabled), rate dialog (required overall, POST / PUT bodies, inline 409),
+  ratings section (eligibility-driven Rate / reference actions, own-rating edit, errors), My
+  reports, paused-listings banner, preview Report button, resolve-report request rules,
+  moderation rule validation, delist policy validation and timeline, dashboard tiles, analytics
+  summary.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -578,8 +657,8 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     the preview; the panel opens the new conversation; A sends text and a card through the
     autocomplete; B, waiting on `/messages`, receives the conversation live (no reload) with two
     unread messages, opens it (card link to the catalog) and A sees "Seen"; B's typing indicator,
-    answer and a photo reach A live; A blocks B from the thread menu ("Report collector"
-    disabled), B's next message is refused inline and `POST /conversations` answers 403
+    answer and a photo reach A live; A blocks B from the thread menu (which also offers
+    "Report collector"), B's next message is refused inline and `POST /conversations` answers 403
     `MESSAGING_BLOCKED`; A unblocks B in Settings → Blocked users. A second test starts a
     conversation from a profile (full page), rejects a text file, sends a photo, shows the 422
     moderation refusal inline and reopens the conversation from the list by keyboard.
@@ -600,6 +679,28 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     (422) inline, edits the post; a second collector replies inline; the author sees the reply
     after a reload and deletes the post. A moderator removes a post with a required reason, then
     resolves the flag a banned-term post raised in Admin → Community.
+  - `e2e/reporting.spec.ts`: a collector opens another collector's profile, presses Report, the
+    "Report collector" popup asks "Why are you reporting this user?" with the seven reasons in
+    order, Confirm is disabled until one is chosen, the report is confirmed; a second report is
+    refused inline (409); Settings → My reports shows it waiting. A moderator (dashboard, no
+    Users section) opens it in Admin → Reports, assigns it, adds a note and resolves it with a
+    warning (suspension disabled for moderators, note required); an administrator finds
+    `REPORT_RESOLVED`, `report.assign` and `report.note` in the audit log; the reporter sees
+    "Your report was reviewed" and the outcome, the reported collector got the warning notice.
+    A second test reaches the dialog from the conversation menu (keyboard), a community post
+    menu and a public binder's owner card (sent with the BINDER context).
+  - `e2e/rating.spec.ts`: two collectors exchange three messages each (qualified conversation);
+    the conversation menu offers "Rate"; the profile's "Rate this collector" dialog requires an
+    overall score, takes a criterion by keyboard and a comment; the summary and the profile card
+    update, the rating is edited within its window and a reference is written; the rated
+    collector gets RATING_RECEIVED without the comment; an unrelated collector sees no rate or
+    reference action and the API refuses their rating (403 `RATING_NOT_ELIGIBLE`).
+  - `e2e/admin-moderation.spec.ts`: an administrator's dashboard counts, the listing review
+    queue, hiding a collector's listing with a required reason from their listings, pausing and
+    resuming the collector's listings (the collector sees the "under review" banner on
+    `/inventory` without the reason), moderation rules with inline pattern validation, the
+    auto-delist editor's inline ordering error and reset (nothing saved), notification
+    statistics (broadcast locked for admins), analytics, system health and the audit entries.
     Catalog pictures are served from memory in these specs (`stubCardImages`): the API
     counts every placeholder image against its anonymous 60/min per-IP rate limit, which the
     parallel suite shares.

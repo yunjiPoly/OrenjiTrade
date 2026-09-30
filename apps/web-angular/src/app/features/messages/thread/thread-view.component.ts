@@ -15,10 +15,13 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import type { ConversationSummary } from '@orenji/api-client';
+import type { ConversationSummary, RatingEligibilityInteraction } from '@orenji/api-client';
 import { toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
+import { RatingActionsService } from '../../../shared/ratings/rating-actions.service';
+import { rateableInteractions } from '../../../shared/ratings/rating-labels';
+import { ReportActionsService } from '../../../shared/reports/report-actions.service';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
@@ -54,6 +57,7 @@ import { ThreadHeaderComponent, ThreadMenuAction } from './thread-header.compone
         [conversation]="c"
         [typing]="store.otherTyping()"
         [blocked]="blockedByMe()"
+        [canRate]="rateable().length > 0"
         [showBack]="showBack()"
         (back)="back.emit()"
         (action)="onAction($event)"
@@ -190,6 +194,8 @@ export class ThreadViewComponent {
   protected readonly store = inject(ThreadStore);
   private readonly conversations = inject(ConversationsStore);
   private readonly blocks = inject(BlockActionsService);
+  private readonly reports = inject(ReportActionsService);
+  private readonly ratings = inject(RatingActionsService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly doc = inject(DOCUMENT);
   private readonly composer = viewChild(MessageComposerComponent);
@@ -202,6 +208,9 @@ export class ThreadViewComponent {
 
   /** The caller blocked the other collector from this thread. */
   protected readonly blockedByMe = signal(false);
+  /** Interactions with the other collector the caller can still rate ("Rate" menu item). */
+  protected readonly rateable = signal<RatingEligibilityInteraction[]>([]);
+  private eligibilityFor: string | null = null;
   private readonly pageVisible = signal(this.doc.visibilityState !== 'hidden');
   protected readonly cannotSend = computed(
     () =>
@@ -225,6 +234,7 @@ export class ThreadViewComponent {
           this.blockedByMe.set(false);
         }
         this.store.open(conversation);
+        void this.loadEligibility(conversation.other.id);
       });
     });
     effect(() => {
@@ -282,6 +292,50 @@ export class ThreadViewComponent {
           this.store.load();
         }
         break;
+      case 'report':
+        await this.reports.report(
+          {
+            id: conversation.other.id,
+            displayName: conversation.other.displayName,
+            handle: conversation.other.handle,
+            avatarUrl: conversation.other.avatarUrl,
+          },
+          { source: 'CONVERSATION', conversationId: conversation.id },
+        );
+        break;
+      case 'rate':
+        if (
+          await this.ratings.rate(
+            {
+              id: conversation.other.id,
+              displayName: conversation.other.displayName,
+              handle: conversation.other.handle,
+              avatarUrl: conversation.other.avatarUrl,
+            },
+            this.rateable(),
+          )
+        ) {
+          this.eligibilityFor = null;
+          await this.loadEligibility(conversation.other.id);
+        }
+        break;
+    }
+  }
+
+  /** Whether "Rate" is offered: once per collector, silently (nothing is offered on failure). */
+  private async loadEligibility(userId: string): Promise<void> {
+    if (this.eligibilityFor === userId) {
+      return;
+    }
+    this.eligibilityFor = userId;
+    this.rateable.set([]);
+    try {
+      const eligibility = await this.ratings.eligibility(userId);
+      if (this.eligibilityFor === userId) {
+        this.rateable.set(rateableInteractions(eligibility));
+      }
+    } catch {
+      // No "Rate" item without an answer.
     }
   }
 
