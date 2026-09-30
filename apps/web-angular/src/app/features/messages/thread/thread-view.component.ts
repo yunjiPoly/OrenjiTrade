@@ -135,6 +135,8 @@ import { ThreadHeaderComponent, ThreadMenuAction } from './thread-header.compone
         [disabled]="cannotSend()"
         [error]="store.sendError()"
         [placeholder]="composerPlaceholder()"
+        [otherId]="c.other.id"
+        [otherName]="c.other.displayName"
         (send)="onSend($event)"
         (typing)="store.userTyping()"
       />

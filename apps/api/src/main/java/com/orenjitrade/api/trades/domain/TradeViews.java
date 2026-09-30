@@ -32,6 +32,7 @@ public final class TradeViews {
      * @param nextAction who acts next and how
      * @param operations what the viewer may call now
      * @param timeline the timeline, oldest first
+     * @param protection payment, shipment and dispute of a protected trade (Phase 9), if any
      */
     public record Detail(
             TradeRow row,
@@ -39,7 +40,8 @@ public final class TradeViews {
             OfferRole viewerRole,
             NextAction nextAction,
             List<Operation> operations,
-            List<TimelineEntry> timeline) {}
+            List<TimelineEntry> timeline,
+            TradeProtection.@Nullable State protection) {}
 
     /**
      * A line of {@code GET /trades}.

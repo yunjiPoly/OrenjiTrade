@@ -88,6 +88,32 @@ describe('notification kinds', () => {
     expect(notificationKind({ type: Type.ReportDecision, data: {} }).label).toBe('Report decision');
   });
 
+  it('opens offers and trades (Phase 8), with the new withdrawn / expired kinds', () => {
+    expect(
+      notificationLink({
+        type: Type.OfferReceived,
+        data: { deepLink: '/offers/o-1', offerId: 'o-1' },
+      }),
+    ).toBe('/offers/o-1');
+    expect(notificationLink({ type: Type.OfferCountered, data: { offerId: 'o-2' } })).toBe(
+      '/offers/o-2',
+    );
+    expect(
+      notificationLink({ type: Type.OfferAccepted, data: { offerId: 'o-2', tradeId: 't-1' } }),
+    ).toBe('/trades/t-1');
+    expect(notificationLink({ type: Type.TradeUpdate, data: { tradeId: 't-1' } })).toBe(
+      '/trades/t-1',
+    );
+    expect(notificationLink({ type: Type.TradeUpdate, data: {} })).toBe('/trades');
+    expect(notificationLink({ type: Type.OfferExpired, data: {} })).toBe('/offers');
+    expect(notificationKind({ type: Type.OfferCancelled, data: {} })).toEqual({
+      icon: 'undo',
+      tone: 'offer',
+      label: 'Offer withdrawn',
+    });
+    expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe('Offer expired');
+  });
+
   it('knows unread notifications', () => {
     expect(isUnread({ readAt: null })).toBe(true);
     expect(isUnread({ readAt: '2026-09-30T10:00:00Z' })).toBe(false);

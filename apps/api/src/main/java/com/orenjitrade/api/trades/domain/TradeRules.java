@@ -18,6 +18,9 @@ import org.jspecify.annotations.Nullable;
  *   <li>complete: AGREED only (protected trades complete through Phase 9's receipt confirmation);
  *       both parties confirm → COMPLETED;
  *   <li>cancel: before any payment (AGREED, AWAITING_PAYMENT).
+ *   <li>Phase 9 (protected trades): the buyer pays (AWAITING_PAYMENT), the seller ships (PAID), the
+ *       buyer confirms receipt (SHIPPED) or opens a dispute (PAID or SHIPPED within the dispute
+ *       window).
  * </ul>
  */
 public final class TradeRules {
@@ -47,7 +50,15 @@ public final class TradeRules {
         /** {@code POST /trades/{id}/complete}. */
         CONFIRM_COMPLETION,
         /** {@code POST /trades/{id}/cancel}. */
-        CANCEL
+        CANCEL,
+        /** {@code POST /trades/{id}/pay} (Phase 9, buyer). */
+        PAY,
+        /** {@code POST /trades/{id}/ship} (Phase 9, seller). */
+        SHIP,
+        /** {@code POST /trades/{id}/confirm-receipt} (Phase 9, buyer). */
+        CONFIRM_RECEIPT,
+        /** {@code POST /trades/{id}/disputes} (Phase 9, buyer, within the dispute window). */
+        OPEN_DISPUTE
     }
 
     /**
@@ -104,13 +115,42 @@ public final class TradeRules {
         };
     }
 
-    /** The operations a party may call now. */
+    /** The operations a party may call now (no dispute can be opened). */
     public static List<Operation> operations(
             TradeStatus status,
             OfferRole viewer,
             boolean viewerMarkedMeetup,
             boolean viewerConfirmed) {
+        return operations(status, viewer, viewerMarkedMeetup, viewerConfirmed, false);
+    }
+
+    /**
+     * The operations a party may call now, including the Phase 9 steps of protected trades.
+     *
+     * @param disputeOpenable whether a dispute may be opened now (payments module: PAID or SHIPPED
+     *     within the window and no dispute yet)
+     */
+    public static List<Operation> operations(
+            TradeStatus status,
+            OfferRole viewer,
+            boolean viewerMarkedMeetup,
+            boolean viewerConfirmed,
+            boolean disputeOpenable) {
         List<Operation> result = new ArrayList<>();
+        if (status == TradeStatus.AWAITING_PAYMENT && viewer == OfferRole.BUYER) {
+            result.add(Operation.PAY);
+        }
+        if (status == TradeStatus.PAID && viewer == OfferRole.SELLER) {
+            result.add(Operation.SHIP);
+        }
+        if (status == TradeStatus.SHIPPED && viewer == OfferRole.BUYER) {
+            result.add(Operation.CONFIRM_RECEIPT);
+        }
+        if (disputeOpenable
+                && viewer == OfferRole.BUYER
+                && (status == TradeStatus.PAID || status == TradeStatus.SHIPPED)) {
+            result.add(Operation.OPEN_DISPUTE);
+        }
         if (canMarkMeetup(status) && !viewerMarkedMeetup) {
             result.add(Operation.MARK_MEETUP);
         }

@@ -22,8 +22,9 @@ class DashboardIT extends AbstractPhase7IT {
         String admin = staff("db-admin", Role.ADMIN);
         JsonNode before = callJson(HttpMethod.GET, "/api/v1/admin/dashboard", admin, null, 200);
         assertThat(before.path("users").path("total").asLong()).isPositive();
-        assertThat(before.path("openDisputes").asLong()).isZero();
-        assertThat(before.path("webhookFailures24h").asLong()).isZero();
+        // Phase 9 counters are real now (PaymentsAuthorizationIT / WebhookSignatureIT move them).
+        assertThat(before.path("openDisputes").asLong()).isNotNegative();
+        assertThat(before.path("webhookFailures24h").asLong()).isNotNegative();
 
         Collector reporter = member("db-reporter");
         Collector reported = member("db-reported");

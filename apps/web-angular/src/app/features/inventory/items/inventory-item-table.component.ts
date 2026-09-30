@@ -12,7 +12,7 @@ import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-ch
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 import { VisibilityBadgeComponent } from '../../../shared/ui/visibility-badge/visibility-badge.component';
 import { InventoryRow, QuantityChange, SelectionChange } from './inventory-row';
-import { QuantityStepperComponent } from './quantity-stepper.component';
+import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/quantity-stepper.component';
 
 /** Dense table view of the inventory (same data and actions as the grid). */
 @Component({

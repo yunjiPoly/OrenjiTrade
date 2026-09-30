@@ -35,10 +35,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +54,10 @@ import tools.jackson.databind.json.JsonMapper;
  * through {@link InventoryService#reserveAndTransfer}, interaction TRADE recorded for rating
  * eligibility) and cancellation before any payment. Only the two parties see a trade (404 for
  * anybody else). Every change appends a {@code trade_event} and publishes {@link TradeUpdated} in
- * the transaction. Payment, shipping and dispute states belong to Phase 9.
+ * the transaction. Phase 9: the payments module moves protected trades through PAID, SHIPPED,
+ * RECEIVED / DISPUTED to COMPLETED or CANCELLED with {@link #advance}, {@link #completeProtected}
+ * and {@link #cancelProtected}, and fills the trade page through the {@link TradeProtection}
+ * extension point.
  */
 @Service
 public class TradeService {
@@ -71,6 +77,7 @@ public class TradeService {
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
     private final JsonMapper jsonMapper;
+    private final ObjectProvider<TradeProtection> protection;
 
     public TradeService(
             TradeRepository trades,
@@ -81,7 +88,8 @@ public class TradeService {
             FeatureFlags featureFlags,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper,
+            ObjectProvider<TradeProtection> protection) {
         this.trades = trades;
         this.timeline = timeline;
         this.offers = offers;
@@ -91,6 +99,7 @@ public class TradeService {
         this.events = events;
         this.timeProvider = timeProvider;
         this.jsonMapper = jsonMapper;
+        this.protection = protection;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -261,6 +270,15 @@ public class TradeService {
             publish(confirmed, TradeEventType.COMPLETION_CONFIRMED, me, now);
             return detail(me, confirmed);
         }
+        return detail(me, finish(row, me, now));
+    }
+
+    /**
+     * Completes a trade: the seller's card (-1) and the buyer's trade cards (-quantity) move
+     * through {@link InventoryService#reserveAndTransfer}, the TRADE interaction is recorded,
+     * COMPLETED is appended and published.
+     */
+    private TradeRow finish(TradeRow row, @Nullable UUID actor, Instant now) {
         List<TransferLine> lines = new ArrayList<>();
         List<OfferRole> owners = new ArrayList<>();
         if (row.itemId() != null) {
@@ -292,11 +310,11 @@ public class TradeService {
             transfer.put("removed", result.removed());
             transfers.add(transfer);
         }
-        record(row.id(), me, TradeEventType.COMPLETED, Map.of("transfers", transfers), now);
+        record(row.id(), actor, TradeEventType.COMPLETED, Map.of("transfers", transfers), now);
         TradeRow completed = requireRow(row.id());
-        publish(completed, TradeEventType.COMPLETED, me, now);
+        publish(completed, TradeEventType.COMPLETED, actor, now);
         log.info("Trade {} completed", row.id());
-        return detail(me, completed);
+        return completed;
     }
 
     /** {@code POST /trades/{id}/cancel}: either party, before any payment. */
@@ -324,6 +342,130 @@ public class TradeService {
         publish(cancelled, TradeEventType.CANCELLED, me, now);
         log.info("Trade {} cancelled", row.id());
         return detail(me, cancelled);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Payment protection (Phase 9; called by the payments module)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Locks a trade for a payment step (the payments module checks parties and roles itself). Lock
+     * order: the trade row first, then the payment row.
+     */
+    @Transactional
+    public Optional<TradeRow> lockForPayment(UUID tradeId) {
+        return trades.lock(tradeId);
+    }
+
+    /**
+     * Moves a protected trade from one of {@code expected} to {@code next}, appends {@code event}
+     * and publishes {@link TradeUpdated}; {@code 409 INVALID_STATE_TRANSITION} (extension {@code
+     * currentStatus}) when the trade is not protected or in another status.
+     *
+     * @param action what the caller tried, for the error message ("shipped", ...)
+     */
+    @Transactional
+    public TradeRow advance(
+            UUID tradeId,
+            Set<TradeStatus> expected,
+            TradeStatus next,
+            @Nullable UUID actorId,
+            TradeEventType event,
+            Map<String, ?> details,
+            Instant at,
+            String action) {
+        TradeRow row = trades.lock(tradeId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        if (!row.protectionEnabled() || !expected.contains(row.status())) {
+            throw invalidState(row, action);
+        }
+        trades.setStatus(tradeId, next, at);
+        record(tradeId, actorId, event, details, at);
+        TradeRow moved = requireRow(tradeId);
+        publish(moved, event, actorId, at);
+        log.info("Trade {} {} -> {} ({})", tradeId, row.status(), next, event);
+        return moved;
+    }
+
+    /** Appends a Phase 9 timeline entry without a status change and publishes it. */
+    @Transactional
+    public void recordProtectedEvent(
+            UUID tradeId,
+            @Nullable UUID actorId,
+            TradeEventType event,
+            Map<String, ?> details,
+            Instant at) {
+        record(tradeId, actorId, event, details, at);
+        publish(requireRow(tradeId), event, actorId, at);
+    }
+
+    /**
+     * Completes a protected trade once its payout was released (RECEIVED, or DISPUTED resolved for
+     * the seller or with a split): inventory transfer, TRADE interaction, COMPLETED.
+     */
+    @Transactional
+    public TradeRow completeProtected(UUID tradeId, @Nullable UUID actorId, Instant at) {
+        TradeRow row = trades.lock(tradeId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        if (!row.protectionEnabled()
+                || (row.status() != TradeStatus.RECEIVED && row.status() != TradeStatus.DISPUTED)) {
+            throw invalidState(row, "completed");
+        }
+        return finish(row, actorId, at);
+    }
+
+    /**
+     * Cancels a protected trade whose payment was refunded in full (PAID, SHIPPED or DISPUTED); the
+     * platform is the cancelling party and {@code reason} a platform text.
+     */
+    @Transactional
+    public TradeRow cancelProtected(
+            UUID tradeId, @Nullable UUID actorId, String reason, Instant at) {
+        TradeRow row = trades.lock(tradeId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        if (!row.protectionEnabled() || !row.status().isOpen()) {
+            throw invalidState(row, "cancelled");
+        }
+        trades.cancelByPlatform(tradeId, reason, at);
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("previousStatus", row.status().name());
+        details.put("reason", reason);
+        details.put("byPlatform", true);
+        record(tradeId, actorId, TradeEventType.CANCELLED, details, at);
+        TradeRow cancelled = requireRow(tradeId);
+        publish(cancelled, TradeEventType.CANCELLED, actorId, at);
+        log.info("Protected trade {} cancelled after a refund", tradeId);
+        return cancelled;
+    }
+
+    /** Trades by id (admin lists of the payments module). */
+    @Transactional(readOnly = true)
+    public Map<UUID, TradeRow> rows(Collection<UUID> tradeIds) {
+        return trades.findAll(tradeIds);
+    }
+
+    /** A trade's timeline, oldest first (admin dispute console of the payments module). */
+    @Transactional(readOnly = true)
+    public List<TimelineEntry> timelineOf(UUID tradeId) {
+        TradeRow row = requireRow(tradeId);
+        List<TimelineEntry> entries = new ArrayList<>();
+        for (TradeEventRow event : timeline.byTrade(tradeId)) {
+            entries.add(
+                    new TimelineEntry(
+                            event,
+                            event.actorId() == null ? null : row.roleOf(event.actorId()),
+                            details(event.detailsJson())));
+        }
+        return entries;
+    }
+
+    /** The terms of a trade as text ("40.00 CAD for Azure-Eyes Sky Dragon"). */
+    @Transactional(readOnly = true)
+    public String summaryText(TradeRow row) {
+        return offers.row(row.offerId()).map(offers::summaryText).orElse("a trade");
+    }
+
+    /** The card of a trade (live item or the offer's snapshot). */
+    @Transactional(readOnly = true)
+    public String cardName(TradeRow row) {
+        return offers.row(row.offerId()).map(offers::cardName).orElse("a card");
     }
 
     // ---------------------------------------------------------------------------------------
@@ -392,6 +534,11 @@ public class TradeService {
                             event.actorId() == null ? null : row.roleOf(event.actorId()),
                             details(event.detailsJson())));
         }
+        TradeProtection.@Nullable State state =
+                protection
+                        .getIfAvailable(() -> TradeProtection.NONE)
+                        .statesOf(List.of(row.id()), timeProvider.now())
+                        .get(row.id());
         return new Detail(
                 row,
                 offer,
@@ -401,8 +548,10 @@ public class TradeService {
                         row.status(),
                         viewerRole,
                         row.markedMeetup(viewerRole),
-                        row.confirmed(viewerRole)),
-                entries);
+                        row.confirmed(viewerRole),
+                        state != null && state.disputeOpenable()),
+                entries,
+                state);
     }
 
     static NextAction nextAction(TradeRow row, OfferRole viewer) {

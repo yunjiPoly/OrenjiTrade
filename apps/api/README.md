@@ -65,6 +65,8 @@ match `docker compose`. The most relevant ones:
 | `GCS_BUCKET_MEDIA` | empty | media bucket, required only with `STORAGE_PROVIDER=gcs` (Application Default Credentials) |
 | `LOCATION_JITTER_SECRET` | `local-jitter-secret` (`local`/`test` only) | HMAC key of the public-point jitter (ADR 0004); every other profile refuses to start when it is missing, the development default or shorter than 32 characters |
 | `PAYMENT_PROVIDER`, `PUSH_PROVIDER`, `EMAIL_PROVIDER` | `fake`, `log`, `log` | provider abstractions |
+| `FAKE_PAYMENTS_WEBHOOK_SECRET`, `FAKE_CHECKOUT_BASE_URL` | local value, empty | HMAC key of the fake provider's synthetic webhooks (not a secret of any service); origin prefixed to the fake checkout path `/checkout/fake/<ref>` (empty = relative) |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `WEB_BASE_URL` | empty, empty, `https://www.orenjitrade.com` | only with `PAYMENT_PROVIDER=stripe` (start-up fails without the two secrets); never needed locally |
 | `ML_SERVICE_URL`, `ML_SERVICE_TIMEOUT_MS` | `http://localhost:8000`, `1500` | optional ML service |
 | `RATE_LIMIT_DEFAULT_PER_MINUTE`, `RATE_LIMIT_ANONYMOUS_PER_MINUTE` | `120`, `60` | default rate limits (per user / per IP) |
 
@@ -878,7 +880,8 @@ the free text of its decided reports (the reports stay as moderation records).
   `POST/DELETE /admin/moderation/rules` (rules CRUD), `?assignedTo=` on the report list.
 - `GET /collectors/{handle}/ratings` answers `{items, nextCursor, hasMore, summary}` (the cursor page
   plus the summary in one document); the report detail's notes are `moderatorNotes`.
-- `openDisputes` and `webhookFailures24h` of the dashboard are 0 until Phase 9 creates those tables.
+- `openDisputes` and `webhookFailures24h` of the dashboard were 0 until Phase 9 (now: open disputes and
+  failed or unverified payment webhooks of the last 24 h).
 
 ## Offers and trades (Phase 8)
 
@@ -899,7 +902,7 @@ the two parties of an offer or a trade ever see it (404 for anybody else).
 | `POST /api/v1/offers/{id}/decline`, `POST /api/v1/offers/{id}/cancel` | `{reason? ≤ 500, version?}` (optional body); decline: the party whose turn it is; cancel: the buyer while OPEN (403 for the seller) |
 | `GET/PUT /api/v1/me/settings/offers` | `{acceptsMixed}` (default true) |
 | `GET /api/v1/trades?role=&status=&cursor=&limit=20` | `CursorPage<TradeSummary>` with `nextAction` |
-| `GET /api/v1/trades/{id}` | `TradeResponse {id, offer (OfferResponse), viewerRole, counterparty, kind, cashAmount, currency, status, protectionEnabled, meetup, buyerMarkedMeetup, sellerMarkedMeetup, buyerConfirmedAt, sellerConfirmedAt, nextAction {actor, action}, allowedOperations, timeline [TradeEvent], payment: null, dispute: null, cancelReason, …}` |
+| `GET /api/v1/trades/{id}` | `TradeResponse {id, offer (OfferResponse), viewerRole, counterparty, kind, cashAmount, currency, status, protectionEnabled, meetup, buyerMarkedMeetup, sellerMarkedMeetup, buyerConfirmedAt, sellerConfirmedAt, nextAction {actor, action}, allowedOperations, timeline [TradeEvent], payment, dispute, shipment (Phase 9; null without payment protection), cancelReason, …}` |
 | `POST /api/v1/trades/{id}/meetup` | AGREED / AWAITING_PAYMENT, idempotent per party; both marks → `meetup = true`, payment protection dropped (AWAITING_PAYMENT → AGREED, PROTECTION_REMOVED) |
 | `POST /api/v1/trades/{id}/complete` | AGREED only (protected trades complete through Phase 9's receipt confirmation), idempotent per party; both confirmations → COMPLETED: `InventoryService.reserveAndTransfer` lowers the seller's card by 1 and the buyer's trade cards by their quantities (the last copy soft-deletes the item and unpublishes it), the TRADE interaction makes both parties eligible to rate |
 | `POST /api/v1/trades/{id}/cancel` | `{reason}` (required, ≤ 500); AGREED / AWAITING_PAYMENT only |
@@ -996,6 +999,148 @@ offer settings (the offer and trade rows stay for the other party).
   OFFER_EXPIRED go to both parties. SYSTEM messages are posted for every offer transition and for
   trade completion and cancellation (the contract names the creation).
 
+## Payment protection and disputes (Phase 9)
+
+Contract: `docs/api/contracts/phase9-payments-disputes.md` (ADR 0011). Module `payments` (provider
+abstraction, seller payout accounts, protected checkout, webhooks, shipping, receipt, payouts,
+refunds, disputes, admin views, `platform_settings` `payments.*`); it depends on `trades` (moves
+protected trades through `TradeService.advance` / `completeProtected` / `cancelProtected` and
+implements the trades module's `TradeProtection` extension point, which fills `payment`, `shipment`
+and `dispute` of the trade page). Migrations V080–V081. Feature flag `protectedPayments`: member
+routes answer `404 FEATURE_DISABLED` (extension `feature`) when it is off for the trade's buyer (the
+caller for `/me/seller-account`); the webhook and the internal fake-payment routes when it is off
+for everybody; admin routes stay available so existing payments remain manageable. Never card data,
+never "escrow" — user-facing wording is "payment protection".
+
+| Route | Who | Notes |
+| --- | --- | --- |
+| `GET /api/v1/me/seller-account` | member | `{provider, status NOT_STARTED\|PENDING\|ACTIVE\|RESTRICTED, payoutsEnabled, ready, updatedAt}`; a PENDING account is refreshed from the provider |
+| `POST /api/v1/me/seller-account/onboarding` | member | optional `{returnUrl}` (a web path, default `/settings/payouts`; 400 otherwise) → `{url, account}`; the fake provider activates at once and answers `<returnUrl>?onboarding=complete`, Stripe answers its hosted onboarding link |
+| `POST /api/v1/trades/{id}/pay` | buyer | AWAITING_PAYMENT protected trades; 409 `SELLER_NOT_ONBOARDED` until the seller is ACTIVE (the seller gets PAYMENT_UPDATE "Set up payouts" when the trade opens); → `ProtectedPayment {paymentId, tradeId, provider, status, amount, currency, platformFee, sellerAmount, checkoutUrl, clientSecret}`; the fee is `payments.platform_fee_percent` of the amount; an open checkout is answered again, a FAILED/CANCELLED one restarted (new provider payment); 403 for the seller |
+| `GET /api/v1/payments/fake/{ref}` | buyer | fake provider only (404 otherwise): what `/checkout/fake/<ref>` shows `{ref, paymentId, tradeId, status, amount, currency, summary}` |
+| `POST /api/v1/payments/fake/{ref}/confirm` | buyer | fake provider only; optional `{outcome: SUCCEEDED\|FAILED}` → 202 `{received, duplicate, webhookEventId, type}`: a signed synthetic `payment.secured` / `payment.failed` goes through the regular webhook pipeline (poll the trade); 409 unless REQUIRES_ACTION |
+| `POST /api/v1/webhooks/payments/{provider}` | provider (no token) | signature verified (`X-Fake-Signature` / `Stripe-Signature`, Stripe format `t=…,v1=…`, 5-minute tolerance); bad signature → 400 `WEBHOOK_SIGNATURE_INVALID`, stored IGNORED; verified events stored (`payment_webhook_event`), deduplicated by provider event id (a retry answers 200 `duplicate: true`), applied after the 200 through `PaymentWebhookReceived`; 404 for a provider other than the active one; 413 above 256 KB; rate limit 600/min per IP |
+| `POST /api/v1/trades/{id}/ship` | seller | PAID → SHIPPED, optional `{carrier ≤ 80, trackingNumber ≤ 100, notes ≤ 500}`; the dispute window starts (`payment.disputeWindowEndsAt` = now + `payments.dispute_window_days`); the buyer gets SHIPMENT_STATUS |
+| `POST /api/v1/trades/{id}/confirm-receipt` | buyer | SHIPPED → RECEIVED → payout released (`PaymentProvider.releasePayout`) → COMPLETED (inventory transfer, TRADE interaction); 409 while a dispute holds the payout |
+| `POST /api/v1/trades/{id}/disputes` | buyer | `{reason NOT_RECEIVED\|NOT_AS_DESCRIBED\|COUNTERFEIT\|DAMAGED\|OTHER, description ≤ 2000}`; PAID or SHIPPED within the window (409 `DISPUTE_WINDOW_CLOSED` with `disputeWindowEndsAt`); 201 `Dispute`; payout frozen, trade DISPUTED, the seller gets DISPUTE_UPDATE |
+| `GET /api/v1/disputes/{id}` | parties, admins | `Dispute {…, viewerRole, buyer, seller (handle and display name only), payment, shipment, summary, evidence, timeline, messages, canAddEvidence, canPostMessage, evidenceLeft}`; 404 for anybody else (moderators included); admins appear as "OrenjiTrade support" |
+| `POST /api/v1/disputes/{id}/evidence` | parties | JSON `{kind TEXT\|TRACKING, body, url?}` or multipart (`file`, `kind` IMAGE\|DOCUMENT, `body?`) on the same path; ≤ 10 per party (409 `EVIDENCE_LIMIT_REACHED`, extension `limit`); IMAGE re-encoded as JPEG without metadata (≤ 8 MB), DOCUMENT PDF only (≤ 10 MB, 415 otherwise); TRACKING `url` https only; VIDEO reserved (400); 409 while FROZEN or resolved; admins 403 (notes instead) |
+| `GET /api/v1/disputes/{id}/evidence/{evidenceId}/file` | parties, admins | the file, `Cache-Control: private, no-store`, PDFs as attachment, `Content-Security-Policy: sandbox`; evidence is never reachable through `/public/media` |
+| `POST /api/v1/disputes/{id}/messages` | parties, admins | `{body ≤ 2000}` → 201; parties not while FROZEN; nobody after the resolution |
+| `POST /internal/fake-payments/{ref}/succeed\|fail` | service auth | fake provider only: synthetic signed `payment.secured` / `payment.failed` through the webhook pipeline |
+| `POST /internal/jobs/payments-auto-release` | service auth | hourly (`AutoReleaseScheduler` under `local`): reminds buyers `payments.release_reminder_hours` (48) before the window ends (PAYMENT_UPDATE once), then SHIPPED trades whose window ended without an open dispute are treated as received (RECEIPT_CONFIRMED `automatic: true`, payout released, COMPLETED); no-op while `payments.auto_release_enabled` is false; `{enabled, reminded, released, failed}`, `job_run` |
+| `GET /api/v1/admin/transactions?status=&page=&size=` | ADMIN | trades with a protected payment (`AdminTransaction`: payment and trade status, amounts, fee, parties, shipment, window, dispute); `/pending-shipment` (secured, not shipped, no dispute; oldest payment first), `/pending-confirmation` (shipped, not received, no dispute; window end first) |
+| `GET /api/v1/admin/disputes?status=`, `GET /api/v1/admin/disputes/{id}` | ADMIN | queue; detail `AdminDispute {dispute, internalNotes, tradeTimeline, paymentEvents, refunds, webhooks, buyerHistory, sellerHistory (the Phase 7 moderation history: reports, ratings, suspensions, pauses, flags), buyerRatings, sellerRatings}` |
+| `POST /api/v1/admin/disputes/{id}/freeze` / `unfreeze` | ADMIN | OPEN/UNDER_REVIEW → FROZEN (optional `{reason}` kept as an internal note), FROZEN → UNDER_REVIEW; audited `dispute.freeze` / `dispute.unfreeze` |
+| `POST /api/v1/admin/disputes/{id}/notes` | ADMIN | `{body ≤ 2000}` internal note; the first one moves OPEN to UNDER_REVIEW; audited `dispute.note` (id only) |
+| `POST /api/v1/admin/disputes/{id}/resolve` | ADMIN | `{outcome BUYER\|SELLER\|SPLIT, refundAmount?, note ≤ 1000}`: BUYER refunds the whole refundable amount (trade CANCELLED by the platform), SELLER releases the payout (COMPLETED), SPLIT refunds `refundAmount` (0 < x < refundable) and pays out the rest minus the fee on it (COMPLETED); audited `dispute.resolve` (outcome, amounts) |
+| `GET /api/v1/admin/payments?status=`, `GET /api/v1/admin/payments/{id}` | ADMIN | payments (same `AdminTransaction` rows); detail with events, refunds, linked webhooks and `refundAllowed` |
+| `POST /api/v1/admin/payments/{id}/refund` | SUPER_ADMIN (ADMIN while `payments.admin_refunds_enabled`) | `{amount, reason ≤ 500}` at most the refundable amount; 409 for unsecured/refunded payments and while a dispute is open; a partial refund before the payout keeps the payment SECURED (the payout shrinks), after it PARTIALLY_REFUNDED; a full refund of an unfinished trade cancels it; audited `payment.refund` |
+| `GET /api/v1/admin/payments/webhooks?status=&provider=`, `/webhooks/{id}` | ADMIN | every stored webhook, newest first; the payload only in the detail |
+| `GET/PUT /api/v1/admin/payments/settings` | ADMIN reads, SUPER_ADMIN writes | `{disputeWindowDays 1-60, platformFeePercent 0-30, autoReleaseEnabled, releaseReminderHours 1-168, adminRefundsEnabled, updatedAt, updatedBy}`; absent fields keep their value; audited `payments.settings.update`; cached ≤ 60 s |
+
+### Flow and money
+
+AWAITING_PAYMENT —pay→ payment REQUIRES_ACTION —`payment.secured`→ SECURED, trade PAID —ship→
+SHIPPED (window starts) —confirm-receipt or auto-release→ RECEIVED → payout released (PAID_OUT, or
+PARTIALLY_REFUNDED after any refund; PAYOUT_PENDING until `payout.paid` when the provider reports the
+transfer pending) → COMPLETED. PAID/SHIPPED —dispute→ DISPUTED (payout frozen) —resolve→ CANCELLED
+(BUYER) or COMPLETED (SELLER, SPLIT). `payment.failed` → FAILED (pay again restarts the checkout); a
+cancelled trade or an agreed meetup cancels an unpaid checkout (`PaymentProvider.cancelPayment`); a
+`payment.secured` arriving after that is refunded at once (`AUTO_REFUNDED`, refund source SYSTEM).
+Fee = amount × `fee_percent` / 100 half-up to the cent; payout = (amount − refunded) − fee(amount −
+refunded). Every step appends `payment_event` and the matching trade timeline entry
+(`PAYMENT_STARTED`, `PAYMENT_FAILED`, `PAYMENT_CANCELLED`, `PAYMENT_SECURED`, `SHIPPED`,
+`RECEIPT_CONFIRMED`, `PAYOUT_RELEASED`, `DISPUTE_OPENED`, `DISPUTE_RESOLVED`, `REFUNDED`) in one
+transaction (locks: trade row, then payment row); provider calls carry idempotency keys
+(`pay:<paymentId>:<attempt>`, `payout:<paymentId>`, `refund:dispute:<disputeId>`, …). Timeline and
+payment events name parties only; admins and the platform act with a NULL actor (the audit log keeps
+the admin).
+
+### Providers
+
+`PAYMENT_PROVIDER=fake` (default everywhere unless set): `FakePaymentProvider`, no network and no
+money; onboarding ACTIVE at once; payouts and refunds succeed immediately and idempotently;
+synthetic webhooks signed with `FAKE_PAYMENTS_WEBHOOK_SECRET` (a local value, not a secret of any
+service). `PAYMENT_PROVIDER=stripe`: `StripeConnectProvider` (Connect Express accounts + account
+links, PaymentIntent on the platform with `transfer_group=trade_<id>` and the client secret for the
+web form, Transfer to the connected account on release, Refunds; `payment_intent.succeeded`,
+`payment_intent.payment_failed`, `account.updated`, `refund.updated`/`refund.failed` webhooks) over
+the Stripe REST API with Spring's `RestClient` (no SDK dependency); start-up fails without
+`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`; `WEB_BASE_URL` prefixes onboarding return links.
+It is compile-only locally: `StripeConnectProviderTest` covers signature verification with a test
+secret and the event/account/request mapping without network. Only the active provider has a webhook
+route. Failed webhook processing and refused signatures are logged with the
+`payment.webhook.failed` marker (monitoring alert) and counted on the admin dashboard.
+
+### Notifications and analytics
+
+PAYMENT_UPDATE: seller "Payment secured: ship …" and buyer confirmation, buyer "Payment failed",
+buyer release reminder, seller "Payout released", buyer "Refund issued", seller "Set up payouts" when
+a protected trade opens without an ACTIVE payout account; SHIPMENT_STATUS to the buyer on shipment;
+DISPUTE_UPDATE (new type, category TRADE) for dispute openings (seller), evidence and messages (the
+other side), holds and decisions (both). Dedup keys `payment:<id>:<event>:<time>:<recipient>`,
+`dispute:<id>:<event>[:<subject>]:<recipient>`. The completion and a platform cancellation still
+produce the Phase 8 TRADE_UPDATE notifications and SYSTEM messages. Analytics:
+`payment_status_changed` (event, status, provider) and `dispute_status_changed` (event, status,
+reason, actor role); never amounts, ids, references or text.
+
+### Seed (Phase 9)
+
+`OfferSeedContributor` adds `…9c00…0006` (collector8 → collector1, 55.00 CAD, protection requested,
+ACCEPTED) and `…9c00…0007` (collector5 → collector2, 35.00 CAD, ACCEPTED); `TradeSeedContributor`
+their protected trades `…9d00…0003` (SHIPPED) and `…9d00…0004` (DISPUTED) with the payment
+timeline; `PaymentSeedContributor` ("payments", after "trades") fake ACTIVE payout accounts for
+collector1 and collector2, payments `…9f00…0001` (SECURED, shipped, window 7 days from the shipment)
+and `…9f00…0002` (SECURED, payout frozen) with shipments and dispute `…9f00…0101` (OPEN,
+NOT_AS_DESCRIBED, a TEXT evidence of collector5 and one message from each party). Inserted once;
+nothing is notified. The local hourly job releases `…0001` once its window ends. The local seed
+enables `protectedPayments` (Phase 2 `FeatureFlagSeedContributor`).
+
+### Account data
+
+Export section `payments` (seller account status, payments as buyer or seller with amounts and
+statuses, disputes opened with the account's own description). Open protected trades already block a
+deletion (`OPEN_TRADE`); payment, refund and dispute rows stay for the other party and the legal
+retention of financial records.
+
+### Deviations from the Phase 9 contract
+
+- `PaymentProvider` signatures carry what the adapters need: `onboardSeller(userId, accountRef,
+  returnUrl)`, `sellerStatus(accountRef)`, `releasePayout(PayoutRequest)` (amount, destination,
+  transfer group: split payouts), `refund(ref, amount, reason, idempotencyKey)`, plus
+  `cancelPayment(ref)`; `capture` is not needed (automatic capture).
+- The fake checkout adds `GET /payments/fake/{ref}` and the buyer's `POST /payments/fake/{ref}/confirm`
+  besides the internal `succeed|fail` routes; the checkout URL is the relative web path
+  `/checkout/fake/<ref>` (`FAKE_CHECKOUT_BASE_URL` prefixes it when set). Fake onboarding completes
+  at once.
+- Webhooks live at `/api/v1/webhooks/payments/{provider}`; idempotency is per `(provider,
+  provider_event_id)`; `payment_webhook_event` adds `signature_valid` and `payment_id`; unreadable
+  signed bodies are stored IGNORED and answered 400 `VALIDATION_FAILED`.
+- Additive columns: `payment.buyer_id`, `seller_id`, `fee_percent`, `refunded_amount`,
+  `payout_amount`, `payout_ref`, `payout_frozen`, `checkout_url`, `failure_code`,
+  `release_reminded_at`; `payment_event.actor_id`, `seq`; `shipment.shipped_by`, `created_at`;
+  `dispute.payment_id`, `updated_at`, `frozen_at`, `frozen_by`, `version`;
+  `dispute_evidence.party_role`, `content_type`, `size_bytes`; new tables `payment_refund`,
+  `dispute_message`, `dispute_note`; `platform_settings` also holds `payments.release_reminder_hours`
+  and the refund policy `payments.admin_refunds_enabled`. VIDEO is part of the API's `EvidenceKind`
+  but refused (400) and absent from the table's CHECK until it is enabled.
+- A SPLIT or partial refund followed by the payout ends PARTIALLY_REFUNDED (the payout amount is in
+  `payoutAmount`); a partial admin refund before the payout keeps the payment SECURED.
+- FROZEN is an admin hold: the parties cannot add evidence or messages until `unfreeze`; the payout is
+  frozen from the dispute's opening to its resolution whatever the status. Dispute resolution is
+  ADMIN; the ad-hoc refund route is the policy-gated one.
+- Additive error codes `SELLER_NOT_ONBOARDED`, `DISPUTE_WINDOW_CLOSED`, `EVIDENCE_LIMIT_REACHED`
+  (409) and `WEBHOOK_SIGNATURE_INVALID` (400); notification type `DISPUTE_UPDATE`.
+- `TradeResponse` fills `payment` (`PaymentSummary` gains provider, fee, seller amount, refunds,
+  payout, `payoutFrozen`, the buyer's `checkoutUrl`, window and dates) and `dispute` (+ `resolvedAt`,
+  `refundAmount`) and adds `shipment` (`ShipmentSummary` with `sellerNotes`); `allowedOperations`
+  gains PAY, SHIP, CONFIRM_RECEIPT, OPEN_DISPUTE. Admin payment routes are not flag-gated.
+- The admin dispute detail includes both parties' Phase 7 moderation histories (reports, ratings,
+  suspensions, pauses, flags) and rating summaries; internal notes are `internalNotes`.
+- Dispute evidence files are served by the API (`/disputes/{id}/evidence/{evidenceId}/file`), never by
+  a signed URL (cloud storage work deferred).
+
 ## Build, format, test
 
 ```bash
@@ -1068,7 +1213,10 @@ REPORT moderation rules and flag reason, `user_account.banned_at`),
 `V062__listing_pauses_and_strikes.sql` (`user_responsiveness`, `delist_policy.unanswered_after_hours`)
 and `V063__analytics_daily_count.sql` (`analytics_daily_count`). Phase 8 adds `V070__offers.sql`
 (`offer`, `offer_trade_item`, `offer_event`, `offer_preferences`, `uq_message_system_key`) and
-`V071__trades.sql` (`trade`, `trade_event`).
+`V071__trades.sql` (`trade`, `trade_event`). Phase 9 adds `V080__payments.sql` (`platform_settings`
+with the `payments.*` rows, `seller_account`, `payment`, `payment_event`, `payment_refund`,
+`payment_webhook_event`) and `V081__shipments_disputes.sql` (`shipment`, `dispute`,
+`dispute_evidence`, `dispute_event`, `dispute_message`, `dispute_note`).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -1117,8 +1265,11 @@ com.orenjitrade.api
 ├── offers/      offers (counter chain, current_turn, versions, history), expiry job, offer settings,
 │                offer links of messages (Phase 8)
 ├── trades/      trades from accepted offers: meetup, completion (inventory transfer, TRADE
-│                interaction), cancellation (Phase 8; payments and disputes arrive with Phase 9)
-└── payments credits donations ads
+│                interaction), cancellation (Phase 8), TradeProtection extension point (Phase 9)
+├── payments/    PaymentProvider (fake / Stripe Connect), seller accounts, protected checkout,
+│                webhooks, shipping, receipt, payouts, refunds, disputes, auto-release job,
+│                admin transactions / disputes / payments / webhooks / settings (Phase 9)
+└── credits donations ads
                                                           (documented in each package-info.java)
 ```
 

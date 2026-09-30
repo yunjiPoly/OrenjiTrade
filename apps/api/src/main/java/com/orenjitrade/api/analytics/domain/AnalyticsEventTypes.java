@@ -45,5 +45,14 @@ public final class AnalyticsEventTypes {
     /** A trade was opened or changed (event, status, kind, protection and meetup flags). */
     public static final String TRADE_STATUS_CHANGED = "trade_status_changed";
 
+    /**
+     * A protected payment changed (Phase 9: event, status, provider; never amounts, ids or provider
+     * references).
+     */
+    public static final String PAYMENT_STATUS_CHANGED = "payment_status_changed";
+
+    /** A dispute changed (Phase 9: event, status, reason, actor role; never text or evidence). */
+    public static final String DISPUTE_STATUS_CHANGED = "dispute_status_changed";
+
     private AnalyticsEventTypes() {}
 }

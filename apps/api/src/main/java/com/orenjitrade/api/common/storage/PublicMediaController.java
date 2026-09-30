@@ -64,7 +64,7 @@ public class PublicMediaController {
                     @PathVariable("key")
                     String key) {
         String normalised = key.startsWith("/") ? key.substring(1) : key;
-        if (!ObjectKeys.isValid(normalised)) {
+        if (!ObjectKeys.isPublic(normalised)) {
             throw ApiException.notFound(NOT_FOUND);
         }
         StoredObject object =

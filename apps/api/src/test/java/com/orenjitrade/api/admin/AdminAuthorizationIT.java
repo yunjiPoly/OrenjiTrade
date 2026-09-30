@@ -161,7 +161,43 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/games", Level.ADMIN));
         routes.add(get("/api/v1/admin/catalog/providers", Level.ADMIN));
         routes.add(get("/api/v1/admin/catalog/sync-runs", Level.ADMIN));
+        // Phase 9: transactions, disputes, payments, webhooks, settings (read).
+        routes.add(get("/api/v1/admin/transactions", Level.ADMIN));
+        routes.add(get("/api/v1/admin/transactions/pending-shipment", Level.ADMIN));
+        routes.add(get("/api/v1/admin/transactions/pending-confirmation", Level.ADMIN));
+        routes.add(get("/api/v1/admin/disputes", Level.ADMIN));
+        routes.add(get("/api/v1/admin/disputes/" + id, Level.ADMIN));
+        routes.add(
+                post(
+                        "/api/v1/admin/disputes/" + id + "/freeze",
+                        Map.of("reason", "x"),
+                        Level.ADMIN));
+        routes.add(post("/api/v1/admin/disputes/" + id + "/unfreeze", null, Level.ADMIN));
+        routes.add(
+                post("/api/v1/admin/disputes/" + id + "/notes", Map.of("body", "x"), Level.ADMIN));
+        routes.add(
+                post(
+                        "/api/v1/admin/disputes/" + id + "/resolve",
+                        Map.of("outcome", "SELLER", "note", "x"),
+                        Level.ADMIN));
+        routes.add(get("/api/v1/admin/payments", Level.ADMIN));
+        routes.add(get("/api/v1/admin/payments/" + id, Level.ADMIN));
+        routes.add(get("/api/v1/admin/payments/webhooks", Level.ADMIN));
+        routes.add(get("/api/v1/admin/payments/webhooks/" + id, Level.ADMIN));
+        routes.add(get("/api/v1/admin/payments/settings", Level.ADMIN));
         // --- SUPER_ADMIN (service rules; unknown keys answer 404 to a SUPER_ADMIN) ------------
+        // Refunds: SUPER_ADMIN unless payments.admin_refunds_enabled (off by default).
+        routes.add(
+                post(
+                        "/api/v1/admin/payments/" + id + "/refund",
+                        Map.of("amount", 1, "reason", "x"),
+                        Level.SUPER_ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/payments/settings",
+                        Map.of(),
+                        Level.SUPER_ADMIN));
         routes.add(
                 new Route(
                         HttpMethod.PUT,

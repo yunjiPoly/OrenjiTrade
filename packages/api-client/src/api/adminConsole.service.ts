@@ -44,7 +44,7 @@ export class AdminConsoleService extends BaseService implements AdminConsoleServ
 
     /**
      * Dashboard counters (ADMIN)
-     * Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes and webhook failures (0 until Phase 9) and notifications whose push or email failed in the last 24 hours.
+     * Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes (OPEN, UNDER_REVIEW, FROZEN), payment webhooks that failed or had an invalid signature and notifications whose push or email failed in the last 24 hours.
      * @endpoint get /api/v1/admin/dashboard
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.

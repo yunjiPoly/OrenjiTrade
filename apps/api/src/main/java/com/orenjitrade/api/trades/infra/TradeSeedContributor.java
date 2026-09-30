@@ -27,8 +27,10 @@ import tools.jackson.databind.json.JsonMapper;
  * 00000000-0000-4000-9d00-...}): {@code …0001} collector2 ↔ collector1 (TRADE, in-person meetup,
  * COMPLETED; Phase 7 seeded its TRADE interaction and ratings) and {@code …0002} collector5 ↔
  * collector1 (30.00 CAD, shipped informally, COMPLETED; its TRADE interaction is recorded here).
- * Inventory quantities are left as seeded (the history predates the seed inventory); nothing is
- * notified. Inserted once.
+ * Phase 9 adds two trades with payment protection: {@code …0003} collector8 ↔ collector1 (55.00
+ * CAD, paid and SHIPPED) and {@code …0004} collector5 ↔ collector2 (35.00 CAD, shipped, DISPUTED);
+ * the payments module seeds their payments, shipments and the dispute. Inventory quantities are
+ * left as seeded (the history predates the seed inventory); nothing is notified. Inserted once.
  */
 @Component
 public class TradeSeedContributor implements SeedContributor {
@@ -40,6 +42,14 @@ public class TradeSeedContributor implements SeedContributor {
     static final UUID OFFER_5_TO_1 = UUID.fromString("00000000-0000-4000-9c00-000000000002");
     static final UUID TRADE_1_2 = UUID.fromString("00000000-0000-4000-9d00-000000000001");
     static final UUID TRADE_1_5 = UUID.fromString("00000000-0000-4000-9d00-000000000002");
+    static final UUID COLLECTOR8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
+    static final UUID OFFER_8_TO_1 = UUID.fromString("00000000-0000-4000-9c00-000000000006");
+    static final UUID OFFER_5_TO_2 = UUID.fromString("00000000-0000-4000-9c00-000000000007");
+    static final UUID TRADE_8_1 = UUID.fromString("00000000-0000-4000-9d00-000000000003");
+    static final UUID TRADE_5_2 = UUID.fromString("00000000-0000-4000-9d00-000000000004");
+    static final UUID PAYMENT_8_1 = UUID.fromString("00000000-0000-4000-9f00-000000000001");
+    static final UUID PAYMENT_5_2 = UUID.fromString("00000000-0000-4000-9f00-000000000002");
+    static final UUID DISPUTE_5_2 = UUID.fromString("00000000-0000-4000-9f00-000000000101");
 
     private final JdbcClient jdbc;
     private final OfferService offers;
@@ -139,6 +149,104 @@ public class TradeSeedContributor implements SeedContributor {
                     TRADE_1_5,
                     completed);
         }
+        seedProtectedTrades(now);
+    }
+
+    /**
+     * Phase 9: the protected trades of the seeded offers {@code …0006} (SHIPPED) and {@code …0007}
+     * (DISPUTED), with the timeline the payment flow would have written. The times match the
+     * payments module's seed (same offsets from the first run).
+     */
+    private void seedProtectedTrades(Instant now) {
+        Optional<OfferRow> shippedOffer = offers.row(OFFER_8_TO_1);
+        if (shippedOffer.isPresent()) {
+            Instant created = now.minus(Duration.ofDays(3));
+            Instant started = created.plus(Duration.ofMinutes(10));
+            Instant secured = created.plus(Duration.ofMinutes(12));
+            Instant shipped = now.minus(Duration.ofDays(1));
+            if (protectedTrade(TRADE_8_1, shippedOffer.get(), "SHIPPED", created, shipped, 3)) {
+                event(TRADE_8_1, 1, COLLECTOR1, "CREATED", created, protectedCreated(OFFER_8_TO_1));
+                event(TRADE_8_1, 2, COLLECTOR8, "PAYMENT_STARTED", started, payment(PAYMENT_8_1));
+                event(TRADE_8_1, 3, null, "PAYMENT_SECURED", secured, payment(PAYMENT_8_1));
+                Map<String, Object> shipping = new LinkedHashMap<>();
+                shipping.put("carrier", "Postal service");
+                shipping.put("trackingNumber", "LOCAL-000001");
+                shipping.put("disputeWindowEndsAt", shipped.plus(Duration.ofDays(7)).toString());
+                event(TRADE_8_1, 4, COLLECTOR1, "SHIPPED", shipped, shipping);
+            }
+        }
+        Optional<OfferRow> disputedOffer = offers.row(OFFER_5_TO_2);
+        if (disputedOffer.isPresent()) {
+            Instant created = now.minus(Duration.ofDays(6));
+            Instant started = created.plus(Duration.ofMinutes(15));
+            Instant secured = created.plus(Duration.ofMinutes(20));
+            Instant shipped = now.minus(Duration.ofDays(5));
+            Instant disputed = now.minus(Duration.ofDays(1));
+            if (protectedTrade(TRADE_5_2, disputedOffer.get(), "DISPUTED", created, disputed, 4)) {
+                event(TRADE_5_2, 1, COLLECTOR2, "CREATED", created, protectedCreated(OFFER_5_TO_2));
+                event(TRADE_5_2, 2, COLLECTOR5, "PAYMENT_STARTED", started, payment(PAYMENT_5_2));
+                event(TRADE_5_2, 3, null, "PAYMENT_SECURED", secured, payment(PAYMENT_5_2));
+                Map<String, Object> shipping = new LinkedHashMap<>();
+                shipping.put("carrier", "Postal service");
+                shipping.put("trackingNumber", "LOCAL-000002");
+                shipping.put("disputeWindowEndsAt", shipped.plus(Duration.ofDays(7)).toString());
+                event(TRADE_5_2, 4, COLLECTOR2, "SHIPPED", shipped, shipping);
+                Map<String, Object> dispute = new LinkedHashMap<>();
+                dispute.put("disputeId", DISPUTE_5_2.toString());
+                dispute.put("reason", "NOT_AS_DESCRIBED");
+                event(TRADE_5_2, 5, COLLECTOR5, "DISPUTE_OPENED", disputed, dispute);
+            }
+        }
+    }
+
+    /**
+     * Inserts an open protected trade of an accepted offer; returns whether it was inserted now.
+     */
+    private boolean protectedTrade(
+            UUID id,
+            OfferRow offer,
+            String status,
+            Instant createdAt,
+            Instant updatedAt,
+            int version) {
+        return jdbc.sql(
+                                """
+                                INSERT INTO trade (id, offer_id, item_id, seller_id, buyer_id,
+                                    kind, cash_amount, currency, status, protection_enabled,
+                                    created_at, updated_at, version)
+                                VALUES (:id, :offerId, :itemId, :sellerId, :buyerId, :kind, :cash,
+                                    :currency, :status, true, :createdAt, :updatedAt, :version)
+                                ON CONFLICT DO NOTHING
+                                """)
+                        .param("id", id)
+                        .param("offerId", offer.id())
+                        .param("itemId", offer.itemId(), Types.OTHER)
+                        .param("sellerId", offer.sellerId())
+                        .param("buyerId", offer.buyerId())
+                        .param("kind", offer.kind().name())
+                        .param("cash", offer.cashAmount(), Types.NUMERIC)
+                        .param("currency", offer.currency(), Types.CHAR)
+                        .param("status", status)
+                        .param("createdAt", Timestamp.from(createdAt))
+                        .param("updatedAt", Timestamp.from(updatedAt))
+                        .param("version", version)
+                        .update()
+                > 0;
+    }
+
+    private static Map<String, Object> protectedCreated(UUID offerId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("offerId", offerId.toString());
+        details.put("status", "AWAITING_PAYMENT");
+        details.put("protectionEnabled", true);
+        return details;
+    }
+
+    private static Map<String, Object> payment(UUID paymentId) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("paymentId", paymentId.toString());
+        details.put("provider", "fake");
+        return details;
     }
 
     /** Inserts a COMPLETED trade of an accepted offer; returns whether it was inserted now. */
@@ -187,7 +295,7 @@ public class TradeSeedContributor implements SeedContributor {
     private void event(
             UUID tradeId,
             int sequence,
-            UUID actorId,
+            @Nullable UUID actorId,
             String event,
             Instant at,
             Map<String, Object> details) {
@@ -199,7 +307,7 @@ public class TradeSeedContributor implements SeedContributor {
                         """)
                 .param("id", UUID.nameUUIDFromBytes((tradeId + ":event:" + sequence).getBytes()))
                 .param("tradeId", tradeId)
-                .param("actorId", actorId)
+                .param("actorId", actorId, Types.OTHER)
                 .param("event", event)
                 .param("details", jsonMapper.writeValueAsString(details))
                 .param("at", Timestamp.from(at))

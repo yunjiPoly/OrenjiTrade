@@ -146,7 +146,7 @@ test.describe('private messaging', () => {
     await expect(composerA).toHaveValue('');
 
     // Share a card through the autocomplete, with a caption.
-    await threadA.getByRole('button', { name: 'Attach a card, binder or photo' }).click();
+    await threadA.getByRole('button', { name: 'Attach a card, binder, offer or photo' }).click();
     await pageA.getByRole('menuitem', { name: 'Share a card' }).click();
     const cardField = threadA.getByRole('combobox', { name: 'Card to share' });
     await expect(cardField).toBeFocused();

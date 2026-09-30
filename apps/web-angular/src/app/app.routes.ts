@@ -117,6 +117,14 @@ export const routes: Routes = [
       import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
   },
   {
+    path: 'offers',
+    loadChildren: () => import('./features/offers/offers.routes').then((m) => m.OFFERS_ROUTES),
+  },
+  {
+    path: 'trades',
+    loadChildren: () => import('./features/trades/trades.routes').then((m) => m.TRADES_ROUTES),
+  },
+  {
     path: 'collectors/:handle',
     title: 'Collector',
     canActivate: [accountStateGuard],
