@@ -13,7 +13,7 @@ import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.
 
 /**
  * Account entry of the top bar. Signed out: sign in / create account. Signed in: avatar trigger
- * with name and handle, profile, settings, admin (staff only) and sign out.
+ * with name and handle, profile, offers, trades, settings, admin (staff only) and sign out.
  */
 @Component({
   selector: 'app-account-menu',
@@ -67,6 +67,14 @@ import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.
             <span>Profile</span>
           </a>
         }
+        <a mat-menu-item routerLink="/offers">
+          <mat-icon>local_offer</mat-icon>
+          <span>Offers</span>
+        </a>
+        <a mat-menu-item routerLink="/trades">
+          <mat-icon>sync_alt</mat-icon>
+          <span>Trades</span>
+        </a>
         <a mat-menu-item routerLink="/settings">
           <mat-icon>settings</mat-icon>
           <span>Settings</span>

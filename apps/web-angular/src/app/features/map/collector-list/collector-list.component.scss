@@ -140,3 +140,13 @@
   grid-row: 1;
   font-weight: var(--font-weight-semibold);
 }
+
+.item__offer {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: var(--spacing-1);
+
+  &:empty {
+    display: none;
+  }
+}

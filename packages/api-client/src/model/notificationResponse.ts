@@ -43,6 +43,7 @@ export enum NotificationResponseTypeEnum {
     TradeUpdate = 'TRADE_UPDATE',
     ShipmentStatus = 'SHIPMENT_STATUS',
     PaymentUpdate = 'PAYMENT_UPDATE',
+    DisputeUpdate = 'DISPUTE_UPDATE',
     ReportDecision = 'REPORT_DECISION',
     System = 'SYSTEM'
 };

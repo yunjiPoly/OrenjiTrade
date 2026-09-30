@@ -7,9 +7,11 @@ import {
   output,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MAX_QUANTITY } from '../data/item-form';
 
-/** − 2 + stepper for the number of copies; emits the new quantity (never below 1). */
+/** Largest quantity the stepper allows by default (the API's copy limit). */
+export const QUANTITY_STEPPER_MAX = 9999;
+
+/** − 2 + stepper for the number of copies; emits the new quantity (never below `min`). */
 @Component({
   selector: 'app-quantity-stepper',
   imports: [MatIconModule],
@@ -91,7 +93,7 @@ export class QuantityStepperComponent {
   /** Card name for the accessible labels. */
   readonly label = input('card');
   readonly min = input(1, { transform: numberAttribute });
-  readonly max = input(MAX_QUANTITY, { transform: numberAttribute });
+  readonly max = input(QUANTITY_STEPPER_MAX, { transform: numberAttribute });
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly valueChange = output<number>();
 

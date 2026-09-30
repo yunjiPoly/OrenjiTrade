@@ -466,6 +466,66 @@ Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes an
   confirmation (or a reason), shows "… The action is in the audit log." and appears in Audit
   logs (new action labels; REPORT targets link to the report).
 
+## Offers and trades (Phase 8)
+
+Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviations in
+`apps/api/README.md`, "Offers and trades (Phase 8)"). Generated client only (`OffersService`,
+`TradesService`, `MessagingService`, `RatingsService`).
+
+- **Make an offer** (`shared/offers`): `MakeOfferButtonComponent` takes an `OfferTarget` (a view
+  model built from a public item and its owner, a card-holder result, a map "holders" listing or
+  a wishlist match) and shows "Make an offer" only when the card accepts at least one kind and is
+  not the viewer's own (signed-out visitors go to sign-in). Entry points: public binder cards,
+  the collector page's public cards, card-holder results (`/search?card=`), the map's holders
+  list and wishlist matches. `MakeOfferDialogComponent`: the card and its seller (region label
+  only), the kinds the availability allows (`allowedOfferKinds`: SALE → cash, TRADE → trade,
+  TRADE_OR_SALE → cash / trade / cash + cards), amount (> 0, 2 decimals) and currency, the
+  buyer's own cards through `OfferCardPickerComponent` (search `GET /inventory/items`, private
+  cards included, copies with the shared quantity stepper, at most 10 cards), a note ≤ 500, the
+  expiry (12 hours, 1, 3 or 7 days) and a live summary; `POST /offers` with an `Idempotency-Key`
+  fixed per dialog. Refusals inline (`offer-problems.ts`): 422 `OFFERS_NOT_ACCEPTED` (with a hint
+  to try another kind), 409 `OFFER_ALREADY_OPEN` with a link to the open offer, 404, 403, 400
+  field errors; 429 `LIMIT_REACHED` also opens the limit dialog. Success: snack bar with "View
+  offer".
+- **Offer page** `/offers/:id` (`features/offers/detail`, `OfferDetailStore`): the card, the deal
+  side by side (`DealSummaryComponent`: the seller's card against cash and/or the buyer's cards
+  with copies, the proposer's note), both parties (`OfferPartyCardComponent`: region label,
+  distance bucket, rating; never a point), the chain's history (`OfferHistoryComponent`:
+  proposals with terms and notes, reasons, the other party's latest "viewed") and
+  `OfferActionBarComponent` with only the `allowedActions`: Accept (confirmation, opens the
+  trade), Counter (the same dialog in counter mode: the current proposal; a seller can only keep,
+  drop or reduce the buyer's cards; the deal must change), Decline (optional reason), Withdraw
+  (the buyer while OPEN, optional reason), Message. Every answer sends the `version` on screen;
+  409 `STALE_OFFER` moves to `latestOfferId` with an explanation, `NOT_YOUR_TURN` /
+  `INVALID_STATE_TRANSITION` / `ITEM_UNAVAILABLE` re-read the offer, 403 `TRADING_BLOCKED` is
+  explained; a superseded proposal links to the live one, an accepted one to its trade; offer
+  notifications of the chain re-read the page (and follow a counter-offer) live.
+- **Offers inbox** `/offers?tab=received|sent&status=all|active|accepted|closed`
+  (`OffersInboxStore` on the shared `CursorList`): Received (`role=seller`) and Sent
+  (`role=buyer`) tabs, status filter, cursor pages, "Your turn" badges and count, live re-reads
+  on offer notifications.
+- **Trades** `/trades?status=` (`TradesListStore`) and `/trades/:id` (`TradeDetailStore`): the
+  next-action banner (`nextAction` in words, the viewer's operations as buttons from
+  `allowedOperations`: "We meet in person" (`/meetup`), "Confirm the exchange" (`/complete`,
+  with a confirmation), Message; payment and shipping steps are only named until Phase 9),
+  progress with both parties' meetup marks and confirmations, the deal, the other collector,
+  the timeline and Cancel trade (required reason). Completed trades offer "Rate <name>" (the
+  TRADE interaction through `RatingActionsService`; the profile's ratings section offers it too)
+  and "Add to my inventory" for the received cards (`/inventory?add=<printing>&card=<card>`: the
+  API only removes the given cards).
+- **Messages**: SYSTEM messages about offers and trades and OFFER_LINK messages render an offer
+  card (`OfferLinkCardComponent`: the live proposal's summary and status, linking to
+  `/offers/:id`); the composer's attach menu gains "Share an offer" (`OfferLinkPickerComponent`:
+  the caller's recent negotiations with the other participant, sent as `OFFER_LINK`). The
+  messages page links to Offers and Trades.
+- **Settings → Offers** (`features/settings/offers`, `GET/PUT /me/settings/offers`): "Accept
+  mixed offers (cash + cards)", saved on change.
+- **Notifications and navigation**: OFFER_CANCELLED ("Offer withdrawn") and OFFER_EXPIRED kinds;
+  offer notifications open `/offers/:id` (or the trade), TRADE_UPDATE opens `/trades/:id`; the
+  account menu lists Offers and Trades.
+- Deviation: the Problem Details extensions `latestOfferId`, `offerId` and `currentStatus` are
+  not declared by the generated `ProblemDetail`; `problemExtension()` reads them defensively.
+
 ## Maps
 
 Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers (pins, avatar and
@@ -519,8 +579,12 @@ src/app/
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, trading-area, blocked users, my
-                reports, account, appearance
+    settings/   shell + profile, privacy, notifications, trading-area, offers, blocked users,
+                my reports, account, appearance
+    offers/     /offers inbox (tabs, status filter, summary rows) and /offers/:id (action bar,
+                history); data/ (OffersInboxStore, OfferDetailStore)
+    trades/     /trades list and /trades/:id (next-action banner, steps, timeline); data/
+                (TradesListStore, TradeDetailStore)
     collectors/ public profile (container + presentational view, public wishlist, ratings and
                 references section)
     admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog, moderation
@@ -531,7 +595,7 @@ src/app/
                 (auto-delist editor), health
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
-                binder list, toolbar, summary, items (grid card, table, stepper), bulk bar,
+                binder list, toolbar, summary, items (grid card, table), bulk bar,
                 binders (header, publish menu, form + manager dialogs), editor side panel,
                 add-card dialog
     binders/    /binders/:id public binder (container + header)
@@ -562,11 +626,14 @@ src/app/
     profile/    profile form, game / language / tag pickers, MyProfileStore
     links/      card / binder link pickers (autocomplete), shared link card
     messaging/  ConversationStarterService, BlockActionsService
+    offers/     offer and trade labels, OfferTarget, offer form, refusals, make-offer button and
+                dialog, card picker, reason dialog, deal summary, party card, status chip, offer
+                link card and picker, CursorList, OfferActionsService
     wishlist/   WishlistActions, add/edit dialog (card picker, criteria fields), form, labels
     pipes/      relativeTime, mediaUrl
     ui/         avatar, card-art, confirm-dialog, game-chip, section-card, empty-state,
                 error-state, skeleton, page-header, freshness-badge, condition-chip,
-                availability-chip, visibility-badge, search-field, wordmark
+                availability-chip, visibility-badge, search-field, wordmark, quantity-stepper
 ```
 
 Rules: standalone components, `ChangeDetectionStrategy.OnPush`, signals for state, feature
@@ -622,7 +689,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   ratings section (eligibility-driven Rate / reference actions, own-rating edit, errors), My
   reports, paused-listings banner, preview Report button, resolve-report request rules,
   moderation rule validation, delist policy validation and timeline, dashboard tiles, analytics
-  summary.
+  summary; Phase 8: offer labels (kinds per availability, terms, statuses, history wording,
+  expiry, "Make an offer" visibility), offer form (cash and card rules, create and counter
+  bodies, unchanged deal), offer refusals and trade labels, the offer dialog (kinds, validation,
+  idempotency key, trade cards with copies, 409 link, counter with version, stale hand-off),
+  `OfferDetailStore` (turns, accept, 409 STALE_OFFER to the live proposal, re-read on conflicts,
+  live follow), `OffersInboxStore` (query, paging, live re-reads), `TradeDetailStore`
+  (operations, refusals, cancel reason, live re-reads), action bar, offer cards in the
+  conversation, offer link picker, OFFER_LINK drafts.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -695,6 +769,20 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     update, the rating is edited within its window and a reference is written; the rated
     collector gets RATING_RECEIVED without the comment; an unrelated collector sees no rate or
     reference action and the API refuses their rating (403 `RATING_NOT_ELIGIBLE`).
+  - `e2e/offers.spec.ts` (fresh collectors; the sellers live at a random rural point): B makes
+    a cash offer on A's public binder card through the dialog (amount required, a second offer on
+    the card refused inline with a link to the open one) and shares it from the message composer;
+    A has the OFFER_RECEIVED notification and sees the SYSTEM message and the OFFER_LINK card in
+    the conversation, opens the offer, is refused an unchanged counter-offer and counters; B
+    accepts from the Sent inbox ("Your turn") and lands on the trade page; both mark the
+    in-person meetup and confirm the exchange (COMPLETED, A's copies drop from 2 to 1), B rates A
+    from the trade page and A gets "Rate this collector" on B's profile. A second test: A switches
+    off mixed offers in Settings → Offers, B's mixed offer is refused inline (422) and B sends a
+    trade offer with two copies of a private card from A's profile; A's decline on a proposal
+    that another device countered meanwhile gets 409 `STALE_OFFER` and the page moves to the live
+    proposal; B declines the counter-offer with a reason and withdraws a cash offer on a
+    sale-only card; the inbox status filter; a stranger gets the not-found state and 404. Every
+    JSON response has at most 3 decimals for `lat`/`lng`.
   - `e2e/admin-moderation.spec.ts`: an administrator's dashboard counts, the listing review
     queue, hiding a collector's listing with a required reason from their listings, pausing and
     resuming the collector's listings (the collector sees the "under review" banner on

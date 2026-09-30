@@ -11,6 +11,8 @@ import com.orenjitrade.api.community.events.CommunityPostCreated;
 import com.orenjitrade.api.messaging.events.MessageSent;
 import com.orenjitrade.api.offers.events.OfferCreated;
 import com.orenjitrade.api.offers.events.OfferUpdated;
+import com.orenjitrade.api.payments.events.DisputeUpdated;
+import com.orenjitrade.api.payments.events.PaymentUpdated;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
 import com.orenjitrade.api.ratings.events.RatingSubmitted;
 import com.orenjitrade.api.reports.events.CollectorReported;
@@ -403,6 +405,46 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.TRADE_STATUS_CHANGED,
                             trade.occurredAt(),
                             trade.actorId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(PaymentUpdated payment) {
+        emit(
+                AnalyticsEventTypes.PAYMENT_STATUS_CHANGED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("event", payment.event());
+                    payload.put("status", String.valueOf(payment.status()));
+                    payload.put("provider", payment.provider());
+                    payload.put("by_platform", payment.actorId() == null);
+                    return event(
+                            AnalyticsEventTypes.PAYMENT_STATUS_CHANGED,
+                            payment.occurredAt(),
+                            payment.actorId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(DisputeUpdated dispute) {
+        emit(
+                AnalyticsEventTypes.DISPUTE_STATUS_CHANGED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("event", dispute.event());
+                    payload.put("status", dispute.status());
+                    payload.put("reason", dispute.reason());
+                    payload.put("actor_role", String.valueOf(dispute.actorRole()));
+                    return event(
+                            AnalyticsEventTypes.DISPUTE_STATUS_CHANGED,
+                            dispute.occurredAt(),
+                            dispute.actorId(),
                             null,
                             null,
                             payload);

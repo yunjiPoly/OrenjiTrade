@@ -32,7 +32,12 @@ update it in the same change.
 | `message.body`, `message.payload`, `message_attachment`, `conversation.last_message_preview`, `image_upload` | Private content | Participants only (+ moderators acting on a report, Phase 7); never logged, never in events or analytics; export lists only the owner's own sent messages |
 | `user_block.reason` | Private note | Never returned by the API (not even to the blocker), never logged or put into events |
 | `community_post.removed_reason`, `community_reply.removed_reason`, `moderation_flag.resolution_note` | Moderator notes | Moderator console and audit log only |
-| `payment_*` | Financial | Provider tokens only; never card numbers |
+| `payment_*` | Financial | Provider tokens only; never card numbers, CVV or bank details (Phase 9: amounts, statuses and provider references) |
+| `seller_account.provider_account_id`, `payment.provider_ref`, `payment.payout_ref`, `payment_refund.provider_refund_id` | Provider references | Never returned to other members; the buyer's own fake checkout path carries its payment reference; admin views show statuses and amounts, never connected-account ids |
+| `payment_webhook_event.payload` | Provider event as received (may carry billing contact data with Stripe) | Admin webhook detail only (`GET /admin/payments/webhooks/{id}`); lists omit it; never logged |
+| `dispute.description`, `dispute_evidence.body`, `dispute_message.body`, `shipment.notes`, `shipment.tracking_number` | Free text of the two parties | The two parties and admins only (`GET /disputes/{id}`, `GET /trades/{id}`, admin dispute views); never in notifications, events, analytics or the audit log |
+| `dispute_evidence.storage_key` (files under `disputes/<disputeId>/`) | Evidence photos (re-encoded JPEG, EXIF/GPS stripped) and PDF documents | Never public: `ObjectKeys.isPublic` refuses the `disputes` namespace and PDFs on `/public/media`; served only by `GET /disputes/{id}/evidence/{evidenceId}/file` to the parties and admins (`Cache-Control: private, no-store`) |
+| `dispute_note.body`, `payment_refund.reason` | Staff free text | Admin console only; the audit log records ids, outcomes and amounts, never the text |
 | `entitlement.note` | Admin free text | Admin console only; never returned to the account owner (`GET /me/plan` omits it) nor logged |
 | `usage_counter` | Per-user usage | Owner (`GET /me/plan`) and admins only; never in analytics with the user id |
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
@@ -1406,3 +1411,191 @@ notes only) and `trades`.
 
 Redis keys of this phase: `idem:offer:<buyerId>:<Idempotency-Key>` (offer id, 24 h); the daily
 counter lives in `usage_counter` with its Phase 2 mirror `orenji:usage:<userId>:offers.per_day:<UTC day start, epoch seconds>`.
+
+### Phase 9 — payment protection, shipping, disputes (V080–V081)
+
+Feature flag `protectedPayments` (ADR 0011). The platform stores provider references only (payment
+intent, transfer, refund and connected-account ids), never card numbers, CVV or bank details, and
+never calls anything "escrow". Money is `numeric(12,2)` + ISO currency; every change of a payment
+appends a `payment_event` and the matching `trade_event` in the same transaction (lock order: the
+`trade` row, then the `payment` row); notifications and analytics follow after commit from
+`PaymentUpdated` / `DisputeUpdated`; provider webhooks are applied after commit from
+`PaymentWebhookReceived` (Spring Modulith registry). Configurable numbers are `platform_settings`
+rows (ADR 0014). Nothing here stores a location.
+
+### V080 — platform settings, seller accounts, payments, refunds, webhooks
+
+#### `platform_settings`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `key` | `text` | PK, dotted lower-case (`ck_platform_settings_key`), e.g. `payments.dispute_window_days` |
+| `value` | `jsonb` | JSON scalar (number, boolean or string; `ck_platform_settings_value`); the owning module checks type and bounds |
+| `description` | `text` | ≤ 500 |
+| `updated_by` | `uuid` | FK → `user_account.id` (set null); NULL for migration defaults |
+| `updated_at`, `created_at` | `timestamptz` | |
+
+Rows of V080 (`PaymentSettings`, cached in Redis `orenji:cache:payment-settings:v1` for ≤ 60 s,
+evicted after `PUT /admin/payments/settings`, SUPER_ADMIN, audited `payments.settings.update`):
+`payments.dispute_window_days` 7 (1–60), `payments.platform_fee_percent` 5.00 (0–30),
+`payments.auto_release_enabled` true, `payments.release_reminder_hours` 48 (1–168),
+`payments.admin_refunds_enabled` false (ADMIN may refund only while true; SUPER_ADMIN always).
+
+#### `seller_account`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | `uuid` | PK, FK → `user_account.id` (cascade) |
+| `provider` | `text` | `fake` or `stripe` |
+| `provider_account_id` | `text` | **confidential** connected-account id (`acct_…`, `fake_acct_…`); required for ACTIVE (`ck_seller_account_active`); `uq_seller_account_provider_account (provider, provider_account_id)` |
+| `status` | `text` | `NOT_STARTED`, `PENDING`, `ACTIVE`, `RESTRICTED` |
+| `payouts_enabled` | `boolean` | buyers can pay only when ACTIVE with payouts enabled at the active provider |
+| `created_at`, `updated_at` | `timestamptz` | |
+
+#### `payment`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK (app-generated before the provider call; idempotency keys use it) |
+| `trade_id` | `uuid` | FK → `trade.id` (cascade); `uq_payment_trade`: one payment per trade (a failed or cancelled checkout is restarted on the same row) |
+| `buyer_id`, `seller_id` | `uuid` | FK → `user_account.id` (cascade), copied from the trade |
+| `provider`, `provider_ref` | `text` | `uq_payment_provider_ref`; **confidential** reference (`pi_…`, `fake_pi_…`) |
+| `status` | `text` | `REQUIRES_ACTION`, `SECURED`, `PAYOUT_PENDING`, `PAID_OUT`, `REFUNDED`, `PARTIALLY_REFUNDED`, `FAILED`, `CANCELLED` (`ck_payment_secured`: `secured_at` once secured) |
+| `amount`, `currency` | `numeric(12,2)`, `char(3)` | charged to the buyer (> 0) |
+| `fee_percent` | `numeric(5,2)` | `payments.platform_fee_percent` when the checkout started |
+| `platform_fee`, `seller_amount` | `numeric(12,2)` | fee (half-up to the cent) and the rest; `ck_payment_split`: they add up to `amount` |
+| `refunded_amount` | `numeric(12,2)` | sum of refunds (`ck_payment_refunded`: at most `amount`) |
+| `payout_amount`, `payout_ref` | | released to the seller: `(amount − refunded) − fee(amount − refunded)`; **confidential** transfer reference |
+| `payout_frozen` | `boolean` | an open dispute holds the payout |
+| `checkout_url` | `text` | where the buyer pays (`/checkout/fake/<ref>` locally); never a client secret |
+| `failure_code` | `text` | provider failure code of the last attempt |
+| `secured_at`, `payout_released_at`, `refunded_at` | `timestamptz` | |
+| `dispute_window_ends_at` | `timestamptz` | shipment + `payments.dispute_window_days` |
+| `release_reminded_at` | `timestamptz` | the buyer's reminder before the automatic release (once) |
+| `created_at`, `updated_at`, `version` | | `version` +1 per change |
+
+Indexes: `ix_payment_status (status, updated_at DESC, id DESC)` (admin lists), `ix_payment_buyer`,
+`ix_payment_seller` (export), `ix_payment_release_due (dispute_window_ends_at) WHERE status =
+'SECURED' AND dispute_window_ends_at IS NOT NULL` (hourly auto-release job and reminders). A payout
+released after a refund leaves the payment PARTIALLY_REFUNDED instead of PAID_OUT.
+
+#### `payment_event`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `payment_id` | `uuid` | FK → `payment.id` (cascade) |
+| `event` | `text` | `CREATED`, `CHECKOUT_RESTARTED`, `SECURED`, `FAILED`, `CANCELLED`, `SHIPPED`, `PAYOUT_FROZEN`, `PAYOUT_RELEASED`, `PAYOUT_PAID`, `REFUNDED`, `REFUND_CONFIRMED`, `REFUND_FAILED`, `AUTO_REFUNDED`, `RELEASE_REMINDER` (pattern-checked) |
+| `provider_event_id` | `text` | the webhook that caused it; `uq_payment_event_provider_event (payment_id, event, provider_event_id)` makes a replayed event a no-op |
+| `actor_id` | `uuid` | FK → `user_account.id` (set null); NULL for the platform and webhooks |
+| `details` | `jsonb` | object: amounts, currency, statuses, trigger, refund ids (never card data or party text) |
+| `created_at`, `seq` | | `seq` orders events of the same instant |
+
+Index: `ix_payment_event_payment (payment_id, created_at, seq)`.
+
+#### `payment_refund`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `payment_id` | `uuid` | FK → `payment.id` (cascade) |
+| `provider_refund_id` | `text` | **confidential** (`re_…`, `fake_re_…`); `uq_payment_refund_provider` |
+| `amount`, `currency` | `numeric(12,2)`, `char(3)` | > 0 |
+| `reason` | `text` | staff or platform text (1–500), admin console only |
+| `source` | `text` | `ADMIN` (policy-gated refund), `DISPUTE` (resolution BUYER / SPLIT), `SYSTEM` (payment secured after the trade stopped awaiting it) |
+| `status` | `text` | `PENDING`, `SUCCEEDED`, `FAILED` (Stripe confirms through `refund.updated`) |
+| `requested_by` | `uuid` | FK → `user_account.id` (set null) |
+| `created_at`, `completed_at` | `timestamptz` | |
+
+#### `payment_webhook_event`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `provider` | `text` | the route's provider |
+| `provider_event_id` | `text` | idempotency key: `uq_payment_webhook_event_provider_event (provider, provider_event_id) WHERE provider_event_id IS NOT NULL`; inserts use `ON CONFLICT … DO NOTHING` (a retry answers 200 with `duplicate: true`); NULL for invalid signatures |
+| `type` | `text` | the provider's event type as sent (the claimed type for invalid signatures) |
+| `signature_valid` | `boolean` | `ck_payment_webhook_event_verified`: invalid ones are IGNORED without an event id |
+| `status` | `text` | `RECEIVED`, then `PROCESSED`, `IGNORED` or `FAILED` |
+| `payment_id` | `uuid` | FK → `payment.id` (set null), linked while processing |
+| `payload` | `jsonb` | **confidential**: the body as received (`{"unparsable": true, "length": n}` when not JSON); admin detail only |
+| `error` | `text` | code: `INVALID_SIGNATURE`, `UNREADABLE_PAYLOAD`, `UNKNOWN_PAYMENT`, `ALREADY_SECURED`, `UNHANDLED_TYPE`, … (never stack traces) |
+| `received_at`, `processed_at` | `timestamptz` | |
+
+Indexes: `ix_payment_webhook_event_status (status, received_at DESC, id DESC)`,
+`ix_payment_webhook_event_received`, `ix_payment_webhook_event_payment`. The admin dashboard counts
+`webhookFailures24h` = FAILED or invalid signature in the last 24 h.
+
+### V081 — shipments and disputes
+
+#### `shipment`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `trade_id` | `uuid` | FK → `trade.id` (cascade); `uq_shipment_trade` |
+| `carrier`, `tracking_number` | `text` | optional (≤ 80, ≤ 100), **party text** for the buyer |
+| `notes` | `text` | **party free text** of the seller (≤ 500; API field `sellerNotes`) |
+| `shipped_by` | `uuid` | FK → `user_account.id` (set null) |
+| `shipped_at` | `timestamptz` | starts the dispute window |
+| `delivered_at` | `timestamptz` | receipt confirmed (by the buyer or the auto-release job) |
+| `created_at` | `timestamptz` | |
+
+#### `dispute`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `trade_id` | `uuid` | FK → `trade.id` (cascade); `uq_dispute_trade`: one dispute per trade |
+| `payment_id` | `uuid` | FK → `payment.id` (cascade) |
+| `opened_by` | `uuid` | FK → `user_account.id` (set null); the buyer |
+| `reason` | `text` | `NOT_RECEIVED`, `NOT_AS_DESCRIBED`, `COUNTERFEIT`, `DAMAGED`, `OTHER` |
+| `description` | `text` | **party free text** (1–2000) |
+| `status` | `text` | `OPEN`, `UNDER_REVIEW` (first admin note, or unfreeze), `FROZEN` (admin hold), `RESOLVED_BUYER`, `RESOLVED_SELLER`, `RESOLVED_SPLIT` (`CLOSED` reserved); `ck_dispute_resolved`: resolved exactly when `resolved_at` is set |
+| `opened_at`, `updated_at` | `timestamptz` | |
+| `frozen_at`, `frozen_by` | | last hold |
+| `resolved_at`, `resolved_by`, `resolution_note` | | the admin's decision; the note (≤ 1000) is shown to both parties |
+| `refund_amount` | `numeric(12,2)` | refunded by the resolution (the whole amount, a part, or 0) |
+| `version` | `integer` | +1 per change |
+
+Indexes: `ix_dispute_status (status, opened_at DESC, id DESC)` (admin queue), `ix_dispute_payment`,
+`ix_dispute_opened_by`. The admin dashboard counts `openDisputes` (OPEN, UNDER_REVIEW, FROZEN).
+
+#### `dispute_evidence`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `dispute_id` | `uuid` | FK → `dispute.id` (cascade) |
+| `submitted_by`, `party_role` | `uuid`, `text` | the party (`BUYER` / `SELLER`); at most 10 per party (API rule, 409 `EVIDENCE_LIMIT_REACHED`) |
+| `kind` | `text` | `TEXT`, `IMAGE`, `DOCUMENT`, `TRACKING`; `VIDEO` is reserved (part of the API vocabulary, refused with 400, added to the CHECK by a later migration) |
+| `body` | `text` | **party free text** (≤ 2000): TEXT, TRACKING details, captions |
+| `storage_key` | `text` | IMAGE / DOCUMENT object key under `disputes/<disputeId>/` (`ck_dispute_evidence_file`); never returned |
+| `url` | `text` | TRACKING link, `https://` only (≤ 500) |
+| `content_type`, `size_bytes` | | `image/jpeg` (re-encoded, metadata stripped, uploads ≤ 8 MB) or `application/pdf` (≤ 10 MB) |
+| `created_at` | `timestamptz` | |
+
+Indexes: `ix_dispute_evidence_dispute (dispute_id, created_at)`, `ix_dispute_evidence_party`.
+
+#### `dispute_event`, `dispute_message`, `dispute_note`
+
+| Table | Columns | Notes |
+| --- | --- | --- |
+| `dispute_event` | `id`, `dispute_id` (cascade), `actor_id` (set null), `event`, `details jsonb`, `created_at`, `seq` | timeline: `OPENED`, `EVIDENCE_ADDED`, `MESSAGE_POSTED`, `NOTE_ADDED`, `UNDER_REVIEW`, `FROZEN`, `UNFROZEN`, `RESOLVED`; details carry kinds, roles, ids, outcomes and amounts only |
+| `dispute_message` | `id`, `dispute_id` (cascade), `author_id` (set null), `author_role` (`BUYER`, `SELLER`, `ADMIN`), `body` (1–2000), `created_at` | thread of the parties and admins; admins appear as "OrenjiTrade support" to the parties |
+| `dispute_note` | `id`, `dispute_id` (cascade), `author_id` (set null), `body` (1–2000), `created_at` | **private** admin notes (a freeze reason is kept here); never shown to the parties |
+
+Indexes: `ix_dispute_event_dispute (dispute_id, created_at, seq)`, `ix_dispute_message_dispute`,
+`ix_dispute_note_dispute`.
+
+The trade timeline (`trade_event`, V071 pattern check, no migration needed) gains `PAYMENT_STARTED`,
+`PAYMENT_FAILED`, `PAYMENT_CANCELLED`, `PAYMENT_SECURED`, `SHIPPED`, `RECEIPT_CONFIRMED`,
+`PAYOUT_RELEASED`, `DISPUTE_OPENED`, `DISPUTE_RESOLVED` and `REFUNDED`; a protected trade cancelled
+after a full refund has `cancelled_by` NULL and a platform `cancel_reason`.
+
+Account data: export section `payments` (seller account status, the account's payments as buyer or
+seller, the disputes it opened with its own description); open protected trades already block a
+deletion (`OPEN_TRADE`); payment, refund and dispute rows are kept for the other party and the legal
+retention of financial records. Seed (local/dev, `PaymentSeedContributor`): fake ACTIVE payout
+accounts for collector1 and collector2, payment `9f00…0001` (trade `9d00…0003`, SHIPPED) and payment
+`9f00…0002` (trade `9d00…0004`) frozen by dispute `9f00…0101` (OPEN, NOT_AS_DESCRIBED).

@@ -20,6 +20,8 @@ import {
   printingImageUrl,
 } from '../../../shared/inventory/inventory-labels';
 import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-chips.component';
+import { MakeOfferButtonComponent } from '../../../shared/offers/make-offer-button.component';
+import { offerTargetFromItem, sellerFromMarker } from '../../../shared/offers/offer-target';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
@@ -41,6 +43,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
     CardImageComponent,
     FreshnessBadgeComponent,
     ItemChipsComponent,
+    MakeOfferButtonComponent,
     RelativeTimePipe,
   ],
   template: `
@@ -132,6 +135,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
           <mat-icon aria-hidden="true">chat</mat-icon>
           {{ messaging() ? 'Opening…' : 'Message' }}
         </button>
+        <app-make-offer-button appearance="outlined" [target]="offerTarget()" />
         @if (m.item.binder; as binder) {
           <a matButton="outlined" [routerLink]="['/binders', binder.id]" (click)="navigate.emit()">
             <mat-icon aria-hidden="true">menu_book</mat-icon>
@@ -304,6 +308,10 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
 })
 export class WishMatchCardComponent {
   readonly match = input.required<WishlistMatchResponse>();
+
+  protected readonly offerTarget = computed(() =>
+    offerTargetFromItem(this.match().item, sellerFromMarker(this.match().collector)),
+  );
   /** The conversation with this collector is being opened. */
   readonly messaging = input(false);
   readonly dismissing = input(false);

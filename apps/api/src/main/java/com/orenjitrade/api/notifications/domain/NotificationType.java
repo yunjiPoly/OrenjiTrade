@@ -28,6 +28,8 @@ public enum NotificationType {
     TRADE_UPDATE(NotificationCategory.TRADE, null),
     SHIPMENT_STATUS(NotificationCategory.TRADE, null),
     PAYMENT_UPDATE(NotificationCategory.TRADE, null),
+    /** A dispute of a protected trade changed: opened, evidence, messages, hold, decision. */
+    DISPUTE_UPDATE(NotificationCategory.TRADE, null),
     REPORT_DECISION(NotificationCategory.REPORT_DECISION, null),
     SYSTEM(null, null);
 

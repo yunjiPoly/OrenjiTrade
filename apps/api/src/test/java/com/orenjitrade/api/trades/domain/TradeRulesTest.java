@@ -62,12 +62,33 @@ class TradeRulesTest {
                         TradeStatus.COMPLETED,
                         TradeStatus.CANCELLED,
                         TradeStatus.DISPUTED)) {
-            assertThat(TradeRules.operations(status, BUYER, false, false)).isEmpty();
+            assertThat(TradeRules.operations(status, BUYER, false, false))
+                    .doesNotContain(
+                            Operation.MARK_MEETUP, Operation.CONFIRM_COMPLETION, Operation.CANCEL);
             assertThat(TradeRules.canCancel(status)).isFalse();
             assertThat(TradeRules.canComplete(status)).isFalse();
             assertThat(TradeRules.canMarkMeetup(status)).isFalse();
         }
         assertThat(TradeStatus.DISPUTED.isOpen()).isTrue();
         assertThat(TradeStatus.COMPLETED.isOpen()).isFalse();
+    }
+
+    @Test
+    void protectedTradesOfferThePaymentStepsToTheRightParty() {
+        assertThat(TradeRules.operations(TradeStatus.AWAITING_PAYMENT, BUYER, false, false, false))
+                .containsExactly(Operation.PAY, Operation.MARK_MEETUP, Operation.CANCEL);
+        assertThat(TradeRules.operations(TradeStatus.PAID, SELLER, false, false, true))
+                .containsExactly(Operation.SHIP);
+        assertThat(TradeRules.operations(TradeStatus.PAID, BUYER, false, false, true))
+                .containsExactly(Operation.OPEN_DISPUTE);
+        assertThat(TradeRules.operations(TradeStatus.PAID, BUYER, false, false, false)).isEmpty();
+        assertThat(TradeRules.operations(TradeStatus.SHIPPED, BUYER, false, false, true))
+                .containsExactly(Operation.CONFIRM_RECEIPT, Operation.OPEN_DISPUTE);
+        assertThat(TradeRules.operations(TradeStatus.SHIPPED, SELLER, false, false, true))
+                .isEmpty();
+        assertThat(TradeRules.operations(TradeStatus.DISPUTED, BUYER, false, false, true))
+                .isEmpty();
+        assertThat(TradeRules.operations(TradeStatus.COMPLETED, BUYER, false, false, true))
+                .isEmpty();
     }
 }

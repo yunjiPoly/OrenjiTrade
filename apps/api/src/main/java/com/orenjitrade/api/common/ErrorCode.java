@@ -77,6 +77,22 @@ public enum ErrorCode {
      * offer or a trade (Phase 8).
      */
     TRADING_BLOCKED(HttpStatus.FORBIDDEN, "Trading blocked"),
+    /**
+     * The seller of a protected trade has not set up payouts yet (Phase 9): the buyer cannot pay
+     * until the seller's payout account is ACTIVE.
+     */
+    SELLER_NOT_ONBOARDED(HttpStatus.CONFLICT, "Seller not onboarded"),
+    /**
+     * The dispute window of a shipped protected trade has passed (Phase 9; extension {@code
+     * disputeWindowEndsAt}).
+     */
+    DISPUTE_WINDOW_CLOSED(HttpStatus.CONFLICT, "Dispute window closed"),
+    /**
+     * A party already added the maximum number of evidence items to a dispute (extension limit).
+     */
+    EVIDENCE_LIMIT_REACHED(HttpStatus.CONFLICT, "Evidence limit reached"),
+    /** A payment provider webhook failed signature verification (Phase 9; stored as IGNORED). */
+    WEBHOOK_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, "Invalid webhook signature"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),

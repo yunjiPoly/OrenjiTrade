@@ -5,6 +5,8 @@ import { listingsLabel } from '../../../shared/discovery/discovery-labels';
 import { distanceBucketLabel } from '../../../shared/domain/location-labels';
 import { badgeFreshness, formatPrice } from '../../../shared/inventory/inventory-labels';
 import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-chips.component';
+import { MakeOfferButtonComponent } from '../../../shared/offers/make-offer-button.component';
+import { OfferTarget, offerTargetFromMatch } from '../../../shared/offers/offer-target';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
@@ -12,11 +14,18 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
 /**
  * The collectors of the map as an accessible list (keyboard alternative to the markers). In
  * "holders" mode each collector shows the listings of the card: printing, condition /
- * availability / offers chips, price and freshness. Choosing a collector opens its preview.
+ * availability / offers chips, price, freshness and "Make an offer". Choosing a collector opens
+ * its preview.
  */
 @Component({
   selector: 'app-collector-list',
-  imports: [AvatarComponent, FreshnessBadgeComponent, GameChipComponent, ItemChipsComponent],
+  imports: [
+    AvatarComponent,
+    FreshnessBadgeComponent,
+    GameChipComponent,
+    ItemChipsComponent,
+    MakeOfferButtonComponent,
+  ],
   template: `
     <ul class="list" [attr.aria-label]="label()">
       @for (collector of collectors(); track collector.id) {
@@ -75,6 +84,12 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
                       [acceptsOffers]="item.acceptsOffers"
                     />
                     <span class="item__price" data-testid="holder-price">{{ price(item) }}</span>
+                    <app-make-offer-button
+                      class="item__offer"
+                      appearance="outlined"
+                      compact
+                      [target]="offerTarget(item, collector)"
+                    />
                   </li>
                 }
               </ul>
@@ -120,6 +135,19 @@ export class CollectorListComponent {
     ]
       .filter(Boolean)
       .join(' · ');
+  }
+
+  /** Offer targets are cached per listing so the button keeps a stable input. */
+  private readonly targets = new Map<string, { source: MatchingItem; target: OfferTarget }>();
+
+  protected offerTarget(item: MatchingItem, collector: CollectorMarker): OfferTarget {
+    const cached = this.targets.get(item.itemId);
+    if (cached && cached.source === item) {
+      return cached.target;
+    }
+    const target = offerTargetFromMatch(item, collector);
+    this.targets.set(item.itemId, { source: item, target });
+    return target;
   }
 
   protected price(item: MatchingItem): string {

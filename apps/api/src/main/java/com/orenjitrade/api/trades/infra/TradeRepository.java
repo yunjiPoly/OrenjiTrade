@@ -154,6 +154,36 @@ public class TradeRepository {
                 .update();
     }
 
+    /** Phase 9: moves a protected trade to {@code status} (payment, shipping, dispute steps). */
+    public void setStatus(UUID id, TradeStatus status, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE trade SET status = :status, updated_at = :now, version = version + 1
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("status", status.name())
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * Phase 9: the platform cancels a protected trade after a full refund (no cancelling party).
+     */
+    public void cancelByPlatform(UUID id, String reason, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE trade SET status = 'CANCELLED', cancelled_by = NULL,
+                               cancel_reason = :reason, cancelled_at = :now, updated_at = :now,
+                               version = version + 1
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("reason", reason)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
     /** Erases the cancel reasons a (deleted) collector wrote; returns the rows changed. */
     public int eraseCancelReasonsOf(UUID userId) {
         return jdbc.sql(
@@ -172,6 +202,20 @@ public class TradeRepository {
                 .param("id", id)
                 .query(TradeRepository::map)
                 .optional();
+    }
+
+    /** Several trades by id (admin lists of the payments module). */
+    public Map<UUID, TradeRow> findAll(Collection<UUID> ids) {
+        Map<UUID, TradeRow> result = new LinkedHashMap<>();
+        if (ids.isEmpty()) {
+            return result;
+        }
+        jdbc.sql("SELECT " + COLUMNS + " FROM trade t WHERE t.id IN (:ids)")
+                .param("ids", List.copyOf(ids))
+                .query(TradeRepository::map)
+                .list()
+                .forEach(row -> result.put(row.id(), row));
+        return result;
     }
 
     public Optional<TradeRow> lock(UUID id) {

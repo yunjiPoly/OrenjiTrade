@@ -50,8 +50,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *   <li>CORS from {@code orenji.security.cors.allowed-origins} with credentials; {@code
  *       X-Request-Id} and the rate-limit headers are exposed to browsers.
  *   <li>Public: health probes, info, OpenAPI/Swagger (when enabled), {@code /api/v1/meta}, {@code
- *       /api/v1/public/**}, {@code /error} and the read-only catalog and plan routes ({@link
- *       #PUBLIC_GET_PATTERNS}, GET only).
+ *       /api/v1/public/**}, {@code /error}, the payment provider webhooks {@code
+ *       /api/v1/webhooks/payments/*} (authenticated by their signature in the payments module) and
+ *       the read-only catalog and plan routes ({@link #PUBLIC_GET_PATTERNS}, GET only).
  *   <li>Filter order inside the chain: {@link BearerTokenAuthenticationFilter} and {@link
  *       ServiceAuthFilter} (authentication) → {@link AccountAccessFilter} (suspended / deletion
  *       pending) → {@link RateLimitFilter} → {@link AuthorizationFilter} (RBAC, admin MFA) → {@link
@@ -90,6 +91,8 @@ public class SecurityConfig {
                     "/swagger-ui.html",
                     "/api/v1/meta",
                     "/api/v1/public/**",
+                    // Payment provider webhooks (Phase 9): authenticated by their signature.
+                    "/api/v1/webhooks/payments/*",
                     "/error");
 
     /**

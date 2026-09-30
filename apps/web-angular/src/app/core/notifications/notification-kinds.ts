@@ -23,6 +23,8 @@ const KINDS: Record<string, NotificationKind> = {
   OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Offer accepted' },
   OFFER_COUNTERED: { icon: 'swap_horiz', tone: 'offer', label: 'Counter-offer' },
   OFFER_DECLINED: { icon: 'do_not_disturb_on', tone: 'offer', label: 'Offer declined' },
+  OFFER_CANCELLED: { icon: 'undo', tone: 'offer', label: 'Offer withdrawn' },
+  OFFER_EXPIRED: { icon: 'timer_off', tone: 'offer', label: 'Offer expired' },
   BINDER_EXPIRING: { icon: 'timer', tone: 'warning', label: 'Binder' },
   BINDER_STALE_WARNING: { icon: 'hourglass_bottom', tone: 'warning', label: 'Binder reminder' },
   BINDER_HIDDEN: { icon: 'visibility_off', tone: 'warning', label: 'Listings hidden' },
@@ -70,8 +72,9 @@ function idOf(data: NotificationResponse['data'] | undefined, key: string): stri
 /**
  * The page a notification opens: its `data.deepLink` (web path, e.g. `/wishlist/<id>`,
  * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/premium`,
- * `/collectors/<handle>?tab=ratings`, `/settings/reports`) when it is a safe in-app path,
- * otherwise a path rebuilt from the ids it carries, otherwise the notification list.
+ * `/collectors/<handle>?tab=ratings`, `/settings/reports`, `/offers/<id>`, `/trades/<id>`) when it
+ * is a safe in-app path, otherwise a path rebuilt from the ids it carries, otherwise the
+ * notification list.
  */
 export function notificationLink(
   notification: Pick<NotificationResponse, 'type' | 'data'>,
@@ -95,6 +98,20 @@ export function notificationLink(
     case 'BINDER_HIDDEN': {
       const binder = idOf(data, 'binderId');
       return binder ? `/inventory?binder=${binder}` : '/inventory';
+    }
+    case 'OFFER_RECEIVED':
+    case 'OFFER_ACCEPTED':
+    case 'OFFER_COUNTERED':
+    case 'OFFER_DECLINED':
+    case 'OFFER_CANCELLED':
+    case 'OFFER_EXPIRED': {
+      const trade = idOf(data, 'tradeId');
+      const offer = idOf(data, 'offerId');
+      return trade ? `/trades/${trade}` : offer ? `/offers/${offer}` : '/offers';
+    }
+    case 'TRADE_UPDATE': {
+      const trade = idOf(data, 'tradeId');
+      return trade ? `/trades/${trade}` : '/trades';
     }
     case 'REPORT_DECISION':
       return '/settings/reports';

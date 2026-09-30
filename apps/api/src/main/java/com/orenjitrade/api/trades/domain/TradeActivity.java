@@ -22,7 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
  * What a trade change causes after commit (Phase 8): TRADE_UPDATE notifications (the other party
  * for proposals, confirmations and cancellations; both parties for an agreed meetup and the
  * completion) and SYSTEM messages in the pair conversation for completion and cancellation.
- * Idempotent through the de-duplication keys ({@code trade:<id>:<event>:<recipient>}).
+ * Idempotent through the de-duplication keys ({@code trade:<id>:<event>:<recipient>}). The Phase 9
+ * payment, shipping and dispute events ({@link TradeEventType#PROTECTED_FLOW}) are notified by the
+ * payments module; a protected trade's completion and its cancellation after a refund (no acting
+ * party) are handled here like the Phase 8 ones.
  */
 @Service
 public class TradeActivity {
@@ -51,8 +54,10 @@ public class TradeActivity {
         } catch (IllegalArgumentException e) {
             return;
         }
-        if (type == TradeEventType.CREATED || type == TradeEventType.PROTECTION_REMOVED) {
-            return; // the offer's acceptance already notified both parties
+        if (type == TradeEventType.CREATED
+                || type == TradeEventType.PROTECTION_REMOVED
+                || TradeEventType.PROTECTED_FLOW.contains(type)) {
+            return; // the offer's acceptance / the payments module notify these
         }
         Optional<TradeRow> trade = trades.row(event.tradeId());
         Optional<OfferRow> offer = offers.row(event.offerId());
@@ -63,7 +68,10 @@ public class TradeActivity {
         String summary = offers.summaryText(offer.get());
         @Nullable UUID actor = event.actorId();
         String actorName = offers.displayName(actor);
-        boolean both = type == TradeEventType.MEETUP_AGREED || type == TradeEventType.COMPLETED;
+        boolean both =
+                type == TradeEventType.MEETUP_AGREED
+                        || type == TradeEventType.COMPLETED
+                        || (type == TradeEventType.CANCELLED && actor == null);
         for (UUID recipient : List.of(event.sellerId(), event.buyerId())) {
             boolean isActor = recipient.equals(actor);
             if (isActor && !both) {
@@ -75,15 +83,23 @@ public class TradeActivity {
                     event,
                     type,
                     title(type, cardName),
-                    body(type, actorName, offers.displayName(other), cardName));
+                    actor == null && type == TradeEventType.CANCELLED
+                            ? "The trade for "
+                                    + cardName
+                                    + " was cancelled after its payment was refunded."
+                            : body(type, actorName, offers.displayName(other), cardName));
         }
         if (type == TradeEventType.COMPLETED || type == TradeEventType.CANCELLED) {
             UUID initiator = actor != null ? actor : event.buyerId();
             UUID other = initiator.equals(event.buyerId()) ? event.sellerId() : event.buyerId();
-            String text =
-                    type == TradeEventType.COMPLETED
-                            ? "Trade completed: " + summary + ". You can now rate each other."
-                            : actorName + " cancelled the trade: " + summary + ".";
+            String text;
+            if (type == TradeEventType.COMPLETED) {
+                text = "Trade completed: " + summary + ". You can now rate each other.";
+            } else if (actor == null) {
+                text = "The trade was cancelled after a refund: " + summary + ".";
+            } else {
+                text = actorName + " cancelled the trade: " + summary + ".";
+            }
             conversations.postSystemMessage(
                     new SystemNotice(
                             initiator,
@@ -119,7 +135,7 @@ public class TradeActivity {
             case COMPLETION_CONFIRMED -> "Trade confirmed by the other party";
             case COMPLETED -> "Trade completed";
             case CANCELLED -> "Trade cancelled";
-            case CREATED, PROTECTION_REMOVED -> "Trade update";
+            default -> "Trade update";
         };
     }
 
@@ -146,7 +162,7 @@ public class TradeActivity {
                             + otherName
                             + ".";
             case CANCELLED -> actorName + " cancelled the trade for " + cardName + ".";
-            case CREATED, PROTECTION_REMOVED -> cardName;
+            default -> cardName;
         };
     }
 }

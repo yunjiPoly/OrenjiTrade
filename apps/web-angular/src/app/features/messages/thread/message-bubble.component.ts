@@ -3,19 +3,26 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import type { MessageResponse } from '@orenji/api-client';
 import { SharedLinkCardComponent } from '../../../shared/links/shared-link-card.component';
+import { OfferLinkCardComponent } from '../../../shared/offers/offer-link-card.component';
 import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
 
 /**
- * One message: text, shared card or binder (with an optional caption), photo, offer summary or a
- * system line. Removed messages keep their place with a neutral note.
+ * One message: text, shared card or binder (with an optional caption), photo, offer card (links
+ * to the offer page) or a system line (offer and trade updates carry the offer card too). Removed
+ * messages keep their place with a neutral note.
  */
 @Component({
   selector: 'app-message-bubble',
-  imports: [DatePipe, MatIconModule, MediaUrlPipe, SharedLinkCardComponent],
+  imports: [DatePipe, MatIconModule, MediaUrlPipe, OfferLinkCardComponent, SharedLinkCardComponent],
   template: `
     @let m = message();
     @if (m.kind === 'SYSTEM') {
-      <p class="system">{{ m.body }}</p>
+      <div class="system" data-testid="system-message">
+        <p class="system__text">{{ m.body }}</p>
+        @if (m.payload.offer; as offer) {
+          <app-offer-link-card class="system__offer" [offer]="offer" />
+        }
+      </div>
     } @else {
       <div
         class="bubble"
@@ -55,10 +62,7 @@ import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
             }
             @case ('OFFER_LINK') {
               @if (m.payload.offer; as offer) {
-                <p class="bubble__offer">
-                  <mat-icon aria-hidden="true">local_offer</mat-icon>
-                  {{ offer.summary }} · {{ offer.status }}
-                </p>
+                <app-offer-link-card class="bubble__link" [offer]="offer" />
               }
             }
           }
@@ -82,7 +86,17 @@ import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
       display: block;
       max-width: min(80%, 420px);
     }
+    :host:has(.system) {
+      max-width: min(100%, 460px);
+      margin-inline: auto;
+    }
     .system {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--spacing-2);
+    }
+    .system__text {
       margin: 0;
       color: var(--color-text-muted);
       font-size: var(--font-size-sm);
@@ -123,7 +137,6 @@ import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
       border-radius: var(--radius-md);
       object-fit: cover;
     }
-    .bubble__offer,
     .bubble__removed {
       display: flex;
       align-items: center;

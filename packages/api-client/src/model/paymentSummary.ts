@@ -14,9 +14,46 @@
  */
 export interface PaymentSummary { 
     id: string;
+    /**
+     * REQUIRES_ACTION, SECURED, PAYOUT_PENDING, PAID_OUT, REFUNDED, PARTIALLY_REFUNDED, FAILED, CANCELLED
+     */
     status: string;
     amount: number;
     currency: string;
     securedAt?: string | null;
+    /**
+     * fake or stripe
+     */
+    provider?: string;
+    /**
+     * Fee kept by the platform
+     */
+    platformFee?: number;
+    /**
+     * What the seller receives with a full payout
+     */
+    sellerAmount?: number;
+    /**
+     * Refunded to the buyer so far
+     */
+    refundedAmount?: number;
+    /**
+     * Released to the seller
+     */
+    payoutAmount?: number | null;
+    /**
+     * An open dispute holds the payout
+     */
+    payoutFrozen?: boolean;
+    /**
+     * Buyer only, while REQUIRES_ACTION: where to complete the payment (relative /checkout/fake/<ref> with the fake provider)
+     */
+    checkoutUrl?: string | null;
+    /**
+     * End of the dispute window (shipment + the configured days); afterwards the payout is released automatically
+     */
+    disputeWindowEndsAt?: string | null;
+    payoutReleasedAt?: string | null;
+    refundedAt?: string | null;
 }
 
