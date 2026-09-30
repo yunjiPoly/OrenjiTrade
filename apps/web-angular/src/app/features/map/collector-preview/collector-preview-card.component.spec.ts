@@ -77,6 +77,36 @@ describe('CollectorPreviewCardComponent', () => {
     expect(button('View public binder')?.getAttribute('href')).toBeNull();
   });
 
+  it('opens a conversation when the collector accepts messages', async () => {
+    const collectorPreview = preview('maika', { canMessage: true });
+    await render({ kind: 'ready', handle: 'maika', preview: collectorPreview }, { signedIn: true });
+    const messaged: unknown[] = [];
+    fixture.componentInstance.messageRequested.subscribe((value) => messaged.push(value));
+    const messageButton = button('Message') as HTMLButtonElement;
+    expect(messageButton.disabled).toBe(false);
+    expect(messageButton.getAttribute('aria-label')).toBe(
+      `Message ${collectorPreview.displayName}`,
+    );
+    messageButton.click();
+    expect(messaged).toEqual([collectorPreview]);
+
+    await render(
+      { kind: 'ready', handle: 'maika', preview: collectorPreview },
+      { messaging: true },
+    );
+    expect(button('Opening…')?.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('invites signed-out visitors to sign in before messaging', async () => {
+    await render(
+      { kind: 'ready', handle: 'maika', preview: preview('maika') },
+      { signedIn: false },
+    );
+    expect(button('Sign in to message')?.getAttribute('href')).toBe(
+      '/auth/sign-in?returnUrl=%2Fmap',
+    );
+  });
+
   it('hides the Message button on the viewer own preview', async () => {
     await render({ kind: 'ready', handle: 'me', preview: preview('me') }, { isSelf: true });
     expect(button('Message')).toBeUndefined();

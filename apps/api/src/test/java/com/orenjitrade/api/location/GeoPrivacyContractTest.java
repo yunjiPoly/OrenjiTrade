@@ -448,6 +448,89 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    /**
+     * Phase 6: the seeded wishlist of collector2 (items, matches with collector1's listing, public
+     * summary) and the notification centre never carry a trading-area centre; a match's only point
+     * is the item owner's stored public point with at most 3 decimals and its distance is a bucket;
+     * public items never show private notes.
+     */
+    @Test
+    void wishlistAndNotificationResponsesOnlyCarryPublicPoints(CapturedOutput output) {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        String azureWish = "00000000-0000-4000-8f00-000000000201";
+        String azureItem = "00000000-0000-4000-8c00-000000010101";
+
+        JsonNode wishlist = callJson(HttpMethod.GET, "/api/v1/wishlist", collector2, null, 200);
+        assertThat(wishlist).hasSizeGreaterThanOrEqualTo(3);
+        assertOnlyPublicPrecision(wishlist, "wishlist");
+        assertThat(coordinatePairs(wishlist)).as("wishlist items carry no point").isEmpty();
+        assertThat(wishlist.toString())
+                .doesNotContain("tradingArea")
+                .doesNotContain("homePoint")
+                .doesNotContain("home_point");
+
+        int markers = 0;
+        boolean sawSeededMatch = false;
+        for (JsonNode item : wishlist) {
+            JsonNode matches =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/wishlist/" + item.path("id").asString() + "/matches",
+                            collector2,
+                            null,
+                            200);
+            assertSearchDocument(matches, "matches");
+            var collectors = jsonMapper.createArrayNode();
+            for (JsonNode match : matches.path("items")) {
+                collectors.add(match.path("collector"));
+                assertThat(match.path("distanceBucket").asString()).isNotBlank();
+                assertThat(coordinatePairs(match.path("item"))).isEmpty();
+                if (azureWish.equals(item.path("id").asString())
+                        && azureItem.equals(match.path("item").path("id").asString())) {
+                    sawSeededMatch = true;
+                    assertThat(match.path("collector").path("handle").asString())
+                            .isEqualTo("collector1");
+                }
+            }
+            markers += assertMarkersArePublicPoints(collectors, false);
+        }
+        assertThat(sawSeededMatch).as("collector1's Azure-Eyes matches collector2's wish").isTrue();
+        assertThat(markers).isPositive();
+
+        JsonNode summary =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/collector2/wishlist",
+                        collector1,
+                        null,
+                        200);
+        assertThat(summary).isNotEmpty();
+        assertPublicListing(summary, "public wishlist");
+
+        JsonNode notifications =
+                callJson(HttpMethod.GET, "/api/v1/notifications?limit=50", collector2, null, 200);
+        assertPublicListing(notifications, "notifications");
+        boolean sawMatchNotification = false;
+        for (JsonNode notification : notifications.path("items")) {
+            if ("WISHLIST_MATCH".equals(notification.path("type").asString())
+                    && azureItem.equals(
+                            notification.path("data").path("inventoryItemId").asString())) {
+                sawMatchNotification = true;
+                assertThat(notification.path("body").asString()).contains("km away");
+            }
+        }
+        assertThat(sawMatchNotification).as("the seeded match notified collector2").isTrue();
+        assertPublicListing(
+                callJson(HttpMethod.GET, "/api/v1/notifications", collector1, null, 200),
+                "notifications of collector1");
+
+        String logs = output.getAll();
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
     /** At most 3 decimals, no private location keys, no private notes. */
     private static void assertSearchDocument(JsonNode document, String context) {
         assertOnlyPublicPrecision(document, context);

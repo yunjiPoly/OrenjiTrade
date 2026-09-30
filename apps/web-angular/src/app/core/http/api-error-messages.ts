@@ -54,6 +54,30 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     case 'NOT_FOUND':
       return { title: 'Not found', message: 'This item does not exist or is no longer available.' };
+    case 'MESSAGING_BLOCKED':
+      return {
+        title: 'Messaging unavailable',
+        message:
+          'You cannot message this collector. They may have blocked messages or you blocked them.',
+      };
+    case 'MESSAGE_BLOCKED':
+      return {
+        title: 'Message not sent',
+        message:
+          'This message breaks the community guidelines, so it was not sent. Please rephrase it.',
+      };
+    case 'POST_BLOCKED':
+      return {
+        title: 'Not published',
+        message:
+          'This post breaks the community guidelines, so it was not published. Please rephrase it.',
+      };
+    case 'DUPLICATE_POST':
+      return {
+        title: 'Already posted',
+        message:
+          'You already posted this text in the last 24 hours. Edit it or write something new.',
+      };
     case 'HANDLE_TAKEN':
       return { title: 'Handle unavailable', message: 'That handle is already taken.' };
     case 'VALIDATION_FAILED':

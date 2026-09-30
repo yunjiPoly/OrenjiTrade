@@ -43,6 +43,11 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'usage_limit.update': 'Changed a usage limit',
   'entitlement.grant': 'Granted an entitlement',
   'entitlement.revoke': 'Revoked an entitlement',
+  'community.channel.create': 'Created a community channel',
+  'community.channel.update': 'Changed a community channel',
+  'community.post.remove': 'Removed a community post',
+  'community.reply.remove': 'Removed a community reply',
+  'moderation.flag.resolve': 'Resolved a moderation flag',
 };
 
 export function auditActionLabel(action: string): string {

@@ -107,6 +107,65 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .isEmpty();
     }
 
+    @Test
+    void seedsCollector2sWishlistWithANotifiedMatchAndAFewNotifications() {
+        UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
+        String azureWish = "00000000-0000-4000-8f00-000000000201";
+        String azureItem = "00000000-0000-4000-8c00-000000010101";
+        String wishes =
+                "SELECT count(*) FROM wishlist_item WHERE id::text LIKE"
+                        + " '00000000-0000-4000-8f00-%'";
+        String seededNotifications =
+                "SELECT count(*) FROM notification WHERE id::text LIKE"
+                        + " '00000000-0000-4000-9a00-%'";
+        assertThat(testUsers.count(wishes)).isEqualTo(3);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM wishlist_item WHERE owner_id = ? AND"
+                                        + " radius_km = 25 AND active",
+                                collector2))
+                .isEqualTo(3);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM wishlist_match WHERE wishlist_item_id ="
+                                        + " ?::uuid AND inventory_item_id = ?::uuid AND notified",
+                                azureWish,
+                                azureItem))
+                .as("collector1's public Azure-Eyes matches and notified collector2")
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM notification WHERE user_id = ? AND type ="
+                                        + " 'WISHLIST_MATCH' AND dedup_key = ?",
+                                collector2,
+                                "wishlist:" + azureWish + ":" + azureItem))
+                .isEqualTo(1);
+        assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM privacy_settings WHERE user_id = ? AND"
+                                        + " wishlist_visible",
+                                collector2))
+                .isEqualTo(1);
+        String collector2Matches =
+                "SELECT count(*) FROM wishlist_match m JOIN wishlist_item w ON w.id ="
+                        + " m.wishlist_item_id WHERE w.owner_id = ?";
+        int matches = testUsers.count(collector2Matches, collector2);
+        int notifications =
+                testUsers.count("SELECT count(*) FROM notification WHERE user_id = ?", collector2);
+
+        seedDataRunner.seedAll();
+
+        assertThat(testUsers.count(wishes)).isEqualTo(3);
+        assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
+        assertThat(testUsers.count(collector2Matches, collector2)).isEqualTo(matches);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM notification WHERE user_id = ?", collector2))
+                .as("seeding again notifies nobody")
+                .isEqualTo(notifications);
+    }
+
     private Map<String, Object> binderRow(String id) {
         return testUsers
                 .query(
@@ -134,7 +193,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "catalog",
                         "inventory",
                         "conversations",
-                        "community");
+                        "community",
+                        "wishlist",
+                        "notifications");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

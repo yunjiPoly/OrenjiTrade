@@ -372,6 +372,18 @@ public class CatalogService {
         return queries.printings(ids, false);
     }
 
+    /**
+     * Card summaries by id including cards of hidden games (a collector's wishlist keeps showing
+     * them), by card id; unknown ids are absent.
+     */
+    public Map<UUID, CardSummary> cardSummariesIncludingHidden(Collection<UUID> ids) {
+        Map<UUID, CardSummary> result = new LinkedHashMap<>();
+        for (CardSummary card : queries.findCardSummaries(ids, false)) {
+            result.put(card.id(), summary(card));
+        }
+        return result;
+    }
+
     /** Name of a card for its placeholder image. */
     public Optional<String> cardName(String gameSlug, String cardSlug) {
         return queries.cardName(gameSlug, cardSlug);
