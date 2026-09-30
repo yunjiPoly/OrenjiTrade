@@ -381,7 +381,12 @@ export class InventoryStore {
     );
   }
 
+  /**
+   * Deletes a binder once the order saves still queued are done: a save sent after the deletion
+   * would name the deleted binder, be refused (404) and lose the move.
+   */
   async deleteBinder(id: string, deleteItems = false): Promise<void> {
+    await this.orderSaves;
     await this.call(
       this.bindersApi.deleteBinder({ id, deleteItems }, 'body', false, { context: silentErrors() }),
     );

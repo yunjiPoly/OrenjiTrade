@@ -1,12 +1,22 @@
 name: E2E
 
-# Nightly (and on demand) end-to-end run against a locally composed stack:
-# PostGIS + Redis + Firebase Auth emulator (docker compose), the API (gradle bootRun, local
-# profile), the built Angular app served statically, and Playwright.
-# Phase 13 (hardening) extends the steps marked "Phase 13" with the full acceptance-flow suite
-# and Maestro for mobile.
+# End-to-end run of the web app against the real local stack, exactly as a developer runs it:
+# PostGIS + Redis + Firebase Auth emulator (docker compose; the emulator image is built here), the
+# API jar (Gradle bootJar, `local` profile, fake/log providers, seed data) and the Angular dev
+# server started by Playwright's webServer. Runs every spec under apps/web-angular/e2e, including
+# the acceptance suite (e2e/acceptance) whose privacy fixture scans every response for exact
+# coordinates. No cloud credentials: the only secrets are random CI-only values generated per run.
 
 on:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "docker-compose.yml"
+      - "infrastructure/docker/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/e2e.yml"
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *" # 06:00 UTC nightly
@@ -24,20 +34,27 @@ env:
 
 jobs:
   e2e:
-    name: Playwright against local stack
+    name: Playwright against the local stack
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
+    env:
+      CI: "true"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start infrastructure (PostGIS, Redis, Firebase Auth emulator)
+      # Random per-run values (masked in the logs): never the local defaults, never real secrets.
+      - name: Generate CI-only secrets
         run: |
-          docker compose up -d postgres redis firebase-auth
-          for i in $(seq 1 30); do
-            unhealthy=$(docker compose ps --format json | jq -rs '[.[] | select(.Health != "healthy")] | length')
-            [ "$unhealthy" = "0" ] && break
-            echo "waiting for containers ($i/30)"; sleep 5
+          for name in SERVICE_TOKEN LOCATION_JITTER_SECRET CONSENT_IP_SALT; do
+            value="ci-$(openssl rand -hex 24)"
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
           done
+
+      - name: Start infrastructure (PostGIS, Redis, Firebase Auth emulator)
+        timeout-minutes: 15
+        run: |
+          docker compose up -d --build --wait --wait-timeout 600 postgres redis firebase-auth
           docker compose ps
 
       - uses: actions/setup-java@v4
@@ -46,12 +63,18 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
       - uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: true
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Start API (local profile, background)
+      - name: Build the API jar
+        timeout-minutes: 20
+        working-directory: apps/api
+        run: ./gradlew bootJar --no-daemon --stacktrace
+
+      - name: Start the API (local profile, background)
         working-directory: apps/api
         env:
           SPRING_PROFILES_ACTIVE: local
+          ORENJI_ENV: local
           DATABASE_URL: jdbc:postgresql://localhost:5432/orenjitrade
           DATABASE_USERNAME: orenjitrade
           DATABASE_PASSWORD: orenjitrade_local
@@ -61,10 +84,14 @@ jobs:
           EVENTS_TRANSPORT: local
           STORAGE_PROVIDER: local
           PAYMENT_PROVIDER: fake
+          BILLING_PROVIDER: fake
+          DONATION_PROVIDER: fake
           PUSH_PROVIDER: log
           EMAIL_PROVIDER: log
+          CORS_ALLOWED_ORIGINS: http://localhost:4200
+        # SERVICE_TOKEN, LOCATION_JITTER_SECRET and CONSENT_IP_SALT come from $GITHUB_ENV.
         run: |
-          nohup ./gradlew bootRun --no-daemon --args='--spring.profiles.active=local' > "$RUNNER_TEMP/api.log" 2>&1 &
+          nohup java -jar build/libs/app.jar > "$RUNNER_TEMP/api.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/api.pid"
 
       - uses: actions/setup-node@v4
@@ -73,62 +100,58 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # One install for the whole npm workspace (root package-lock.json covers apps/web-angular,
-      # apps/mobile and packages/*), then the design tokens and the web build.
+      # One install for the whole npm workspace (root package-lock.json), then the design tokens
+      # the web app imports.
       - name: Install workspace dependencies
         run: npm ci
-      - name: Build design tokens and web app
-        run: |
-          npm run build:tokens
-          npm run build -w apps/web-angular
+      - name: Build design tokens
+        run: npm run build:tokens
 
-      - name: Wait for API readiness
-        run: |
-          for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
-              echo "API ready"; exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::API did not become ready"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
-
-      - name: Serve web build (background)
-        working-directory: apps/web-angular
-        run: |
-          DIST_DIR=$(dirname "$(find dist -name index.html | head -n 1)")
-          echo "serving $DIST_DIR"
-          nohup npx --yes serve -s "$DIST_DIR" -l 4200 > "$RUNNER_TEMP/web.log" 2>&1 &
-          for _ in $(seq 1 30); do curl -fsS http://localhost:4200/ >/dev/null 2>&1 && break; sleep 2; done
-
-      - name: Install Playwright browsers
+      - name: Install the Playwright Chromium browser
         working-directory: apps/web-angular
         run: npx playwright install --with-deps chromium
 
-      # Phase 13: extend to every acceptance flow (register, publish binder, map, message,
-      # wishlist match, offer, report, admin) and add Maestro for apps/mobile.
-      - name: Run Playwright
+      - name: Wait for the API readiness
+        timeout-minutes: 10
+        run: |
+          for _ in $(seq 1 120); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
+              echo "API ready"; exit 0
+            fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null; then
+              echo "::error::The API exited"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
+            fi
+            sleep 5
+          done
+          echo "::error::The API did not become ready"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
+
+      # Playwright's webServer starts `npm start` (ng serve on :4200); retries and workers come
+      # from playwright.config.ts (CI: 2 retries, 2 workers, list + HTML reporters).
+      # E2E_REQUIRE_STACK=1 turns an unreachable stack into a failure instead of skipped specs.
+      - name: Run Playwright (every spec, acceptance suite included)
+        timeout-minutes: 45
         working-directory: apps/web-angular
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:4200
-          API_BASE_URL: http://localhost:8080
-          FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
-        run: npm run e2e
+          E2E_BASE_URL: http://localhost:4200
+          E2E_API_URL: http://localhost:8080
+          E2E_AUTH_EMULATOR_URL: http://localhost:9099
+          E2E_REQUIRE_STACK: "1"
+          E2E_DB_CONTAINER: orenjitrade-postgres
+        run: E2E_SERVICE_TOKEN="$SERVICE_TOKEN" npx playwright test
 
-      - name: Upload Playwright report and logs
-        if: always()
+      - name: Upload the Playwright report and logs
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-artifacts
+          name: e2e-report
           path: |
             apps/web-angular/playwright-report/**
             apps/web-angular/test-results/**
             ${{ runner.temp }}/api.log
-            ${{ runner.temp }}/web.log
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Stop stack
+      - name: Stop the API
         if: always()
         run: |
-          [ -f "$RUNNER_TEMP/api.pid" ] && kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true
-          docker compose down -v --remove-orphans
+          if [ -f "$RUNNER_TEMP/api.pid" ]; then kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true; fi

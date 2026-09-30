@@ -24,6 +24,15 @@ deployment can resume later without redesigning the application.
 
 Nothing runs `terraform plan/apply`, `gcloud`, or pushes to Artifact Registry.
 
+## Local replacement
+
+Everything runs on a developer machine instead: `npm run dev` (or the all-in-Docker
+`docker compose --profile app up -d --build --wait`), with the Firebase Auth emulator, local file
+storage, the in-process event bus, and fake/log providers for payments, billing, donations, push,
+e-mail and analytics. `npm run infra:validate` keeps the Terraform code formatted and valid
+(`fmt -check`, `init -backend=false`, `validate`; no credentials, no plan/apply). Guide:
+[../development/local-setup.md](../development/local-setup.md).
+
 ## Phase 14 items intentionally deferred
 
 1. GCP projects per environment, billing, API enablement, Terraform state bucket.

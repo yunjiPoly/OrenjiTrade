@@ -29,8 +29,11 @@ else
   AUTH_EMULATOR_ORIGIN=""
 fi
 
+# envsubst only sees exported variables: AUTH_EMULATOR_ORIGIN must be exported too, otherwise the
+# CSP connect-src silently lacks the emulator and local sign-in is blocked by the browser.
 export PORT API_BASE_URL WS_BASE_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID \
-  FIREBASE_APP_ID FIREBASE_AUTH_EMULATOR_HOST GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID ENVIRONMENT
+  FIREBASE_APP_ID FIREBASE_AUTH_EMULATOR_HOST GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID ENVIRONMENT \
+  AUTH_EMULATOR_ORIGIN
 
 HTML_ROOT="/usr/share/nginx/html"
 

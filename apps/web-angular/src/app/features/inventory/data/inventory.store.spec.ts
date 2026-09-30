@@ -9,7 +9,7 @@ import {
   PrivacySettings,
   SettingsService,
 } from '@orenji/api-client';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { ApiError } from '../../../core/http/api-error';
 import { parseInventoryParams } from './inventory-params';
 import { InventoryStore } from './inventory.store';
@@ -185,5 +185,28 @@ describe('InventoryStore', () => {
       ['b1', 'b2'],
     ]);
     expect(store.binders()?.map((entry) => entry.id)).toEqual(['b1', 'b2']);
+  });
+
+  it('deletes a binder only after the order saves still in flight', async () => {
+    const pending = new Subject<BinderResponse[]>();
+    const calls: string[] = [];
+    binders['reorderBinders'].mockImplementation(() => {
+      calls.push('reorder');
+      return pending;
+    });
+    binders['deleteBinder'] = vi.fn(() => {
+      calls.push('delete');
+      return of(undefined);
+    });
+    store.loadBinders();
+    const saving = store.reorderBinders(['b2', 'b1']);
+    const deleting = store.deleteBinder('b1');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toEqual(['reorder']);
+
+    pending.next([binder('b2', 0), binder('b1', 0)]);
+    pending.complete();
+    await Promise.all([saving, deleting]);
+    expect(calls).toEqual(['reorder', 'delete']);
   });
 });
