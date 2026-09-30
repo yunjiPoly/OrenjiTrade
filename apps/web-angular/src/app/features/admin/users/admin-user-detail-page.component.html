@@ -52,6 +52,8 @@
         <div class="detail__meta">
           <app-status-chip [status]="a.status" data-testid="admin-user-status" />
           <span>Plan {{ a.plan }}</span>
+          <a routerLink="/admin/subscriptions" [queryParams]="{ userId: a.id }">Subscriptions</a>
+          <a routerLink="/admin/credits" [queryParams]="{ userId: a.id }">Credits</a>
           <span>Joined {{ a.createdAt | date: 'mediumDate' }}</span>
           <span>Active {{ a.lastActiveAt ? (a.lastActiveAt | relativeTime) : 'never' }}</span>
           @if (d.locationLabel) {
@@ -117,6 +119,8 @@
       </section>
 
       <app-user-moderation-panel [userId]="a.id" [handle]="a.handle" />
+
+      <app-user-entitlements-panel [userId]="a.id" [handle]="a.handle" />
 
       <section class="admin-card" aria-labelledby="detail-deletion">
         <h2 id="detail-deletion">Account deletion</h2>

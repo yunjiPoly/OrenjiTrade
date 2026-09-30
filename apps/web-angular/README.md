@@ -444,8 +444,8 @@ Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes an
   notices LISTINGS_PAUSED (→ `/inventory`) and MODERATION_WARNING (→ Community Guidelines) get
   their icons and links.
 - **Admin console** (`features/admin`; moderators see Dashboard, Community, Reports,
-  Moderation and Ratings; transactions, disputes, payments, ads, subscriptions and credits stay
-  listed as later phases): Dashboard (`GET /admin/dashboard` tiles with links for admins; open /
+  Moderation and Ratings; transactions, disputes, payments, ads, subscriptions and credits
+  arrived with Phases 9 and 10): Dashboard (`GET /admin/dashboard` tiles with links for admins; open /
   under-review reports and open flags for moderators; quick links), **Reports** (`/admin/reports`
   filters status, reason, "assigned to me", one collector in the URL; `/admin/reports/:id` with
   the report, the reported conversation when there is one, reporter and reported collector
@@ -601,6 +601,73 @@ sections stay available. Locally the API runs the fake provider: no card, no mon
   shows existing TEXT / TRACKING evidence, and written statements go to the thread; the TEXT /
   TRACKING forms need a distinct operationId in the API and a client regeneration.
 
+## Premium, credits, ads and donations (Phase 10)
+
+Contract: `docs/api/contracts/phase10-freemium-credits-ads-donations.md` (backend notes and
+deviations in `apps/api/README.md`, "Subscriptions, credits, ads, donations (Phase 10)").
+Generated client only (`PlansService`, `SubscriptionsService`, `CreditsService`, `AdsService`,
+`DonationsService`, `AdminBillingService`, `AdminPlansService`). Every provider is a local fake:
+no card, no money. Member screens follow their flags (`premiumPlans`, `credits`, `advertising`,
+`donations`; hidden or guarded while off, 404 `FEATURE_DISABLED` explained); admin sections stay
+available. Wording and refusals live in `shared/billing/billing-labels.ts`.
+
+- **Premium** `/premium` (`features/premium`, `PremiumStore`): plan comparison from `GET /plans`
+  (`PlanCardComponent`: create an account, "Sign in to upgrade", "Upgrade to Premium",
+  "Continue to checkout" for an open checkout, "Current plan"), the live subscription
+  (`SubscriptionCardComponent`: status, price, member since, renews / ends on, PAST_DUE note,
+  "Cancel at period end" / "Cancel now" / "Close the checkout", each confirmed), usage meters
+  from `GET /me/plan` (`UsageMetersComponent`: counters with bars, caps as values, unlimited,
+  "Boosted" overrides), active boosts and a credits teaser. Upgrade ->
+  `POST /me/subscription/checkout` (409 `ALREADY_SUBSCRIBED` explained; only local fake checkout paths
+  or https provider pages are followed) -> `/checkout/fake-billing/:ref`. The limit-reached
+  dialog's "See Premium" lands here and closes every open dialog on the way.
+- **Fake billing checkout** `/checkout/fake-billing/:ref` and **fake donation checkout**
+  `/checkout/fake-donation/:ref` (`features/checkout`, `ProviderCheckoutStore` with
+  `FakeBillingCheckoutStore` / `FakeDonationCheckoutStore`, presentational
+  `FakeProviderCheckoutComponent`): "Local test payment" banner, Pay / "Simulate a failed
+  payment", polling until the synthetic webhook changed the checkout (a declined subscription
+  attempt stays open: "Try again"), then `/premium?checkout=success` (session reloaded: plan and
+  PREMIUM_USER role) or `/support?donation=thanks`.
+- **Credits** `/credits` (`features/credits`, `CreditsStore`; account menu "Credits"): balance
+  with the "never withdrawable or transferable" wording, products to unlock for a day
+  (`CreditProductsComponent`, disabled with "You need N more"), `SpendCreditsDialogComponent`
+  (cost, balance after, duration; one idempotency key per dialog so a retry never spends twice;
+  409 `INSUFFICIENT_CREDITS` with balance and cost), active boosts, referral card (own code with
+  copy / share, rewards, redeem form with 404 and 409 `REFERRAL_NOT_ALLOWED` reasons on the
+  field) and the cursor-paged ledger ("Load more").
+- **Sponsored placements** (`shared/ads`): `SponsoredSlotComponent`
+  (`GET /ads?placement=&game=`) renders nothing while `advertising` is off, for `[]` (Premium,
+  entitlements) or on errors, waits for the session and reloads when the member or plan
+  changes. `SponsoredAdComponent` always shows the literal "Sponsored" label (with why, and
+  "Remove ads" while Premium is sold) and links through the API's click route only
+  (`adClickHref`: `/api/v1/ads/{id}/click?token=` or https; new tab, `rel="sponsored"`);
+  `AdImpressionDirective` + `AdTrackingService` record one impression per serve token once half
+  of the ad is visible. Slots: SEARCH_SPONSORED (`/search` results and card holders),
+  MAP_PANEL (top of the map list panel), INVENTORY_SIDEBAR (`/inventory`), COLLECTOR_PROFILE
+  (other collectors' profiles).
+- **Support** `/support` (`features/support`, `SupportStore`; footer "Support OrenjiTrade",
+  account menu): clearly labelled "Voluntary support" that never changes ratings, ranking or
+  trust; `DonationFormComponent` (preset or custom amount, currency, private message up to 280
+  characters, public-thanks opt-in; the API's accepted range and currencies are shown on the
+  fields when it refuses), the public supporters wall (display names and month only) and the
+  member's own donations. There is no member route for the accepted amounts: presets are
+  suggestions and the API's 400 field errors carry the range.
+- **Admin** (ADMIN area; every write confirmed and "in the audit log"): **Plans** `/admin/plans`
+  (features and limits; SUPER_ADMIN edits name, description, price, currency, availability,
+  order and feature switches), **Subscriptions** `/admin/subscriptions?status=&plan=&userId=` and
+  `/admin/subscriptions/:id` (history, webhooks with payload on demand, cancel at the period end
+  or now with a reason), **Credits** `/admin/credits?userId=` (ledger of all or one account with
+  its balance, "Grant credits" dialog for grants and corrections, credit products and referral
+  rules edited by SUPER_ADMIN), **Ads** `/admin/ads?tab=campaigns|advertisers|placements` and
+  `/admin/ads/campaigns/:id` (campaign dialog with schedule, budgets, pricing and bid, priority
+  and frequency cap; activate / pause / end; `TargetingEditorComponent` with kinds AND / values OR
+  and coordinates refused; creatives dialog with https-or-site-path URLs; delivery tiles and daily
+  statistics), **Donations** `/admin/donations?status=` and `/admin/donations/:id` (totals per
+  currency, webhooks, full refund and accepted amounts for SUPER_ADMIN). The user page gains
+  Subscriptions / Credits links and an **Entitlements** panel (grant a limit or feature override
+  with an optional end and a note, revoke). Audit labels cover `subscription.cancel`,
+  `credits.*`, `ads.*`, `donation.refund`, `donations.settings.update`.
+
 ## Maps
 
 Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers (pins, avatar and
@@ -661,7 +728,12 @@ src/app/
     trades/     /trades list and /trades/:id (next-action banner, steps, timeline, payment,
                 shipment and dispute cards, payout reminder); data/ (TradesListStore,
                 TradeDetailStore, TradeProtectionActions); dialogs/ (ship, open dispute)
-    checkout/   /checkout/fake/:ref (local fake provider checkout); data/ (FakeCheckoutStore)
+    checkout/   /checkout/fake/:ref (payments), /checkout/fake-billing/:ref and
+                /checkout/fake-donation/:ref (local fake providers); data/ (FakeCheckoutStore,
+                ProviderCheckoutStore + billing / donation stores)
+    credits/    /credits: data/ (CreditsStore), balance, products, spend dialog, referral card,
+                ledger
+    support/    /support: data/ (SupportStore), donation form, supporters wall, my donations
     disputes/   /disputes/:id (overview, evidence with uploads, thread, timeline); data/
                 (DisputeStore)
     collectors/ public profile (container + presentational view, public wishlist, ratings and
@@ -672,14 +744,16 @@ src/app/
                 flags), reports (list, detail, resolve dialog, history, notes), moderation
                 (rules, flags), listings, binders, ratings, notifications, analytics, delist
                 (auto-delist editor), health, payments (transactions, payments, payment detail
-                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog)
+                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog),
+                billing (plans, subscriptions, credits, ads with campaign detail and targeting,
+                donations, user entitlements)
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table), bulk bar,
                 binders (header, publish menu, form + manager dialogs), editor side panel,
                 add-card dialog
     binders/    /binders/:id public binder (container + header)
-    premium/    plans and usage
+    premium/    /premium: data/ (PremiumStore), plan card, subscription card, usage meters
     map/        /map: data/ (params, query, clusters, markers, MapDiscoveryStore), map canvas,
                 preview card, discovery panel + collector list, filters bar, legend, area
                 prompt, messages panel (the messenger)
@@ -698,6 +772,8 @@ src/app/
     catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
     inventory/  inventory labels, item chips, public item card, public binder card
     plans/      PlansStore, plan and limit wording
+    billing/    subscription / credit / donation wording and refusals, active boosts
+    ads/        SponsoredSlot, sponsored ad card, impression directive and tracking, safe links
     discovery/  discovery labels (filters, ratings, listings), DiscoveryCentreService
     search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
     domain/     games, distance / last-active labels, coordinate rounding
@@ -783,7 +859,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   option (flag on / off), payment card and protected steps, `FakeCheckoutStore` (polling,
   failure, 409, give-up), `DisputeStore` (uploads, limit and hold refusals, messages, live
   re-reads), evidence uploader, Settings → Payouts, admin money and resolve forms, transaction
-  rows and webhook payloads, dashboard links, notification links.
+  rows and webhook payloads, dashboard links, notification links; Phase 10: billing labels
+  and refusals (checkout, spend, referral, donation fields, safe checkout targets, idempotency
+  keys), `PremiumStore` and usage rows, fake billing / donation checkout stores (outcomes, retry
+  after a decline, give-up), `CreditsStore` (paging, spend, insufficient balance, redeem),
+  `SponsoredSlotComponent` (label, click route, one impression, `[]`, flag off, waits for the
+  session, reload on upgrade), donation form (presets, custom amount, API range), admin campaign
+  form, targeting (no coordinates), creative URLs and entitlement values, the limit dialog
+  closing every dialog.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -882,6 +965,21 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     the refund, the audit log lists `dispute.freeze`, `dispute.note` and `dispute.resolve`, and
     the buyer sees the decision, the refund and the cancelled trade. Every JSON response has at
     most 3 decimals for `lat`/`lng`.
+  - `e2e/freemium.spec.ts` (fake billing provider): a fresh FREE collector (discoverable in
+    Montréal) sees the inventory's "Sponsored" placement, fills `binders.max`, gets the
+    limit-reached dialog and follows "See Premium"; "Upgrade to Premium" opens the local fake
+    billing checkout, a simulated decline keeps it open, "Pay" lands on
+    `/premium?checkout=success` with binders 5 / 50; the sixth binder is created and no ad is
+    left; "Cancel now" returns the collector to FREE (6 / 5).
+  - `e2e/credits-ads.spec.ts`: a fresh collector redeems another one's referral code (an unknown
+    code explained first) and spends the credits on a 24 h unlock (balance, ledger, boosts; the
+    referrer earned 100); a signed-out visitor sees the map panel's "Sponsored" house ad
+    (impression 204) whose click lands on `/premium`, a FREE collector sees a sponsored search
+    result that disappears once Premium; a donation through the footer's "Support OrenjiTrade"
+    shows the API's range on the field, passes the fake donation checkout and puts the opted-in
+    name on the supporters wall (never the amount or message); an admin grants credits, creates,
+    edits, targets (coordinates refused) and ends a campaign, grants and revokes an entitlement,
+    and finds the audit entries.
   - `e2e/admin-moderation.spec.ts`: an administrator's dashboard counts, the listing review
     queue, hiding a collector's listing with a required reason from their listings, pausing and
     resuming the collector's listings (the collector sees the "under review" banner on

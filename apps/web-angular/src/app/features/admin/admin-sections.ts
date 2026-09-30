@@ -12,8 +12,8 @@ export interface AdminSection {
 
 /**
  * Every admin console section from the product spec (Phase 7 contract). Sections whose phase is
- * still ahead (ads, subscriptions, credits) stay listed but disabled until their phase lands;
- * transactions, disputes and payments arrived with Phase 9.
+ * still ahead stay listed but disabled until their phase lands; transactions, disputes and
+ * payments arrived with Phase 9, ads, subscriptions, plans, credits and donations with Phase 10.
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   {
@@ -99,15 +99,16 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     phase: null,
     area: 'moderation',
   },
-  { id: 'ads', label: 'Ads', icon: 'campaign', path: 'ads', phase: 10, area: 'admin' },
+  { id: 'ads', label: 'Ads', icon: 'campaign', path: 'ads', phase: null, area: 'admin' },
   {
     id: 'subscriptions',
     label: 'Subscriptions',
     icon: 'workspace_premium',
     path: 'subscriptions',
-    phase: 10,
+    phase: null,
     area: 'admin',
   },
+  { id: 'plans', label: 'Plans', icon: 'sell', path: 'plans', phase: null, area: 'admin' },
   {
     id: 'usage-limits',
     label: 'Usage limits',
@@ -116,7 +117,15 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     phase: null,
     area: 'admin',
   },
-  { id: 'credits', label: 'Credits', icon: 'toll', path: 'credits', phase: 10, area: 'admin' },
+  { id: 'credits', label: 'Credits', icon: 'toll', path: 'credits', phase: null, area: 'admin' },
+  {
+    id: 'donations',
+    label: 'Donations',
+    icon: 'volunteer_activism',
+    path: 'donations',
+    phase: null,
+    area: 'admin',
+  },
   {
     id: 'notifications',
     label: 'Notifications',

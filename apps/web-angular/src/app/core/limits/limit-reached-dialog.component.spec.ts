@@ -1,7 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter } from '@angular/router';
 import { Plan } from '@orenji/api-client';
@@ -73,7 +73,7 @@ describe('LimitReachedDialogComponent', () => {
     TestBed.configureTestingModule({
       imports: [LimitReachedDialogComponent],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: 'premium', children: [] }]),
         provideHttpClient(withInterceptors([apiBaseUrlInterceptor])),
         provideHttpClientTesting(),
         provideApiClient(),
@@ -107,6 +107,12 @@ describe('LimitReachedDialogComponent', () => {
     expect(text).toContain('Premium removes this limit');
     const link = element.querySelector<HTMLAnchorElement>('a[href="/premium"]');
     expect(link?.textContent).toContain('See Premium');
+
+    // Following it closes every dialog (the form that hit the limit too).
+    const closeAll = vi.spyOn(MatDialog.prototype, 'closeAll');
+    link?.click();
+    expect(closeAll).toHaveBeenCalled();
+    closeAll.mockRestore();
   });
 
   it('names the premium value for capped limits and explains totals that never reset', async () => {

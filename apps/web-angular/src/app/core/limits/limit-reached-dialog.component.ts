@@ -33,7 +33,8 @@ export function openLimitReachedDialog(
 
 /**
  * Explains a reached freemium limit: which limit, how much was used, when it resets and what
- * Premium changes, with a link to `/premium` (hidden while the `premiumPlans` flag is off).
+ * Premium changes, with a link to `/premium` (hidden while the `premiumPlans` flag is off) that
+ * closes every open dialog on its way.
  */
 @Component({
   selector: 'app-limit-reached-dialog',
@@ -107,7 +108,7 @@ export function openLimitReachedDialog(
     <mat-dialog-actions align="end">
       <button matButton type="button" mat-dialog-close>Not now</button>
       @if (premiumEnabled()) {
-        <a matButton="filled" [routerLink]="upgradeTree" mat-dialog-close>
+        <a matButton="filled" [routerLink]="upgradeTree" (click)="leave()">
           <mat-icon aria-hidden="true">workspace_premium</mat-icon>
           See Premium
         </a>
@@ -263,7 +264,17 @@ export class LimitReachedDialogComponent {
     return 'Premium raises your limits, adds advanced filters and removes ads.';
   });
 
+  private readonly dialog = inject(MatDialog);
+
   constructor() {
     void this.plans.load();
+  }
+
+  /**
+   * "See Premium" leaves the page: close this dialog and the form that hit the limit (the router
+   * does not close dialogs on its own), so the plans are not hidden behind it.
+   */
+  protected leave(): void {
+    this.dialog.closeAll();
   }
 }

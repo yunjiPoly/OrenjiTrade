@@ -13,7 +13,8 @@ import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.
 
 /**
  * Account entry of the top bar. Signed out: sign in / create account. Signed in: avatar trigger
- * with name and handle, profile, offers, trades, settings, admin (staff only) and sign out.
+ * with name and handle, profile, offers, trades, settings, Premium, credits, support (each while
+ * its flag is on), admin (staff only) and sign out.
  */
 @Component({
   selector: 'app-account-menu',
@@ -83,6 +84,18 @@ import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.
           <a mat-menu-item routerLink="/premium">
             <mat-icon>workspace_premium</mat-icon>
             <span>Premium</span>
+          </a>
+        }
+        @if (credits()) {
+          <a mat-menu-item routerLink="/credits">
+            <mat-icon>toll</mat-icon>
+            <span>Credits</span>
+          </a>
+        }
+        @if (donations()) {
+          <a mat-menu-item routerLink="/support">
+            <mat-icon>volunteer_activism</mat-icon>
+            <span>Support OrenjiTrade</span>
           </a>
         }
         @if (session.canAccessAdmin()) {
@@ -166,7 +179,10 @@ export class AccountMenuComponent {
   protected readonly auth = inject(AuthService);
   protected readonly session = inject(SessionService);
   protected readonly loading = computed(() => this.auth.authState() === 'loading');
-  protected readonly premiumPlans = inject(FeatureFlagsService).enabled(FEATURE.premiumPlans);
+  private readonly flags = inject(FeatureFlagsService);
+  protected readonly premiumPlans = this.flags.enabled(FEATURE.premiumPlans);
+  protected readonly credits = this.flags.enabled(FEATURE.credits);
+  protected readonly donations = this.flags.enabled(FEATURE.donations);
 
   protected async signOut(): Promise<void> {
     await this.auth.signOut();

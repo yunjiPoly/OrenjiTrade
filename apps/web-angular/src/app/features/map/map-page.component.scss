@@ -69,6 +69,11 @@
   z-index: 1002;
 }
 
+// Sponsored placement at the top of the list panel (renders nothing without ads).
+.stage__sponsored {
+  margin-bottom: var(--spacing-3);
+}
+
 .stage__preview {
   z-index: 1003;
 }
