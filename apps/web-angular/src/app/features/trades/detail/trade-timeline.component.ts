@@ -11,10 +11,14 @@ interface TimelineEntry {
   icon: string;
   label: string;
   reason: string | null;
+  detail: string | null;
   at: string;
 }
 
-/** The trade's timeline, oldest first (who did what, the cancel reason). */
+/**
+ * The trade's timeline, oldest first: who did what, the cancel reason, and the Phase 9 payment,
+ * shipping (tracking number) and dispute steps.
+ */
 @Component({
   selector: 'app-trade-timeline',
   imports: [DatePipe, MatIconModule, RelativeTimePipe],
@@ -29,6 +33,9 @@ interface TimelineEntry {
             <p class="step__label">{{ entry.label }}</p>
             @if (entry.reason) {
               <p class="step__reason">Reason: “{{ entry.reason }}”</p>
+            }
+            @if (entry.detail) {
+              <p class="step__detail mono">{{ entry.detail }}</p>
             }
             <time class="step__time" [attr.datetime]="entry.at" [title]="entry.at | date: 'medium'">
               {{ entry.at | relativeTime }}
@@ -97,6 +104,12 @@ interface TimelineEntry {
       font-style: italic;
       overflow-wrap: anywhere;
     }
+    .step__detail {
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-xs);
+      overflow-wrap: anywhere;
+    }
     .step__time {
       color: var(--color-text-muted);
       font-size: var(--font-size-xs);
@@ -113,12 +126,21 @@ export class TradeTimelineComponent {
   protected readonly entries = computed<TimelineEntry[]>(() => {
     const names = { SELLER: this.sellerName(), BUYER: this.buyerName() };
     return this.timeline().map((event) => {
-      const reason = event.details?.['reason'];
+      // Only a cancellation carries a free-text reason; dispute reasons are worded in the label.
+      const reason = event.event === 'CANCELLED' ? event.details?.['reason'] : null;
+      const tracking = event.event === 'SHIPPED' ? event.details?.['trackingNumber'] : null;
       return {
         id: event.id,
         icon: TRADE_EVENT_ICONS[event.event] ?? 'info',
-        label: tradeEventLabel(event.event, event.actorRole ?? null, this.viewerRole(), names),
+        label: tradeEventLabel(
+          event.event,
+          event.actorRole ?? null,
+          this.viewerRole(),
+          names,
+          event.details ?? null,
+        ),
         reason: typeof reason === 'string' ? reason : null,
+        detail: typeof tracking === 'string' && tracking ? `Tracking ${tracking}` : null,
         at: event.createdAt,
       };
     });

@@ -51,8 +51,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *       X-Request-Id} and the rate-limit headers are exposed to browsers.
  *   <li>Public: health probes, info, OpenAPI/Swagger (when enabled), {@code /api/v1/meta}, {@code
  *       /api/v1/public/**}, {@code /error}, the payment provider webhooks {@code
- *       /api/v1/webhooks/payments/*} (authenticated by their signature in the payments module) and
- *       the read-only catalog and plan routes ({@link #PUBLIC_GET_PATTERNS}, GET only).
+ *       /api/v1/webhooks/payments/*}, {@code /webhooks/billing/*} and {@code /webhooks/donations/*}
+ *       (authenticated by their signature in the owning module), ad impressions (signed serve
+ *       token) and the read-only catalog, plan and ad routes ({@link #PUBLIC_GET_PATTERNS}, GET
+ *       only).
  *   <li>Filter order inside the chain: {@link BearerTokenAuthenticationFilter} and {@link
  *       ServiceAuthFilter} (authentication) → {@link AccountAccessFilter} (suspended / deletion
  *       pending) → {@link RateLimitFilter} → {@link AuthorizationFilter} (RBAC, admin MFA) → {@link
@@ -93,6 +95,11 @@ public class SecurityConfig {
                     "/api/v1/public/**",
                     // Payment provider webhooks (Phase 9): authenticated by their signature.
                     "/api/v1/webhooks/payments/*",
+                    // Billing and donation provider webhooks (Phase 10): signature verified.
+                    "/api/v1/webhooks/billing/*",
+                    "/api/v1/webhooks/donations/*",
+                    // Ad impressions (Phase 10): authenticated by the signed serve token.
+                    "/api/v1/ads/*/impression",
                     "/error");
 
     /**
@@ -118,7 +125,9 @@ public class SecurityConfig {
                     "/api/v1/collectors/nearby",
                     "/api/v1/collectors/*/preview",
                     "/api/v1/search",
-                    "/api/v1/search/**");
+                    "/api/v1/search/**",
+                    "/api/v1/ads",
+                    "/api/v1/ads/*/click");
 
     /**
      * The moderation subset of the admin console (Phase 5 contract "Moderator"; Phase 7 RBAC:

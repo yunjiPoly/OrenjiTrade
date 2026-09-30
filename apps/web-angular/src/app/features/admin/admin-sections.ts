@@ -12,8 +12,8 @@ export interface AdminSection {
 
 /**
  * Every admin console section from the product spec (Phase 7 contract). Sections whose phase is
- * still ahead (transactions, disputes, payments, ads, subscriptions, credits) stay listed but
- * disabled until their phase lands.
+ * still ahead (ads, subscriptions, credits) stay listed but disabled until their phase lands;
+ * transactions, disputes and payments arrived with Phase 9.
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   {
@@ -72,16 +72,23 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Transactions',
     icon: 'receipt_long',
     path: 'transactions',
-    phase: 8,
+    phase: null,
     area: 'admin',
   },
-  { id: 'disputes', label: 'Disputes', icon: 'gavel', path: 'disputes', phase: 9, area: 'admin' },
+  {
+    id: 'disputes',
+    label: 'Disputes',
+    icon: 'gavel',
+    path: 'disputes',
+    phase: null,
+    area: 'admin',
+  },
   {
     id: 'payments',
     label: 'Payments',
     icon: 'payments',
     path: 'payments',
-    phase: 9,
+    phase: null,
     area: 'admin',
   },
   {

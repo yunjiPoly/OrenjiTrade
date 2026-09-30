@@ -23,9 +23,15 @@ import { nextActionView, tradeStatusInfo } from '../../../shared/offers/trade-la
 import { RatingActionsService } from '../../../shared/ratings/rating-actions.service';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
+import { formatDateTime, money } from '../../../shared/payments/payment-labels';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { TradeDetailStore } from '../data/trade-detail.store';
+import { TradeProtectionActions } from '../data/trade-protection.actions';
+import { TradeDisputeCardComponent } from './trade-dispute-card.component';
 import { TradeNextActionComponent } from './trade-next-action.component';
+import { TradePaymentCardComponent } from './trade-payment-card.component';
+import { TradePayoutSetupComponent } from './trade-payout-setup.component';
+import { TradeShipmentCardComponent } from './trade-shipment-card.component';
 import { TradeStepsComponent } from './trade-steps.component';
 import { TradeTimelineComponent } from './trade-timeline.component';
 
@@ -40,11 +46,14 @@ interface ReceivedCard {
 
 /**
  * `/trades/:id`: a trade for its two parties (anybody else gets the not-found state): the
- * next-action banner, progress (meetup marks and confirmations of both parties), the deal, the
- * other collector and the timeline. Operations come from `allowedOperations`: mark the in-person
- * meetup, confirm the exchange, cancel with a required reason. Once completed it offers to rate
- * the other collector and to add the received cards to the inventory (the API only removes the
- * given cards).
+ * next-action banner, progress (meetup marks and confirmations of both parties, or the payment
+ * protection steps), the deal, the other collector, the protected payment, shipment and dispute,
+ * and the timeline. Operations come from `allowedOperations`: mark the in-person meetup, confirm
+ * the exchange, cancel with a required reason, and with payment protection pay (fake checkout
+ * locally), ship, confirm receipt and open a dispute. A seller waiting for a payment is reminded
+ * to set up payouts. Once completed it offers to rate the other collector and to add the received
+ * cards to the inventory (the API only removes the given cards). `?payment=secured|failed` is the
+ * checkout page's answer.
  */
 @Component({
   selector: 'app-trade-page',
@@ -58,11 +67,15 @@ interface ReceivedCard {
     OfferPartyCardComponent,
     SkeletonComponent,
     StatusChipComponent,
+    TradeDisputeCardComponent,
     TradeNextActionComponent,
+    TradePaymentCardComponent,
+    TradePayoutSetupComponent,
+    TradeShipmentCardComponent,
     TradeStepsComponent,
     TradeTimelineComponent,
   ],
-  providers: [TradeDetailStore],
+  providers: [TradeDetailStore, TradeProtectionActions],
   template: `
     <div class="page tp">
       @switch (store.status()) {
@@ -113,6 +126,12 @@ interface ReceivedCard {
                     In-person meetup
                   </span>
                 }
+                @if (trade.protectionEnabled && !trade.meetup) {
+                  <span class="tp__pill tp__pill--protected">
+                    <mat-icon aria-hidden="true">verified_user</mat-icon>
+                    Payment protection
+                  </span>
+                }
               </div>
             </header>
 
@@ -138,7 +157,72 @@ interface ReceivedCard {
               </div>
             }
 
+            @if (
+              trade.protectionEnabled &&
+              trade.viewerRole === 'SELLER' &&
+              trade.status === 'AWAITING_PAYMENT'
+            ) {
+              <app-trade-payout-setup
+                [tradeId]="trade.id"
+                [buyerName]="trade.counterparty.displayName"
+              />
+            }
+
             <app-trade-next-action [view]="nextAction()">
+              @if (store.allowed().has('PAY')) {
+                <button
+                  actions
+                  matButton="filled"
+                  type="button"
+                  [disabled]="!!store.busy()"
+                  (click)="protection.pay()"
+                >
+                  <mat-icon aria-hidden="true">lock</mat-icon>
+                  {{ store.busy() === 'PAY' ? 'Opening the checkout…' : 'Pay ' + amount() }}
+                </button>
+              }
+              @if (store.allowed().has('SHIP')) {
+                <button
+                  actions
+                  matButton="filled"
+                  type="button"
+                  [disabled]="!!store.busy()"
+                  (click)="protection.ship()"
+                >
+                  <mat-icon aria-hidden="true">local_shipping</mat-icon>
+                  {{ store.busy() === 'SHIP' ? 'Saving…' : 'Mark as shipped' }}
+                </button>
+              }
+              @if (store.allowed().has('CONFIRM_RECEIPT')) {
+                <button
+                  actions
+                  matButton="filled"
+                  type="button"
+                  [disabled]="!!store.busy()"
+                  (click)="protection.confirmReceipt()"
+                >
+                  <mat-icon aria-hidden="true">inventory</mat-icon>
+                  {{ store.busy() === 'CONFIRM_RECEIPT' ? 'Confirming…' : 'Confirm receipt' }}
+                </button>
+              }
+              @if (store.allowed().has('OPEN_DISPUTE')) {
+                <button
+                  actions
+                  matButton="outlined"
+                  type="button"
+                  [disabled]="!!store.busy()"
+                  (click)="protection.openDispute()"
+                >
+                  <mat-icon aria-hidden="true">report</mat-icon>
+                  {{ store.busy() === 'OPEN_DISPUTE' ? 'Opening…' : 'Open a dispute' }}
+                </button>
+              }
+              @if (trade.dispute; as dispute) {
+                <a actions matButton="tonal" [routerLink]="['/disputes', dispute.id]">
+                  <mat-icon aria-hidden="true">gavel</mat-icon>
+                  View the dispute
+                </a>
+              }
               @if (store.allowed().has('CONFIRM_COMPLETION')) {
                 <button
                   actions
@@ -162,7 +246,13 @@ interface ReceivedCard {
                   (click)="markMeetup()"
                 >
                   <mat-icon aria-hidden="true">groups</mat-icon>
-                  {{ store.busy() === 'MARK_MEETUP' ? 'Saving…' : 'We meet in person' }}
+                  {{
+                    store.busy() === 'MARK_MEETUP'
+                      ? 'Saving…'
+                      : trade.protectionEnabled
+                        ? 'Meet in person instead'
+                        : 'We meet in person'
+                  }}
                 </button>
               }
               @if (rateable().length > 0) {
@@ -236,6 +326,15 @@ interface ReceivedCard {
                 </section>
               </div>
               <aside class="tp__side">
+                @if (trade.dispute; as dispute) {
+                  <app-trade-dispute-card [dispute]="dispute" [currency]="trade.currency" />
+                }
+                @if (trade.payment; as payment) {
+                  <app-trade-payment-card [payment]="payment" [viewerRole]="trade.viewerRole" />
+                }
+                @if (trade.shipment; as shipment) {
+                  <app-trade-shipment-card [shipment]="shipment" />
+                }
                 <section aria-labelledby="tp-with">
                   <h2 id="tp-with" class="tp__h2">Trading with</h2>
                   <app-offer-party-card
@@ -244,7 +343,12 @@ interface ReceivedCard {
                   />
                   <p class="tp__safety">
                     <mat-icon aria-hidden="true">shield_person</mat-icon>
-                    Meet in a busy public place and check the card before you confirm.
+                    @if (trade.protectionEnabled && !trade.meetup) {
+                      Ship with tracking and keep photos of the card; check it before you confirm
+                      receipt.
+                    } @else {
+                      Meet in a busy public place and check the card before you confirm.
+                    }
                   </p>
                 </section>
                 <section aria-labelledby="tp-timeline">
@@ -335,6 +439,13 @@ interface ReceivedCard {
       width: 14px;
       height: 14px;
       font-size: 14px;
+    }
+    .tp__pill--protected {
+      background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+      color: var(--color-ink);
+    }
+    .tp__pill--protected mat-icon {
+      color: var(--color-success);
     }
     .tp__notice {
       display: flex;
@@ -443,6 +554,7 @@ interface ReceivedCard {
 })
 export class TradePageComponent {
   protected readonly store = inject(TradeDetailStore);
+  protected readonly protection = inject(TradeProtectionActions);
   private readonly offers = inject(OfferActionsService);
   private readonly ratings = inject(RatingActionsService);
   private readonly conversations = inject(ConversationStarterService);
@@ -450,9 +562,16 @@ export class TradePageComponent {
 
   /** Route parameter (bound by the router). */
   readonly id = input.required<string>();
+  /** `?payment=secured|failed`: where the checkout page sent the buyer back from. */
+  readonly payment = input<string | undefined>();
 
   protected readonly status = computed(() => tradeStatusInfo(this.store.trade()?.status));
   protected readonly kindLabel = computed(() => offerKindLabel(this.store.trade()?.kind));
+  /** What the buyer pays (the cash part of the deal). */
+  protected readonly amount = computed(() => {
+    const trade = this.store.trade();
+    return money(trade?.payment?.amount ?? trade?.cashAmount, trade?.currency);
+  });
   protected readonly nextAction = computed(() => {
     const trade = this.store.trade();
     return nextActionView(
@@ -463,6 +582,11 @@ export class TradePageComponent {
             viewerRole: trade.viewerRole,
             other: trade.counterparty.displayName,
             cancelReason: trade.cancelReason,
+            protectionEnabled: trade.protectionEnabled && !trade.meetup,
+            paymentStatus: trade.payment?.status ?? null,
+            windowEndsAt: trade.payment?.disputeWindowEndsAt
+              ? formatDateTime(trade.payment.disputeWindowEndsAt)
+              : null,
           }
         : { status: 'AGREED', nextAction: { action: 'NONE' }, viewerRole: 'BUYER', other: '' },
     );
@@ -498,12 +622,35 @@ export class TradePageComponent {
   });
 
   private eligibilityChecked: string | null = null;
+  private checkoutNoticeShown = false;
 
   constructor() {
     this.store.init();
     effect(() => {
       const id = this.id();
       untracked(() => this.store.load(id));
+    });
+    // Back from the checkout page: say how the payment went, once.
+    effect(() => {
+      const trade = this.store.trade();
+      const outcome = this.payment();
+      if (!trade || !outcome || this.checkoutNoticeShown) {
+        return;
+      }
+      this.checkoutNoticeShown = true;
+      untracked(() =>
+        this.store.showNotice(
+          outcome === 'failed'
+            ? {
+                tone: 'warning',
+                message: 'The payment did not go through. Nothing was charged: you can try again.',
+              }
+            : {
+                tone: 'success',
+                message: `Payment secured. The payment provider holds it until you confirm receipt; ${trade.counterparty.displayName} was asked to ship.`,
+              },
+        ),
+      );
     });
     // Once the trade is completed, ask whether the other collector can still be rated.
     effect(() => {

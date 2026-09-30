@@ -266,6 +266,65 @@ public class Entitlements {
         cache.evict(CACHE_PREFIX + userId);
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Grants by other modules (credit spends, Phase 10)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Validates and normalises an override value for {@code featureKey} the way admin grants do
+     * (limits: a non-negative integer or {@code unlimited}; features: {@code true}/{@code false}).
+     *
+     * @throws ApiException 400 for unknown keys or values
+     */
+    public @Nullable String normaliseOverride(String featureKey, @Nullable String value) {
+        return normaliseValue(featureKey.trim(), value);
+    }
+
+    /**
+     * Grants a time-boxed entitlement on behalf of the platform (no admin actor, not audited here:
+     * the calling module keeps the record, e.g. the credit ledger). Joins the caller's transaction;
+     * the cache is evicted after commit.
+     */
+    @Transactional
+    public EntitlementView grantBySystem(
+            UUID userId,
+            String featureKey,
+            @Nullable String value,
+            EntitlementSource source,
+            Instant expiresAt,
+            @Nullable String note) {
+        requireAccount(userId);
+        String key = featureKey.trim();
+        EntitlementView created =
+                repository.insert(
+                        userId,
+                        key,
+                        normaliseValue(key, value),
+                        source,
+                        expiresAt,
+                        null,
+                        note,
+                        timeProvider.now());
+        evictAfterCommit(userId);
+        return created;
+    }
+
+    /**
+     * The latest expiry among the active entitlements of {@code userId} for {@code featureKey} from
+     * {@code source} (credit purchases stack after each other), empty when none is active.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Instant> latestActiveExpiry(
+            UUID userId, String featureKey, EntitlementSource source) {
+        Instant now = timeProvider.now();
+        return repository.findActive(userId, now).stream()
+                .filter(entitlement -> entitlement.featureKey().equals(featureKey))
+                .filter(entitlement -> entitlement.source() == source)
+                .map(EntitlementView::expiresAt)
+                .filter(java.util.Objects::nonNull)
+                .max(Instant::compareTo);
+    }
+
     private @Nullable String normaliseValue(String key, @Nullable String value) {
         @Nullable String trimmed = value == null || value.isBlank() ? null : value.trim();
         if (planService.limitKeys().contains(key)) {

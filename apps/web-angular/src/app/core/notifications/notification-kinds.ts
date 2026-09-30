@@ -32,6 +32,7 @@ const KINDS: Record<string, NotificationKind> = {
   TRADE_UPDATE: { icon: 'sync_alt', tone: 'trade', label: 'Trade' },
   SHIPMENT_STATUS: { icon: 'local_shipping', tone: 'trade', label: 'Shipment' },
   PAYMENT_UPDATE: { icon: 'payments', tone: 'trade', label: 'Payment' },
+  DISPUTE_UPDATE: { icon: 'gavel', tone: 'warning', label: 'Dispute' },
   REPORT_DECISION: { icon: 'gavel', tone: 'system', label: 'Report decision' },
   SYSTEM: { icon: 'campaign', tone: 'system', label: 'OrenjiTrade' },
 };
@@ -72,7 +73,8 @@ function idOf(data: NotificationResponse['data'] | undefined, key: string): stri
 /**
  * The page a notification opens: its `data.deepLink` (web path, e.g. `/wishlist/<id>`,
  * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/premium`,
- * `/collectors/<handle>?tab=ratings`, `/settings/reports`, `/offers/<id>`, `/trades/<id>`) when it
+ * `/collectors/<handle>?tab=ratings`, `/settings/reports`, `/offers/<id>`, `/trades/<id>`,
+ * `/disputes/<id>`, `/settings/payouts`) when it
  * is a safe in-app path, otherwise a path rebuilt from the ids it carries, otherwise the
  * notification list.
  */
@@ -109,9 +111,16 @@ export function notificationLink(
       const offer = idOf(data, 'offerId');
       return trade ? `/trades/${trade}` : offer ? `/offers/${offer}` : '/offers';
     }
-    case 'TRADE_UPDATE': {
+    case 'TRADE_UPDATE':
+    case 'PAYMENT_UPDATE':
+    case 'SHIPMENT_STATUS': {
       const trade = idOf(data, 'tradeId');
       return trade ? `/trades/${trade}` : '/trades';
+    }
+    case 'DISPUTE_UPDATE': {
+      const dispute = idOf(data, 'disputeId');
+      const trade = idOf(data, 'tradeId');
+      return dispute ? `/disputes/${dispute}` : trade ? `/trades/${trade}` : '/trades';
     }
     case 'REPORT_DECISION':
       return '/settings/reports';

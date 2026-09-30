@@ -185,6 +185,63 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/payments/webhooks", Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/webhooks/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/settings", Level.ADMIN));
+        // Phase 10: subscriptions, credits, ads, donations (reads and harmless writes).
+        routes.add(get("/api/v1/admin/subscriptions", Level.ADMIN));
+        routes.add(get("/api/v1/admin/subscriptions/" + id, Level.ADMIN));
+        routes.add(
+                post(
+                        "/api/v1/admin/subscriptions/" + id + "/cancel",
+                        Map.of("immediately", false),
+                        Level.ADMIN));
+        routes.add(
+                post(
+                        "/api/v1/admin/credits/grant",
+                        Map.of("userId", id, "amount", 1, "reason", "ADMIN"),
+                        Level.ADMIN));
+        routes.add(get("/api/v1/admin/credits/ledger", Level.ADMIN));
+        routes.add(get("/api/v1/admin/credits/products", Level.ADMIN));
+        routes.add(get("/api/v1/admin/credits/settings", Level.ADMIN));
+        routes.add(get("/api/v1/admin/ads/advertisers", Level.ADMIN));
+        routes.add(post("/api/v1/admin/ads/advertisers", Map.of("name", ""), Level.ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/ads/advertisers/" + id,
+                        Map.of("name", "x"),
+                        Level.ADMIN));
+        routes.add(get("/api/v1/admin/ads/placements", Level.ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/ads/placements/MAP_PANEL",
+                        Map.of("name", "", "active", true, "maxAds", 1),
+                        Level.ADMIN));
+        routes.add(get("/api/v1/admin/ads/campaigns", Level.ADMIN));
+        routes.add(post("/api/v1/admin/ads/campaigns", Map.of(), Level.ADMIN));
+        routes.add(get("/api/v1/admin/ads/campaigns/" + id, Level.ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/ads/campaigns/" + id,
+                        Map.of(),
+                        Level.ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/ads/campaigns/" + id + "/targeting",
+                        Map.of("rules", List.of()),
+                        Level.ADMIN));
+        routes.add(get("/api/v1/admin/ads/campaigns/" + id + "/stats", Level.ADMIN));
+        routes.add(post("/api/v1/admin/ads/campaigns/" + id + "/creatives", Map.of(), Level.ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/ads/creatives/" + id,
+                        Map.of(),
+                        Level.ADMIN));
+        routes.add(get("/api/v1/admin/donations", Level.ADMIN));
+        routes.add(get("/api/v1/admin/donations/" + id, Level.ADMIN));
+        routes.add(get("/api/v1/admin/donations/settings", Level.ADMIN));
         // --- SUPER_ADMIN (service rules; unknown keys answer 404 to a SUPER_ADMIN) ------------
         // Refunds: SUPER_ADMIN unless payments.admin_refunds_enabled (off by default).
         routes.add(
@@ -217,6 +274,31 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
                         "/api/v1/admin/usage-limits/" + id,
                         Map.of("unlimited", true),
                         Level.SUPER_ADMIN));
+        // Phase 10 SUPER_ADMIN writes (validated after the role check: harmless 4xx for them).
+        Map<String, Object> product = new LinkedHashMap<>();
+        product.put("name", "x");
+        product.put("cost", 1);
+        product.put("durationHours", 1);
+        product.put("active", true);
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/credits/products/no_such_product",
+                        product,
+                        Level.SUPER_ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/credits/settings",
+                        Map.of("referrerReward", -1),
+                        Level.SUPER_ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/donations/settings",
+                        Map.of("minAmount", "0.01"),
+                        Level.SUPER_ADMIN));
+        routes.add(post("/api/v1/admin/donations/" + id + "/refund", null, Level.SUPER_ADMIN));
         Map<String, Object> broadcast = new LinkedHashMap<>();
         broadcast.put("title", "Maintenance");
         broadcast.put("body", "Tonight");

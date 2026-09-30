@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,11 +12,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 import { OfferResponse, OffersService } from '@orenji/api-client';
 import { firstValueFrom, startWith } from 'rxjs';
+import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { toApiError } from '../../core/http/api-error';
 import { newRequestId, silentErrors } from '../../core/http/http-context';
 import { CardImageComponent } from '../catalog/card-image/card-image.component';
 import { CURRENCIES, formatPrice } from '../inventory/inventory-labels';
 import { ItemChipsComponent } from '../inventory/item-chips/item-chips.component';
+import { ProtectionExplainerComponent } from '../payments/protection-explainer.component';
 import { AvatarComponent } from '../ui/avatar/avatar.component';
 import { OfferCardPickerComponent } from './offer-card-picker.component';
 import {
@@ -75,6 +78,7 @@ type FieldName = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
     RouterLink,
     MatButtonModule,
     MatButtonToggleModule,
+    MatCheckboxModule,
     MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
@@ -84,6 +88,7 @@ type FieldName = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
     CardImageComponent,
     ItemChipsComponent,
     OfferCardPickerComponent,
+    ProtectionExplainerComponent,
   ],
   template: `
     @let t = data.target;
@@ -204,6 +209,23 @@ type FieldName = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
                 </mat-select>
               </mat-form-field>
             </div>
+            @if (protectionAvailable()) {
+              <div class="protection" data-testid="protection-option">
+                <mat-checkbox formControlName="protectionRequested">
+                  Use payment protection
+                </mat-checkbox>
+                <p class="protection__hint">
+                  The card is shipped to you with tracking and {{ t.seller.displayName }} is paid
+                  only once you confirm it arrived. You can still agree to meet in person later.
+                </p>
+                <app-protection-explainer collapsed />
+              </div>
+            } @else if (counter?.offer?.protectionRequested) {
+              <p class="protection__kept" data-testid="protection-kept">
+                <mat-icon aria-hidden="true">verified_user</mat-icon>
+                Payment protection stays on for this deal.
+              </p>
+            }
           }
 
           @if (hasCards()) {
@@ -263,7 +285,8 @@ type FieldName = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
           <p class="summary" aria-live="polite" data-testid="offer-summary">
             <mat-icon aria-hidden="true">{{ kindInfo[kind()].icon }}</mat-icon>
             <span>
-              You offer <strong>{{ termsText() }}</strong> for {{ t.cardName }}.
+              You offer <strong>{{ termsText() }}</strong> for {{ t.cardName
+              }}{{ protected() ? ' with payment protection' : '' }}.
             </span>
           </p>
         }
@@ -405,6 +428,28 @@ type FieldName = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
       flex: 0 0 auto;
       width: 136px;
     }
+    .protection {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-2);
+      margin: 0 0 var(--spacing-4);
+    }
+    .protection__hint {
+      margin: 0 0 0 40px;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .protection__kept {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-2);
+      margin: 0 0 var(--spacing-4);
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+    }
+    .protection__kept mat-icon {
+      color: var(--color-success);
+    }
     .wide {
       display: block;
       width: 100%;
@@ -443,6 +488,7 @@ type FieldName = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
 })
 export class MakeOfferDialogComponent {
   private readonly api = inject(OffersService);
+  private readonly flags = inject(FeatureFlagsService);
   private readonly ref =
     inject<MatDialogRef<MakeOfferDialogComponent, MakeOfferResult>>(MatDialogRef);
   protected readonly data = inject<MakeOfferDialogData>(MAT_DIALOG_DATA);
@@ -477,6 +523,17 @@ export class MakeOfferDialogComponent {
   protected readonly hasCards = computed(() => kindHasCards(this.kind()));
   protected readonly cards = computed(() => this.value().cards ?? []);
   protected readonly messageLength = computed(() => (this.value().message ?? '').length);
+  /** New offers with a cash part may ask for payment protection while the flag is on. */
+  protected readonly protectionAvailable = computed(
+    () => !this.counter && this.hasCash() && this.flags.enabled(FEATURE.protectedPayments)(),
+  );
+  protected readonly protected = computed(
+    () =>
+      this.hasCash() &&
+      (this.protectionAvailable()
+        ? this.value().protectionRequested === true
+        : !!this.counter?.offer.protectionRequested),
+  );
   protected readonly termsText = computed(() => {
     const value = this.value();
     return offerTermsText({

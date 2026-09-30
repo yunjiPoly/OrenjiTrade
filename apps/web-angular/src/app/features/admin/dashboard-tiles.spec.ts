@@ -32,7 +32,14 @@ describe('dashboard tiles', () => {
     expect(byId['accounts'].hint).toBe('118 active · 2 suspended · 9 new this week');
     expect(byId['listings'].hint).toBe('1 public binder');
     expect(byId['stale']).toMatchObject({ value: 5, hint: '4 stale · 1 hidden' });
-    expect(byId['disputes'].hint).toContain('Phase 9');
+    expect(byId['disputes']).toMatchObject({
+      alert: false,
+      link: { path: '/admin/disputes', query: { status: 'OPEN' } },
+    });
+    expect(byId['webhooks'].link).toEqual({
+      path: '/admin/payments/webhooks',
+      query: { status: 'FAILED' },
+    });
     expect(tiles).toHaveLength(10);
   });
 

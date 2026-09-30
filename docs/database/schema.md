@@ -56,6 +56,14 @@ update it in the same change.
 | `offer.message`, `offer_event.reason`, `trade.cancel_reason` (and the `reason` of `trade_event.details`) | Free text of the two parties | Returned to the two parties only (`GET /offers/{id}`, `GET /trades/{id}`); never in notifications, SYSTEM messages, events or analytics; erased when their author's account is purged (the rows stay for the other party) |
 | `offer.item_snapshot`, `offer_trade_item.item_snapshot`, `offer_event.snapshot` | Public form of negotiated cards and terms | Parties only; built from the public item fields (never `inventory_item.notes`, never a location) |
 | `offer`, `trade` (rows) | Who negotiates or trades with whom | The two parties only (404 for anybody else); analytics get kinds, statuses and HMAC hashes only (`offer_created`, `offer_status_changed`, `trade_status_changed`), never amounts, ids or text |
+| `subscription.provider_ref`, `subscription.checkout_ref`, `donation.provider_ref` | Provider references | Never returned to other members; a member's own fake checkout path carries its checkout reference; admin views show statuses and amounts, never subscription ids at the provider |
+| `billing_webhook_event.payload`, `donation_webhook_event.payload` | Provider events as received | Admin detail views only; never logged |
+| `credit_ledger_entry` (rows) | Credit history | Append-only (trigger refuses UPDATE, DELETE, TRUNCATE); owner and admins only; kept with the anonymised account after a purge |
+| `credit_ledger_entry.note` | Admin free text | Admin ledger view only; never returned to the owner (`GET /me/credits` and the export omit it) |
+| `advertiser.contact_email` | Business contact | Admin console only; never in ad responses |
+| `ad_impression.user_hash`, `ad_click.user_hash`, `ad_conversion.user_hash` | Pseudonymous viewer id | HMAC of the account id (analytics actor hash); never an account id, never returned by the API; ad targeting reads public grid cells and region labels only, never `user_location` |
+| `donation.message` | Donor free text | Admins and the donor's own export only; never public; erased on purge |
+| `donation.public_thanks` | Opt-in | Only opted-in, active donors' display names (and month) are listed publicly; never amounts |
 | Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
 
 ## Entity overview
@@ -96,8 +104,16 @@ erDiagram
   USER_ACCOUNT ||--o{ COLLECTOR_REPORT : files
   USER_ACCOUNT ||--o{ NOTIFICATION : receives
   USER_ACCOUNT ||--o{ CREDIT_LEDGER_ENTRY : has
-  USER_ACCOUNT ||--o| SUBSCRIPTION : has
+  USER_ACCOUNT ||--o| REFERRAL_CODE : shares
+  USER_ACCOUNT ||--o{ SUBSCRIPTION : has
   PLAN ||--o{ SUBSCRIPTION : grants
+  SUBSCRIPTION ||--o{ SUBSCRIPTION_EVENT : history
+  ADVERTISER ||--o{ AD_CAMPAIGN : runs
+  AD_CAMPAIGN ||--o{ AD_CREATIVE : has
+  AD_CAMPAIGN ||--o{ AD_TARGETING_RULE : targets
+  AD_PLACEMENT ||--o{ AD_CREATIVE : shows
+  AD_CREATIVE ||--o{ AD_IMPRESSION : served
+  USER_ACCOUNT ||--o{ DONATION : gives
   PLAN ||--o{ PLAN_FEATURE : defines
   USER_ACCOUNT ||--o{ AUDIT_LOG : actor
 ```
@@ -134,6 +150,12 @@ Detailed column lists are appended per phase below as migrations land.
 | V063 | `V063__analytics_daily_count.sql` | Phase 7: `analytics_daily_count` (local analytics aggregate for the admin summary) |
 | V070 | `V070__offers.sql` | Phase 8: `offer` (one row per proposal of a counter chain), `offer_trade_item`, `offer_event` (full history), `offer_preferences` (`accepts_mixed`); `uq_message_system_key` on `message` (SYSTEM messages of offers and trades) |
 | V071 | `V071__trades.sql` | Phase 8: `trade` (one per accepted offer), `trade_event` (timeline) |
+| V080 | `V080__payments.sql` | Phase 9: `platform_settings` (+ `payments.*`), `seller_account`, `payment`, `payment_event`, `payment_refund`, `payment_webhook_event` |
+| V081 | `V081__shipments_disputes.sql` | Phase 9: `shipment`, `dispute`, `dispute_evidence`, `dispute_event`, `dispute_message`, `dispute_note` |
+| V090 | `V090__subscriptions.sql` | Phase 10: `subscription` (one live per account), `subscription_event`, `billing_webhook_event` |
+| V091 | `V091__credits.sql` | Phase 10: append-only `credit_ledger_entry` (trigger), view `credit_balance`, `credit_product` (+ 3 products), `referral_code`, `referral_redemption`, `credits.*` settings |
+| V092 | `V092__advertising.sql` | Phase 10: `advertiser`, `ad_placement` (+ 5 placements), `ad_campaign`, `ad_creative`, `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily` |
+| V093 | `V093__donations.sql` | Phase 10: `donation`, `donation_webhook_event`, `donations.*` settings |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -1599,3 +1621,170 @@ deletion (`OPEN_TRADE`); payment, refund and dispute rows are kept for the other
 retention of financial records. Seed (local/dev, `PaymentSeedContributor`): fake ACTIVE payout
 accounts for collector1 and collector2, payment `9f00…0001` (trade `9d00…0003`, SHIPPED) and payment
 `9f00…0002` (trade `9d00…0004`) frozen by dispute `9f00…0101` (OPEN, NOT_AS_DESCRIBED).
+
+### Phase 10 — subscriptions, credits, advertising, donations (V090–V093)
+
+Feature flags `premiumPlans`, `credits`, `advertising`, `donations` (ADR 0014). Every provider is a
+local fake by default (billing: `FakeBillingProvider`, Stripe Billing only by configuration;
+donations: `FakeDonationProvider`); the platform stores provider references only, never card data.
+Configurable numbers are `plan` / `usage_limit` rows (V011), `credit_product` rows and
+`platform_settings` rows under the owning module's prefix (`credits.*`, `donations.*`; the table is
+shared, each module reads and writes only its prefix through `common/settings/PlatformSettingsStore`).
+Nothing here stores a location: ad targeting uses public grid cells and region labels only.
+
+### V090 — subscriptions, subscription history, billing webhooks
+
+#### `subscription`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK (app-generated before the provider call; idempotency key `checkout:<id>`) |
+| `user_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `plan_id` | `uuid` | FK → `plan.id` |
+| `status` | `text` | `PENDING` (checkout open), `TRIAL`, `ACTIVE`, `PAST_DUE` (renewal failed, plan kept), `CANCELLED`, `EXPIRED`; `ck_subscription_period`: entitling states have `current_period_end`; `ck_subscription_ended`: ended states have `ended_at` |
+| `provider` | `text` | `fake`, `stripe` (`apple` / `google` reserved) |
+| `provider_ref` | `text` | **confidential** provider subscription id (`fake_sub_…`, `sub_…`); `uq_subscription_provider_ref (provider, provider_ref)`; never returned to members |
+| `checkout_ref`, `checkout_url` | `text` | checkout reference (`uq_subscription_checkout_ref (provider, checkout_ref)`) and where the member pays while PENDING (`/checkout/fake-billing/<ref>` locally) |
+| `amount`, `currency` | `numeric(12,2)`, `char(3)` | price per period when the checkout started |
+| `current_period_start`, `current_period_end` | `timestamptz` | paid period |
+| `cancel_at_period_end`, `cancel_requested_at` | `boolean`, `timestamptz` | the member (or an admin) cancelled; the `subscriptions-period` job ends it |
+| `activated_at`, `ended_at`, `failure_code` | | first activation, end, last provider failure |
+| `created_at`, `updated_at`, `version` | | `version` +1 per change |
+
+Indexes: `uq_subscription_live_user (user_id) WHERE status IN ('PENDING','TRIAL','ACTIVE','PAST_DUE')`
+(one live subscription per account; changes of an account are also serialised by a
+transaction-scoped advisory lock), `ix_subscription_user (user_id, created_at DESC)`,
+`ix_subscription_status (status, updated_at DESC, id DESC)` (admin list),
+`ix_subscription_period_due (current_period_end) WHERE status IN ('TRIAL','ACTIVE','PAST_DUE')` (hourly
+period job). An entitling subscription sets `user_account.plan_code` to its plan and grants the
+`PREMIUM_USER` role; its end sets FREE and revokes the role.
+
+#### `subscription_event`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `subscription_id` | `uuid` | FK → `subscription.id` (cascade) |
+| `event` | `text` | `CHECKOUT_STARTED`, `CHECKOUT_FAILED`, `CHECKOUT_ABANDONED`, `ACTIVATED`, `RENEWAL_REQUESTED`, `RENEWED`, `PAYMENT_FAILED`, `CANCEL_REQUESTED`, `CANCELLED`, `EXPIRED`, `LATE_CHECKOUT_CANCELLED` (pattern-checked) |
+| `provider_event_id` | `text` | webhook that caused it; `uq_subscription_event_provider (subscription_id, event, provider_event_id)` makes replays no-ops |
+| `actor_id` | `uuid` | FK → `user_account.id` (set null); member or admin, NULL for the provider and jobs |
+| `details` | `jsonb` | object: plan, amounts, dates, trigger (MEMBER, ADMIN, PERIOD_END, PROVIDER, DELETION, NOT_RENEWED); never card data |
+| `created_at`, `seq` | | `seq` orders events of the same instant |
+
+Index: `ix_subscription_event_subscription (subscription_id, created_at, seq)`.
+
+#### `billing_webhook_event`
+
+Same shape and rules as `payment_webhook_event` (V080): `provider`, `provider_event_id` (idempotency:
+`uq_billing_webhook_event_provider_event (provider, provider_event_id) WHERE provider_event_id IS NOT
+NULL`), `type`, `signature_valid` (`ck_billing_webhook_event_verified`), `status` (`RECEIVED`,
+`PROCESSED`, `IGNORED`, `FAILED`), `subscription_id` (FK, set null), **confidential** `payload` jsonb
+(admin subscription detail only, never logged), `error` (`INVALID_SIGNATURE`, `UNREADABLE_PAYLOAD`,
+`UNKNOWN_CHECKOUT`, `ALREADY_ACTIVE`, `STALE_PERIOD`, …), `received_at`, `processed_at`. Indexes
+`ix_billing_webhook_event_status`, `ix_billing_webhook_event_subscription`.
+
+### V091 — credits: ledger, balance view, products, referrals
+
+#### `credit_ledger_entry` (append-only)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `user_id` | `uuid` | FK → `user_account.id` (no action: accounts are anonymised, never deleted, and the ledger stays) |
+| `amount` | `integer` | ≠ 0; `ck_credit_ledger_entry_sign`: EARN/GRANT > 0, SPEND/EXPIRE < 0, ADJUST/REVERSAL either way |
+| `balance_after` | `integer` | running balance after the entry (≥ 0); entries of an account are appended under a transaction-scoped advisory lock |
+| `type` | `text` | `EARN`, `SPEND`, `GRANT`, `EXPIRE`, `ADJUST`, `REVERSAL` |
+| `reason` | `text` | `REFERRAL`, `PROMO`, `REWARD`, `FEATURE_UNLOCK`, `ADMIN`, `CORRECTION`, … (pattern-checked) |
+| `reference_type`, `reference_id` | `text` | e.g. `ENTITLEMENT` + entitlement id (spends), `REFERRAL` + redemption id |
+| `idempotency_key` | `text` | **unique** business key (`spend:<userId>:<client key>`, `referral:<redemptionId>:referrer`, `admin:<uuid>`, `seed:…`); a retry returns the original entry |
+| `details` | `jsonb` | object: product, entitlement id, feature key and value, expiry of spends; role of referral entries |
+| `note` | `text` | **admin free text** (≤ 500): admin views only, never returned to the owner |
+| `created_by` | `uuid` | FK → `user_account.id`; admin or member who caused it |
+| `created_at`, `seq` | | `seq` = insertion order (the latest entry carries the balance) |
+
+Trigger `trg_credit_ledger_entry_append_only` (BEFORE UPDATE OR DELETE, per row) and
+`trg_credit_ledger_entry_no_truncate` (BEFORE TRUNCATE) raise `restrict_violation`
+("credit_ledger_entry is append-only"); `UPDATE`, `DELETE` and `TRUNCATE` are also revoked from
+PUBLIC. Corrections are new ADJUST / REVERSAL entries. Indexes: `ix_credit_ledger_entry_user (user_id,
+created_at DESC, id DESC)` (member cursor), `ix_credit_ledger_entry_user_seq (user_id, seq DESC)`,
+`ix_credit_ledger_entry_reference`.
+
+View `credit_balance (user_id, balance = SUM(amount), entries, last_entry_at)`: the derived balance.
+The API reads it through the Redis key `orenji:credits:balance:<userId>` (10 minutes, evicted after
+each committed entry); the hourly `credits-reconcile` job compares cache, sum and the latest
+`balance_after`.
+
+#### `credit_product`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `key` | `text` | PK (`premium_search_day`, `binder_views_day`, `map_radius_day`) |
+| `name`, `description` | `text` | display |
+| `feature_key`, `feature_value` | `text` | entitlement granted (`filters.advanced` = `true`, `binder.views.per_day` = `unlimited`, `map.radius.max_km` = `100`), source `CREDIT_PURCHASE` |
+| `cost` | `integer` | 1–100000 credits (50, 30, 30) |
+| `duration_hours` | `integer` | 1–720 (24); a new purchase starts when an active one of the same key ends |
+| `active`, `sort_order` | | |
+| `updated_by`, `updated_at`, `created_at` | | SUPER_ADMIN edits (audited `credits.product.update`), cached ≤ 60 s |
+
+#### `referral_code`, `referral_redemption`
+
+| Table | Columns | Notes |
+| --- | --- | --- |
+| `referral_code` | `user_id` PK (cascade), `code` unique (`^[A-Z0-9]{6,16}$`; generated codes are 8 characters without look-alikes), `created_at` | created on the first `GET /me/referrals`; deleted when the account is purged |
+| `referral_redemption` | `id`, `referrer_id`, `referee_id` (**unique**: one redemption per account; `ck_referral_redemption_self`), `code`, `referrer_reward`, `referee_reward`, `created_at` | both parties get EARN entries (reason REFERRAL); `ix_referral_redemption_referrer` counts a code's redemptions |
+
+`platform_settings` rows: `credits.referral_referrer_reward` 100, `credits.referral_referee_reward` 50,
+`credits.referral_max_account_age_days` 30, `credits.referral_max_per_referrer` 50 (SUPER_ADMIN edits,
+audited `credits.settings.update`, cached ≤ 60 s).
+
+### V092 — advertising
+
+| Table | Columns | Notes |
+| --- | --- | --- |
+| `advertiser` | `id`, `name`, **`contact_email`** (business contact, admin views only), `status` ACTIVE/PAUSED/ARCHIVED, `created_by`, `created_at`, `updated_at` | |
+| `ad_placement` | `id`, `key` unique (`SEARCH_SPONSORED`, `MAP_PANEL`, `INVENTORY_SIDEBAR`, `COLLECTOR_PROFILE`, `MOBILE_FEED`), `name`, `active`, `max_ads` (1–5; 2 for SEARCH_SPONSORED), `updated_by`, `updated_at` | seeded by the migration |
+| `ad_campaign` | `id`, `advertiser_id`, `name`, `status` DRAFT/ACTIVE/PAUSED/ENDED, `start_at`, `end_at`, `budget_total`, `budget_daily` (≤ total), `spent`, `currency`, `pricing` CPM/CPC/FLAT, `bid_amount` (> 0 for CPM/CPC), `priority` 0–100, `frequency_cap_per_day` 1–100, `created_by`, `created_at`, `updated_at`, `version` | money `numeric(12,2)`; `spent` derived from the daily counters after each impression and click; `ix_ad_campaign_serving (status, start_at, end_at)` |
+| `ad_creative` | `id`, `campaign_id` (cascade), `placement_id`, `headline` ≤ 80, `body` ≤ 200, `image_url`, `cta_label` ≤ 30, `landing_url` (https or a site path; CHECKs), `status` DRAFT/ACTIVE/PAUSED/ARCHIVED | `ix_ad_creative_placement (placement_id, status)` |
+| `ad_targeting_rule` | `id`, `campaign_id` (cascade), `kind` GAME/REGION_LABEL/GEO_CELL/TAG/PLAN, `value` (GEO_CELL pattern-checked `r<row>c<col>`) | unique per campaign, kind and value; never a coordinate (the API also refuses coordinate-like region labels) |
+| `ad_impression` | `id`, `serve_id` **unique** (nonce of the signed serve token), `creative_id`, `campaign_id`, `placement_key`, **`user_hash`** (HMAC of the viewer's account id, the analytics actor hash; NULL signed out), `geo_cell` (public grid cell of the context), `created_at` | `ix_ad_impression_campaign`, `ix_ad_impression_frequency (campaign_id, user_hash, created_at)` for frequency caps |
+| `ad_click` | as `ad_impression` + `impression_id` (set null) | one click per serve (`uq_ad_click_serve`) |
+| `ad_conversion` | `id`, `click_id` (cascade), `creative_id`, `campaign_id`, `kind` SIGNUP/PURCHASE/OTHER, `value` + `currency` (together), `user_hash`, `created_at` | once per click and kind |
+| `ad_campaign_daily` | PK (`campaign_id`, `day`), `impressions`, `clicks`, `conversions` | UTC day counters: pacing and admin statistics |
+
+No advertising table holds an account id, a point or a precise location.
+
+### V093 — donations
+
+#### `donation`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `user_id` | `uuid` | FK → `user_account.id` (set null) |
+| `amount`, `currency` | `numeric(12,2)`, `char(3)` | within `donations.min_amount`..`max_amount`, one of `donations.currencies` |
+| `provider`, `provider_ref` | `text` | `fake`; checkout reference (`uq_donation_provider_ref`) |
+| `checkout_url` | `text` | while PENDING |
+| `status` | `text` | `PENDING`, `SUCCEEDED`, `FAILED`, `REFUNDED` (`ck_donation_succeeded`) |
+| `message` | `text` | **donor free text** (≤ 280): admins and the donor's export only, never public; erased on purge |
+| `public_thanks` | `boolean` | opt-in to `GET /public/donations/supporters` (display name and month only); cleared on purge |
+| `failure_code`, `succeeded_at`, `refunded_at`, `created_at`, `updated_at` | | |
+
+Indexes: `ix_donation_user`, `ix_donation_status (status, created_at DESC, id DESC)`,
+`ix_donation_supporters (succeeded_at DESC) WHERE status = 'SUCCEEDED' AND public_thanks`.
+Donations are "voluntary support": no rating, ranking, trust or discovery query reads this table.
+
+#### `donation_webhook_event`
+
+Same shape and rules as `billing_webhook_event` with `donation_id` (FK, set null) and a
+**confidential** `payload`.
+
+`platform_settings` rows: `donations.min_amount` 2.00, `donations.max_amount` 500.00,
+`donations.currencies` "CAD,USD" (SUPER_ADMIN edits, audited `donations.settings.update`).
+
+Account data (Phase 10): export sections `subscriptions`, `credits` (without admin notes) and
+`donations`; a deletion request stops subscription renewals; the purge ends the live subscription,
+deletes the referral code (the ledger stays) and erases donation notes and public thanks (financial
+rows stay). Seed (local/dev): premium_user's ACTIVE fake subscription `a000…0001`; collector1 200
+credits + code `COLLECTOR1` redeemed by collector8 (`a100…0001`), premium_user 500 credits; advertiser
+"Maple Sleeve Co." and the house advertiser with campaigns `a200…0101`–`0103` and six creatives;
+donations `a300…0001` (collector2, public thanks) and `…0002` (collector5).

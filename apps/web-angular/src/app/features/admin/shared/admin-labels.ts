@@ -67,6 +67,12 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'moderation.rule.delete': 'Deleted a moderation rule',
   'notification.broadcast': 'Broadcast a notification',
   'delist_policy.update': 'Changed the auto-delist rules',
+  'dispute.freeze': 'Put a dispute on hold',
+  'dispute.unfreeze': 'Lifted a dispute hold',
+  'dispute.note': 'Added a dispute note',
+  'dispute.resolve': 'Resolved a dispute',
+  'payment.refund': 'Refunded a payment',
+  'payments.settings.update': 'Changed the payment rules',
 };
 
 export function auditActionLabel(action: string): string {

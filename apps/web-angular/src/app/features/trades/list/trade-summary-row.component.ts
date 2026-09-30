@@ -52,6 +52,8 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
           ><strong>{{ terms() }}</strong>
           @if (t.meetup) {
             <span class="row__muted">· In-person meetup</span>
+          } @else if (t.protectionEnabled) {
+            <span class="row__muted">· Payment protection</span>
           }
         </span>
       </span>

@@ -1,0 +1,88 @@
+package com.orenjitrade.api.donations.api;
+
+import com.orenjitrade.api.donations.api.DonationResponses.WebhookReceiptResponse;
+import com.orenjitrade.api.donations.domain.DonationWebhookService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * {@code POST /api/v1/webhooks/donations/{provider}}: no bearer token; the provider's signature
+ * authenticates the call; stored, deduplicated and applied after the answer.
+ */
+@RestController
+@Tag(name = "webhooks", description = "Payment provider webhooks (signature verified)")
+public class DonationWebhookController {
+
+    static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
+
+    private final DonationWebhookService webhooks;
+
+    public DonationWebhookController(DonationWebhookService webhooks) {
+        this.webhooks = webhooks;
+    }
+
+    @PostMapping(
+            path = "/api/v1/webhooks/donations/{provider}",
+            consumes = MediaType.ALL_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @SecurityRequirements
+    @Parameter(
+            name = "X-Fake-Signature",
+            in = ParameterIn.HEADER,
+            description = "Signature of the fake provider (t=<unix seconds>,v1=<hex HMAC-SHA256>)",
+            schema = @Schema(type = "string"))
+    @Operation(
+            operationId = "receiveDonationWebhook",
+            summary = "Donation provider webhook",
+            description =
+                    "Called by the active donation provider only (fake: X-Fake-Signature,"
+                        + " HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400"
+                        + " WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is"
+                        + " stored (idempotent by the provider's event id) and applied after the"
+                        + " 200. 404 for another provider or while donations is off for everybody"
+                        + " (FEATURE_DISABLED); 413 above 256 KB.")
+    @ApiResponse(responseCode = "200", description = "Received")
+    @ApiResponse(
+            responseCode = "400",
+            description = "WEBHOOK_SIGNATURE_INVALID, VALIDATION_FAILED (unreadable body)",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "NOT_FOUND (provider), FEATURE_DISABLED",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public WebhookReceiptResponse receive(
+            @Parameter(description = "fake") @PathVariable String provider,
+            @RequestBody(required = false) byte[] body,
+            @Parameter(hidden = true) @RequestHeader HttpHeaders headers) {
+        Map<String, String> values = new LinkedHashMap<>();
+        headers.forEach(
+                (name, list) -> {
+                    if (!list.isEmpty()) {
+                        values.put(name, list.get(0));
+                    }
+                });
+        return WebhookReceiptResponse.from(
+                webhooks.receive(provider, body == null ? new byte[0] : body, values));
+    }
+}

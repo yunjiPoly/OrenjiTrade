@@ -11,12 +11,27 @@ import { HttpHeaders }                                       from '@angular/comm
 
 import { Observable }                                        from 'rxjs';
 
+import { BillingWebhookReceipt } from '../model/models';
+import { DonationWebhookReceipt } from '../model/models';
 import { PaymentWebhookReceipt } from '../model/models';
 import { ProblemDetail } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface ReceiveBillingWebhookRequestParams {
+    provider: string;
+    xFakeSignature?: string;
+    stripeSignature?: string;
+    body?: string;
+}
+
+export interface ReceiveDonationWebhookRequestParams {
+    provider: string;
+    xFakeSignature?: string;
+    body?: string;
+}
 
 export interface ReceivePaymentWebhookRequestParams {
     provider: string;
@@ -29,6 +44,22 @@ export interface ReceivePaymentWebhookRequestParams {
 export interface WebhooksServiceInterface {
     defaultHeaders: HttpHeaders;
     configuration: Configuration;
+
+    /**
+     * Billing provider webhook
+     * Called by the active billing provider only (fake: X-Fake-Signature; stripe: Stripe-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider\&#39;s event id: a retry answers duplicate&#x3D;true) and applied after the 200 (activation, renewal, past due, cancellation). 404 for another provider; 413 above 256 KB.
+     * @endpoint post /api/v1/webhooks/billing/{provider}
+* @param requestParameters
+     */
+    receiveBillingWebhook(requestParameters: ReceiveBillingWebhookRequestParams, extraHttpRequestParams?: any): Observable<BillingWebhookReceipt>;
+
+    /**
+     * Donation provider webhook
+     * Called by the active donation provider only (fake: X-Fake-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider\&#39;s event id) and applied after the 200. 404 for another provider or while donations is off for everybody (FEATURE_DISABLED); 413 above 256 KB.
+     * @endpoint post /api/v1/webhooks/donations/{provider}
+* @param requestParameters
+     */
+    receiveDonationWebhook(requestParameters: ReceiveDonationWebhookRequestParams, extraHttpRequestParams?: any): Observable<DonationWebhookReceipt>;
 
     /**
      * Payment provider webhook

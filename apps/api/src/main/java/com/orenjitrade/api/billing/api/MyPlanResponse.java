@@ -12,13 +12,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * {@code GET /me/plan}: the caller's plan, the effective limits with current usage and reset times,
- * the effective features and the active entitlements. Subscriptions arrive with Phase 10.
+ * the effective features, the active entitlements and the live subscription (Phase 10).
  *
  * @param plan the plan whose rules apply
  * @param limits every limit of the plan with entitlement overrides applied
  * @param features effective feature switches by key
  * @param entitlements active entitlements
  * @param upgradeUrl where to send the user to upgrade
+ * @param subscription the live subscription (checkout in progress or entitling), if any
  */
 @Schema(name = "MyPlan", description = "The caller's plan, limits, features and entitlements")
 public record MyPlanResponse(
@@ -27,7 +28,8 @@ public record MyPlanResponse(
         @Schema(example = "{\"filters.advanced\":false,\"ads.enabled\":true}")
                 Map<String, Boolean> features,
         List<MyEntitlement> entitlements,
-        @Schema(example = "/premium") String upgradeUrl) {
+        @Schema(example = "/premium") String upgradeUrl,
+        SubscriptionResponses.@Nullable MySubscription subscription) {
 
     /**
      * An active entitlement as its owner sees it (no admin note, no granting admin).

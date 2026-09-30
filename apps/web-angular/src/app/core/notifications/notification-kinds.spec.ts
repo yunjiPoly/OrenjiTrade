@@ -114,6 +114,32 @@ describe('notification kinds', () => {
     expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe('Offer expired');
   });
 
+  it('opens the Phase 9 payment, shipment and dispute notices where they belong', () => {
+    expect(
+      notificationLink({
+        type: Type.PaymentUpdate,
+        data: { deepLink: '/settings/payouts', tradeId: 't-1' },
+      }),
+    ).toBe('/settings/payouts');
+    expect(notificationLink({ type: Type.PaymentUpdate, data: { tradeId: 't-1' } })).toBe(
+      '/trades/t-1',
+    );
+    expect(notificationLink({ type: Type.ShipmentStatus, data: { tradeId: 't-2' } })).toBe(
+      '/trades/t-2',
+    );
+    expect(
+      notificationLink({ type: Type.DisputeUpdate, data: { disputeId: 'd-1', tradeId: 't-1' } }),
+    ).toBe('/disputes/d-1');
+    expect(notificationLink({ type: Type.DisputeUpdate, data: { tradeId: 't-1' } })).toBe(
+      '/trades/t-1',
+    );
+    expect(notificationKind({ type: Type.DisputeUpdate, data: {} })).toEqual({
+      icon: 'gavel',
+      tone: 'warning',
+      label: 'Dispute',
+    });
+  });
+
   it('knows unread notifications', () => {
     expect(isUnread({ readAt: null })).toBe(true);
     expect(isUnread({ readAt: '2026-09-30T10:00:00Z' })).toBe(false);
