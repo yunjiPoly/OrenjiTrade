@@ -259,6 +259,8 @@ test.describe('payment protection and disputes', () => {
     await expect(pageS.getByTestId('payment-seller-amount')).toContainText(payout);
     await nextS.getByRole('button', { name: 'Mark as shipped' }).click();
     const ship = pageS.getByRole('dialog', { name: 'Mark as shipped' });
+    // The dialog focuses its first field once opened; typing earlier can land in the wrong field.
+    await expect(ship.getByRole('textbox', { name: 'Carrier' })).toBeFocused();
     await ship.getByRole('textbox', { name: 'Carrier' }).fill('Canada Post');
     await ship.getByRole('textbox', { name: 'Tracking number' }).fill('E2E-TRACK-0001');
     await ship

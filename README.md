@@ -62,23 +62,47 @@ OrenjiTrade/
 
 | Tool | Version | Notes |
 | --- | --- | --- |
-| Docker Desktop | 4.x+ | PostGIS, Redis, Firebase Auth emulator, Testcontainers |
-| Node.js | 24 (see `.nvmrc`) | web, mobile, packages |
-| JDK | 17+ installed | Gradle auto-provisions JDK 21 for the build (foojay toolchain) |
-| Python | 3.12+ | ML service (`python` on Windows) |
-| Terraform | 1.9+ | infrastructure only |
-| Expo Go / dev client | latest | mobile on a device or emulator |
+| Docker Desktop | 4.x+ (Compose v2) | PostGIS, Redis, Firebase Auth emulator, Testcontainers |
+| Node.js | 24 (see `.nvmrc`), npm 11 | scripts, web, mobile, packages |
+| JDK | 17+ installed | Gradle auto-provisions JDK 21 for the API (foojay toolchain) |
+| Terraform | 1.9+ | optional: `npm run infra:validate` only |
+| Python | 3.12+ | optional: ML service (on hold), `python` on Windows |
 
-No Google Cloud, Stripe, Firebase or Google Maps credentials are required locally.
+No Google Cloud, Stripe, Firebase, FCM, e-mail or Google Maps credentials are required locally:
+every provider has a local fake or log implementation selected by default.
 
-## Local setup
+## Quick start (local)
 
 ```bash
 git clone <repo> OrenjiTrade && cd OrenjiTrade
-cp .env.example .env                      # defaults already match docker-compose
-docker compose up -d                      # PostGIS :5432, Redis :6379, Firebase Auth emulator :9099 (UI :4000)
-npm ci                                    # ONCE, at the repo root: installs web + mobile + packages/* (npm workspaces)
+npm ci                  # once, at the repo root (npm workspace: web + mobile + packages)
+npm run dev             # docker compose infra -> API (bootRun, profile local) -> ng serve -> URL table
 ```
+
+Open <http://localhost:4200> and sign in with a seed account such as
+`collector1@orenjitrade.test` / `LocalDev!2026` ([all seed accounts](docs/development/test-accounts.md)).
+Ctrl+C stops the API and the web dev server; the Docker infrastructure keeps running.
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | whole stack on the host (`-- --no-web` for the API only) |
+| `npm run infra:up` / `infra:down` | start (and wait for health) / stop PostGIS, Redis, Firebase Auth emulator; data is kept |
+| `npm run infra:reset` | delete all local data (project volumes + `apps/api/.local-storage`) and restart the infrastructure; the seed is re-applied at the next API start (`-- --yes` skips the prompt) |
+| `npm run api:dev` / `npm run web:dev` | API only (`gradlew bootRun`, profile `local`) / web only (`ng serve`) |
+| `docker compose --profile app up -d --build --wait` | everything in Docker (API and web images), same URLs |
+| `npm run infra:validate` | `terraform fmt -check` + `validate` without backend (nothing is planned or applied) |
+
+| Service | URL |
+| --- | --- |
+| Web | <http://localhost:4200> |
+| API / Swagger UI | <http://localhost:8080/api/v1/...> / <http://localhost:8080/swagger-ui.html> |
+| API readiness | <http://localhost:8080/actuator/health/readiness> |
+| Firebase Auth emulator / UI | <http://localhost:9099> / <http://localhost:4000> |
+| PostgreSQL / Redis | `localhost:5432` (`orenjitrade` / `orenjitrade_local`) / `localhost:6379` |
+
+The complete guide (first-time setup, where data lives, reset and reseed, fake/log providers and
+how to see their output, troubleshooting, Windows notes) is
+[docs/development/local-setup.md](docs/development/local-setup.md).
 
 The JavaScript side of the repository is a single npm workspace: the root `package.json` lists
 `apps/web-angular`, `apps/mobile` and `packages/*`, and the root `package-lock.json` is the
@@ -94,29 +118,17 @@ The `postgres` container creates the `orenjitrade` database with PostGIS, `pg_tr
 and `pgcrypto`. Schema is owned by Flyway migrations in
 `apps/api/src/main/resources/db/migration` and applied automatically when the API starts.
 Seed data (fictional collectors, cards for four games, binders, wishlists, conversations) loads
-under the `local` profile. Reset everything with `docker compose down -v`.
-
-### Backend (API)
-
-```bash
-cd apps/api
-./gradlew bootRun --args='--spring.profiles.active=local'    # http://localhost:8080
-# Swagger UI (local/dev only): http://localhost:8080/swagger-ui.html
-# Health: http://localhost:8080/actuator/health/readiness
-```
+under the `local` profile at every API start (idempotent). Clean slate: `npm run infra:reset`.
 
 ### Web
 
-```bash
-# after `npm ci` at the repo root
-npm start -w apps/web-angular                                # http://localhost:4200 (builds design tokens first)
-# or: cd apps/web-angular && npm start
-```
+Runtime configuration is read from `apps/web-angular/public/config.json` (API URL, Firebase web
+config, optional Google Maps key). Without a Maps key the map uses Leaflet/OpenStreetMap.
 
-Runtime configuration is read from `public/config.json` (API URL, Firebase web config, optional
-Google Maps key). Without a Maps key the map falls back to Leaflet/OpenStreetMap.
+### Mobile (deferred)
 
-### Mobile
+Mobile feature work is deferred until the web app is complete; the suite is kept green
+(`npm run test:mobile`).
 
 ```bash
 # after `npm ci` at the repo root
@@ -125,37 +137,35 @@ cp .env.example .env         # EXPO_PUBLIC_API_BASE_URL should point at your mac
 npx expo start
 ```
 
-### ML service
+### ML service (on hold)
 
-```bash
-cd apps/ml
-python -m venv .venv && .venv/Scripts/activate   # or source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
-uvicorn app.main:app --reload --port 8000        # http://localhost:8000/health
-```
-
-The API treats the ML service as optional; card scanning degrades gracefully when it is down.
+Phase 11 (card recognition) is on hold by owner decision; the API does not need the ML service.
+The skeleton's tests run with `npm run test:ml` (uses `apps/ml/.venv` when present; see
+`apps/ml/README.md` to create it).
 
 ## Environment variables
 
-All variables are listed with comments in [.env.example](.env.example). Key groups: database,
-Redis, Firebase (project id + emulator host), Google Cloud (project, region, buckets), events
-transport (`local` | `pubsub`), storage provider (`local` | `gcs`), maps key, payments
-(`fake` | `stripe`), push (`log` | `fcm`), email, ML URL, CORS origins. Production values live in
-Secret Manager and Cloud Run environment configuration, never in Git.
+All variables are listed with comments in [.env.example](.env.example). Copy it to `.env` only
+when you need to change something: docker compose reads the port variables from it and the npm
+scripts pass its non-empty values to the API. Key groups: database, Redis, Firebase (project id +
+emulator host), Google Cloud (project, region, buckets), events transport (`local` | `pubsub`),
+storage provider (`local` | `gcs`), maps key, payments / billing (`fake` | `stripe`), donations
+(`fake`), push (`log` | `fcm`), email (`log`), ML URL, CORS origins. Production values would live
+in Secret Manager and Cloud Run configuration, never in Git.
 
 ## Running tests
 
-| Area | Command | Notes |
-| --- | --- | --- |
-| API unit + integration | `cd apps/api && ./gradlew test` | Testcontainers starts PostGIS + Redis; Docker required |
-| API OpenAPI export | `./gradlew exportOpenApi` | writes `docs/api/openapi.json` |
-| Web unit | `npm run test -w apps/web-angular` | Angular test runner (`npm test` at the root runs web + mobile) |
-| Web E2E | `npm run e2e -w apps/web-angular` | Playwright, starts the dev server |
-| Mobile | `npm run typecheck -w apps/mobile && npm run test -w apps/mobile` | jest-expo; Maestro flows in `.maestro/` |
-| ML | `cd apps/ml && pytest` | plus `ruff check .` and `mypy app` |
-| Infra | `terraform validate` in each `infrastructure/terraform/environments/*` | |
+| Command | Runs |
+| --- | --- |
+| `npm run test:api` | `gradlew check` in `apps/api`: Spotless, unit and integration tests (Testcontainers; Docker required) |
+| `npm run test:web` | web lint + unit tests (Vitest) |
+| `npm run test:mobile` | mobile typecheck + lint + jest |
+| `npm run test:e2e` | whole Playwright suite: ensures the infrastructure, builds and starts the API jar (:8080) and `ng serve` (:4200), runs every spec (one retry; flaky specs are listed), stops what it started (ports must be free, or `-- --reuse-running`) |
+| `npm run test:all` | api + web + mobile + e2e with a timing summary |
+| `npm run test:ml` | optional ML skeleton tests (on hold) |
+| `npm run infra:validate` | Terraform format + validate for every environment |
 
+API OpenAPI export: `cd apps/api && ./gradlew exportOpenApi` (writes `docs/api/openapi.json`).
 Test accounts for local use: [docs/development/test-accounts.md](docs/development/test-accounts.md).
 
 ## API contract and generated clients
@@ -180,6 +190,9 @@ docker build -t orenjitrade/ml apps/ml
 
 ## Deployment overview
 
+> **Deferred (owner decision 2026-09-29):** nothing is deployed yet; the project runs locally only.
+> What stays ready and what was switched off: [docs/deployment/DEFERRED.md](docs/deployment/DEFERRED.md).
+
 GitHub Actions builds images on `main`, pushes to Artifact Registry using Workload Identity
 Federation (no service-account keys), and deploys to Cloud Run per environment (dev automatic;
 staging/prod behind approvals). Terraform provisions Cloud SQL, Redis, storage, Pub/Sub,
@@ -191,6 +204,7 @@ and [infrastructure/cloudflare/README.md](infrastructure/cloudflare/README.md).
 
 - Engineering rules: [CLAUDE.md](CLAUDE.md)
 - Progress and next task: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+- Local development: [docs/development/local-setup.md](docs/development/local-setup.md)
 - Architecture and ADRs: [docs/architecture/](docs/architecture/)
 - Database schema: [docs/database/schema.md](docs/database/schema.md)
 - Design system: [docs/design/design-system.md](docs/design/design-system.md)

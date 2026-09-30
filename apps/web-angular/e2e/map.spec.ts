@@ -35,13 +35,23 @@ interface Point {
   lng: number;
 }
 
-/** A random point with 3 decimals whose last decimal is never 0 (so 2-decimal snaps differ). */
+/**
+ * A random centre with 3 decimals: the latitude sits on a line of the API's ~1 km public grid (a
+ * multiple of 0.009°, never on a 0.01° line) and the longitude never ends in 0. Public points are
+ * derived at least 0.001° inside a grid cell and search centres are snapped to 2 decimals, so
+ * neither can equal a stored centre by chance: the "never equals a stored centre" check below only
+ * fails on a genuine leak (it used to fail when the jitter happened to land on the centre).
+ */
 function randomArea(): Point {
-  const pick = (min: number, span: number) => {
-    const value = Math.round((min + Math.random() * span) * 1000);
-    return (value % 10 === 0 ? value + 3 : value) / 1000;
-  };
-  return { lat: pick(46.15, 0.7), lng: pick(-75.2, 2.2) };
+  let row = 5130 + Math.floor(Math.random() * 78); // 46.17°–46.87°
+  if (row % 10 === 0 || (row + 2) % 10 === 0) {
+    row += 1; // neither this row nor the viewer's (two rows north) on a 0.01° line
+  }
+  let lng = Math.round((-75.2 + Math.random() * 2.2) * 1000);
+  if (lng % 10 === 0 || (lng - 17) % 10 === 0) {
+    lng += 1;
+  }
+  return { lat: (row * 9) / 1000, lng: lng / 1000 };
 }
 
 function suffix(): string {
@@ -87,11 +97,11 @@ async function createSeller(
   return { collector, area, binder };
 }
 
-/** The viewer's stored trading-area centre: about 2 km from the seller's. */
+/** The viewer's stored trading-area centre: about 2 km from the seller's, on the same grid. */
 function viewerCentre(near: Point): Point {
   return {
-    lat: Math.round((near.lat + 0.013) * 1000) / 1000,
-    lng: Math.round((near.lng - 0.017) * 1000) / 1000,
+    lat: ((Math.round((near.lat * 1000) / 9) + 2) * 9) / 1000,
+    lng: (Math.round(near.lng * 1000) - 17) / 1000,
   };
 }
 
