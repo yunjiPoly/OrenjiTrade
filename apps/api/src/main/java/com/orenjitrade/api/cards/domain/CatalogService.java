@@ -1,9 +1,11 @@
 package com.orenjitrade.api.cards.domain;
 
+import com.orenjitrade.api.cards.events.CardViewed;
 import com.orenjitrade.api.cards.infra.CatalogQueryRepository;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
+import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.games.domain.GameSchema;
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.games.domain.GameView;
@@ -20,6 +22,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
@@ -44,12 +47,20 @@ public class CatalogService {
     private final CatalogQueryRepository queries;
     private final GameService gameService;
     private final JsonMapper jsonMapper;
+    private final ApplicationEventPublisher events;
+    private final TimeProvider timeProvider;
 
     public CatalogService(
-            CatalogQueryRepository queries, GameService gameService, JsonMapper jsonMapper) {
+            CatalogQueryRepository queries,
+            GameService gameService,
+            JsonMapper jsonMapper,
+            ApplicationEventPublisher events,
+            TimeProvider timeProvider) {
         this.queries = queries;
         this.gameService = gameService;
         this.jsonMapper = jsonMapper;
+        this.events = events;
+        this.timeProvider = timeProvider;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -163,6 +174,97 @@ public class CatalogService {
     /** {@code GET /cards/{id}}. */
     public CardDetail card(UUID id) {
         return cardDetail(id, true);
+    }
+
+    /** {@code GET /cards/{id}} as served to a visitor: also notifies {@link CardViewed}. */
+    public CardDetail viewCard(@Nullable UUID viewerId, UUID id) {
+        CardDetail card = card(id);
+        events.publishEvent(
+                new CardViewed(viewerId, card.id(), null, card.game(), timeProvider.now()));
+        return card;
+    }
+
+    /** {@code GET /printings/{id}} as served to a visitor: also notifies {@link CardViewed}. */
+    public PrintingDetail viewPrinting(@Nullable UUID viewerId, UUID id) {
+        PrintingDetail printing = printing(id);
+        events.publishEvent(
+                new CardViewed(
+                        viewerId,
+                        printing.card().id(),
+                        printing.printing().id(),
+                        printing.card().game(),
+                        timeProvider.now()));
+        return printing;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Unified search support (Phase 4)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * What {@code q} designates unambiguously: an exact printing code carried by one printing
+     * (printing + card) or by printings of a single card (card), else an exact card name matching
+     * exactly one card. Empty otherwise (callers may still resolve a single search hit).
+     *
+     * @param gameSlug optional ACTIVE game restriction (400 when unknown)
+     */
+    public Optional<CatalogResolution> resolve(@Nullable String gameSlug, String q) {
+        @Nullable UUID gameId = requireGameId(gameSlug);
+        String text = q.trim();
+        if (text.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<String> code = CatalogText.asPrintingCode(text);
+        if (code.isPresent()) {
+            List<UUID[]> printings = queries.printingsByCode(code.get(), gameId);
+            if (printings.size() == 1) {
+                return Optional.of(new CatalogResolution(printings.get(0)[0], printings.get(0)[1]));
+            }
+            Set<UUID> cards = new LinkedHashSet<>();
+            printings.forEach(pair -> cards.add(pair[1]));
+            if (cards.size() == 1) {
+                return Optional.of(new CatalogResolution(null, cards.iterator().next()));
+            }
+            if (!printings.isEmpty()) {
+                return Optional.empty();
+            }
+        }
+        List<UUID> byName = queries.cardIdsByExactName(CatalogText.normalise(text), gameId, 2);
+        return byName.size() == 1
+                ? Optional.of(new CatalogResolution(null, byName.get(0)))
+                : Optional.empty();
+    }
+
+    /**
+     * Printings for the unified search: printings whose code starts with {@code q} when it looks
+     * like a printing code (or a prefix of one), else the printings of the resolved card, else
+     * none; at most {@code limit}.
+     */
+    public List<PrintingSummary> searchPrintings(
+            @Nullable String gameSlug, String q, @Nullable UUID resolvedCardId, int limit) {
+        @Nullable UUID gameId = requireGameId(gameSlug);
+        Optional<String> prefix = CatalogText.asPrintingCodePrefix(q);
+        if (prefix.isPresent()) {
+            List<PrintingSummary> byCode =
+                    queries.printingsByCodePrefix(prefix.get(), gameId, limit);
+            if (!byCode.isEmpty() || resolvedCardId == null) {
+                return byCode;
+            }
+        }
+        if (resolvedCardId == null) {
+            return List.of();
+        }
+        List<PrintingSummary> printings = queries.printingsOfCard(resolvedCardId, true);
+        return printings.size() <= limit ? printings : printings.subList(0, limit);
+    }
+
+    private @Nullable UUID requireGameId(@Nullable String gameSlug) {
+        List<ProblemFieldError> errors = new ArrayList<>();
+        @Nullable GameView game = resolveGame(gameSlug, errors);
+        if (!errors.isEmpty()) {
+            throw ApiException.validation("Validation failed", errors);
+        }
+        return game == null ? null : game.id();
     }
 
     /** Card detail including cards of hidden games (admin responses). */

@@ -58,7 +58,8 @@ match `docker compose`. The most relevant ones:
 | `INTERNAL_AUDIENCE`, `INTERNAL_INVOKERS` | empty | Google OIDC alternative for `/internal/**` (audience = Cloud Run URL, comma separated service-account emails) |
 | `CONSENT_IP_SALT` | `local-consent-salt` | salt of the hashed client IP stored with consents |
 | `SEED_EMULATOR_PASSWORD` | `LocalDev!2026` | password of the seeded emulator users (`local`/`dev` only) |
-| `EVENTS_TRANSPORT` | `local` | `local` in-process outbox or `pubsub` |
+| `EVENTS_TRANSPORT` | `local` | `local` in-process outbox (analytics events are logged) or `pubsub` (analytics events published to `PUBSUB_TOPIC_ANALYTICS` with Application Default Credentials; cloud only) |
+| `ANALYTICS_ACTOR_SALT` | `local-analytics-salt` (`local`/`test` only) | HMAC key pseudonymising account ids in analytics events (`actor_hash`, `owner_hash`, `target_hash`); every other profile refuses to start when it is missing, the development default or shorter than 32 characters |
 | `STORAGE_PROVIDER`, `STORAGE_LOCAL_ROOT` | `local`, `./.local-storage` | media storage adapter (`local` files served by the API, or `gcs`) |
 | `STORAGE_PUBLIC_BASE_URL` | empty | origin of media URLs; empty = this API (built from the request) for `local`, `https://storage.googleapis.com/<bucket>` for `gcs` |
 | `GCS_BUCKET_MEDIA` | empty | media bucket, required only with `STORAGE_PROVIDER=gcs` (Application Default Credentials) |
@@ -276,7 +277,8 @@ token of an account with pending consents or a suspension does not block them (s
   every admin write and after commit, fail-open to the database). Usage counters are mirrored in
   Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check` fast path.
 - Phase 3 consumes `binders.max` (binder creation) and `binder.views.per_day` (public binder views);
-  the radius cap arrives with Phase 4. The integration tests also exercise the HTTP behaviour through
+  Phase 4 checks the radius cap `map.radius.max_km` on discovery and search (signed-out callers
+  through `Limits.checkValueForAnonymous`, FREE plan). The integration tests also exercise the HTTP behaviour through
   a test-only, OpenAPI-hidden probe controller.
 
 ### Card catalog
@@ -409,6 +411,108 @@ discoverable). Stable ids `00000000-0000-4000-8b00-…` (binders) and `…-8c00-
 - `POST /internal/jobs/delist` records runs but pauses nobody until strike tracking exists.
 - Text of binders and public notes is not yet run through `TextModerationService` (Phase 7).
 
+## Map discovery and search (Phase 4)
+
+Contract: `docs/api/contracts/phase4-map-search.md`. Module `search` (reads the tables of the
+location, profiles, users, binders, inventory and catalog modules read-only through SQL, uses the
+public point only) and a minimal `analytics` module. Every route is a permitAll GET
+(`SecurityConfig.PUBLIC_GET_PATTERNS`) that honours a bearer token when present.
+
+| Route | Notes |
+| --- | --- |
+| `GET /api/v1/collectors/nearby?lat=&lng=&radiusKm=&game=&availability=&freshness=&tags=&hasPrintingId=&hasCardId=&query=&limit=200` | collectors **on the map** (public point set, `discoverable`, account ACTIVE, profile not PRIVATE) within `ST_DWithin(public_point, centre, radius)`; filters per the contract (`availability` TRADE / SALE / TRADE_OR_SALE / ACCEPTS_OFFERS, `freshness` ACTIVE / AGING, `tags` any, `hasPrintingId` / `hasCardId` / `availability` / `game` = an effectively public ACTIVE-or-AGING item, `game` also matches the profile games, `query` = handle, display name or tag text of collectors with `searchDiscoverable`); `matchingItems` (at most 5 per marker) when a printing, card or availability filter is set; ranking freshness (ACTIVE > AGING > no listings), distance bucket, rating, distance; `total` / `truncated`; Redis cache 60 s |
+| `GET /api/v1/collectors/{handle}/preview?lat=&lng=` | the marker of one collector on the map + `canMessage` (PrivacyPolicyService) + `isBlocked`; 404 when not on the map |
+| `GET /api/v1/search?q=&types=&game=&lat=&lng=&radiusKm=&limit=10` | cards (catalog FTS + trigram), printings (code prefix, or the printings of the resolved card), sets, collectors, public binders (`search_vector` + name substring, at least one public item, owner on the map within the radius when a centre is known; each with an `owner` block); `resolved` = `{printingId, cardId}`; with a resolution `collectors` lists the holders with `matchingItems` |
+| `GET /api/v1/search/card-holders?printingId=&#124;cardId=&lat=&lng=&radiusKm=&availability=&condition=&minPrice=&maxPrice=&freshness=&edition=&language=&acceptsOffers=&sort=distance&#124;price&#124;freshness&page=&size=` | `PageResponse<CardHolderResult {collector: CollectorMarker, item: PublicInventoryItem}>`; effectively public ACTIVE/AGING items of collectors on the map within the radius; the own items of the caller are excluded |
+| `GET /api/v1/search/suggest?q=&game=&lat=&lng=&limit=10` | `[{type, id, label, sublabel, imageUrl, game, slug, cardId}]` (type CARD, PRINTING, SET, COLLECTOR, BINDER or TAG), one entry per kind in turn |
+
+### Geography (ADR 0004)
+
+- **Centre**: `lat`/`lng` when given, else the trading area of the signed-in caller
+  (`LocationService.searchCentreOf`, never another collector's); always snapped to 0.01 degree
+  (about 1 km, `SearchCentre`) before it reaches SQL, the cache key (a SHA-256 of the canonical
+  request) or the response (`center`, 2 decimals). Signed-out callers must pass `lat`/`lng` to
+  `nearby` and `card-holders` (400 otherwise); `search` and `suggest` also work without a centre
+  (then not geographic, no distances).
+- **Radius**: default 10 km (`orenji.search.default-radius-km`), lowered to the cap of the caller; an
+  explicit `radiusKm` beyond `map.radius.max_km` (FREE 25, PREMIUM 100, entitlements apply;
+  signed-out callers: FREE through `Limits.checkValueForAnonymous`) is `429 LIMIT_REACHED` with
+  `used` = the requested radius rounded up. 0.1 km steps; 0.1 to 20 000 km accepted as input.
+- Markers carry the stored public point (3 decimals) and its label; `distanceBucket` is measured from
+  the snapped centre to the public point and only returned to signed-in callers for collectors with
+  `showDistance` (never for oneself). `lastActiveBucket` / `onlineStatus` follow
+  `PrivacyPolicyService` (hidden from signed-out visitors of MEMBERS profiles). No raw distance ever
+  leaves the server. `GeoPrivacyContractTest` walks nearby, preview, search, card holders and suggest
+  for the seeded collectors, signed out and signed in.
+
+### Cache
+
+`NearbyCache`: `orenji:cache:nearby:<generation>:<sha256>` for 60 s (`orenji.search.nearby-cache-ttl`),
+holding the viewer-independent rows (public point, privacy switches, statistics, matching items;
+never a trading-area centre). Viewer-specific rules (distance buckets, last activity, blocks, rating
+order) are applied per request. `NearbyCacheInvalidator` bumps the generation after commit on
+`InventoryItemPublished` / `Unpublished`, `BinderPublished` / `Unpublished`, `BinderFreshnessChanged`,
+`TradingAreaChangedEvent`, `LocationRemovedEvent`, `PrivacySettingsChangedEvent`, `UserSuspendedEvent`
+and `UserUnsuspendedEvent` (plain listeners, not stored in the event publication registry); other
+changes (a price edit) show within the TTL. Fails open without Redis.
+
+### Analytics (minimal slice of Phase 12)
+
+`AnalyticsEvent` `{event_id, event_type, event_version: 1, occurred_at, actor_hash, region_label,
+geo_cell, payload}` (the columns of the BigQuery `events` table): `actor_hash` = HMAC-SHA256 of the
+account id (`ANALYTICS_ACTOR_SALT`), geography = the ~1 km grid cell id and region label only,
+payload values = scrubbed strings (e-mails, decimal numbers and long digit runs masked, 64
+characters), whole numbers, booleans, string lists and `*_hash` hex digests; floating-point values
+and keys such as `lat`, `lng`, `email`, `handle`, `user_id` are refused. `AnalyticsPublisher` sends
+asynchronously and never fails a request. `LogAnalyticsTransport` (default, `EVENTS_TRANSPORT=local`)
+writes `analytics {json}` lines on the logger `orenji.analytics`; `PubSubAnalyticsTransport` (only
+with `EVENTS_TRANSPORT=pubsub`) publishes to `projects/<GOOGLE_CLOUD_PROJECT>/topics/<PUBSUB_TOPIC_ANALYTICS>`
+through the Pub/Sub REST API with Application Default Credentials (or `PUBSUB_EMULATOR_HOST` without
+credentials); nothing is created or contacted locally. Events: `search_performed` /
+`search_no_results` (`GET /search`, `GET /search/card-holders`, and `GET /collectors/nearby` when
+`query`, `hasPrintingId` or `hasCardId` is used; payload `surface`, scrubbed `query`, `game`,
+`types`, `resolved`, `result_count`, `radius_km`, filter names), `collector_viewed` (profile and
+preview, `target_hash`), `binder_viewed` (`binder_id`, `owner_hash`), `card_viewed` (`card_id`,
+`printing_id`, `game`). They are derived from in-process notifications (`SearchPerformed`,
+`CollectorPreviewed`, `CollectorProfileViewed`, `PublicBinderViewed`, `CardViewed`), so no module
+depends on analytics. `AnalyticsIT` checks that no emitted event carries a coordinate, an e-mail
+address, a raw account id or (views) a handle.
+
+### Binder views
+
+`binder.views.per_day` (Phase 3) is covered by `BinderViewLimitIT`: signed-in FREE visitors consume
+one unit per binder and UTC day; repeated, owner and signed-out views never count; PREMIUM and
+entitled visitors are not limited; a refused view consumes nothing.
+
+### Deviations from the Phase 4 contract
+
+- **Who is on the map**: discoverable collectors whose profile is not PRIVATE appear for signed-out
+  visitors too (the contract rule "discoverable, ACTIVE, not deletion-requested"; `discoverable` is
+  the explicit consent to be shown at the public point), with reduced detail: no distance, no
+  messaging, last activity hidden for MEMBERS profiles (`PrivacyPolicyService.canAppearOnMap`). The
+  profile page itself stays members-only for MEMBERS profiles.
+- **Freshness**: collectors whose public listings are all STALE never appear; collectors without any
+  public listing do appear (`binderFreshness: null`, ranked after AGING). STALE / HIDDEN items never
+  match a filter or a card-holder search. `binderFreshness` is the best freshness of the public items.
+- **Ranking**: freshness, then distance *bucket*, then rating, then exact distance (so the rating can
+  decide between collectors at a similar distance; ratings arrive with Phase 7).
+- The marker of the caller is not removed from `nearby` (it shows where others see them);
+  `card-holders` excludes the items of the caller. Blocked collectors (Phase 5 provider) are
+  filtered after the page is read, so `total` may count them until blocks are joined in SQL.
+- `card-holders` needs a centre like `nearby` (400 for signed-out callers without `lat`/`lng`).
+- Additive: `center` is snapped to 2 decimals; `MatchingItem` adds `printingId`, `cardId`,
+  `cardName`, `game`, `language`, `edition`, `acceptsOffers`, `freshness`; the preview accepts
+  optional `lat`/`lng`; `PublicBinderSummary` gains an optional `owner` block (search results only);
+  `suggest` accepts `game` and adds `slug` (COLLECTOR handle, TAG slug) and `cardId` (PRINTING);
+  `limit` of `nearby` is 1 to 500.
+- Resolution: an exact printing code carried by one printing resolves the printing; a code shared by
+  several printings of one card, an exact card name, or a single card hit resolves the card.
+- Collector text matching is substring-only (handle, display name, tag label or slug); fuzzy
+  matching is kept for `suggest`.
+- `nearby` is a reserved handle (the route `/collectors/nearby` shadows it).
+- Phase 4 adds no seed data: discovery reads the Phase 1 to 3 seed (profiles, trading areas,
+  binders, items).
+
 ## Build, format, test
 
 ```bash
@@ -468,7 +572,8 @@ Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql
 `V012__games.sql` (`game` with GameSchema) and `V013__catalog.sql` (`card_set`, `card`,
 `card_printing`, `card_image`, `catalog_sync_run`). Phase 3 adds `V020__delist_policy.sql`
 (`delist_policy`), `V021__binder.sql` (`binder`) and `V022__inventory.sql` (`inventory_item` with the
-`binder.item_count` trigger, `inventory_item_image`, `inventory_freshness_event`).
+`binder.item_count` trigger, `inventory_item_image`, `inventory_freshness_event`). Phase 4 adds
+`V030__search_indexes.sql` (discovery and search indexes, no table).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -501,8 +606,10 @@ com.orenjitrade.api
 ├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
 ├── inventory/   items, photos, bulk operations, public item lists, ListingReconciler (publication
 │                events), freshness job (implements BinderContents)
-└── search wishlist messaging community ratings reports offers trades payments credits donations
-    ads analytics
+├── search/      /collectors/nearby + preview, /search, /search/card-holders, /search/suggest,
+│                Redis nearby cache (Phase 4)
+├── analytics/   AnalyticsEvent, AnalyticsPublisher, log / Pub/Sub transports (Phase 4 slice)
+└── wishlist messaging community ratings reports offers trades payments credits donations ads
                                                           (documented in each package-info.java)
 ```
 

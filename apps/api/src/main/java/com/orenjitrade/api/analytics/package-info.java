@@ -2,7 +2,15 @@
  * Analytics module.
  *
  * <p>Schema-versioned analytics events (no PII, grid-cell geography only) published through the
- * EventTransport to Pub/Sub and BigQuery; consumes domain events only.
+ * EventTransport to Pub/Sub and BigQuery; consumes domain events only. Phase 4 (minimal slice):
+ * {@code AnalyticsEvent} (event id, type, version, occurredAt, actor hash, grid cell / region
+ * label, a payload that refuses coordinates and contact keys), {@code AnalyticsPublisher}
+ * (asynchronous, never fails a request), {@code LogAnalyticsTransport} (default, {@code
+ * EVENTS_TRANSPORT=local}) and {@code PubSubAnalyticsTransport} (only with {@code
+ * EVENTS_TRANSPORT=pubsub}); {@code search_performed}, {@code search_no_results}, {@code
+ * collector_viewed}, {@code binder_viewed} and {@code card_viewed} are derived from in-process
+ * notifications of the search, profiles, binders and cards modules. No other module depends on this
+ * one.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

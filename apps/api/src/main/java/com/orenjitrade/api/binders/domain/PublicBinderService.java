@@ -2,6 +2,7 @@ package com.orenjitrade.api.binders.domain;
 
 import com.orenjitrade.api.billing.domain.LimitReachedException;
 import com.orenjitrade.api.billing.domain.Limits;
+import com.orenjitrade.api.binders.events.PublicBinderViewed;
 import com.orenjitrade.api.binders.infra.BinderRepository;
 import com.orenjitrade.api.binders.infra.BinderViewTracker;
 import com.orenjitrade.api.common.ApiException;
@@ -18,11 +19,16 @@ import com.orenjitrade.api.profiles.domain.ProfileVisibility;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +57,7 @@ public class PublicBinderService {
     private final Limits limits;
     private final BinderViewTracker viewTracker;
     private final TimeProvider timeProvider;
+    private final ApplicationEventPublisher events;
 
     public PublicBinderService(
             BinderRepository repository,
@@ -62,7 +69,8 @@ public class PublicBinderService {
             ObjectProvider<BlockRelationProvider> blocks,
             Limits limits,
             BinderViewTracker viewTracker,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            ApplicationEventPublisher events) {
         this.repository = repository;
         this.binderService = binderService;
         this.userAccountService = userAccountService;
@@ -73,6 +81,7 @@ public class PublicBinderService {
         this.limits = limits;
         this.viewTracker = viewTracker;
         this.timeProvider = timeProvider;
+        this.events = events;
     }
 
     /**
@@ -131,6 +140,15 @@ public class PublicBinderService {
         if (viewerId != null && !viewerId.equals(binder.ownerId())) {
             countView(viewerId, binderId, now);
         }
+        if (!binder.ownerId().equals(viewerId)) {
+            events.publishEvent(
+                    new PublicBinderViewed(
+                            viewerId,
+                            binderId,
+                            binder.ownerId(),
+                            owner.location() == null ? null : owner.location().publicLabel(),
+                            now));
+        }
         BinderDetails details = binderService.details(List.of(binder), true).get(0);
         return new PublicBinder(binder, owner, details.stats(), details.coverImageUrl());
     }
@@ -166,6 +184,64 @@ public class PublicBinderService {
                 binderService.details(binders, true).stream()
                         .filter(details -> details.stats().publicItemCount() > 0)
                         .count();
+    }
+
+    /**
+     * Search results (Phase 4 unified search): the effectively public binders among {@code
+     * binderIds} that hold at least one public item and whose owner is visible to the viewer (no
+     * block), with their owner blocks, in the given order. Never counts a binder view.
+     */
+    @Transactional(readOnly = true)
+    public List<PublicBinderHit> publicBinders(@Nullable UUID viewerId, List<UUID> binderIds) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        Instant now = timeProvider.now();
+        Map<UUID, BinderView> byId = new HashMap<>();
+        for (BinderView binder : repository.findByIds(binderIds, now)) {
+            if (binder.effectivePublic()
+                    && (binder.ownerId().equals(viewerId)
+                            || !isBlocked(viewerId, binder.ownerId()))) {
+                byId.put(binder.id(), binder);
+            }
+        }
+        List<BinderView> ordered = new ArrayList<>();
+        for (UUID id : binderIds) {
+            BinderView binder = byId.get(id);
+            if (binder != null) {
+                ordered.add(binder);
+            }
+        }
+        if (ordered.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, PublicOwner> owners = new LinkedHashMap<>();
+        List<PublicBinderHit> hits = new ArrayList<>();
+        for (BinderDetails details : binderService.details(ordered, true)) {
+            if (details.stats().publicItemCount() == 0) {
+                continue;
+            }
+            UUID ownerId = details.binder().ownerId();
+            PublicOwner owner = owners.get(ownerId);
+            if (owner == null) {
+                Optional<UserAccountSnapshot> account = userAccountService.findSnapshot(ownerId);
+                if (account.isEmpty()) {
+                    continue;
+                }
+                owner =
+                        ownerOf(
+                                account.get(),
+                                privacySettingsService.settingsOf(ownerId),
+                                viewerId);
+                owners.put(ownerId, owner);
+            }
+            hits.add(
+                    new PublicBinderHit(
+                            new PublicBinderSummary(
+                                    details.binder(), details.stats(), details.coverImageUrl()),
+                            owner));
+        }
+        return hits;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -240,6 +316,14 @@ public class PublicBinderService {
      */
     public record PublicBinderSummary(
             BinderView binder, BinderContents.Stats stats, @Nullable String coverImageUrl) {}
+
+    /**
+     * A public binder found by search, with its owner.
+     *
+     * @param summary the binder and its public statistics
+     * @param owner owner block (no coordinates)
+     */
+    public record PublicBinderHit(PublicBinderSummary summary, PublicOwner owner) {}
 
     /**
      * A public binder with its owner.

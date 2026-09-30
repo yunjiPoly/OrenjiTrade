@@ -5,6 +5,7 @@ import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.binders.domain.BinderKind;
 import com.orenjitrade.api.binders.domain.BinderView;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinder;
+import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderHit;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderSummary;
 import com.orenjitrade.api.binders.domain.PublicOwner;
 import com.orenjitrade.api.delisting.domain.FreshnessInfo;
@@ -39,9 +40,24 @@ public final class PublicBinderResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) List<String> games,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String coverImageUrl,
-            @Schema(requiredMode = RequiredMode.REQUIRED) FreshnessInfo freshness) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) FreshnessInfo freshness,
+            @Schema(
+                            description =
+                                    "Owner block; present in search results (`GET /search`),"
+                                            + " absent in a collector's own binder list")
+                    @Nullable PublicBinderOwner owner) {
 
         static PublicBinderSummaryResponse from(PublicBinderSummary summary, Instant now) {
+            return of(summary, null, now);
+        }
+
+        /** A search result: the summary with its owner block. */
+        public static PublicBinderSummaryResponse from(PublicBinderHit hit, Instant now) {
+            return of(hit.summary(), PublicBinderOwner.from(hit.owner()), now);
+        }
+
+        private static PublicBinderSummaryResponse of(
+                PublicBinderSummary summary, @Nullable PublicBinderOwner owner, Instant now) {
             BinderView binder = summary.binder();
             BinderContents.Stats stats = summary.stats();
             return new PublicBinderSummaryResponse(
@@ -53,7 +69,8 @@ public final class PublicBinderResponses {
                     stats.publicItemCount(),
                     stats.games(),
                     summary.coverImageUrl(),
-                    binderFreshness(binder, now));
+                    binderFreshness(binder, now),
+                    owner);
         }
     }
 
@@ -103,7 +120,7 @@ public final class PublicBinderResponses {
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable PublicOwnerLocation location) {
 
-        static PublicBinderOwner from(PublicOwner owner) {
+        public static PublicBinderOwner from(PublicOwner owner) {
             PublicOwner.Location location = owner.location();
             return new PublicBinderOwner(
                     owner.id(),

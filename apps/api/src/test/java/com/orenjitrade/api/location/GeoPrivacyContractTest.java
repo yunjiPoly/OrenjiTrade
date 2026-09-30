@@ -206,6 +206,182 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    /**
+     * Phase 4 map discovery and search (nearby, preview, unified search, card holders, suggest),
+     * anonymous and signed in: every coordinate pair is either the snapped search centre (2
+     * decimals, never the stored centre of the viewer) or the stored public point of the collector
+     * it describes; every number has at most 3 decimals; no private location keys, no private
+     * notes; non-discoverable collectors never appear; signed-out callers get no distance buckets;
+     * logs stay free of coordinates.
+     */
+    @Test
+    void mapAndSearchResponsesOnlyEverCarryPublicPoints(CapturedOutput output) {
+        String viewer = uniqueUid("geo-map");
+        provisionCompliant(viewer);
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/location/trading-area",
+                viewer,
+                Map.of("lat", 45.51739, "lng", -73.58914, "radiusKm", 10),
+                200);
+        UUID printingId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT id FROM card_printing WHERE external_ref ->>"
+                                                + " 'id' = 'ygo-p001a'")
+                                .get(0)
+                                .get("id");
+        int markers = 0;
+        for (String caller : java.util.Arrays.asList(null, viewer)) {
+            boolean anonymous = caller == null;
+            JsonNode nearby =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/collectors/nearby?lat=45.52&lng=-73.58&radiusKm=25",
+                            caller,
+                            null,
+                            200);
+            assertThat(nearby.path("center").path("lat").asDouble()).isEqualTo(45.52);
+            assertThat(nearby.path("center").path("lng").asDouble()).isEqualTo(-73.58);
+            markers += assertMarkersArePublicPoints(nearby.path("collectors"), anonymous);
+            assertSearchDocument(nearby, "nearby");
+            List<String> handles = new ArrayList<>();
+            nearby.path("collectors")
+                    .forEach(marker -> handles.add(marker.path("handle").asString()));
+            assertThat(handles)
+                    .contains("collector1")
+                    .doesNotContainAnyElementsOf(NOT_DISCOVERABLE);
+
+            JsonNode search =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/search?q=AZR-EN001&lat=45.52&lng=-73.58",
+                            caller,
+                            null,
+                            200);
+            assertThat(search.path("collectors").size()).isPositive();
+            markers += assertMarkersArePublicPoints(search.path("collectors"), anonymous);
+            assertSearchDocument(search, "search");
+            JsonNode binders =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/search?q=binder&types=binders,collectors",
+                            caller,
+                            null,
+                            200);
+            assertThat(binders.path("binders").size()).isPositive();
+            assertThat(coordinatePairs(binders.path("binders")))
+                    .as("binder owners carry a label, never a point")
+                    .isEmpty();
+            assertSearchDocument(binders, "search binders");
+
+            JsonNode holders =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/search/card-holders?printingId="
+                                    + printingId
+                                    + "&lat=45.52&lng=-73.58&radiusKm=25",
+                            caller,
+                            null,
+                            200);
+            assertThat(holders.path("totalItems").asLong()).isPositive();
+            for (JsonNode row : holders.path("items")) {
+                markers +=
+                        assertMarkersArePublicPoints(
+                                jsonMapper.createArrayNode().add(row.path("collector")), anonymous);
+                assertThat(coordinatePairs(row.path("item"))).isEmpty();
+            }
+            assertSearchDocument(holders, "card holders");
+
+            JsonNode suggest =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/search/suggest?q=collector&lat=45.52&lng=-73.58",
+                            caller,
+                            null,
+                            200);
+            assertThat(coordinatePairs(suggest)).isEmpty();
+            assertSearchDocument(suggest, "suggest");
+
+            for (String handle : DISCOVERABLE) {
+                JsonNode preview =
+                        callJson(
+                                HttpMethod.GET,
+                                "/api/v1/collectors/" + handle + "/preview",
+                                caller,
+                                null,
+                                200);
+                markers +=
+                        assertMarkersArePublicPoints(
+                                jsonMapper.createArrayNode().add(preview), anonymous);
+                assertSearchDocument(preview, handle);
+            }
+            for (String handle : NOT_DISCOVERABLE) {
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/" + handle + "/preview",
+                        caller,
+                        null,
+                        404);
+            }
+        }
+        assertThat(markers).as("markers were checked").isPositive();
+
+        // Without lat/lng the trading area of the viewer is the centre, snapped to 0.01 degrees.
+        JsonNode own = callJson(HttpMethod.GET, "/api/v1/collectors/nearby", viewer, null, 200);
+        assertThat(own.path("center").path("lat").asDouble()).isEqualTo(45.52);
+        assertThat(own.path("center").path("lng").asDouble()).isEqualTo(-73.59);
+        assertThat(own.toString()).doesNotContain("45.51739").doesNotContain("-73.58914");
+        assertMarkersArePublicPoints(own.path("collectors"), false);
+
+        String logs = output.getAll();
+        assertThat(logs).doesNotContain("45.51739").doesNotContain("-73.58914");
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
+    /**
+     * The point of each marker is the stored public point of that collector; distance buckets are
+     * absent for signed-out callers. Returns the number of markers checked.
+     */
+    private int assertMarkersArePublicPoints(JsonNode markers, boolean anonymous) {
+        int count = 0;
+        for (JsonNode marker : markers) {
+            UUID id = UUID.fromString(marker.path("id").asString());
+            Map<String, Object> stored = testUsers.locationOf(id);
+            assertThat(stored.get("public_lat")).as("public point of %s", id).isNotNull();
+            List<double[]> pairs = coordinatePairs(marker);
+            assertThat(pairs).as("points of marker %s", id).hasSize(1);
+            assertThat(pairs.get(0)[0])
+                    .isEqualTo(((Number) stored.get("public_lat")).doubleValue());
+            assertThat(pairs.get(0)[1])
+                    .isEqualTo(((Number) stored.get("public_lng")).doubleValue());
+            if (anonymous) {
+                assertThat(marker.path("distanceBucket").isNull())
+                        .as("no distance bucket for signed-out callers")
+                        .isTrue();
+            }
+            count++;
+        }
+        return count;
+    }
+
+    /** At most 3 decimals, no private location keys, no private notes. */
+    private static void assertSearchDocument(JsonNode document, String context) {
+        assertOnlyPublicPrecision(document, context);
+        assertThat(document.toString())
+                .as("private data in %s", context)
+                .doesNotContain("tradingArea")
+                .doesNotContain("homePoint")
+                .doesNotContain("home_point")
+                .doesNotContain("trading_area")
+                .doesNotContain("\"notes\"")
+                .doesNotContain("Pulled at the spring locals")
+                .doesNotContain("Grading candidate");
+    }
+
     private static void assertPublicListing(JsonNode document, String handle) {
         assertOnlyPublicPrecision(document, handle);
         assertThat(coordinatePairs(document))

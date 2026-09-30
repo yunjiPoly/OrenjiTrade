@@ -12,7 +12,11 @@ import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.OwnerQuery;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.PublicQuery;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -65,6 +69,32 @@ public class PublicInventoryService {
         validateGame(query.game());
         PublicOwner owner = publicBinderService.requireOwner(viewerId, handle);
         return page(items.publicPage(null, owner.id(), query, timeProvider.now()), query);
+    }
+
+    /**
+     * Search results (Phase 4 card-holder search): the items among {@code itemIds} that are
+     * effectively public right now (re-evaluated, whatever the caller found), with printings and
+     * photos, in the given order. Public mappers never expose the private notes.
+     */
+    @Transactional(readOnly = true)
+    public List<InventoryItemView> publicItems(Collection<UUID> itemIds) {
+        if (itemIds.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, ItemRow> byId = new HashMap<>();
+        for (ItemRow row : items.findByIds(itemIds, timeProvider.now())) {
+            if (row.effectivePublic()) {
+                byId.put(row.id(), row);
+            }
+        }
+        List<ItemRow> ordered = new ArrayList<>();
+        for (UUID id : itemIds) {
+            ItemRow row = byId.get(id);
+            if (row != null) {
+                ordered.add(row);
+            }
+        }
+        return inventoryService.views(ordered);
     }
 
     /** {@code GET /binders/{id}/items}: every item of one of the caller's binders. */

@@ -4,9 +4,11 @@ import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.location.domain.DistanceBucket;
 import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.location.domain.PublicLocation;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
 import com.orenjitrade.api.profiles.domain.ProfileService.PublicProfileParts;
+import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Duration;
@@ -14,9 +16,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +45,7 @@ public class CollectorProfileService {
     private final ObjectProvider<RatingSummaryProvider> ratings;
     private final ObjectProvider<BlockRelationProvider> blocks;
     private final ObjectProvider<PresenceProvider> presence;
+    private final ApplicationEventPublisher events;
 
     public CollectorProfileService(
             UserAccountService userAccountService,
@@ -52,7 +57,8 @@ public class CollectorProfileService {
             ObjectProvider<PublicBinderCountProvider> binderCounts,
             ObjectProvider<RatingSummaryProvider> ratings,
             ObjectProvider<BlockRelationProvider> blocks,
-            ObjectProvider<PresenceProvider> presence) {
+            ObjectProvider<PresenceProvider> presence,
+            ApplicationEventPublisher events) {
         this.userAccountService = userAccountService;
         this.profileService = profileService;
         this.privacySettingsService = privacySettingsService;
@@ -63,6 +69,7 @@ public class CollectorProfileService {
         this.ratings = ratings;
         this.blocks = blocks;
         this.presence = presence;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -91,6 +98,19 @@ public class CollectorProfileService {
                                                 List.of(),
                                                 List.of(),
                                                 false));
+        Optional<PublicLocation> publicLocation =
+                privacy.discoverable()
+                        ? locationService.publicLocationOf(targetId)
+                        : Optional.empty();
+        if (!targetId.equals(viewerId)) {
+            events.publishEvent(
+                    new CollectorProfileViewed(
+                            viewerId,
+                            targetId,
+                            publicLocation.map(PublicLocation::gridCell).orElse(null),
+                            publicLocation.map(PublicLocation::label).orElse(null),
+                            now));
+        }
         return new CollectorProfileView(
                 targetId,
                 account.handle(),
@@ -99,7 +119,7 @@ public class CollectorProfileService {
                 parts.bio(),
                 parts.games(),
                 parts.tags(),
-                location(viewer, targetId, privacy),
+                location(viewer, targetId, privacy, publicLocation),
                 LocalDate.ofInstant(account.createdAt(), ZoneOffset.UTC),
                 privacyPolicy.canSeeLastActive(viewer, targetId, privacy)
                         ? lastActiveBucket(account.lastActiveAt(), now)
@@ -133,12 +153,14 @@ public class CollectorProfileService {
     }
 
     private CollectorProfileView.@Nullable Location location(
-            ViewerContext viewer, UUID targetId, PrivacySettingsView privacy) {
+            ViewerContext viewer,
+            UUID targetId,
+            PrivacySettingsView privacy,
+            Optional<PublicLocation> publicLocationOfTarget) {
         if (!privacyPolicy.canSeeLocation(viewer, targetId, privacy)) {
             return null;
         }
-        return locationService
-                .publicLocationOf(targetId)
+        return publicLocationOfTarget
                 .map(
                         publicLocation -> {
                             @Nullable DistanceBucket distance = null;
@@ -178,8 +200,11 @@ public class CollectorProfileService {
         return provider == null ? 0 : provider.publicBinderCount(targetId);
     }
 
-    /** TODAY (&lt; 24 h), THIS_WEEK (&lt; 7 d), THIS_MONTH (&lt; 30 d), otherwise LONGER_AGO. */
-    static LastActiveBucket lastActiveBucket(@Nullable Instant lastActiveAt, Instant now) {
+    /**
+     * TODAY (&lt; 24 h), THIS_WEEK (&lt; 7 d), THIS_MONTH (&lt; 30 d), otherwise LONGER_AGO (also
+     * used by the map markers of the search module).
+     */
+    public static LastActiveBucket lastActiveBucket(@Nullable Instant lastActiveAt, Instant now) {
         if (lastActiveAt == null) {
             return LastActiveBucket.LONGER_AGO;
         }

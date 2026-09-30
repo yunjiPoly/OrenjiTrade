@@ -61,16 +61,23 @@
             Privacy
           </a>
         } @else {
-          <button
-            matButton="filled"
-            type="button"
-            disabled
-            disabledInteractive
-            matTooltip="Coming soon: public binders arrive with inventory"
-          >
-            <mat-icon aria-hidden="true">menu_book</mat-icon>
-            View public binder
-          </button>
+          @if (firstBinder(); as binder) {
+            <a matButton="filled" [routerLink]="['/binders', binder.id]">
+              <mat-icon aria-hidden="true">menu_book</mat-icon>
+              View public binder
+            </a>
+          } @else {
+            <button
+              matButton="filled"
+              type="button"
+              disabled
+              disabledInteractive
+              [matTooltip]="binders() === null ? 'Loading public binders…' : 'No public binder yet'"
+            >
+              <mat-icon aria-hidden="true">menu_book</mat-icon>
+              View public binder
+            </button>
+          }
           <button
             matButton="outlined"
             type="button"
@@ -163,20 +170,59 @@
     </div>
 
     <section class="collector__card collector__binders" aria-labelledby="collector-binders">
-      <h2 id="collector-binders">Public binders</h2>
-      @if (p.publicBinderCount > 0) {
-        <p>{{ p.publicBinderCount }} public binders.</p>
+      <div class="collector__section-head">
+        <h2 id="collector-binders">Public binders</h2>
+        @if (isOwn()) {
+          <a matButton routerLink="/inventory">
+            <mat-icon aria-hidden="true">style</mat-icon>
+            Manage inventory
+          </a>
+        }
+      </div>
+      @if (binders(); as list) {
+        @if (list.length > 0) {
+          <ul class="collector__binder-list" aria-label="Public binders">
+            @for (binder of list; track binder.id) {
+              <li><app-public-binder-card [binder]="binder" /></li>
+            }
+          </ul>
+        } @else if (bindersFailed()) {
+          <p class="collector__muted">
+            Public binders could not load.
+            <button matButton type="button" (click)="retryBinders.emit()">Retry</button>
+          </p>
+        } @else {
+          <app-empty-state
+            icon="menu_book"
+            title="No public binders yet"
+            [description]="
+              isOwn()
+                ? 'Publish a binder so collectors nearby can see what you trade.'
+                : 'When ' + p.displayName + ' publishes a binder, it will show up here.'
+            "
+          />
+        }
       } @else {
-        <app-empty-state
-          icon="menu_book"
-          title="No public binders yet"
-          [description]="
-            isOwn()
-              ? 'Publish a binder so collectors nearby can see what you trade.'
-              : 'When ' + p.displayName + ' publishes a binder, it will show up here.'
-          "
-        />
+        <app-skeleton variant="list" lines="2" />
       }
     </section>
+
+    @if (publicItems(); as items) {
+      @if (items.length > 0) {
+        <section class="collector__card collector__binders" aria-labelledby="collector-cards">
+          <div class="collector__section-head">
+            <h2 id="collector-cards">Public cards</h2>
+            <span class="collector__muted">
+              {{ publicItemCount() }} {{ publicItemCount() === 1 ? 'card' : 'cards' }}
+            </span>
+          </div>
+          <ul class="collector__items" aria-label="Public cards">
+            @for (item of items; track item.id) {
+              <li><app-public-item-card [item]="item" /></li>
+            }
+          </ul>
+        </section>
+      }
+    }
   </div>
 </article>

@@ -162,8 +162,8 @@ the Emulator UI (http://localhost:4000/auth).
   `/cards` (query + game pills + set/rarity/language/edition from the game's `GameSchema`,
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
   (`?printing=` selects a printing; hero picture, attributes rendered from the schema's
-  `metadataFields`, printings table with market prices, "Who has this near me" and "Add to
-  wishlist" shown as coming soon); `/sets/:id` (cards + paginated checklist); `/search` (the
+  `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
+  dialog on that printing), "Who has this near me" and "Add to wishlist" shown as coming soon); `/sets/:id` (cards + paginated checklist); `/search` (the
   mobile Search tab) previews matching cards. `GamesStore` (`GET /games`) also feeds the profile
   game picker, so hidden games disappear there.
 - **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
@@ -173,6 +173,54 @@ the Emulator UI (http://localhost:4000/auth).
   `/admin/usage-limits` (plans x limits, inline edit with validation; SUPER_ADMIN).
 - Not in the generated client, so not in the UI yet: `metadata.<key>` catalog filters (the
   generator did not emit the dynamic query parameters).
+
+## Inventory, binders and public binders (Phase 3)
+
+Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated client only
+(`InventoryService`, `BindersService`, `PublicBindersService`).
+
+- **`/inventory`** (`features/inventory`): signed-out visitors get a sign-in invitation. The
+  container (`InventoryPageComponent`) keeps every filter in the URL
+  (`?binder=<id>|unfiled&q=&game=&visibility=&availability=&condition=&freshness=&sort=&view=&page=&size=`,
+  parsed by `data/inventory-params.ts`) and provides `InventoryStore` (signals for binders,
+  summary, privacy settings, the item page, selection; writes return promises that reject with
+  `ApiError`) and `BinderActionsService` to its dialogs through the page injector.
+  - Left: `BinderListComponent` (All cards, Unfiled, binders with visibility icon and counts,
+    New binder, binder manager); a horizontal strip below 960 px.
+  - Top: `InventorySummaryComponent` (cards/copies, public now, private, temporarily public with
+    the next end, stale + hidden with "Confirm all" = bulk CONFIRM of every STALE/HIDDEN item),
+    a privacy notice when something is public but the collector is neither discoverable nor has a
+    PUBLIC profile (ADR 0004 rules), `InventoryToolbarComponent` (search, visibility segmented
+    control All/Private/Public/Temporarily public, game, availability, condition, freshness,
+    sort, grid/table).
+  - Selected binder: `BinderHeaderComponent` (kind, description, effective visibility with the
+    reason when nobody can see it, counts, freshness, publish 1 hour / 24 hours / until disabled,
+    make private, view public page, edit, confirm, delete).
+  - Items: `InventoryItemCardComponent` (grid) / `InventoryItemTableComponent` (table) with
+    picture, name, printing code, condition/availability/offers chips, price, quantity stepper
+    (PATCH in place), visibility badge (`data/visibility-status.ts` explains why a public item is
+    not visible: hidden, expired, private binder, owner hidden) and freshness badge (server label).
+  - Multi-select: `BulkBarComponent` (visibility incl. temporary with 1 h / 24 h / 3 / 7 / 30
+    days, move to binder or unfiled, availability, confirm, delete with confirmation); the outcome
+    sentence lists skipped cards and why (`data/bulk-actions.ts`).
+  - Dialogs (opened with the page injector): `AddCardDialogComponent` (autocomplete on
+    `/cards/suggest` → printing picker on `/cards/{id}` → details, private by default so cards can
+    be prepared and published later; `/inventory?card=<id>&add=<printingId>` opens it, used by the
+    card detail's "Add to inventory"), `ItemEditorSheetComponent` (side panel: every field via
+    `ItemDetailsFieldsComponent`, PATCH of the changed fields only (`data/item-form.ts`), photos,
+    confirm availability, delete), `BinderFormDialogComponent` (create/edit; 429 `binders.max`
+    opens the global limit-reached dialog and an inline message), `BinderManagerDialogComponent`
+    (drag and drop or arrow buttons to reorder, inline rename, publish/make private, delete,
+    create).
+- **`/binders/:id`** (`features/binders`): public binder (`GET /public/binders/{id}` + items, sent
+  with the ID token when signed in so `binder.views.per_day` counts and a distance bucket is
+  returned). Owner card with region label and distance bucket only, game pills, search and
+  availability filter in the URL, public item cards (condition, availability, price, offers,
+  public notes; never private notes). States: not available (404), daily view limit (429),
+  error with retry.
+- **Collector page**: "View public binder" opens the first public binder; public binders
+  (`GET /collectors/{handle}/binders`) and a preview of public cards
+  (`GET /collectors/{handle}/inventory`) are listed.
 
 ## Maps
 
@@ -229,10 +277,16 @@ src/app/
                 games (schema editor), cards (search, editor, printing dialog, sync panel),
                 feature flags, usage limits
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
+    inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
+                binder list, toolbar, summary, items (grid card, table, stepper), bulk bar,
+                binders (header, publish menu, form + manager dialogs), editor side panel,
+                add-card dialog
+    binders/    /binders/:id public binder (container + header)
     premium/    plans and usage
-    map, inventory, search, community, wishlist, messages, legal, not-found
+    map, search, community, wishlist, messages, legal, not-found
   shared/
     catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
+    inventory/  inventory labels, item chips, public item card, public binder card
     plans/      PlansStore, plan and limit wording
     domain/     games, distance / last-active labels, coordinate rounding
     location/   TradingAreaPicker, city presets, MyLocationStore
@@ -241,7 +295,7 @@ src/app/
     pipes/      relativeTime
     ui/         avatar, card-art, confirm-dialog, game-chip, section-card, empty-state,
                 error-state, skeleton, page-header, freshness-badge, condition-chip,
-                availability-chip, search-field, wordmark
+                availability-chip, visibility-badge, search-field, wordmark
 ```
 
 Rules: standalone components, `ChangeDetectionStrategy.OnPush`, signals for state, feature
@@ -270,7 +324,10 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   `AppConfigService`, legal pages; Phase 2: feature flags (deferral on account pages, reload on
   sign-in, guard), limit-reached parsing/interceptor/dialog, card search box, catalog labels,
   card search params, card metadata, game schema validation, usage-limit matrix and cell
-  editor, admin metadata form, plan labels.
+  editor, admin metadata form, plan labels; Phase 3: inventory params, item form (defaults,
+  create request, changed-fields PATCH, validation), bulk actions and outcome wording,
+  visibility explanations, inventory store (context, selection, quantity, confirm all, reorder
+  rollback), quantity stepper, inventory labels, compact freshness badge.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -284,7 +341,16 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     filters in the URL, printing-code search, not-found) and `e2e/admin-rules.spec.ts` (super
     admin switches a flag with confirmation and edits a usage limit inline, both persist after a
     reload and are restored afterwards; admins read-only; game schema validation; mock catalog
-    sync). Catalog pictures are served from memory in these specs (`stubCardImages`): the API
+    sync).
+  - `e2e/inventory.spec.ts`: open the inventory from the navigation, add a card (autocomplete →
+    printing → details, private), quantity stepper, create a binder, move the card into it, make
+    it public and change its condition in the edit panel, publish the binder until disabled (and
+    the privacy notice); bulk temporary publication for 24 hours, the visibility segmented
+    control, bulk availability with a skipped card and its reason, bulk move and make private; a
+    second collector opens the public binder from the owner's profile (region label, distance
+    bucket, chips, no private notes, game filter, every JSON response ≤ 3 decimals); the
+    `binders.max` limit-reached dialog.
+    Catalog pictures are served from memory in these specs (`stubCardImages`): the API
     counts every placeholder image against its anonymous 60/min per-IP rate limit, which the
     parallel suite shares.
     They skip with a clear message only when the API (`E2E_API_URL`, default

@@ -20,7 +20,13 @@ test.describe('app shell', () => {
       .click();
     await expect(page).toHaveURL(/\/inventory$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
-    await expect(page.getByText('No cards yet')).toBeVisible();
+    // Signed out: the page invites the visitor to sign in (the inventory is personal).
+    await expect(
+      page.getByRole('heading', { name: 'Sign in to build your inventory' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'Sign in', exact: true }),
+    ).toHaveAttribute('href', '/auth/sign-in?returnUrl=%2Finventory');
   });
 
   test('renders the map page with its placeholder canvas and filters', async ({ page }) => {

@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  booleanAttribute,
+  computed,
+  input,
+} from '@angular/core';
 import { DateInput, RelativeTimePipe } from '../../pipes/relative-time.pipe';
 import { FRESHNESS_LABELS, FreshnessState, freshnessFromDate } from './freshness';
 
@@ -12,8 +18,13 @@ import { FRESHNESS_LABELS, FreshnessState, freshnessFromDate } from './freshness
   template: `
     <span class="badge" [class]="'badge badge--' + effectiveState()">
       <span class="badge__dot" aria-hidden="true"></span>
-      <span class="badge__state">{{ stateLabel() }}</span>
-      @if (updatedAt()) {
+      <span class="badge__state" [class.visually-hidden]="hideState()">{{ stateLabel() }}</span>
+      @if (label()) {
+        @if (!hideState()) {
+          <span class="badge__separator" aria-hidden="true">·</span>
+        }
+        <span class="badge__time">{{ label() }}</span>
+      } @else if (updatedAt()) {
         <span class="badge__separator" aria-hidden="true">·</span>
         <span class="badge__time">Updated {{ updatedAt() | relativeTime: now() }}</span>
       }
@@ -22,8 +33,11 @@ import { FRESHNESS_LABELS, FreshnessState, freshnessFromDate } from './freshness
   styles: `
     :host {
       display: inline-flex;
+      max-width: 100%;
     }
     .badge {
+      max-width: 100%;
+      overflow: hidden;
       display: inline-flex;
       align-items: center;
       gap: var(--spacing-1);
@@ -33,6 +47,7 @@ import { FRESHNESS_LABELS, FreshnessState, freshnessFromDate } from './freshness
       background: var(--color-surface);
       font-size: var(--font-size-xs);
       line-height: 1.4;
+      white-space: nowrap;
       color: var(--color-text-muted);
       --badge-color: var(--color-status-hidden);
     }
@@ -52,6 +67,10 @@ import { FRESHNESS_LABELS, FreshnessState, freshnessFromDate } from './freshness
       background: var(--badge-color);
       flex: 0 0 auto;
     }
+    .badge__time {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .badge__state {
       color: var(--color-ink);
       font-weight: var(--font-weight-medium);
@@ -63,6 +82,10 @@ export class FreshnessBadgeComponent {
   /** Explicit state from the API. When omitted it is derived from `updatedAt`. */
   readonly state = input<FreshnessState | null>(null);
   readonly updatedAt = input<DateInput>(null);
+  /** Server-worded time label ("Updated 3 hours ago"); replaces the one derived from `updatedAt`. */
+  readonly label = input<string | null>(null);
+  /** Compact: a fresh listing shows only its dot and time (the state stays for screen readers). */
+  readonly compact = input(false, { transform: booleanAttribute });
   /** Reference time; override in tests for deterministic labels. */
   readonly now = input<Date | number>(Date.now());
 
@@ -70,4 +93,7 @@ export class FreshnessBadgeComponent {
     () => this.state() ?? freshnessFromDate(this.updatedAt(), this.now()),
   );
   protected readonly stateLabel = computed(() => FRESHNESS_LABELS[this.effectiveState()]);
+  protected readonly hideState = computed(
+    () => this.compact() && !!this.label() && this.effectiveState() === 'fresh',
+  );
 }

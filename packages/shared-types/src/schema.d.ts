@@ -904,6 +904,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unified search (auth optional)
+         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems` (nearby when a centre is known: `lat`/`lng` or the signed-in caller's trading area); otherwise collectors matching the text. Binders carry their owner block. `radiusKm` beyond the plan cap → 429 LIMIT_REACHED. Emits the analytics events search_performed / search_no_results.
+         */
+        get: operations["search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mixed autocomplete (auth optional)
+         * @description Printing codes and cards, collectors on the map who allow name search (closest first when `lat`/`lng` or the caller's trading area is known), sets, public binders and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.
+         */
+        get: operations["suggestSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/card-holders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collectors near you holding a card (auth optional)
+         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by collectors on the map within `radiusKm` of the centre (`lat`/`lng`, else the signed-in caller's trading area; required when signed out). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: distance (default), price, freshness. Each row pairs the holder's marker with the public item.
+         */
+        get: operations["searchCardHolders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/placeholder-images/{game}/{file}": {
         parameters: {
             query?: never;
@@ -1259,6 +1319,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/collectors/{handle}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Map preview card of a collector (auth optional)
+         * @description The marker payload of one collector on the map plus `canMessage` and `isBlocked`. 404 unless the collector is on the map (unknown, suspended, pending deletion, not discoverable or PRIVATE profile). `distanceBucket` is measured from `lat`/`lng` when given, else from the signed-in caller's trading area; null for signed-out callers.
+         */
+        get: operations["getCollectorPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/collectors/{handle}/inventory": {
         parameters: {
             query?: never;
@@ -1291,6 +1371,26 @@ export interface paths {
          * @description Only binders that are public right now and hold at least one public item, in the owner's order. 404 when the collector is suspended, pending deletion, deleted, has a PRIVATE profile or a block exists. Empty when the collector is neither discoverable nor has a PUBLIC profile.
          */
         get: operations["listCollectorBinders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/collectors/nearby": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collectors on the map around a centre (auth optional)
+         * @description Discoverable collectors (ACTIVE account, profile not PRIVATE) whose derived public point is within `radiusKm` of the centre (`ST_DWithin` on the public point). The centre is `lat`/`lng` snapped to 0.01° or, when omitted, the signed-in caller's own trading area; signed-out callers must pass it. `radiusKm` defaults to 10 (lowered to the plan cap); beyond the caller's `map.radius.max_km` (FREE 25, PREMIUM 100; signed-out: FREE) → 429 LIMIT_REACHED. Filters: `game` (plays it or lists it), `availability` (TRADE, SALE, TRADE_OR_SALE, ACCEPTS_OFFERS), `freshness` (ACTIVE or AGING), `tags` (any), `hasPrintingId` / `hasCardId` (lists it publicly), `query` (handle, display name or tag text of collectors who allow name search). Collectors whose public listings are all stale never appear; STALE and HIDDEN items never match. Ranking: freshness (ACTIVE > AGING > no listings), distance, rating. Signed-out callers get no distance buckets. Cached 60 s per rounded centre, radius and filters.
+         */
+        get: operations["listNearbyCollectors"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2815,20 +2915,95 @@ export interface components {
             };
             printings?: components["schemas"]["PageResponsePrintingSummary"];
         };
-        /** @description A published legal document */
-        LegalDocument: {
-            /** @enum {string} */
-            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
-            /** @example 2026-09-01 */
-            version: string;
-            /** @example Terms of Service */
-            title: string;
+        /** @description A collector on the map at the derived public point (never the real location) */
+        CollectorMarker: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            publicPoint: components["schemas"]["PublicPoint"];
+            /** @example Plateau-Mont-Royal, Montréal */
+            publicLabel: string;
             /**
-             * @description Path on the web app
-             * @example /legal/terms
+             * @description Distance class from the search centre; null for signed-out callers and collectors who hide distances
+             * @enum {string|null}
              */
-            url: string;
-            requiredAtRegistration: boolean;
+            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
+            rating: components["schemas"]["CollectorRating"];
+            /**
+             * @example [
+             *       "trader"
+             *     ]
+             */
+            tags: string[];
+            /**
+             * @example [
+             *       "yugioh",
+             *       "pokemon"
+             *     ]
+             */
+            games: string[];
+            /** @enum {string} */
+            lastActiveBucket: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "LONGER_AGO" | "HIDDEN";
+            /** @enum {string} */
+            onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
+            /**
+             * @description Best freshness of the public listings (ACTIVE or AGING on the map); null without public listings
+             * @enum {string|null}
+             */
+            binderFreshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN" | null;
+            /** Format: int32 */
+            publicBinderCount: number;
+            /** Format: int64 */
+            publicItemCount: number;
+            /** @description Public items matching hasPrintingId / hasCardId / availability (empty without those filters) */
+            matchingItems: components["schemas"]["MatchingItem"][];
+        };
+        CollectorRating: {
+            /**
+             * Format: double
+             * @description Null until the first rating
+             */
+            average?: number | null;
+            /** Format: int32 */
+            count: number;
+        };
+        /** @description Public item matching the request's filters */
+        MatchingItem: {
+            /** Format: uuid */
+            itemId: string;
+            /** Format: uuid */
+            printingId: string;
+            /** @example AZR-EN001 */
+            printingCode?: string | null;
+            /** Format: uuid */
+            cardId: string;
+            /** @example Azure-Eyes Sky Dragon */
+            cardName: string;
+            /** @example yugioh */
+            game: string;
+            /** @enum {string} */
+            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            /** @example 45 */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+            /** @example NEAR_MINT */
+            condition: string;
+            /** @example en */
+            language: string;
+            /** @example FIRST_EDITION */
+            edition: string;
+            acceptsOffers: boolean;
+            /**
+             * @description ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)
+             * @enum {string}
+             */
+            freshness: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
         };
         /** @description Owner of a public binder */
         PublicBinderOwner: {
@@ -2842,8 +3017,8 @@ export interface components {
             /** @description Null unless the collector is discoverable */
             location?: components["schemas"]["PublicOwnerLocation"];
         };
-        /** @description A public binder with its owner */
-        PublicBinderResponse: {
+        /** @description Public binder of a collector */
+        PublicBinderSummary: {
             /** Format: uuid */
             id: string;
             name: string;
@@ -2855,8 +3030,6 @@ export interface components {
              * @description End of a temporary publication
              */
             publicUntil?: string | null;
-            owner: components["schemas"]["PublicBinderOwner"];
-            freshness: components["schemas"]["Freshness"];
             /**
              * Format: int64
              * @description Public items
@@ -2865,6 +3038,9 @@ export interface components {
             games: string[];
             /** Format: uri */
             coverImageUrl?: string | null;
+            freshness: components["schemas"]["Freshness"];
+            /** @description Owner block; present in search results (`GET /search`), absent in a collector's own binder list */
+            owner?: components["schemas"]["PublicBinderOwner"];
         };
         /** @description Approximate location (never a point) */
         PublicOwnerLocation: {
@@ -2876,10 +3052,57 @@ export interface components {
              */
             distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
         };
+        /** @description Printing and/or card the query resolved to (both null when ambiguous) */
+        SearchResolution: {
+            /** Format: uuid */
+            printingId?: string | null;
+            /** Format: uuid */
+            cardId?: string | null;
+        };
+        /** @description Unified search results */
+        UnifiedSearchResponse: {
+            /** @example blue eyes */
+            query: string;
+            cards: components["schemas"]["CardSummary"][];
+            printings: components["schemas"]["PrintingSummary"][];
+            sets: components["schemas"]["SetSummary"][];
+            /** @description Holders of the resolved printing/card (with matchingItems), otherwise collectors matching the text */
+            collectors: components["schemas"]["CollectorMarker"][];
+            /** @description Public binders, each with its owner block */
+            binders: components["schemas"]["PublicBinderSummary"][];
+            resolved: components["schemas"]["SearchResolution"];
+        };
+        /** @description Mixed autocomplete entry */
+        SearchSuggestion: {
+            /** @enum {string} */
+            type: "CARD" | "PRINTING" | "SET" | "COLLECTOR" | "BINDER" | "TAG";
+            /**
+             * Format: uuid
+             * @description Id of the card, printing, set, collector, binder or tag
+             */
+            id: string;
+            label: string;
+            sublabel?: string | null;
+            /** Format: uri */
+            imageUrl?: string | null;
+            game?: string | null;
+            /** @description Navigation key: the handle of a COLLECTOR, the slug of a TAG */
+            slug?: string | null;
+            /**
+             * Format: uuid
+             * @description Card of a PRINTING entry
+             */
+            cardId?: string | null;
+        };
+        /** @description A collector near you holding the card */
+        CardHolderResult: {
+            collector: components["schemas"]["CollectorMarker"];
+            item: components["schemas"]["PublicInventoryItem"];
+        };
         /** @description Offset-paginated list */
-        PageResponsePublicInventoryItem: {
+        PageResponseCardHolderResult: {
             /** @description Items of the current page */
-            items?: components["schemas"]["PublicInventoryItem"][];
+            items?: components["schemas"]["CardHolderResult"][];
             /**
              * Format: int32
              * @description Zero-based page index
@@ -2936,6 +3159,74 @@ export interface components {
             publicNotes: string;
             images: components["schemas"]["InventoryItemImage"][];
             freshness: components["schemas"]["Freshness"];
+        };
+        /** @description A published legal document */
+        LegalDocument: {
+            /** @enum {string} */
+            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
+            /** @example 2026-09-01 */
+            version: string;
+            /** @example Terms of Service */
+            title: string;
+            /**
+             * @description Path on the web app
+             * @example /legal/terms
+             */
+            url: string;
+            requiredAtRegistration: boolean;
+        };
+        /** @description A public binder with its owner */
+        PublicBinderResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            kind: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /**
+             * Format: date-time
+             * @description End of a temporary publication
+             */
+            publicUntil?: string | null;
+            owner: components["schemas"]["PublicBinderOwner"];
+            freshness: components["schemas"]["Freshness"];
+            /**
+             * Format: int64
+             * @description Public items
+             */
+            itemCount: number;
+            games: string[];
+            /** Format: uri */
+            coverImageUrl?: string | null;
+        };
+        /** @description Offset-paginated list */
+        PageResponsePublicInventoryItem: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["PublicInventoryItem"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
         };
         /** @description Subscription plan with its features and limits */
         Plan: {
@@ -3208,43 +3499,78 @@ export interface components {
             canMessage: boolean;
             isBlocked: boolean;
         };
-        CollectorRating: {
-            /**
-             * Format: double
-             * @description Null until the first rating
-             */
-            average?: number | null;
-            /** Format: int32 */
-            count: number;
-        };
         CollectorTag: {
             /** @example trader */
             slug: string;
             /** @example Trader */
             label: string;
         };
-        /** @description Public binder of a collector */
-        PublicBinderSummary: {
+        /** @description Map preview card of a collector */
+        CollectorPreview: {
             /** Format: uuid */
             id: string;
-            name: string;
-            description: string;
-            /** @enum {string} */
-            kind: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
+            /** @example maika */
+            handle: string;
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            publicPoint: components["schemas"]["PublicPoint"];
+            publicLabel: string;
             /**
-             * Format: date-time
-             * @description End of a temporary publication
+             * @description Distance class from the given centre or the caller's trading area; null for signed-out callers
+             * @enum {string|null}
              */
-            publicUntil?: string | null;
+            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
+            rating: components["schemas"]["CollectorRating"];
+            tags: string[];
+            games: string[];
+            /** @enum {string} */
+            lastActiveBucket: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "LONGER_AGO" | "HIDDEN";
+            /** @enum {string} */
+            onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
+            /**
+             * @description Null without public listings
+             * @enum {string|null}
+             */
+            binderFreshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN" | null;
+            /** Format: int32 */
+            publicBinderCount: number;
+            /** Format: int64 */
+            publicItemCount: number;
+            /** @description Whether the caller may start a conversation */
+            canMessage: boolean;
+            isBlocked: boolean;
+        };
+        /** @description Collectors on the map around a centre */
+        NearbyCollectorsResponse: {
+            center: components["schemas"]["SearchCentre"];
+            /**
+             * Format: double
+             * @description Radius used (plan-capped, 0.1 km steps)
+             * @example 10
+             */
+            radiusKm: number;
+            collectors: components["schemas"]["CollectorMarker"][];
             /**
              * Format: int64
-             * @description Public items
+             * @description Matching collectors
              */
-            itemCount: number;
-            games: string[];
-            /** Format: uri */
-            coverImageUrl?: string | null;
-            freshness: components["schemas"]["Freshness"];
+            total: number;
+            /** @description Whether more collectors match than returned (`limit`) */
+            truncated: boolean;
+        };
+        /** @description Centre of a geographic search, snapped to 0.01° (about 1 km): the given lat/lng or the caller's own trading area */
+        SearchCentre: {
+            /**
+             * Format: double
+             * @example 45.52
+             */
+            lat: number;
+            /**
+             * Format: double
+             * @example -73.58
+             */
+            lng: number;
         };
         /** @description Offset-paginated list */
         PageResponseCardSummary: {
@@ -7455,6 +7781,188 @@ export interface operations {
             };
         };
     };
+    search: {
+        parameters: {
+            query: {
+                /** @description Query text or printing code */
+                q: string;
+                /** @description Sections: cards, printings, sets, collectors, binders (repeated or comma separated; default all) */
+                types?: string[];
+                /** @description Game slug */
+                game?: string;
+                lat?: number;
+                lng?: number;
+                radiusKm?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Results per section */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnifiedSearchResponse"];
+                };
+            };
+            /** @description Invalid query, type, game or centre */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    suggestSearch: {
+        parameters: {
+            query: {
+                /** @description Typed text */
+                q: string;
+                /** @description Game slug */
+                game?: string;
+                lat?: number;
+                lng?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchSuggestion"][];
+                };
+            };
+            /** @description Invalid query or centre */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    searchCardHolders: {
+        parameters: {
+            query?: {
+                printingId?: string;
+                cardId?: string;
+                lat?: number;
+                lng?: number;
+                radiusKm?: number;
+                availability?: "TRADE" | "SALE" | "TRADE_OR_SALE" | "ACCEPTS_OFFERS";
+                /** @description Condition code, e.g. NEAR_MINT */
+                condition?: string;
+                minPrice?: number;
+                maxPrice?: number;
+                /** @description ACTIVE or AGING */
+                freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
+                /** @description Edition code, e.g. FIRST_EDITION */
+                edition?: string;
+                /** @description ISO 639-1 code */
+                language?: string;
+                acceptsOffers?: boolean;
+                /** @description distance, price or freshness */
+                sort?: "distance" | "price" | "freshness";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of holders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseCardHolderResult"];
+                };
+            };
+            /** @description Invalid filter, sort or centre */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getPlaceholderImage: {
         parameters: {
             query?: never;
@@ -8448,6 +8956,60 @@ export interface operations {
             };
         };
     };
+    getCollectorPreview: {
+        parameters: {
+            query?: {
+                /** @description Centre latitude for the distance bucket */
+                lat?: number;
+                /** @description Centre longitude for the distance bucket */
+                lng?: number;
+            };
+            header?: never;
+            path: {
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectorPreview"];
+                };
+            };
+            /** @description Collector not on the map */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listCollectorInventory: {
         parameters: {
             query?: {
@@ -8535,6 +9097,74 @@ export interface operations {
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listNearbyCollectors: {
+        parameters: {
+            query?: {
+                /** @description Centre latitude (required when signed out) */
+                lat?: number;
+                /** @description Centre longitude (required when signed out) */
+                lng?: number;
+                /** @description Radius in km (default 10, capped by the plan) */
+                radiusKm?: number;
+                /** @description Game slug */
+                game?: string;
+                availability?: "TRADE" | "SALE" | "TRADE_OR_SALE" | "ACCEPTS_OFFERS";
+                /** @description ACTIVE or AGING */
+                freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
+                /** @description Tag slugs (any), repeated or comma separated */
+                tags?: string[];
+                /** @description Collectors listing this printing publicly */
+                hasPrintingId?: string;
+                /** @description Collectors listing a printing of this card publicly */
+                hasCardId?: string;
+                /** @description Handle, display name or tag text */
+                query?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Markers around the centre */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NearbyCollectorsResponse"];
+                };
+            };
+            /** @description Invalid filter, partial centre, or no centre for a signed-out caller */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED */
             429: {
                 headers: {
                     [name: string]: unknown;

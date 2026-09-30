@@ -53,8 +53,16 @@
         }
 
         <div class="detail__ctas">
-          <button
+          <a
             matButton="filled"
+            routerLink="/inventory"
+            [queryParams]="{ add: selected()?.id ?? null, card: card.id }"
+          >
+            <mat-icon aria-hidden="true">library_add</mat-icon>
+            Add to inventory
+          </a>
+          <button
+            matButton="outlined"
             type="button"
             disabled
             disabledInteractive

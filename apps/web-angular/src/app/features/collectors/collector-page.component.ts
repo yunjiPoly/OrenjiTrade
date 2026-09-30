@@ -11,7 +11,13 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router, RouterLink } from '@angular/router';
-import { CollectorProfileResponse, CollectorsService } from '@orenji/api-client';
+import {
+  CollectorProfileResponse,
+  CollectorsService,
+  PublicBinderSummary,
+  PublicBindersService,
+  PublicInventoryItem,
+} from '@orenji/api-client';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
@@ -22,6 +28,9 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.com
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 import { CollectorProfileViewComponent } from './collector-profile-view/collector-profile-view.component';
+
+/** Public cards shown on the profile (the rest are in the binders). */
+const PUBLIC_ITEMS_PREVIEW = 8;
 
 type ViewState =
   | { kind: 'loading' }
@@ -94,7 +103,15 @@ type ViewState =
         }
         @case ('ready') {
           @if (profile(); as profile) {
-            <app-collector-profile-view [profile]="profile" [isOwn]="isOwn()" />
+            <app-collector-profile-view
+              [profile]="profile"
+              [isOwn]="isOwn()"
+              [binders]="binders()"
+              [bindersFailed]="bindersFailed()"
+              [publicItems]="publicItems()"
+              [publicItemCount]="publicItemCount()"
+              (retryBinders)="loadListings(profile.handle)"
+            />
           }
         }
       }
@@ -111,6 +128,7 @@ type ViewState =
 })
 export class CollectorPageComponent {
   private readonly collectorsApi = inject(CollectorsService);
+  private readonly bindersApi = inject(PublicBindersService);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
@@ -119,6 +137,12 @@ export class CollectorPageComponent {
   readonly handle = input.required<string>();
 
   protected readonly state = signal<ViewState>({ kind: 'loading' });
+  /** Public binders of the collector (`null` while loading). */
+  protected readonly binders = signal<PublicBinderSummary[] | null>(null);
+  protected readonly bindersFailed = signal(false);
+  /** First public cards across binders (`null` while loading). */
+  protected readonly publicItems = signal<PublicInventoryItem[] | null>(null);
+  protected readonly publicItemCount = signal(0);
   protected readonly profile = computed(() => {
     const state = this.state();
     return state.kind === 'ready' ? state.profile : null;
@@ -141,13 +165,50 @@ export class CollectorPageComponent {
   }
 
   private subscription: Subscription | null = null;
+  private listingsSubscription: Subscription | null = null;
 
   constructor() {
     effect(() => {
       this.handle();
       untracked(() => void this.load());
     });
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.subscription?.unsubscribe();
+      this.listingsSubscription?.unsubscribe();
+    });
+  }
+
+  /** Public binders and a preview of the public cards (Phase 3). */
+  protected loadListings(handle: string): void {
+    this.listingsSubscription?.unsubscribe();
+    this.binders.set(null);
+    this.bindersFailed.set(false);
+    this.publicItems.set(null);
+    this.listingsSubscription = new Subscription();
+    this.listingsSubscription.add(
+      this.bindersApi
+        .listCollectorBinders({ handle }, 'body', false, { context: silentErrors() })
+        .subscribe({
+          next: (binders) => this.binders.set(binders ?? []),
+          error: () => {
+            this.binders.set([]);
+            this.bindersFailed.set(true);
+          },
+        }),
+    );
+    this.listingsSubscription.add(
+      this.bindersApi
+        .listCollectorInventory({ handle, size: PUBLIC_ITEMS_PREVIEW }, 'body', false, {
+          context: silentErrors(),
+        })
+        .subscribe({
+          next: (page) => {
+            this.publicItems.set(page.items ?? []);
+            this.publicItemCount.set(page.totalItems ?? 0);
+          },
+          error: () => this.publicItems.set([]),
+        }),
+    );
   }
 
   protected async load(): Promise<void> {
@@ -161,7 +222,10 @@ export class CollectorPageComponent {
     this.subscription = this.collectorsApi
       .getCollector({ handle: this.handle() }, 'body', false, { context: silentErrors() })
       .subscribe({
-        next: (profile) => this.state.set({ kind: 'ready', profile }),
+        next: (profile) => {
+          this.state.set({ kind: 'ready', profile });
+          this.loadListings(profile.handle);
+        },
         error: (error: unknown) => {
           const apiError = toApiError(error);
           if (apiError.status === 404) {

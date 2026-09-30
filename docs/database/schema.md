@@ -36,6 +36,7 @@ update it in the same change.
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
+| Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
 
 ## Entity overview
 
@@ -95,6 +96,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V020 | `V020__delist_policy.sql` | Phase 3: `delist_policy` (+ the single active default policy ACTIVE 0-14 / AGING 15-30 / STALE 31-45 / HIDDEN 46+ days, warn 5 days before hiding) |
 | V021 | `V021__binder.sql` | Phase 3: `binder` (visibility, temporary publication, freshness, materialised public listing flag, generated `search_vector`) |
 | V022 | `V022__inventory.sql` | Phase 3: `inventory_item`, trigger `trg_inventory_item_binder_count` (maintains `binder.item_count`), `inventory_item_image`, `inventory_freshness_event` |
+| V030 | `V030__search_indexes.sql` | Phase 4: discovery and search indexes (`ix_inventory_item_owner_discovery`, `ix_inventory_item_printing_discovery`, `ix_privacy_settings_map`, `ix_binder_name_trgm`); no new table |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -753,3 +755,32 @@ Append-only trail of freshness transitions (audit + notification de-duplication,
 
 Indexes: `ix_inventory_freshness_event_item`, `ix_inventory_freshness_event_binder` (partial),
 `ix_inventory_freshness_event_owner`.
+
+### Phase 4 — map discovery and search reads (V030)
+
+No table is added: the search module reads, read-only and through SQL, `user_location.public_point`
+(never `trading_area_center` or `home_point`), `privacy_settings` (`discoverable`,
+`profile_visibility`, `search_discoverable`, `show_*`), `user_account` (`status`,
+`suspended_until`, `handle`, `last_active_at`), `profile`, `profile_tag` / `tag`, `binder` and
+`inventory_item` with the catalog tables. A collector is **on the map** ⇔ `public_point IS NOT
+NULL` ∧ `privacy_settings.discoverable` ∧ the Phase 3 owner rule (account ACTIVE, or suspension
+over; profile not `PRIVATE`). Items are **discoverable** ⇔ effectively public (Phase 3 rule,
+`InventoryItemRepository.LISTED`) ∧ `freshness_state IN ('ACTIVE', 'AGING')`. Radius searches use
+`ST_DWithin(public_point, <snapped centre>, radius)` on `ix_user_location_public_point` (GiST, V005);
+distances are measured from the snapped centre to the public point and leave the server only as
+`DistanceBucket` values. Results of `GET /collectors/nearby` are cached in Redis
+(`orenji:cache:nearby:<generation>:<sha256>`, 60 s; `orenji:search:nearby:generation` is bumped
+after commit by inventory, binder, location, privacy and account-state events).
+
+### V030 — search indexes
+
+| Index | Definition | Used by |
+| --- | --- | --- |
+| `ix_inventory_item_owner_discovery` | `inventory_item (owner_id, freshness_state, availability) WHERE deleted_at IS NULL AND visibility <> 'PRIVATE'` | per-collector marker statistics (public item count, best freshness, games, public binders) and the `hasPrintingId` / `hasCardId` / `availability` / `game` EXISTS filters |
+| `ix_inventory_item_printing_discovery` | `inventory_item (printing_id, freshness_state, asking_price) WHERE deleted_at IS NULL AND visibility <> 'PRIVATE'` | `GET /search/card-holders` (by printing, or by the printings of a card through `ix_card_printing_card_id`), price sort |
+| `ix_privacy_settings_map` | `privacy_settings (user_id) WHERE discoverable AND profile_visibility <> 'PRIVATE'` | join partner of the GiST radius scan |
+| `ix_binder_name_trgm` | GIN `lower(unaccent_immutable(binder.name)) gin_trgm_ops` | public binder search (`LIKE '%…%'` next to `search_vector @@ …`) and autocomplete |
+
+Collector name search uses the existing `ix_user_account_handle_trgm` (V004) and
+`ix_profile_display_name_trgm` (V004) for substring matches; tag filters use the primary key of
+`profile_tag` and `uq_tag_slug`.

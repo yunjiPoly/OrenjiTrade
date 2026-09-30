@@ -18,3 +18,4 @@ export {
 } from './confirm-dialog/confirm-dialog.component';
 export { GameChipComponent } from './game-chip/game-chip.component';
 export { SectionCardComponent } from './section-card/section-card.component';
+export { VisibilityBadgeComponent } from './visibility-badge/visibility-badge.component';

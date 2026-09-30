@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { PublicBinderOwner } from './publicBinderOwner';
 import { Freshness } from './freshness';
 
 
@@ -29,6 +30,10 @@ export interface PublicBinderSummary {
     games: Array<string>;
     coverImageUrl?: string | null;
     freshness: Freshness;
+    /**
+     * Owner block; present in search results (`GET /search`), absent in a collector\'s own binder list
+     */
+    owner?: PublicBinderOwner;
 }
 export enum PublicBinderSummaryKindEnum {
     Collection = 'COLLECTION',

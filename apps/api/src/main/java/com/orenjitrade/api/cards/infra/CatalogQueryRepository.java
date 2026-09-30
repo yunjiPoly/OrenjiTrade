@@ -207,6 +207,74 @@ public class CatalogQueryRepository {
                 .optional();
     }
 
+    /**
+     * Every printing carrying the exact code {@code code} (upper-case) in ACTIVE games, as {@code
+     * [printingId, cardId]} pairs (unified search resolution).
+     */
+    public List<UUID[]> printingsByCode(String code, @Nullable UUID gameId) {
+        return jdbc.sql(
+                        """
+                        SELECT p.id, p.card_id FROM card_printing p
+                          JOIN card c ON c.id = p.card_id
+                          JOIN game g ON g.id = c.game_id
+                         WHERE p.printing_code = :code AND g.status = 'ACTIVE'
+                           AND (CAST(:gameId AS uuid) IS NULL OR c.game_id = CAST(:gameId AS uuid))
+                         ORDER BY p.id
+                         LIMIT 50
+                        """)
+                .param("code", code)
+                .param("gameId", gameId, java.sql.Types.OTHER)
+                .query(
+                        (rs, rowNum) ->
+                                new UUID[] {
+                                    rs.getObject("id", UUID.class),
+                                    rs.getObject("card_id", UUID.class)
+                                })
+                .list();
+    }
+
+    /**
+     * Cards of ACTIVE games whose normalised name equals {@code normalised} (at most {@code
+     * limit}).
+     */
+    public List<UUID> cardIdsByExactName(String normalised, @Nullable UUID gameId, int limit) {
+        return jdbc.sql(
+                        """
+                        SELECT c.id FROM card c JOIN game g ON g.id = c.game_id
+                         WHERE c.normalized_name = :qn AND g.status = 'ACTIVE'
+                           AND (CAST(:gameId AS uuid) IS NULL OR c.game_id = CAST(:gameId AS uuid))
+                         ORDER BY c.id
+                         LIMIT :limit
+                        """)
+                .param("qn", normalised)
+                .param("gameId", gameId, java.sql.Types.OTHER)
+                .param("limit", limit)
+                .query(UUID.class)
+                .list();
+    }
+
+    /** Printings of ACTIVE games whose code starts with {@code prefix} (upper-case). */
+    public List<PrintingSummary> printingsByCodePrefix(
+            String prefix, @Nullable UUID gameId, int limit) {
+        List<PrintingRow> rows =
+                jdbc.sql(
+                                "SELECT "
+                                        + PRINTING_COLUMNS
+                                        + PRINTING_FROM
+                                        + " WHERE g.status = 'ACTIVE'"
+                                        + " AND p.printing_code LIKE :prefix ESCAPE '\\'"
+                                        + " AND (CAST(:gameId AS uuid) IS NULL"
+                                        + " OR c.game_id = CAST(:gameId AS uuid))"
+                                        + " ORDER BY p.printing_code, p.edition, p.language,"
+                                        + " p.finish, p.id LIMIT :limit")
+                        .param("prefix", CatalogText.escapeLike(prefix) + "%")
+                        .param("gameId", gameId, java.sql.Types.OTHER)
+                        .param("limit", limit)
+                        .query(this::mapPrinting)
+                        .list();
+        return withImages(rows);
+    }
+
     /** Summary of one card (of an ACTIVE game unless {@code activeOnly} is false). */
     public Optional<CardSummary> findCardSummary(UUID id, boolean activeOnly) {
         return jdbc.sql(

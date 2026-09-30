@@ -38,8 +38,8 @@ Nothing runs `terraform plan/apply`, `gcloud`, or pushes to Artifact Registry.
    browser key (the web keeps the Leaflet/OpenStreetMap adapter until then).
 6. Cloudflare DNS records, TLS, WAF, cache and rate-limit rules for `www`/`api.orenjitrade.com`.
 7. Pub/Sub → BigQuery analytics pipeline and dashboards (Phase 12 cloud half).
-8. Production secrets (`SERVICE_TOKEN`, `LOCATION_JITTER_SECRET`, `CONSENT_IP_SALT`, database
-   and Redis credentials) in Secret Manager.
+8. Production secrets (`SERVICE_TOKEN`, `LOCATION_JITTER_SECRET`, `CONSENT_IP_SALT`,
+   `ANALYTICS_ACTOR_SALT`, database and Redis credentials) in Secret Manager.
 9. Legal review of all policy pages before any public launch.
 
 The Python ML card-recognition work (Phase 11) is separately **on hold** by owner instruction.

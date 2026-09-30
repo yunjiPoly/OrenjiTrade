@@ -57,6 +57,41 @@ html {
   width: min(560px, calc(100vw - 32px));
 }
 
+.app-dialog--lg {
+  --mat-dialog-container-max-width: 840px;
+
+  width: min(840px, calc(100vw - 32px));
+}
+
+// Side sheet (inventory item editor): a full-height dialog docked to the right edge.
+.app-side-sheet {
+  --mat-dialog-container-shape: var(--radius-lg) 0 0 var(--radius-lg);
+  --mat-dialog-container-max-width: 100vw;
+
+  .mat-mdc-dialog-surface {
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+
+  .mat-mdc-dialog-container {
+    animation: app-side-sheet-in var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  @media (max-width: 599px) {
+    --mat-dialog-container-shape: 0;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 0;
+    }
+  }
+}
+
+@keyframes app-side-sheet-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0.4;
+  }
+}
+
 // Error toast panel (errorInterceptor) keeps the danger accent.
 .app-toast--error {
   --mat-snack-bar-button-color: var(--color-warning);

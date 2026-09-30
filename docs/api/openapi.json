@@ -74,6 +74,14 @@
       "description": "Catalog administration (admin console)"
     },
     {
+      "name": "discovery",
+      "description": "Map discovery: collectors near a centre and their preview cards (auth optional)"
+    },
+    {
+      "name": "search",
+      "description": "Unified search over cards, printings, sets, collectors and public binders, card holders near you and mixed autocomplete (auth optional)"
+    },
+    {
       "name": "settings",
       "description": "Privacy and notification settings of the caller"
     },
@@ -5095,6 +5103,474 @@
         "security": []
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Unified search (auth optional)",
+        "description": "Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems` (nearby when a centre is known: `lat`/`lng` or the signed-in caller's trading area); otherwise collectors matching the text. Binders carry their owner block. `radiusKm` beyond the plan cap → 429 LIMIT_REACHED. Emits the analytics events search_performed / search_no_results.",
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Query text or printing code",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "description": "Sections: cards, printings, sets, collectors, binders (repeated or comma separated; default all)",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Results per section",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnifiedSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, type, game or centre",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/search/suggest": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Mixed autocomplete (auth optional)",
+        "description": "Printing codes and cards, collectors on the map who allow name search (closest first when `lat`/`lng` or the caller's trading area is known), sets, public binders and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.",
+        "operationId": "suggestSearch",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Typed text",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10,
+              "maximum": 30,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchSuggestion"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query or centre",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/search/card-holders": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Collectors near you holding a card (auth optional)",
+        "description": "Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by collectors on the map within `radiusKm` of the centre (`lat`/`lng`, else the signed-in caller's trading area; required when signed out). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: distance (default), price, freshness. Each row pairs the holder's marker with the public item.",
+        "operationId": "searchCardHolders",
+        "parameters": [
+          {
+            "name": "printingId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cardId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TRADE",
+                "SALE",
+                "TRADE_OR_SALE",
+                "ACCEPTS_OFFERS"
+              ]
+            }
+          },
+          {
+            "name": "condition",
+            "in": "query",
+            "description": "Condition code, e.g. NEAR_MINT",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "minPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 9.99999999999E9,
+              "minimum": 0.0
+            }
+          },
+          {
+            "name": "maxPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 9.99999999999E9,
+              "minimum": 0.0
+            }
+          },
+          {
+            "name": "freshness",
+            "in": "query",
+            "description": "ACTIVE or AGING",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)",
+              "enum": [
+                "ACTIVE",
+                "AGING",
+                "STALE",
+                "HIDDEN"
+              ]
+            }
+          },
+          {
+            "name": "edition",
+            "in": "query",
+            "description": "Edition code, e.g. FIRST_EDITION",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "description": "ISO 639-1 code",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 2,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "acceptsOffers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "distance, price or freshness",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "distance",
+              "enum": [
+                "distance",
+                "price",
+                "freshness"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of holders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseCardHolderResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter, sort or centre",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/public/placeholder-images/{game}/{file}": {
       "get": {
         "tags": [
@@ -6343,6 +6819,89 @@
         }
       }
     },
+    "/api/v1/collectors/{handle}/preview": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Map preview card of a collector (auth optional)",
+        "description": "The marker payload of one collector on the map plus `canMessage` and `isBlocked`. 404 unless the collector is on the map (unknown, suspended, pending deletion, not discoverable or PRIVATE profile). `distanceBucket` is measured from `lat`/`lng` when given, else from the signed-in caller's trading area; null for signed-out callers.",
+        "operationId": "getCollectorPreview",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "description": "Centre latitude for the distance bucket",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "description": "Centre longitude for the distance bucket",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preview card",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectorPreview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Collector not on the map",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/collectors/{handle}/inventory": {
       "get": {
         "tags": [
@@ -6511,6 +7070,187 @@
           },
           "429": {
             "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/collectors/nearby": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Collectors on the map around a centre (auth optional)",
+        "description": "Discoverable collectors (ACTIVE account, profile not PRIVATE) whose derived public point is within `radiusKm` of the centre (`ST_DWithin` on the public point). The centre is `lat`/`lng` snapped to 0.01° or, when omitted, the signed-in caller's own trading area; signed-out callers must pass it. `radiusKm` defaults to 10 (lowered to the plan cap); beyond the caller's `map.radius.max_km` (FREE 25, PREMIUM 100; signed-out: FREE) → 429 LIMIT_REACHED. Filters: `game` (plays it or lists it), `availability` (TRADE, SALE, TRADE_OR_SALE, ACCEPTS_OFFERS), `freshness` (ACTIVE or AGING), `tags` (any), `hasPrintingId` / `hasCardId` (lists it publicly), `query` (handle, display name or tag text of collectors who allow name search). Collectors whose public listings are all stale never appear; STALE and HIDDEN items never match. Ranking: freshness (ACTIVE > AGING > no listings), distance, rating. Signed-out callers get no distance buckets. Cached 60 s per rounded centre, radius and filters.",
+        "operationId": "listNearbyCollectors",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "description": "Centre latitude (required when signed out)",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "description": "Centre longitude (required when signed out)",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "in": "query",
+            "description": "Radius in km (default 10, capped by the plan)",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TRADE",
+                "SALE",
+                "TRADE_OR_SALE",
+                "ACCEPTS_OFFERS"
+              ]
+            }
+          },
+          {
+            "name": "freshness",
+            "in": "query",
+            "description": "ACTIVE or AGING",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)",
+              "enum": [
+                "ACTIVE",
+                "AGING",
+                "STALE",
+                "HIDDEN"
+              ]
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Tag slugs (any), repeated or comma separated",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "hasPrintingId",
+            "in": "query",
+            "description": "Collectors listing this printing publicly",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "hasCardId",
+            "in": "query",
+            "description": "Collectors listing a printing of this card publicly",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Handle, display name or tag text",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markers around the centre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NearbyCollectorsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter, partial centre, or no centre for a signed-out caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -11224,46 +11964,247 @@
           }
         }
       },
-      "LegalDocument": {
+      "CollectorMarker": {
         "type": "object",
-        "description": "A published legal document",
+        "description": "A collector on the map at the derived public point (never the real location)",
         "properties": {
-          "documentType": {
+          "id": {
             "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "publicPoint": {
+            "$ref": "#/components/schemas/PublicPoint"
+          },
+          "publicLabel": {
+            "type": "string",
+            "example": "Plateau-Mont-Royal, Montréal"
+          },
+          "distanceBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Distance class from the search centre; null for signed-out callers and collectors who hide distances",
             "enum": [
-              "TERMS",
-              "PRIVACY",
-              "COMMUNITY_GUIDELINES",
-              "MARKETPLACE_POLICY",
-              "PAYMENT_PROTECTION",
-              "REFUND_DISPUTE",
-              "COOKIES",
-              "ACCEPTABLE_USE"
+              "LT_1KM",
+              "KM_1_5",
+              "KM_5_10",
+              "KM_10_25",
+              "KM_25_50",
+              "GT_50KM"
             ]
           },
-          "version": {
-            "type": "string",
-            "example": "2026-09-01"
+          "rating": {
+            "$ref": "#/components/schemas/CollectorRating"
           },
-          "title": {
-            "type": "string",
-            "example": "Terms of Service"
+          "tags": {
+            "type": "array",
+            "example": [
+              "trader"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
-          "url": {
-            "type": "string",
-            "description": "Path on the web app",
-            "example": "/legal/terms"
+          "games": {
+            "type": "array",
+            "example": [
+              "yugioh",
+              "pokemon"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
-          "requiredAtRegistration": {
-            "type": "boolean"
+          "lastActiveBucket": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "THIS_WEEK",
+              "THIS_MONTH",
+              "LONGER_AGO",
+              "HIDDEN"
+            ]
+          },
+          "onlineStatus": {
+            "type": "string",
+            "enum": [
+              "ONLINE",
+              "OFFLINE",
+              "HIDDEN"
+            ]
+          },
+          "binderFreshness": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Best freshness of the public listings (ACTIVE or AGING on the map); null without public listings",
+            "enum": [
+              "ACTIVE",
+              "AGING",
+              "STALE",
+              "HIDDEN"
+            ]
+          },
+          "publicBinderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "publicItemCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "matchingItems": {
+            "type": "array",
+            "description": "Public items matching hasPrintingId / hasCardId / availability (empty without those filters)",
+            "items": {
+              "$ref": "#/components/schemas/MatchingItem"
+            }
           }
         },
         "required": [
-          "documentType",
-          "requiredAtRegistration",
-          "title",
-          "url",
-          "version"
+          "displayName",
+          "games",
+          "handle",
+          "id",
+          "lastActiveBucket",
+          "matchingItems",
+          "onlineStatus",
+          "publicBinderCount",
+          "publicItemCount",
+          "publicLabel",
+          "publicPoint",
+          "rating",
+          "tags"
+        ]
+      },
+      "CollectorRating": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Null until the first rating"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "MatchingItem": {
+        "type": "object",
+        "description": "Public item matching the request's filters",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "AZR-EN001"
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cardName": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "COLLECTION_ONLY",
+              "TRADE",
+              "SALE",
+              "TRADE_OR_SALE",
+              "NOT_AVAILABLE"
+            ]
+          },
+          "askingPrice": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": 45.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "condition": {
+            "type": "string",
+            "example": "NEAR_MINT"
+          },
+          "language": {
+            "type": "string",
+            "example": "en"
+          },
+          "edition": {
+            "type": "string",
+            "example": "FIRST_EDITION"
+          },
+          "acceptsOffers": {
+            "type": "boolean"
+          },
+          "freshness": {
+            "type": "string",
+            "description": "ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)",
+            "enum": [
+              "ACTIVE",
+              "AGING",
+              "STALE",
+              "HIDDEN"
+            ]
+          }
+        },
+        "required": [
+          "acceptsOffers",
+          "availability",
+          "cardId",
+          "cardName",
+          "condition",
+          "currency",
+          "edition",
+          "freshness",
+          "game",
+          "itemId",
+          "language",
+          "printingId"
         ]
       },
       "PublicBinderOwner": {
@@ -11300,9 +12241,9 @@
           "id"
         ]
       },
-      "PublicBinderResponse": {
+      "PublicBinderSummary": {
         "type": "object",
-        "description": "A public binder with its owner",
+        "description": "Public binder of a collector",
         "properties": {
           "id": {
             "type": "string",
@@ -11332,12 +12273,6 @@
             "format": "date-time",
             "description": "End of a temporary publication"
           },
-          "owner": {
-            "$ref": "#/components/schemas/PublicBinderOwner"
-          },
-          "freshness": {
-            "$ref": "#/components/schemas/Freshness"
-          },
           "itemCount": {
             "type": "integer",
             "format": "int64",
@@ -11355,6 +12290,13 @@
               "null"
             ],
             "format": "uri"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/PublicBinderOwner",
+            "description": "Owner block; present in search results (`GET /search`), absent in a collector's own binder list"
           }
         },
         "required": [
@@ -11364,8 +12306,7 @@
           "id",
           "itemCount",
           "kind",
-          "name",
-          "owner"
+          "name"
         ]
       },
       "PublicOwnerLocation": {
@@ -11396,7 +12337,161 @@
           "publicLabel"
         ]
       },
-      "PageResponsePublicInventoryItem": {
+      "SearchResolution": {
+        "type": "object",
+        "description": "Printing and/or card the query resolved to (both null when ambiguous)",
+        "properties": {
+          "printingId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "cardId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "UnifiedSearchResponse": {
+        "type": "object",
+        "description": "Unified search results",
+        "properties": {
+          "query": {
+            "type": "string",
+            "example": "blue eyes"
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardSummary"
+            }
+          },
+          "printings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrintingSummary"
+            }
+          },
+          "sets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetSummary"
+            }
+          },
+          "collectors": {
+            "type": "array",
+            "description": "Holders of the resolved printing/card (with matchingItems), otherwise collectors matching the text",
+            "items": {
+              "$ref": "#/components/schemas/CollectorMarker"
+            }
+          },
+          "binders": {
+            "type": "array",
+            "description": "Public binders, each with its owner block",
+            "items": {
+              "$ref": "#/components/schemas/PublicBinderSummary"
+            }
+          },
+          "resolved": {
+            "$ref": "#/components/schemas/SearchResolution"
+          }
+        },
+        "required": [
+          "binders",
+          "cards",
+          "collectors",
+          "printings",
+          "query",
+          "resolved",
+          "sets"
+        ]
+      },
+      "SearchSuggestion": {
+        "type": "object",
+        "description": "Mixed autocomplete entry",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "CARD",
+              "PRINTING",
+              "SET",
+              "COLLECTOR",
+              "BINDER",
+              "TAG"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id of the card, printing, set, collector, binder or tag"
+          },
+          "label": {
+            "type": "string"
+          },
+          "sublabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "game": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Navigation key: the handle of a COLLECTOR, the slug of a TAG"
+          },
+          "cardId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Card of a PRINTING entry"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "type"
+        ]
+      },
+      "CardHolderResult": {
+        "type": "object",
+        "description": "A collector near you holding the card",
+        "properties": {
+          "collector": {
+            "$ref": "#/components/schemas/CollectorMarker"
+          },
+          "item": {
+            "$ref": "#/components/schemas/PublicInventoryItem"
+          }
+        },
+        "required": [
+          "collector",
+          "item"
+        ]
+      },
+      "PageResponseCardHolderResult": {
         "type": "object",
         "description": "Offset-paginated list",
         "properties": {
@@ -11404,7 +12499,7 @@
             "type": "array",
             "description": "Items of the current page",
             "items": {
-              "$ref": "#/components/schemas/PublicInventoryItem"
+              "$ref": "#/components/schemas/CardHolderResult"
             }
           },
           "page": {
@@ -11526,6 +12621,153 @@
           "publicNotes",
           "quantity"
         ]
+      },
+      "LegalDocument": {
+        "type": "object",
+        "description": "A published legal document",
+        "properties": {
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "TERMS",
+              "PRIVACY",
+              "COMMUNITY_GUIDELINES",
+              "MARKETPLACE_POLICY",
+              "PAYMENT_PROTECTION",
+              "REFUND_DISPUTE",
+              "COOKIES",
+              "ACCEPTABLE_USE"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "example": "2026-09-01"
+          },
+          "title": {
+            "type": "string",
+            "example": "Terms of Service"
+          },
+          "url": {
+            "type": "string",
+            "description": "Path on the web app",
+            "example": "/legal/terms"
+          },
+          "requiredAtRegistration": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentType",
+          "requiredAtRegistration",
+          "title",
+          "url",
+          "version"
+        ]
+      },
+      "PublicBinderResponse": {
+        "type": "object",
+        "description": "A public binder with its owner",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "COLLECTION",
+              "TRADE",
+              "SALE",
+              "DECK",
+              "CUSTOM"
+            ]
+          },
+          "publicUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "End of a temporary publication"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/PublicBinderOwner"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "itemCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Public items"
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coverImageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        },
+        "required": [
+          "description",
+          "freshness",
+          "games",
+          "id",
+          "itemCount",
+          "kind",
+          "name",
+          "owner"
+        ]
+      },
+      "PageResponsePublicInventoryItem": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/PublicInventoryItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
       },
       "Plan": {
         "type": "object",
@@ -12185,26 +13427,6 @@
           "tags"
         ]
       },
-      "CollectorRating": {
-        "type": "object",
-        "properties": {
-          "average": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "format": "double",
-            "description": "Null until the first rating"
-          },
-          "count": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "required": [
-          "count"
-        ]
-      },
       "CollectorTag": {
         "type": "object",
         "properties": {
@@ -12222,42 +13444,57 @@
           "slug"
         ]
       },
-      "PublicBinderSummary": {
+      "CollectorPreview": {
         "type": "object",
-        "description": "Public binder of a collector",
+        "description": "Map preview card of a collector",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
           },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "kind": {
+          "handle": {
             "type": "string",
-            "enum": [
-              "COLLECTION",
-              "TRADE",
-              "SALE",
-              "DECK",
-              "CUSTOM"
-            ]
+            "example": "maika"
           },
-          "publicUntil": {
+          "displayName": {
+            "type": "string"
+          },
+          "avatarUrl": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date-time",
-            "description": "End of a temporary publication"
+            "format": "uri"
           },
-          "itemCount": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Public items"
+          "publicPoint": {
+            "$ref": "#/components/schemas/PublicPoint"
+          },
+          "publicLabel": {
+            "type": "string"
+          },
+          "distanceBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Distance class from the given centre or the caller's trading area; null for signed-out callers",
+            "enum": [
+              "LT_1KM",
+              "KM_1_5",
+              "KM_5_10",
+              "KM_10_25",
+              "KM_25_50",
+              "GT_50KM"
+            ]
+          },
+          "rating": {
+            "$ref": "#/components/schemas/CollectorRating"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "games": {
             "type": "array",
@@ -12265,25 +13502,125 @@
               "type": "string"
             }
           },
-          "coverImageUrl": {
+          "lastActiveBucket": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "THIS_WEEK",
+              "THIS_MONTH",
+              "LONGER_AGO",
+              "HIDDEN"
+            ]
+          },
+          "onlineStatus": {
+            "type": "string",
+            "enum": [
+              "ONLINE",
+              "OFFLINE",
+              "HIDDEN"
+            ]
+          },
+          "binderFreshness": {
             "type": [
               "string",
               "null"
             ],
-            "format": "uri"
+            "description": "Null without public listings",
+            "enum": [
+              "ACTIVE",
+              "AGING",
+              "STALE",
+              "HIDDEN"
+            ]
           },
-          "freshness": {
-            "$ref": "#/components/schemas/Freshness"
+          "publicBinderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "publicItemCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "canMessage": {
+            "type": "boolean",
+            "description": "Whether the caller may start a conversation"
+          },
+          "isBlocked": {
+            "type": "boolean"
           }
         },
         "required": [
-          "description",
-          "freshness",
+          "canMessage",
+          "displayName",
           "games",
+          "handle",
           "id",
-          "itemCount",
-          "kind",
-          "name"
+          "isBlocked",
+          "lastActiveBucket",
+          "onlineStatus",
+          "publicBinderCount",
+          "publicItemCount",
+          "publicLabel",
+          "publicPoint",
+          "rating",
+          "tags"
+        ]
+      },
+      "NearbyCollectorsResponse": {
+        "type": "object",
+        "description": "Collectors on the map around a centre",
+        "properties": {
+          "center": {
+            "$ref": "#/components/schemas/SearchCentre"
+          },
+          "radiusKm": {
+            "type": "number",
+            "format": "double",
+            "description": "Radius used (plan-capped, 0.1 km steps)",
+            "example": 10
+          },
+          "collectors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectorMarker"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Matching collectors"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "Whether more collectors match than returned (`limit`)"
+          }
+        },
+        "required": [
+          "center",
+          "collectors",
+          "radiusKm",
+          "total",
+          "truncated"
+        ]
+      },
+      "SearchCentre": {
+        "type": "object",
+        "description": "Centre of a geographic search, snapped to 0.01° (about 1 km): the given lat/lng or the caller's own trading area",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double",
+            "example": 45.52
+          },
+          "lng": {
+            "type": "number",
+            "format": "double",
+            "example": -73.58
+          }
+        },
+        "required": [
+          "lat",
+          "lng"
         ]
       },
       "PageResponseCardSummary": {

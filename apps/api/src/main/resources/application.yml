@@ -184,6 +184,19 @@ orenji:
       emulator-host: ${PUBSUB_EMULATOR_HOST:}
       topic-domain-events: ${PUBSUB_TOPIC_DOMAIN_EVENTS:domain-events}
       topic-analytics: ${PUBSUB_TOPIC_ANALYTICS:analytics-events}
+  analytics:
+    # Analytics events (ARCHITECTURE.md section 8): written to the log with EVENTS_TRANSPORT=local,
+    # published to the Pub/Sub topic analytics-events with EVENTS_TRANSPORT=pubsub (cloud only).
+    enabled: true
+    # HMAC key pseudonymising account ids (actor_hash). No default outside the local and test
+    # profiles: the application refuses to start without it.
+    actor-salt: ${ANALYTICS_ACTOR_SALT:}
+  search:
+    # Phase 4 map discovery and search. The plan-dependent radius cap is data (usage_limit
+    # map.radius.max_km, ADR 0014); these are technical defaults.
+    default-radius-km: 10
+    nearby-cache-ttl: 60s
+    matching-items-per-collector: 5
   storage:
     # local | gcs
     provider: ${STORAGE_PROVIDER:local}
@@ -285,6 +298,8 @@ orenji:
     auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
   location:
     jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
+  analytics:
+    actor-salt: ${ANALYTICS_ACTOR_SALT:local-analytics-salt}
   seed:
     enabled: true
 logging:
@@ -384,6 +399,8 @@ orenji:
     auth-emulator-host: ""
   location:
     jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
+  analytics:
+    actor-salt: ${ANALYTICS_ACTOR_SALT:local-analytics-salt}
   storage:
     # Each test JVM gets its own media root (deleted by the OS); never the repository directory.
     local-root: ${java.io.tmpdir}/orenjitrade-test-media

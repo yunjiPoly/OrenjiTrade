@@ -46,4 +46,19 @@ describe('FreshnessBadgeComponent', () => {
     expect(el.querySelector('.badge')?.classList).toContain('badge--stale');
     expect(el.querySelector('.badge__state')?.textContent).toBe('Stale');
   });
+
+  it('shows the server label and, when compact, only the dot for fresh listings', async () => {
+    fixture.componentRef.setInput('state', 'fresh');
+    fixture.componentRef.setInput('label', 'Updated yesterday');
+    fixture.componentRef.setInput('compact', true);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.badge__time')?.textContent).toBe('Updated yesterday');
+    expect(el.querySelector('.badge__state')?.classList).toContain('visually-hidden');
+
+    fixture.componentRef.setInput('state', 'stale');
+    await fixture.whenStable();
+    expect(el.querySelector('.badge__state')?.classList).not.toContain('visually-hidden');
+    expect(el.textContent).toContain('Stale');
+  });
 });

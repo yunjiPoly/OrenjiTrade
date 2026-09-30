@@ -163,6 +163,60 @@ class PrivacyPolicyServiceTest {
         assertThat(policy.canSeeLocation(ViewerContext.ANONYMOUS, TARGET, discoverable)).isFalse();
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        // discoverable, visibility, anonymous, member, blocked member, owner
+        "true,  PUBLIC,  true,  true,  false, true",
+        "true,  MEMBERS, true,  true,  false, true",
+        "true,  PRIVATE, false, false, false, true",
+        "false, PUBLIC,  false, false, false, false"
+    })
+    void mapPresenceNeedsDiscoverabilityAndANonPrivateProfile(
+            boolean discoverable,
+            ProfileVisibility visibility,
+            boolean anonymous,
+            boolean memberView,
+            boolean blockedView,
+            boolean owner) {
+        PrivacySettingsView target =
+                settings(visibility, MessagingPermission.EVERYONE, discoverable, true, true, true);
+        assertThat(policy.canAppearOnMap(ViewerContext.ANONYMOUS, TARGET, target))
+                .isEqualTo(anonymous);
+        assertThat(policy.canAppearOnMap(member(true), TARGET, target)).isEqualTo(memberView);
+        assertThat(policy.canAppearOnMap(new ViewerContext(VIEWER, true, true), TARGET, target))
+                .isEqualTo(blockedView);
+        assertThat(policy.canAppearOnMap(new ViewerContext(TARGET, true, false), TARGET, target))
+                .isEqualTo(owner);
+    }
+
+    @Test
+    void nameSearchAlsoNeedsSearchDiscoverable() {
+        PrivacySettingsView searchable =
+                new PrivacySettingsView(
+                        true,
+                        true,
+                        false,
+                        true,
+                        ProfileVisibility.MEMBERS,
+                        MessagingPermission.EVERYONE,
+                        false,
+                        true);
+        PrivacySettingsView unsearchable =
+                new PrivacySettingsView(
+                        true,
+                        true,
+                        false,
+                        true,
+                        ProfileVisibility.MEMBERS,
+                        MessagingPermission.EVERYONE,
+                        false,
+                        false);
+        assertThat(policy.canAppearInNameSearch(ViewerContext.ANONYMOUS, TARGET, searchable))
+                .isTrue();
+        assertThat(policy.canAppearInNameSearch(member(true), TARGET, unsearchable)).isFalse();
+        assertThat(policy.canAppearOnMap(member(true), TARGET, unsearchable)).isTrue();
+    }
+
     @Test
     void defaultsFavourSafety() {
         PrivacySettingsView defaults = PrivacySettingsView.DEFAULTS;

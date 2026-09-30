@@ -125,6 +125,41 @@ public class Limits {
         return decision(resolved, allowed, requested, timeProvider.now());
     }
 
+    /**
+     * {@link #checkValue} for a signed-out caller: the FREE plan's rule applies (no entitlements),
+     * e.g. the map radius of anonymous discovery requests.
+     */
+    public LimitDecision checkValueForAnonymous(String limitKey, long requested) {
+        PlanRules free =
+                planService
+                        .find(PlanCodes.FREE)
+                        .orElseThrow(() -> new IllegalStateException("The FREE plan is missing"));
+        UsageLimitRule rule =
+                free.limit(limitKey)
+                        .or(
+                                () ->
+                                        planService
+                                                .anyLimit(limitKey)
+                                                .map(
+                                                        other ->
+                                                                new UsageLimitRule(
+                                                                        other.id(),
+                                                                        other.key(),
+                                                                        other.kind(),
+                                                                        other.window(),
+                                                                        null,
+                                                                        other.description(),
+                                                                        null,
+                                                                        other.updatedAt())))
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Unknown limit key " + limitKey));
+        Resolved resolved = resolve(free, rule, List.of());
+        boolean allowed = resolved.max() == null || requested <= resolved.max();
+        return decision(resolved, allowed, requested, timeProvider.now());
+    }
+
     /** The status of every limit of the user's plan (for {@code GET /me/plan}), by key. */
     public List<LimitDecision> overview(UUID userId) {
         PlanRules plan = planService.planOf(userId);

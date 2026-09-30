@@ -44,6 +44,7 @@ public final class ReservedHandles {
                     "collectors",
                     "collector",
                     "map",
+                    "nearby",
                     "inventory",
                     "search",
                     "messages",

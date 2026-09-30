@@ -118,7 +118,8 @@ public final class InventoryResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) List<ItemImage> images,
             @Schema(requiredMode = RequiredMode.REQUIRED) FreshnessInfo freshness) {
 
-        static PublicInventoryItemResponse from(InventoryItemView view, Instant now) {
+        /** Public form of an item (also used by the search module's card-holder results). */
+        public static PublicInventoryItemResponse from(InventoryItemView view, Instant now) {
             ItemRow item = view.row();
             return new PublicInventoryItemResponse(
                     item.id(),

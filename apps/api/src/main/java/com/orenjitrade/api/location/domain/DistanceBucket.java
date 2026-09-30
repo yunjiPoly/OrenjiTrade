@@ -22,6 +22,11 @@ public enum DistanceBucket {
         this.upperKm = upperKm;
     }
 
+    /** Exclusive upper bound in kilometres ({@code Infinity} for {@link #GT_50KM}). */
+    public double upperKm() {
+        return upperKm;
+    }
+
     /** The bucket of a distance in kilometres (upper bounds exclusive). */
     public static DistanceBucket ofKm(double km) {
         for (DistanceBucket bucket : values()) {

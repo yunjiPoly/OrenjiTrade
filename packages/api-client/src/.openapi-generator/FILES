@@ -22,6 +22,8 @@ api/catalog.service.ts
 api/catalog.serviceInterface.ts
 api/collectors.service.ts
 api/collectors.serviceInterface.ts
+api/discovery.service.ts
+api/discovery.serviceInterface.ts
 api/featureFlags.service.ts
 api/featureFlags.serviceInterface.ts
 api/internal.service.ts
@@ -44,6 +46,8 @@ api/public.service.ts
 api/public.serviceInterface.ts
 api/publicBinders.service.ts
 api/publicBinders.serviceInterface.ts
+api/search.service.ts
+api/search.serviceInterface.ts
 api/settings.service.ts
 api/settings.serviceInterface.ts
 configuration.ts
@@ -66,6 +70,7 @@ model/bulkInventoryRequest.ts
 model/bulkInventoryResponse.ts
 model/bulkSkipped.ts
 model/cardDetail.ts
+model/cardHolderResult.ts
 model/cardSuggestion.ts
 model/cardSummary.ts
 model/catalogSyncRequest.ts
@@ -73,6 +78,8 @@ model/catalogSyncRun.ts
 model/channelPreferences.ts
 model/channelPreferencesRequest.ts
 model/collectorLocation.ts
+model/collectorMarker.ts
+model/collectorPreview.ts
 model/collectorProfileResponse.ts
 model/collectorRating.ts
 model/collectorTag.ts
@@ -102,6 +109,7 @@ model/inventorySummaryResponse.ts
 model/legalDocument.ts
 model/limitStatus.ts
 model/marketPrice.ts
+model/matchingItem.ts
 model/meResponse.ts
 model/metaResponse.ts
 model/models.ts
@@ -109,11 +117,13 @@ model/myEntitlement.ts
 model/myLocationResponse.ts
 model/myPlan.ts
 model/myProfileResponse.ts
+model/nearbyCollectorsResponse.ts
 model/notificationSettingsRequest.ts
 model/notificationSettingsResponse.ts
 model/onboardingStatus.ts
 model/pageResponseAdminUserSummary.ts
 model/pageResponseAuditLogEntry.ts
+model/pageResponseCardHolderResult.ts
 model/pageResponseCardSummary.ts
 model/pageResponseCatalogSyncRun.ts
 model/pageResponseInventoryItemResponse.ts
@@ -144,11 +154,15 @@ model/quietHours.ts
 model/quietHoursRequest.ts
 model/reorderBindersRequest.ts
 model/requiredConsent.ts
+model/searchCentre.ts
+model/searchResolution.ts
+model/searchSuggestion.ts
 model/setDetail.ts
 model/setSummary.ts
 model/suspendUserRequest.ts
 model/tagResponse.ts
 model/tradingAreaResponse.ts
+model/unifiedSearchResponse.ts
 model/updateBinderRequest.ts
 model/updateDelistPolicyRequest.ts
 model/updateFeatureFlagRequest.ts

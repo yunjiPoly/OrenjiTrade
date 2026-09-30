@@ -179,6 +179,18 @@ public class LocationService {
                                                 target.lng())));
     }
 
+    /**
+     * The requester's own trading-area centre as a default search centre (Phase 4 map and search),
+     * already snapped to {@link SearchCentre#STEP_DEG} degrees: the precise centre never leaves
+     * this module. Empty when the requester has no trading area.
+     */
+    @Transactional(readOnly = true)
+    public Optional<SearchCentre> searchCentreOf(UUID requesterId) {
+        return repository
+                .find(requesterId)
+                .map(stored -> SearchCentre.snap(stored.centreLat(), stored.centreLng()));
+    }
+
     /** Region label of the collector's trading area (admin views); never a coordinate. */
     @Transactional(readOnly = true)
     public Optional<String> labelOf(UUID userId) {

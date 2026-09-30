@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-09-29 (session 1, stage 3 independently verified: web Phase 2 catalog + platform rules complete, backend Phase 3 inventory + binders + freshness complete; stage 4 next)
+**Last updated:** 2026-09-29 (session 1, stage 4 independently verified: web Phase 3 inventory + binders + public binder pages complete, backend Phase 4 map discovery + search + minimal analytics complete; stage 5 next)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -66,26 +66,28 @@ _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 
 
 ## Phase 3 — Inventory + Binders
 
-_Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 413 API tests / 67 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (81 paths, previously 59, no path or schema lost; every contract route present); clients regenerated; live check on `.local-dev/api-snapshots/api-phase3.jar` (seeds 10 binders / 36 items)). Web `/inventory` and public binder pages are the next stage; mobile deferred by owner decision. Module order `delisting` ← `binders` ← `inventory` (inventory implements the `binders` `BinderContents` extension point, no cycle)._
+_Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 413 API tests / 67 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (81 paths, previously 59, no path or schema lost; every contract route present); clients regenerated; live check on `.local-dev/api-snapshots/api-phase3.jar` (seeds 10 binders / 36 items)). Web `/inventory` and public binder pages complete (workflow `web-mvp-local` stage 4, independently re-verified: 185 web unit tests / 38 files, 30/30 Playwright specs against `api-phase4.jar`, 0 skipped); mobile deferred by owner decision. Module order `delisting` ← `binders` ← `inventory` (inventory implements the `binders` `BinderContents` extension point, no cycle)._
 
 - [x] `binder`, `inventory_item` (quantity, condition, language, printing, edition, price, availability, visibility, notes) — migrations V021 (`binder`, generated `search_vector` + GIN) and V022 (`inventory_item` with the contract indexes and the `trg_inventory_item_binder_count` trigger maintaining `binder.item_count`, `inventory_item_image`, `inventory_freshness_event`); `binders` (`BinderService`: CRUD, publish PUBLIC/ONE_HOUR/ONE_DAY/UNTIL_DISABLED, unpublish, confirm, reorder, delete that unfiles or `?deleteItems=true`; `binders.max` via `Limits.consume` + a `LimitUsageSource`) and `inventory` (`InventoryService`: CRUD, PATCH with absent-vs-null semantics through `common/PartialUpdate`, soft delete, confirm, ≤ 4 photos re-encoded to JPEG ≤ 1600 px through `ObjectStorage` (rate-limited 60/hour), summary); export contributors and deletion participants for both; seed `db/seed/inventory.json` (`InventorySeedContributor`, order 500) — tests InventoryIT (9), BinderIT (8, incl. `binders.max` → 429), ItemImageProcessorTest (4), PartialUpdateTest (4), DeletionIT (extended), SeedDataRunnerIT (extended)
 - [x] Visibility: PRIVATE / PUBLIC / TEMPORARILY_PUBLIC (until timestamp); binder-level too — `binders/domain/PublicVisibilityRules` (SQL fragments + pure Java twin evaluated live on every public read; `publicUntil` ≤ 30 days ahead), `ListingReconciler` keeps a materialised `publicly_listed` flag so `InventoryItemPublished`/`Unpublished` and `BinderPublished`/`Unpublished` fire once per transition (Modulith outbox), re-run on suspend/unsuspend/`PrivacySettingsChangedEvent` (new, published by `PrivacySettingsService.update`) — tests VisibilityIT (4), VisibilityRulesTest (5), EventsIT (3)
 - [x] Freshness fields: created/updated/confirmed/lastOwnerActivity + freshness status calc — V020 `delist_policy` (exactly one active row; seed ACTIVE 0–14 / AGING 15–30 / STALE 31–45 / HIDDEN 46+, warn 5 days before hiding, `max_strikes` 3), `delisting` (`FreshnessPolicy`, `FreshnessLabels` "Updated 3 hours ago", `DelistPolicyService` Redis-cached + audited admin update, `FreshnessEventLog`), `FreshnessService`/`FreshnessJob` `POST /internal/jobs/freshness` (hourly `@Scheduled` under `local`; expired temporary publications → PRIVATE, AGED/STALED/HIDDEN/RESTORED/WARNED events, `BinderFreshnessChanged`, `BinderFreshnessWarning`; never deletes), `DelistJob` `POST /internal/jobs/delist` (records a `job_run`, no-op until strikes exist), `GET/PUT /admin/delist-policies` (Phase 7 contract, ADR 0014) — tests FreshnessPolicyTest (5), FreshnessJobIT (5), AdminDelistPolicyIT (2)
 - [x] Bulk operations: select, change visibility, move binder — `POST /inventory/items/bulk` (`SET_VISIBILITY`, `MOVE_TO_BINDER`, `SET_AVAILABILITY`, `CONFIRM`, `DELETE`; one transaction; per-id ownership, `skipped[].reason` NOT_FOUND/UNCHANGED) — tests BulkOperationsIT (4)
 - [x] Public binder views + collector public profile endpoint — `GET /collectors/{handle}/binders`, `GET /public/binders/{id}` (owner block with region label + distance bucket only; `binder.views.per_day` consumed once per binder and UTC day for signed-in non-owners), `GET /public/binders/{id}/items`, `GET /collectors/{handle}/inventory` (`PublicInventoryItem`, never `notes`); routes added to `SecurityConfig.PUBLIC_GET_PATTERNS` — tests PublicBinderIT (3), GeoPrivacyContractTest `publicListingsNeverCarryCoordinatesOrPrivateNotes` (every public listing route of the seeded collectors, anonymous and signed in: no coordinates, ≤ 3 decimals, no private notes, logs clean). Contract deviations (documented in `apps/api/README.md`, contract docs not yet edited): PRIVATE profiles never publish; additive columns (`binder.freshness_state`/`warned_at`/`publicly_listed`/`listing_changed_at`, `inventory_item.warned_at`/`publicly_listed`/`listing_changed_at`, `inventory_freshness_event.owner_id`, `delist_policy.max_strikes`/`created_at`) and response fields (`BinderResponse.sortOrder`/`effectivePublic`/`games`/`coverPrintingId`, `PublicInventoryItem.binder`, `PublicBinderResponse.kind`/`publicUntil`/`coverImageUrl`, summary `agingCount`/`effectivePublicCount`, list params `unfiled`/`direction`); photo upload answers 201 with the item. Debt: photos JPEG not WebP; binder names/descriptions and public notes not yet run through `TextModerationService` (Phase 7); web must send the token on `GET /public/binders/{id}` for `binder.views.per_day` to count
-- [ ] Web `/inventory` page (filters, table/grid, edit drawer, bulk bar, binder manager) — next stage (stage 4)
+- [x] Web `/inventory` page (filters, table/grid, edit drawer, bulk bar, binder manager) — `apps/web-angular/src/app/features/inventory` (stage 4): container page with all state in the URL (`?binder=<id>|unfiled&q&game&visibility&availability&condition&freshness&sort&view&page&size`), `InventoryStore` + `BinderActionsService` shared with the dialogs; binder list (All cards / Unfiled / binders with visibility icon and counts, horizontal strip < 960 px); summary strip (cards/copies, public, private, temporarily public with next end, stale + hidden "needs confirmation" with "Confirm all"); privacy notice when public content cannot be seen (not discoverable / profile not PUBLIC) and per-item/binder visibility explanations; toolbar (search, All/Private/Public/Temporarily public segmented control, game, availability, condition, freshness, sort, grid/table); selected-binder header (publish 1 h / 24 h / until disabled, make private, public page, edit, confirm, delete); grid cards + table rows with quantity stepper (PATCH in place), visibility and server-labelled freshness badges; bulk bar (visibility incl. temporary 1 h / 24 h / 3 / 7 / 30 days, move to binder/unfiled, availability, confirm, delete; skipped cards and reasons listed); "Add card" dialog (`/cards/suggest` → printing picker → details, Private by default); edit side panel (changed fields only as PATCH, ≤ 4 photos, confirm, delete); binder form dialog (`binders.max` → limit-reached dialog + inline message); binder manager (drag and drop, keyboard move buttons keeping focus, inline rename, publish/private, delete, create). Public binder page `features/binders` (`/binders/:id`, ID token attached when signed in so `binder.views.per_day` counts; owner card = region label + distance bucket only; game pills/search/availability in the URL; never private notes; 404 / 429 / error-with-retry states). Collector page: "View public binder" wired, public binders + 8-card inventory preview; card detail "Add to inventory"; signed-out `/inventory` shows a sign-in invitation. Shared `shared/inventory`, `shared/ui/visibility-badge`, `FreshnessBadge` `label`/`compact` inputs. Generated `@orenji/api-client` only. Tests: Vitest units (inventory-params, item-form, bulk-actions, visibility-status, inventory.store, quantity-stepper, inventory-labels, freshness-badge) — 185 web unit tests / 38 files; Playwright `e2e/inventory.spec.ts` (4: add card → binder → move → public → edit + photo + publish until disabled + reload; bulk temporary publication / availability with skipped reason / move / private / delete; a second collector opens the published binder from the owner's profile with every JSON lat/lng ≤ 3 decimals; `binders.max` limit-reached dialog + keyboard reorder persisted + delete) — 30/30 Playwright specs green against `api-phase4.jar`. Debt: admin UI for user entitlements / plan editing and a `/sets` index page still pending (stage 3 carry-over)
 - [ ] Mobile inventory tab optimised for card management — deferred by owner decision
-- [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web/mobile flow tests come with their UI stages
+- [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT, BinderViewLimitIT (3, stage 4: FREE visitors consume one view per binder and day, owner/signed-out views never count, PREMIUM and entitled visitors unlimited) + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web flow tests: Playwright `inventory.spec.ts` (4); mobile deferred
 
 ## Phase 4 — Map + Geographic Search (flagship)
 
-- [ ] `/api/v1/collectors/nearby` (PostGIS `ST_DWithin` on `public_point`), bucketed distances
-- [ ] `/api/v1/search` unified (cards, printings, sets, collectors, public binders)
-- [ ] Card-holder search: collectors near me with printing X (filters: sale/trade/offers, price, freshness, condition)
-- [ ] Web `/map` page: MapAdapter (Google Maps / Leaflet fallback), markers, preview card, messages panel (collapsible), filters bar
-- [ ] Collector preview → full profile → public binder → message
-- [ ] Mobile map tab with bottom-sheet preview
-- [ ] Tests: geo search, no exact coordinates in any response (contract test), ranking fresh > stale
+_Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 463 API tests / 77 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (86 paths, previously 81; every contract route present; no path or schema lost, only `PublicBinderSummary` gains an optional `owner`); clients regenerated; live check on `.local-dev/api-snapshots/api-phase4.jar` with an emulator token). Migration V030 only (range V030–V039). Web `/map` and `/search` are the next stage; mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 4 contract"; the contract document itself is not edited): the caller's own marker stays in `nearby`; collectors without public listings appear (`binderFreshness: null`, ranked after AGING), all-STALE collectors never do; ranking freshness → distance bucket → rating → distance; `center` snapped to 2 decimals; additive `MatchingItem`/`suggest` fields; `card-holders` needs a centre (400 for signed-out callers without `lat`/`lng`); the plan cap key is `map.radius.max_km` (V011) where the contract says `map.radius.max`; `nearby` is a reserved handle._
+
+- [x] `/api/v1/collectors/nearby` (PostGIS `ST_DWithin` on `public_point`), bucketed distances — new module `apps/api/.../search`: `DiscoveryController` (`GET /collectors/nearby`, `GET /collectors/{handle}/preview`), `CollectorDiscoveryService`, `GeoScopeResolver` (centre = `lat`/`lng` or the caller's own trading area via `LocationService.searchCentreOf`, snapped to 0.01° inside the `location` module; radius capped by `Limits` `map.radius.max_km` → 429 LIMIT_REACHED, FREE rule for signed-out callers via the new `Limits.checkValueForAnonymous`; default 10 km), `MarkerAssembler` (per-viewer `PrivacyPolicyService` rules incl. new `canAppearOnMap`/`canAppearInNameSearch`: distance buckets for signed-in callers only, last active, online status, blocks, rating), `MarkerRanking`, `infra/CollectorSearchRepository` (SQL on `user_location.public_point` only, reusing `PublicVisibilityRules` and `InventoryItemRepository.LISTED`; STALE/HIDDEN items never match), `NearbyCache` (Redis 60 s, key `orenji:cache:nearby:<generation>:<sha256 of the snapped request>`) + `NearbyCacheInvalidator` (generation bumped after commit on item/binder publish/unpublish, `BinderFreshnessChanged`, `TradingAreaChanged`, `LocationRemoved`, `PrivacySettingsChanged`, `UserSuspended`/`UserUnsuspended`); routes added to `SecurityConfig.PUBLIC_GET_PATTERNS` (anonymous reads with reduced detail); `DistanceBucket.upperKm()`, `location/domain/SearchCentre`; migration V030 (`ix_inventory_item_owner_discovery`, `ix_inventory_item_printing_discovery`, `ix_privacy_settings_map`, `ix_binder_name_trgm`) — tests NearbyCollectorsIT (8: radius/freshness ranking/details by sign-in state, filters, hidden collectors, plan radius 429, preview messaging state, centre required for signed-out callers and defaulting to the own trading area, limit truncation, cache invalidation), SearchCentreTest (2). Debt: blocked collectors are filtered after the page is read (so `total` may count them) until Phase 5 blocks are joined in SQL; ratings arrive with Phase 7
+- [x] `/api/v1/search` unified (cards, printings, sets, collectors, public binders) — `SearchController` (`GET /search`, `/search/suggest`), `SearchService` (resolution via new `CatalogService.resolve`/`CatalogResolution`: an exact printing code resolves the printing, a shared code / exact name / single card hit resolves the card; `collectors` then lists nearby holders with the `nearby` engine; public binders with an optional owner block via `PublicBinderService.publicBinders`; collector text matching substring-only; `suggest` mixes CARD/PRINTING/SET/COLLECTOR/BINDER/TAG), `infra/BinderSearchRepository` — tests SearchIT (4), SearchDomainTest (5)
+- [x] Card-holder search: collectors near me with printing X (filters: sale/trade/offers, price, freshness, condition) — `GET /search/card-holders` (`printingId`|`cardId`, availability, condition, min/max price, freshness, edition, language, acceptsOffers, `sort=distance|price|freshness`, paged `PageResponse<CardHolderResult>`; the caller's own items excluded), `infra/CardHolderRepository`, `PublicInventoryService.publicItems(ids)` — tests CardHoldersIT (4)
+- [ ] Web `/map` page: MapAdapter (Google Maps / Leaflet fallback), markers, preview card, messages panel (collapsible), filters bar — next stage (stage 5)
+- [-] Collector preview → full profile → public binder → message — API: `GET /collectors/{handle}/preview` (marker + `canMessage`/`isBlocked`, 404 for collectors not on the map; NearbyCollectorsIT); web: full profile → public binder works (Playwright `inventory.spec.ts`); pending: web preview card (stage 5), message (Phase 5)
+- [ ] Mobile map tab with bottom-sheet preview — deferred by owner decision
+- [x] Tests: geo search, no exact coordinates in any response (contract test), ranking fresh > stale — NearbyCollectorsIT, SearchIT, CardHoldersIT, SearchDomainTest (`rankingIsFreshnessThenDistanceBucketThenRatingThenDistance`, canonical cache keys never holding the raw centre), GeoPrivacyContractTest `mapAndSearchResponsesOnlyEverCarryPublicPoints` (nearby, preview, unified search, binder search, card holders, suggest; anonymous and signed in: every point is the stored public point or the snapped centre, ≤ 3 decimals, no private location keys or notes, non-discoverable collectors 404/absent, no distance buckets for signed-out callers, logs free of coordinates), PrivacyPolicyServiceTest (extended); web map E2E comes with stage 5
 
 ## Phase 5 — Chat
 
@@ -132,7 +134,7 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 ## Phase 10 — Freemium + Credits + Ads + Donations
 
 - [x] Plans, plan features, usage limits, usage counters, entitlements (DB-configurable) — built early in stage 2 (plan item 2). `billing` module, migration V011 (`plan`, `plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; FREE and PREMIUM seeded with the contract limits; `user_account.plan_code` now a FK to `plan.code`). `Limits.check/consume/checkValue/overview` (atomic conditional upsert, Redis mirror written after commit), `LimitReachedException` → 429 LIMIT_REACHED (`limitKey`, `limit`, `used`, `resetsAt`, `planCode`, `upgradeUrl: "/premium"`), `Entitlements.has` + admin grant/revoke (audited, most generous active entitlement wins), `PlanService` Redis cache, `LimitUsageSource` SPI for TOTAL counts (e.g. `binders.max` in Phase 3). Endpoints `GET /plans` (public), `GET /me/plan`, `GET/PUT /admin/plans[/{code}]`, `GET/PUT /admin/usage-limits[/{id}]`, `GET/POST /admin/users/{id}/entitlements`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` — tests LimitsIT (5), LimitRulesTest (4). Debt: `subscription` table, `POST /me/subscription/checkout|cancel`, billing webhooks and `GET /admin/subscriptions` remain for Phase 10 proper; no feature consumes limits yet (Phase 3+)
-- [-] Limit-reached UX with upgrade prompt — API side done (429 LIMIT_REACHED with extensions, generated `ProblemDetail` carries them; Phase 3 consumes `binders.max` (BinderIT) and `binder.views.per_day` (PublicBinderIT)); web limit-reached dialog + interceptor + `/premium` built in stage 3 (`core/limits`, `features/premium`; Vitest units). Pending: an E2E that hits a real limit from the web (`binders.max` once web `/inventory` exists) and checkout (Phase 10)
+- [-] Limit-reached UX with upgrade prompt — API side done (429 LIMIT_REACHED with extensions, generated `ProblemDetail` carries them; Phase 3 consumes `binders.max` (BinderIT) and `binder.views.per_day` (PublicBinderIT)); web limit-reached dialog + interceptor + `/premium` built in stage 3 (`core/limits`, `features/premium`; Vitest units); stage 4 web E2E `inventory.spec.ts` hits the real `binders.max` limit from `/inventory` (dialog "5 of 5" + inline message); Phase 4 caps the map radius with `map.radius.max_km` (NearbyCollectorsIT, CardHoldersIT). Pending: checkout (Phase 10)
 - [ ] Credit ledger (append-only) + derived balance
 - [ ] Ads framework (campaign, advertiser, placement, creative, impression, click, conversion, budget, targeting) with internal admin-managed campaigns; "Sponsored" labelling
 - [ ] Donations via provider abstraction
@@ -149,9 +151,9 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 
 ## Phase 12 — Data Platform
 
-- [ ] Analytics event schema + publisher (Pub/Sub adapter, local logging adapter)
+- [-] Analytics event schema + publisher (Pub/Sub adapter, local logging adapter) — minimal set built with Phase 4 (stage 4): `apps/api/.../analytics` — `AnalyticsEvent` (BigQuery column names `event_id`, `event_type`, `event_version` 1, `occurred_at`, `actor_hash`, `region_label`, `geo_cell`, `payload`), `AnalyticsText`, `ActorHasher` (HMAC with `ANALYTICS_ACTOR_SALT`; start-up guard, default salt only in local/test), `AnalyticsPublisher` (async, never throws), `LogAnalyticsTransport` (default), `PubSubAnalyticsTransport` (Pub/Sub REST with ADC or the emulator, only with `EVENTS_TRANSPORT=pubsub`, no new dependency), `AnalyticsEventListener` mapping in-process notifications (`SearchPerformed`, `CollectorPreviewed`, `CollectorProfileViewed`, `PublicBinderViewed`, `CardViewed`) to `search_performed`, `search_no_results`, `collector_viewed`, `binder_viewed`, `card_viewed` (no module depends on analytics) — tests AnalyticsIT (1), AnalyticsConfigTest (3), ActorHasherTest (2). Pending: remaining event types of later phases; the Pub/Sub transport is unproven against the emulator or cloud (cloud half deferred, docs/deployment/DEFERRED.md); `ANALYTICS_ACTOR_SALT` not yet in Secret Manager/Terraform (deferred)
 - [ ] BigQuery dataset/tables (Terraform) + sample queries
-- [ ] No PII/precise location in events (test)
+- [x] No PII/precise location in events (test) — AnalyticsEventTest (12: lat/lng/latitude/email/handle/user_id/centre keys and floating-point values refused, e-mails, decimal numbers and long digit runs masked, text truncated to 64 characters, `*_hash` keys must be hex digests, geography = grid cell + region label), AnalyticsIT `phase4FlowsEmitPrivacySafeEvents` (log output of real Phase 4 flows scanned)
 
 ## Phase 13 — Hardening
 
@@ -175,21 +177,21 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 | 3 | Configure privacy settings | [x] web E2E `settings.spec.ts` (discoverability toggle saved); SettingsIT |
 | 4 | Choose approximate trading location | [x] web E2E `auth.spec.ts` (Leaflet trading-area picker, radius) + `settings.spec.ts`; LocationIT, GeoPrivacyContractTest |
 | 5 | Select TCG interests | [x] web E2E `auth.spec.ts` onboarding (games + tags); ProfileIT, TagIT |
-| 6 | Open dedicated inventory page | [ ] |
-| 7 | Create private inventory | [-] API proven (InventoryIT: private items, owner-only reads, other users 404); web `/inventory` pending |
-| 8 | Create multiple binders | [-] API proven (BinderIT: create, rename, reorder, `binders.max` 429); web pending |
-| 9 | Move cards between binders | [-] API proven (BulkOperationsIT `MOVE_TO_BINDER`, InventoryIT PATCH `binderId`); web pending |
-| 10 | Toggle private/public visibility | [-] API proven (VisibilityIT incl. TEMPORARILY_PUBLIC expiry, BulkOperationsIT `SET_VISIBILITY`); web pending |
-| 11 | Publish a binder | [-] API proven (BinderIT publish modes, PublicBinderIT, EventsIT `BinderPublished`); web pending |
+| 6 | Open dedicated inventory page | [x] web E2E `inventory.spec.ts` (opened from the primary navigation; signed-out visitors get a sign-in invitation, `smoke.spec.ts`) |
+| 7 | Create private inventory | [x] web E2E `inventory.spec.ts` ("Add card" autocomplete → printing → details, Private by default, quantity stepper, edit panel); InventoryIT (private items, owner-only reads, other users 404) |
+| 8 | Create multiple binders | [x] web E2E `inventory.spec.ts` (create a binder from the binder list, manage five binders: keyboard reorder persisted, delete, `binders.max` limit-reached dialog); BinderIT |
+| 9 | Move cards between binders | [x] web E2E `inventory.spec.ts` (edit panel moves a card into a binder; bulk move to binder); BulkOperationsIT `MOVE_TO_BINDER`, InventoryIT PATCH `binderId` |
+| 10 | Toggle private/public visibility | [x] web E2E `inventory.spec.ts` (item made public, bulk public for 24 hours, bulk make private, visibility segmented control); VisibilityIT incl. TEMPORARILY_PUBLIC expiry, BulkOperationsIT `SET_VISIBILITY` |
+| 11 | Publish a binder | [x] web E2E `inventory.spec.ts` (publish until disabled from the binder header; a second collector opens it); BinderIT publish modes, PublicBinderIT, EventsIT `BinderPublished` |
 | 12 | Another user opens the map | [ ] |
-| 13 | Public collectors at approximate positions | [ ] |
+| 13 | Public collectors at approximate positions | [-] API proven (NearbyCollectorsIT, GeoPrivacyContractTest `mapAndSearchResponsesOnlyEverCarryPublicPoints`: markers carry only the stored public point); web `/map` pending (stage 5) |
 | 14 | Click collector marker | [ ] |
-| 15 | Collector preview appears | [ ] |
+| 15 | Collector preview appears | [-] API proven (`GET /collectors/{handle}/preview`, NearbyCollectorsIT `previewCarriesMessagingStateAndNoPreciseLocation`); web preview card pending (stage 5) |
 | 16 | Open full profile | [ ] |
-| 17 | View public binder | [-] API proven (PublicBinderIT, GeoPrivacyContractTest public listings); web public binder page pending |
+| 17 | View public binder | [x] web E2E `inventory.spec.ts` (a second collector opens the published binder from the owner's profile: region label + distance bucket only, no private notes, game filter, every JSON lat/lng ≤ 3 decimals); PublicBinderIT, GeoPrivacyContractTest public listings |
 | 18 | Search for a card | [x] web E2E `catalog.spec.ts` (keyboard autocomplete → card detail → printings → set; URL filters; printing-code search) + CatalogSearchIT |
-| 19 | Nearby collectors with that card | [ ] |
-| 20 | Exact coordinates never exposed | [-] GeoPrivacyContractTest covers collector profiles, admin user detail, Phase 3 public binder/inventory listings (anonymous and signed in) and logs; web E2E `settings.spec.ts` asserts every JSON response has ≤ 3 decimals for lat/lng; map/search endpoints (Phase 4) pending |
+| 19 | Nearby collectors with that card | [-] API proven (SearchIT: an exact printing code resolves and lists nearby holders; CardHoldersIT: filters and distance/price/freshness sorts); web `/map` holders panel and `/search` pending (stage 5) |
+| 20 | Exact coordinates never exposed | [-] GeoPrivacyContractTest covers collector profiles, admin user detail, Phase 3 public binder/inventory listings and every Phase 4 map/search response (nearby, preview, unified search, card holders, suggest; anonymous and signed in) and logs; AnalyticsIT/AnalyticsEventTest keep coordinates out of analytics events; web E2E `settings.spec.ts` and `inventory.spec.ts` assert every JSON response has ≤ 3 decimals for lat/lng; web `/map` (stage 5) pending |
 | 21 | Private messaging | [ ] |
 | 22 | Public community chat | [ ] |
 | 23 | Create wishlist | [ ] |
@@ -204,13 +206,13 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 | 32 | Admin reviews stale listings | [ ] |
 | 33 | Admin suspends accounts | [x] web E2E `admin.spec.ts` (suspend + unsuspend, role restrictions); AdminUsersIT |
 | 34 | Admin actions in audit log | [x] web E2E `admin.spec.ts` (audit log shows suspend/unsuspend); AuditIT; Phase 2 admin writes audited (AdminCatalogIT, FeatureFlagsIT, LimitsIT) |
-| 35 | Freemium limits work | [-] API proven (LimitsIT: FREE limit → 429 LIMIT_REACHED, live admin edits; BinderIT `binders.max`, PublicBinderIT `binder.views.per_day`); web E2E `admin-rules.spec.ts` edits a limit that reaches `/premium`; web limit-reached dialog unit-tested, E2E pending |
-| 36 | Premium entitlements override | [-] API proven (LimitsIT, LimitRulesTest: PREMIUM plan and entitlements override FREE limits); web pending |
+| 35 | Freemium limits work | [x] web E2E `inventory.spec.ts` (`binders.max` reached from `/inventory` opens the limit-reached dialog "5 of 5") + `admin-rules.spec.ts` (a limit edited by a super admin reaches `/premium`); LimitsIT, BinderIT `binders.max`, PublicBinderIT + BinderViewLimitIT `binder.views.per_day`, NearbyCollectorsIT/CardHoldersIT `map.radius.max_km` |
+| 36 | Premium entitlements override | [-] API proven (LimitsIT, LimitRulesTest, BinderViewLimitIT `premiumAndEntitledVisitorsAreNotLimited`: PREMIUM plan and entitlements override FREE limits); web pending |
 | 37 | Account deletion works | [x] web E2E `settings.spec.ts` (re-authentication, grace period, cancel; JSON export download); DeletionIT, ExportIT |
 | 38 | Legal pages exist | [-] draft placeholders on web; counsel review pending |
 | 39 | CI runs automatically | [-] runs on PRs; first fully green run pending |
-| 40 | E2E covers critical workflows | [-] Phase 1 + 2 web flows covered (26 Playwright specs: smoke, auth, onboarding, settings, deletion, admin, catalog, admin platform rules); later phases pending |
-| 41 | Runs locally | [-] infra + every app builds/tests locally; web Phases 1–2 run end to end against docker compose + Auth emulator + snapshot jar `.local-dev/api-snapshots/api-phase3.jar` (catalog and inventory seeded at startup); later phases and one-command tooling pending |
+| 40 | E2E covers critical workflows | [-] Phase 1–3 web flows covered (30 Playwright specs: smoke, auth, onboarding, settings, deletion, admin, catalog, admin platform rules, inventory, binders, public binder, limit-reached dialog); later phases pending |
+| 41 | Runs locally | [-] infra + every app builds/tests locally; web Phases 1–3 run end to end against docker compose + Auth emulator + snapshot jar `.local-dev/api-snapshots/api-phase4.jar` (= `api-latest.jar`; catalog and inventory seeded at startup, Phase 4 discovery live); later phases and one-command tooling pending |
 | 42 | Deploys to Google Cloud | [ ] |
 | 43 | Cloudflare configuration documented | [x] |
 | 44 | Production architecture supports www.orenjitrade.com | [ ] |
@@ -234,9 +236,9 @@ web N, every stage independently re-verified, clients regenerated and committed)
    (backend **done**, V010–V013, stage 2 verified) → web card search/detail, admin
    games/cards/flags/limits, limit-reached dialog (**done**, stage 3 verified).
 3. Phase 3 — inventory, binders, freshness (backend **done**, V020–V022, stage 3 verified) →
-   web /inventory, public binder pages (**next**).
-4. Phase 4 — nearby collectors, unified search, card holders, minimal analytics events → web
-   /map (Leaflet) and /search.
+   web /inventory, public binder pages (**done**, stage 4 verified).
+4. Phase 4 — nearby collectors, unified search, card holders, minimal analytics events (backend
+   **done**, V030, stage 4 verified) → web /map (Leaflet) and /search (**next**).
 5. Phase 5 — private chat (STOMP realtime), blocking, community channels → web messages panel,
    /messages, /community.
 6. Phase 6 — wishlist, matching, notifications (log push/email) → web wishlist, notification centre.
@@ -249,24 +251,33 @@ web N, every stage independently re-verified, clients regenerated and committed)
 
 Migration ranges reserved per phase: P1 V004–V009, P2 V010–V019, …, P10 V090–V099.
 
-**Exact next task — stage 4 (web Phase 3 ∥ backend Phase 4):**
-- Web: `/inventory` per the "Web `/inventory` page" section of
-  `docs/api/contracts/phase3-inventory.md` (binder list with All cards / Unfiled / binders and
-  counts, search + game + visibility segmented control + availability/condition/freshness
-  filters, sort, grid/table toggle, edit side panel with photos, confirm and delete, multi-select
-  bulk bar incl. temporary publication with a duration picker, "Add card" dialog on
-  `/cards/suggest` → printing picker → details form, binder manager dialog: create/rename/
-  publish with duration/reorder/delete, summary strip with stale count and "Confirm all");
-  public binder page `/binders/:id` (send the ID token when signed in so
-  `binder.views.per_day` counts) and the collector page's binder list/inventory
-  (`/collectors/{handle}/binders`, `/collectors/{handle}/inventory`); enable the "Binder" button
-  on the collector page; Playwright E2E incl. the limit-reached dialog on `binders.max` and a
-  ≤ 3-decimal check on every JSON response. Carry-over debt from stage 3: admin user
-  entitlements and plan editing UI, `/sets` index. Generated `@orenji/api-client` only; E2E
-  against `.local-dev/api-snapshots/api-phase3.jar` on :8080 (catalog + inventory seeded).
-- Backend: Phase 4 per `docs/api/contracts/phase4-map-search.md` — `GET /collectors/nearby`
-  (PostGIS `ST_DWithin` on `public_point`, bucketed distances), `GET /collectors/{handle}/preview`,
-  unified `GET /search`, `GET /search/card-holders` (ranking fresh > stale), `GET /search/suggest`,
-  minimal analytics events (local logging adapter, no PII/precise location); consume
-  `InventoryItemPublished`/`Unpublished` where the contract needs it; migrations from V030;
-  GeoPrivacyContractTest extended to every new geo response.
+**Exact next task — stage 5 (web Phase 4 ∥ backend Phase 5):**
+- Web: `/map` per the "Web `/map` page" section of `docs/api/contracts/phase4-map-search.md` —
+  full-height map through the existing `shared/map` `MapAdapter` (Leaflet/OpenStreetMap; Google
+  only with a key, never required), collector markers at `publicPoint` (clustered above 60),
+  viewport moves re-query `GET /collectors/nearby` (debounced, radius bounded by the plan's
+  `map.radius.max_km`, 429 → limit-reached dialog), signed-out visitors pick a city centre
+  (anonymous calls need `lat`/`lng`), bottom filters bar (game, radius slider, availability,
+  freshness, tags), top search on `GET /search/suggest` (selecting a card/printing filters
+  markers to holders and opens a "Holders of X" panel on `GET /search/card-holders` with the
+  spec filters and sorts), marker click → preview card on `GET /collectors/{handle}/preview`
+  (View profile / View public binder / Message disabled until Phase 5), accessible "List"
+  toggle, legend "Positions are approximate to protect privacy", collapsible right Messages
+  placeholder panel; `/search` page on unified `GET /search` (cards, printings, sets,
+  collectors, binders, `resolved` → nearby holders); card detail "Who has this near me" enabled
+  (→ `/map` holders). Generated `@orenji/api-client` only (`DiscoveryService`, `SearchService`).
+  Playwright E2E: another user opens the map, sees approximate markers, opens a preview, the
+  full profile and a public binder; card search → nearby holders; list toggle by keyboard;
+  every JSON lat/lng ≤ 3 decimals. E2E against `.local-dev/api-snapshots/api-phase4.jar` on
+  :8080 (the E2E database also holds collectors created by earlier runs, so assert on seeded
+  handles, not counts). Carry-over debt: admin user entitlements and plan editing UI, `/sets`
+  index.
+- Backend: Phase 5 per `docs/api/contracts/phase5-chat.md` — conversations, messages (text,
+  card/binder links, images via `POST /uploads/images`), read state, `user_block` +
+  `POST/DELETE /users/{id}/block`, `GET /me/blocks` (and join blocks into the Phase 4 discovery
+  SQL so `total` excludes blocked collectors), STOMP over native WebSocket at `/ws` with ID-token
+  handshake auth and Redis `rt:user:{userId}` fan-out, presence (Redis TTL, only when
+  `showOnlineStatus`), community channels/posts/replies with seed channels, moderation hooks
+  (reuse the existing `moderation_rule` / `TextModerationService`; `moderation_flag`), rate
+  limits, audited moderator endpoints; migrations from V040; GeoPrivacyContractTest and the
+  analytics events extended where new responses/events carry users.

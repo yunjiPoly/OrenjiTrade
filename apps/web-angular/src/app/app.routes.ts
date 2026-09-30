@@ -34,6 +34,15 @@ export const routes: Routes = [
       import('./features/inventory/inventory-page.component').then((m) => m.InventoryPageComponent),
   },
   {
+    path: 'binders/:id',
+    title: 'Binder',
+    canActivate: [accountStateGuard],
+    loadComponent: () =>
+      import('./features/binders/public-binder-page.component').then(
+        (m) => m.PublicBinderPageComponent,
+      ),
+  },
+  {
     path: 'search',
     title: 'Search',
     canActivate: [onboardingGuard],

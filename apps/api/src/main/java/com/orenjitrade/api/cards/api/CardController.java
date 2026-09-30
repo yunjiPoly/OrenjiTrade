@@ -1,5 +1,6 @@
 package com.orenjitrade.api.cards.api;
 
+import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.cards.domain.CardDetail;
 import com.orenjitrade.api.cards.domain.CardSuggestion;
 import com.orenjitrade.api.cards.domain.CardSummary;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.MultiValueMap;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -117,8 +119,9 @@ public class CardController {
             operationId = "getCard",
             summary = "Card with metadata and printings (public)",
             description = "404 for unknown cards and cards of hidden games.")
-    public CardDetail card(@PathVariable UUID id) {
-        return catalogService.card(id);
+    public CardDetail card(
+            @AuthenticationPrincipal @Nullable AuthenticatedUser principal, @PathVariable UUID id) {
+        return catalogService.viewCard(principal == null ? null : principal.userId(), id);
     }
 
     @GetMapping(path = "/api/v1/cards/{id}/printings", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -136,7 +139,8 @@ public class CardController {
     @Operation(
             operationId = "getPrinting",
             summary = "Printing with card, set, images and metadata (public)")
-    public PrintingDetail printing(@PathVariable UUID id) {
-        return catalogService.printing(id);
+    public PrintingDetail printing(
+            @AuthenticationPrincipal @Nullable AuthenticatedUser principal, @PathVariable UUID id) {
+        return catalogService.viewPrinting(principal == null ? null : principal.userId(), id);
     }
 }
