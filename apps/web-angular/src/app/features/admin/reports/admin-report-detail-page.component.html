@@ -1,0 +1,248 @@
+<div class="admin-page">
+  <a class="detail__back" routerLink="/admin/reports">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon>
+    All reports
+  </a>
+
+  @if (loading() && !report()) {
+    <div class="detail__skeleton" aria-busy="true">
+      <span class="visually-hidden">Loading the report</span>
+      <app-skeleton height="120px" />
+      <app-skeleton variant="list" lines="4" />
+    </div>
+  } @else if (error(); as error) {
+    @if (error.status === 404) {
+      <app-empty-state
+        icon="search_off"
+        title="Report not found"
+        description="It may have been removed with the reporter's account."
+      >
+        <a actions matButton="filled" routerLink="/admin/reports">Back to reports</a>
+      </app-empty-state>
+    } @else {
+      <app-error-state
+        title="The report could not load"
+        [message]="errorMessage()"
+        [requestId]="error.requestId"
+        (retry)="load()"
+      />
+    }
+  } @else if (report(); as r) {
+    @let u = r.reportedUser;
+    <header class="detail__header admin-card">
+      <div class="detail__heading">
+        <p class="detail__eyebrow">
+          <mat-icon aria-hidden="true">flag</mat-icon>
+          {{ reasonLabel(r.reason) }} · from {{ contextLabel(r.context.source) }}
+        </p>
+        <h1 class="detail__title">Report about {{ r.reportedUser.displayName }}</h1>
+        <div class="detail__chips">
+          <app-admin-chip [tone]="statusTone(r.status)" data-testid="report-status">
+            {{ statusLabel(r.status) }}
+          </app-admin-chip>
+          @if (r.resolutionAction) {
+            <app-admin-chip [tone]="actionTone(r.resolutionAction)">
+              {{ actionLabel(r.resolutionAction) }}
+            </app-admin-chip>
+          }
+          <span class="admin-muted">
+            Filed
+            <time [attr.datetime]="r.createdAt" [title]="r.createdAt | date: 'medium'">{{
+              r.createdAt | relativeTime
+            }}</time>
+            @if (r.assignee) {
+              · assigned to &#64;{{ r.assignee.handle }}
+            } @else if (open()) {
+              · unassigned
+            }
+          </span>
+        </div>
+      </div>
+      <div class="detail__actions">
+        @if (open()) {
+          @if (!assignedToMe()) {
+            <button
+              matButton="outlined"
+              type="button"
+              [disabled]="busy() !== null"
+              (click)="assignToMe()"
+            >
+              <mat-icon aria-hidden="true">assignment_ind</mat-icon>
+              Assign to me
+            </button>
+          }
+          <button
+            matButton="filled"
+            type="button"
+            [disabled]="busy() !== null || aboutMe()"
+            [disabledInteractive]="aboutMe()"
+            [matTooltip]="aboutMe() ? 'Another moderator decides reports about you.' : ''"
+            (click)="resolve()"
+          >
+            <mat-icon aria-hidden="true">gavel</mat-icon>
+            Resolve
+          </button>
+        }
+        @if (session.isAdmin()) {
+          <a
+            matButton
+            routerLink="/admin/audit-logs"
+            [queryParams]="{ targetType: 'REPORT', targetId: r.id }"
+          >
+            Audit log
+          </a>
+        }
+      </div>
+    </header>
+
+    <div class="detail__grid">
+      <div class="detail__main">
+        <section class="admin-card" aria-labelledby="report-what">
+          <h2 id="report-what">What was reported</h2>
+          <dl class="facts">
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ reasonLabel(r.reason) }}</dd>
+            </div>
+            <div>
+              <dt>Where</dt>
+              <dd>
+                {{ contextLabel(r.context.source) }}
+                @if (r.context.binderId) {
+                  · <a [routerLink]="['/binders', r.context.binderId]">open the binder</a>
+                }
+                @if (r.context.postId) {
+                  · post {{ r.context.postId.slice(0, 8) }}
+                }
+              </dd>
+            </div>
+          </dl>
+          @if (r.details) {
+            <blockquote class="details" data-testid="report-details">{{ r.details }}</blockquote>
+          } @else {
+            <p class="admin-muted">The reporter did not add details.</p>
+          }
+        </section>
+
+        @if (r.conversation; as conversation) {
+          <section class="admin-card" aria-labelledby="report-conversation">
+            <h2 id="report-conversation">Reported conversation</h2>
+            <p class="admin-muted">
+              The latest {{ conversation.messages.length }} messages of the conversation the report
+              came from. Opening it is recorded in the audit log.
+            </p>
+            @if (conversation.messages.length === 0) {
+              <p class="admin-muted">No messages.</p>
+            } @else {
+              <ol class="messages" aria-label="Messages">
+                @for (message of conversation.messages; track message.id) {
+                  <li class="message" [class.message--reported]="isReported(message.senderId)">
+                    <p class="message__meta">
+                      <strong>{{ senderLabel(message.senderId) }}</strong>
+                      <time [attr.datetime]="message.createdAt">{{
+                        message.createdAt | date: 'short'
+                      }}</time>
+                      @if (message.moderationState !== 'OK') {
+                        <app-admin-chip tone="warning">{{
+                          message.moderationState
+                        }}</app-admin-chip>
+                      }
+                    </p>
+                    <p class="message__body">
+                      @if (message.kind !== 'TEXT') {
+                        <span class="message__kind">{{ message.kind }}</span>
+                      }
+                      {{ message.body }}
+                    </p>
+                  </li>
+                }
+              </ol>
+            }
+          </section>
+        }
+
+        @if (!open()) {
+          <section class="admin-card detail__resolution" aria-labelledby="report-resolution">
+            <h2 id="report-resolution">Resolution</h2>
+            <p>
+              <strong>{{ statusLabel(r.status) }}</strong>
+              @if (r.resolutionAction) {
+                · {{ actionLabel(r.resolutionAction) }}
+              }
+              @if (r.resolvedAt) {
+                · {{ r.resolvedAt | date: 'medium' }}
+              }
+            </p>
+            @if (r.resolutionNote) {
+              <blockquote class="details">{{ r.resolutionNote }}</blockquote>
+            }
+          </section>
+        }
+
+        <section class="admin-card" aria-labelledby="report-notes">
+          <h2 id="report-notes">Moderator notes</h2>
+          <app-moderator-notes
+            [notes]="r.moderatorNotes"
+            [busy]="busy() === 'note'"
+            (add)="addNote($event)"
+          />
+        </section>
+      </div>
+
+      <aside class="detail__side">
+        <section class="admin-card person" aria-labelledby="report-reported">
+          <h2 id="report-reported">Reported collector</h2>
+          <div class="person__who">
+            <app-avatar [src]="u.avatarUrl" [name]="u.displayName" [decorative]="true" />
+            <div>
+              <p class="person__name">{{ u.displayName }}</p>
+              <p class="admin-muted">&#64;{{ u.handle }}</p>
+            </div>
+          </div>
+          <div class="person__meta">
+            <app-status-chip [status]="u.status" />
+            @if (u.bannedAt) {
+              <app-admin-chip tone="danger">Banned</app-admin-chip>
+            }
+            <span class="admin-muted">Member since {{ u.memberSince | date: 'mediumDate' }}</span>
+          </div>
+          @if (u.suspendedUntil) {
+            <p class="admin-muted">Suspended until {{ u.suspendedUntil | date: 'medium' }}</p>
+          }
+          <div class="person__links">
+            <a matButton [routerLink]="['/collectors', u.handle]">Public profile</a>
+            @if (session.isAdmin()) {
+              <a matButton [routerLink]="['/admin/users', u.id]">Account</a>
+            }
+            <a matButton routerLink="/admin/reports" [queryParams]="{ reportedUserId: u.id }">
+              All reports about them
+            </a>
+          </div>
+        </section>
+
+        <section class="admin-card person" aria-labelledby="report-reporter">
+          <h2 id="report-reporter">Reporter</h2>
+          <div class="person__who">
+            <app-avatar
+              [src]="r.reporter.avatarUrl"
+              [name]="r.reporter.displayName"
+              [decorative]="true"
+            />
+            <div>
+              <p class="person__name">{{ r.reporter.displayName }}</p>
+              <p class="admin-muted">&#64;{{ r.reporter.handle }}</p>
+            </div>
+          </div>
+          <p class="admin-muted">
+            Never reveal who filed a report. The reporter only learns whether action was taken.
+          </p>
+        </section>
+
+        <section class="admin-card" aria-labelledby="report-history">
+          <h2 id="report-history">History of &#64;{{ u.handle }}</h2>
+          <app-moderation-history [history]="r.history" />
+        </section>
+      </aside>
+    </div>
+  }
+</div>

@@ -188,12 +188,13 @@ public class ConversationController {
             description =
                     "TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK"
                         + " `binderId` of a public binder; IMAGE `imageUploadId` of POST"
-                        + " /uploads/images (within 1 h). OFFER_LINK and SYSTEM are refused (400)."
-                        + " Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic"
-                        + " reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED"
-                        + " above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block"
-                        + " exists or the other participant cannot receive messages. Pushed to both"
-                        + " participants on /user/queue/messages.")
+                        + " /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between"
+                        + " the two participants (Phase 8). SYSTEM is refused (400). Moderation:"
+                        + " 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG"
+                        + " rules store the message as FLAGGED; 429 RATE_LIMITED above the rate"
+                        + " rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the"
+                        + " other participant cannot receive messages. Pushed to both participants"
+                        + " on /user/queue/messages.")
     @ApiResponse(responseCode = "201", description = "The stored message")
     @ApiResponse(
             responseCode = "400",

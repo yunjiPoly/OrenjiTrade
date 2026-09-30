@@ -602,6 +602,84 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    @Test
+    void offersAndTradesNeverCarryCoordinatesOrPrivateNotes(CapturedOutput output) {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        String collector5 = "seed-collector5:collector5@orenjitrade.test";
+        String collector6 = "seed-collector6:collector6@orenjitrade.test";
+        String openOffer = "00000000-0000-4000-9c00-000000000003";
+        String counterOffer = "00000000-0000-4000-9c00-000000000005";
+
+        List<JsonNode> documents = new ArrayList<>();
+        documents.add(
+                callJson(HttpMethod.GET, "/api/v1/offers/" + openOffer, collector1, null, 200));
+        documents.add(
+                callJson(HttpMethod.GET, "/api/v1/offers/" + openOffer, collector5, null, 200));
+        documents.add(
+                callJson(HttpMethod.GET, "/api/v1/offers?role=seller", collector1, null, 200));
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/offers/00000000-0000-4000-9c00-000000000001",
+                        collector2,
+                        null,
+                        200));
+        documents.add(
+                callJson(HttpMethod.GET, "/api/v1/offers/" + counterOffer, collector6, null, 200));
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/offers/00000000-0000-4000-9c00-000000000004",
+                        collector2,
+                        null,
+                        200));
+        documents.add(callJson(HttpMethod.GET, "/api/v1/offers?role=buyer", collector6, null, 200));
+        documents.add(callJson(HttpMethod.GET, "/api/v1/trades", collector1, null, 200));
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/trades/00000000-0000-4000-9d00-000000000001",
+                        collector2,
+                        null,
+                        200));
+        documents.add(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/trades/00000000-0000-4000-9d00-000000000002",
+                        collector5,
+                        null,
+                        200));
+        documents.add(
+                callJson(HttpMethod.GET, "/api/v1/me/settings/offers", collector1, null, 200));
+
+        assertThat(documents.get(0).path("status").asString()).isEqualTo("OPEN");
+        assertThat(documents.get(0).path("buyer").path("handle").asString())
+                .isEqualTo("collector5");
+        assertThat(documents.get(4).path("status").asString()).isEqualTo("COUNTERED");
+        assertThat(documents.get(4).path("currentTurn").asString()).isEqualTo("BUYER");
+        assertThat(documents.get(8).path("status").asString()).isEqualTo("COMPLETED");
+        assertThat(documents.get(8).path("meetup").asBoolean()).isTrue();
+        for (JsonNode document : documents) {
+            assertPublicListing(document, "phase 8 document");
+        }
+        for (JsonNode party :
+                List.of(documents.get(0).path("seller"), documents.get(0).path("buyer"))) {
+            assertThat(coordinatePairs(party)).isEmpty();
+            JsonNode location = party.path("location");
+            if (!location.isNull() && !location.isMissingNode()) {
+                assertThat(location.has("publicLabel")).isTrue();
+                assertThat(location.has("lat")).isFalse();
+            }
+        }
+        callJson(HttpMethod.GET, "/api/v1/offers/" + openOffer, collector6, null, 404);
+
+        String logs = output.getAll();
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
     /** At most 3 decimals, no private location keys, no private notes. */
     private static void assertSearchDocument(JsonNode document, String context) {
         assertOnlyPublicPrecision(document, context);

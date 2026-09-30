@@ -32,6 +32,7 @@ import { gameInfo } from '../../shared/domain/games';
 import { CityPreset, DEFAULT_TRADING_CENTER } from '../../shared/location/city-presets';
 import { MapCircle, MapViewport } from '../../shared/map/map-adapter';
 import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
+import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
 import { WishlistActions } from '../../shared/wishlist/wishlist-actions.service';
@@ -89,6 +90,7 @@ export class MapPageComponent {
   private readonly gamesStore = inject(GamesStore);
   private readonly profileApi = inject(ProfileService);
   private readonly starter = inject(ConversationStarterService);
+  private readonly reports = inject(ReportActionsService);
   private readonly wishlist = inject(WishlistActions);
 
   /** Signed in: the Messages panel shows the collector's conversations. */
@@ -240,6 +242,19 @@ export class MapPageComponent {
       // On phones and tablets the panel covers the map: the preview would sit behind it.
       this.store.select(null);
     }
+  }
+
+  /** "Report" in the preview: the Report collector modal (the preview is a profile view). */
+  protected async onReport(preview: CollectorPreview): Promise<void> {
+    await this.reports.report(
+      {
+        id: preview.id,
+        displayName: preview.displayName,
+        handle: preview.handle,
+        avatarUrl: preview.avatarUrl,
+      },
+      { source: 'PROFILE' },
+    );
   }
 
   protected togglePanel(): void {

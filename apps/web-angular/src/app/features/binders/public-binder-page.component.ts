@@ -27,6 +27,7 @@ import {
 } from '@orenji/api-client';
 import { Subscription, debounceTime, distinctUntilChanged, filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
@@ -128,7 +129,12 @@ type BinderState =
         }
         @case ('ready') {
           @if (binder(); as binder) {
-            <app-public-binder-header [binder]="binder" [isOwn]="isOwn()" />
+            <app-public-binder-header
+              [binder]="binder"
+              [isOwn]="isOwn()"
+              [signedIn]="signedIn()"
+              (reportRequested)="reportOwner(binder)"
+            />
 
             <section class="pbp__items" aria-labelledby="pbp-items-title">
               <div class="pbp__bar">
@@ -334,6 +340,8 @@ export class PublicBinderPageComponent {
   private readonly api = inject(PublicBindersService);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
+  private readonly reports = inject(ReportActionsService);
+  protected readonly signedIn = this.auth.isAuthenticated;
   private readonly router = inject(Router);
   private readonly title = inject(Title);
 
@@ -492,6 +500,19 @@ export class PublicBinderPageComponent {
           this.itemsLoading.set(false);
         },
       });
+  }
+
+  /** "Report" on the owner card: the Report collector modal with the BINDER context. */
+  protected async reportOwner(binder: PublicBinderResponse): Promise<void> {
+    await this.reports.report(
+      {
+        id: binder.owner.id,
+        displayName: binder.owner.displayName,
+        handle: binder.owner.handle,
+        avatarUrl: binder.owner.avatarUrl,
+      },
+      { source: 'BINDER', binderId: binder.id },
+    );
   }
 
   protected gameLabel(slug: string): string {

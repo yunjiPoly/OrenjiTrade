@@ -289,6 +289,37 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .isNotEmpty();
                             });
         }
+        // Phase 8 (offers and trades).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/offers",
+                        "/api/v1/offers/{id}",
+                        "/api/v1/offers/{id}/counter",
+                        "/api/v1/offers/{id}/accept",
+                        "/api/v1/offers/{id}/decline",
+                        "/api/v1/offers/{id}/cancel",
+                        "/api/v1/me/settings/offers",
+                        "/internal/jobs/offers-expire",
+                        "/api/v1/trades",
+                        "/api/v1/trades/{id}",
+                        "/api/v1/trades/{id}/meetup",
+                        "/api/v1/trades/{id}/complete",
+                        "/api/v1/trades/{id}/cancel")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation -> {
+                                assertThat(operation.getValue().path("summary").asString())
+                                        .as("summary of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                                assertThat(operation.getValue().path("tags"))
+                                        .as("tags of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                            });
+        }
+        assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("422")).isTrue();
+        assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("429")).isTrue();
         assertThat(paths.path("/api/v1/public/report-reasons").path("get").path("security"))
                 .isEmpty();
         assertThat(
@@ -364,7 +395,10 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("RATING_NOT_ELIGIBLE"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("ALREADY_RATED"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("REPORT_ALREADY_OPEN"))
-                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("CANNOT_REPORT_SELF"));
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("CANNOT_REPORT_SELF"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("OFFERS_NOT_ACCEPTED"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("OFFER_ALREADY_OPEN"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("STALE_OFFER"));
         assertThat(schemas.path("ProblemDetail").path("properties").has("limitKey")).isTrue();
         assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isTrue();
         for (String schema :
@@ -417,7 +451,15 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "AdminDashboard",
                         "NotificationStats",
                         "AnalyticsSummary",
-                        "SystemHealth")) {
+                        "SystemHealth",
+                        "OfferResponse",
+                        "OfferSummary",
+                        "OfferParty",
+                        "OfferEvent",
+                        "TradeResponse",
+                        "TradeSummary",
+                        "TradeNextAction",
+                        "OfferLink")) {
             assertThat(schemas.has(schema)).as(schema).isTrue();
         }
         assertThat(document.path("components").path("securitySchemes").has("bearerAuth")).isTrue();

@@ -116,6 +116,8 @@
         />
       </section>
 
+      <app-user-moderation-panel [userId]="a.id" [handle]="a.handle" />
+
       <section class="admin-card" aria-labelledby="detail-deletion">
         <h2 id="detail-deletion">Account deletion</h2>
         @if (d.deletionRequest; as request) {

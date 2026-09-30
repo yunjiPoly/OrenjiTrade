@@ -35,7 +35,7 @@ import type { PreviewState } from '../data/map-discovery.store';
  * Preview card of a collector chosen on the map or in the list (`GET /collectors/{handle}/preview`):
  * name, avatar, approximate distance, rating, tags, last activity, listing freshness and games,
  * with View profile / View public binder / Message (when the collector accepts messages from the
- * viewer; the map page opens the conversation in its Messages panel). Focus moves
+ * viewer; the map page opens the conversation in its Messages panel) and Report (signed in). Focus moves
  * into the card when it opens and returns where it was when it closes (Escape or the close button).
  */
 @Component({
@@ -219,6 +219,18 @@ import type { PreviewState } from '../data/map-discovery.store';
                   Message
                 </button>
               }
+              @if (signedIn()) {
+                <button
+                  matIconButton
+                  type="button"
+                  class="preview__report"
+                  [attr.aria-label]="'Report ' + p.displayName"
+                  matTooltip="Report this collector"
+                  (click)="reportRequested.emit(p)"
+                >
+                  <mat-icon>flag</mat-icon>
+                </button>
+              }
             }
           </div>
         }
@@ -243,6 +255,8 @@ export class CollectorPreviewCardComponent {
   readonly closed = output<void>();
   /** "Message" pressed: open or start the conversation. */
   readonly messageRequested = output<CollectorPreview>();
+  /** "Report" pressed (signed-in viewers, other collectors). */
+  readonly reportRequested = output<CollectorPreview>();
   readonly retry = output<void>();
 
   protected readonly titleId = `collector-preview-title-${Math.random().toString(36).slice(2, 8)}`;

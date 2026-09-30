@@ -63,6 +63,31 @@ describe('notification kinds', () => {
     expect(notificationLink({ type: Type.RatingReceived, data: {} })).toBe('/notifications');
   });
 
+  it('opens the Phase 7 notices where they belong', () => {
+    expect(
+      notificationLink({
+        type: Type.RatingReceived,
+        data: { deepLink: '/collectors/maika?tab=ratings' },
+      }),
+    ).toBe('/collectors/maika?tab=ratings');
+    expect(notificationLink({ type: Type.ReportDecision, data: {} })).toBe('/settings/reports');
+    expect(notificationLink({ type: Type.System, data: { kind: 'LISTINGS_PAUSED' } })).toBe(
+      '/inventory',
+    );
+    expect(notificationLink({ type: Type.System, data: { kind: 'MODERATION_WARNING' } })).toBe(
+      '/legal/community-guidelines',
+    );
+    expect(notificationKind({ type: Type.System, data: { kind: 'LISTINGS_PAUSED' } })).toEqual({
+      icon: 'pause_circle',
+      tone: 'warning',
+      label: 'Listings paused',
+    });
+    expect(
+      notificationKind({ type: Type.System, data: { kind: 'MODERATION_WARNING' } }).label,
+    ).toBe('Moderation');
+    expect(notificationKind({ type: Type.ReportDecision, data: {} }).label).toBe('Report decision');
+  });
+
   it('knows unread notifications', () => {
     expect(isUnread({ readAt: null })).toBe(true);
     expect(isUnread({ readAt: '2026-09-30T10:00:00Z' })).toBe(false);

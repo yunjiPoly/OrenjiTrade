@@ -192,6 +192,8 @@ test.describe('private messaging', () => {
     await composerB.press('Enter');
     await expect(logA).toContainText(`Yes, it is${answer}`, { timeout: 15_000 });
     await expect(threadA.getByTestId('typing-indicator')).toBeHidden();
+    // The push can reach A before B's own send settles; the composer resets only then.
+    await expect(composerB).toHaveValue('');
 
     // B sends a photo: it reaches A live and loads from the API.
     await threadB
@@ -204,11 +206,11 @@ test.describe('private messaging', () => {
       .poll(() => livePhoto.evaluate((img: HTMLImageElement) => img.naturalWidth))
       .toBeGreaterThan(0);
 
-    // A blocks B from the conversation menu ("Report collector" waits for Phase 7).
+    // A blocks B from the conversation menu (which also offers "Report collector" since Phase 7).
     await threadA
       .getByRole('button', { name: `Conversation options for ${b.displayName}` })
       .click();
-    await expect(pageA.getByRole('menuitem', { name: 'Report collector' })).toBeDisabled();
+    await expect(pageA.getByRole('menuitem', { name: 'Report collector' })).toBeEnabled();
     await pageA.getByRole('menuitem', { name: `Block ${b.displayName}` }).click();
     const confirm = pageA.getByRole('dialog', { name: `Block ${b.displayName}?` });
     await expect(confirm).toBeVisible();

@@ -441,6 +441,102 @@ class AnalyticsIT extends AbstractIntegrationTest {
         }
     }
 
+    @Test
+    void phase8OfferAndTradeEventsCarryNoAmountsIdsOrText(CapturedOutput output)
+            throws InterruptedException {
+        Instant start = Instant.now().minusSeconds(1);
+        UUID printingId = InventoryTestSupport.printing(testUsers, "ygo-p001a");
+        String seller = uniqueUid("an-offer-seller");
+        UUID sellerId = provisionCompliant(seller);
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                seller,
+                privacy(true, "MEMBERS"),
+                200);
+        Map<String, Object> listed = item(printingId);
+        listed.put("visibility", "PUBLIC");
+        listed.put("availability", "SALE");
+        listed.put("acceptsOffers", true);
+        listed.put("notes", "Secret seller note");
+        String itemId =
+                callJson(HttpMethod.POST, "/api/v1/inventory/items", seller, listed, 201)
+                        .path("id")
+                        .asString();
+        String buyer = uniqueUid("an-offer-buyer");
+        UUID buyerId = provisionCompliant(buyer);
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("itemId", itemId);
+        body.put("cashAmount", new java.math.BigDecimal("40.00"));
+        body.put("message", "Secret offer message");
+        String offerId =
+                callJson(HttpMethod.POST, "/api/v1/offers", buyer, body, 201).path("id").asString();
+        String tradeId =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/offers/" + offerId + "/accept",
+                                seller,
+                                null,
+                                200)
+                        .path("tradeId")
+                        .asString();
+        callJson(HttpMethod.POST, "/api/v1/trades/" + tradeId + "/complete", buyer, null, 200);
+        callJson(HttpMethod.POST, "/api/v1/trades/" + tradeId + "/complete", seller, null, 200);
+
+        ActorHasher actorHasher = publisher.actorHasher();
+        Set<String> hashes = Set.of(actorHasher.hash(buyerId), actorHasher.hash(sellerId));
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(20));
+        List<JsonNode> mine = List.of();
+        while (Instant.now().isBefore(deadline)) {
+            mine =
+                    parse(output.getAll(), start).stream()
+                            .filter(event -> hashes.contains(event.path("actor_hash").asString()))
+                            .toList();
+            long trades =
+                    mine.stream()
+                            .filter(
+                                    event ->
+                                            "trade_status_changed"
+                                                    .equals(event.path("event_type").asString()))
+                            .count();
+            Set<String> types = new HashSet<>();
+            mine.forEach(event -> types.add(event.path("event_type").asString()));
+            if (types.containsAll(Set.of("offer_created", "offer_status_changed")) && trades >= 3) {
+                break;
+            }
+            Thread.sleep(200);
+        }
+        JsonNode created = first(mine, "offer_created");
+        assertThat(created.path("actor_hash").asString()).isEqualTo(actorHasher.hash(buyerId));
+        assertThat(created.path("payload").path("kind").asString()).isEqualTo("CASH");
+        assertThat(created.path("payload").path("game").asString()).isEqualTo("yugioh");
+        assertThat(created.path("payload").path("has_message").asBoolean()).isTrue();
+        assertThat(created.path("payload").path("seller_hash").asString())
+                .isEqualTo(actorHasher.hash(sellerId));
+        JsonNode accepted = first(mine, "offer_status_changed");
+        assertThat(accepted.path("payload").path("event").asString()).isEqualTo("ACCEPTED");
+        assertThat(accepted.path("payload").path("round").asInt()).isEqualTo(1);
+        List<String> tradeEvents = new ArrayList<>();
+        mine.stream()
+                .filter(event -> "trade_status_changed".equals(event.path("event_type").asString()))
+                .forEach(event -> tradeEvents.add(event.path("payload").path("event").asString()));
+        assertThat(tradeEvents).contains("CREATED", "COMPLETION_CONFIRMED", "COMPLETED");
+        for (JsonNode event : mine) {
+            ObjectNode checked = (ObjectNode) event.deepCopy();
+            checked.remove("occurred_at");
+            String text = checked.toString();
+            assertThat(text)
+                    .doesNotContain("Secret offer message")
+                    .doesNotContain("Secret seller note")
+                    .doesNotContain(buyerId.toString())
+                    .doesNotContain(sellerId.toString())
+                    .doesNotContain(offerId)
+                    .doesNotContain(tradeId)
+                    .doesNotContain(itemId);
+            assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
+        }
+    }
+
     private void get(String uid, String template, Object... variables) {
         var spec = http.get().uri(template, variables);
         if (uid != null) {

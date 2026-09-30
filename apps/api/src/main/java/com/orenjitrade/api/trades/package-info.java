@@ -2,7 +2,12 @@
  * Trades module.
  *
  * <p>Trades created from accepted offers: statuses, buyer and seller views, shipment and receipt
- * confirmation.
+ * confirmation. Phase 8: {@code TradeService} (opened through the offers module's {@code
+ * AcceptedOfferHandler}, list and trade page with the next action, in-person meetups, completion by
+ * both parties with the inventory transfer and the TRADE interaction, cancellation before payment),
+ * {@code TradeRules} (pure), {@code TradeActivity} (TRADE_UPDATE notifications and SYSTEM messages
+ * after commit); open trades block account deletion. Publishes {@code TradeUpdated}. Payment,
+ * shipping and disputes (Phase 9) extend this module.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

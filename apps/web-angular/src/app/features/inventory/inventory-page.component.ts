@@ -55,6 +55,7 @@ import {
 import { InventoryItemCardComponent } from './items/inventory-item-card.component';
 import { InventoryItemTableComponent } from './items/inventory-item-table.component';
 import { InventoryRow, QuantityChange, SelectionChange } from './items/inventory-row';
+import { ListingsPausedBannerComponent } from './listing-status/listings-paused-banner.component';
 import { InventorySummaryComponent } from './summary/inventory-summary.component';
 import {
   InventoryParamChange,
@@ -84,6 +85,7 @@ import {
     InventoryItemTableComponent,
     InventorySummaryComponent,
     InventoryToolbarComponent,
+    ListingsPausedBannerComponent,
     PageHeaderComponent,
     SkeletonComponent,
   ],

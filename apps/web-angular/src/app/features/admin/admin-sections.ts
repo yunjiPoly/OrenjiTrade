@@ -10,7 +10,11 @@ export interface AdminSection {
   area: 'admin' | 'moderation';
 }
 
-/** Every admin console section from the product spec (IMPLEMENTATION_STATUS.md, Phase 7). */
+/**
+ * Every admin console section from the product spec (Phase 7 contract). Sections whose phase is
+ * still ahead (transactions, disputes, payments, ads, subscriptions, credits) stay listed but
+ * disabled until their phase lands.
+ */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   {
     id: 'dashboard',
@@ -21,8 +25,22 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     area: 'moderation',
   },
   { id: 'users', label: 'Users', icon: 'group', path: 'users', phase: null, area: 'admin' },
-  { id: 'listings', label: 'Listings', icon: 'style', path: 'listings', phase: 3, area: 'admin' },
-  { id: 'binders', label: 'Binders', icon: 'menu_book', path: 'binders', phase: 3, area: 'admin' },
+  {
+    id: 'listings',
+    label: 'Listings',
+    icon: 'style',
+    path: 'listings',
+    phase: null,
+    area: 'admin',
+  },
+  {
+    id: 'binders',
+    label: 'Binders',
+    icon: 'menu_book',
+    path: 'binders',
+    phase: null,
+    area: 'admin',
+  },
   { id: 'games', label: 'Games', icon: 'playing_cards', path: 'games', phase: null, area: 'admin' },
   { id: 'cards', label: 'Cards', icon: 'view_carousel', path: 'cards', phase: null, area: 'admin' },
   {
@@ -33,13 +51,20 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     phase: null,
     area: 'moderation',
   },
-  { id: 'reports', label: 'Reports', icon: 'flag', path: 'reports', phase: 7, area: 'moderation' },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: 'flag',
+    path: 'reports',
+    phase: null,
+    area: 'moderation',
+  },
   {
     id: 'moderation',
     label: 'Moderation',
     icon: 'shield',
     path: 'moderation',
-    phase: 7,
+    phase: null,
     area: 'moderation',
   },
   {
@@ -59,7 +84,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     phase: 9,
     area: 'admin',
   },
-  { id: 'ratings', label: 'Ratings', icon: 'star', path: 'ratings', phase: 7, area: 'moderation' },
+  {
+    id: 'ratings',
+    label: 'Ratings',
+    icon: 'star',
+    path: 'ratings',
+    phase: null,
+    area: 'moderation',
+  },
   { id: 'ads', label: 'Ads', icon: 'campaign', path: 'ads', phase: 10, area: 'admin' },
   {
     id: 'subscriptions',
@@ -83,7 +115,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Notifications',
     icon: 'notifications',
     path: 'notifications',
-    phase: 6,
+    phase: null,
     area: 'admin',
   },
   {
@@ -91,7 +123,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Analytics',
     icon: 'monitoring',
     path: 'analytics',
-    phase: 12,
+    phase: null,
     area: 'admin',
   },
   {
@@ -99,7 +131,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Auto-delist rules',
     icon: 'auto_delete',
     path: 'auto-delist-rules',
-    phase: 7,
+    phase: null,
     area: 'admin',
   },
   {
@@ -123,7 +155,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'System health',
     icon: 'monitor_heart',
     path: 'system-health',
-    phase: 13,
+    phase: null,
     area: 'admin',
   },
 ];

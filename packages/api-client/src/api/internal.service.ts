@@ -23,6 +23,8 @@ import { DelistJobResponse } from '../model/delistJobResponse';
 // @ts-ignore
 import { FreshnessJobResponse } from '../model/freshnessJobResponse';
 // @ts-ignore
+import { OfferExpiryJobResponse } from '../model/offerExpiryJobResponse';
+// @ts-ignore
 import { PingJobResponse } from '../model/pingJobResponse';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
@@ -278,6 +280,66 @@ export class InternalService extends BaseService implements InternalServiceInter
         let localVarPath = `/internal/jobs/freshness`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<FreshnessJobResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Expire offers past their expiry (service auth)
+     * Hourly. Live OPEN / COUNTERED proposals whose expiresAt passed become EXPIRED (history entry; both parties get OFFER_EXPIRED and a SYSTEM message). Records a job run.
+     * @endpoint post /internal/jobs/offers-expire
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public runOfferExpiryJob(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<OfferExpiryJobResponse>;
+    public runOfferExpiryJob(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<OfferExpiryJobResponse>>;
+    public runOfferExpiryJob(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<OfferExpiryJobResponse>>;
+    public runOfferExpiryJob(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        // authentication (serviceToken) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('serviceToken', 'X-Service-Token', localVarHeaders);
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/internal/jobs/offers-expire`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<OfferExpiryJobResponse>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

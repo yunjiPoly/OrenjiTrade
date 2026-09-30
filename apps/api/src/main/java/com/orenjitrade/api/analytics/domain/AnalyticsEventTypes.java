@@ -36,5 +36,14 @@ public final class AnalyticsEventTypes {
     /** A collector was reported (reason and context source only; never details or ids). */
     public static final String COLLECTOR_REPORTED = "collector_reported";
 
+    /** An offer was made (kind, game, message and protection flags; never amounts or text). */
+    public static final String OFFER_CREATED = "offer_created";
+
+    /** An offer was countered, accepted, declined, cancelled or expired (event, status, round). */
+    public static final String OFFER_STATUS_CHANGED = "offer_status_changed";
+
+    /** A trade was opened or changed (event, status, kind, protection and meetup flags). */
+    public static final String TRADE_STATUS_CHANGED = "trade_status_changed";
+
     private AnalyticsEventTypes() {}
 }

@@ -47,6 +47,36 @@ public enum ErrorCode {
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */
     CANNOT_REPORT_SELF(HttpStatus.UNPROCESSABLE_CONTENT, "Cannot report self"),
+    /**
+     * The listing does not accept this offer (Phase 8): offers are off for the item, the item is
+     * NOT_AVAILABLE / COLLECTION_ONLY, or the kind does not fit its availability (cash for a
+     * trade-only card, mixed offers the seller refuses).
+     */
+    OFFERS_NOT_ACCEPTED(HttpStatus.UNPROCESSABLE_CONTENT, "Offers not accepted"),
+    /** The caller already negotiates an open offer on this item (Phase 8; extension offerId). */
+    OFFER_ALREADY_OPEN(HttpStatus.CONFLICT, "Offer already open"),
+    /**
+     * The offer changed since the caller read it (Phase 8): another version, or a proposal that a
+     * counter-offer replaced (extensions currentVersion / latestOfferId).
+     */
+    STALE_OFFER(HttpStatus.CONFLICT, "Stale offer"),
+    /** The other party has to answer this offer first (Phase 8 current_turn). */
+    NOT_YOUR_TURN(HttpStatus.CONFLICT, "Not your turn"),
+    /**
+     * The current state of an offer or a trade does not allow the action (Phase 8), e.g. accepting
+     * a declined offer or completing a cancelled trade (extension currentStatus).
+     */
+    INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "Invalid state transition"),
+    /**
+     * The card of an offer is no longer available (deleted, or every copy is already promised in
+     * other open trades; Phase 8).
+     */
+    ITEM_UNAVAILABLE(HttpStatus.CONFLICT, "Item unavailable"),
+    /**
+     * A block between the two collectors, or the other party's account state, forbids acting on an
+     * offer or a trade (Phase 8).
+     */
+    TRADING_BLOCKED(HttpStatus.FORBIDDEN, "Trading blocked"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),

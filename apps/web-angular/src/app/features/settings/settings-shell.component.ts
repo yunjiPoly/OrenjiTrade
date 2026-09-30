@@ -16,6 +16,7 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
   { path: 'notifications', label: 'Notifications', icon: 'notifications' },
   { path: 'trading-area', label: 'Trading area', icon: 'location_on' },
   { path: 'blocked', label: 'Blocked users', icon: 'block' },
+  { path: 'reports', label: 'My reports', icon: 'flag' },
   { path: 'account', label: 'Account', icon: 'manage_accounts' },
   { path: 'appearance', label: 'Appearance', icon: 'palette' },
 ];
