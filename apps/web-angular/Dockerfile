@@ -11,7 +11,7 @@
 # it renders /usr/share/nginx/html/config.json and the nginx config from env vars.
 
 # ---------------------------------------------------------------- build stage
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /workspace
 
 ENV NG_CLI_ANALYTICS=false \
