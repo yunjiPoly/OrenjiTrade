@@ -8,6 +8,7 @@ import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import com.orenjitrade.api.inventory.events.InventoryListingsHidden;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.StateChange;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Warned;
@@ -32,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       BinderFreshnessChanged});
  *   <li>the effective public visibility is reconciled: newly HIDDEN or expired listings emit {@code
  *       InventoryItemUnpublished} / {@code BinderUnpublished}, restored ones the published events;
+ *   <li>publicly listed items that became HIDDEN emit one {@link InventoryListingsHidden} per
+ *       binder (or per owner for unfiled items);
  *   <li>publicly listed items and binders entering the warning window ({@code
  *       warn_before_hidden_days} before hiding) get a WARNED freshness event, once per confirmation
  *       cycle, and one {@link BinderFreshnessWarning} per binder (or per owner for unfiled items).
@@ -80,7 +83,12 @@ public class FreshnessService {
         int hidden = 0;
         int restored = 0;
         List<FreshnessEventLog.Entry> entries = new ArrayList<>();
+        Map<WarningKey, Integer> hiddenListings = new LinkedHashMap<>();
         for (StateChange change : changes) {
+            if (change.current() == FreshnessState.HIDDEN && change.publiclyListed()) {
+                hiddenListings.merge(
+                        new WarningKey(change.ownerId(), change.binderId()), 1, Integer::sum);
+            }
             @Nullable FreshnessEventType type =
                     FreshnessEventType.forTransition(change.previous(), change.current());
             if (type == null) {
@@ -98,6 +106,14 @@ public class FreshnessService {
         freshnessEvents.record(entries);
 
         ListingReconciler.Counts counts = reconciler.all();
+        for (Map.Entry<WarningKey, Integer> group : hiddenListings.entrySet()) {
+            events.publishEvent(
+                    new InventoryListingsHidden(
+                            group.getKey().ownerId(),
+                            group.getKey().binderId(),
+                            group.getValue(),
+                            now));
+        }
 
         Map<UUID, BinderService.Warning> binderWarnings = binders.warn(policy, now);
         List<Warned> itemWarnings = items.warn(policy, now);

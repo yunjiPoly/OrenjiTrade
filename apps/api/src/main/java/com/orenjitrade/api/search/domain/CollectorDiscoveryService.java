@@ -254,6 +254,30 @@ public class CollectorDiscoveryService {
                 marker, privacyPolicy.canMessage(viewer, targetId, privacy), blocked);
     }
 
+    /**
+     * Markers of the given collectors as {@code viewerId} sees them (Phase 6 wishlist matches):
+     * only collectors on the map and not blocked with the viewer are returned; distance buckets are
+     * measured from the viewer's own trading area (snapped, never exposed), when they have one.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, CollectorMarker> markersFor(UUID viewerId, java.util.Collection<UUID> ids) {
+        Map<UUID, CollectorMarker> result = new java.util.LinkedHashMap<>();
+        if (ids.isEmpty()) {
+            return result;
+        }
+        Instant now = timeProvider.now();
+        @Nullable SearchCentre centre =
+                geoScopes.resolve(viewerId, null, null, null, false).centre();
+        ViewerContext viewer =
+                new ViewerContext(viewerId, profileService.isComplete(viewerId), false);
+        for (MarkerRow row : repository.markersByIds(ids, centre, now)) {
+            if (!assembler.isBlocked(viewerId, row.id())) {
+                result.put(row.id(), assembler.marker(row, viewer, now));
+            }
+        }
+        return result;
+    }
+
     // ---------------------------------------------------------------------------------------
     // Validation helpers (shared with the search service)
     // ---------------------------------------------------------------------------------------

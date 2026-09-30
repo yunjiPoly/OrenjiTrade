@@ -8,7 +8,12 @@
       [opened]="panelOpened()"
       (openedChange)="panelOpened.set($event)"
     >
-      <app-messages-panel (closeRequested)="panelOpened.set(false)" />
+      <app-messages-panel
+        [signedIn]="signedIn()"
+        [opened]="panelOpened()"
+        [incoming]="panelConversation()"
+        (closeRequested)="panelOpened.set(false)"
+      />
     </mat-sidenav>
 
     <mat-sidenav-content class="map-page__content">
@@ -119,8 +124,10 @@
             [binderId]="store.previewBinderId()"
             [signedIn]="store.signedIn()"
             [isSelf]="previewIsSelf()"
+            [messaging]="messaging()"
             (closed)="store.select(null)"
             (retry)="store.retryPreview()"
+            (message)="onMessage($event)"
           />
         }
 

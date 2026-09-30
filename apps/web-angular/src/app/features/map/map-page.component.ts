@@ -16,8 +16,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
-import { ProfileService, SearchSuggestion } from '@orenji/api-client';
+import {
+  CollectorPreview,
+  ConversationSummary,
+  ProfileService,
+  SearchSuggestion,
+} from '@orenji/api-client';
 import { map } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 import { GamesStore } from '../../shared/catalog/games.store';
@@ -25,6 +31,7 @@ import { tagLabel } from '../../shared/discovery/discovery-labels';
 import { gameInfo } from '../../shared/domain/games';
 import { CityPreset, DEFAULT_TRADING_CENTER } from '../../shared/location/city-presets';
 import { MapCircle, MapViewport } from '../../shared/map/map-adapter';
+import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
 import { AreaPromptComponent } from './area-prompt/area-prompt.component';
@@ -49,8 +56,8 @@ const WIDE_QUERY = '(min-width: 960px)';
  * `/map`, the flagship discovery page (Phase 4 contract, "Web /map page"): a full-height map of
  * collectors at their approximate public positions, the unified search (a card or printing
  * switches to "holders of X"), a list alternative, the preview card, the filter bar and the
- * Messages panel (placeholder until Phase 5). Filters live in the URL; the map position never
- * does.
+ * Messages panel (conversations and threads, Phase 5; "Message" in the preview opens the
+ * conversation there). Filters live in the URL; the map position never does.
  */
 @Component({
   selector: 'app-map-page',
@@ -80,6 +87,17 @@ export class MapPageComponent {
   private readonly breakpoints = inject(BreakpointObserver);
   private readonly gamesStore = inject(GamesStore);
   private readonly profileApi = inject(ProfileService);
+  private readonly starter = inject(ConversationStarterService);
+
+  /** Signed in: the Messages panel shows the collector's conversations. */
+  protected readonly signedIn = inject(AuthService).isAuthenticated;
+  /** Conversation opened from the preview's Message button (handed to the panel). */
+  protected readonly panelConversation = signal<ConversationSummary | null>(null);
+  /** A conversation with the previewed collector is being opened. */
+  protected readonly messaging = computed(() => {
+    const preview = this.store.preview();
+    return preview.kind === 'ready' && this.starter.starting() === preview.preview.id;
+  });
 
   // Query parameters (withComponentInputBinding).
   readonly game = input<string | undefined>();
@@ -202,6 +220,20 @@ export class MapPageComponent {
     effect(() => this.panelOpened.set(this.isWide()));
     void this.gamesStore.load();
     void this.store.init();
+  }
+
+  /** "Message" in the preview: open (or create) the conversation in the Messages panel. */
+  protected async onMessage(preview: CollectorPreview): Promise<void> {
+    const conversation = await this.starter.start(preview.id);
+    if (!conversation) {
+      return;
+    }
+    this.panelConversation.set(conversation);
+    this.panelOpened.set(true);
+    if (!this.isWide()) {
+      // On phones and tablets the panel covers the map: the preview would sit behind it.
+      this.store.select(null);
+    }
   }
 
   protected togglePanel(): void {

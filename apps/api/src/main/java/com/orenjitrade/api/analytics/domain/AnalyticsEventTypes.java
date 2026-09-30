@@ -24,5 +24,11 @@ public final class AnalyticsEventTypes {
     /** A community post was published (channel slug and link flags only; never the text). */
     public static final String COMMUNITY_POST_CREATED = "community_post_created";
 
+    /** A card was added to a wishlist (game, target kind, radius, filters; never notes). */
+    public static final String WISHLIST_ITEM_CREATED = "wishlist_item_created";
+
+    /** A public item matched a wishlist item (game, distance bucket, whether notified). */
+    public static final String WISHLIST_MATCHED = "wishlist_matched";
+
     private AnalyticsEventTypes() {}
 }

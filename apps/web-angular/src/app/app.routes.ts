@@ -78,6 +78,13 @@ export const routes: Routes = [
       import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
   },
   {
+    path: 'community/:slug',
+    title: 'Community',
+    canActivate: [onboardingGuard, featureGuard(FEATURE.publicChat, 'Community')],
+    loadComponent: () =>
+      import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
+  },
+  {
     path: 'wishlist',
     title: 'Wishlist',
     canActivate: [onboardingGuard],
@@ -86,6 +93,13 @@ export const routes: Routes = [
   },
   {
     path: 'messages',
+    title: 'Messages',
+    canActivate: [onboardingGuard],
+    loadComponent: () =>
+      import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
+  },
+  {
+    path: 'messages/:id',
     title: 'Messages',
     canActivate: [onboardingGuard],
     loadComponent: () =>

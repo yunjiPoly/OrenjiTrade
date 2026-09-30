@@ -24,6 +24,7 @@ import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
+import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
@@ -110,7 +111,9 @@ type ViewState =
               [bindersFailed]="bindersFailed()"
               [publicItems]="publicItems()"
               [publicItemCount]="publicItemCount()"
+              [messaging]="starter.starting() === profile.id"
               (retryBinders)="loadListings(profile.handle)"
+              (message)="openConversation(profile.id)"
             />
           }
         }
@@ -132,6 +135,7 @@ export class CollectorPageComponent {
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
+  protected readonly starter = inject(ConversationStarterService);
 
   /** Bound from the `:handle` route parameter. */
   readonly handle = input.required<string>();
@@ -176,6 +180,14 @@ export class CollectorPageComponent {
       this.subscription?.unsubscribe();
       this.listingsSubscription?.unsubscribe();
     });
+  }
+
+  /** "Message": open (or start) the conversation on the Messages page. */
+  protected async openConversation(recipientId: string): Promise<void> {
+    const conversation = await this.starter.start(recipientId);
+    if (conversation) {
+      void this.router.navigate(['/messages', conversation.id]);
+    }
   }
 
   /** Public binders and a preview of the public cards (Phase 3). */

@@ -78,16 +78,33 @@
               View public binder
             </button>
           }
-          <button
-            matButton="outlined"
-            type="button"
-            disabled
-            disabledInteractive
-            matTooltip="Coming soon: private messaging"
-          >
-            <mat-icon aria-hidden="true">chat</mat-icon>
-            Message
-          </button>
+          @if (p.canMessage) {
+            <button
+              matButton="outlined"
+              type="button"
+              [disabled]="messaging()"
+              [attr.aria-label]="'Message ' + p.displayName"
+              (click)="message.emit()"
+            >
+              <mat-icon aria-hidden="true">chat</mat-icon>
+              {{ messaging() ? 'Opening…' : 'Message' }}
+            </button>
+          } @else {
+            <button
+              matButton="outlined"
+              type="button"
+              disabled
+              disabledInteractive
+              [matTooltip]="
+                p.isBlocked
+                  ? 'Messaging is unavailable because of a block. Manage blocks in Settings.'
+                  : p.displayName + ' does not accept messages from you'
+              "
+            >
+              <mat-icon aria-hidden="true">chat</mat-icon>
+              Message
+            </button>
+          }
           <button
             matButton
             type="button"
