@@ -6,6 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type {
   CollectorProfileResponse,
+  CollectorRating,
   PublicBinderSummary,
   PublicInventoryItem,
   WishlistSummaryEntry,
@@ -18,6 +19,7 @@ import {
 } from '../../../shared/domain/location-labels';
 import { PublicBinderCardComponent } from '../../../shared/inventory/public-binder-card/public-binder-card.component';
 import { PublicItemCardComponent } from '../../../shared/inventory/public-item-card/public-item-card.component';
+import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
 import { ApproximateAreaMapComponent } from '../../../shared/map/approximate-area-map/approximate-area-map.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardArtComponent } from '../../../shared/ui/card-art/card-art.component';
@@ -27,8 +29,9 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
 import { CollectorWishlistComponent } from '../collector-wishlist/collector-wishlist.component';
 
 /**
- * Presentational public profile: header, actions, about, location, ratings, binders, cards and
- * the public wishlist ("Looking for").
+ * Presentational public profile: header, actions (message, report), about, location, rating
+ * summary, binders, cards and the public wishlist ("Looking for"). The full ratings and references
+ * section is rendered by the page below this view.
  */
 @Component({
   selector: 'app-collector-profile-view',
@@ -47,6 +50,7 @@ import { CollectorWishlistComponent } from '../collector-wishlist/collector-wish
     PublicBinderCardComponent,
     PublicItemCardComponent,
     SkeletonComponent,
+    StarRatingComponent,
   ],
   templateUrl: './collector-profile-view.component.html',
   styleUrl: './collector-profile-view.component.scss',
@@ -69,6 +73,14 @@ export class CollectorProfileViewComponent {
   readonly messaging = input(false);
   /** "Message" pressed (only offered when `canMessage`). */
   readonly messageRequested = output<void>();
+  /** "Report" pressed (other collectors only). */
+  readonly reportRequested = output<void>();
+  /** "See ratings and references" pressed. */
+  readonly ratingsRequested = output<void>();
+  /** Fresher rating summary than the profile's (after the ratings section loaded). */
+  readonly rating = input<CollectorRating | null>(null);
+
+  protected readonly ratingSummary = computed(() => this.rating() ?? this.profile().rating);
 
   /** The binder the "View public binder" button opens (the owner's first one). */
   protected readonly firstBinder = computed(() => this.binders()?.[0] ?? null);

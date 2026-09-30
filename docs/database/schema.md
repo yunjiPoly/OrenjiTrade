@@ -48,6 +48,9 @@ update it in the same change.
 | `rating.hidden_reason`, `reference.hidden_reason`, `user_responsiveness.pause_reason` | Moderator notes | Admin console and audit log only; the owner's listing status omits the pause reason |
 | `rating.comment`, `reference.body` | Public member text | Public on the profile unless hidden; banned terms refused; never in analytics (`rating_submitted` has a comment flag only) |
 | `user_account.banned_at` | Moderation decision | Admin views only |
+| `offer.message`, `offer_event.reason`, `trade.cancel_reason` (and the `reason` of `trade_event.details`) | Free text of the two parties | Returned to the two parties only (`GET /offers/{id}`, `GET /trades/{id}`); never in notifications, SYSTEM messages, events or analytics; erased when their author's account is purged (the rows stay for the other party) |
+| `offer.item_snapshot`, `offer_trade_item.item_snapshot`, `offer_event.snapshot` | Public form of negotiated cards and terms | Parties only; built from the public item fields (never `inventory_item.notes`, never a location) |
+| `offer`, `trade` (rows) | Who negotiates or trades with whom | The two parties only (404 for anybody else); analytics get kinds, statuses and HMAC hashes only (`offer_created`, `offer_status_changed`, `trade_status_changed`), never amounts, ids or text |
 | Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
 
 ## Entity overview
@@ -124,6 +127,8 @@ Detailed column lists are appended per phase below as migrations land.
 | V061 | `V061__collector_reports.sql` | Phase 7: `collector_report`, `moderator_note`; `moderation_rule` kind REPORT_THRESHOLD and scope REPORT (+ report rate and threshold rules); `moderation_flag` reason REPORT_THRESHOLD; `user_account.banned_at` |
 | V062 | `V062__listing_pauses_and_strikes.sql` | Phase 7: `user_responsiveness` (strikes and listing pauses); `delist_policy.unanswered_after_hours` |
 | V063 | `V063__analytics_daily_count.sql` | Phase 7: `analytics_daily_count` (local analytics aggregate for the admin summary) |
+| V070 | `V070__offers.sql` | Phase 8: `offer` (one row per proposal of a counter chain), `offer_trade_item`, `offer_event` (full history), `offer_preferences` (`accepts_mixed`); `uq_message_system_key` on `message` (SYSTEM messages of offers and trades) |
+| V071 | `V071__trades.sql` | Phase 8: `trade` (one per accepted offer), `trade_event` (timeline) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -1253,3 +1258,151 @@ Local aggregate of the analytics publisher (one upsert per event on the async ex
 
 Redis keys of this phase: `idem:report:<reporterId>:<Idempotency-Key>` (report id, 24 h) and the
 Phase 5 moderation windows `mod:rate:REPORT:<ruleId>:<reporterId>` (reports per day).
+
+### Phase 8 — offers and trades (V070–V071)
+
+No table of this phase stores a location: the parties are shown with the owner block of the binders
+module (region label of the derived public point and a distance bucket, ADR 0004). Money is
+`numeric(12,2)` + ISO currency. Every transition appends an event row (append-only) inside the same
+transaction as the state change; notifications, SYSTEM messages and analytics follow after commit
+from `OfferCreated` / `OfferUpdated` / `TradeUpdated` (Spring Modulith registry). Configurable
+numbers stay data (ADR 0014): the daily offer limit is `usage_limit` `offers.per_day` (FREE 20,
+PREMIUM 100, V011); `protectedPayments` is a `feature_flag` row.
+
+### V070 — offers
+
+#### `offer`
+
+One row per proposal. The buyer's first proposal is the chain root (`parent_offer_id` NULL,
+`root_offer_id = id`, status OPEN, `current_turn` SELLER). A counter-offer is a new row (status
+COUNTERED, `parent_offer_id` = the answered proposal, `root_offer_id` = the root, `current_turn` =
+the other party, fresh expiry); the answered proposal becomes COUNTERED with `superseded_by` = the
+new row. The live proposal of a chain is the row without `superseded_by`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `root_offer_id` | `uuid` | FK → `offer.id` (cascade); first proposal of the chain (= `id` for the root); `ck_offer_chain` |
+| `parent_offer_id` | `uuid` | FK → `offer.id` (cascade); the proposal a counter-offer answers (`counterOf`); NULL for the root |
+| `superseded_by` | `uuid` | FK → `offer.id` (set null, **deferrable initially deferred**: a counter marks the answered proposal before inserting itself); only with status COUNTERED (`ck_offer_superseded`) |
+| `item_id` | `uuid` | FK → `inventory_item.id` (**set null**, only when the owner's account is purged); the seller's card |
+| `seller_id`, `buyer_id` | `uuid` | FK → `user_account.id` (cascade); `ck_offer_parties` |
+| `kind` | `text` | `CASH`, `TRADE`, `MIXED` |
+| `cash_amount`, `currency` | `numeric(12,2)`, `char(3)` | cash part; NULL exactly for TRADE (`ck_offer_cash`, `ck_offer_currency`), > 0 |
+| `status` | `text` | `OPEN`, `COUNTERED`, `ACCEPTED`, `DECLINED`, `CANCELLED`, `EXPIRED` |
+| `current_turn` | `text` | `SELLER`, `BUYER`: the party who may counter, accept or decline |
+| `message` | `text` | **party free text** (≤ 500) of the proposing party; parties only |
+| `protection_requested` | `boolean` | the buyer asked for payment protection (cash offers only, `ck_offer_protection`) |
+| `item_snapshot` | `jsonb` | object: public form of the target card at offer time (card, printing, condition, price, availability, public notes; never private notes) |
+| `expires_at` | `timestamptz` | default created + 72 h (1–168 h); the hourly job expires live OPEN/COUNTERED proposals |
+| `created_at`, `updated_at` | `timestamptz` | `updated_at` = last transition (inbox order) |
+| `closed_at` | `timestamptz` | when the proposal left the live states; `ck_offer_closed`: NULL ⇔ live OPEN/COUNTERED |
+| `version` | `integer` | optimistic lock, +1 per transition (`UPDATE … WHERE version = :expected`; 409 `STALE_OFFER`) |
+
+Indexes: `uq_offer_live_buyer_item (buyer_id, item_id) WHERE status IN ('OPEN','COUNTERED') AND
+superseded_by IS NULL` (409 `OFFER_ALREADY_OPEN`; inserts use `ON CONFLICT … DO NOTHING` on it),
+`ix_offer_buyer_latest` / `ix_offer_seller_latest (…_id, updated_at DESC, id DESC) WHERE
+superseded_by IS NULL` (inbox, keyset cursor), `ix_offer_expiry (expires_at) WHERE status IN
+('OPEN','COUNTERED') AND superseded_by IS NULL` (job), `ix_offer_root (root_offer_id, created_at)`,
+`ix_offer_parent`, `ix_offer_superseded_by`, `ix_offer_item`.
+
+#### `offer_trade_item`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `offer_id` | `uuid` | FK → `offer.id` (cascade) |
+| `inventory_item_id` | `uuid` | FK → `inventory_item.id` (set null on account purge); the buyer's own non-deleted card at offer time (public visibility not required) |
+| `quantity` | `integer` | 1–9999, at most the copies the buyer holds |
+| `position` | `smallint` | 0–9 (at most 10 cards per proposal); `uq_offer_trade_item_position` |
+| `item_snapshot` | `jsonb` | public form of the card at offer time (never private notes) |
+
+Constraint `uq_offer_trade_item_item (offer_id, inventory_item_id)`; index
+`ix_offer_trade_item_item`.
+
+#### `offer_event`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `offer_id` | `uuid` | FK → `offer.id` (cascade); the proposal concerned (the new counter-offer for COUNTERED) |
+| `root_offer_id` | `uuid` | FK → `offer.id` (cascade); history of a whole chain |
+| `actor_id` | `uuid` | FK → `user_account.id` (set null); NULL for the expiry job |
+| `event` | `text` | `CREATED`, `COUNTERED`, `ACCEPTED`, `DECLINED`, `CANCELLED`, `EXPIRED`, `VIEWED` (first view of a proposal by the party who has to answer it; `uq_offer_event_viewed (offer_id, actor_id) WHERE event = 'VIEWED'`) |
+| `snapshot` | `jsonb` | object: the proposal after the event `{id, status, kind, cashAmount, currency, tradeItems[{inventoryItemId, quantity, cardName, printingCode}], message, currentTurn, expiresAt, version, protectionRequested, itemId, sellerId, buyerId}`; read per chain, no GIN index |
+| `reason` | `text` | **party free text** (≤ 500): decline / cancel reason; parties only |
+| `created_at` | `timestamptz` | |
+| `seq` | `bigint` | identity: insertion order of events of the same instant |
+
+Indexes: `ix_offer_event_root (root_offer_id, created_at, seq)`, `ix_offer_event_offer`,
+`ix_offer_event_actor`.
+
+#### `offer_preferences`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | `uuid` | PK, FK → `user_account.id` (cascade) |
+| `accepts_mixed` | `boolean` | MIXED offers welcome on the collector's TRADE_OR_SALE cards (default true; no row = default); `GET/PUT /me/settings/offers` |
+| `updated_at` | `timestamptz` | |
+
+#### Changes to `message` (Phase 5)
+
+`uq_message_system_key` — unique expression index on `(payload ->> 'systemKey') WHERE (payload ->>
+'systemKey') IS NOT NULL`: SYSTEM messages posted by the offers and trades modules carry a
+de-duplication key (`offer:<offerId>:<EVENT>`, `trade:<tradeId>:<EVENT>`) and are inserted with `ON
+CONFLICT … DO NOTHING`, so a redelivered event never posts twice. The key is never returned by the
+API. SYSTEM messages have no sender and link the offer in `payload.offer {offerId, status,
+summary}` (the API reads the live status through the offers module).
+
+### V071 — trades
+
+#### `trade`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `offer_id` | `uuid` | FK → `offer.id` (cascade); `uq_trade_offer`: one trade per accepted proposal |
+| `item_id` | `uuid` | FK → `inventory_item.id` (set null on account purge); the seller's card |
+| `seller_id`, `buyer_id` | `uuid` | FK → `user_account.id` (cascade); `ck_trade_parties` |
+| `kind`, `cash_amount`, `currency` | | copied from the accepted proposal (`ck_trade_cash`, `ck_trade_currency`) |
+| `status` | `text` | `AGREED`, `AWAITING_PAYMENT`, `PAID`, `SHIPPED`, `RECEIVED`, `COMPLETED`, `CANCELLED`, `DISPUTED` (PAID…DISPUTED are Phase 9) |
+| `protection_enabled` | `boolean` | payment protection (requested by the buyer, `protectedPayments` on at acceptance, cash part: `ck_trade_protection`); dropped by an agreed meetup |
+| `meetup` | `boolean` | both parties marked an in-person meetup (`ck_trade_meetup`) |
+| `buyer_meetup_at`, `seller_meetup_at` | `timestamptz` | each party's meetup mark |
+| `buyer_confirmed_at`, `seller_confirmed_at` | `timestamptz` | each party's confirmation of the exchange; both → COMPLETED |
+| `cancelled_by`, `cancel_reason`, `cancelled_at` | | cancelling party (FK, set null), **party free text** (≤ 500), time; `ck_trade_cancelled`: CANCELLED ⇔ `cancelled_at` |
+| `created_at`, `updated_at`, `completed_at` | `timestamptz` | `ck_trade_completed`: COMPLETED ⇔ `completed_at` |
+| `version` | `integer` | +1 per change (Phase 9 webhooks) |
+
+Indexes: `ix_trade_buyer` / `ix_trade_seller (…_id, updated_at DESC, id DESC)` (lists, keyset
+cursor), `ix_trade_item_open (item_id) WHERE status NOT IN ('COMPLETED','CANCELLED')` (copies already
+promised: an acceptance needs an unpromised copy, 409 `ITEM_UNAVAILABLE`; acceptances of one item are
+serialised by a transaction-scoped advisory lock), `ix_trade_status`.
+
+On completion the inventory module lowers the seller's card by 1 and the buyer's trade cards by
+their quantities (`InventoryService.reserveAndTransfer`; the last copy soft-deletes the item) and
+the ratings module records the TRADE interaction (`subject_id` = trade id).
+
+#### `trade_event`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `trade_id` | `uuid` | FK → `trade.id` (cascade) |
+| `actor_id` | `uuid` | FK → `user_account.id` (set null); NULL for the platform |
+| `event` | `text` | `CREATED`, `MEETUP_PROPOSED`, `MEETUP_AGREED`, `PROTECTION_REMOVED`, `COMPLETION_CONFIRMED`, `COMPLETED`, `CANCELLED`; pattern-checked (`ck_trade_event_event`) so Phase 9 adds its events without a migration |
+| `details` | `jsonb` | object: statuses, roles, the transfers of a completion `[{itemId, from, requested, transferred, remaining, removed}]`, the cancel `reason` (party text, erased on purge) |
+| `created_at` | `timestamptz` | |
+| `seq` | `bigint` | identity: insertion order of events of the same instant |
+
+Indexes: `ix_trade_event_trade (trade_id, created_at, seq)`, `ix_trade_event_actor`.
+
+Account data: a deletion request withdraws the account's live negotiations (CANCELLED, the other
+party notified); open trades block the deletion (`409 DELETION_BLOCKED`, blocker `OPEN_TRADE`); the
+purge erases the account's `offer.message` (proposals it made), `offer_event.reason`, the `message`
+member of its CREATED/COUNTERED snapshots, `trade.cancel_reason` and trade event reasons, and its
+`offer_preferences`; offer and trade rows stay for the other party. Export sections `offers` (own
+notes only) and `trades`.
+
+Redis keys of this phase: `idem:offer:<buyerId>:<Idempotency-Key>` (offer id, 24 h); the daily
+counter lives in `usage_counter` with its Phase 2 mirror `orenji:usage:<userId>:offers.per_day:<UTC day start, epoch seconds>`.

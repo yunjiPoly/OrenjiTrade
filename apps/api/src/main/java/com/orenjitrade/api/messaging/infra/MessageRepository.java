@@ -60,6 +60,40 @@ public class MessageRepository {
                 .update();
     }
 
+    /**
+     * Inserts a SYSTEM message (no sender) unless one with the same {@code payload.systemKey}
+     * exists ({@code uq_message_system_key}); the payload must carry that key.
+     *
+     * @return whether a row was inserted
+     */
+    public boolean insertSystemIfAbsent(
+            UUID id, UUID conversationId, String body, String payloadJson, Instant createdAt) {
+        return jdbc.sql(
+                                """
+                                INSERT INTO message (id, conversation_id, sender_id, kind, body,
+                                    payload, created_at, moderation_state)
+                                VALUES (:id, :conversationId, NULL, 'SYSTEM', :body,
+                                    CAST(:payload AS jsonb), :createdAt, 'OK')
+                                ON CONFLICT ((payload ->> 'systemKey'))
+                                    WHERE (payload ->> 'systemKey') IS NOT NULL DO NOTHING
+                                """)
+                        .param("id", id)
+                        .param("conversationId", conversationId)
+                        .param("body", body)
+                        .param("payload", payloadJson)
+                        .param("createdAt", Timestamp.from(createdAt))
+                        .update()
+                > 0;
+    }
+
+    /** The message posted with a SYSTEM de-duplication key, if any. */
+    public Optional<UUID> findIdBySystemKey(String systemKey) {
+        return jdbc.sql("SELECT id FROM message WHERE (payload ->> 'systemKey') = :key")
+                .param("key", systemKey)
+                .query(UUID.class)
+                .optional();
+    }
+
     /** Newest first, strictly older than the cursor, at most {@code limit} rows. */
     public List<MessageRow> page(UUID conversationId, @Nullable TimeCursor cursor, int limit) {
         Map<String, Object> params = new LinkedHashMap<>();

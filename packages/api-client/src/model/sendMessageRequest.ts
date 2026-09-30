@@ -11,7 +11,7 @@
 
 export interface SendMessageRequest { 
     /**
-     * TEXT, CARD_LINK, BINDER_LINK or IMAGE (OFFER_LINK arrives with offers; SYSTEM is never accepted)
+     * TEXT, CARD_LINK, BINDER_LINK, OFFER_LINK or IMAGE (SYSTEM is never accepted)
      */
     kind: SendMessageRequestKindEnum;
     /**
@@ -27,7 +27,7 @@ export interface SendMessageRequest {
      */
     binderId?: string;
     /**
-     * OFFER_LINK (Phase 8)
+     * OFFER_LINK: an offer between the two participants
      */
     offerId?: string;
     /**

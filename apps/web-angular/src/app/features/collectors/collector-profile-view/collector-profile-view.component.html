@@ -108,9 +108,9 @@
           <button
             matButton
             type="button"
-            disabled
-            disabledInteractive
-            matTooltip="Coming soon: reporting collectors"
+            class="collector__report"
+            [attr.aria-label]="'Report ' + p.displayName"
+            (click)="reportRequested.emit()"
           >
             <mat-icon aria-hidden="true">flag</mat-icon>
             Report
@@ -169,20 +169,24 @@
         }
       </section>
 
-      <section class="collector__card" aria-labelledby="collector-ratings">
-        <h2 id="collector-ratings">Ratings</h2>
-        @if (p.rating.count > 0 && p.rating.average !== null && p.rating.average !== undefined) {
-          <p class="collector__rating">
-            <mat-icon aria-hidden="true">star</mat-icon>
-            {{ p.rating.average.toFixed(1) }} · {{ p.rating.count }} ratings
+      <section class="collector__card" aria-labelledby="collector-rating-side">
+        <h2 id="collector-rating-side">Rating</h2>
+        @let rating = ratingSummary();
+        @if (rating.count > 0 && rating.average !== null && rating.average !== undefined) {
+          <p class="collector__rating" data-testid="profile-rating">
+            <span class="collector__rating-value">{{ rating.average.toFixed(1) }}</span>
+            <app-star-rating [value]="rating.average" />
+            <span class="collector__muted">
+              {{ rating.count }} {{ rating.count === 1 ? 'rating' : 'ratings' }}
+            </span>
           </p>
         } @else {
-          <app-empty-state
-            icon="star_outline"
-            title="No ratings yet"
-            description="Ratings appear after completed trades."
-          />
+          <p class="collector__muted" data-testid="profile-rating">No ratings yet.</p>
         }
+        <button matButton type="button" class="collector__see" (click)="ratingsRequested.emit()">
+          <mat-icon aria-hidden="true">reviews</mat-icon>
+          See ratings and references
+        </button>
       </section>
     </div>
 

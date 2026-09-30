@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * A message to send ({@code POST /conversations/{id}/messages}).
  *
- * @param kind kind (TEXT, CARD_LINK, BINDER_LINK, IMAGE; OFFER_LINK and SYSTEM are refused)
+ * @param kind kind (TEXT, CARD_LINK, BINDER_LINK, OFFER_LINK, IMAGE; SYSTEM is refused)
  * @param body text (required for TEXT, optional otherwise)
  * @param cardPrintingId printing of a CARD_LINK
  * @param binderId public binder of a BINDER_LINK

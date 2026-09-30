@@ -34,6 +34,8 @@ export enum NotificationResponseTypeEnum {
     OfferAccepted = 'OFFER_ACCEPTED',
     OfferCountered = 'OFFER_COUNTERED',
     OfferDeclined = 'OFFER_DECLINED',
+    OfferCancelled = 'OFFER_CANCELLED',
+    OfferExpired = 'OFFER_EXPIRED',
     BinderExpiring = 'BINDER_EXPIRING',
     BinderStaleWarning = 'BINDER_STALE_WARNING',
     BinderHidden = 'BINDER_HIDDEN',

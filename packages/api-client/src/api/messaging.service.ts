@@ -313,7 +313,7 @@ export class MessagingService extends BaseService implements MessagingServiceInt
 
     /**
      * Send a message
-     * TEXT needs &#x60;body&#x60; (≤ 4000 characters); CARD_LINK &#x60;cardPrintingId&#x60;; BINDER_LINK &#x60;binderId&#x60; of a public binder; IMAGE &#x60;imageUploadId&#x60; of POST /uploads/images (within 1 h). OFFER_LINK and SYSTEM are refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+     * TEXT needs &#x60;body&#x60; (≤ 4000 characters); CARD_LINK &#x60;cardPrintingId&#x60;; BINDER_LINK &#x60;binderId&#x60; of a public binder; IMAGE &#x60;imageUploadId&#x60; of POST /uploads/images (within 1 h); OFFER_LINK &#x60;offerId&#x60; of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
      * @endpoint post /api/v1/conversations/{id}/messages
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

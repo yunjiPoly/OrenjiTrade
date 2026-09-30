@@ -8,7 +8,10 @@
  * endpoint {@code /ws} ({@code RealtimeConfig}: handshake and CONNECT authentication, own-queue
  * subscriptions only, Redis channel {@code rt:user:{userId}}, presence keys). Publishes {@code
  * MessageSent}, {@code MessageRead}, {@code UserBlocked} and {@code UserUnblocked}; message text
- * never leaves the module except to the two participants.
+ * never leaves the module except to the two participants. Phase 8: OFFER_LINK messages and SYSTEM
+ * messages posted by the offers and trades modules ({@code ConversationService.postSystemMessage},
+ * idempotent per key); the linked offer's live state comes from the {@code OfferLinkResolver}
+ * extension point (implemented by the offers module).
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value
  * objects, domain services), {@code infra/} (repositories, external adapters), {@code events/}

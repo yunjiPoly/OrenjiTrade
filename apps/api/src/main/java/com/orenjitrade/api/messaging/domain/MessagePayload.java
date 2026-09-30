@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param card CARD_LINK: the shared printing
  * @param binder BINDER_LINK: the shared public binder (name and owner as shared)
- * @param offer OFFER_LINK: reserved for Phase 8
+ * @param offer OFFER_LINK and SYSTEM offer notices: the linked offer (Phase 8)
  * @param image IMAGE: the photo
  */
 @Schema(name = "MessagePayload", description = "Links and attachments of a message")

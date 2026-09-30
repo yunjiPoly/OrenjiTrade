@@ -133,6 +133,7 @@ const FLAG_REASONS: Readonly<Record<string, string>> = {
   BANNED_TERM: 'Banned term',
   RATE_THRESHOLD: 'Unusual posting rate',
   REPEATED_CONTENT: 'Repeated content',
+  REPORT_THRESHOLD: 'Several reports',
 };
 
 export function flagSubjectLabel(subject: string): string {

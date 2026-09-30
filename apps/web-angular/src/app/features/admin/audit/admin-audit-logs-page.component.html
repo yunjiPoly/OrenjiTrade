@@ -111,6 +111,10 @@
                 <a [routerLink]="['/admin/users', entry.targetId]"
                   >User {{ entry.targetId.slice(0, 8) }}</a
                 >
+              } @else if (entry.targetType === 'REPORT' && entry.targetId) {
+                <a [routerLink]="['/admin/reports', entry.targetId]"
+                  >Report {{ entry.targetId.slice(0, 8) }}</a
+                >
               } @else {
                 {{ entry.targetType }} {{ entry.targetId?.slice(0, 8) }}
               }

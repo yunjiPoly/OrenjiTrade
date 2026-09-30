@@ -51,12 +51,10 @@
           <mat-icon aria-hidden="true">block</mat-icon>
           Block {{ p.author.displayName }}
         </button>
-        <div matTooltip="Collector reports arrive soon" matTooltipPosition="left">
-          <button mat-menu-item type="button" disabled>
-            <mat-icon aria-hidden="true">flag</mat-icon>
-            Report collector
-          </button>
-        </div>
+        <button mat-menu-item type="button" (click)="reportAuthor()">
+          <mat-icon aria-hidden="true">flag</mat-icon>
+          Report collector
+        </button>
       }
     </mat-menu>
   </header>

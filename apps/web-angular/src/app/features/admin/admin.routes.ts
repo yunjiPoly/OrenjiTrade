@@ -92,6 +92,93 @@ export const ADMIN_ROUTES: Routes = [
           ),
       },
       {
+        // Moderators and admins (moderation area).
+        path: 'reports',
+        title: 'Reports · Admin',
+        loadComponent: () =>
+          import('./reports/admin-reports-page.component').then((m) => m.AdminReportsPageComponent),
+      },
+      {
+        path: 'reports/:id',
+        title: 'Report · Admin',
+        loadComponent: () =>
+          import('./reports/admin-report-detail-page.component').then(
+            (m) => m.AdminReportDetailPageComponent,
+          ),
+      },
+      {
+        path: 'moderation',
+        title: 'Moderation · Admin',
+        loadComponent: () =>
+          import('./moderation/admin-moderation-page.component').then(
+            (m) => m.AdminModerationPageComponent,
+          ),
+      },
+      {
+        path: 'ratings',
+        title: 'Ratings · Admin',
+        loadComponent: () =>
+          import('./ratings/admin-ratings-page.component').then((m) => m.AdminRatingsPageComponent),
+      },
+      {
+        path: 'listings',
+        title: 'Listings · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./listings/admin-listings-page.component').then(
+            (m) => m.AdminListingsPageComponent,
+          ),
+      },
+      {
+        path: 'binders',
+        title: 'Binders · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./binders/admin-binders-page.component').then((m) => m.AdminBindersPageComponent),
+      },
+      {
+        path: 'notifications',
+        title: 'Notifications · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./notifications/admin-notifications-page.component').then(
+            (m) => m.AdminNotificationsPageComponent,
+          ),
+      },
+      {
+        path: 'analytics',
+        title: 'Analytics · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./analytics/admin-analytics-page.component').then(
+            (m) => m.AdminAnalyticsPageComponent,
+          ),
+      },
+      {
+        path: 'auto-delist-rules',
+        title: 'Auto-delist rules · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./delist/admin-delist-rules-page.component').then(
+            (m) => m.AdminDelistRulesPageComponent,
+          ),
+      },
+      {
+        path: 'system-health',
+        title: 'System health · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./health/admin-system-health-page.component').then(
+            (m) => m.AdminSystemHealthPageComponent,
+          ),
+      },
+      {
         path: 'audit-logs',
         title: 'Audit logs · Admin',
         canActivate: [adminGuard],

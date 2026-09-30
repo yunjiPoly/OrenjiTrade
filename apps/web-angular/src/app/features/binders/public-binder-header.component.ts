@@ -4,6 +4,7 @@ import {
   booleanAttribute,
   computed,
   input,
+  output,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,7 +24,8 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
 
 /**
  * Hero of a public binder: cover, name, kind, description, freshness and games, and the owner
- * card (avatar, name, handle, approximate area label and distance bucket, never a position).
+ * card (avatar, name, handle, approximate area label and distance bucket, never a position) with
+ * View profile and, for signed-in visitors, Report.
  */
 @Component({
   selector: 'app-public-binder-header',
@@ -115,6 +117,18 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
               <mat-icon aria-hidden="true">person</mat-icon>
               View profile
             </a>
+            @if (signedIn()) {
+              <button
+                matButton
+                type="button"
+                class="pb__report"
+                [attr.aria-label]="'Report ' + b.owner.displayName"
+                (click)="reportRequested.emit()"
+              >
+                <mat-icon aria-hidden="true">flag</mat-icon>
+                Report
+              </button>
+            }
           }
         </div>
       </section>
@@ -243,6 +257,14 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
     .pb__owner-fact--muted mat-icon {
       color: var(--color-text-muted);
     }
+    .pb__owner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-2);
+    }
+    .pb__report {
+      color: var(--color-text-muted);
+    }
     @media (max-width: 1023px) {
       .pb {
         grid-template-columns: auto minmax(0, 1fr);
@@ -276,6 +298,10 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
 export class PublicBinderHeaderComponent {
   readonly binder = input.required<PublicBinderResponse>();
   readonly isOwn = input(false, { transform: booleanAttribute });
+  /** Signed-in visitors may report the owner. */
+  readonly signedIn = input(false, { transform: booleanAttribute });
+  /** "Report" pressed on the owner card. */
+  readonly reportRequested = output<void>();
 
   protected readonly kind = computed(
     () => BINDER_KIND_INFO[this.binder().kind as BinderKind] ?? BINDER_KIND_INFO.CUSTOM,
