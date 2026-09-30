@@ -44,7 +44,7 @@ export interface InternalServiceInterface {
 
     /**
      * Pause listings of unresponsive owners (service auth)
-     * Daily. Pauses the public listings of owners whose unresponsiveness strikes reached the policy\&#39;s maxStrikes. Strike tracking arrives with Phases 5/7: until then the run is recorded and nobody is paused. Never deletes.
+     * Nightly. Counts the conversations waiting for each collector\&#39;s answer (the other participant\&#39;s last message of the last 30 days, older than the policy\&#39;s unansweredAfterHours), stores the strikes (unanswered conversations since the owner\&#39;s last resume) and pauses the public listings of owners who reached the policy\&#39;s maxStrikes (they resume by confirming, POST /me/listings/resume). Also ends timed pauses. Never deletes. Records a job run.
      * @endpoint post /internal/jobs/delist
 */
     runDelistJob(extraHttpRequestParams?: any): Observable<DelistJobResponse>;

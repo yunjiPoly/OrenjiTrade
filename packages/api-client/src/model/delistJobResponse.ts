@@ -10,7 +10,15 @@
 
 
 export interface DelistJobResponse { 
+    /**
+     * Collectors with at least one unanswered conversation
+     */
     ownersEvaluated: number;
     listingsPaused: number;
+    ownersWithStrikes: number;
+    /**
+     * Timed pauses that ended
+     */
+    pausesExpired: number;
 }
 

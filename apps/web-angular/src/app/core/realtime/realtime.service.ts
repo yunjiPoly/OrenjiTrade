@@ -13,7 +13,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { MessageResponse } from '@orenji/api-client';
+import type { MessageResponse, NotificationResponse } from '@orenji/api-client';
 import { Observable, Subject } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { SessionService } from '../auth/session.service';
@@ -24,6 +24,7 @@ import {
   REALTIME_DESTINATIONS,
   ReadReceiptNotice,
   TypingNotice,
+  isNotificationResponse,
   isPresenceNotice,
   isReadReceipt,
   isTypingNotice,
@@ -110,8 +111,9 @@ function isMessageResponse(value: unknown): value is MessageResponse {
  *
  * - Connects while a collector is signed in with a ready account (`SessionService.status`), and
  *   disconnects on sign-out or when another account signs in.
- * - Subscribes to the caller's own queues only (`/user/queue/messages|receipts|typing|presence`)
- *   and sends nothing but `/app/typing`.
+ * - Subscribes to the caller's own queues only
+ *   (`/user/queue/messages|receipts|typing|presence|notifications`) and sends nothing but
+ *   `/app/typing`.
  * - Reconnects with exponential backoff (1 s → 30 s, jitter) and right away when the browser comes
  *   back online or the tab becomes visible. A connection that fails before STOMP CONNECTED may be
  *   a refused (expired) token, so the next attempt asks Firebase for a fresh one.
@@ -135,6 +137,7 @@ export class RealtimeService {
   private readonly receiptsSubject = new Subject<ReadReceiptNotice>();
   private readonly typingSubject = new Subject<TypingNotice>();
   private readonly presenceSubject = new Subject<PresenceNotice>();
+  private readonly notificationsSubject = new Subject<NotificationResponse>();
   private readonly resyncSubject = new Subject<void>();
 
   /** Connection state, for status indicators. */
@@ -145,6 +148,9 @@ export class RealtimeService {
   readonly receipts$: Observable<ReadReceiptNotice> = this.receiptsSubject.asObservable();
   readonly typing$: Observable<TypingNotice> = this.typingSubject.asObservable();
   readonly presence$: Observable<PresenceNotice> = this.presenceSubject.asObservable();
+  /** New in-app notifications of the caller (Phase 6 notification centre). */
+  readonly notifications$: Observable<NotificationResponse> =
+    this.notificationsSubject.asObservable();
   /** Fires after each successful (re)connection: re-read over REST what may have been missed. */
   readonly resync$: Observable<void> = this.resyncSubject.asObservable();
 
@@ -306,6 +312,12 @@ export class RealtimeService {
       const body = parseJson(frame.body);
       if (isPresenceNotice(body)) {
         this.presenceSubject.next(body);
+      }
+    });
+    connection.subscribe(REALTIME_DESTINATIONS.notifications, (frame) => {
+      const body = parseJson(frame.body);
+      if (isNotificationResponse(body)) {
+        this.notificationsSubject.next(body);
       }
     });
   }

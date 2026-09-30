@@ -35,13 +35,15 @@ import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { WishlistActions } from '../../../shared/wishlist/wishlist-actions.service';
 import { PrintingsTableComponent } from '../shared/printings-table.component';
 import { CardMetadataComponent } from './card-metadata.component';
 
 /**
  * `/cards/:id` (`?printing=` selects a printing): hero picture, game-specific attributes from the
  * game's schema, the selected printing with its market price, every printing, "Who has this near
- * me" (the map in holders mode) and "Add to wishlist" (coming soon, Phase 6).
+ * me" (the map in holders mode) and "Add to wishlist" (Phase 6: the wishlist dialog, with the
+ * printing chosen through `?printing=`, if any).
  */
 @Component({
   selector: 'app-card-detail-page',
@@ -68,6 +70,7 @@ export class CardDetailPageComponent {
   private readonly router = inject(Router);
   private readonly title = inject(Title);
   private readonly games = inject(GamesStore);
+  protected readonly wishlist = inject(WishlistActions);
 
   /** Route parameter and `?printing=` query parameter (bound by the router). */
   readonly id = input.required<string>();
@@ -135,6 +138,11 @@ export class CardDetailPageComponent {
 
   protected reload(): void {
     this.load(this.id());
+  }
+
+  /** Opens the wishlist dialog for this card (the printing picked in the URL, else any). */
+  protected addToWishlist(cardId: string): void {
+    void this.wishlist.add({ cardId, printingId: this.printing() ?? null });
   }
 
   protected selectPrinting(printingId: string): void {

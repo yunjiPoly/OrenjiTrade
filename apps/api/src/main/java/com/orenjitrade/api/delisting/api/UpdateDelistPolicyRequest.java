@@ -17,6 +17,8 @@ import org.jspecify.annotations.Nullable;
  * @param hiddenAfterDays first day of HIDDEN
  * @param warnBeforeHiddenDays warning lead time before hiding
  * @param maxStrikes unresponsiveness strikes before listings are paused; unchanged when omitted
+ * @param unansweredAfterHours hours after which a conversation waiting for the owner's answer
+ *     counts as unanswered (strikes); unchanged when omitted
  */
 @Schema(name = "UpdateDelistPolicyRequest", description = "New freshness thresholds (days)")
 public record UpdateDelistPolicyRequest(
@@ -25,4 +27,5 @@ public record UpdateDelistPolicyRequest(
         @NotNull @Min(2) @Max(3650) @Schema(example = "31") Integer staleAfterDays,
         @NotNull @Min(3) @Max(3650) @Schema(example = "46") Integer hiddenAfterDays,
         @NotNull @Min(0) @Max(3649) @Schema(example = "5") Integer warnBeforeHiddenDays,
-        @Min(1) @Max(100) @Schema(example = "3") @Nullable Integer maxStrikes) {}
+        @Min(1) @Max(100) @Schema(example = "3") @Nullable Integer maxStrikes,
+        @Min(1) @Max(720) @Schema(example = "72") @Nullable Integer unansweredAfterHours) {}

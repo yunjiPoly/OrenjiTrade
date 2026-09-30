@@ -19,7 +19,13 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { DelistPolicyResponse } from '../model/delistPolicyResponse';
 // @ts-ignore
+import { ListingStatus } from '../model/listingStatus';
+// @ts-ignore
+import { PauseListingsRequest } from '../model/pauseListingsRequest';
+// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { ResumeListingsRequest } from '../model/resumeListingsRequest';
 // @ts-ignore
 import { UpdateDelistPolicyRequest } from '../model/updateDelistPolicyRequest';
 
@@ -29,6 +35,9 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     AdminDelistingServiceInterface,
+    GetUserListingStatusRequestParams,
+    PauseUserListingsRequestParams,
+    ResumeUserListingsRequestParams,
     UpdateDelistPolicyRequestParams
 } from './adminDelisting.serviceInterface';
 
@@ -41,6 +50,67 @@ export class AdminDelistingService extends BaseService implements AdminDelisting
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * A collector\&#39;s listing pause and strikes (ADMIN)
+     * @endpoint get /api/v1/admin/users/{id}/listing-status
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getUserListingStatus(requestParameters: GetUserListingStatusRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ListingStatus>;
+    public getUserListingStatus(requestParameters: GetUserListingStatusRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ListingStatus>>;
+    public getUserListingStatus(requestParameters: GetUserListingStatusRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ListingStatus>>;
+    public getUserListingStatus(requestParameters: GetUserListingStatusRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getUserListingStatus.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/users/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/listing-status`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<ListingStatus>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**
@@ -101,8 +171,157 @@ export class AdminDelistingService extends BaseService implements AdminDelisting
     }
 
     /**
+     * Pause a collector\&#39;s public listings (ADMIN)
+     * The listings stay in the collector\&#39;s inventory; nobody else sees them until an admin resumes them or &#x60;until&#x60; passes. 409 when already paused. Audited (&#x60;listings.pause&#x60;); the collector is notified without the reason.
+     * @endpoint post /api/v1/admin/users/{id}/pause-listings
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public pauseUserListings(requestParameters: PauseUserListingsRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ListingStatus>;
+    public pauseUserListings(requestParameters: PauseUserListingsRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ListingStatus>>;
+    public pauseUserListings(requestParameters: PauseUserListingsRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ListingStatus>>;
+    public pauseUserListings(requestParameters: PauseUserListingsRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling pauseUserListings.');
+        }
+        const pauseListingsRequest = requestParameters?.pauseListingsRequest;
+        if (pauseListingsRequest === null || pauseListingsRequest === undefined) {
+            throw new Error('Required parameter pauseListingsRequest was null or undefined when calling pauseUserListings.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/users/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/pause-listings`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<ListingStatus>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: pauseListingsRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Resume a collector\&#39;s public listings (ADMIN)
+     * Lifts any pause (job, report threshold, moderation or admin). 409 when nothing is paused. Audited (&#x60;listings.resume&#x60;).
+     * @endpoint post /api/v1/admin/users/{id}/resume-listings
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public resumeUserListings(requestParameters: ResumeUserListingsRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ListingStatus>;
+    public resumeUserListings(requestParameters: ResumeUserListingsRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ListingStatus>>;
+    public resumeUserListings(requestParameters: ResumeUserListingsRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ListingStatus>>;
+    public resumeUserListings(requestParameters: ResumeUserListingsRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling resumeUserListings.');
+        }
+        const resumeListingsRequest = requestParameters?.resumeListingsRequest;
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/users/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/resume-listings`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<ListingStatus>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: resumeListingsRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Change a delist policy (ADMIN)
-     * 400 unless 1 &lt;&#x3D; agingAfterDays &lt; staleAfterDays &lt; hiddenAfterDays &lt;&#x3D; 3650 and 0 &lt;&#x3D; warnBeforeHiddenDays &lt; hiddenAfterDays. Takes effect on every instance at once (cache evicted) and on the next freshness job run. Audited (&#x60;delist_policy.update&#x60;).
+     * 400 unless 1 &lt;&#x3D; agingAfterDays &lt; staleAfterDays &lt; hiddenAfterDays &lt;&#x3D; 3650, 0 &lt;&#x3D; warnBeforeHiddenDays &lt; hiddenAfterDays, 1 &lt;&#x3D; maxStrikes &lt;&#x3D; 100 and 1 &lt;&#x3D; unansweredAfterHours &lt;&#x3D; 720. Takes effect on every instance at once (cache evicted) and on the next freshness job run. Audited (&#x60;delist_policy.update&#x60;).
      * @endpoint put /api/v1/admin/delist-policies/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

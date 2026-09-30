@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -69,18 +70,39 @@ public class MarkerAssembler {
                 visible.add(row);
             }
         }
+        // One lookup for the whole page (the comparator reads the rating many times).
+        Map<UUID, RatingSummary> summaries =
+                ratingProvider == null || visible.isEmpty()
+                        ? Map.of()
+                        : ratingProvider.ratingsOf(visible.stream().map(MarkerRow::id).toList());
         visible.sort(
                 MarkerRanking.comparator(
-                        row ->
-                                ratingProvider == null
-                                        ? RatingSummary.NONE
-                                        : ratingProvider.ratingOf(row.id())));
+                        row -> summaries.getOrDefault(row.id(), RatingSummary.NONE)));
         ViewerContext viewer = new ViewerContext(viewerId, false, false);
-        return visible.stream().map(row -> marker(row, viewer, now)).toList();
+        return visible.stream()
+                .map(
+                        row ->
+                                marker(
+                                        row,
+                                        viewer,
+                                        now,
+                                        summaries.getOrDefault(row.id(), RatingSummary.NONE)))
+                .toList();
     }
 
     /** The marker of one row for {@code viewer}. */
     public CollectorMarker marker(MarkerRow row, ViewerContext viewer, Instant now) {
+        @Nullable RatingSummaryProvider ratingProvider = ratings.getIfAvailable();
+        return marker(
+                row,
+                viewer,
+                now,
+                ratingProvider == null ? RatingSummary.NONE : ratingProvider.ratingOf(row.id()));
+    }
+
+    /** The marker of one row for {@code viewer} with an already known rating summary. */
+    public CollectorMarker marker(
+            MarkerRow row, ViewerContext viewer, Instant now, RatingSummary rating) {
         PrivacySettingsView privacy = privacyOf(row);
         UUID id = row.id();
         @Nullable DistanceBucket distance = null;
@@ -99,7 +121,6 @@ public class MarkerAssembler {
                             ? OnlineStatus.ONLINE
                             : OnlineStatus.OFFLINE;
         }
-        @Nullable RatingSummaryProvider ratingProvider = ratings.getIfAvailable();
         return new CollectorMarker(
                 id,
                 row.handle(),
@@ -108,7 +129,7 @@ public class MarkerAssembler {
                 new PublicPoint(row.publicLat(), row.publicLng()),
                 row.publicLabel(),
                 distance,
-                ratingProvider == null ? RatingSummary.NONE : ratingProvider.ratingOf(id),
+                rating,
                 row.tags(),
                 games(row),
                 lastActive,

@@ -73,9 +73,9 @@
           <button
             matButton="outlined"
             type="button"
-            disabled
-            disabledInteractive
-            matTooltip="Coming soon: wishlists with match alerts"
+            matTooltip="Get an alert when a collector nearby lists this card"
+            [disabled]="wishlist.opening()"
+            (click)="addToWishlist(card.id ?? id())"
           >
             <mat-icon aria-hidden="true">favorite</mat-icon>
             Add to wishlist

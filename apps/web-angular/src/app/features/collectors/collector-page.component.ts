@@ -17,6 +17,8 @@ import {
   PublicBinderSummary,
   PublicBindersService,
   PublicInventoryItem,
+  WishlistService,
+  WishlistSummaryEntry,
 } from '@orenji/api-client';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -111,6 +113,7 @@ type ViewState =
               [bindersFailed]="bindersFailed()"
               [publicItems]="publicItems()"
               [publicItemCount]="publicItemCount()"
+              [wishlist]="wishlist()"
               [messaging]="starter.starting() === profile.id"
               (retryBinders)="loadListings(profile.handle)"
               (messageRequested)="openConversation(profile.id)"
@@ -132,6 +135,7 @@ type ViewState =
 export class CollectorPageComponent {
   private readonly collectorsApi = inject(CollectorsService);
   private readonly bindersApi = inject(PublicBindersService);
+  private readonly wishlistApi = inject(WishlistService);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
@@ -147,6 +151,8 @@ export class CollectorPageComponent {
   /** First public cards across binders (`null` while loading). */
   protected readonly publicItems = signal<PublicInventoryItem[] | null>(null);
   protected readonly publicItemCount = signal(0);
+  /** Public wishlist (Phase 6): `null` while loading, empty when hidden (404) or empty. */
+  protected readonly wishlist = signal<WishlistSummaryEntry[] | null>(null);
   protected readonly profile = computed(() => {
     const state = this.state();
     return state.kind === 'ready' ? state.profile : null;
@@ -190,13 +196,23 @@ export class CollectorPageComponent {
     }
   }
 
-  /** Public binders and a preview of the public cards (Phase 3). */
+  /** Public binders, a preview of the public cards (Phase 3) and the public wishlist (Phase 6). */
   protected loadListings(handle: string): void {
     this.listingsSubscription?.unsubscribe();
     this.binders.set(null);
     this.bindersFailed.set(false);
     this.publicItems.set(null);
+    this.wishlist.set(null);
     this.listingsSubscription = new Subscription();
+    this.listingsSubscription.add(
+      this.wishlistApi
+        .getCollectorWishlist({ handle }, 'body', false, { context: silentErrors() })
+        .subscribe({
+          next: (entries) => this.wishlist.set(entries ?? []),
+          // 404: the collector does not show their wishlist (or it is not visible to the caller).
+          error: () => this.wishlist.set([]),
+        }),
+    );
     this.listingsSubscription.add(
       this.bindersApi
         .listCollectorBinders({ handle }, 'body', false, { context: silentErrors() })

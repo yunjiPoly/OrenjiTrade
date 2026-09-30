@@ -23,7 +23,14 @@ public record DelistPolicyResponse(
         @Schema(nullable = true, description = "Last admin editor; null for the default")
                 @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable UUID updatedBy,
-        @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt) {
+        @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt,
+        @Schema(
+                        requiredMode = RequiredMode.REQUIRED,
+                        example = "72",
+                        description =
+                                "Hours after which a conversation waiting for the owner's answer"
+                                        + " counts as unanswered (one strike each)")
+                int unansweredAfterHours) {
 
     static DelistPolicyResponse from(DelistPolicyView view) {
         FreshnessPolicy policy = view.policy();
@@ -37,6 +44,7 @@ public record DelistPolicyResponse(
                 policy.warnBeforeHiddenDays(),
                 policy.maxStrikes(),
                 policy.updatedBy(),
-                policy.updatedAt());
+                policy.updatedAt(),
+                policy.unansweredAfterHours());
     }
 }

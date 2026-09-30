@@ -13,7 +13,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.test.context.TestPropertySource;
+import tools.jackson.databind.JsonNode;
 
 /**
  * {@code orenji.seed.enabled=true}: the runner executes at startup and is idempotent. Separate
@@ -176,6 +178,63 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void seedsRatingsAReferenceAndAnOpenReport() {
+        UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
+        UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
+        UUID collector6 = UUID.fromString("00000000-0000-4000-8000-000000000006");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM interaction WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9b00-%'"))
+                .isEqualTo(3);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM rating WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9b00-%'"))
+                .isEqualTo(3);
+        Map<String, Object> summary =
+                testUsers
+                        .query(
+                                "SELECT average, count FROM rating_summary WHERE user_id = ?",
+                                collector1)
+                        .get(0);
+        assertThat(summary.get("count")).isEqualTo(2);
+        assertThat(summary.get("average").toString()).isEqualTo("4.50");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM rating_summary WHERE user_id = ? AND count ="
+                                        + " 1",
+                                collector2))
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM reference WHERE subject_id = ?", collector1))
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM collector_report WHERE reported_user_id = ?"
+                                        + " AND status = 'OPEN' AND reason = 'SPAM'",
+                                collector6))
+                .isEqualTo(1);
+        // The seeded conversation is qualified but unrated: collector1 can still rate it.
+        JsonNode eligibility =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/ratings/eligibility?userId=" + collector2,
+                        "seed-collector1:collector1@orenjitrade.test",
+                        null,
+                        200);
+        assertThat(eligibility.path("eligible").asBoolean()).isTrue();
+        seedDataRunner.seedAll();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM rating WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9b00-%'"))
+                .as("idempotent")
+                .isEqualTo(3);
+    }
+
+    @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
@@ -195,7 +254,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "conversations",
                         "community",
                         "wishlist",
-                        "notifications");
+                        "notifications",
+                        "ratings",
+                        "reports");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

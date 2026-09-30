@@ -23,6 +23,8 @@ import org.jspecify.annotations.Nullable;
  * @param maxStrikes unresponsiveness strikes before listings are paused (delist job)
  * @param updatedBy last admin editor, {@code null} for the migration default
  * @param updatedAt last change
+ * @param unansweredAfterHours how long the other participant's last message must wait before a
+ *     conversation counts as unanswered (strikes, Phase 7)
  */
 public record FreshnessPolicy(
         UUID id,
@@ -33,7 +35,40 @@ public record FreshnessPolicy(
         int warnBeforeHiddenDays,
         int maxStrikes,
         @Nullable UUID updatedBy,
-        Instant updatedAt) {
+        Instant updatedAt,
+        int unansweredAfterHours) {
+
+    /** Default of {@link #unansweredAfterHours} (the V062 column default). */
+    public static final int DEFAULT_UNANSWERED_AFTER_HOURS = 72;
+
+    /** A policy with the default unanswered window. */
+    public FreshnessPolicy(
+            UUID id,
+            String name,
+            int agingAfterDays,
+            int staleAfterDays,
+            int hiddenAfterDays,
+            int warnBeforeHiddenDays,
+            int maxStrikes,
+            @Nullable UUID updatedBy,
+            Instant updatedAt) {
+        this(
+                id,
+                name,
+                agingAfterDays,
+                staleAfterDays,
+                hiddenAfterDays,
+                warnBeforeHiddenDays,
+                maxStrikes,
+                updatedBy,
+                updatedAt,
+                DEFAULT_UNANSWERED_AFTER_HOURS);
+    }
+
+    /** Conversations waiting for an answer since this instant or earlier count as unanswered. */
+    public Instant unansweredCutoff(Instant now) {
+        return now.minus(Duration.ofHours(unansweredAfterHours));
+    }
 
     /** The state of a listing last confirmed at {@code confirmedAt}. */
     public FreshnessState stateAt(Instant confirmedAt, Instant now) {

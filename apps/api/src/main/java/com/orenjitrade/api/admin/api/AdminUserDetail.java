@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Response of {@code GET /api/v1/admin/users/{id}}: account, roles, consents, the public location
- * label (never coordinates), the pending deletion request and recent audit entries.
+ * label (never coordinates), the pending deletion request, recent audit entries and the ban mark.
  */
 @Schema(name = "AdminUserDetail", description = "Account detail for the admin console")
 public record AdminUserDetail(
@@ -30,4 +30,12 @@ public record AdminUserDetail(
                 @Nullable String locationLabel,
         @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable DeletionRequestSummary deletionRequest,
-        @Schema(requiredMode = RequiredMode.REQUIRED) List<AuditLogEntry> recentAuditEntries) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED) List<AuditLogEntry> recentAuditEntries,
+        @Schema(
+                        nullable = true,
+                        format = "date-time",
+                        description =
+                                "When a report decision banned the account (a suspension without"
+                                        + " end); cleared by unsuspend")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable Instant bannedAt) {}

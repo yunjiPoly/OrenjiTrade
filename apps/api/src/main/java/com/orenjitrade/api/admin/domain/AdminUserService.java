@@ -96,7 +96,8 @@ public class AdminUserService {
                 locationLabel,
                 deletionRequest,
                 auditQueryService.recentForTarget(
-                        AuditService.TARGET_USER, userId.toString(), RECENT_AUDIT_ENTRIES));
+                        AuditService.TARGET_USER, userId.toString(), RECENT_AUDIT_ENTRIES),
+                account.bannedAt());
     }
 
     @Transactional

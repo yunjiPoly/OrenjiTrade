@@ -177,6 +177,16 @@ html {
   }
 }
 
+// Notification menu of the top-bar bell (app-notification-bell): wider than a plain menu, with
+// multi-line entries.
+.notification-menu.mat-mdc-menu-panel {
+  --mat-menu-container-color: var(--color-surface);
+
+  width: min(400px, calc(100vw - 16px));
+  max-width: none;
+  max-height: min(640px, calc(100dvh - 80px));
+}
+
 // Error toast panel (errorInterceptor) keeps the danger accent.
 .app-toast--error {
   --mat-snack-bar-button-color: var(--color-warning);

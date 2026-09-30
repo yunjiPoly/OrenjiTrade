@@ -33,7 +33,7 @@ public class DelistPolicyService {
     public static final String ACTION_UPDATE = "delist_policy.update";
     public static final String TARGET_DELIST_POLICY = "DELIST_POLICY";
 
-    static final String CACHE_KEY = "delist-policy:v1";
+    static final String CACHE_KEY = "delist-policy:v2";
 
     private final DelistPolicyRepository repository;
     private final RedisJsonCache cache;
@@ -78,9 +78,9 @@ public class DelistPolicyService {
 
     /**
      * Changes a policy's thresholds ({@code 404} for unknown ids, {@code 400} unless {@code 1 <=
-     * aging < stale < hidden <= 3650}, {@code 0 <= warn < hidden} and {@code 1 <= maxStrikes <=
-     * 100}). Audited with the previous and new values; the cache is evicted after commit. The next
-     * freshness job run applies the new thresholds.
+     * aging < stale < hidden <= 3650}, {@code 0 <= warn < hidden}, {@code 1 <= maxStrikes <= 100}
+     * and {@code 1 <= unansweredAfterHours <= 720}). Audited with the previous and new values; the
+     * cache is evicted after commit. The next freshness job run applies the new thresholds.
      */
     @Transactional
     public DelistPolicyView update(AuthenticatedUser actor, UUID id, PolicyChange change) {
@@ -106,7 +106,10 @@ public class DelistPolicyService {
                         change.warnBeforeHiddenDays(),
                         change.maxStrikes() != null ? change.maxStrikes() : previous.maxStrikes(),
                         actor.userId(),
-                        now);
+                        now,
+                        change.unansweredAfterHours() != null
+                                ? change.unansweredAfterHours()
+                                : previous.unansweredAfterHours());
         repository.update(updated, actor.userId(), now);
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("previous", thresholds(previous));
@@ -153,6 +156,10 @@ public class DelistPolicyService {
         if (change.maxStrikes() != null && (change.maxStrikes() < 1 || change.maxStrikes() > 100)) {
             errors.add(new ProblemFieldError("maxStrikes", "must be between 1 and 100"));
         }
+        if (change.unansweredAfterHours() != null
+                && (change.unansweredAfterHours() < 1 || change.unansweredAfterHours() > 720)) {
+            errors.add(new ProblemFieldError("unansweredAfterHours", "must be between 1 and 720"));
+        }
         if (change.name() != null && change.name().trim().length() > 80) {
             errors.add(new ProblemFieldError("name", "must be at most 80 characters"));
         }
@@ -166,6 +173,7 @@ public class DelistPolicyService {
         values.put("hiddenAfterDays", policy.hiddenAfterDays());
         values.put("warnBeforeHiddenDays", policy.warnBeforeHiddenDays());
         values.put("maxStrikes", policy.maxStrikes());
+        values.put("unansweredAfterHours", policy.unansweredAfterHours());
         return values;
     }
 
@@ -191,6 +199,8 @@ public class DelistPolicyService {
      * @param hiddenAfterDays first day of HIDDEN
      * @param warnBeforeHiddenDays warning lead time
      * @param maxStrikes strikes before listings are paused; unchanged when null
+     * @param unansweredAfterHours hours before a waiting conversation counts as unanswered;
+     *     unchanged when null
      */
     public record PolicyChange(
             @Nullable String name,
@@ -198,5 +208,25 @@ public class DelistPolicyService {
             int staleAfterDays,
             int hiddenAfterDays,
             int warnBeforeHiddenDays,
-            @Nullable Integer maxStrikes) {}
+            @Nullable Integer maxStrikes,
+            @Nullable Integer unansweredAfterHours) {
+
+        /** A change keeping the unanswered window. */
+        public PolicyChange(
+                @Nullable String name,
+                int agingAfterDays,
+                int staleAfterDays,
+                int hiddenAfterDays,
+                int warnBeforeHiddenDays,
+                @Nullable Integer maxStrikes) {
+            this(
+                    name,
+                    agingAfterDays,
+                    staleAfterDays,
+                    hiddenAfterDays,
+                    warnBeforeHiddenDays,
+                    maxStrikes,
+                    null);
+        }
+    }
 }

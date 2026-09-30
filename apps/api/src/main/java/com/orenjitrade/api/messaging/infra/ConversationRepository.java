@@ -246,6 +246,37 @@ public class ConversationRepository {
                 .list();
     }
 
+    /**
+     * Conversations whose last message came from the other participant between {@code from}
+     * (inclusive) and {@code to} (exclusive): one row per waiting participant, blocked pairs and
+     * SYSTEM messages excluded (Phase 7 strikes).
+     */
+    public List<WaitingRow> waitingBetween(Instant from, Instant to) {
+        return jdbc.sql(
+                        """
+                        SELECT cp.user_id, c.id AS conversation_id, c.last_message_at
+                          FROM conversation c
+                          JOIN conversation_participant cp ON cp.conversation_id = c.id
+                         WHERE c.last_message_at >= :from AND c.last_message_at < :to
+                           AND c.last_message_sender_id IS NOT NULL
+                           AND c.last_message_sender_id <> cp.user_id
+                           AND c.last_message_kind <> 'SYSTEM'
+                           AND NOT EXISTS (
+                               SELECT 1 FROM user_block ub
+                                WHERE (ub.blocker_id = cp.user_id AND ub.blocked_id = c.last_message_sender_id)
+                                   OR (ub.blocker_id = c.last_message_sender_id AND ub.blocked_id = cp.user_id))
+                        """)
+                .param("from", Timestamp.from(from))
+                .param("to", Timestamp.from(to))
+                .query(
+                        (rs, rowNum) ->
+                                new WaitingRow(
+                                        rs.getObject("user_id", UUID.class),
+                                        rs.getObject("conversation_id", UUID.class),
+                                        rs.getTimestamp("last_message_at").toInstant()))
+                .list();
+    }
+
     /** Conversation ids of an account (export). */
     public List<UUID> conversationIdsOf(UUID userId) {
         return jdbc.sql(
@@ -285,6 +316,9 @@ public class ConversationRepository {
                 lastRead == null ? null : lastRead.toInstant(),
                 rs.getInt("unread_count"));
     }
+
+    /** A participant waiting to answer since {@code since}. */
+    public record WaitingRow(UUID userId, UUID conversationId, Instant since) {}
 
     /** Result of {@link #createDirect}. */
     public record Created(UUID conversationId, boolean created) {}

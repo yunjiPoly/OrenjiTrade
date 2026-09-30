@@ -62,6 +62,44 @@ public class ActivityNotifications {
     }
 
     /**
+     * The collector's public listings were paused (Phase 7): a SYSTEM notice without the
+     * moderator's reason. Pauses of the nightly job (UNRESPONSIVE) explain how to resume; the other
+     * sources say the listings are paused pending a review. One notice per pause (dedup key with
+     * the pause time).
+     */
+    @Transactional
+    public NotifyResult listingsPaused(
+            UUID userId, String source, @Nullable Integer strikes, Instant pausedAt) {
+        Map<String, @Nullable Object> data = new LinkedHashMap<>();
+        data.put("kind", "LISTINGS_PAUSED");
+        data.put("source", source);
+        data.put("deepLink", "/inventory");
+        String title;
+        String body;
+        if ("UNRESPONSIVE".equals(source)) {
+            title = "Your public listings are paused";
+            body =
+                    (strikes == null ? "Several conversations" : strikes + " conversations")
+                            + " are waiting for your answer, so your public listings are paused."
+                            + " Reply to collectors and confirm in your inventory that you are"
+                            + " available to show your listings again.";
+        } else {
+            title = "Your public listings are paused for review";
+            body =
+                    "The moderation team is reviewing your account. Your public listings are"
+                            + " paused until the review is complete; your inventory is unchanged.";
+        }
+        return notifications.notify(
+                new NotificationRequest(
+                        userId,
+                        NotificationType.SYSTEM,
+                        title,
+                        body,
+                        data,
+                        "listings-paused:" + userId + ":" + pausedAt.toEpochMilli()));
+    }
+
+    /**
      * A private message was sent: notify the recipient unless the conversation is muted for them,
      * they already have an unread notification of this conversation, or they got one less than
      * {@link #MESSAGE_THROTTLE} ago.

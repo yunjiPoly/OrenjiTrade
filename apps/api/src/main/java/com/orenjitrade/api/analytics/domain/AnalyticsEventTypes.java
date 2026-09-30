@@ -30,5 +30,11 @@ public final class AnalyticsEventTypes {
     /** A public item matched a wishlist item (game, distance bucket, whether notified). */
     public static final String WISHLIST_MATCHED = "wishlist_matched";
 
+    /** A rating was written or edited (interaction kind, score; never the comment or ids). */
+    public static final String RATING_SUBMITTED = "rating_submitted";
+
+    /** A collector was reported (reason and context source only; never details or ids). */
+    public static final String COLLECTOR_REPORTED = "collector_reported";
+
     private AnalyticsEventTypes() {}
 }

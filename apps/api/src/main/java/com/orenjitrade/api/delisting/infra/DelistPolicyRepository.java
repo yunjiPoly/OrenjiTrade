@@ -18,7 +18,8 @@ public class DelistPolicyRepository {
 
     private static final String COLUMNS =
             "id, name, aging_after_days, stale_after_days, hidden_after_days,"
-                    + " warn_before_hidden_days, max_strikes, updated_by, updated_at, active";
+                    + " warn_before_hidden_days, max_strikes, updated_by, updated_at, active,"
+                    + " unanswered_after_hours";
 
     private final JdbcClient jdbc;
 
@@ -57,7 +58,8 @@ public class DelistPolicyRepository {
                         UPDATE delist_policy
                            SET name = :name, aging_after_days = :aging, stale_after_days = :stale,
                                hidden_after_days = :hidden, warn_before_hidden_days = :warn,
-                               max_strikes = :strikes, updated_by = :updatedBy, updated_at = :now
+                               max_strikes = :strikes, unanswered_after_hours = :unanswered,
+                               updated_by = :updatedBy, updated_at = :now
                          WHERE id = :id
                         """)
                 .param("id", policy.id())
@@ -67,6 +69,7 @@ public class DelistPolicyRepository {
                 .param("hidden", policy.hiddenAfterDays())
                 .param("warn", policy.warnBeforeHiddenDays())
                 .param("strikes", policy.maxStrikes())
+                .param("unanswered", policy.unansweredAfterHours())
                 .param("updatedBy", updatedBy)
                 .param("now", Timestamp.from(now))
                 .update();
@@ -82,6 +85,7 @@ public class DelistPolicyRepository {
                 rs.getInt("warn_before_hidden_days"),
                 rs.getInt("max_strikes"),
                 rs.getObject("updated_by", UUID.class),
-                rs.getTimestamp("updated_at").toInstant());
+                rs.getTimestamp("updated_at").toInstant(),
+                rs.getInt("unanswered_after_hours"));
     }
 }

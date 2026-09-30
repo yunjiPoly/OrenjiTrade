@@ -19,5 +19,6 @@ export interface UpdateDelistPolicyRequest {
     hiddenAfterDays: number;
     warnBeforeHiddenDays: number;
     maxStrikes?: number;
+    unansweredAfterHours?: number;
 }
 

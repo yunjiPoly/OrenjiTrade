@@ -14,6 +14,7 @@ import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.cards.domain.PrintingImage;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.common.ApiException;
+import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
@@ -28,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -214,6 +216,55 @@ public class BinderService {
         return getMine(ownerId, binderId);
     }
 
+    /**
+     * Admin unpublish (Phase 7 console "Binders"): makes any owner's binder PRIVATE (the owner may
+     * publish it again). The caller audits.
+     *
+     * @return the owner and the previous visibility; empty for unknown binders
+     */
+    @Transactional
+    public Optional<AdminUnpublished> adminUnpublish(UUID binderId) {
+        Optional<BinderView> binder = repository.findById(binderId, timeProvider.now());
+        if (binder.isEmpty()) {
+            return Optional.empty();
+        }
+        UUID ownerId = binder.get().ownerId();
+        lockOwned(ownerId, binderId);
+        repository.setVisibility(binderId, ListingVisibility.PRIVATE, null, timeProvider.now());
+        afterChange(ownerId, binderId);
+        return Optional.of(
+                new AdminUnpublished(ownerId, binder.get().visibility(), binder.get().name()));
+    }
+
+    /** Admin console list of binders (every owner, never private item notes). */
+    @Transactional(readOnly = true)
+    public PageResponse<BinderRepository.AdminRow> adminList(
+            @Nullable String query,
+            @Nullable UUID ownerId,
+            @Nullable ListingVisibility visibility,
+            int page,
+            int size) {
+        BinderRepository.AdminPage result =
+                repository.adminPage(query, ownerId, visibility, page, size, timeProvider.now());
+        return PageResponse.of(result.rows(), page, size, result.total());
+    }
+
+    /** The binder of an admin row (after a write). */
+    @Transactional(readOnly = true)
+    public Optional<BinderView> findAny(UUID binderId) {
+        return repository.findById(binderId, timeProvider.now());
+    }
+
+    /**
+     * Result of {@link #adminUnpublish}.
+     *
+     * @param ownerId the owner
+     * @param previousVisibility the visibility before
+     * @param name the binder name
+     */
+    public record AdminUnpublished(
+            UUID ownerId, ListingVisibility previousVisibility, String name) {}
+
     /** "Still available": refreshes the binder and every item in it (HIDDEN ones come back). */
     @Transactional
     public BinderDetails confirm(UUID ownerId, UUID binderId) {
@@ -309,7 +360,7 @@ public class BinderService {
 
     /** Earliest future end of the owner's temporary binder publications. */
     @Transactional(readOnly = true)
-    public java.util.Optional<Instant> nextExpiry(UUID ownerId) {
+    public Optional<Instant> nextExpiry(UUID ownerId) {
         return repository.nextExpiry(ownerId, timeProvider.now());
     }
 

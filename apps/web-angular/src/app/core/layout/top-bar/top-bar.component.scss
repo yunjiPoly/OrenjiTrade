@@ -68,6 +68,11 @@
   .top-bar__search {
     display: none;
   }
+
+  // Without the search box, the actions still sit at the end of the bar.
+  .top-bar__actions {
+    margin-left: auto;
+  }
 }
 
 // Five links fit next to the search box from 960px; drop their icons until there is room.

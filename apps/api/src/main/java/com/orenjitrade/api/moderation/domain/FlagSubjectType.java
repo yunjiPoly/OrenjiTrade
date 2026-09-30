@@ -9,6 +9,6 @@ public enum FlagSubjectType {
     MESSAGE,
     COMMUNITY_POST,
     COMMUNITY_REPLY,
-    /** An account that crossed a rate threshold. */
+    /** An account that crossed a rate threshold or the report threshold (Phase 7). */
     USER
 }
