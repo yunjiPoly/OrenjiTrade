@@ -9,7 +9,7 @@
 # stage 2 is a small, non-root JRE image. Layers change from least to most frequently so rebuilds
 # only re-upload the application layer.
 
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 
 # --- dependency cache layer -----------------------------------------------------------------
@@ -24,7 +24,7 @@ RUN ./gradlew --no-daemon --quiet bootJar -x test
 RUN java -Djarmode=tools -jar build/libs/app.jar extract --layers --destination extracted
 
 # --- runtime ---------------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 RUN addgroup -S orenji && adduser -S -G orenji -h /app orenji
 WORKDIR /app
