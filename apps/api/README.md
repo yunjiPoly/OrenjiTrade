@@ -67,6 +67,10 @@ match `docker compose`. The most relevant ones:
 | `PAYMENT_PROVIDER`, `PUSH_PROVIDER`, `EMAIL_PROVIDER` | `fake`, `log`, `log` | provider abstractions |
 | `FAKE_PAYMENTS_WEBHOOK_SECRET`, `FAKE_CHECKOUT_BASE_URL` | local value, empty | HMAC key of the fake provider's synthetic webhooks (not a secret of any service); origin prefixed to the fake checkout path `/checkout/fake/<ref>` (empty = relative) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `WEB_BASE_URL` | empty, empty, `https://www.orenjitrade.com` | only with `PAYMENT_PROVIDER=stripe` (start-up fails without the two secrets); never needed locally |
+| `BILLING_PROVIDER`, `FAKE_BILLING_WEBHOOK_SECRET` | `fake`, local value | Phase 10 subscriptions: the fake billing provider (no credentials, no money; synthetic webhooks signed with the local value) or `stripe` |
+| `STRIPE_BILLING_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM` | empty | only with `BILLING_PROVIDER=stripe` (start-up fails without `STRIPE_SECRET_KEY` and the webhook secret; the price id maps the PREMIUM plan); never needed locally |
+| `DONATION_PROVIDER`, `FAKE_DONATIONS_WEBHOOK_SECRET` | `fake`, local value | Phase 10 donations: only `fake` exists (any other value fails the start-up) |
+| `ADS_TOKEN_SECRET`, `ADS_WEB_BASE_URL` | `local-ads-token-secret` (refused outside `local`/`test`/`dev`), `http://localhost:4200` | HMAC key of the ad serve tokens (impressions and clicks); origin of relative house-ad landing paths on click redirects |
 | `ML_SERVICE_URL`, `ML_SERVICE_TIMEOUT_MS` | `http://localhost:8000`, `1500` | optional ML service |
 | `RATE_LIMIT_DEFAULT_PER_MINUTE`, `RATE_LIMIT_ANONYMOUS_PER_MINUTE` | `120`, `60` | default rate limits (per user / per IP) |
 
@@ -308,8 +312,8 @@ four mock catalogs through `CatalogImportService` (idempotent; one sync run per 
 - Admin writes are per resource: `PUT /admin/feature-flags/{key}`, `PUT /admin/plans/{code}`,
   `PUT /admin/usage-limits/{id}`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` (the contract
   names the collections `GET/PUT /admin/plans`, `/admin/usage-limits`, "grant/revoke").
-- `GET /me/plan` has no `subscription` yet (Phase 10) and adds `features`, `upgradeUrl`; limit entries
-  add `kind`, `window`, `remaining`, `allowed`, `overridden`, `planCode`.
+- `GET /me/plan` adds `features`, `upgradeUrl` and (since Phase 10) the live `subscription`; limit
+  entries add `kind`, `window`, `remaining`, `allowed`, `overridden`, `planCode`.
 - `SetDetail` is `{set, metadata, printings: PageResponse}`; `PrintingDetail` is `{printing, card, set,
   metadata}`; `PrintingSummary.marketPrice` is `{amount, currency, updatedAt}`; `CardSuggestion` adds
   `kind` and `printingId`.
@@ -1141,6 +1145,153 @@ retention of financial records.
 - Dispute evidence files are served by the API (`/disputes/{id}/evidence/{evidenceId}/file`), never by
   a signed URL (cloud storage work deferred).
 
+## Subscriptions, credits, ads, donations (Phase 10)
+
+Contract: `docs/api/contracts/phase10-freemium-credits-ads-donations.md` (ADR 0011 pattern for the
+providers, ADR 0014 for every number). Built on the Phase 2 plans/limits/entitlements foundation
+(V011). Modules: `billing` (subscriptions next to plans), `credits`, `ads`, `donations`. Migrations
+V090–V093. Every provider is a local fake by default; nothing needs cloud or payment credentials.
+Feature flags: `premiumPlans` (checkout and the fake billing checkout), `credits` (member credit and
+referral routes), `advertising` (`GET /ads` answers `[]` when off), `donations` (member routes, the
+donation webhook and the supporters list); member routes answer `404 FEATURE_DISABLED` (extension
+`feature`) when off, admin routes stay available. Live subscriptions (cancel, webhooks, the period
+job) work whatever `premiumPlans` says.
+
+| Route | Who | Notes |
+| --- | --- | --- |
+| `GET /api/v1/me/plan` | member | adds `subscription` (the live one: PENDING checkout, TRIAL, ACTIVE, PAST_DUE; absent otherwise) |
+| `POST /api/v1/me/subscription/checkout` | member | `{planCode, provider?}` → `{subscription, url, clientSecret, resumed}`; paid, active plans only (400 for FREE/unknown); `provider` must be the active one (apple/google → 400, use the mobile-receipt route); an open checkout of the same plan is answered again (`resumed`), one of another plan abandoned; 409 `ALREADY_SUBSCRIBED` (`subscriptionId`, `currentStatus`) while entitled |
+| `POST /api/v1/me/subscription/cancel` | member | optional `{atPeriodEnd}` (default true: `cancelAtPeriodEnd`, the plan stays until `currentPeriodEnd`; false: CANCELLED and FREE at once); an open checkout is abandoned; idempotent; 404 without a live subscription |
+| `POST /api/v1/me/subscription/mobile-receipt` | member | reserved for App Store / Google Play receipts: 501 `NOT_IMPLEMENTED` |
+| `GET /api/v1/billing/fake/{ref}`, `POST .../confirm` | member (own checkout) | fake provider only (404 otherwise): what `/checkout/fake-billing/<ref>` shows; `{outcome: SUCCEEDED\|FAILED}` emits a signed synthetic `checkout.completed` / `checkout.failed` through the webhook pipeline (202; poll `GET /me/plan`); 409 unless PENDING |
+| `POST /api/v1/webhooks/billing/{provider}` | provider (no token) | `X-Fake-Signature` / `Stripe-Signature` (Stripe format, 5-minute tolerance); bad signature → 400 `WEBHOOK_SIGNATURE_INVALID`, stored IGNORED; verified events stored in `billing_webhook_event`, deduplicated by provider event id (`duplicate: true`), applied after commit (`BillingWebhookReceived`); 404 for another provider; 413 above 256 KB; 600/min per IP |
+| `POST /internal/jobs/subscriptions-period` | service auth | hourly (`SubscriptionPeriodScheduler` under `local`): cancellations at the period end take effect (CANCELLED, FREE); fake subscriptions renew through a synthetic signed `subscription.renewed`; real-provider subscriptions without a renewal expire after `orenji.billing.renewal-grace` (3 days); `job_run` |
+| `GET /api/v1/admin/subscriptions?status=&plan=&userId=`, `/{id}`, `POST /{id}/cancel` | ADMIN | list (with handles), detail with history and linked webhooks (payload included), cancel `{immediately, reason}` (audited `subscription.cancel`, the reason is not stored) |
+| `GET /api/v1/me/credits?cursor=&limit=` | member | `{balance, entries: CursorPage, products, withdrawable: false, transferable: false}`; entries without admin notes |
+| `POST /api/v1/me/credits/spend` | member | `{featureKey (a credit product key), idempotencyKey}` → SPEND entry + `CREDIT_PURCHASE` entitlement for `duration_hours` (stacked after an active one); a retry answers the original (`duplicate: true`); the key reused for another product 409 `CONFLICT`; 409 `INSUFFICIENT_CREDITS` (`balance`, `cost`) |
+| `GET /api/v1/me/referrals`, `POST /api/v1/me/referrals/redeem` | member | the caller's code (created on first read), rewards and redemption window; redeem `{code}` (case, spaces and dashes ignored): both earn credits once; 404 unknown code; 409 `REFERRAL_NOT_ALLOWED` with `reason` SELF / ALREADY_REDEEMED / ACCOUNT_TOO_OLD / REFERRER_LIMIT |
+| `POST /api/v1/admin/credits/grant` | ADMIN | `{userId, amount (±, not 0, ≤ 100000), reason ADMIN\|PROMO\|REWARD\|CORRECTION, note}`: positive GRANT, negative ADJUST (never below 0); audited `credits.grant` |
+| `GET /api/v1/admin/credits/ledger?userId=`, `/products`, `/settings` | ADMIN | ledger pages (with notes and balance), products, referral settings |
+| `PUT /api/v1/admin/credits/products/{key}`, `PUT /api/v1/admin/credits/settings` | SUPER_ADMIN | product name, value, cost, duration, availability (audited `credits.product.update`); referral rewards and limits (audited `credits.settings.update`) |
+| `POST /internal/jobs/credits-reconcile` | service auth | hourly (`CreditReconcileScheduler` under `local`): repairs cached balances that differ from `SUM(amount)`, reports accounts whose latest `balance_after` differs (ERROR `credits.ledger.mismatch`, never edits the ledger) |
+| `GET /api/v1/ads?placement=&game=&geoCell=` | public (token optional) | `[]` while `advertising` is off for the caller or `ads.enabled` is false (PREMIUM, entitlement); otherwise up to the placement's `max_ads` ads `{creativeId, placement, sponsored: true, label: "Sponsored", advertiser, headline, body, imageUrl, ctaLabel, clickUrl, impressionToken}`; `Cache-Control: no-store` |
+| `POST /api/v1/ads/{creativeId}/impression` | public | `{token}` → 204; once per serve token (24 h); 400 for a token of another creative, forged or expired |
+| `GET /api/v1/ads/{creativeId}/click?token=` | public | 302 to the landing page (relative house-ad paths are sent to `ADS_WEB_BASE_URL`); a valid token records the click once; 404 unknown creative |
+| `/api/v1/admin/ads/advertisers[/{id}]`, `/placements[/{key}]`, `/campaigns[/{id}]`, `/campaigns/{id}/targeting`, `/campaigns/{id}/creatives`, `/creatives/{id}`, `/campaigns/{id}/stats?from=&to=` | ADMIN | CRUD with validation (URLs https or site paths, targeting values checked, no coordinates), stats (totals, CTR in percent, derived spend, remaining budget, daily rows); every write audited (`ads.advertiser.*`, `ads.campaign.*`, `ads.targeting.update`, `ads.creative.*`, `ads.placement.update`) |
+| `POST /internal/ads/clicks/{clickId}/conversions` | service auth | `{kind SIGNUP\|PURCHASE\|OTHER, value?, currency?}`, once per click and kind |
+| `POST /api/v1/donations/checkout` | member | `{amount, currency, message?, publicThanks?}` → 201 `{donation, url}` (fake: `/checkout/fake-donation/<ref>`); amounts and currencies from `donations.*` settings (400 otherwise); labelled "Voluntary support" |
+| `GET /api/v1/me/donations`, `GET /api/v1/donations/fake/{ref}`, `POST .../confirm` | member | history; the fake checkout (own donations only) emits a signed synthetic `donation.succeeded` / `donation.failed` (202) |
+| `POST /api/v1/webhooks/donations/{provider}` | provider (no token) | like the billing webhooks (`donation_webhook_event`); 404 FEATURE_DISABLED while donations is off for everybody |
+| `GET /api/v1/public/donations/supporters?limit=` | public | display names (and month) of active donors who chose `publicThanks`; never amounts, notes or handles |
+| `GET /api/v1/admin/donations?status=`, `/{id}`, `/settings`; `POST /{id}/refund`, `PUT /settings` | ADMIN reads; SUPER_ADMIN refunds and settings | totals per currency, detail with webhooks; refund audited `donation.refund`; settings audited `donations.settings.update` |
+
+### Subscriptions
+
+`BillingProvider` (`billing/domain`): `startCheckout`, `cancel(ref, atPeriodEnd)`, `parseWebhook`.
+`FakeBillingProvider` (default, `BILLING_PROVIDER=fake`): `fake_cs_…` checkouts at the web path
+`/checkout/fake-billing/<ref>`, `fake_sub_…` subscriptions, 30-day periods, synthetic webhooks
+signed with `FAKE_BILLING_WEBHOOK_SECRET` (`checkout.completed`, `checkout.failed`,
+`subscription.renewed`, `invoice.payment_failed`, `subscription.cancelled`).
+`StripeBillingProvider` (only with `BILLING_PROVIDER=stripe`): Checkout Sessions in subscription
+mode with the plan's Stripe price (`STRIPE_PRICE_PREMIUM`), `cancel_at_period_end` or `DELETE
+/v1/subscriptions/{id}`, webhooks `checkout.session.completed` / `.expired`, `invoice.paid` (period
+of the first line), `invoice.payment_failed`, `customer.subscription.deleted`; compile- and
+unit-tested only (`StripeBillingProviderTest`). An entitling subscription (TRIAL, ACTIVE, PAST_DUE)
+sets `user_account.plan_code` to its plan and grants PREMIUM_USER (`UserAccountService.applyPlan`),
+so limits, features and ads follow at once; its end sets FREE and revokes the role. States: PENDING
+(checkout open) → ACTIVE (webhook) → PAST_DUE (failed renewal, plan kept) → CANCELLED / EXPIRED;
+one live subscription per account (partial unique index, per-account advisory lock). Every change
+appends `subscription_event` and publishes `SubscriptionChanged` (statuses and plan only). A payment
+arriving for an abandoned checkout is cancelled at the provider at once.
+
+### Credits
+
+`CreditLedger`: entries appended under a transaction-scoped advisory lock per account (`balance_after`
+= running sum, never negative), idempotent by a unique `idempotency_key`
+(`spend:<userId>:<client key>`, `referral:<redemptionId>:referrer|referee`, `admin:<uuid>`,
+`seed:…`). The database refuses UPDATE, DELETE and TRUNCATE (trigger
+`credit_ledger_entry_append_only`). Balance = `SUM(amount)` (view `credit_balance`), cached in Redis
+`orenji:credits:balance:<userId>` (10 minutes, evicted after every committed entry; spends always sum
+under the lock). Credits are never bought, withdrawn or transferred through the API. Credit products
+(`premium_search_day` 50 → `filters.advanced` 24 h, `binder_views_day` 30 → unlimited binder views
+24 h, `map_radius_day` 30 → 100 km radius 24 h) and referral settings (`credits.*`: 100 / 50 credits,
+30-day window, 50 redemptions per code) are data.
+
+### Ads
+
+`AdService` builds an `AdContext` from public values only — the requested `game` and `geoCell`, the
+viewer's public grid cell and region label (`LocationService.publicLocationOf`), interest games and
+tag slugs (`ProfileService.publicPartsOf`), the plan code (`ANONYMOUS` signed out) — and a
+pseudonymous viewer hash (the analytics `ActorHasher`). `InternalCampaignAdProvider` keeps ACTIVE
+creatives of the placement whose ACTIVE campaign (inside its schedule, advertiser ACTIVE) matches the
+targeting rules (kinds AND, values OR; REGION_LABEL matches the label, one of its comma-separated
+parts or the city of "Downtown X" / "Near X", accent-insensitive), respects the per-viewer daily
+frequency cap and passes `AdPacing` (total budget covers the next unit; daily budget or the
+remainder spread evenly until `end_at`; intraday pacing = daily × elapsed fraction + 10 %
+allowance), ranks by priority, then pace, then randomly, one creative per campaign. Spend is derived
+from `ad_campaign_daily` (CPM bid × impressions / 1000, CPC bid × clicks, FLAT = the flat fee once
+served). Serve tokens (`AdToken`, HMAC with `ADS_TOKEN_SECRET`) name the creative, placement, public
+cell, viewer hash, time and a nonce; impressions and clicks are unique per nonce. The ads module
+never reads `user_location` (checked by `AdsTargetingIT`). A future `ExternalNetworkAdProvider` plugs
+in behind `AdProvider`.
+
+### Donations
+
+`DonationProvider` with `FakeDonationProvider` (`fake_dn_…` checkouts at `/checkout/fake-donation/<ref>`,
+synthetic `donation.succeeded` / `donation.failed` / `donation.refunded` webhooks signed with
+`FAKE_DONATIONS_WEBHOOK_SECRET`, immediate idempotent refunds). Nothing in ratings, search ranking or
+trust reads donations.
+
+### Seed (Phase 10)
+
+"subscriptions" (order 670): `premium_user` ACTIVE fake subscription `…a000…0001` (30 days from the
+first seeding, renewed by the local job). "credits" (671): collector1 200 welcome credits and the code
+`COLLECTOR1`, collector8 redeemed it (`…a100…0001`: 50 / 100 credits), premium_user 500 credits.
+"ads" (672): fictional advertiser "Maple Sleeve Co." (`partners@maplesleeve.example`) with "Matte
+sleeves (spring)" (CPM, GAME pokemon/yugioh, SEARCH_SPONSORED + MAP_PANEL) and "Harbour deck boxes
+(Montréal)" (CPC, REGION_LABEL Montréal, INVENTORY_SIDEBAR + COLLECTOR_PROFILE), and the house ad
+"OrenjiTrade Premium" (FLAT, PLAN FREE/ANONYMOUS, MAP_PANEL + MOBILE_FEED, landing `/premium`).
+"donations" (673): collector2 25.00 CAD with public thanks, collector5 10.00 CAD without. All inserted
+once; the local seed enables `advertising` and `donations` (Phase 2 `FeatureFlagSeedContributor`).
+
+### Account data
+
+Export sections `subscriptions` (plan, status, provider, price, dates), `credits` (balance, entries
+without admin notes, referral code and redemptions) and `donations` (amounts, statuses, the donor's
+own note and public-thanks choice). A deletion request stops renewals (cancel at the period end); the
+purge ends the live subscription at once, deletes the referral code (the ledger stays, as ledgers do)
+and erases donation notes and public thanks (the rows stay as financial records).
+
+### Deviations from the Phase 10 contract
+
+- Subscription states add `PENDING` (checkout open, not yet paid); `subscription` adds `checkout_ref`,
+  `checkout_url`, `amount`, `currency`, `current_period_start`, `cancel_requested_at`,
+  `activated_at`, `ended_at`, `failure_code`, `version`; new `subscription_event` and
+  `billing_webhook_event`. Webhooks live at `/api/v1/webhooks/billing/{provider}`.
+- The checkout answers `{subscription, url, clientSecret, resumed}`; the fake checkout adds `GET
+  /billing/fake/{ref}` and `POST /billing/fake/{ref}/confirm`. Admin subscriptions add `GET /{id}` and
+  `POST /{id}/cancel`. The subscription plan is set through `user_account.plan_code` (+ PREMIUM_USER),
+  not through `SUBSCRIPTION` entitlements.
+- `credit_ledger_entry` adds `balance_after`, `details` (jsonb), `note`, `seq`; `credit_balance` is a
+  plain view (not materialised) read through a Redis cache. `POST /me/credits/spend` takes a credit
+  product key as `featureKey`; products live in the new `credit_product` table. Referral routes add
+  `GET /me/referrals`; `referral_redemption` records redemptions. Admin credits add products and
+  settings; referral numbers are `platform_settings` rows `credits.*`.
+- Advertising tables are prefixed (`ad_placement`, `ad_campaign`, `ad_creative`,
+  `ad_targeting_rule`) and add `advertiser.created_by`, `ad_campaign.bid_amount`, `priority`,
+  `frequency_cap_per_day`, `version`, `ad_placement.max_ads`, `ad_impression.serve_id`, `campaign_id`,
+  `ad_click.impression_id`, and the counter table `ad_campaign_daily`; the ad user is a pseudonymous
+  hash (`user_hash`). Impressions need the serve token (`{token}` body); clicks take `?token=`.
+  Conversions arrive through `POST /internal/ads/clicks/{clickId}/conversions`.
+- Donations add `GET /me/donations`, the fake checkout routes, admin routes and `donations.*` settings;
+  the supporters list is `{label, note, supporters: [{displayName, month}]}`. Only the fake donation
+  provider exists (a Stripe Checkout adapter is future work; any other `DONATION_PROVIDER` fails the
+  start-up).
+- Additive error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED` (409) and
+  `NOT_IMPLEMENTED` (501); problem extensions `subscriptionId`, `currentStatus`, `balance`, `cost`,
+  `reason`.
+
+
 ## Build, format, test
 
 ```bash
@@ -1216,7 +1367,13 @@ and `V063__analytics_daily_count.sql` (`analytics_daily_count`). Phase 8 adds `V
 `V071__trades.sql` (`trade`, `trade_event`). Phase 9 adds `V080__payments.sql` (`platform_settings`
 with the `payments.*` rows, `seller_account`, `payment`, `payment_event`, `payment_refund`,
 `payment_webhook_event`) and `V081__shipments_disputes.sql` (`shipment`, `dispute`,
-`dispute_evidence`, `dispute_event`, `dispute_message`, `dispute_note`).
+`dispute_evidence`, `dispute_event`, `dispute_message`, `dispute_note`). Phase 10 adds
+`V090__subscriptions.sql` (`subscription`, `subscription_event`, `billing_webhook_event`),
+`V091__credits.sql` (append-only `credit_ledger_entry` with its trigger, the `credit_balance` view,
+`credit_product`, `referral_code`, `referral_redemption`, `credits.*` settings),
+`V092__advertising.sql` (`advertiser`, `ad_placement`, `ad_campaign`, `ad_creative`,
+`ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily`) and
+`V093__donations.sql` (`donation`, `donation_webhook_event`, `donations.*` settings).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -1247,7 +1404,8 @@ com.orenjitrade.api
 ├── cards/       sets, cards, printings, images, CardProvider + MockCardProvider, idempotent
 │                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
 ├── featureflags/ feature_flag, FeatureFlags (Redis cache), public + admin endpoints
-├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements)
+├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements),
+│                subscriptions: BillingProvider (fake / Stripe Billing), webhooks, period job (Phase 10)
 ├── delisting/   delist_policy, FreshnessPolicy / FreshnessLabels, freshness event log, delist job
 │                (strikes), listing pauses (user_responsiveness), /admin/delist-policies
 ├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
@@ -1269,8 +1427,11 @@ com.orenjitrade.api
 ├── payments/    PaymentProvider (fake / Stripe Connect), seller accounts, protected checkout,
 │                webhooks, shipping, receipt, payouts, refunds, disputes, auto-release job,
 │                admin transactions / disputes / payments / webhooks / settings (Phase 9)
-└── credits donations ads
-                                                          (documented in each package-info.java)
+├── credits/     append-only credit ledger, balance cache + reconcile job, credit products,
+│                referral codes, admin grants (Phase 10)
+├── ads/         AdProvider + InternalCampaignAdProvider (targeting, pacing), signed serve tokens,
+│                impressions / clicks / conversions, admin campaigns + stats (Phase 10)
+└── donations/   DonationProvider (fake), donations, webhooks, supporters list, admin (Phase 10)
 ```
 
 Inside a module: `api/` (controllers + DTOs), `domain/`, `infra/`, `events/`. Entities never leave a

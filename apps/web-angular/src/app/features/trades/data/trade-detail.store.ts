@@ -1,14 +1,38 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TradeResponse, TradesService } from '@orenji/api-client';
+import {
+  Dispute,
+  OpenDisputeRequest,
+  PaymentsService,
+  ProtectedPayment,
+  ShipTradeRequest,
+  TradeResponse,
+  TradesService,
+} from '@orenji/api-client';
 import { Observable, Subscription, filter, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
 import { NotificationCenter } from '../../../core/notifications/notification-center.service';
 import { RealtimeService } from '../../../core/realtime/realtime.service';
 import { offerProblem } from '../../../shared/offers/offer-problems';
+import { paymentProblem } from '../../../shared/payments/payment-problems';
 
-export type TradeOperation = 'MARK_MEETUP' | 'CONFIRM_COMPLETION' | 'CANCEL';
+export type TradeOperation =
+  | 'MARK_MEETUP'
+  | 'CONFIRM_COMPLETION'
+  | 'CANCEL'
+  | 'PAY'
+  | 'SHIP'
+  | 'CONFIRM_RECEIPT'
+  | 'OPEN_DISPUTE';
+
+/** Operations of payment protection (Phase 9): refusals are worded by `paymentProblem`. */
+const PROTECTED_OPERATIONS = new Set<TradeOperation>([
+  'PAY',
+  'SHIP',
+  'CONFIRM_RECEIPT',
+  'OPEN_DISPUTE',
+]);
 export type TradePageStatus = 'loading' | 'ready' | 'not-found' | 'error';
 
 export interface TradeNotice {
@@ -18,14 +42,17 @@ export interface TradeNotice {
 
 /**
  * `/trades/:id`: one trade with its timeline and next action. Operations (mark the meetup,
- * confirm the exchange, cancel with a reason) are only offered from `allowedOperations`; a
- * refusal (409 INVALID_STATE_TRANSITION, ITEM_UNAVAILABLE…) is explained and the trade re-read.
- * TRADE_UPDATE notifications of this trade and realtime reconnections re-read it. Provided by
- * the trade page.
+ * confirm the exchange, cancel with a reason, and with payment protection: pay, ship, confirm
+ * receipt, open a dispute) are only offered from `allowedOperations`; a refusal
+ * (409 INVALID_STATE_TRANSITION, ITEM_UNAVAILABLE, SELLER_NOT_ONBOARDED, DISPUTE_WINDOW_CLOSED…)
+ * is explained and the trade re-read when it changed. Notifications about this trade
+ * (TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) and realtime reconnections
+ * re-read it. Provided by the trade page.
  */
 @Injectable()
 export class TradeDetailStore {
   private readonly api = inject(TradesService);
+  private readonly payments = inject(PaymentsService);
   private readonly center = inject(NotificationCenter);
   private readonly realtime = inject(RealtimeService);
   private readonly destroyRef = inject(DestroyRef);
@@ -94,6 +121,11 @@ export class TradeDetailStore {
     this.noticeState.set(null);
   }
 
+  /** Shows a message about this trade (e.g. after the checkout page sent the buyer back). */
+  showNotice(notice: TradeNotice): void {
+    this.noticeState.set(notice);
+  }
+
   async refresh(): Promise<void> {
     const id = this.id;
     if (!id || this.statusState() !== 'ready') {
@@ -129,10 +161,73 @@ export class TradeDetailStore {
     );
   }
 
-  private async act(
+  /**
+   * Starts (or resumes) the protected checkout; resolves where to pay. The trade stays
+   * AWAITING_PAYMENT until the provider secures the payment, so the page moves on to the checkout.
+   */
+  /**
+   * Starts (or resumes) the protected checkout; resolves where to pay. The trade stays
+   * AWAITING_PAYMENT until the provider secures the payment, so the page moves on to the checkout.
+   */
+  pay(): Promise<ProtectedPayment | null> {
+    return this.run('PAY', (trade) =>
+      firstValueFrom(
+        this.payments.payTrade({ id: trade.id }, 'body', false, { context: silentErrors() }),
+      ),
+    );
+  }
+
+  ship(request: ShipTradeRequest): Promise<TradeResponse | null> {
+    return this.act('SHIP', (trade) =>
+      this.payments.shipTrade({ id: trade.id, shipTradeRequest: request }, 'body', false, {
+        context: silentErrors(),
+      }),
+    );
+  }
+
+  confirmReceipt(): Promise<TradeResponse | null> {
+    return this.act('CONFIRM_RECEIPT', (trade) =>
+      this.payments.confirmTradeReceipt({ id: trade.id }, 'body', false, {
+        context: silentErrors(),
+      }),
+    );
+  }
+
+  /** Opens a dispute; resolves it (the page goes to `/disputes/:id`) or `null` when refused. */
+  openDispute(request: OpenDisputeRequest): Promise<Dispute | null> {
+    return this.run('OPEN_DISPUTE', (trade) =>
+      firstValueFrom(
+        this.payments.openTradeDispute(
+          { id: trade.id, openDisputeRequest: request },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
+      ),
+    );
+  }
+
+  /** An operation answering the updated trade, shown with a success notice. */
+  private act(
     operation: TradeOperation,
     call: (trade: TradeResponse) => Observable<TradeResponse>,
   ): Promise<TradeResponse | null> {
+    return this.run(operation, async (trade) => {
+      const updated = await firstValueFrom(call(trade));
+      this.show(updated);
+      this.noticeState.set({ tone: 'success', message: this.successMessage(operation, updated) });
+      return updated;
+    });
+  }
+
+  /**
+   * Runs one operation at a time: resolves its answer, or `null` when it was refused (the
+   * refusal is explained in the notice and the trade re-read when it changed).
+   */
+  private async run<T>(
+    operation: TradeOperation,
+    call: (trade: TradeResponse) => Promise<T>,
+  ): Promise<T | null> {
     const trade = this.tradeState();
     if (!trade || this.busyState()) {
       return null;
@@ -140,12 +235,12 @@ export class TradeDetailStore {
     this.busyState.set(operation);
     this.noticeState.set(null);
     try {
-      const updated = await firstValueFrom(call(trade));
-      this.show(updated);
-      this.noticeState.set({ tone: 'success', message: this.successMessage(operation, updated) });
-      return updated;
+      return await call(trade);
     } catch (error) {
-      const problem = offerProblem(toApiError(error), this.otherName(), 'trade');
+      const apiError = toApiError(error);
+      const problem = PROTECTED_OPERATIONS.has(operation)
+        ? paymentProblem(apiError, this.otherName())
+        : offerProblem(apiError, this.otherName(), 'trade');
       this.noticeState.set({ tone: 'warning', message: problem.message });
       if (problem.reload) {
         await this.refresh();
@@ -169,6 +264,14 @@ export class TradeDetailStore {
           : `You confirmed the exchange. Waiting for ${other} to confirm.`;
       case 'CANCEL':
         return `Trade cancelled. ${other} was notified.`;
+      case 'SHIP':
+        return `Marked as shipped. ${other} was notified and can follow the tracking.`;
+      case 'CONFIRM_RECEIPT':
+        return trade.status === 'COMPLETED'
+          ? `Receipt confirmed: the payout was released to ${other}. You can now rate them.`
+          : 'Receipt confirmed. The payout is on its way to the seller.';
+      default:
+        return 'Done.';
     }
   }
 

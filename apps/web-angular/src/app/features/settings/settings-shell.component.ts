@@ -1,13 +1,16 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { SessionService } from '../../core/auth/session.service';
+import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { AvatarComponent } from '../../shared/ui/avatar/avatar.component';
 
 interface SettingsLink {
   path: string;
   label: string;
   icon: string;
+  /** Shown only while this feature flag is on. */
+  feature?: string;
 }
 
 export const SETTINGS_LINKS: readonly SettingsLink[] = [
@@ -16,6 +19,12 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
   { path: 'notifications', label: 'Notifications', icon: 'notifications' },
   { path: 'trading-area', label: 'Trading area', icon: 'location_on' },
   { path: 'offers', label: 'Offers', icon: 'local_offer' },
+  {
+    path: 'payouts',
+    label: 'Payouts',
+    icon: 'account_balance',
+    feature: FEATURE.protectedPayments,
+  },
   { path: 'blocked', label: 'Blocked users', icon: 'block' },
   { path: 'reports', label: 'My reports', icon: 'flag' },
   { path: 'account', label: 'Account', icon: 'manage_accounts' },
@@ -48,7 +57,7 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
 
       <div class="settings__layout">
         <nav class="settings__nav" aria-label="Settings sections">
-          @for (link of links; track link.path) {
+          @for (link of links(); track link.path) {
             <a
               class="settings__link"
               [routerLink]="link.path"
@@ -140,5 +149,8 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
 })
 export class SettingsShellComponent {
   protected readonly session = inject(SessionService);
-  protected readonly links = SETTINGS_LINKS;
+  private readonly flags = inject(FeatureFlagsService);
+  protected readonly links = computed(() =>
+    SETTINGS_LINKS.filter((link) => !link.feature || this.flags.enabled(link.feature)()),
+  );
 }

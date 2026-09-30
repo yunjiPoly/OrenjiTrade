@@ -763,6 +763,113 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    @Test
+    void subscriptionsCreditsAdsAndDonationsNeverCarryCoordinates(CapturedOutput output) {
+        String premium = "seed-premium-user:premium@orenjitrade.test";
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        String subscription = "00000000-0000-4000-a000-000000000001";
+        String sleeves = "00000000-0000-4000-a200-000000000101";
+
+        List<JsonNode> documents = new ArrayList<>();
+        List<JsonNode> ads = new ArrayList<>();
+        testUsers.update(
+                "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key IN"
+                        + " ('advertising', 'donations')");
+        featureFlags.invalidate();
+        try {
+            documents.add(callJson(HttpMethod.GET, "/api/v1/me/plan", premium, null, 200));
+            documents.add(callJson(HttpMethod.GET, "/api/v1/me/credits", collector1, null, 200));
+            documents.add(callJson(HttpMethod.GET, "/api/v1/me/referrals", collector1, null, 200));
+            documents.add(callJson(HttpMethod.GET, "/api/v1/me/donations", collector2, null, 200));
+            documents.add(
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/public/donations/supporters",
+                            null,
+                            null,
+                            200));
+            for (String placement :
+                    List.of(
+                            "SEARCH_SPONSORED",
+                            "MAP_PANEL",
+                            "INVENTORY_SIDEBAR",
+                            "COLLECTOR_PROFILE",
+                            "MOBILE_FEED")) {
+                for (String viewer : new String[] {null, collector1}) {
+                    ads.add(
+                            callJson(
+                                    HttpMethod.GET,
+                                    "/api/v1/ads?placement=" + placement + "&game=pokemon",
+                                    viewer,
+                                    null,
+                                    200));
+                }
+            }
+            assertThat(
+                            callJson(
+                                            HttpMethod.GET,
+                                            "/api/v1/ads?placement=MAP_PANEL",
+                                            premium,
+                                            null,
+                                            200)
+                                    .size())
+                    .as("no ads for PREMIUM")
+                    .isZero();
+        } finally {
+            testUsers.update(
+                    "UPDATE feature_flag SET enabled = false WHERE key IN ('advertising',"
+                            + " 'donations')");
+            featureFlags.invalidate();
+        }
+        for (String path :
+                List.of(
+                        "/api/v1/admin/subscriptions?size=100",
+                        "/api/v1/admin/subscriptions/" + subscription,
+                        "/api/v1/admin/credits/ledger?size=100",
+                        "/api/v1/admin/credits/products",
+                        "/api/v1/admin/credits/settings",
+                        "/api/v1/admin/ads/advertisers",
+                        "/api/v1/admin/ads/placements",
+                        "/api/v1/admin/ads/campaigns?size=100",
+                        "/api/v1/admin/ads/campaigns/" + sleeves,
+                        "/api/v1/admin/ads/campaigns/" + sleeves + "/stats",
+                        "/api/v1/admin/donations?size=100",
+                        "/api/v1/admin/donations/settings")) {
+            documents.add(callJson(HttpMethod.GET, path, SEED_ADMIN, null, 200));
+        }
+        assertThat(documents.get(0).path("subscription").path("status").asString())
+                .isEqualTo("ACTIVE");
+        assertThat(documents.get(1).path("balance").asLong()).isGreaterThanOrEqualTo(300);
+        assertThat(documents.get(4).path("supporters").size()).isPositive();
+        assertThat(documents.get(4).toString())
+                .doesNotContain("25.00")
+                .doesNotContain("Keep the local trade nights going");
+        assertThat(ads.stream().mapToInt(JsonNode::size).sum())
+                .as("seeded campaigns serve")
+                .isPositive();
+        documents.addAll(ads);
+        for (JsonNode document : documents) {
+            assertPublicListing(document, "phase 10 document");
+            assertThat(document.toString())
+                    .as("provider references never reach members or admin lists")
+                    .doesNotContain("fake_sub_")
+                    .doesNotContain("fake_acct_")
+                    .doesNotContain("user_hash")
+                    .doesNotContain("userHash");
+        }
+        for (JsonNode list : ads) {
+            for (JsonNode ad : list) {
+                assertThat(ad.path("label").asString()).isEqualTo("Sponsored");
+            }
+        }
+
+        String logs = output.getAll();
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
     /** At most 3 decimals, no private location keys, no private notes. */
     private static void assertSearchDocument(JsonNode document, String context) {
         assertOnlyPublicPrecision(document, context);

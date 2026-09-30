@@ -104,6 +104,12 @@ import { OfferHistoryComponent } from './offer-history.component';
                   [tone]="status().tone"
                 />
                 <span class="op__pill">{{ kindLabel() }}</span>
+                @if (offer.protectionRequested) {
+                  <span class="op__pill op__pill--protected">
+                    <mat-icon aria-hidden="true">verified_user</mat-icon>
+                    Payment protection
+                  </span>
+                }
                 @if (round() > 1) {
                   <span class="op__pill">Round {{ round() }}</span>
                 }
@@ -287,6 +293,13 @@ import { OfferHistoryComponent } from './offer-history.component';
       width: 14px;
       height: 14px;
       font-size: 14px;
+    }
+    .op__pill--protected {
+      background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+      color: var(--color-ink);
+    }
+    .op__pill--protected mat-icon {
+      color: var(--color-success);
     }
     .op__notice,
     .op__banner {

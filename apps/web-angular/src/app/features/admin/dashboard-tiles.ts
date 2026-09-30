@@ -96,18 +96,18 @@ export function adminDashboardTiles(d: AdminDashboard): DashboardTile[] {
       label: 'Open disputes',
       icon: 'gavel',
       value: d.openDisputes,
-      hint: 'Payment protection arrives in Phase 9',
+      hint: 'Payouts on hold until an admin decides',
       alert: d.openDisputes > 0,
-      link: null,
+      link: { path: '/admin/disputes', query: { status: 'OPEN' } },
     },
     {
       id: 'webhooks',
       label: 'Webhook failures (24 h)',
       icon: 'webhook',
       value: d.webhookFailures24h,
-      hint: 'Payment webhooks arrive in Phase 9',
+      hint: 'Refused signatures or failed processing',
       alert: d.webhookFailures24h > 0,
-      link: null,
+      link: { path: '/admin/payments/webhooks', query: { status: 'FAILED' } },
     },
   ];
 }

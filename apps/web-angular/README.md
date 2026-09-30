@@ -507,7 +507,7 @@ Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviat
 - **Trades** `/trades?status=` (`TradesListStore`) and `/trades/:id` (`TradeDetailStore`): the
   next-action banner (`nextAction` in words, the viewer's operations as buttons from
   `allowedOperations`: "We meet in person" (`/meetup`), "Confirm the exchange" (`/complete`,
-  with a confirmation), Message; payment and shipping steps are only named until Phase 9),
+  with a confirmation), Message; the payment-protection steps are described under Phase 9),
   progress with both parties' meetup marks and confirmations, the deal, the other collector,
   the timeline and Cancel trade (required reason). Completed trades offer "Rate <name>" (the
   TRADE interaction through `RatingActionsService`; the profile's ratings section offers it too)
@@ -525,6 +525,81 @@ Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviat
   account menu lists Offers and Trades.
 - Deviation: the Problem Details extensions `latestOfferId`, `offerId` and `currentStatus` are
   not declared by the generated `ProblemDetail`; `problemExtension()` reads them defensively.
+
+## Payment protection and disputes (Phase 9)
+
+Contract: `docs/api/contracts/phase9-payments-disputes.md` (backend notes and deviations in
+`apps/api/README.md`, "Payment protection and disputes (Phase 9)"). Generated client only
+(`PaymentsService`, `DisputesService`, `AdminPaymentsService`, `TradesService`). Wording is always
+"payment protection": OrenjiTrade is an intermediary and the payment provider holds the money
+until the buyer confirms receipt (never "escrow"; `PROTECTION_COPY` in
+`shared/payments/payment-labels.ts`, rendered by `ProtectionExplainerComponent`). Member screens
+follow the `protectedPayments` flag (hidden while off; 404 `FEATURE_DISABLED` explained); admin
+sections stay available. Locally the API runs the fake provider: no card, no money.
+
+- **Offer dialog**: new cash / cash + cards offers get "Use payment protection" (with the
+  collapsible "How it works") while the flag is on; the request carries `protectionRequested`,
+  the summary says "with payment protection"; counter-offers keep the negotiation's choice. The
+  offer page shows a "Payment protection" chip.
+- **Settings → Payouts** `/settings/payouts` (`features/settings/payouts`, `SellerAccountService`
+  on `GET /me/seller-account`): the seller onboarding card (status chip, provider, payouts
+  enabled, "Local test provider" note); "Set up payouts" → `POST /me/seller-account/onboarding`
+  (return path `/settings/payouts[?returnTo=/trades/<id>]`; the fake provider activates at once
+  and comes back with `?onboarding=complete`, a hosted https link is followed otherwise); "Back
+  to your trade" when a trade sent the seller. The link is hidden and the route guarded while the
+  flag is off.
+- **Trade page** (`TradeDetailStore` + `TradeProtectionActions`): protected trades show the
+  "Payment protection" chip, five steps (accepted → payment secured → shipped → received or the
+  dispute → payout released), the payment card (`TradePaymentCardComponent`: status, what the
+  buyer pays, platform fee, the seller's share, refunds, the released payout, dispute window end,
+  payout on hold), the shipment card and the dispute card; the timeline words `PAYMENT_*`,
+  `SHIPPED` (with tracking), `RECEIPT_CONFIRMED` (automatic too), `PAYOUT_RELEASED`,
+  `DISPUTE_*` and `REFUNDED`. Operations from `allowedOperations`: **Pay** (`POST /trades/{id}/pay`
+  → the checkout URL, a web path with the fake provider; 409 `SELLER_NOT_ONBOARDED` explained),
+  **Mark as shipped** (dialog: carrier ≤ 80, tracking ≤ 100, note ≤ 500, a tip without tracking),
+  **Confirm receipt** (confirmation naming the payout), **Open a dispute** (dialog: reason +
+  description ≥ 10 / ≤ 2000, window end; 409 `DISPUTE_WINDOW_CLOSED` with the date; then
+  `/disputes/:id?opened=1`), "Meet in person instead". A seller waiting for the payment without a
+  ready payout account gets "Set up payouts" (`TradePayoutSetupComponent`). PAYMENT_UPDATE,
+  SHIPMENT_STATUS and DISPUTE_UPDATE notifications re-read the trade and the trade list.
+- **Fake checkout** `/checkout/fake/:ref` (`features/checkout`, `FakeCheckoutStore`): the local
+  stand-in for the provider's hosted checkout (buyer only; not-found state otherwise) with a
+  "Local test payment" banner, the amount and "Pay" / "Simulate a failed payment"
+  (`POST /payments/fake/{ref}/confirm`), then polls `GET /payments/fake/{ref}` until the synthetic
+  webhook moved the payment and returns to `/trades/:id?payment=secured|failed` (the trade page
+  says how it went).
+- **Dispute page** `/disputes/:id` (`features/disputes`, `DisputeStore`; parties only, the
+  not-found state for anybody else): `DisputeOverviewComponent` (reason, status, the buyer's
+  description, parties by handle, paid / refunded / payout on hold or released, carrier and
+  tracking, the decision with the refund and the note), evidence of both sides
+  (`EvidenceListComponent`: statements and tracking as text, https tracking links, photos as
+  previews and PDFs as downloads through the authenticated file route, `blob:` URLs revoked on
+  leave), `EvidenceUploaderComponent` (photo JPEG / PNG / WebP ≤ 8 MB or PDF ≤ 10 MB checked and
+  previewed locally, optional caption, `evidenceLeft` of 10; 409 `EVIDENCE_LIMIT_REACHED`, 413,
+  415 explained), the thread (`DisputeThreadComponent`, ≤ 2000, OrenjiTrade support messages
+  highlighted) and the timeline. FROZEN and resolved disputes are read-only with an explanation.
+- **Admin** (ADMIN area): **Transactions** `/admin/transactions?view=&status=` (views all,
+  pending shipment, pending confirmation; `AdminTransactionTableComponent`); **Disputes**
+  `/admin/disputes?status=` and `/admin/disputes/:id` (the member view plus both parties with
+  rating summaries and collapsible moderation histories, internal notes, trade timeline, payment
+  events, refunds, webhooks; Put on hold (optional reason kept as a note), Lift the hold, notes,
+  messages as OrenjiTrade support, Resolve (`ResolveDisputeDialogComponent`: buyer / seller /
+  split with a refund below the refundable amount, a note both collectors see, a review step
+  stating the money moves); Audit log and Payment links); **Payments** `/admin/payments?status=`,
+  `/admin/payments/:id` (amounts, dates, events, refunds, webhooks; Refund only when
+  `refundAllowed`, amount ≤ refundable + reason, then a confirmation step), **Webhook events**
+  `/admin/payments/webhooks?status=&provider=` (payload on demand) and **Settings**
+  `/admin/payments/settings` (payment rules; super admins edit with a confirmation). Every write
+  ends with "The action is in the audit log."; the audit labels know `dispute.*`,
+  `payment.refund` and `payments.settings.update`; the dashboard's open-dispute and
+  webhook-failure tiles link to their queues.
+- **Notifications**: DISPUTE_UPDATE kind (opens `/disputes/<id>`); PAYMENT_UPDATE and
+  SHIPMENT_STATUS open the trade (or their deep link, e.g. `/settings/payouts`).
+- Deviation (client): the API's JSON TEXT / TRACKING evidence route shares the operationId
+  `addDisputeEvidence` with the multipart route, so the generated `DisputesService` only exposes
+  the multipart form (IMAGE / DOCUMENT). The dispute page therefore uploads photos and PDFs and
+  shows existing TEXT / TRACKING evidence, and written statements go to the thread; the TEXT /
+  TRACKING forms need a distinct operationId in the API and a client regeneration.
 
 ## Maps
 
@@ -579,12 +654,16 @@ src/app/
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, trading-area, offers, blocked users,
-                my reports, account, appearance
+    settings/   shell + profile, privacy, notifications, trading-area, offers, payouts, blocked
+                users, my reports, account, appearance
     offers/     /offers inbox (tabs, status filter, summary rows) and /offers/:id (action bar,
                 history); data/ (OffersInboxStore, OfferDetailStore)
-    trades/     /trades list and /trades/:id (next-action banner, steps, timeline); data/
-                (TradesListStore, TradeDetailStore)
+    trades/     /trades list and /trades/:id (next-action banner, steps, timeline, payment,
+                shipment and dispute cards, payout reminder); data/ (TradesListStore,
+                TradeDetailStore, TradeProtectionActions); dialogs/ (ship, open dispute)
+    checkout/   /checkout/fake/:ref (local fake provider checkout); data/ (FakeCheckoutStore)
+    disputes/   /disputes/:id (overview, evidence with uploads, thread, timeline); data/
+                (DisputeStore)
     collectors/ public profile (container + presentational view, public wishlist, ratings and
                 references section)
     admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog, moderation
@@ -592,7 +671,8 @@ src/app/
                 dialog, sync panel), feature flags, usage limits, community (channels, moderation
                 flags), reports (list, detail, resolve dialog, history, notes), moderation
                 (rules, flags), listings, binders, ratings, notifications, analytics, delist
-                (auto-delist editor), health
+                (auto-delist editor), health, payments (transactions, payments, payment detail
+                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog)
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table), bulk bar,
@@ -696,7 +776,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   `OfferDetailStore` (turns, accept, 409 STALE_OFFER to the live proposal, re-read on conflicts,
   live follow), `OffersInboxStore` (query, paging, live re-reads), `TradeDetailStore`
   (operations, refusals, cancel reason, live re-reads), action bar, offer cards in the
-  conversation, offer link picker, OFFER_LINK drafts.
+  conversation, offer link picker, OFFER_LINK drafts; Phase 9: payment labels (statuses,
+  reasons, evidence files, dispute timeline, refundable amounts, no "escrow"), payment refusals,
+  trade labels with the protected steps, ship / dispute forms, `TradeDetailStore` (pay, ship,
+  confirm receipt, open dispute, refusals, payment notifications), the offer dialog's protection
+  option (flag on / off), payment card and protected steps, `FakeCheckoutStore` (polling,
+  failure, 409, give-up), `DisputeStore` (uploads, limit and hold refusals, messages, live
+  re-reads), evidence uploader, Settings → Payouts, admin money and resolve forms, transaction
+  rows and webhook payloads, dashboard links, notification links.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -783,6 +870,18 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     proposal; B declines the counter-offer with a reason and withdraws a cash offer on a
     sale-only card; the inbox status filter; a stranger gets the not-found state and 404. Every
     JSON response has at most 3 decimals for `lat`/`lng`.
+  - `e2e/payments.spec.ts` (fake payment provider, fresh collectors at a random rural point):
+    a seller sets up payouts in Settings → Payouts; a buyer offers with "Use payment
+    protection" (explanatory copy, no "escrow"); once accepted the buyer pays on the trade page,
+    lands on the "Local test payment" checkout, pays and comes back PAID; the seller marks the
+    card as shipped with tracking; the buyer confirms receipt: COMPLETED with the payout (amount
+    minus the fee) shown to both. A second protected trade (prepared through the API up to the
+    shipment) is disputed from the trade page (reason required), gets a previewed photo and a
+    message; a stranger gets the not-found state and 404; an admin finds it in the queue, puts it
+    on hold, adds a note and resolves it for the buyer after the review step; the payment shows
+    the refund, the audit log lists `dispute.freeze`, `dispute.note` and `dispute.resolve`, and
+    the buyer sees the decision, the refund and the cancelled trade. Every JSON response has at
+    most 3 decimals for `lat`/`lng`.
   - `e2e/admin-moderation.spec.ts`: an administrator's dashboard counts, the listing review
     queue, hiding a collector's listing with a required reason from their listings, pausing and
     resuming the collector's listings (the collector sees the "under review" banner on

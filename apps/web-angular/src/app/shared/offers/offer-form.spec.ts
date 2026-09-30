@@ -57,6 +57,7 @@ describe('offer form', () => {
         cards: [line('a', 2)],
         message: '  See you Saturday  ',
         expiresInHours: 72,
+        protectionRequested: false,
       }),
     ).toEqual({
       itemId: 'item-1',
@@ -75,6 +76,7 @@ describe('offer form', () => {
         cards: [line('a')],
         message: '',
         expiresInHours: 24,
+        protectionRequested: false,
       }),
     ).toEqual({
       itemId: 'item-1',
@@ -83,6 +85,34 @@ describe('offer form', () => {
       currency: 'CAD',
       expiresInHours: 24,
     });
+  });
+
+  it('asks for payment protection only for offers with a cash part', () => {
+    const base = {
+      cashAmount: 40,
+      currency: 'CAD',
+      cards: [line('a')],
+      message: '',
+      expiresInHours: 72,
+      protectionRequested: true,
+    };
+    expect(toCreateRequest('item-1', { ...base, kind: 'CASH' })).toMatchObject({
+      kind: 'CASH',
+      protectionRequested: true,
+    });
+    expect(toCreateRequest('item-1', { ...base, kind: 'MIXED' }).protectionRequested).toBe(true);
+    expect(toCreateRequest('item-1', { ...base, kind: 'TRADE' })).not.toHaveProperty(
+      'protectionRequested',
+    );
+    expect(
+      toCreateRequest('item-1', { ...base, kind: 'CASH', protectionRequested: false }),
+    ).not.toHaveProperty('protectionRequested');
+    // A counter-offer keeps the negotiation's choice and never sends it again.
+    const value = counterValue(offerResponse({ protectionRequested: true }), 'CAD');
+    expect(value.protectionRequested).toBe(true);
+    expect(toCounterRequest({ ...value, cashAmount: 50 }, 1)).not.toHaveProperty(
+      'protectionRequested',
+    );
   });
 
   it('builds counter-offers with the version seen and detects an unchanged deal', () => {

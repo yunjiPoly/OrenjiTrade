@@ -12,18 +12,27 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { AccountDeletionJobResponse } from '../model/models';
+import { AdConversionRequest } from '../model/models';
+import { AdConversionResult } from '../model/models';
+import { CreditsReconcileJobResult } from '../model/models';
 import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
 import { OfferExpiryJobResponse } from '../model/models';
 import { PaymentsAutoReleaseJobResult } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
+import { SubscriptionsPeriodJobResult } from '../model/models';
 import { UploadCleanupJobResponse } from '../model/models';
 import { WishlistRematchResponse } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface RecordAdConversionRequestParams {
+    clickId: string;
+    adConversionRequest: AdConversionRequest;
+}
 
 
 export interface InternalServiceInterface {
@@ -38,11 +47,26 @@ export interface InternalServiceInterface {
     pingInternalJobs(extraHttpRequestParams?: any): Observable<PingJobResponse>;
 
     /**
+     * Record a conversion of an ad click (service auth)
+     * Once per click and kind (recorded&#x3D;false for a repeat); 404 for unknown clicks.
+     * @endpoint post /internal/ads/clicks/{clickId}/conversions
+* @param requestParameters
+     */
+    recordAdConversion(requestParameters: RecordAdConversionRequestParams, extraHttpRequestParams?: any): Observable<AdConversionResult>;
+
+    /**
      * Process due account deletions (service auth)
      * Anonymises every account whose grace period is over, purges module data, deletes the identity-provider user and records a job run. Consents, audit entries and ledgers are kept.
      * @endpoint post /internal/jobs/account-deletion
 */
     runAccountDeletionJob(extraHttpRequestParams?: any): Observable<AccountDeletionJobResponse>;
+
+    /**
+     * Compare cached credit balances with the ledger (service auth)
+     * Hourly. Repairs cached balances that differ from SUM(amount) and reports accounts whose latest running balance differs from the sum (never edits the ledger). Records a job run.
+     * @endpoint post /internal/jobs/credits-reconcile
+*/
+    runCreditsReconcileJob(extraHttpRequestParams?: any): Observable<CreditsReconcileJobResult>;
 
     /**
      * Pause listings of unresponsive owners (service auth)
@@ -71,6 +95,13 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/payments-auto-release
 */
     runPaymentsAutoReleaseJob(extraHttpRequestParams?: any): Observable<PaymentsAutoReleaseJobResult>;
+
+    /**
+     * End, renew or expire subscriptions whose period ended (service auth)
+     * Hourly. Cancellations at the period end take effect (FREE); fake-provider subscriptions are renewed through a synthetic signed webhook; other providers\&#39; subscriptions without a renewal expire after orenji.billing.renewal-grace. Records a job run.
+     * @endpoint post /internal/jobs/subscriptions-period
+*/
+    runSubscriptionsPeriodJob(extraHttpRequestParams?: any): Observable<SubscriptionsPeriodJobResult>;
 
     /**
      * Delete unattached image uploads (service auth)

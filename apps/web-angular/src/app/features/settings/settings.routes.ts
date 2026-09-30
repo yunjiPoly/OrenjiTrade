@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { FEATURE } from '../../core/feature-flags/feature-flags.service';
+import { featureGuard } from '../../core/feature-flags/feature.guard';
 
 /** `/settings/*`: one child route per section inside the settings shell. */
 export const SETTINGS_ROUTES: Routes = [
@@ -40,6 +42,13 @@ export const SETTINGS_ROUTES: Routes = [
         title: 'Offer settings',
         loadComponent: () =>
           import('./offers/offer-settings.component').then((m) => m.OfferSettingsComponent),
+      },
+      {
+        path: 'payouts',
+        title: 'Payouts',
+        canActivate: [featureGuard(FEATURE.protectedPayments, 'Payouts', '/settings/profile')],
+        loadComponent: () =>
+          import('./payouts/payout-settings.component').then((m) => m.PayoutSettingsComponent),
       },
       {
         path: 'blocked',

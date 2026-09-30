@@ -19,6 +19,12 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { AccountDeletionJobResponse } from '../model/accountDeletionJobResponse';
 // @ts-ignore
+import { AdConversionRequest } from '../model/adConversionRequest';
+// @ts-ignore
+import { AdConversionResult } from '../model/adConversionResult';
+// @ts-ignore
+import { CreditsReconcileJobResult } from '../model/creditsReconcileJobResult';
+// @ts-ignore
 import { DelistJobResponse } from '../model/delistJobResponse';
 // @ts-ignore
 import { FreshnessJobResponse } from '../model/freshnessJobResponse';
@@ -31,6 +37,8 @@ import { PingJobResponse } from '../model/pingJobResponse';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 // @ts-ignore
+import { SubscriptionsPeriodJobResult } from '../model/subscriptionsPeriodJobResult';
+// @ts-ignore
 import { UploadCleanupJobResponse } from '../model/uploadCleanupJobResponse';
 // @ts-ignore
 import { WishlistRematchResponse } from '../model/wishlistRematchResponse';
@@ -40,7 +48,8 @@ import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables'
 import { Configuration }                                     from '../configuration';
 import { BaseService } from '../api.base.service';
 import {
-    InternalServiceInterface
+    InternalServiceInterface,
+    RecordAdConversionRequestParams
 } from './internal.serviceInterface';
 
 
@@ -115,6 +124,85 @@ export class InternalService extends BaseService implements InternalServiceInter
     }
 
     /**
+     * Record a conversion of an ad click (service auth)
+     * Once per click and kind (recorded&#x3D;false for a repeat); 404 for unknown clicks.
+     * @endpoint post /internal/ads/clicks/{clickId}/conversions
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public recordAdConversion(requestParameters: RecordAdConversionRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AdConversionResult>;
+    public recordAdConversion(requestParameters: RecordAdConversionRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AdConversionResult>>;
+    public recordAdConversion(requestParameters: RecordAdConversionRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AdConversionResult>>;
+    public recordAdConversion(requestParameters: RecordAdConversionRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const clickId = requestParameters?.clickId;
+        if (clickId === null || clickId === undefined) {
+            throw new Error('Required parameter clickId was null or undefined when calling recordAdConversion.');
+        }
+        const adConversionRequest = requestParameters?.adConversionRequest;
+        if (adConversionRequest === null || adConversionRequest === undefined) {
+            throw new Error('Required parameter adConversionRequest was null or undefined when calling recordAdConversion.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        // authentication (serviceToken) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('serviceToken', 'X-Service-Token', localVarHeaders);
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/internal/ads/clicks/${this.configuration.encodeParam({name: "clickId", value: clickId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/conversions`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<AdConversionResult>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: adConversionRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Process due account deletions (service auth)
      * Anonymises every account whose grace period is over, purges module data, deletes the identity-provider user and records a job run. Consents, audit entries and ledgers are kept.
      * @endpoint post /internal/jobs/account-deletion
@@ -162,6 +250,66 @@ export class InternalService extends BaseService implements InternalServiceInter
         let localVarPath = `/internal/jobs/account-deletion`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<AccountDeletionJobResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Compare cached credit balances with the ledger (service auth)
+     * Hourly. Repairs cached balances that differ from SUM(amount) and reports accounts whose latest running balance differs from the sum (never edits the ledger). Records a job run.
+     * @endpoint post /internal/jobs/credits-reconcile
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public runCreditsReconcileJob(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CreditsReconcileJobResult>;
+    public runCreditsReconcileJob(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CreditsReconcileJobResult>>;
+    public runCreditsReconcileJob(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CreditsReconcileJobResult>>;
+    public runCreditsReconcileJob(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        // authentication (serviceToken) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('serviceToken', 'X-Service-Token', localVarHeaders);
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/internal/jobs/credits-reconcile`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<CreditsReconcileJobResult>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -402,6 +550,66 @@ export class InternalService extends BaseService implements InternalServiceInter
         let localVarPath = `/internal/jobs/payments-auto-release`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<PaymentsAutoReleaseJobResult>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * End, renew or expire subscriptions whose period ended (service auth)
+     * Hourly. Cancellations at the period end take effect (FREE); fake-provider subscriptions are renewed through a synthetic signed webhook; other providers\&#39; subscriptions without a renewal expire after orenji.billing.renewal-grace. Records a job run.
+     * @endpoint post /internal/jobs/subscriptions-period
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public runSubscriptionsPeriodJob(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<SubscriptionsPeriodJobResult>;
+    public runSubscriptionsPeriodJob(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<SubscriptionsPeriodJobResult>>;
+    public runSubscriptionsPeriodJob(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<SubscriptionsPeriodJobResult>>;
+    public runSubscriptionsPeriodJob(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        // authentication (serviceToken) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('serviceToken', 'X-Service-Token', localVarHeaders);
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/internal/jobs/subscriptions-period`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<SubscriptionsPeriodJobResult>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

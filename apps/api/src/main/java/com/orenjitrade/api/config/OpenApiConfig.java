@@ -22,12 +22,14 @@ import java.util.Arrays;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import tools.jackson.databind.JsonNode;
 
 /**
  * OpenAPI document metadata. Active only when {@code orenji.openapi.enabled=true} (local, dev,
@@ -49,6 +51,15 @@ public class OpenApiConfig {
     static final String DEFAULT_RESPONSE = "default";
     static final String FALLBACK_VERSION = "dev";
     static final String INTERNAL_PREFIX = "/internal/";
+
+    static {
+        // Jackson 3 tree nodes (webhook payloads, ledger/event details) are free-form JSON, not
+        // beans: without this the resolver reflects JsonNode's is*() getters into a bogus schema
+        // whose property order changes between exports.
+        SpringDocUtils.getConfig()
+                .replaceWithSchema(
+                        JsonNode.class, new ObjectSchema().description("Free-form JSON object"));
+    }
 
     @Bean
     OpenAPI orenjiOpenApi(ObjectProvider<BuildProperties> buildProperties) {
@@ -244,6 +255,35 @@ public class OpenApiConfig {
                 "feature",
                 new StringSchema()
                         .description("Feature flag that is off for the caller (FEATURE_DISABLED)"));
+        schema.addProperty(
+                "currentStatus",
+                new StringSchema()
+                        .description(
+                                "Current status of the resource when a state conflicts"
+                                        + " (INVALID_STATE_TRANSITION, CONFLICT,"
+                                        + " ALREADY_SUBSCRIBED)"));
+        schema.addProperty(
+                "subscriptionId",
+                new StringSchema()
+                        .format("uuid")
+                        .description("The caller's live subscription (ALREADY_SUBSCRIBED)"));
+        schema.addProperty(
+                "balance",
+                new IntegerSchema()
+                        .format("int64")
+                        .description("The caller's credit balance (INSUFFICIENT_CREDITS)"));
+        schema.addProperty(
+                "cost",
+                new IntegerSchema()
+                        .format("int64")
+                        .description("Credits the action needs (INSUFFICIENT_CREDITS)"));
+        schema.addProperty(
+                "reason",
+                new StringSchema()
+                        .description(
+                                "Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED):"
+                                        + " SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD,"
+                                        + " REFERRER_LIMIT"));
         schema.required(
                 List.of(
                         "type",
