@@ -75,6 +75,9 @@ public class UserAccount {
     @Column(name = "deleted_at")
     private @Nullable Instant deletedAt;
 
+    @Column(name = "banned_at")
+    private @Nullable Instant bannedAt;
+
     @OneToMany(
             mappedBy = "user",
             cascade = CascadeType.ALL,
@@ -163,7 +166,14 @@ public class UserAccount {
         this.status = AccountStatus.ACTIVE;
         this.suspensionReason = null;
         this.suspendedUntil = null;
+        this.bannedAt = null;
         touch(now);
+    }
+
+    /** A ban: a suspension without end plus the ban mark (lifted by {@link #unsuspend}). */
+    public void ban(String reason, Instant now) {
+        suspend(reason, null, now);
+        this.bannedAt = now;
     }
 
     /** Whether a suspension is in force at {@code now} (temporary suspensions expire). */
@@ -268,7 +278,8 @@ public class UserAccount {
                 createdAt,
                 updatedAt,
                 lastActiveAt,
-                deletedAt);
+                deletedAt,
+                bannedAt);
     }
 
     // --- accessors ---------------------------------------------------------------------------

@@ -1,7 +1,10 @@
+import type { NotificationResponse } from '@orenji/api-client';
+
 /**
  * Payloads of the realtime queues other than `/user/queue/messages` (which carries the generated
- * `MessageResponse`). They mirror the server's `messaging.domain.RealtimeNotices` records: STOMP
- * payloads are not part of the OpenAPI document, so the generated client has no type for them.
+ * `MessageResponse`) and `/user/queue/notifications` (the generated `NotificationResponse`, Phase
+ * 6). They mirror the server's `messaging.domain.RealtimeNotices` records: STOMP payloads are not
+ * part of the OpenAPI document, so the generated client has no type for them.
  */
 
 /** `/user/queue/receipts`: `userId` read `conversationId` up to `lastReadMessageId`. */
@@ -30,6 +33,8 @@ export const REALTIME_DESTINATIONS = {
   receipts: '/user/queue/receipts',
   typing: '/user/queue/typing',
   presence: '/user/queue/presence',
+  /** Phase 6: every new in-app notification (payload = `NotificationResponse`). */
+  notifications: '/user/queue/notifications',
   sendTyping: '/app/typing',
 } as const;
 
@@ -51,4 +56,12 @@ export function isTypingNotice(value: unknown): value is TypingNotice {
 
 export function isPresenceNotice(value: unknown): value is PresenceNotice {
   return hasStrings(value, ['userId', 'status']);
+}
+
+/** A pushed notification (`/user/queue/notifications`): the REST `NotificationResponse`. */
+export function isNotificationResponse(value: unknown): value is NotificationResponse {
+  return (
+    hasStrings(value, ['id', 'type', 'title', 'body', 'createdAt']) &&
+    isRecord((value as Record<string, unknown>)['data'])
+  );
 }

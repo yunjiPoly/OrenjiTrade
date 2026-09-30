@@ -29,6 +29,7 @@ import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { WishlistActions } from '../../../shared/wishlist/wishlist-actions.service';
 import {
   DEFAULT_HOLDER_FILTERS,
   HOLDERS_PAGE_SIZE,
@@ -105,6 +106,15 @@ interface CardInfo {
               Card details
             </a>
           }
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="wishlist.opening()"
+            (click)="addToWishlist()"
+          >
+            <mat-icon aria-hidden="true">favorite</mat-icon>
+            Add to wishlist
+          </button>
         </div>
       </div>
     </header>
@@ -152,13 +162,17 @@ interface CardInfo {
           <app-empty-state
             icon="search_off"
             title="Nobody nearby lists this card with these filters"
-            description="Widen the filters, or look again later: collectors publish new cards every day."
+            description="Widen the filters, or add it to your wishlist: we'll tell you when a collector nearby lists it."
           >
             @if (hasFilters()) {
               <button actions matButton="filled" type="button" (click)="clearFilters()">
                 Clear filters
               </button>
             }
+            <button actions matButton="outlined" type="button" (click)="addToWishlist()">
+              <mat-icon aria-hidden="true">favorite</mat-icon>
+              Add to wishlist
+            </button>
           </app-empty-state>
         }
       } @else {
@@ -232,6 +246,7 @@ export class CardHoldersComponent {
   private readonly catalog = inject(CatalogService);
   private readonly games = inject(GamesStore);
   private readonly centres = inject(DiscoveryCentreService);
+  protected readonly wishlist = inject(WishlistActions);
 
   readonly target = input.required<{ kind: 'card' | 'printing'; id: string }>();
   readonly filters = input<HolderFilters>(DEFAULT_HOLDER_FILTERS);
@@ -334,6 +349,14 @@ export class CardHoldersComponent {
 
   protected onPage(event: PageEvent): void {
     this.filtersChange.emit({ ...this.filters(), page: event.pageIndex });
+  }
+
+  /** "Add to wishlist": the card (any printing) or the printing being searched. */
+  protected addToWishlist(): void {
+    const target = this.target();
+    void this.wishlist.add(
+      target.kind === 'card' ? { cardId: target.id } : { printingId: target.id },
+    );
   }
 
   protected clearFilters(): void {

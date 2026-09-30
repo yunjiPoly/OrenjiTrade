@@ -43,8 +43,9 @@ public class AdminDelistPolicyController {
             operationId = "updateDelistPolicy",
             summary = "Change a delist policy (ADMIN)",
             description =
-                    "400 unless 1 <= agingAfterDays < staleAfterDays < hiddenAfterDays <= 3650 and"
-                            + " 0 <= warnBeforeHiddenDays < hiddenAfterDays. Takes effect on every"
+                    "400 unless 1 <= agingAfterDays < staleAfterDays < hiddenAfterDays <= 3650,"
+                            + " 0 <= warnBeforeHiddenDays < hiddenAfterDays, 1 <= maxStrikes <= 100"
+                            + " and 1 <= unansweredAfterHours <= 720. Takes effect on every"
                             + " instance at once (cache evicted) and on the next freshness job run."
                             + " Audited (`delist_policy.update`).")
     public DelistPolicyResponse update(
@@ -61,6 +62,7 @@ public class AdminDelistPolicyController {
                                 body.staleAfterDays(),
                                 body.hiddenAfterDays(),
                                 body.warnBeforeHiddenDays(),
-                                body.maxStrikes())));
+                                body.maxStrikes(),
+                                body.unansweredAfterHours())));
     }
 }

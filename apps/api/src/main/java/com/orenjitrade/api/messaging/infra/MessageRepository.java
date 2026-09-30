@@ -82,6 +82,25 @@ public class MessageRepository {
                 .list();
     }
 
+    /**
+     * Messages per sender of a conversation (deleted and SYSTEM messages excluded): rating
+     * eligibility counts at least 3 messages from each side (Phase 7).
+     */
+    public Map<UUID, Long> countsBySender(UUID conversationId) {
+        Map<UUID, Long> counts = new LinkedHashMap<>();
+        jdbc.sql(
+                        "SELECT sender_id, count(*) AS messages FROM message WHERE conversation_id"
+                                + " = :id AND deleted_at IS NULL AND kind <> 'SYSTEM' AND sender_id"
+                                + " IS NOT NULL GROUP BY sender_id")
+                .param("id", conversationId)
+                .query(
+                        rs -> {
+                            counts.put(
+                                    rs.getObject("sender_id", UUID.class), rs.getLong("messages"));
+                        });
+        return counts;
+    }
+
     /** A message of a conversation (deleted ones excluded). */
     public Optional<MessageRow> find(UUID conversationId, UUID messageId) {
         return jdbc.sql(

@@ -12,12 +12,29 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { DelistPolicyResponse } from '../model/models';
+import { ListingStatus } from '../model/models';
+import { PauseListingsRequest } from '../model/models';
 import { ProblemDetail } from '../model/models';
+import { ResumeListingsRequest } from '../model/models';
 import { UpdateDelistPolicyRequest } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface GetUserListingStatusRequestParams {
+    id: string;
+}
+
+export interface PauseUserListingsRequestParams {
+    id: string;
+    pauseListingsRequest: PauseListingsRequest;
+}
+
+export interface ResumeUserListingsRequestParams {
+    id: string;
+    resumeListingsRequest?: ResumeListingsRequest;
+}
 
 export interface UpdateDelistPolicyRequestParams {
     id: string;
@@ -30,6 +47,14 @@ export interface AdminDelistingServiceInterface {
     configuration: Configuration;
 
     /**
+     * A collector\&#39;s listing pause and strikes (ADMIN)
+     * 
+     * @endpoint get /api/v1/admin/users/{id}/listing-status
+* @param requestParameters
+     */
+    getUserListingStatus(requestParameters: GetUserListingStatusRequestParams, extraHttpRequestParams?: any): Observable<ListingStatus>;
+
+    /**
      * List delist policies (ADMIN)
      * Freshness thresholds in days since the last owner confirmation.
      * @endpoint get /api/v1/admin/delist-policies
@@ -37,8 +62,24 @@ export interface AdminDelistingServiceInterface {
     listDelistPolicies(extraHttpRequestParams?: any): Observable<Array<DelistPolicyResponse>>;
 
     /**
+     * Pause a collector\&#39;s public listings (ADMIN)
+     * The listings stay in the collector\&#39;s inventory; nobody else sees them until an admin resumes them or &#x60;until&#x60; passes. 409 when already paused. Audited (&#x60;listings.pause&#x60;); the collector is notified without the reason.
+     * @endpoint post /api/v1/admin/users/{id}/pause-listings
+* @param requestParameters
+     */
+    pauseUserListings(requestParameters: PauseUserListingsRequestParams, extraHttpRequestParams?: any): Observable<ListingStatus>;
+
+    /**
+     * Resume a collector\&#39;s public listings (ADMIN)
+     * Lifts any pause (job, report threshold, moderation or admin). 409 when nothing is paused. Audited (&#x60;listings.resume&#x60;).
+     * @endpoint post /api/v1/admin/users/{id}/resume-listings
+* @param requestParameters
+     */
+    resumeUserListings(requestParameters: ResumeUserListingsRequestParams, extraHttpRequestParams?: any): Observable<ListingStatus>;
+
+    /**
      * Change a delist policy (ADMIN)
-     * 400 unless 1 &lt;&#x3D; agingAfterDays &lt; staleAfterDays &lt; hiddenAfterDays &lt;&#x3D; 3650 and 0 &lt;&#x3D; warnBeforeHiddenDays &lt; hiddenAfterDays. Takes effect on every instance at once (cache evicted) and on the next freshness job run. Audited (&#x60;delist_policy.update&#x60;).
+     * 400 unless 1 &lt;&#x3D; agingAfterDays &lt; staleAfterDays &lt; hiddenAfterDays &lt;&#x3D; 3650, 0 &lt;&#x3D; warnBeforeHiddenDays &lt; hiddenAfterDays, 1 &lt;&#x3D; maxStrikes &lt;&#x3D; 100 and 1 &lt;&#x3D; unansweredAfterHours &lt;&#x3D; 720. Takes effect on every instance at once (cache evicted) and on the next freshness job run. Audited (&#x60;delist_policy.update&#x60;).
      * @endpoint put /api/v1/admin/delist-policies/{id}
 * @param requestParameters
      */

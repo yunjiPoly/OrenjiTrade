@@ -224,6 +224,25 @@
       }
     </section>
 
+    @if (wishlist(); as wishes) {
+      @if (wishes.length > 0) {
+        <section class="collector__card collector__binders" aria-labelledby="collector-wishlist">
+          <div class="collector__section-head">
+            <h2 id="collector-wishlist">Looking for</h2>
+            <span class="collector__muted">
+              {{ wishes.length }} {{ wishes.length === 1 ? 'card' : 'cards' }}
+            </span>
+          </div>
+          <app-collector-wishlist
+            [entries]="wishes"
+            [label]="
+              isOwn() ? 'Cards you are looking for' : 'Cards ' + p.displayName + ' is looking for'
+            "
+          />
+        </section>
+      }
+    }
+
     @if (publicItems(); as items) {
       @if (items.length > 0) {
         <section class="collector__card collector__binders" aria-labelledby="collector-cards">

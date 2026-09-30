@@ -18,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -179,6 +180,54 @@ public class ModerationService {
     }
 
     /**
+     * The strictest active {@code REPORT_THRESHOLD} rule (Phase 7): {@code limit} open reports from
+     * distinct reporters within {@code windowSeconds}; action BLOCK also pauses the reported
+     * collector's listings. Empty when no such rule is active.
+     */
+    public Optional<RateRule> reportThreshold() {
+        return snapshot().reportThresholds().stream().min(Comparator.comparingInt(RateRule::limit));
+    }
+
+    /**
+     * Opens a flag on an account (subject USER) unless an open one exists for the same reason
+     * (joins the caller's transaction).
+     *
+     * @return whether a new flag was opened
+     */
+    @Transactional
+    public boolean flagAccount(UUID userId, @Nullable UUID ruleId, FlagReason reason) {
+        boolean opened =
+                flags.open(
+                        FlagSubjectType.USER, userId, ruleId, reason, userId, timeProvider.now());
+        if (opened) {
+            log.info("Moderation flag {} on account {}", reason, userId);
+        }
+        return opened;
+    }
+
+    /**
+     * Resolves the open flags of an account raised for {@code reason} (e.g. REPORT_THRESHOLD once
+     * no report is open any more); joins the caller's transaction, which audits the decision.
+     */
+    @Transactional
+    public int resolveAccountFlags(UUID userId, FlagReason reason, UUID moderatorId, String note) {
+        return flags.resolveSubject(
+                FlagSubjectType.USER, userId, reason, moderatorId, note, timeProvider.now());
+    }
+
+    /** Open flags on an account (moderator history). */
+    @Transactional(readOnly = true)
+    public List<ModerationFlagView> openAccountFlags(UUID userId) {
+        return flags.openForAccount(userId);
+    }
+
+    /** Open flags (admin dashboard). */
+    @Transactional(readOnly = true)
+    public long openFlagCount() {
+        return flags.page(Boolean.TRUE, null, 0, 1).total();
+    }
+
+    /**
      * SHA-256 (hex) of the normalised text: lower case, accents stripped, whitespace collapsed.
      * Used for repeated-content keys and duplicate-post detection; the text never reaches Redis.
      */
@@ -263,7 +312,9 @@ public class ModerationService {
                 new Snapshot(
                         now,
                         load(ModerationRuleKind.RATE_LIMIT),
-                        load(ModerationRuleKind.THRESHOLD));
+                        load(ModerationRuleKind.THRESHOLD),
+                        load(ModerationRuleKind.REPORT_THRESHOLD)
+                                .getOrDefault(ModerationScope.REPORT, List.of()));
         snapshot = loaded;
         return loaded;
     }
@@ -285,5 +336,6 @@ public class ModerationService {
     private record Snapshot(
             Instant loadedAt,
             Map<ModerationScope, List<RateRule>> rates,
-            Map<ModerationScope, List<RateRule>> thresholds) {}
+            Map<ModerationScope, List<RateRule>> thresholds,
+            List<RateRule> reportThresholds) {}
 }

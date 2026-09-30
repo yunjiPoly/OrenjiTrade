@@ -38,7 +38,8 @@ export enum ModerationFlagSubjectTypeEnum {
 export enum ModerationFlagReasonEnum {
     BannedTerm = 'BANNED_TERM',
     RateThreshold = 'RATE_THRESHOLD',
-    RepeatedContent = 'REPEATED_CONTENT'
+    RepeatedContent = 'REPEATED_CONTENT',
+    ReportThreshold = 'REPORT_THRESHOLD'
 };
 export enum ModerationFlagStateEnum {
     Open = 'OPEN',

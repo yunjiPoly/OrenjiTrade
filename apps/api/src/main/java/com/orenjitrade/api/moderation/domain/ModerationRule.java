@@ -49,6 +49,42 @@ public class ModerationRule {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** A new rule (admin console). */
+    public ModerationRule(
+            ModerationRuleKind kind,
+            String pattern,
+            ModerationAction action,
+            ModerationScope scope,
+            boolean active,
+            UUID updatedBy,
+            Instant now) {
+        this.id = UUID.randomUUID();
+        this.kind = kind;
+        this.pattern = pattern;
+        this.action = action;
+        this.scope = scope;
+        this.active = active;
+        this.createdAt = now;
+        this.updatedBy = updatedBy;
+        this.updatedAt = now;
+    }
+
+    /** Admin edit of a rule (kind stays). */
+    public void update(
+            String pattern,
+            ModerationAction action,
+            ModerationScope scope,
+            boolean active,
+            UUID updatedBy,
+            Instant now) {
+        this.pattern = pattern;
+        this.action = action;
+        this.scope = scope;
+        this.active = active;
+        this.updatedBy = updatedBy;
+        this.updatedAt = now;
+    }
+
     /** JPA only. */
     protected ModerationRule() {
         this.id = UUID.randomUUID();

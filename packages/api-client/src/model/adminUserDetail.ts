@@ -28,5 +28,9 @@ export interface AdminUserDetail {
     locationLabel?: string | null;
     deletionRequest?: DeletionRequestSummary;
     recentAuditEntries: Array<AuditLogEntry>;
+    /**
+     * When a report decision banned the account (a suspension without end); cleared by unsuspend
+     */
+    bannedAt?: string | null;
 }
 

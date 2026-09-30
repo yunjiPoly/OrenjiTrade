@@ -418,6 +418,45 @@ public class ConversationService {
                 .orElse(true);
     }
 
+    /**
+     * Messages per sender of a conversation (Phase 7 rating eligibility: a conversation qualifies
+     * with at least 3 messages from each side). Deleted and SYSTEM messages are not counted.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Long> messageCountsBySender(UUID conversationId) {
+        return messages.countsBySender(conversationId);
+    }
+
+    /** The two participants of a conversation (empty for unknown ids). */
+    @Transactional(readOnly = true)
+    public List<UUID> participantIds(UUID conversationId) {
+        return conversations.participants(conversationId).stream()
+                .map(ParticipantRow::userId)
+                .toList();
+    }
+
+    /**
+     * The most recent messages of a conversation for a moderator acting on a report that names this
+     * conversation (Phase 7 contract: no private message bodies unless the report's context points
+     * at the conversation). Newest first; the caller authorizes and audits the access. Link and
+     * photo messages carry their kind only.
+     */
+    @Transactional(readOnly = true)
+    public List<ModerationMessage> messagesForModeration(UUID conversationId, int limit) {
+        List<ModerationMessage> result = new ArrayList<>();
+        for (MessageRow row : messages.page(conversationId, null, limit)) {
+            result.add(
+                    new ModerationMessage(
+                            row.id(),
+                            row.senderId(),
+                            MessageKind.valueOf(row.kind()),
+                            row.body(),
+                            row.createdAt(),
+                            ContentModerationState.valueOf(row.moderationState())));
+        }
+        return result;
+    }
+
     /** Conversation partners of an account who are not blocked (presence notices). */
     @Transactional(readOnly = true)
     public List<UUID> partnersOf(UUID me) {
@@ -713,6 +752,24 @@ public class ConversationService {
      * @param created whether this call created it (201) or it existed (200)
      */
     public record Started(ConversationSummary conversation, boolean created) {}
+
+    /**
+     * A message as shown to a moderator reviewing a report.
+     *
+     * @param id message id
+     * @param senderId sender ({@code null} for deleted accounts)
+     * @param kind kind
+     * @param body text (also of removed messages: moderators need the evidence)
+     * @param createdAt when it was sent
+     * @param moderationState OK, FLAGGED or REMOVED
+     */
+    public record ModerationMessage(
+            UUID id,
+            @Nullable UUID senderId,
+            MessageKind kind,
+            String body,
+            Instant createdAt,
+            ContentModerationState moderationState) {}
 
     private record Participants(ParticipantRow mine, ParticipantRow other) {}
 

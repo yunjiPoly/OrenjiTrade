@@ -10,6 +10,8 @@ import com.orenjitrade.api.cards.events.CardViewed;
 import com.orenjitrade.api.community.events.CommunityPostCreated;
 import com.orenjitrade.api.messaging.events.MessageSent;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
+import com.orenjitrade.api.ratings.events.RatingSubmitted;
+import com.orenjitrade.api.reports.events.CollectorReported;
 import com.orenjitrade.api.search.events.CollectorPreviewed;
 import com.orenjitrade.api.search.events.SearchPerformed;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
@@ -300,6 +302,45 @@ public class AnalyticsEventListener {
 
     private @Nullable String hash(@Nullable UUID id) {
         return publisher.actorHasher().hash(id);
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(RatingSubmitted rating) {
+        emit(
+                AnalyticsEventTypes.RATING_SUBMITTED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("interaction_kind", rating.interactionKind());
+                    payload.put("overall", rating.overall());
+                    payload.put("has_comment", rating.hasComment());
+                    payload.put("edited", rating.edited());
+                    payload.put("ratee_hash", hash(rating.rateeId()));
+                    return event(
+                            AnalyticsEventTypes.RATING_SUBMITTED,
+                            rating.occurredAt(),
+                            rating.raterId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(CollectorReported report) {
+        emit(
+                AnalyticsEventTypes.COLLECTOR_REPORTED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("reason", report.reason());
+                    payload.put("context_source", report.contextSource());
+                    return event(
+                            AnalyticsEventTypes.COLLECTOR_REPORTED,
+                            report.occurredAt(),
+                            report.reporterId(),
+                            null,
+                            null,
+                            payload);
+                });
     }
 
     private void emit(String type, Supplier<AnalyticsEvent> factory) {

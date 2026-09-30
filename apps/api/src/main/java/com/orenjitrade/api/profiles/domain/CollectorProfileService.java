@@ -131,6 +131,28 @@ public class CollectorProfileService {
                 viewer.blocked());
     }
 
+    /**
+     * The id of the collector holding {@code handle} when their profile is visible to the viewer
+     * (same rules as {@link #view}: unknown, suspended, deletion-pending and deleted accounts and
+     * profiles the privacy settings hide are {@code 404}). Used by the profile's sub-resources
+     * (Phase 7 ratings and references). Publishes nothing.
+     */
+    @Transactional(readOnly = true)
+    public UUID requireVisibleCollector(@Nullable UUID viewerId, String handle) {
+        Instant now = timeProvider.now();
+        UserAccountSnapshot account =
+                userAccountService
+                        .findByHandle(handle)
+                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                        .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        UUID targetId = account.id();
+        PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
+        if (!privacyPolicy.canViewProfile(viewerContext(viewerId, targetId), targetId, privacy)) {
+            throw ApiException.notFound(NOT_FOUND);
+        }
+        return targetId;
+    }
+
     /** Active accounts, including those whose temporary suspension has already expired. */
     static boolean isPubliclyVisible(UserAccountSnapshot account, Instant now) {
         return switch (account.status()) {

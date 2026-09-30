@@ -12,7 +12,9 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -88,6 +90,70 @@ public class BinderRepository {
                 .query(BinderRepository::map)
                 .list();
     }
+
+    /**
+     * Admin console "Binders" (Phase 7): every binder, optionally by owner, visibility and name
+     * (case- and accent-insensitive substring), newest change first, with the owner's handle.
+     */
+    public AdminPage adminPage(
+            @Nullable String query,
+            @Nullable UUID ownerId,
+            @Nullable ListingVisibility visibility,
+            int page,
+            int size,
+            Instant now) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("now", Timestamp.from(now));
+        StringBuilder where = new StringBuilder(" WHERE true");
+        if (query != null && !query.isBlank()) {
+            where.append(
+                    " AND lower(unaccent_immutable(b.name)) LIKE lower(unaccent_immutable(:q))");
+            params.put(
+                    "q",
+                    "%"
+                            + query.trim()
+                                    .replace("\\", "\\\\")
+                                    .replace("%", "\\%")
+                                    .replace("_", "\\_")
+                            + "%");
+        }
+        if (ownerId != null) {
+            where.append(" AND b.owner_id = :ownerId");
+            params.put("ownerId", ownerId);
+        }
+        if (visibility != null) {
+            where.append(" AND b.visibility = :visibility");
+            params.put("visibility", visibility.name());
+        }
+        long total =
+                jdbc.sql("SELECT count(*)" + FROM + where)
+                        .params(params)
+                        .query(Long.class)
+                        .single();
+        params.put("limit", size);
+        params.put("offset", (long) page * size);
+        List<AdminRow> rows =
+                jdbc.sql(
+                                "SELECT "
+                                        + COLUMNS
+                                        + ", u.handle AS owner_handle"
+                                        + FROM
+                                        + where
+                                        + " ORDER BY b.updated_at DESC, b.id LIMIT :limit OFFSET"
+                                        + " :offset")
+                        .params(params)
+                        .query(
+                                (rs, rowNum) ->
+                                        new AdminRow(map(rs, rowNum), rs.getString("owner_handle")))
+                        .list();
+        return new AdminPage(rows, total);
+    }
+
+    /** A binder with its owner's handle (admin console). */
+    public record AdminRow(BinderView binder, String ownerHandle) {}
+
+    /** One admin page with the total count. */
+    public record AdminPage(List<AdminRow> rows, long total) {}
 
     /** The owner's effectively public binders, in the owner's order. */
     public List<BinderView> findEffectivelyPublicByOwner(UUID ownerId, Instant now) {

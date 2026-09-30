@@ -396,6 +396,59 @@ public class InventoryService {
     }
 
     /**
+     * Admin restore (Phase 7 "admin restore with audit"): refreshes the confirmation of any owner's
+     * live item (STALE/HIDDEN to ACTIVE, RESTORED freshness event) without counting as owner
+     * activity. The caller audits.
+     *
+     * @return the owner and the state before the restore; empty for unknown or deleted items
+     */
+    @Transactional
+    public Optional<AdminChange> restoreListing(UUID itemId) {
+        Optional<UUID> owner = items.lockOwnerOf(itemId);
+        if (owner.isEmpty()) {
+            return Optional.empty();
+        }
+        Instant now = timeProvider.now();
+        ItemRow before = items.findOwned(owner.get(), itemId, now).orElseThrow();
+        Set<UUID> touchedBinders = confirmItems(owner.get(), List.of(itemId), now);
+        reconciler.binders(touchedBinders);
+        reconciler.items(List.of(itemId));
+        return Optional.of(
+                new AdminChange(
+                        owner.get(), before.freshnessState().name(), before.visibility().name()));
+    }
+
+    /**
+     * Admin hide (Phase 7 console "Listings"): makes any owner's live item PRIVATE (the owner may
+     * publish it again). The caller audits.
+     *
+     * @return the owner and the state before; empty for unknown or deleted items
+     */
+    @Transactional
+    public Optional<AdminChange> hideListing(UUID itemId) {
+        Optional<UUID> owner = items.lockOwnerOf(itemId);
+        if (owner.isEmpty()) {
+            return Optional.empty();
+        }
+        Instant now = timeProvider.now();
+        ItemRow before = items.findOwned(owner.get(), itemId, now).orElseThrow();
+        items.setVisibility(itemId, ListingVisibility.PRIVATE, null, now);
+        reconciler.items(List.of(itemId));
+        return Optional.of(
+                new AdminChange(
+                        owner.get(), before.freshnessState().name(), before.visibility().name()));
+    }
+
+    /**
+     * An admin change of an item.
+     *
+     * @param ownerId the owner
+     * @param previousFreshness freshness state before the change
+     * @param previousVisibility visibility before the change
+     */
+    public record AdminChange(UUID ownerId, String previousFreshness, String previousVisibility) {}
+
+    /**
      * {@code POST /inventory/items/bulk}: one transaction; every id is checked against the caller
      * (others' items, unknown and deleted ones are skipped as NOT_FOUND, items already in the
      * requested state as UNCHANGED).

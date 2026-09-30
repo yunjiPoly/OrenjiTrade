@@ -3,6 +3,7 @@ package com.orenjitrade.api.notifications.infra;
 import com.orenjitrade.api.binders.events.BinderFreshnessChanged;
 import com.orenjitrade.api.binders.events.BinderFreshnessWarning;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import com.orenjitrade.api.delisting.events.ListingsPaused;
 import com.orenjitrade.api.inventory.events.InventoryListingsHidden;
 import com.orenjitrade.api.messaging.events.MessageRead;
 import com.orenjitrade.api.messaging.events.MessageSent;
@@ -56,6 +57,11 @@ public class ActivityNotificationListener {
                 && event.previousState() != FreshnessState.HIDDEN) {
             activity.binderHidden(event.ownerId(), event.binderId(), event.changedAt());
         }
+    }
+
+    @ApplicationModuleListener
+    void on(ListingsPaused event) {
+        activity.listingsPaused(event.userId(), event.source(), event.strikes(), event.pausedAt());
     }
 
     @ApplicationModuleListener

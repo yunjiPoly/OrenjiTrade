@@ -80,12 +80,18 @@ test.describe('card catalog', () => {
     await expect(page.getByTestId('selected-price')).toContainText('$33.60');
     await expect(selected).toContainText('Unlimited');
 
-    // "Who has this near me" opens the map in holders mode (Phase 4); wishlists come later.
+    // "Who has this near me" opens the map in holders mode (Phase 4).
     await expect(page.getByRole('link', { name: 'Who has this near me' })).toHaveAttribute(
       'href',
       /^\/map\?card=[0-9a-f-]{36}&view=list$/,
     );
-    await expect(page.getByRole('button', { name: 'Add to wishlist' })).toBeDisabled();
+    // "Add to wishlist" (Phase 6) opens the wishlist dialog on this card and the chosen printing.
+    await page.getByRole('button', { name: 'Add to wishlist' }).click();
+    const wishDialog = page.getByRole('dialog', { name: 'Add to wishlist' });
+    await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
+    await expect(wishDialog.getByRole('combobox', { name: 'Printing' })).toContainText('AZR-FR001');
+    await wishDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(wishDialog).toBeHidden();
 
     // The hero picture is a real API placeholder image.
     const hero = page.getByRole('img', { name: /Azure-Eyes Sky Dragon, printing AZR-FR001/ });

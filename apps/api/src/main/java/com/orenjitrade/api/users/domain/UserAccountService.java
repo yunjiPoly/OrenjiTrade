@@ -289,6 +289,31 @@ public class UserAccountService {
         return account.toSnapshot();
     }
 
+    /**
+     * Bans the account (Phase 7 report decision): a suspension without end plus the ban mark
+     * ({@code banned_at}); an admin lifts both with {@link #unsuspend}. Callers audit and disable
+     * the identity-provider user.
+     */
+    @Transactional
+    public UserAccountSnapshot ban(UUID userId, String reason) {
+        UserAccount account = load(userId);
+        Instant now = timeProvider.now();
+        account.ban(reason, now);
+        events.publishEvent(new UserSuspendedEvent(userId, null, now));
+        return account.toSnapshot();
+    }
+
+    /**
+     * Ids of the accounts that can receive notices right now (ACTIVE, or SUSPENDED with an elapsed
+     * end), oldest first, one page at a time (admin broadcasts). {@code staffOnly} keeps the
+     * accounts holding MODERATOR, ADMIN or SUPER_ADMIN.
+     */
+    @Transactional(readOnly = true)
+    public List<UUID> reachableAccountIds(boolean staffOnly, int page, int size) {
+        Instant now = timeProvider.now();
+        return repository.findReachableIds(now, staffOnly, size, (long) page * size);
+    }
+
     @Transactional
     public UserAccountSnapshot unsuspend(UUID userId) {
         UserAccount account = load(userId);
