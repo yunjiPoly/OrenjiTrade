@@ -14,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
+import type { CollectorPreview } from '@orenji/api-client';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { listingsLabel, ratingLabel, tagLabel } from '../../../shared/discovery/discovery-labels';
 import {
@@ -33,7 +34,8 @@ import type { PreviewState } from '../data/map-discovery.store';
 /**
  * Preview card of a collector chosen on the map or in the list (`GET /collectors/{handle}/preview`):
  * name, avatar, approximate distance, rating, tags, last activity, listing freshness and games,
- * with View profile / View public binder / Message (messaging arrives with Phase 5). Focus moves
+ * with View profile / View public binder / Message (when the collector accepts messages from the
+ * viewer; the map page opens the conversation in its Messages panel). Focus moves
  * into the card when it opens and returns where it was when it closes (Escape or the close button).
  */
 @Component({
@@ -185,16 +187,38 @@ import type { PreviewState } from '../data/map-discovery.store';
               </button>
             }
             @if (!isSelf()) {
-              <button
-                matButton
-                type="button"
-                disabled
-                disabledInteractive
-                matTooltip="Coming soon: private messaging"
-              >
-                <mat-icon aria-hidden="true">chat</mat-icon>
-                Message
-              </button>
+              @if (!signedIn()) {
+                <a matButton routerLink="/auth/sign-in" [queryParams]="{ returnUrl: '/map' }">
+                  <mat-icon aria-hidden="true">chat</mat-icon>
+                  Sign in to message
+                </a>
+              } @else if (p.canMessage) {
+                <button
+                  matButton="tonal"
+                  type="button"
+                  [disabled]="messaging()"
+                  [attr.aria-label]="'Message ' + p.displayName"
+                  (click)="messageRequested.emit(p)"
+                >
+                  <mat-icon aria-hidden="true">chat</mat-icon>
+                  {{ messaging() ? 'Opening…' : 'Message' }}
+                </button>
+              } @else {
+                <button
+                  matButton
+                  type="button"
+                  disabled
+                  disabledInteractive
+                  [matTooltip]="
+                    p.isBlocked
+                      ? 'Messaging is unavailable because of a block'
+                      : p.displayName + ' does not accept messages from you'
+                  "
+                >
+                  <mat-icon aria-hidden="true">chat</mat-icon>
+                  Message
+                </button>
+              }
             }
           </div>
         }
@@ -214,7 +238,11 @@ export class CollectorPreviewCardComponent {
   readonly signedIn = input(false);
   /** The previewed collector is the viewer (no Message button). */
   readonly isSelf = input(false);
+  /** The conversation with this collector is being opened. */
+  readonly messaging = input(false);
   readonly closed = output<void>();
+  /** "Message" pressed: open or start the conversation. */
+  readonly messageRequested = output<CollectorPreview>();
   readonly retry = output<void>();
 
   protected readonly titleId = `collector-preview-title-${Math.random().toString(36).slice(2, 8)}`;

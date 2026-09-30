@@ -250,7 +250,9 @@ Contract: `docs/api/contracts/phase4-map-search.md` ("Web /map page"). Generated
   - `CollectorPreviewCardComponent` (`GET /collectors/{handle}/preview`, first public binder from
     `GET /collectors/{handle}/binders`): name, avatar, approximate distance (never for signed-out
     visitors), rating, tags, last activity, listing freshness, games; View profile, View public
-    binder, Message (disabled until Phase 5). Non-modal dialog: focus moves in, Escape closes and
+    binder, Message (Phase 5: opens or starts the conversation in the Messages panel when the
+    collector accepts messages from the viewer; otherwise disabled with the reason; signed-out
+    visitors get "Sign in to message"). Non-modal dialog: focus moves in, Escape closes and
     returns focus. Bottom sheet on phones.
   - "List" toggle (`view=list`): `DiscoveryPanelComponent` + `CollectorListComponent`, the same
     collectors as an accessible list (keyboard alternative to the markers).
@@ -263,7 +265,7 @@ Contract: `docs/api/contracts/phase4-map-search.md` ("Web /map page"). Generated
   - Bottom `MapFiltersBarComponent` (game, radius slider, availability, freshness, tags from
     `GET /tags` when signed in plus the tags of the loaded collectors), `MapLegendComponent`
     ("Positions are approximate to protect privacy" + marker key), `AreaPromptComponent`, and the
-    right-hand Messages panel (placeholder until Phase 5).
+    right-hand Messages panel (Phase 5, below).
 - **`/search`** (`features/search`, the mobile Search tab), all state in the URL
   (`data/search-params.ts`):
   - `?q=&tab=cards|collectors|binders`: `GET /search` in tabs (cards + printings + sets,
@@ -277,6 +279,64 @@ Contract: `docs/api/contracts/phase4-map-search.md` ("Web /map page"). Generated
     approximate place and distance, View binder).
   - Signed-out visitors (and collectors without an area) search around Montréal
     (`shared/discovery/discovery-centre.ts`).
+
+## Messaging, realtime and community (Phase 5)
+
+Contract: `docs/api/contracts/phase5-chat.md` ("Web"). Generated client only (`MessagingService`,
+`UploadsService`, `BlocksService`, `CommunityService`, `AdminCommunityService`,
+`AdminModerationService`). STOMP payloads other than `MessageResponse` are not in the OpenAPI
+document; their shapes live in `core/realtime/realtime-events.ts` with runtime guards.
+
+- **Realtime** (`core/realtime`): `RealtimeService` (started by `provideRealtime()`) connects while
+  a collector is signed in with a ready account and disconnects on sign-out or account change.
+  STOMP 1.2 over a native WebSocket (`stomp-frames.ts` codec + `stomp-connection.ts` client, a
+  lazy chunk, heartbeats both ways, no dependency) at `wsBaseUrl` (`/config.json`, derived from
+  `apiBaseUrl` when empty) with the ID token as `access_token`. Subscribes only to
+  `/user/queue/messages|receipts|typing|presence`, sends only `/app/typing`. `state` signal
+  (`disabled | connecting | connected | reconnecting`, shown by `RealtimeStatusComponent` as
+  "Live" / "Reconnecting…"); exponential backoff 1 s → 30 s with jitter, immediate retry when the
+  browser comes back online or the tab becomes visible; a failure before CONNECTED forces a fresh
+  ID token on the next attempt; `resync$` after every (re)connection makes the stores re-read
+  over REST what pushes may have missed.
+- **Messenger** (`features/messages`), one set of components for the map panel and the full page:
+  `MessengerComponent` (container of `ConversationsStore`: inbox on `GET /conversations` with
+  cursor pages, live preview / order / unread counts from pushes, presence dots, receipts from the
+  caller's other tabs, re-read on unknown conversations and reconnections, mute/archive with
+  `PATCH`, pages older conversations until a linked one is found) →
+  `ConversationListComponent` (avatars, online dot, "You: …", muted icon, unread badge, arrow
+  keys / Home / End) and `ThreadViewComponent` (container of `ThreadStore`: newest page first,
+  older pages when the top sentinel scrolls into view with the position kept, read marker
+  `POST /conversations/{id}/read` only while the thread is on screen and the tab visible, typing
+  notices throttled to one per 3 s, "typing…" for 5 s, receipts turn "Sent" into "Seen", send
+  errors inline: 403 `MESSAGING_BLOCKED`, 422 `MESSAGE_BLOCKED` (generic wording), 429 with the
+  wait) → `ThreadHeaderComponent` (profile link, mute, archive, block/unblock with confirmation,
+  "Report collector" disabled until Phase 7), `MessageListComponent` (day separators, sender
+  groups, `role="log"`), `MessageBubbleComponent` (text, shared card / binder, photo, offer,
+  removed) and `MessageComposerComponent` (Enter sends, Shift+Enter new line, attachment menu:
+  card via `/cards/suggest` autocomplete, one of the caller's public binders, or a JPEG/PNG/WebP
+  photo ≤ 8 MB with preview, uploaded through `POST /uploads/images` kind MESSAGE on send).
+  Shared pickers and link cards live in `shared/links`; `MediaUrlPipe` points API-relative media
+  paths of pushed payloads at the API origin.
+- **Map panel** (`features/map/messages-panel.component.ts`): the messenger in the right-hand
+  sidenav with the live indicator and "Open full page"; the preview's Message button opens (or
+  creates, `POST /conversations`, idempotent) the conversation there; the panel toggle carries the
+  unread badge. **`/messages`, `/messages/:id`**: the full-page messenger, two columns from 840 px,
+  list or thread on phones; the open conversation lives in the URL. The collector profile's
+  Message button opens `/messages/:id` (`shared/messaging/conversation-starter.service.ts`).
+- **Blocks**: `shared/messaging/block-actions.service.ts` (confirmation + snack bar) from the thread
+  menu and the community post menu; **Settings → Blocked users** (`GET /me/blocks`, Unblock).
+- **`/community`, `/community/:slug`** (`features/community`, behind `featureGuard('publicChat')`;
+  the nav link is hidden while the flag is off): `CommunityStore` (channels, feed with cursor
+  pages, reply threads, writes that resolve to the inline message of a refusal: 409
+  `DUPLICATE_POST`, 422 `POST_BLOCKED`, 429 with the wait), `ChannelSidebarComponent` (game
+  filter; groups by city, games, topics; collapses behind a button on narrow screens),
+  channel header, `PostComposerComponent` (1–2000 characters, card / public binder links,
+  Ctrl+Enter), `PostItemComponent` (edit in place, delete with confirmation, block the author,
+  moderator "Remove" with a required reason, "Report collector" disabled until Phase 7) and
+  `PostRepliesComponent` (inline replies, Enter sends, delete own, moderator remove).
+- **Admin → Community** (`features/admin/community`, moderators and admins): channels (create,
+  edit, archive/restore with `POST/PATCH /admin/community/channels`) and the automatic moderation
+  flags (`GET /admin/moderation/flags` by state, resolve with an optional note); `?tab=flags`.
 
 ## Maps
 
@@ -318,6 +378,7 @@ src/app/
     account/    AccountExportService (GET /me/export -> JSON download)
     api/        provideApiClient()  (generated client wiring)
     auth/       AuthService, FirebaseAuthPort, SessionService, guards, interceptors, roles
+    realtime/   RealtimeService (STOMP over WebSocket), frame codec, lazy STOMP connection
     config/     AppConfigService    (/config.json)
     feature-flags/ FeatureFlagsService, featureGuard
     http/       interceptors, ApiError, friendlyError, HttpContext tokens
@@ -329,11 +390,12 @@ src/app/
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, trading-area, account, appearance
+    settings/   shell + profile, privacy, notifications, trading-area, blocked users, account,
+                appearance
     collectors/ public profile (container + presentational view)
     admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog), audit logs,
                 games (schema editor), cards (search, editor, printing dialog, sync panel),
-                feature flags, usage limits
+                feature flags, usage limits, community (channels, moderation flags)
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table, stepper), bulk bar,
@@ -343,10 +405,15 @@ src/app/
     premium/    plans and usage
     map/        /map: data/ (params, query, clusters, markers, MapDiscoveryStore), map canvas,
                 preview card, discovery panel + collector list, filters bar, legend, area
-                prompt, messages panel (placeholder)
+                prompt, messages panel (the messenger)
+    messages/   /messages: data/ (ConversationsStore, ThreadStore, drafts, previews, thread
+                items), messenger, conversation list, thread (view, header, list, bubble),
+                composer, realtime status
+    community/  /community: data/ (CommunityStore, helpers), channel sidebar, post composer,
+                post item, replies, moderator remove dialog
     search/     /search: data/ (params), unified results (tabs, collector result), card holders
                 (filters form, result row)
-    community, wishlist, messages, legal, not-found
+    wishlist, legal, not-found
   shared/
     catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
     inventory/  inventory labels, item chips, public item card, public binder card
@@ -357,7 +424,9 @@ src/app/
     location/   TradingAreaPicker, city presets, MyLocationStore
     map/        MapAdapter, Leaflet + Google adapters, factory, approximate-area map
     profile/    profile form, game / language / tag pickers, MyProfileStore
-    pipes/      relativeTime
+    links/      card / binder link pickers (autocomplete), shared link card
+    messaging/  ConversationStarterService, BlockActionsService
+    pipes/      relativeTime, mediaUrl
     ui/         avatar, card-art, confirm-dialog, game-chip, section-card, empty-state,
                 error-state, skeleton, page-header, freshness-badge, condition-chip,
                 availability-chip, visibility-badge, search-field, wordmark
@@ -396,7 +465,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   map query (visible radius, plan cap, 2-decimal centre, covered-area skipping), marker
   clustering and markers, `MapDiscoveryStore` (city vs own-area centre, debounce, filters,
   429 cap and retry, 400 fallback, preview + binder), preview card, map adapter helpers
-  (escaping, icons), suggestions, discovery labels, search params, holder filters form.
+  (escaping, icons), suggestions, discovery labels, search params, holder filters form; Phase 5:
+  STOMP frame codec and connection (fake socket: CONNECT, heartbeats, ERROR, timeouts),
+  `RealtimeService` (URL with token, backoff, token refresh after a refused handshake, resync,
+  session following), message previews and drafts, thread items (day labels, groups, receipts,
+  merging), `ConversationsStore` and `ThreadStore` (pushes, unread counts, paging, send errors,
+  typing throttle), composer, conversation list (badges, keyboard), link choices, conversation
+  starter, blocked users settings, community helpers and store, admin community helpers,
+  media URLs.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -427,6 +503,20 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     availability filters in the URL) and the unified search (`?q=AZR-EN011` banner, Collectors
     tab). Every JSON response has at most 3 decimals for `lat`/`lng` and never contains a stored
     trading-area centre.
+  - `e2e/messaging.spec.ts` (two browser contexts): A finds B on the map and presses Message in
+    the preview; the panel opens the new conversation; A sends text and a card through the
+    autocomplete; B, waiting on `/messages`, receives the conversation live (no reload) with two
+    unread messages, opens it (card link to the catalog) and A sees "Seen"; B's typing indicator,
+    answer and a photo reach A live; A blocks B from the thread menu ("Report collector"
+    disabled), B's next message is refused inline and `POST /conversations` answers 403
+    `MESSAGING_BLOCKED`; A unblocks B in Settings → Blocked users. A second test starts a
+    conversation from a profile (full page), rejects a text file, sends a photo, shows the 422
+    moderation refusal inline and reopens the conversation from the list by keyboard.
+  - `e2e/community.spec.ts`: `/community` opens the first regional channel; a collector moves to
+    Montréal / Pokémon, posts with a card link, is refused a duplicate (409) and a banned term
+    (422) inline, edits the post; a second collector replies inline; the author sees the reply
+    after a reload and deletes the post. A moderator removes a post with a required reason, then
+    resolves the flag a banned-term post raised in Admin → Community.
     Catalog pictures are served from memory in these specs (`stubCardImages`): the API
     counts every placeholder image against its anonymous 60/min per-IP rate limit, which the
     parallel suite shares.

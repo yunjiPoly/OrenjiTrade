@@ -1,0 +1,137 @@
+:host {
+  display: block;
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3) var(--spacing-1);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.composer__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-1);
+}
+
+.composer__text {
+  flex: 1 1 auto;
+  min-height: 40px;
+  max-height: 160px;
+  padding: 9px var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface-variant);
+  color: var(--color-ink);
+  font: inherit;
+  line-height: 1.4;
+  resize: none;
+  transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
+
+  &:focus-visible {
+    border-color: var(--color-primary);
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: 1px;
+  }
+}
+
+.composer__send:not(:disabled) {
+  color: var(--color-primary);
+}
+
+.composer__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.composer__counter {
+  min-height: 1em;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: right;
+}
+
+.composer__counter--warn {
+  color: var(--color-warning);
+}
+
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-variant);
+  animation: attachment-in var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.attachment__thumb {
+  --card-image-shadow: none;
+  flex: 0 0 36px;
+  width: 36px;
+}
+
+.attachment__photo {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.attachment__icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+.attachment__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.attachment__eyebrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+}
+
+.attachment__name {
+  overflow: hidden;
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment__meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+@keyframes attachment-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attachment {
+    animation: none;
+  }
+}

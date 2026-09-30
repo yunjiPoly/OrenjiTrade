@@ -133,7 +133,7 @@ public class MarkerAssembler {
     }
 
     /** Rows blocked with the viewer in either direction, in one lookup (none when signed out). */
-    private Set<UUID> blockedAmong(@Nullable UUID viewerId, List<MarkerRow> rows) {
+    Set<UUID> blockedAmong(@Nullable UUID viewerId, List<MarkerRow> rows) {
         if (viewerId == null || rows.isEmpty()) {
             return Set.of();
         }

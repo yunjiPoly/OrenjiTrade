@@ -1,0 +1,130 @@
+@let p = post();
+<article class="post" [attr.aria-labelledby]="titleId" [attr.data-post-id]="p.id">
+  <header class="post__head">
+    <app-avatar [src]="p.author.avatarUrl" [name]="p.author.displayName" [decorative]="true" />
+    <div class="post__who">
+      <h3 class="post__author" [id]="titleId">
+        <a [routerLink]="['/collectors', p.author.handle]">{{ p.author.displayName }}</a>
+        @if (own()) {
+          <span class="post__you">You</span>
+        }
+      </h3>
+      <p class="post__meta">
+        &#64;{{ p.author.handle }} ·
+        <time [attr.datetime]="p.createdAt">{{ p.createdAt | relativeTime }}</time>
+        @if (p.editedAt) {
+          · edited
+        }
+      </p>
+    </div>
+    <button
+      matIconButton
+      type="button"
+      class="post__menu"
+      [attr.aria-label]="'Post options for the post of ' + p.author.displayName"
+      [matMenuTriggerFor]="menu"
+    >
+      <mat-icon>more_horiz</mat-icon>
+    </button>
+    <mat-menu #menu="matMenu" xPosition="before">
+      @if (own()) {
+        @if (p.canEdit) {
+          <button mat-menu-item type="button" (click)="startEdit()">
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            Edit post
+          </button>
+        }
+        @if (p.canDelete) {
+          <button mat-menu-item type="button" (click)="delete()">
+            <mat-icon aria-hidden="true">delete</mat-icon>
+            Delete post
+          </button>
+        }
+      } @else {
+        @if (canModerate()) {
+          <button mat-menu-item type="button" (click)="remove()">
+            <mat-icon aria-hidden="true">remove_moderator</mat-icon>
+            Remove (moderator)
+          </button>
+        }
+        <button mat-menu-item type="button" (click)="blockAuthor()">
+          <mat-icon aria-hidden="true">block</mat-icon>
+          Block {{ p.author.displayName }}
+        </button>
+        <div matTooltip="Collector reports arrive soon" matTooltipPosition="left">
+          <button mat-menu-item type="button" disabled>
+            <mat-icon aria-hidden="true">flag</mat-icon>
+            Report collector
+          </button>
+        </div>
+      }
+    </mat-menu>
+  </header>
+
+  @if (editing()) {
+    <form class="post__edit" (submit)="saveEdit($event)">
+      <label class="visually-hidden" [for]="titleId + '-edit'">Edit your post</label>
+      <textarea
+        class="post__edit-text"
+        [id]="titleId + '-edit'"
+        [formControl]="editText"
+        [attr.maxlength]="maxLength"
+        rows="4"
+        (keydown.escape)="cancelEdit()"
+      ></textarea>
+      @if (editText.touched && editText.hasError('required')) {
+        <p class="post__error" role="alert">A post needs some text.</p>
+      }
+      @if (editError()) {
+        <p class="post__error" role="alert">{{ editError() }}</p>
+      }
+      <div class="post__edit-actions">
+        <button matButton type="button" (click)="cancelEdit()">Cancel</button>
+        <button matButton="filled" type="submit" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </form>
+  } @else {
+    <p class="post__body">{{ p.body }}</p>
+  }
+
+  @if (p.payload.card || p.payload.binder) {
+    <div class="post__links">
+      @if (p.payload.card; as card) {
+        <app-shared-link-card [card]="card" />
+      }
+      @if (p.payload.binder; as binder) {
+        <app-shared-link-card [binder]="binder" />
+      }
+    </div>
+  }
+
+  <footer class="post__foot">
+    <button matButton type="button" [attr.aria-expanded]="repliesOpen()" (click)="toggleReplies()">
+      <mat-icon aria-hidden="true">chat_bubble_outline</mat-icon>
+      @if (p.replyCount === 0) {
+        Reply
+      } @else {
+        {{ p.replyCount }} {{ p.replyCount === 1 ? 'reply' : 'replies' }}
+      }
+    </button>
+    @if (p.lastReplyAt && p.replyCount > 0) {
+      <span class="post__last">Last reply {{ p.lastReplyAt | relativeTime }}</span>
+    }
+  </footer>
+
+  @if (repliesOpen()) {
+    <app-post-replies
+      [thread]="thread()"
+      [postAuthor]="p.author.displayName"
+      [selfId]="store.selfId()"
+      [isModerator]="store.isModerator()"
+      (send)="reply($event)"
+      (deleteReply)="deleteReply($event)"
+      (removeReply)="removeReply($event)"
+      (retry)="store.loadReplies(p.id)"
+      (more)="store.loadReplies(p.id, true)"
+    />
+  }
+</article>

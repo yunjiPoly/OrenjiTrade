@@ -48,6 +48,8 @@ api/messaging.service.ts
 api/messaging.serviceInterface.ts
 api/meta.service.ts
 api/meta.serviceInterface.ts
+api/notifications.service.ts
+api/notifications.serviceInterface.ts
 api/plans.service.ts
 api/plans.serviceInterface.ts
 api/profile.service.ts
@@ -62,6 +64,8 @@ api/settings.service.ts
 api/settings.serviceInterface.ts
 api/uploads.service.ts
 api/uploads.serviceInterface.ts
+api/wishlist.service.ts
+api/wishlist.serviceInterface.ts
 configuration.ts
 encoder.ts
 index.ts
@@ -112,10 +116,13 @@ model/createDeletionRequest.ts
 model/createInventoryItemRequest.ts
 model/createPostRequest.ts
 model/createReplyRequest.ts
+model/createWishlistItemRequest.ts
 model/cursorPageConversationSummary.ts
 model/cursorPageMessageResponse.ts
+model/cursorPageNotificationResponse.ts
 model/cursorPagePostResponse.ts
 model/cursorPageReplyResponse.ts
+model/cursorPageWishlistMatchResponse.ts
 model/deletionRequestResponse.ts
 model/deletionRequestSummary.ts
 model/delistJobResponse.ts
@@ -153,6 +160,7 @@ model/myLocationResponse.ts
 model/myPlan.ts
 model/myProfileResponse.ts
 model/nearbyCollectorsResponse.ts
+model/notificationResponse.ts
 model/notificationSettingsRequest.ts
 model/notificationSettingsResponse.ts
 model/offerLink.ts
@@ -189,8 +197,10 @@ model/publicInventoryItem.ts
 model/publicOwnerLocation.ts
 model/publicPoint.ts
 model/publishBinderRequest.ts
+model/pushTokenRequest.ts
 model/quietHours.ts
 model/quietHoursRequest.ts
+model/readAllNotificationsResponse.ts
 model/removeContentRequest.ts
 model/reorderBindersRequest.ts
 model/replyResponse.ts
@@ -207,6 +217,7 @@ model/suspendUserRequest.ts
 model/tagResponse.ts
 model/tradingAreaResponse.ts
 model/unifiedSearchResponse.ts
+model/unreadNotificationCount.ts
 model/updateBinderRequest.ts
 model/updateCommunityChannelRequest.ts
 model/updateConversationRequest.ts
@@ -220,9 +231,15 @@ model/updateProfileTagsRequest.ts
 model/updateRolesRequest.ts
 model/updateTradingAreaRequest.ts
 model/updateUsageLimitRequest.ts
+model/updateWishlistItemRequest.ts
 model/uploadCleanupJobResponse.ts
 model/usageLimit.ts
 model/visibilityCounts.ts
+model/wishlistCardRef.ts
+model/wishlistItemResponse.ts
+model/wishlistMatchResponse.ts
+model/wishlistRematchResponse.ts
+model/wishlistSummaryEntry.ts
 param.ts
 provide-api.ts
 query.params.ts

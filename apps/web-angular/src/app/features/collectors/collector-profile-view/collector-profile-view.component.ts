@@ -57,6 +57,10 @@ export class CollectorProfileViewComponent {
   readonly publicItems = input<readonly PublicInventoryItem[] | null>(null);
   readonly publicItemCount = input(0);
   readonly retryBinders = output<void>();
+  /** The conversation with this collector is being opened. */
+  readonly messaging = input(false);
+  /** "Message" pressed (only offered when `canMessage`). */
+  readonly messageRequested = output<void>();
 
   /** The binder the "View public binder" button opens (the owner's first one). */
   protected readonly firstBinder = computed(() => this.binders()?.[0] ?? null);

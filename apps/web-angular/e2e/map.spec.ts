@@ -209,7 +209,8 @@ test.describe('map discovery and search', () => {
     await expect(preview.getByTestId('preview-freshness')).toContainText(
       '1 public binder · 1 card',
     );
-    await expect(preview.getByRole('button', { name: 'Message' })).toBeDisabled();
+    // Phase 5: the seller accepts messages from members with a profile.
+    await expect(preview.getByRole('button', { name: `Message ${a.displayName}` })).toBeEnabled();
     await expect(preview.getByRole('link', { name: 'View public binder' })).toHaveAttribute(
       'href',
       `/binders/${seller.binder.id}`,

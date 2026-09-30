@@ -23,10 +23,13 @@ import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -252,6 +255,32 @@ public class CollectorDiscoveryService {
         }
         return new CollectorPreview(
                 marker, privacyPolicy.canMessage(viewer, targetId, privacy), blocked);
+    }
+
+    /**
+     * Markers of the given collectors as {@code viewerId} sees them (Phase 6 wishlist matches):
+     * only collectors on the map and not blocked with the viewer are returned; distance buckets are
+     * measured from the viewer's own trading area (snapped, never exposed), when they have one.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, CollectorMarker> markersFor(UUID viewerId, Collection<UUID> ids) {
+        Map<UUID, CollectorMarker> result = new LinkedHashMap<>();
+        if (ids.isEmpty()) {
+            return result;
+        }
+        Instant now = timeProvider.now();
+        @Nullable SearchCentre centre =
+                geoScopes.resolve(viewerId, null, null, null, false).centre();
+        ViewerContext viewer =
+                new ViewerContext(viewerId, profileService.isComplete(viewerId), false);
+        List<MarkerRow> rows = repository.markersByIds(ids, centre, now);
+        Set<UUID> blocked = assembler.blockedAmong(viewerId, rows);
+        for (MarkerRow row : rows) {
+            if (!blocked.contains(row.id())) {
+                result.put(row.id(), assembler.marker(row, viewer, now));
+            }
+        }
+        return result;
     }
 
     // ---------------------------------------------------------------------------------------

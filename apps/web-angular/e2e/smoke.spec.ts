@@ -43,7 +43,13 @@ test.describe('app shell', () => {
     await expect(page).toHaveURL(/\/map$/);
     await expect(page.getByTestId('discovery-map')).toBeVisible();
     await expect(page.getByText('Showing collectors around')).toContainText('Montréal');
-    await expect(page.getByRole('main').getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'Sign in', exact: true }),
+    ).toBeVisible();
+    // Phase 5: the Messages panel invites signed-out visitors too.
+    await expect(
+      page.locator('#map-messages-panel').getByRole('link', { name: 'Sign in to message' }),
+    ).toHaveAttribute('href', '/auth/sign-in?returnUrl=%2Fmap');
     await expect(page.getByText('Positions are approximate to protect privacy')).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Search the map' })).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();

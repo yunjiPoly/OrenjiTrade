@@ -207,6 +207,46 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                             .as("summary of %s %s", operation.getKey(), path)
                                             .isNotEmpty());
         }
+        // Phase 6 (wishlist, matches, notifications, push tokens).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/wishlist",
+                        "/api/v1/wishlist/{id}",
+                        "/api/v1/wishlist/{id}/matches",
+                        "/api/v1/wishlist/matches/{id}/dismiss",
+                        "/api/v1/collectors/{handle}/wishlist",
+                        "/api/v1/notifications",
+                        "/api/v1/notifications/unread-count",
+                        "/api/v1/notifications/{id}/read",
+                        "/api/v1/notifications/read-all",
+                        "/api/v1/me/push-tokens",
+                        "/api/v1/me/push-tokens/{token}",
+                        "/internal/jobs/wishlist-rematch")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation -> {
+                                assertThat(operation.getValue().path("summary").asString())
+                                        .as("summary of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                                assertThat(operation.getValue().path("tags"))
+                                        .as("tags of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                            });
+        }
+        assertThat(
+                        paths.path("/api/v1/wishlist/{id}")
+                                .path("patch")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asString())
+                .isEqualTo("#/components/schemas/UpdateWishlistItemRequest");
+        assertThat(paths.path("/api/v1/wishlist").path("post").path("responses").has("429"))
+                .isTrue();
         assertThat(paths.has("/ws")).as("the STOMP endpoint is not a REST operation").isFalse();
         JsonNode publicBinder = paths.path("/api/v1/public/binders/{id}").path("get");
         assertThat(publicBinder.path("security")).isEmpty();

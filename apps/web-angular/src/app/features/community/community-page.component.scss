@@ -1,0 +1,231 @@
+:host {
+  display: block;
+}
+
+.community {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+}
+
+.community__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.community__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+
+.community__title {
+  font-size: var(--font-size-3xl);
+}
+
+.community__subtitle {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+// Only on narrow screens: the sidebar collapses behind this button.
+.community__channels-toggle {
+  display: none;
+}
+
+.community__layout {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--spacing-6);
+}
+
+.community__sidebar {
+  position: sticky;
+  top: calc(64px + var(--spacing-4));
+  max-height: calc(100dvh - 64px - var(--spacing-8));
+  padding: var(--spacing-3);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.community__sidebar--skeleton {
+  min-height: 320px;
+}
+
+.community__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  min-width: 0;
+}
+
+.channel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--color-primary) 18%, transparent),
+      transparent 60%
+    ),
+    var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  animation: community-fade var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.channel-head__icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.channel-head__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  min-width: 0;
+}
+
+.channel-head__name {
+  font-size: var(--font-size-2xl);
+}
+
+.channel-head__description {
+  margin: 0;
+  opacity: 0.85;
+}
+
+.channel-head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: var(--spacing-1) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.channel-head__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px var(--spacing-3) 3px var(--spacing-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: var(--font-weight-medium);
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.channel-head__activity {
+  opacity: 0.8;
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feed__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.feed__more {
+  display: flex;
+  justify-content: center;
+}
+
+.feed__end {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+@keyframes community-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .channel-head {
+    animation: none;
+  }
+}
+
+@media (max-width: 839px) {
+  .community__channels-toggle {
+    display: inline-flex;
+  }
+
+  .community__layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-4);
+  }
+
+  .community__sidebar {
+    position: static;
+    display: none;
+    max-height: none;
+  }
+
+  .community__sidebar--skeleton,
+  .community__layout--channels-open .community__sidebar {
+    display: block;
+  }
+
+  .community__layout--channels-open .community__main {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .community__title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .channel-head {
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  .channel-head__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .channel-head__name {
+    font-size: var(--font-size-xl);
+  }
+}

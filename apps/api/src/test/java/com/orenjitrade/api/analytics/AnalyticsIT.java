@@ -271,6 +271,98 @@ class AnalyticsIT extends AbstractIntegrationTest {
         }
     }
 
+    @Test
+    void phase6WishlistEventsCarryNoNotesIdsOrCoordinates(CapturedOutput output)
+            throws InterruptedException {
+        Instant start = Instant.now().minusSeconds(1);
+        UUID printingId = InventoryTestSupport.printing(testUsers, "ygo-p001a");
+        double lat = -21.37;
+        double lng = 55.53;
+        String wisher = uniqueUid("an-wisher");
+        UUID wisherId = provisionCompliant(wisher);
+        String seller = uniqueUid("an-seller");
+        UUID sellerId = provisionCompliant(seller);
+        for (String uid : List.of(wisher, seller)) {
+            callJson(
+                    HttpMethod.PUT,
+                    "/api/v1/me/settings/privacy",
+                    uid,
+                    privacy(true, "MEMBERS"),
+                    200);
+        }
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/location/trading-area",
+                wisher,
+                Map.of("lat", lat, "lng", lng, "radiusKm", 5),
+                200);
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/location/trading-area",
+                seller,
+                Map.of("lat", lat + 0.02, "lng", lng, "radiusKm", 5),
+                200);
+        Map<String, Object> wish = new java.util.LinkedHashMap<>();
+        wish.put("printingId", printingId.toString());
+        wish.put("maxPrice", new java.math.BigDecimal("80.00"));
+        wish.put("notes", "Secret wish note");
+        String wishId =
+                callJson(HttpMethod.POST, "/api/v1/wishlist", wisher, wish, 201)
+                        .path("id")
+                        .asString();
+        Map<String, Object> listed = item(printingId);
+        listed.put("visibility", "PUBLIC");
+        listed.put("notes", "Secret seller note");
+        String itemId =
+                callJson(HttpMethod.POST, "/api/v1/inventory/items", seller, listed, 201)
+                        .path("id")
+                        .asString();
+
+        ActorHasher actorHasher = publisher.actorHasher();
+        String wisherHash = actorHasher.hash(wisherId);
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(20));
+        List<JsonNode> mine = List.of();
+        while (Instant.now().isBefore(deadline)) {
+            mine =
+                    parse(output.getAll(), start).stream()
+                            .filter(event -> wisherHash.equals(event.path("actor_hash").asString()))
+                            .toList();
+            Set<String> types = new HashSet<>();
+            mine.forEach(event -> types.add(event.path("event_type").asString()));
+            if (types.containsAll(Set.of("wishlist_item_created", "wishlist_matched"))) {
+                break;
+            }
+            Thread.sleep(200);
+        }
+        JsonNode created = first(mine, "wishlist_item_created");
+        assertThat(created.path("payload").path("game").asString()).isEqualTo("yugioh");
+        assertThat(created.path("payload").path("target").asString()).isEqualTo("printing");
+        assertThat(created.path("payload").path("has_max_price").asBoolean()).isTrue();
+        assertThat(created.path("payload").path("trade_preference").asString()).isEqualTo("ANY");
+        JsonNode matched = first(mine, "wishlist_matched");
+        assertThat(matched.path("payload").path("distance_bucket").asString())
+                .isIn("LT_1KM", "KM_1_5", "KM_5_10");
+        assertThat(matched.path("payload").path("notified").asBoolean()).isTrue();
+        assertThat(matched.path("payload").path("owner_hash").asString())
+                .isEqualTo(actorHasher.hash(sellerId));
+        for (JsonNode event : mine) {
+            ObjectNode checked = (ObjectNode) event.deepCopy();
+            checked.remove("occurred_at");
+            String text = checked.toString();
+            assertThat(text)
+                    .doesNotContain("Secret wish note")
+                    .doesNotContain("Secret seller note")
+                    .doesNotContain(wisherId.toString())
+                    .doesNotContain(sellerId.toString())
+                    .doesNotContain(wishId)
+                    .doesNotContain(itemId)
+                    .doesNotContain("\"lat\"")
+                    .doesNotContain("21.37")
+                    .doesNotContain("55.53");
+            assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
+        }
+    }
+
     private void get(String uid, String template, Object... variables) {
         var spec = http.get().uri(template, variables);
         if (uid != null) {

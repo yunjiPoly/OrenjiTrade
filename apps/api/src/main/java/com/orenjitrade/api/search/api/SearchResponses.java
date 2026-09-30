@@ -132,7 +132,8 @@ public final class SearchResponses {
                                             + " availability (empty without those filters)")
                     List<MatchingItemResponse> matchingItems) {
 
-        static CollectorMarkerResponse from(CollectorMarker marker) {
+        /** Response form of a marker (also used by the wishlist matches, Phase 6). */
+        public static CollectorMarkerResponse from(CollectorMarker marker) {
             return new CollectorMarkerResponse(
                     marker.id(),
                     marker.handle(),

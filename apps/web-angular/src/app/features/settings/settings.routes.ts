@@ -36,6 +36,14 @@ export const SETTINGS_ROUTES: Routes = [
           ),
       },
       {
+        path: 'blocked',
+        title: 'Blocked users',
+        loadComponent: () =>
+          import('./blocked/blocked-users-settings.component').then(
+            (m) => m.BlockedUsersSettingsComponent,
+          ),
+      },
+      {
         path: 'account',
         title: 'Account settings',
         loadComponent: () =>

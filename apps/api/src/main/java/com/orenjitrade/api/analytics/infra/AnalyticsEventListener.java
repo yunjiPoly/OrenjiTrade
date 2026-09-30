@@ -12,6 +12,8 @@ import com.orenjitrade.api.messaging.events.MessageSent;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
 import com.orenjitrade.api.search.events.CollectorPreviewed;
 import com.orenjitrade.api.search.events.SearchPerformed;
+import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
+import com.orenjitrade.api.wishlist.events.WishlistMatched;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -210,6 +212,52 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.COMMUNITY_POST_CREATED,
                             created.occurredAt(),
                             created.authorId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    /** Committed wishlist items (Phase 6): game, target kind, radius and filter flags. */
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(WishlistItemCreated created) {
+        emit(
+                AnalyticsEventTypes.WISHLIST_ITEM_CREATED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("game", created.game());
+                    payload.put("target", created.target());
+                    payload.put("radius_km", created.radiusKm());
+                    payload.put("has_max_price", created.hasMaxPrice());
+                    payload.put("trade_preference", created.tradePreference());
+                    return event(
+                            AnalyticsEventTypes.WISHLIST_ITEM_CREATED,
+                            created.occurredAt(),
+                            created.ownerId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    /**
+     * Committed wishlist matches (Phase 6): game, distance bucket (never a distance or a point),
+     * whether a notification was created, the pseudonymous item owner.
+     */
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(WishlistMatched matched) {
+        emit(
+                AnalyticsEventTypes.WISHLIST_MATCHED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("game", matched.game());
+                    payload.put("distance_bucket", matched.distanceBucket());
+                    payload.put("notified", matched.notified());
+                    payload.put("owner_hash", hash(matched.itemOwnerId()));
+                    return event(
+                            AnalyticsEventTypes.WISHLIST_MATCHED,
+                            matched.matchedAt(),
+                            matched.wisherId(),
                             null,
                             null,
                             payload);
