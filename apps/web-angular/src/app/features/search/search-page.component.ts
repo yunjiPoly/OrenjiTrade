@@ -1,34 +1,27 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  computed,
-  effect,
-  inject,
-  input,
-  signal,
-  untracked,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
-import { CatalogService, PageResponseCardSummary } from '@orenji/api-client';
-import { Subscription } from 'rxjs';
-import { ApiError, toApiError } from '../../core/http/api-error';
-import { friendlyMessage } from '../../core/http/api-error-messages';
-import { silentErrors } from '../../core/http/http-context';
-import { CardGridComponent } from '../../shared/catalog/card-grid/card-grid.component';
-import { CardSearchBoxComponent } from '../../shared/catalog/card-search-box/card-search-box.component';
-import { QUERY_MAX_LENGTH } from '../../shared/catalog/catalog-constants';
+import { Router, RouterLink } from '@angular/router';
+import type { SearchSuggestion } from '@orenji/api-client';
+import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
+import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
-import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
-
-const PREVIEW_SIZE = 8;
+import { CardHoldersComponent } from './card-holders/card-holders.component';
+import {
+  HolderFilters,
+  SearchTab,
+  holderFiltersToQuery,
+  parseSearchParams,
+} from './data/search-params';
+import { UnifiedResultsComponent } from './results/unified-results.component';
 
 /**
- * `/search?q=...` (the mobile Search tab): card search with autocomplete and the first matching
- * cards from the catalog. Collectors and public binders join the results in Phase 4.
+ * `/search` (the mobile Search tab). Three views, all driven by the URL:
+ * - `?q=` unified results in tabs (cards, collectors, public binders; a resolved card shows its
+ *   nearby holders);
+ * - `?card=` / `?printing=` "who near me has this card" with every filter and sort;
+ * - no query: an invitation to search.
  */
 @Component({
   selector: 'app-search-page',
@@ -36,67 +29,59 @@ const PREVIEW_SIZE = 8;
     RouterLink,
     MatButtonModule,
     MatIconModule,
-    PageHeaderComponent,
-    CardSearchBoxComponent,
-    CardGridComponent,
+    CardHoldersComponent,
     EmptyStateComponent,
-    ErrorStateComponent,
+    PageHeaderComponent,
+    UnifiedResultsComponent,
+    UnifiedSearchBoxComponent,
   ],
   template: `
     <div class="page">
-      <app-page-header
-        title="Search"
-        subtitle="Cards and printings today; collectors near you soon."
-      >
-        <app-card-search-box class="search__field" label="Search cards" />
-      </app-page-header>
-
-      @if (query()) {
-        <section aria-labelledby="search-cards-title">
-          <div class="search__head">
-            <h2 id="search-cards-title" class="search__title">Cards for “{{ query() }}”</h2>
-            @if ((result()?.totalItems ?? 0) > 0) {
-              <a routerLink="/cards" [queryParams]="{ q: query() }">
-                See all {{ result()?.totalItems }} cards
-              </a>
-            }
-          </div>
-          @if (error(); as error) {
-            <app-error-state
-              title="Cards could not load"
-              [message]="errorMessage()"
-              [requestId]="error.requestId"
-              (retry)="load(query())"
-            />
-          } @else if (result(); as page) {
-            @if ((page.items ?? []).length) {
-              <app-card-grid [cards]="page.items ?? []" label="Matching cards" />
-            } @else {
-              <app-empty-state
-                icon="search_off"
-                title="No cards match"
-                description="Try another spelling or a printing code like AZR-EN001."
-              />
-            }
-          } @else {
-            <app-card-grid [cards]="[]" [loading]="true" skeletonCount="4" />
-          }
-        </section>
-        <p class="search__soon">
-          <mat-icon aria-hidden="true">near_me</mat-icon>
-          Collectors and public binders near you join these results soon.
-        </p>
+      @if (target(); as target) {
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a routerLink="/search">Search</a>
+          <mat-icon aria-hidden="true">chevron_right</mat-icon>
+          <span aria-current="page">Card holders</span>
+        </nav>
+        <app-card-holders
+          [target]="target"
+          [filters]="params().filters"
+          [returnUrl]="router.url"
+          (filtersChange)="onHolderFilters($event)"
+        />
       } @else {
-        <app-empty-state
-          icon="search"
-          title="Search for a card"
-          description="Type a card name or a printing code above, or browse the whole catalog."
+        <app-page-header
+          title="Search"
+          subtitle="Cards, collectors near you, public binders and tags."
         >
-          <a actions matButton="filled" routerLink="/cards">
-            <mat-icon aria-hidden="true">playing_cards</mat-icon>
-            Browse the catalog
-          </a>
-        </app-empty-state>
+          <app-unified-search-box
+            class="search__field"
+            label="Search cards, collectors and binders"
+            [value]="params().q"
+            [keepSelection]="true"
+            (picked)="onPicked($event)"
+            (submitted)="onSubmitted($event)"
+          />
+        </app-page-header>
+
+        @if (params().q) {
+          <app-unified-results [q]="params().q" [tab]="params().tab" (tabChange)="onTab($event)" />
+        } @else {
+          <app-empty-state
+            icon="travel_explore"
+            title="Who near you has that card?"
+            description="Search a card name or a printing code like AZR-EN001 to see collectors nearby who own, trade or sell it. You can also look for a collector, a binder or a tag."
+          >
+            <a actions matButton="filled" routerLink="/map">
+              <mat-icon aria-hidden="true">map</mat-icon>
+              Explore the map
+            </a>
+            <a actions matButton="outlined" routerLink="/cards">
+              <mat-icon aria-hidden="true">playing_cards</mat-icon>
+              Browse the catalog
+            </a>
+          </app-empty-state>
+        }
       }
     </div>
   `,
@@ -104,63 +89,108 @@ const PREVIEW_SIZE = 8;
     .search__field {
       max-width: 640px;
     }
-    .search__head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: var(--spacing-2);
-      margin-bottom: var(--spacing-3);
-    }
-    .search__title {
-      font-size: var(--font-size-xl);
-    }
-    .search__soon {
+    .crumbs {
       display: flex;
       align-items: center;
-      gap: var(--spacing-2);
-      margin-top: var(--spacing-6);
+      gap: var(--spacing-1);
+      margin-bottom: var(--spacing-4);
       color: var(--color-text-muted);
       font-size: var(--font-size-sm);
+    }
+    .crumbs mat-icon {
+      width: 18px;
+      height: 18px;
+      font-size: 18px;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SearchPageComponent {
-  private readonly api = inject(CatalogService);
+  protected readonly router = inject(Router);
 
-  /** Bound from the `q` query parameter (withComponentInputBinding). */
+  // Query parameters (withComponentInputBinding).
   readonly q = input<string | undefined>();
-  protected readonly query = computed(() => (this.q() ?? '').trim().slice(0, QUERY_MAX_LENGTH));
-  protected readonly result = signal<PageResponseCardSummary | null>(null);
-  protected readonly error = signal<ApiError | null>(null);
-  protected readonly errorMessage = computed(() => {
-    const error = this.error();
-    return error ? friendlyMessage(error) : '';
-  });
+  readonly tab = input<string | undefined>();
+  readonly card = input<string | undefined>();
+  readonly printing = input<string | undefined>();
+  readonly availability = input<string | undefined>();
+  readonly condition = input<string | undefined>();
+  readonly minPrice = input<string | undefined>();
+  readonly maxPrice = input<string | undefined>();
+  readonly freshness = input<string | undefined>();
+  readonly edition = input<string | undefined>();
+  readonly language = input<string | undefined>();
+  readonly offers = input<string | undefined>();
+  readonly sort = input<string | undefined>();
+  readonly page = input<string | undefined>();
 
-  private subscription: Subscription | null = null;
+  protected readonly params = computed(() =>
+    parseSearchParams({
+      q: this.q(),
+      tab: this.tab(),
+      card: this.card(),
+      printing: this.printing(),
+      availability: this.availability(),
+      condition: this.condition(),
+      minPrice: this.minPrice(),
+      maxPrice: this.maxPrice(),
+      freshness: this.freshness(),
+      edition: this.edition(),
+      language: this.language(),
+      offers: this.offers(),
+      sort: this.sort(),
+      page: this.page(),
+    }),
+  );
+  /** Stable object per card/printing so the holders view does not reload for filter changes. */
+  protected readonly target = computed(
+    () => {
+      const params = this.params();
+      if (params.printing) {
+        return { kind: 'printing' as const, id: params.printing };
+      }
+      return params.card ? { kind: 'card' as const, id: params.card } : null;
+    },
+    { equal: (a, b) => a?.kind === b?.kind && a?.id === b?.id },
+  );
 
-  constructor() {
-    effect(() => {
-      const query = this.query();
-      untracked(() => this.load(query));
-    });
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+  protected onSubmitted(text: string): void {
+    void this.router.navigate(['/search'], { queryParams: { q: text } });
   }
 
-  protected load(query: string): void {
-    this.subscription?.unsubscribe();
-    this.result.set(null);
-    this.error.set(null);
-    if (!query) {
+  protected onPicked(suggestion: SearchSuggestion): void {
+    const holders = holdersParams(suggestion);
+    if (holders) {
+      void this.router.navigate(['/search'], { queryParams: holders });
       return;
     }
-    this.subscription = this.api
-      .searchCards({ query, size: PREVIEW_SIZE }, 'body', false, { context: silentErrors() })
-      .subscribe({
-        next: (page) => this.result.set(page),
-        error: (error: unknown) => this.error.set(toApiError(error)),
+    if (suggestion.type === 'TAG') {
+      void this.router.navigate(['/map'], {
+        queryParams: { tags: suggestion.slug ?? suggestion.id, view: 'list' },
       });
+      return;
+    }
+    const page = suggestionPage(suggestion);
+    if (page) {
+      void this.router.navigate(page);
+    }
+  }
+
+  protected onTab(tab: SearchTab): void {
+    void this.router.navigate(['/search'], {
+      queryParams: { q: this.params().q, tab: tab === 'cards' ? null : tab },
+      replaceUrl: true,
+    });
+  }
+
+  protected onHolderFilters(filters: HolderFilters): void {
+    const target = this.target();
+    if (!target) {
+      return;
+    }
+    void this.router.navigate(['/search'], {
+      queryParams: { [target.kind]: target.id, ...holderFiltersToQuery(filters) },
+      replaceUrl: true,
+    });
   }
 }

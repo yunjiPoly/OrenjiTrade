@@ -18,5 +18,11 @@ public final class AnalyticsEventTypes {
     /** A card or printing detail page was served. */
     public static final String CARD_VIEWED = "card_viewed";
 
+    /** A private message was sent (kind only; never the text or the participants' ids). */
+    public static final String MESSAGE_SENT = "message_sent";
+
+    /** A community post was published (channel slug and link flags only; never the text). */
+    public static final String COMMUNITY_POST_CREATED = "community_post_created";
+
     private AnalyticsEventTypes() {}
 }

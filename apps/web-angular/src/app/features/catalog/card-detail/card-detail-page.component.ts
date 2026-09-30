@@ -40,8 +40,8 @@ import { CardMetadataComponent } from './card-metadata.component';
 
 /**
  * `/cards/:id` (`?printing=` selects a printing): hero picture, game-specific attributes from the
- * game's schema, the selected printing with its market price, every printing, and the entry
- * points of later phases ("Who has this near me", "Add to wishlist") shown as coming soon.
+ * game's schema, the selected printing with its market price, every printing, "Who has this near
+ * me" (the map in holders mode) and "Add to wishlist" (coming soon, Phase 6).
  */
 @Component({
   selector: 'app-card-detail-page',

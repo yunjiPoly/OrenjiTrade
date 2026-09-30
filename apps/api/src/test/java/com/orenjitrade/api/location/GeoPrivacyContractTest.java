@@ -368,6 +368,86 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         return count;
     }
 
+    /**
+     * Phase 5 responses that carry other members (conversations, messages with card and binder
+     * links, blocks, community channels, posts and replies) never carry a coordinate or a private
+     * location key; the seeded conversation and posts are served as seeded.
+     */
+    @Test
+    void messagingAndCommunityResponsesNeverCarryCoordinates(CapturedOutput output) {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        String conversationId = "00000000-0000-4000-8d00-000000000001";
+
+        JsonNode conversations =
+                callJson(HttpMethod.GET, "/api/v1/conversations", collector1, null, 200);
+        JsonNode seeded = null;
+        for (JsonNode item : conversations.path("items")) {
+            if (item.path("id").asString().equals(conversationId)) {
+                seeded = item;
+            }
+        }
+        assertThat(seeded).as("the seeded conversation of collector1").isNotNull();
+        assertThat(seeded.path("other").path("handle").asString()).isEqualTo("collector2");
+        assertThat(seeded.path("lastMessage").path("senderId").asString())
+                .isEqualTo(idOf("collector1").toString());
+        assertPublicListing(conversations, "conversations");
+
+        JsonNode messages =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/conversations/" + conversationId + "/messages",
+                        collector2,
+                        null,
+                        200);
+        assertThat(messages.path("items")).hasSize(6);
+        List<String> kinds = new ArrayList<>();
+        messages.path("items").forEach(item -> kinds.add(item.path("kind").asString()));
+        assertThat(kinds).contains("CARD_LINK", "BINDER_LINK", "TEXT");
+        assertPublicListing(messages, "messages");
+        JsonNode summary2 =
+                callJson(HttpMethod.GET, "/api/v1/conversations", collector2, null, 200);
+        for (JsonNode item : summary2.path("items")) {
+            if (item.path("id").asString().equals(conversationId)) {
+                assertThat(item.path("unreadCount").asInt()).isEqualTo(1);
+            }
+        }
+
+        JsonNode channels =
+                callJson(HttpMethod.GET, "/api/v1/community/channels", collector1, null, 200);
+        assertPublicListing(channels, "channels");
+        for (String slug : List.of("montreal-yugioh", "looking-for", "new-listings", "general")) {
+            JsonNode posts =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/community/channels/" + slug + "/posts",
+                            collector2,
+                            null,
+                            200);
+            assertThat(posts.path("items")).as("seeded posts in %s", slug).isNotEmpty();
+            assertPublicListing(posts, slug);
+            for (JsonNode post : posts.path("items")) {
+                assertPublicListing(
+                        callJson(
+                                HttpMethod.GET,
+                                "/api/v1/community/posts/"
+                                        + post.path("id").asString()
+                                        + "/replies",
+                                collector2,
+                                null,
+                                200),
+                        "replies");
+            }
+        }
+        JsonNode blocks = callJson(HttpMethod.GET, "/api/v1/me/blocks", collector1, null, 200);
+        assertPublicListing(blocks, "blocks");
+
+        String logs = output.getAll();
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
     /** At most 3 decimals, no private location keys, no private notes. */
     private static void assertSearchDocument(JsonNode document, String context) {
         assertOnlyPublicPrecision(document, context);

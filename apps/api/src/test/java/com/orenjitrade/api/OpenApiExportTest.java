@@ -176,6 +176,38 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                             .as("summary of %s %s", operation.getKey(), path)
                                             .isNotEmpty());
         }
+        // Phase 5 (messaging, blocks, uploads, community, moderation).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/conversations",
+                        "/api/v1/conversations/{id}",
+                        "/api/v1/conversations/{id}/messages",
+                        "/api/v1/conversations/{id}/read",
+                        "/api/v1/uploads/images",
+                        "/api/v1/users/{id}/block",
+                        "/api/v1/me/blocks",
+                        "/api/v1/community/channels",
+                        "/api/v1/community/channels/{slug}/posts",
+                        "/api/v1/community/posts/{id}",
+                        "/api/v1/community/posts/{id}/replies",
+                        "/api/v1/community/replies/{id}",
+                        "/api/v1/admin/community/channels",
+                        "/api/v1/admin/community/channels/{id}",
+                        "/api/v1/admin/community/posts/{id}/remove",
+                        "/api/v1/admin/community/replies/{id}/remove",
+                        "/api/v1/admin/moderation/flags",
+                        "/api/v1/admin/moderation/flags/{id}/resolve",
+                        "/internal/jobs/upload-cleanup")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation ->
+                                    assertThat(operation.getValue().path("summary").asString())
+                                            .as("summary of %s %s", operation.getKey(), path)
+                                            .isNotEmpty());
+        }
+        assertThat(paths.has("/ws")).as("the STOMP endpoint is not a REST operation").isFalse();
         JsonNode publicBinder = paths.path("/api/v1/public/binders/{id}").path("get");
         assertThat(publicBinder.path("security")).isEmpty();
         assertThat(
@@ -224,7 +256,9 @@ class OpenApiExportTest extends AbstractIntegrationTest {
         assertThat(schemas.has("AuditLogEntry")).isTrue();
         assertThat(schemas.has("ProblemDetail")).isTrue();
         assertThat(schemas.path("ProblemDetail").path("properties").path("errorCode").path("enum"))
-                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("ACCOUNT_SUSPENDED"));
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("ACCOUNT_SUSPENDED"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("MESSAGE_BLOCKED"))
+                .anySatisfy(code -> assertThat(code.asString()).isEqualTo("DUPLICATE_POST"));
         assertThat(schemas.path("ProblemDetail").path("properties").has("limitKey")).isTrue();
         assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isTrue();
         for (String schema :
@@ -251,7 +285,18 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "InventorySummaryResponse",
                         "BulkInventoryResponse",
                         "Freshness",
-                        "DelistPolicyResponse")) {
+                        "DelistPolicyResponse",
+                        "ConversationSummary",
+                        "MessageResponse",
+                        "MessagePayload",
+                        "CardLink",
+                        "BinderLink",
+                        "BlockedUser",
+                        "ImageUploadResponse",
+                        "CommunityChannel",
+                        "PostResponse",
+                        "ReplyResponse",
+                        "ModerationFlag")) {
             assertThat(schemas.has(schema)).as(schema).isTrue();
         }
         assertThat(document.path("components").path("securitySchemes").has("bearerAuth")).isTrue();

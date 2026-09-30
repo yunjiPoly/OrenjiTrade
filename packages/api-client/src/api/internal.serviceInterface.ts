@@ -16,6 +16,7 @@ import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
+import { UploadCleanupJobResponse } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
@@ -53,5 +54,12 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/freshness
 */
     runFreshnessJob(extraHttpRequestParams?: any): Observable<FreshnessJobResponse>;
+
+    /**
+     * Delete unattached image uploads (service auth)
+     * Every 15 minutes. Deletes image uploads older than 1 h that no message consumed, with their stored objects. Records a job run.
+     * @endpoint post /internal/jobs/upload-cleanup
+*/
+    runUploadCleanupJob(extraHttpRequestParams?: any): Observable<UploadCleanupJobResponse>;
 
 }

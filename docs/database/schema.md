@@ -29,7 +29,9 @@ update it in the same change.
 | `user_location.public_point` | Derived imprecise | The only geography public queries may use; `NULL` while not discoverable |
 | `account_deletion_request.reason` | Free text from the owner | Never copied into the audit log; cleared when the deletion completes |
 | `user_account.email` | PII | Only owner + admins; hashed in analytics |
-| `message.body`, `message_attachment` | Private content | Participants + moderators acting on a report |
+| `message.body`, `message.payload`, `message_attachment`, `conversation.last_message_preview`, `image_upload` | Private content | Participants only (+ moderators acting on a report, Phase 7); never logged, never in events or analytics; export lists only the owner's own sent messages |
+| `user_block.reason` | Private note | Never returned by the API (not even to the blocker), never logged or put into events |
+| `community_post.removed_reason`, `community_reply.removed_reason`, `moderation_flag.resolution_note` | Moderator notes | Moderator console and audit log only |
 | `payment_*` | Financial | Provider tokens only; never card numbers |
 | `entitlement.note` | Admin free text | Admin console only; never returned to the account owner (`GET /me/plan` omits it) nor logged |
 | `usage_counter` | Per-user usage | Owner (`GET /me/plan`) and admins only; never in analytics with the user id |
@@ -97,6 +99,9 @@ Detailed column lists are appended per phase below as migrations land.
 | V021 | `V021__binder.sql` | Phase 3: `binder` (visibility, temporary publication, freshness, materialised public listing flag, generated `search_vector`) |
 | V022 | `V022__inventory.sql` | Phase 3: `inventory_item`, trigger `trg_inventory_item_binder_count` (maintains `binder.item_count`), `inventory_item_image`, `inventory_freshness_event` |
 | V030 | `V030__search_indexes.sql` | Phase 4: discovery and search indexes (`ix_inventory_item_owner_discovery`, `ix_inventory_item_printing_discovery`, `ix_privacy_settings_map`, `ix_binder_name_trgm`); no new table |
+| V040 | `V040__messaging.sql` | Phase 5: `conversation`, `conversation_participant`, `conversation_pair` (unique DIRECT pair), `message`, `message_attachment`, `image_upload`, `user_block` |
+| V041 | `V041__community.sql` | Phase 5: `community_channel` (+ the eight launch channels), `community_post`, `community_reply` |
+| V042 | `V042__moderation_flags.sql` | Phase 5: `moderation_flag`, `ck_moderation_rule_rate_pattern`, message/post banned terms, rate and repeated-content rules |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -784,3 +789,177 @@ after commit by inventory, binder, location, privacy and account-state events).
 Collector name search uses the existing `ix_user_account_handle_trgm` (V004) and
 `ix_profile_display_name_trgm` (V004) for substring matches; tag filters use the primary key of
 `profile_tag` and `uq_tag_slug`.
+
+### Phase 5 — private messaging, community, moderation (V040–V042)
+
+Private messages are readable by their two participants only (moderators acting on a report,
+Phase 7). Their text never reaches logs, analytics or domain events (`MessageSent` / `MessageRead`
+carry ids and the kind). Community content is public to signed-in members while the `publicChat`
+flag is on. No table of this phase stores a location. Community feeds read `user_account.status` /
+`suspended_until` read-only (authors of suspended or deleted accounts are hidden); blocks are
+applied by id lists from the messaging module.
+
+### V040 — conversations, messages, uploads, blocks
+
+#### `conversation`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `kind` | `text` | `DIRECT` (only kind so far) |
+| `created_by` | `uuid` | FK → `user_account.id` (`SET NULL`); empty conversations are listed for their creator only |
+| `created_at`, `updated_at` | `timestamptz` | |
+| `last_message_id`, `last_message_at`, `last_message_kind`, `last_message_sender_id` | | denormalised last message (updated in the message transaction); `ck_conversation_last_kind` |
+| `last_message_preview` | `text` | **PRIVATE**; ≤ 200 (API writes ≤ 140): text, or "Card: …" / "Binder: …" / "Photo" labels |
+
+#### `conversation_participant`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `conversation_id` | `uuid` | FK → `conversation.id` (cascade); PK with `user_id` |
+| `user_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `joined_at` | `timestamptz` | |
+| `last_read_at` | `timestamptz` | `created_at` of the last message read; only moves forward; the sender's marker moves to their own message |
+| `last_read_message_id` | `uuid` | that message |
+| `muted`, `archived` | `boolean` | per participant; a new message sets `archived = false` for both |
+
+Index: `ix_conversation_participant_user (user_id, conversation_id)`.
+
+#### `conversation_pair`
+
+`(user_low, user_high)` PK with `ck_conversation_pair_order` (`user_low < user_high`, uuid order,
+filled with `LEAST` / `GREATEST`), `conversation_id` unique FK (cascade). Makes `POST /conversations`
+idempotent even under concurrent calls (`ON CONFLICT DO NOTHING`, then the existing pair is read).
+
+#### `message`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `conversation_id` | `uuid` | FK → `conversation.id` (cascade) |
+| `sender_id` | `uuid` | FK → `user_account.id` (`SET NULL`); `NULL` for SYSTEM messages |
+| `kind` | `text` | `TEXT`, `CARD_LINK`, `BINDER_LINK`, `OFFER_LINK` (reserved, Phase 8), `IMAGE`, `SYSTEM` |
+| `body` | `text` | **PRIVATE**, ≤ 4 000 |
+| `payload` | `jsonb` | **PRIVATE** object: `card {printingId, cardId, name, printingCode}`, `binder {binderId, name, ownerHandle}` (snapshots at send time), `image {attachmentId}`; URLs are derived at read time |
+| `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
+| `edited_at`, `deleted_at` | `timestamptz` | no edit route yet; `deleted_at` set when the sender's account is purged |
+| `moderation_state` | `text` | `OK`, `FLAGGED` (served normally), `REMOVED` (served with empty body and payload) |
+
+Indexes: `ix_message_conversation_created (conversation_id, created_at DESC, id DESC)` (contract),
+`ix_message_sender (sender_id, created_at DESC)` (export, purge).
+
+#### `message_attachment`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `message_id` | `uuid` | FK → `message.id` (cascade) |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `uploads/<owner id>/<random>.jpg` (re-encoded JPEG, EXIF/GPS stripped) |
+| `url` | `text` | URL at upload time (informational); responses derive the URL from `storage_key` |
+| `width`, `height`, `bytes` | `integer` | stored rendition |
+| `created_at` | `timestamptz` | |
+
+#### `image_upload`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK (`uploadId`) |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `kind` | `text` | `MESSAGE` (`INVENTORY` reserved) |
+| `storage_key` | `text` | `UNIQUE`; the object moves to `message_attachment` when attached |
+| `width`, `height`, `bytes` | `integer` | |
+| `created_at` | `timestamptz` | attachable for 1 h |
+| `consumed_at` | `timestamptz` | set when attached to a message |
+
+Indexes: `ix_image_upload_owner`, `ix_image_upload_pending (created_at) WHERE consumed_at IS NULL`
+(upload-cleanup job).
+
+#### `user_block`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `blocker_id`, `blocked_id` | `uuid` | PK; FKs → `user_account.id` (cascade); `ck_user_block_self` |
+| `created_at` | `timestamptz` | |
+| `reason` | `text` | **PRIVATE** note of the blocker (≤ 500), never shown to the blocked collector nor echoed by the API |
+
+Index: `ix_user_block_blocked (blocked_id)` (contract; checks in both directions).
+
+### V041 — community channels, posts, replies
+
+#### `community_channel`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `slug` | `text` | `uq_community_channel_slug`; lower-case words joined by hyphens, ≤ 64 |
+| `name` | `text` | 1-80 |
+| `kind` | `text` | `GAME`, `REGION`, `LOOKING_FOR`, `NEW_LISTINGS`, `TRADES`, `GENERAL` |
+| `game_slug` | `text` | FK → `game.slug` (`ON UPDATE CASCADE`, `ON DELETE SET NULL`) |
+| `region_label` | `text` | city of region channels (from `user_location.public_label`, never a coordinate) |
+| `description` | `text` | ≤ 500 |
+| `status` | `text` | `ACTIVE`, `ARCHIVED` (hidden from members, read-only) |
+| `post_rate_limit_per_hour` | `integer` | 1-1000, default 10 (ADR 0014: data, edited through `/admin/community/channels`) |
+| `sort_order` | `integer` | display order |
+| `created_by`, `updated_by` | `uuid` | FKs → `user_account.id` (`SET NULL`) |
+| `created_at`, `updated_at` | `timestamptz` | |
+
+Indexes: `ix_community_channel_status_sort`, `ix_community_channel_region` (accent-insensitive
+city). Seeded in every environment with stable ids `00000000-0000-4000-8e00-0000000000NN`:
+montreal-yugioh, montreal-pokemon, montreal-magic, montreal-riftbound (REGION + game, city
+Montréal), looking-for, new-listings, trades, general.
+
+#### `community_post`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `channel_id` | `uuid` | FK → `community_channel.id` (cascade) |
+| `author_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `body` | `text` | 1-2000; erased to `[deleted]` when the author's account is purged |
+| `body_hash` | `text` | SHA-256 hex of the normalised body (lower case, accents and extra spaces removed): duplicates within 24 h → 409 `DUPLICATE_POST` |
+| `payload` | `jsonb` | `card {…}`, `binder {…}` snapshots as for messages |
+| `created_at`, `edited_at` | `timestamptz` | |
+| `deleted_at`, `deleted_by` | | soft delete by the author or a moderator |
+| `moderation_state` | `text` | `OK`, `FLAGGED`, `REMOVED` |
+| `removed_reason`, `removed_by`, `removed_at` | | moderator removal (reason ≤ 500, audited, never shown to members) |
+| `reply_count`, `last_reply_at` | | visible replies (maintained by the service) |
+
+Indexes: `ix_community_post_channel_created (channel_id, created_at DESC, id DESC)` (contract),
+`ix_community_post_author_hash (author_id, body_hash, created_at DESC)` (duplicates),
+`ix_community_post_recent (created_at) WHERE deleted_at IS NULL` (24 h counts).
+
+#### `community_reply`
+
+`id`, `post_id` (FK cascade), `author_id` (FK cascade), `body` (1-1000), `created_at`, `deleted_at`,
+`deleted_by`, `moderation_state`, `removed_reason`, `removed_by`, `removed_at`. Indexes:
+`ix_community_reply_post_created (post_id, created_at, id)`, `ix_community_reply_author`.
+
+### V042 — `moderation_flag` and the Phase 5 moderation rules
+
+`moderation_rule` gains `ck_moderation_rule_rate_pattern`: `RATE_LIMIT` and `THRESHOLD` patterns are
+`<count>/<window seconds>`. New rows: placeholder banned terms for `MESSAGE` and `POST` (BLOCK:
+zorblax, quuxspam, blorpscam; FLAG: fnordpromo), `RATE_LIMIT 30/60 BLOCK MESSAGE` (contract: 30
+messages per minute), `RATE_LIMIT 60/3600 BLOCK POST` (posts and replies), `THRESHOLD 5/600 FLAG
+MESSAGE` and `THRESHOLD 3/3600 FLAG POST` (repeated content).
+
+#### `moderation_flag`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `subject_type` | `text` | `MESSAGE`, `COMMUNITY_POST`, `COMMUNITY_REPLY`, `USER` (rate thresholds) |
+| `subject_id` | `uuid` | id of the flagged row or account; no content is copied |
+| `rule_id` | `uuid` | FK → `moderation_rule.id` (`SET NULL`) |
+| `reason` | `text` | `BANNED_TERM`, `RATE_THRESHOLD`, `REPEATED_CONTENT` |
+| `author_id` | `uuid` | FK → `user_account.id` (`SET NULL`) |
+| `created_at` | `timestamptz` | |
+| `resolved_at`, `resolved_by`, `resolution_note` | | moderator resolution (audited `moderation.flag.resolve`; note ≤ 500); `ck_moderation_flag_resolved` |
+
+Indexes: `uq_moderation_flag_open (subject_type, subject_id, reason) WHERE resolved_at IS NULL` (one
+open flag per subject and reason), `ix_moderation_flag_open_created`, `ix_moderation_flag_created`,
+`ix_moderation_flag_author`.
+
+Redis keys of this phase (not tables): `rt:user:{userId}` (pub/sub channel of the realtime fan-out),
+`presence:{userId}` (TTL 60 s), `mod:rate:<scope>:<rule>:<user>` and
+`mod:repeat:<scope>:<rule>:<user>:<sha256>` (moderation windows), `community:post:<channel>:<user>`
+(channel post rate), `rl:image-upload:…` (upload rate limit).

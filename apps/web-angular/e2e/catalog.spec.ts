@@ -80,8 +80,11 @@ test.describe('card catalog', () => {
     await expect(page.getByTestId('selected-price')).toContainText('$33.60');
     await expect(selected).toContainText('Unlimited');
 
-    // Later phases: visible, explained, not actionable yet.
-    await expect(page.getByRole('button', { name: 'Who has this near me' })).toBeDisabled();
+    // "Who has this near me" opens the map in holders mode (Phase 4); wishlists come later.
+    await expect(page.getByRole('link', { name: 'Who has this near me' })).toHaveAttribute(
+      'href',
+      /^\/map\?card=[0-9a-f-]{36}&view=list$/,
+    );
     await expect(page.getByRole('button', { name: 'Add to wishlist' })).toBeDisabled();
 
     // The hero picture is a real API placeholder image.

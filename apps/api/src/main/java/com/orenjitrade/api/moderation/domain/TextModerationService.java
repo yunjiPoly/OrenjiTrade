@@ -10,6 +10,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.jspecify.annotations.Nullable;
@@ -60,12 +61,36 @@ public class TextModerationService {
         return verdict;
     }
 
+    /**
+     * Every active {@code BANNED_TERM} rule of {@code scope} matching {@code text}, BLOCK rules
+     * first (the moderation service records FLAG matches against the stored content).
+     */
+    public List<RuleMatch> matches(ModerationScope scope, @Nullable String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        String normalised = normalise(text);
+        List<RuleMatch> matches = new ArrayList<>();
+        for (CompiledRule rule : rules().getOrDefault(scope, List.of())) {
+            if (rule.pattern().matcher(normalised).find()) {
+                matches.add(new RuleMatch(rule.id(), rule.action()));
+            }
+        }
+        matches.sort(
+                (left, right) ->
+                        Boolean.compare(
+                                right.action() == ModerationAction.BLOCK,
+                                left.action() == ModerationAction.BLOCK));
+        return matches;
+    }
+
     /** Drops the cached rules (admin edits, tests). */
     public void invalidate() {
         snapshot = null;
     }
 
-    static String normalise(String text) {
+    /** Lower case, accents stripped (the form patterns and repeated-content digests use). */
+    public static String normalise(String text) {
         String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
         return DIACRITICS.matcher(decomposed).replaceAll("").toLowerCase(Locale.ROOT);
     }
@@ -91,7 +116,7 @@ public class TextModerationService {
                                 normalise(rule.getPattern()),
                                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
                 byScope.computeIfAbsent(rule.getScope(), scope -> new ArrayList<>())
-                        .add(new CompiledRule(pattern, rule.getAction()));
+                        .add(new CompiledRule(rule.getId(), pattern, rule.getAction()));
             } catch (PatternSyntaxException e) {
                 log.warn("Skipping moderation rule {}: invalid pattern", rule.getId());
             }
@@ -99,7 +124,15 @@ public class TextModerationService {
         return byScope;
     }
 
-    record CompiledRule(Pattern pattern, ModerationAction action) {}
+    record CompiledRule(UUID id, Pattern pattern, ModerationAction action) {}
+
+    /**
+     * A matching rule.
+     *
+     * @param ruleId the {@code moderation_rule} row
+     * @param action what the rule asks for
+     */
+    public record RuleMatch(UUID ruleId, ModerationAction action) {}
 
     private record Snapshot(Instant loadedAt, Map<ModerationScope, List<CompiledRule>> rules) {}
 }

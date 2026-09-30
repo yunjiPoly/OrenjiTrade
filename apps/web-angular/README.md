@@ -163,9 +163,9 @@ the Emulator UI (http://localhost:4000/auth).
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
   (`?printing=` selects a printing; hero picture, attributes rendered from the schema's
   `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
-  dialog on that printing), "Who has this near me" and "Add to wishlist" shown as coming soon); `/sets/:id` (cards + paginated checklist); `/search` (the
-  mobile Search tab) previews matching cards. `GamesStore` (`GET /games`) also feeds the profile
-  game picker, so hidden games disappear there.
+  dialog on that printing), "Who has this near me" (opens `/map?card=<id>&view=list`, Phase 4)
+  and "Add to wishlist" (coming soon); `/sets/:id` (cards + paginated checklist). `GamesStore`
+  (`GET /games`) also feeds the profile game picker, so hidden games disappear there.
 - **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
   live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
   latest runs), `/admin/cards/:id` (card fields, schema-driven attributes, printings dialog),
@@ -222,10 +222,68 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
   (`GET /collectors/{handle}/binders`) and a preview of public cards
   (`GET /collectors/{handle}/inventory`) are listed.
 
+## Map discovery and search (Phase 4)
+
+Contract: `docs/api/contracts/phase4-map-search.md` ("Web /map page"). Generated client only
+(`DiscoveryService`, `SearchService`, `PublicBindersService`, `CatalogService`, `PlansService`).
+
+- **`/map`** (`features/map`), the flagship page: a full-height map through the `MapAdapter`
+  (Leaflet/OpenStreetMap; zoom buttons bottom right). The container (`MapPageComponent`) keeps the
+  filters in the URL (`?game=&availability=&freshness=&tags=&radius=&card=|printing=&view=list`,
+  `data/map-params.ts`) but never the map position, and provides `MapDiscoveryStore`
+  (`data/map-discovery.store.ts`):
+  - Centre: signed-in collectors with a trading area send no `lat`/`lng` (the server uses their
+    area and answers with its 2-decimal snapped centre; the client never reads the private
+    centre, so `GET /me/location` is not called here); signed-out visitors and collectors
+    without an area browse around Montréal (city picker + "Sign in" / "Set my area" prompt).
+  - `GET /collectors/nearby` with the visible radius (half the viewport diagonal, never more than
+    the chosen radius, 2-decimal centre). Pans and zooms are debounced (400 ms) and re-query only
+    when the view leaves the circle the last answer covered (`data/map-query.ts`); filters and the
+    radius always re-query. The radius slider is bounded by `map.radius.max_km` (`GET /me/plan`,
+    FREE plan of `GET /plans` when signed out); a 429 `LIMIT_REACHED` opens the global
+    limit-reached dialog and the store continues at the plan's cap.
+  - Markers: round avatars at `publicPoint` with a freshness ring (`data/map-markers.ts`),
+    grouped into count bubbles when more than 60 collectors are loaded (screen-space grid,
+    `data/marker-clusters.ts`; the selected collector never hides in a cluster; clicking a
+    cluster zooms in). Markers are keyboard-focusable buttons (Enter/Space activate) with
+    "Name, public label" as accessible name; the viewer's own marker reads "You (...)".
+  - `CollectorPreviewCardComponent` (`GET /collectors/{handle}/preview`, first public binder from
+    `GET /collectors/{handle}/binders`): name, avatar, approximate distance (never for signed-out
+    visitors), rating, tags, last activity, listing freshness, games; View profile, View public
+    binder, Message (disabled until Phase 5). Non-modal dialog: focus moves in, Escape closes and
+    returns focus. Bottom sheet on phones.
+  - "List" toggle (`view=list`): `DiscoveryPanelComponent` + `CollectorListComponent`, the same
+    collectors as an accessible list (keyboard alternative to the markers).
+  - Top search: `UnifiedSearchBoxComponent` (`shared/search`, `GET /search/suggest`, grouped
+    cards / collectors / binders / sets / tags). A card or printing switches to "holders of X"
+    (`hasCardId` / `hasPrintingId`: markers filtered, the list shows each holder's listings with
+    condition / availability / offers chips and prices, "All filters" leads to `/search`); a
+    collector opens their preview; a tag filters; sets and binders open their pages; Enter
+    searches `/search?q=`. The top bar's card autocomplete (Phase 2) is unchanged.
+  - Bottom `MapFiltersBarComponent` (game, radius slider, availability, freshness, tags from
+    `GET /tags` when signed in plus the tags of the loaded collectors), `MapLegendComponent`
+    ("Positions are approximate to protect privacy" + marker key), `AreaPromptComponent`, and the
+    right-hand Messages panel (placeholder until Phase 5).
+- **`/search`** (`features/search`, the mobile Search tab), all state in the URL
+  (`data/search-params.ts`):
+  - `?q=&tab=cards|collectors|binders`: `GET /search` in tabs (cards + printings + sets,
+    collectors with their matching listings, public binders with their owner block). When the
+    query resolves to a card or printing, a banner lists the nearby holders with "All holders and
+    prices" and "Show on the map".
+  - `?card=|printing=` + `availability`, `condition`, `minPrice`, `maxPrice`, `freshness`,
+    `edition`, `language`, `offers`, `sort=distance|price|freshness`, `page`: the card-holders
+    view (`GET /search/card-holders`) with `HolderFiltersComponent` (reactive form; prices
+    validated inline, min <= max) and paginated `HolderRowComponent`s (listing + holder with
+    approximate place and distance, View binder).
+  - Signed-out visitors (and collectors without an area) search around Montréal
+    (`shared/discovery/discovery-centre.ts`).
+
 ## Maps
 
-Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers, circles,
-`fitBounds`, click / marker click / drag / viewport callbacks) created by `MapAdapterFactory`.
+Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers (pins, avatar and
+cluster variants with escaped HTML), circles (trading area or dashed search radius),
+`fitBounds`, click / marker click / drag / viewport callbacks, zoom-control corner) created by
+`MapAdapterFactory`.
 The factory lazy-loads the **Leaflet + OpenStreetMap** adapter by default and only uses the
 Google Maps adapter when `googleMapsApiKey` is configured (falling back to Leaflet if Google
 fails). Leaflet's stylesheet is a non-injected global bundle (`leaflet.css`) added on first use;
@@ -283,11 +341,18 @@ src/app/
                 add-card dialog
     binders/    /binders/:id public binder (container + header)
     premium/    plans and usage
-    map, search, community, wishlist, messages, legal, not-found
+    map/        /map: data/ (params, query, clusters, markers, MapDiscoveryStore), map canvas,
+                preview card, discovery panel + collector list, filters bar, legend, area
+                prompt, messages panel (placeholder)
+    search/     /search: data/ (params), unified results (tabs, collector result), card holders
+                (filters form, result row)
+    community, wishlist, messages, legal, not-found
   shared/
     catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
     inventory/  inventory labels, item chips, public item card, public binder card
     plans/      PlansStore, plan and limit wording
+    discovery/  discovery labels (filters, ratings, listings), DiscoveryCentreService
+    search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
     domain/     games, distance / last-active labels, coordinate rounding
     location/   TradingAreaPicker, city presets, MyLocationStore
     map/        MapAdapter, Leaflet + Google adapters, factory, approximate-area map
@@ -327,7 +392,11 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   editor, admin metadata form, plan labels; Phase 3: inventory params, item form (defaults,
   create request, changed-fields PATCH, validation), bulk actions and outcome wording,
   visibility explanations, inventory store (context, selection, quantity, confirm all, reorder
-  rollback), quantity stepper, inventory labels, compact freshness badge.
+  rollback), quantity stepper, inventory labels, compact freshness badge; Phase 4: map params,
+  map query (visible radius, plan cap, 2-decimal centre, covered-area skipping), marker
+  clustering and markers, `MapDiscoveryStore` (city vs own-area centre, debounce, filters,
+  429 cap and retry, 400 fallback, preview + binder), preview card, map adapter helpers
+  (escaping, icons), suggestions, discovery labels, search params, holder filters form.
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -350,6 +419,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     second collector opens the public binder from the owner's profile (region label, distance
     bucket, chips, no private notes, game filter, every JSON response ≤ 3 decimals); the
     `binders.max` limit-reached dialog.
+  - `e2e/map.spec.ts`: a collector publishes a card and another collector (both at a random
+    rural point, so earlier runs never crowd the map) finds them on `/map` (avatar marker),
+    clicks the marker, sees the preview, uses the keyboard List toggle, opens the profile and the
+    public binder; card search in the map's search box switches to "holders of" (markers + list
+    with price and chips), then the card-holders view (price range validation, max price and
+    availability filters in the URL) and the unified search (`?q=AZR-EN011` banner, Collectors
+    tab). Every JSON response has at most 3 decimals for `lat`/`lng` and never contains a stored
+    trading-area centre.
     Catalog pictures are served from memory in these specs (`stubCardImages`): the API
     counts every placeholder image against its anonymous 60/min per-IP rate limit, which the
     parallel suite shares.

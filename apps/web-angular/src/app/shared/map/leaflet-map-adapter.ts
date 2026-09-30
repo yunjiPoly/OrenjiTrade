@@ -9,6 +9,8 @@ import {
   MapMarker,
   MapViewport,
   Unsubscribe,
+  markerIconHtml,
+  markerIconSize,
   tokenColor,
 } from './map-adapter';
 
@@ -55,6 +57,8 @@ class LeafletMapAdapter implements MapAdapter {
   readonly provider = 'leaflet' as const;
 
   private readonly markers = new Map<string, Leaflet.Marker>();
+  /** Last rendered icon of each marker: the icon is rebuilt only when it changes. */
+  private readonly iconKeys = new Map<string, string>();
   private readonly circles = new Map<string, Leaflet.Circle>();
   private readonly clicks = new ListenerSet<[LatLng]>();
   private readonly markerClicks = new ListenerSet<[string]>();
@@ -94,12 +98,20 @@ class LeafletMapAdapter implements MapAdapter {
       if (!wanted.has(id)) {
         marker.remove();
         this.markers.delete(id);
+        this.iconKeys.delete(id);
       }
     }
     for (const spec of markers) {
+      const iconKey = markerIconHtml(spec) + (spec.title ?? '');
       const existing = this.markers.get(spec.id);
       if (existing) {
         existing.setLatLng([spec.position.lat, spec.position.lng]);
+        if (this.iconKeys.get(spec.id) !== iconKey) {
+          existing.setIcon(this.icon(spec));
+          existing.options.title = spec.title ?? '';
+          this.iconKeys.set(spec.id, iconKey);
+        }
+        this.decorate(existing, spec);
         continue;
       }
       const marker = this.L.marker([spec.position.lat, spec.position.lng], {
@@ -107,18 +119,54 @@ class LeafletMapAdapter implements MapAdapter {
         keyboard: true,
         title: spec.title ?? '',
         alt: spec.title ?? '',
-        icon: this.L.divIcon({
-          className: `orenji-map-pin orenji-map-pin--${spec.variant ?? 'collector'}`,
-          html: '<span class="orenji-map-pin__dot"></span>',
-          iconSize: [32, 32],
-          iconAnchor: [16, 30],
-        }),
+        riseOnHover: spec.variant === 'avatar' || spec.variant === 'cluster',
+        icon: this.icon(spec),
       });
       marker.on('click', () => this.markerClicks.emit(spec.id));
+      // Keyboard: focused markers are buttons; Enter and Space activate them like a click.
+      marker.on('keydown', (event: Leaflet.LeafletEvent) => {
+        const original = (event as Leaflet.LeafletKeyboardEvent).originalEvent;
+        if (original.key === 'Enter' || original.key === ' ') {
+          original.preventDefault();
+          this.markerClicks.emit(spec.id);
+        }
+      });
       marker.on('dragend', () => this.markerDrags.emit(spec.id, toLatLng(marker.getLatLng())));
       marker.addTo(this.map);
       this.markers.set(spec.id, marker);
+      this.iconKeys.set(spec.id, iconKey);
+      this.decorate(marker, spec);
     }
+  }
+
+  private icon(spec: MapMarker): Leaflet.DivIcon {
+    const size = markerIconSize(spec.variant);
+    const round = spec.variant === 'avatar' || spec.variant === 'cluster';
+    return this.L.divIcon({
+      className: `orenji-map-pin orenji-map-pin--${spec.variant ?? 'collector'}`,
+      html: markerIconHtml(spec),
+      iconSize: [size, size],
+      // Pins point at their position; round markers are centred on it.
+      iconAnchor: round ? [size / 2, size / 2] : [size / 2, size - 2],
+    });
+  }
+
+  /** Accessible name and selection state on the marker element (kept across icon updates). */
+  private decorate(marker: Leaflet.Marker, spec: MapMarker): void {
+    const element = marker.getElement();
+    if (!element) {
+      return;
+    }
+    if (spec.title) {
+      element.setAttribute('aria-label', spec.title);
+    }
+    element.classList.toggle('orenji-map-pin--selected', !!spec.selected);
+    if (spec.selected) {
+      element.setAttribute('aria-current', 'true');
+    } else {
+      element.removeAttribute('aria-current');
+    }
+    marker.setZIndexOffset(spec.selected ? 1000 : 0);
   }
 
   setCircles(circles: readonly MapCircle[]): void {
@@ -137,12 +185,14 @@ class LeafletMapAdapter implements MapAdapter {
         existing.setRadius(spec.radiusMeters);
         continue;
       }
+      const search = spec.variant === 'search';
       const circle = this.L.circle([spec.center.lat, spec.center.lng], {
         radius: spec.radiusMeters,
         color,
-        weight: 2,
+        weight: search ? 1.5 : 2,
+        dashArray: search ? '6 6' : undefined,
         fillColor: color,
-        fillOpacity: 0.12,
+        fillOpacity: search ? 0.04 : 0.12,
         interactive: false,
       }).addTo(this.map);
       this.circles.set(spec.id, circle);
@@ -185,6 +235,7 @@ class LeafletMapAdapter implements MapAdapter {
     this.markerDrags.clear();
     this.viewports.clear();
     this.markers.clear();
+    this.iconKeys.clear();
     this.circles.clear();
     this.map.remove();
   }
@@ -200,11 +251,12 @@ export async function createLeafletMapAdapter(
   const map = L.map(container, {
     center: [options.center.lat, options.center.lng],
     zoom: options.zoom,
-    zoomControl: true,
+    zoomControl: false,
     attributionControl: true,
     scrollWheelZoom: options.scrollWheelZoom ?? true,
     keyboard: true,
   });
+  L.control.zoom({ position: options.zoomControlPosition ?? 'topleft' }).addTo(map);
   L.tileLayer(OSM_TILE_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(map);
   if (options.ariaLabel) {
     container.setAttribute('aria-label', options.ariaLabel);

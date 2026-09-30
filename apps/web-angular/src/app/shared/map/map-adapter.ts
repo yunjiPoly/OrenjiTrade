@@ -22,7 +22,7 @@ export interface MapViewport {
   bounds: MapBounds;
 }
 
-export type MapMarkerVariant = 'collector' | 'centre' | 'self';
+export type MapMarkerVariant = 'collector' | 'centre' | 'self' | 'avatar' | 'cluster';
 
 export interface MapMarker {
   id: string;
@@ -31,12 +31,24 @@ export interface MapMarker {
   title?: string;
   variant?: MapMarkerVariant;
   draggable?: boolean;
+  /** `avatar` markers: picture of the collector (initials in `label` otherwise). */
+  imageUrl?: string | null;
+  /** `avatar` markers: initials; `cluster` markers: the number of collectors. */
+  label?: string;
+  /** Background colour behind the initials (any CSS colour). */
+  color?: string;
+  /** Visual tone of an `avatar` marker's ring (freshness of the collector's listings). */
+  tone?: 'fresh' | 'aging' | 'none';
+  /** Highlighted marker (the collector whose preview is open). */
+  selected?: boolean;
 }
 
 export interface MapCircle {
   id: string;
   center: LatLng;
   radiusMeters: number;
+  /** `area` (default): tinted trading area; `search`: faint dashed search radius. */
+  variant?: 'area' | 'search';
 }
 
 export interface MapAdapterOptions {
@@ -46,6 +58,8 @@ export interface MapAdapterOptions {
   ariaLabel?: string;
   /** Zoom with the mouse wheel (off for embedded pickers to avoid scroll traps). */
   scrollWheelZoom?: boolean;
+  /** Corner of the zoom buttons (default top left). */
+  zoomControlPosition?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
 }
 
 export type Unsubscribe = () => void;
@@ -75,6 +89,74 @@ export type MapAdapterLoader = (
 ) => Promise<MapAdapter>;
 
 const EARTH_RADIUS_KM = 6371;
+
+/** Great-circle distance in kilometres (haversine). */
+export function distanceKm(a: LatLng, b: LatLng): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Escapes text for the small HTML snippets adapters build for marker icons. */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Only http(s) and same-origin picture URLs are drawn in marker icons. */
+export function safeImageUrl(url: string | null | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+  try {
+    const parsed = new URL(url, 'http://relative.invalid');
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Inner HTML of a marker icon (shared by the adapters). Text is escaped; the visual state
+ * (selection) is a class toggled on the element so focus survives re-renders.
+ */
+export function markerIconHtml(marker: MapMarker): string {
+  switch (marker.variant) {
+    case 'avatar': {
+      const image = safeImageUrl(marker.imageUrl);
+      const inner = image
+        ? `<img class="orenji-map-avatar__img" src="${escapeHtml(image)}" alt="" draggable="false">`
+        : `<span class="orenji-map-avatar__initials"${
+            marker.color ? ` style="background:${escapeHtml(marker.color)}"` : ''
+          }>${escapeHtml(marker.label ?? '')}</span>`;
+      return `<span class="orenji-map-avatar orenji-map-avatar--${marker.tone ?? 'none'}" aria-hidden="true">${inner}</span>`;
+    }
+    case 'cluster':
+      return `<span class="orenji-map-cluster" aria-hidden="true">${escapeHtml(marker.label ?? '')}</span>`;
+    default:
+      return '<span class="orenji-map-pin__dot"></span>';
+  }
+}
+
+/** Icon box (px) of a marker variant. */
+export function markerIconSize(variant: MapMarkerVariant | undefined): number {
+  switch (variant) {
+    case 'avatar':
+      return 44;
+    case 'cluster':
+      return 48;
+    default:
+      return 32;
+  }
+}
 
 /** Bounding box of a circle (for `fitBounds`). */
 export function circleBounds(center: LatLng, radiusMeters: number): MapBounds {

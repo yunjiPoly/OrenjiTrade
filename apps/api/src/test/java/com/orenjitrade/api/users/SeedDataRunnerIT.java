@@ -132,7 +132,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "profiles",
                         "trading areas",
                         "catalog",
-                        "inventory");
+                        "inventory",
+                        "conversations",
+                        "community");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

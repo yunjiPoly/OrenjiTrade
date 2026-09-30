@@ -61,16 +61,15 @@
             <mat-icon aria-hidden="true">library_add</mat-icon>
             Add to inventory
           </a>
-          <button
+          <a
             matButton="outlined"
-            type="button"
-            disabled
-            disabledInteractive
-            matTooltip="Coming soon: collectors near you who own, trade or sell this card"
+            routerLink="/map"
+            [queryParams]="{ card: card.id, view: 'list' }"
+            matTooltip="Collectors near you who own, trade or sell this card"
           >
             <mat-icon aria-hidden="true">near_me</mat-icon>
             Who has this near me
-          </button>
+          </a>
           <button
             matButton="outlined"
             type="button"

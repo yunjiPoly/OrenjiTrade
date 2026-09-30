@@ -62,9 +62,10 @@ public class MarkerAssembler {
     public List<CollectorMarker> visibleMarkers(
             List<MarkerRow> rows, @Nullable UUID viewerId, Instant now) {
         @Nullable RatingSummaryProvider ratingProvider = ratings.getIfAvailable();
+        Set<UUID> blocked = blockedAmong(viewerId, rows);
         List<MarkerRow> visible = new ArrayList<>();
         for (MarkerRow row : rows) {
-            if (!isBlocked(viewerId, row.id())) {
+            if (!blocked.contains(row.id())) {
                 visible.add(row);
             }
         }
@@ -129,6 +130,18 @@ public class MarkerAssembler {
                 row.messagingPermission(),
                 false,
                 row.searchDiscoverable());
+    }
+
+    /** Rows blocked with the viewer in either direction, in one lookup (none when signed out). */
+    private Set<UUID> blockedAmong(@Nullable UUID viewerId, List<MarkerRow> rows) {
+        if (viewerId == null || rows.isEmpty()) {
+            return Set.of();
+        }
+        @Nullable BlockRelationProvider provider = blocks.getIfAvailable();
+        if (provider == null) {
+            return Set.of();
+        }
+        return provider.blockedAmong(viewerId, rows.stream().map(MarkerRow::id).toList());
     }
 
     /** Whether a block exists between viewer and target (never for oneself or signed-out). */

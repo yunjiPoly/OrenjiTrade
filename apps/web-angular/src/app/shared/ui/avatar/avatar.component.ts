@@ -1,9 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { avatarColor } from '../../discovery/discovery-labels';
 import { initialsOf } from '../../domain/location-labels';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-
-const PALETTE = ['#C2410C', '#0F766E', '#7C3AED', '#1D4ED8', '#BE185D', '#A16207', '#047857'];
 
 /**
  * Round avatar: the uploaded picture, or coloured initials when there is none (or it fails to
@@ -80,12 +79,5 @@ export class AvatarComponent {
   protected readonly altText = computed(() =>
     this.decorative() ? '' : `Avatar of ${this.name() || 'collector'}`,
   );
-  protected readonly color = computed(() => {
-    const text = this.name() ?? '';
-    let hash = 0;
-    for (let i = 0; i < text.length; i++) {
-      hash = (hash * 31 + text.charCodeAt(i)) | 0;
-    }
-    return PALETTE[Math.abs(hash) % PALETTE.length];
-  });
+  protected readonly color = computed(() => avatarColor(this.name()));
 }

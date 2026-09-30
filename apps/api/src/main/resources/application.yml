@@ -251,6 +251,12 @@ orenji:
         limit: 60
         window-seconds: 3600
         key-by: USER
+      - name: image-upload
+        path-patterns: ["/api/v1/uploads/images"]
+        methods: [POST]
+        limit: 30
+        window-seconds: 3600
+        key-by: USER
       - name: export
         path-patterns: ["/api/v1/me/export"]
         methods: [GET]

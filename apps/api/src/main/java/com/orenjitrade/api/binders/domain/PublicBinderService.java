@@ -171,6 +171,31 @@ public class PublicBinderService {
     }
 
     /**
+     * An effectively public binder as a shareable link (Phase 5 messages and posts): empty when the
+     * binder is not public right now or a block exists between {@code viewerId} (the recipient,
+     * {@code null} for everybody) and its owner. Never counts a binder view.
+     */
+    @Transactional(readOnly = true)
+    public Optional<BinderLink> binderLink(@Nullable UUID viewerId, UUID binderId) {
+        Optional<BinderView> binder =
+                repository
+                        .findById(binderId, timeProvider.now())
+                        .filter(BinderView::effectivePublic)
+                        .filter(
+                                candidate ->
+                                        candidate.ownerId().equals(viewerId)
+                                                || !isBlocked(viewerId, candidate.ownerId()));
+        return binder.flatMap(
+                found ->
+                        userAccountService
+                                .findSnapshot(found.ownerId())
+                                .map(
+                                        owner ->
+                                                new BinderLink(
+                                                        found.id(), found.name(), owner.handle())));
+    }
+
+    /**
      * Number of public binders shown on the collector profile (same rule as {@link #bindersOf}).
      */
     @Transactional(readOnly = true)

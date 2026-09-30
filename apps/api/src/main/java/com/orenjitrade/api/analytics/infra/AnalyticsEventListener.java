@@ -7,6 +7,8 @@ import com.orenjitrade.api.analytics.domain.AnalyticsPublisher;
 import com.orenjitrade.api.analytics.domain.AnalyticsText;
 import com.orenjitrade.api.binders.events.PublicBinderViewed;
 import com.orenjitrade.api.cards.events.CardViewed;
+import com.orenjitrade.api.community.events.CommunityPostCreated;
+import com.orenjitrade.api.messaging.events.MessageSent;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
 import com.orenjitrade.api.search.events.CollectorPreviewed;
 import com.orenjitrade.api.search.events.SearchPerformed;
@@ -20,12 +22,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Turns the in-process notifications of other modules into analytics events (the analytics module
  * only consumes events, ARCHITECTURE.md section 3). Plain synchronous listeners (the notifications
  * are published by read-only requests and are not stored in the event publication registry); the
- * mapping is cheap and the transport runs asynchronously. Nothing here may fail a request.
+ * mapping is cheap and the transport runs asynchronously. Domain events of writes (Phase 5 {@code
+ * MessageSent}, {@code CommunityPostCreated}) are mapped after commit only. Nothing here may fail a
+ * request.
  *
  * <p>Privacy: account ids become HMAC hashes ({@link ActorHasher}); geography is the grid cell id
  * and region label carried by the notification; search text is scrubbed and truncated ({@link
@@ -168,6 +173,43 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.CARD_VIEWED,
                             viewed.occurredAt(),
                             viewed.viewerId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    /** Committed private messages (Phase 5): the kind and the pseudonymous recipient only. */
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(MessageSent sent) {
+        emit(
+                AnalyticsEventTypes.MESSAGE_SENT,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("kind", sent.kind());
+                    payload.put("recipient_hash", hash(sent.recipientId()));
+                    return event(
+                            AnalyticsEventTypes.MESSAGE_SENT,
+                            sent.occurredAt(),
+                            sent.senderId(),
+                            null,
+                            null,
+                            payload);
+                });
+    }
+
+    /** Committed community posts (Phase 5): the channel slug only. */
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(CommunityPostCreated created) {
+        emit(
+                AnalyticsEventTypes.COMMUNITY_POST_CREATED,
+                () -> {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("channel", created.channelSlug());
+                    return event(
+                            AnalyticsEventTypes.COMMUNITY_POST_CREATED,
+                            created.occurredAt(),
+                            created.authorId(),
                             null,
                             null,
                             payload);

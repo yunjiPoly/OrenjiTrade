@@ -41,6 +41,91 @@ html {
   cursor: grab;
 }
 
+// Collector markers on /map: round avatars with a freshness ring, and cluster bubbles.
+.orenji-map-pin--avatar,
+.orenji-map-pin--cluster {
+  border-radius: 50%;
+  transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
+
+  &:hover,
+  &:focus-visible {
+    transform: scale(1.12);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.orenji-map-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow:
+    0 0 0 3px var(--marker-ring, var(--color-border-strong)),
+    0 6px 14px rgb(0 0 0 / 0.3);
+  overflow: hidden;
+}
+
+.orenji-map-avatar--fresh {
+  --marker-ring: var(--color-status-fresh);
+}
+
+.orenji-map-avatar--aging {
+  --marker-ring: var(--color-status-aging);
+}
+
+.orenji-map-avatar__img,
+.orenji-map-avatar__initials {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.orenji-map-avatar__initials {
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.orenji-map-pin--selected {
+  transform: scale(1.18);
+
+  .orenji-map-avatar {
+    box-shadow:
+      0 0 0 3px var(--color-surface),
+      0 0 0 6px var(--color-primary),
+      0 8px 18px rgb(0 0 0 / 0.35);
+  }
+}
+
+.orenji-map-cluster {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent),
+    0 6px 14px rgb(0 0 0 / 0.3);
+}
+
 // Leaflet containers take the token font and a focus ring consistent with the app.
 .leaflet-container {
   font-family: var(--font-body);
@@ -164,6 +249,48 @@ html {
 
     .mat-icon {
       color: var(--color-primary);
+    }
+  }
+}
+
+// Unified search autocomplete (app-unified-search-box): collectors, binders, sets and tags next
+// to the card entries of `.csb-panel`.
+.usb-panel {
+  --mat-optgroup-label-text-size: var(--font-size-xs);
+  --mat-optgroup-label-text-weight: var(--font-weight-semibold);
+  --mat-optgroup-label-text-color: var(--color-text-muted);
+
+  .mat-mdc-optgroup-label {
+    min-height: 32px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .usb-option__avatar,
+  .usb-option__icon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin: 7px 0;
+    border-radius: 50%;
+  }
+
+  .usb-option__avatar {
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .usb-option__icon {
+    border-radius: var(--radius-md);
+    background: var(--color-surface-variant);
+    color: var(--color-accent);
+
+    .mat-icon {
+      margin: 0;
     }
   }
 }

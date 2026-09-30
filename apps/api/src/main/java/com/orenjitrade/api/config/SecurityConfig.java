@@ -56,9 +56,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *       ServiceAuthFilter} (authentication) → {@link AccountAccessFilter} (suspended / deletion
  *       pending) → {@link RateLimitFilter} → {@link AuthorizationFilter} (RBAC, admin MFA) → {@link
  *       TermsEnforcementFilter} (428 while consents are missing).
- *   <li>{@code /api/v1/admin/**} needs ADMIN or SUPER_ADMIN plus a second factor when {@code
- *       orenji.security.admin.require-mfa} is on; {@code /internal/**} needs the service token or
- *       an allowed Google OIDC identity.
+ *   <li>{@code /api/v1/admin/**} needs ADMIN or SUPER_ADMIN (MODERATOR is enough for {@link
+ *       #MODERATOR_PATTERNS}) plus a second factor when {@code orenji.security.admin.require-mfa}
+ *       is on; {@code /internal/**} needs the service token or an allowed Google OIDC identity.
+ *   <li>{@code /ws} (STOMP over WebSocket, Phase 5) is open at the HTTP level: the handshake
+ *       interceptor and the STOMP CONNECT interceptor of the messaging module verify the ID token
+ *       (header or {@code access_token}) with the same {@link IdentityTokenVerifier}.
  *   <li>Security headers: HSTS (except local/test), nosniff, frame DENY, strict referrer policy and
  *       a deny-all permissions policy.
  *   <li>401/403 are rendered as RFC 9457 problems by the shared {@code ProblemDetailFactory}.
@@ -73,9 +76,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableConfigurationProperties(OrenjiSecurityProperties.class)
 public class SecurityConfig {
 
-    /** Routes that never require authentication. */
+    /**
+     * Routes that never require authentication at the HTTP level ({@code /ws} authenticates the
+     * WebSocket handshake and the STOMP CONNECT frame itself).
+     */
     public static final List<String> PUBLIC_PATTERNS =
             List.of(
+                    "/ws",
                     "/actuator/health/**",
                     "/actuator/info",
                     "/v3/api-docs/**",
@@ -110,6 +117,13 @@ public class SecurityConfig {
                     "/api/v1/search",
                     "/api/v1/search/**");
 
+    /**
+     * The moderation subset of the admin console (Phase 5 contract "Moderator"; Phase 7 RBAC:
+     * MODERATOR sees Community and Moderation): MODERATOR, ADMIN and SUPER_ADMIN.
+     */
+    public static final List<String> MODERATOR_PATTERNS =
+            List.of("/api/v1/admin/community/**", "/api/v1/admin/moderation/**");
+
     private static final String PERMISSIONS_POLICY =
             "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(),"
                     + " microphone=(), payment=(), usb=()";
@@ -132,6 +146,10 @@ public class SecurityConfig {
             throws Exception {
         RequestMatcher[] publicMatchers =
                 PUBLIC_PATTERNS.stream()
+                        .map(pattern -> (RequestMatcher) pathPattern(pattern))
+                        .toArray(RequestMatcher[]::new);
+        RequestMatcher[] moderatorMatchers =
+                MODERATOR_PATTERNS.stream()
                         .map(pattern -> (RequestMatcher) pathPattern(pattern))
                         .toArray(RequestMatcher[]::new);
         RequestMatcher[] publicGetMatchers =
@@ -206,6 +224,10 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(pathPattern("/internal/**"))
                                         .hasRole(ServiceAuthentication.ROLE)
+                                        .requestMatchers(moderatorMatchers)
+                                        .access(
+                                                new AdminAuthorizationManager(
+                                                        properties.admin().requireMfa(), true))
                                         .requestMatchers(pathPattern("/api/v1/admin/**"))
                                         .access(
                                                 new AdminAuthorizationManager(

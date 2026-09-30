@@ -9,6 +9,8 @@ import {
   MapMarker,
   MapViewport,
   Unsubscribe,
+  markerIconHtml,
+  markerIconSize,
   tokenColor,
 } from './map-adapter';
 
@@ -132,8 +134,13 @@ class GoogleMapsAdapter implements MapAdapter {
       if (existing) {
         if (existing instanceof google.maps.Marker) {
           existing.setPosition(spec.position);
+          existing.setTitle(spec.title ?? '');
+          existing.setLabel(this.classicLabel(spec));
         } else {
           existing.position = spec.position;
+          existing.title = spec.title ?? '';
+          existing.content = this.content(spec);
+          existing.zIndex = spec.selected ? 1000 : null;
         }
         continue;
       }
@@ -143,12 +150,15 @@ class GoogleMapsAdapter implements MapAdapter {
             position: spec.position,
             title: spec.title ?? '',
             gmpDraggable: !!spec.draggable,
+            content: this.content(spec),
+            zIndex: spec.selected ? 1000 : null,
           })
         : new google.maps.Marker({
             map: this.map,
             position: spec.position,
             title: spec.title ?? '',
             draggable: !!spec.draggable,
+            label: this.classicLabel(spec),
           });
       marker.addListener('click', () => this.markerClicks.emit(spec.id));
       marker.addListener('dragend', () => {
@@ -159,6 +169,29 @@ class GoogleMapsAdapter implements MapAdapter {
       });
       this.markers.set(spec.id, marker);
     }
+  }
+
+  /** Advanced markers draw the same avatar / cluster icons as the Leaflet adapter. */
+  private content(spec: MapMarker): HTMLElement | null {
+    if (spec.variant !== 'avatar' && spec.variant !== 'cluster') {
+      return null;
+    }
+    const size = markerIconSize(spec.variant);
+    const element = this.doc.createElement('div');
+    element.className = `orenji-map-pin orenji-map-pin--${spec.variant}`;
+    element.classList.toggle('orenji-map-pin--selected', !!spec.selected);
+    element.style.width = `${size}px`;
+    element.style.height = `${size}px`;
+    element.innerHTML = markerIconHtml(spec);
+    return element;
+  }
+
+  /** Classic markers (no Map ID) show initials or the cluster count as their label. */
+  private classicLabel(spec: MapMarker): string | null {
+    if (spec.variant === 'cluster') {
+      return spec.label ?? null;
+    }
+    return spec.variant === 'avatar' && !spec.imageUrl ? (spec.label ?? null) : null;
   }
 
   setCircles(circles: readonly MapCircle[]): void {
@@ -184,9 +217,9 @@ class GoogleMapsAdapter implements MapAdapter {
           center: spec.center,
           radius: spec.radiusMeters,
           strokeColor: color,
-          strokeWeight: 2,
+          strokeWeight: spec.variant === 'search' ? 1.5 : 2,
           fillColor: color,
-          fillOpacity: 0.12,
+          fillOpacity: spec.variant === 'search' ? 0.04 : 0.12,
           clickable: false,
         }),
       );
@@ -257,6 +290,16 @@ export async function createGoogleMapsAdapter(
     streetViewControl: false,
     mapTypeControl: false,
     fullscreenControl: false,
+    zoomControlOptions: {
+      position:
+        options.zoomControlPosition === 'bottomright'
+          ? google.maps.ControlPosition.RIGHT_BOTTOM
+          : options.zoomControlPosition === 'bottomleft'
+            ? google.maps.ControlPosition.LEFT_BOTTOM
+            : options.zoomControlPosition === 'topright'
+              ? google.maps.ControlPosition.RIGHT_TOP
+              : google.maps.ControlPosition.LEFT_TOP,
+    },
   });
   if (options.ariaLabel) {
     container.setAttribute('aria-label', options.ariaLabel);

@@ -497,8 +497,9 @@ entitled visitors are not limited; a refused view consumes nothing.
 - **Ranking**: freshness, then distance *bucket*, then rating, then exact distance (so the rating can
   decide between collectors at a similar distance; ratings arrive with Phase 7).
 - The marker of the caller is not removed from `nearby` (it shows where others see them);
-  `card-holders` excludes the items of the caller. Blocked collectors (Phase 5 provider) are
-  filtered after the page is read, so `total` may count them until blocks are joined in SQL.
+  `card-holders` excludes the items of the caller. Blocked collectors (real since Phase 5, one
+  lookup per page) are filtered after the cached page is read: `total` excludes the blocked
+  collectors of the page but may still count blocked ones beyond the limit.
 - `card-holders` needs a centre like `nearby` (400 for signed-out callers without `lat`/`lng`).
 - Additive: `center` is snapped to 2 decimals; `MatchingItem` adds `printingId`, `cardId`,
   `cardName`, `game`, `language`, `edition`, `acceptsOffers`, `freshness`; the preview accepts
@@ -512,6 +513,122 @@ entitled visitors are not limited; a refused view consumes nothing.
 - `nearby` is a reserved handle (the route `/collectors/nearby` shadows it).
 - Phase 4 adds no seed data: discovery reads the Phase 1 to 3 seed (profiles, trading areas,
   binders, items).
+
+## Messaging, realtime, community (Phase 5)
+
+Contract: `docs/api/contracts/phase5-chat.md`. Modules `messaging` (conversations, messages, blocks,
+uploads, realtime), `community` (channels, posts, replies) and `moderation` (`ModerationService`,
+flags). Migrations V040–V042. Every route needs a signed-in, compliant account.
+
+| Route | Notes |
+| --- | --- |
+| `GET /api/v1/conversations?cursor=&limit=20&archived=false` | `CursorPage<ConversationSummary>`, newest activity first; conversations hidden by a block (either direction) and empty conversations started by the other participant are omitted; `other.onlineStatus` is HIDDEN unless the participant shows it |
+| `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`) |
+| `PATCH /api/v1/conversations/{id} {muted?, archived?}` | per participant; a new message un-archives for both |
+| `GET /api/v1/conversations/{id}/messages?cursor=&limit=50` | newest first; `readByOther` = the participant who did not send the message has read it; REMOVED messages keep their place with empty body and payload |
+| `POST /api/v1/conversations/{id}/messages {kind, body, cardPrintingId?, binderId?, offerId?, imageUploadId?}` | TEXT, CARD_LINK, BINDER_LINK (public binders only), IMAGE; OFFER_LINK and SYSTEM are 400; moderation (422 `MESSAGE_BLOCKED`, FLAG rules store the message `FLAGGED`), rate rule 30/min (429 `RATE_LIMITED` + `retryAfterSeconds`); publishes `MessageSent`; pushed to both participants on `/user/queue/messages` after commit |
+| `POST /api/v1/conversations/{id}/read {lastReadMessageId}` | 204; the marker only moves forward; publishes `MessageRead`; receipt `{conversationId, userId, lastReadMessageId, readAt}` on `/user/queue/receipts` of both participants |
+| `POST /api/v1/uploads/images` (multipart `file`, `kind=MESSAGE`) | 201 `{uploadId, url, width, height, expiresAt}`; sniffed JPEG/PNG/WebP up to 8 MB (413 / 415 / 400), re-encoded without metadata by the inventory `ItemImageProcessor`, `ImageUploadInspector` hook (allow-all default); attach within 1 h; rate-limited 30 per hour |
+| `POST /api/v1/users/{id}/block {reason?}`, `DELETE /api/v1/users/{id}/block`, `GET /api/v1/me/blocks` | idempotent; the reason is private and never echoed; publishes `UserBlocked` / `UserUnblocked` |
+| `GET /api/v1/community/channels?game=&region=` | active channels (the eight V041 launch channels and region channels) with `postCount24h` |
+| `GET` / `POST /api/v1/community/channels/{slug}/posts` | newest first; `{body ≤ 2000, cardPrintingId?, binderId?}`; 409 `DUPLICATE_POST` (same normalised text by the author within 24 h), 429 above the channel's `post_rate_limit_per_hour` (default 10) or the moderation rate rule, 422 `POST_BLOCKED`; publishes `CommunityPostCreated` |
+| `PATCH /api/v1/community/posts/{id} {body}`, `DELETE /api/v1/community/posts/{id}` | the author edits (403 for others); the author or MODERATOR+ deletes (moderator deletions audited) |
+| `GET` / `POST /api/v1/community/posts/{id}/replies`, `DELETE /api/v1/community/replies/{id}` | oldest first; `{body ≤ 1000}`; same moderation |
+| `GET` / `POST /api/v1/admin/community/channels`, `PATCH /api/v1/admin/community/channels/{id}`, `POST /api/v1/admin/community/posts/{id}/remove {reason}`, `POST /api/v1/admin/community/replies/{id}/remove {reason}` | MODERATOR+ (`SecurityConfig.MODERATOR_PATTERNS`), audited (`community.channel.create` / `update`, `community.post.remove`, `community.reply.remove`); removals resolve the content's open flags |
+| `GET /api/v1/admin/moderation/flags?state=OPEN|RESOLVED|ALL&subjectType=&page=&size=`, `POST /api/v1/admin/moderation/flags/{id}/resolve {note?}` | MODERATOR+; flags reference content by id only (no message text); resolutions audited (`moderation.flag.resolve`) |
+| `POST /internal/jobs/upload-cleanup` | service auth; deletes uploads not attached within 1 h with their objects; `job_run`; every 15 minutes under `local` |
+
+Community member routes are gated by the `publicChat` feature flag (404 `FEATURE_DISABLED`,
+extension `feature`). Posts and replies of collectors blocked in either direction, of suspended,
+deletion-pending or deleted accounts, and deleted or REMOVED ones are never served; archived
+channels are 404 for members.
+
+### Realtime (STOMP over WebSocket)
+
+- Endpoint `ws://<api host>/ws` (native WebSocket, no SockJS; allowed origins =
+  `CORS_ALLOWED_ORIGINS`). Authenticate the handshake with `?access_token=<Firebase ID token>`
+  (browsers cannot set headers on WebSocket requests) or `Authorization: Bearer` (native clients),
+  or send `Authorization: Bearer <token>` in the STOMP `CONNECT` frame. The same
+  `IdentityTokenVerifier` and `AccountResolver` as REST are used (Auth emulator locally, static
+  tokens in tests). Invalid tokens get 401 at the handshake (403 for suspended or deleted accounts)
+  or a STOMP `ERROR` frame. `/ws` is therefore open at the HTTP layer
+  (`SecurityConfig.PUBLIC_PATTERNS`).
+- Subscriptions are limited to the caller's own queues (`StompSecurityInterceptor`):
+  `/user/queue/messages` (`MessageResponse`), `/user/queue/receipts`, `/user/queue/typing`
+  (`{conversationId, userId}`), `/user/queue/presence` (`{userId, status: ONLINE|OFFLINE}`),
+  `/user/queue/notifications` (reserved for Phase 6) and `/user/queue/errors`. `/user/<someone>/...`,
+  raw `/queue/...` and `/topic/...` are refused with an `ERROR` frame. Clients may only `SEND` to
+  `/app/typing {conversationId}`.
+- Fan-out: `RealtimePublisher` publishes `{destination, payload}` to the Redis channel
+  `rt:user:{userId}`; every instance subscribes to `rt:user:*` (`RealtimeRedisListener`) and delivers
+  to its local sessions through the user destination resolver. Without Redis the payload reaches the
+  local instance only. Pushes are best effort; clients re-sync over REST.
+- Presence: `presence:{userId}` (TTL 60 s) is set on CONNECT, refreshed by the session's frames and
+  STOMP heartbeats (server heartbeat 20 s) and cleared when the last local session disconnects.
+  `onlineStatus` of collector profiles, map markers and conversation lists is real now
+  (`PresenceProvider`) and shown only with `showOnlineStatus`; ONLINE/OFFLINE changes are announced to
+  the conversation partners who may see them.
+
+### Moderation (`ModerationService`, ADR 0014)
+
+`check(scope, text, authorId)` applies the active `moderation_rule`s of `MESSAGE` or `POST` (replies
+use `POST`): `RATE_LIMIT` `<count>/<seconds>` per author in Redis (BLOCK → 429, FLAG → one open USER
+flag), `BANNED_TERM` regular expressions on accent-stripped lower-case text (BLOCK → 422, FLAG → the
+content is stored `FLAGGED` with a flag), `THRESHOLD` `<count>/<seconds>` repeated-content detection
+on the SHA-256 of the normalised text (never the text itself) per author. V042 seeds placeholder
+banned terms, the contract's 30 messages per minute, 60 posts and replies per hour and the
+repeated-content thresholds (5 identical messages in 10 minutes, 3 identical posts in an hour →
+FLAG). Rules are cached 60 s per instance. No automatic ban; flags are unique per open subject and
+reason.
+
+### Blocks elsewhere
+
+`BlockRelationProvider` (profiles SPI) is implemented by the messaging module: collector profiles
+(`isBlocked`, `canMessage`), map markers and previews (one lookup per page through `blockedAmong`),
+public binders, binder links and community feeds all see real blocks.
+
+### Seed (Phase 5)
+
+`MessagingSeedContributor` ("conversations"): collector1 ↔ collector2
+(`00000000-0000-4000-8d00-000000000001`), six messages including a binder link (collector1's
+Yu-Gi-Oh! trade binder) and a card link (`ygo-p001a`); collector2 has one unread message.
+`CommunitySeedContributor` ("community"): five posts (`00000000-0000-4000-8e00-0000000001NN`) in
+montreal-yugioh, looking-for, new-listings, general and trades, and three replies. The eight channels
+themselves are V041 reference data (every environment). Region channels (e.g. Laval, Longueuil)
+appear as seeded collectors are put on the map.
+
+### Account data
+
+Export sections `messaging` (conversation ids, own sent messages, own blocks; never the other
+participant's text) and `community` (own posts and replies). Deletion: the content of sent messages
+is erased (rows kept for the other participant's history), photos and pending uploads deleted,
+blocks removed in both directions, posts and replies deleted and erased.
+
+### Deviations from the Phase 5 contract
+
+- `POST /conversations` answers 201 for a new conversation and 200 for an existing one.
+- The recipient's messaging permission applies to **new** conversations; existing conversations
+  continue unless a block exists. Messages to suspended, deletion-pending or deleted participants are
+  403 `MESSAGING_BLOCKED`; conversations hidden by a block answer 404 to reads and 403 to sends.
+- Additive: `MessageResponse.conversationId`; `CardLink.cardId` (its `id` is the printing id);
+  `ConversationSummary.createdAt`; `LastMessage.id`; `GET /conversations?archived=`;
+  `ImageUploadResponse.width` / `height` / `expiresAt`; `PostResponse.channelSlug` /
+  `moderationState`; `PATCH /community/posts/{id}` (the contract lists `editedAt` and `canEdit`);
+  `POST /admin/community/replies/{id}/remove`; `GET /admin/community/channels`;
+  `POST /admin/moderation/flags/{id}/resolve`.
+- `POST /uploads/images` with `kind=INVENTORY` is 400: inventory photos keep
+  `POST /inventory/items/{id}/images` until an inventory flow consumes uploads.
+- Message photos are served like other media from unguessable keys
+  (`/api/v1/public/media/uploads/...`); signed URLs are left for the cloud storage work.
+- `moderation_flag` adds `author_id` and `resolution_note`; `reason` is a code (`BANNED_TERM`,
+  `RATE_THRESHOLD`, `REPEATED_CONTENT`).
+- Region channels are created with the city of the collector's public label
+  ("Plateau-Mont-Royal, Montréal" → Montréal) only when no REGION channel of that city exists (the
+  seeded Montréal per-game channels count).
+- Realtime pushes are made from the request thread after commit (so URLs are absolute like in the
+  REST response) rather than from an event listener; `MessageSent` / `MessageRead` stay in the event
+  registry for Phases 6 and 7. Open sessions of an account suspended later are not closed (it can no
+  longer send through REST).
 
 ## Build, format, test
 
@@ -573,7 +690,11 @@ Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql
 `card_printing`, `card_image`, `catalog_sync_run`). Phase 3 adds `V020__delist_policy.sql`
 (`delist_policy`), `V021__binder.sql` (`binder`) and `V022__inventory.sql` (`inventory_item` with the
 `binder.item_count` trigger, `inventory_item_image`, `inventory_freshness_event`). Phase 4 adds
-`V030__search_indexes.sql` (discovery and search indexes, no table).
+`V030__search_indexes.sql` (discovery and search indexes, no table). Phase 5 adds
+`V040__messaging.sql` (`conversation`, `conversation_participant`, `conversation_pair`, `message`,
+`message_attachment`, `image_upload`, `user_block`), `V041__community.sql` (`community_channel` with the
+eight launch channels, `community_post`, `community_reply`) and `V042__moderation_flags.sql`
+(`moderation_flag`, the rate-pattern check and the Phase 5 moderation rules).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -595,7 +716,8 @@ com.orenjitrade.api
 ├── profiles/    profile, avatar, tags, privacy settings + PrivacyPolicyService, collector view
 ├── location/    user_location, ApproximateLocationService, StaticRegionGeocoder (ADR 0004)
 ├── notifications/ notification preferences (dispatch arrives in Phase 6)
-├── moderation/  moderation_rule + TextModerationService (banned terms)
+├── moderation/  moderation_rule + TextModerationService (banned terms), ModerationService
+│                (rates, repeated content), moderation_flag + /admin/moderation/flags
 ├── games/       game table + GameSchema, GameCatalog (profiles), /games, /admin/games
 ├── cards/       sets, cards, printings, images, CardProvider + MockCardProvider, idempotent
 │                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
@@ -609,7 +731,9 @@ com.orenjitrade.api
 ├── search/      /collectors/nearby + preview, /search, /search/card-holders, /search/suggest,
 │                Redis nearby cache (Phase 4)
 ├── analytics/   AnalyticsEvent, AnalyticsPublisher, log / Pub/Sub transports (Phase 4 slice)
-└── wishlist messaging community ratings reports offers trades payments credits donations ads
+├── messaging/   conversations, messages, uploads, blocks, STOMP /ws + Redis fan-out, presence
+├── community/   channels, posts, replies, /admin/community (Phase 5)
+└── wishlist ratings reports offers trades payments credits donations ads
                                                           (documented in each package-info.java)
 ```
 

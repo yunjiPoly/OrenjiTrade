@@ -68,4 +68,13 @@ export class FakeMapAdapter implements MapAdapter {
   drag(markerId: string, position: LatLng): void {
     this.drags.emit(markerId, position);
   }
+  /** Simulates a click (or Enter) on a marker. */
+  activate(markerId: string): void {
+    this.markerClicks.emit(markerId);
+  }
+  /** Simulates the user panning / zooming the map. */
+  move(viewport: MapViewport): void {
+    this.view = viewport;
+    this.viewports.emit(viewport);
+  }
 }

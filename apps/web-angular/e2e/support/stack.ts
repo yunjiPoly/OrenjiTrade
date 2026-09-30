@@ -190,12 +190,17 @@ export interface OnboardedCollector extends EmulatorUser {
 export async function createOnboardedCollector(
   api: APIRequestContext,
   prefix: string,
-  options: { tradingArea?: boolean } = {},
+  options: {
+    tradingArea?: boolean;
+    /** Trading-area centre (3 decimals) instead of the default Montréal landmark. */
+    area?: { lat: number; lng: number; radiusKm?: number };
+    displayName?: string;
+  } = {},
 ): Promise<OnboardedCollector> {
   const user = await emulatorSignUp(api, uniqueEmail(prefix));
   await apiAcceptConsents(api, user.idToken);
   const handle = uniqueHandle(prefix);
-  const displayName = `E2E ${prefix} collector`;
+  const displayName = options.displayName ?? `E2E ${prefix} collector`;
   const profile = await api.put(`${API_URL}/api/v1/me/profile`, {
     headers: bearer(user.idToken),
     data: {
@@ -208,11 +213,16 @@ export async function createOnboardedCollector(
   });
   expect(profile.ok(), 'PUT /me/profile').toBeTruthy();
   let areaLabel: string | null = null;
-  if (options.tradingArea) {
+  if (options.tradingArea || options.area) {
     const area = await api.put(`${API_URL}/api/v1/me/location/trading-area`, {
       headers: bearer(user.idToken),
-      // Place des Arts area, a public landmark in Montréal.
-      data: { lat: 45.508, lng: -73.566, radiusKm: 5, source: 'MANUAL' },
+      // Default: the Place des Arts area, a public landmark in Montréal.
+      data: {
+        lat: options.area?.lat ?? 45.508,
+        lng: options.area?.lng ?? -73.566,
+        radiusKm: options.area?.radiusKm ?? 5,
+        source: 'MANUAL',
+      },
     });
     expect(area.ok(), 'PUT /me/location/trading-area').toBeTruthy();
     areaLabel =
@@ -223,8 +233,28 @@ export async function createOnboardedCollector(
   return { ...user, id: me.id, handle, displayName, areaLabel };
 }
 
+/** A transparent 1×1 PNG standing in for map tiles. */
+const STUB_TILE_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+/**
+ * Serves OpenStreetMap tiles from memory. The suite lands on `/map` after every sign-in; the OSM
+ * tile usage policy discourages automated bulk loads, and the specs never assert on map imagery
+ * (markers, circles and controls are DOM elements drawn by Leaflet regardless of the tiles).
+ */
+export async function stubMapTiles(page: Page): Promise<void> {
+  await page.route('https://tile.openstreetmap.org/**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: Buffer.from(STUB_TILE_PNG, 'base64'),
+    }),
+  );
+}
+
 /** Signs in through the UI and waits until the app left the sign-in page. */
 export async function signInThroughUi(page: Page, email: string, password: string): Promise<void> {
+  await stubMapTiles(page);
   await page.goto('/auth/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);

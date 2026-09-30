@@ -28,6 +28,12 @@ public enum ErrorCode {
     FEATURE_DISABLED(HttpStatus.NOT_FOUND, "Feature disabled"),
     /** The recipient does not accept messages from the caller (privacy settings or block). */
     MESSAGING_BLOCKED(HttpStatus.FORBIDDEN, "Messaging blocked"),
+    /** A private message was rejected by the moderation rules (generic reason, Phase 5). */
+    MESSAGE_BLOCKED(HttpStatus.UNPROCESSABLE_CONTENT, "Message blocked"),
+    /** A community post or reply was rejected by the moderation rules (generic reason). */
+    POST_BLOCKED(HttpStatus.UNPROCESSABLE_CONTENT, "Post blocked"),
+    /** The author already posted the same text within the last 24 hours. */
+    DUPLICATE_POST(HttpStatus.CONFLICT, "Duplicate post"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),

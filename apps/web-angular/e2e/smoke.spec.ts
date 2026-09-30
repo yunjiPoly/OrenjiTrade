@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { stubMapTiles } from './support/stack';
 
 test.describe('app shell', () => {
+  test.beforeEach(async ({ page }) => {
+    await stubMapTiles(page);
+  });
+
   test('renders the wordmark and redirects the root to /map', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/map$/);
@@ -29,15 +34,20 @@ test.describe('app shell', () => {
     ).toHaveAttribute('href', '/auth/sign-in?returnUrl=%2Finventory');
   });
 
-  test('renders the map page with its placeholder canvas and filters', async ({ page }) => {
+  test('renders the map page around Montréal for signed-out visitors', async ({ page }) => {
     await page.goto('/inventory');
     await page
       .getByRole('navigation', { name: 'Primary' })
       .getByRole('link', { name: 'Map' })
       .click();
     await expect(page).toHaveURL(/\/map$/);
-    await expect(page.getByText('Map loads in Phase 4')).toBeVisible();
+    await expect(page.getByTestId('discovery-map')).toBeVisible();
+    await expect(page.getByText('Showing collectors around')).toContainText('Montréal');
+    await expect(page.getByRole('main').getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByText('Positions are approximate to protect privacy')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Search the map' })).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'List', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /^(Hide|Show) messages panel$/ })).toBeVisible();
   });
 

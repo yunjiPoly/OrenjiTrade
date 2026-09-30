@@ -195,6 +195,82 @@ class AnalyticsIT extends AbstractIntegrationTest {
                 .isEqualTo(cardId.toString());
     }
 
+    @Test
+    void phase5MessagesAndPostsEmitEventsWithoutText(CapturedOutput output)
+            throws InterruptedException {
+        Instant start = Instant.now().minusSeconds(1);
+        String sender = uniqueUid("an-sender");
+        String recipient = uniqueUid("an-recipient");
+        UUID senderId = provisionCompliant(sender);
+        UUID recipientId = provisionCompliant(recipient);
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                recipient,
+                Map.of(
+                        "discoverable", false,
+                        "showDistance", true,
+                        "showOnlineStatus", false,
+                        "showLastActive", true,
+                        "profileVisibility", "MEMBERS",
+                        "messagingPermission", "EVERYONE",
+                        "wishlistVisible", false,
+                        "searchDiscoverable", true),
+                200);
+        String conversationId =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/conversations",
+                                sender,
+                                Map.of("recipientId", recipientId.toString()),
+                                201)
+                        .path("id")
+                        .asString();
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                sender,
+                Map.of("kind", "TEXT", "body", "Secret meeting spot at the library"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/community/channels/general/posts",
+                sender,
+                Map.of("body", "Public question about card sleeves " + UUID.randomUUID()),
+                201);
+
+        ActorHasher actorHasher = publisher.actorHasher();
+        String senderHash = actorHasher.hash(senderId);
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(15));
+        List<JsonNode> mine = List.of();
+        while (Instant.now().isBefore(deadline)) {
+            mine =
+                    parse(output.getAll(), start).stream()
+                            .filter(event -> senderHash.equals(event.path("actor_hash").asString()))
+                            .toList();
+            Set<String> types = new HashSet<>();
+            mine.forEach(event -> types.add(event.path("event_type").asString()));
+            if (types.containsAll(Set.of("message_sent", "community_post_created"))) {
+                break;
+            }
+            Thread.sleep(200);
+        }
+        JsonNode sent = first(mine, "message_sent");
+        assertThat(sent.path("payload").path("kind").asString()).isEqualTo("TEXT");
+        assertThat(sent.path("payload").path("recipient_hash").asString())
+                .isEqualTo(actorHasher.hash(recipientId));
+        JsonNode posted = first(mine, "community_post_created");
+        assertThat(posted.path("payload").path("channel").asString()).isEqualTo("general");
+        for (JsonNode event : mine) {
+            assertThat(event.toString())
+                    .doesNotContain("Secret meeting")
+                    .doesNotContain("card sleeves")
+                    .doesNotContain(senderId.toString())
+                    .doesNotContain(recipientId.toString())
+                    .doesNotContain(conversationId);
+        }
+    }
+
     private void get(String uid, String template, Object... variables) {
         var spec = http.get().uri(template, variables);
         if (uid != null) {

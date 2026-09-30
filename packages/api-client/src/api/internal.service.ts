@@ -26,6 +26,8 @@ import { FreshnessJobResponse } from '../model/freshnessJobResponse';
 import { PingJobResponse } from '../model/pingJobResponse';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { UploadCleanupJobResponse } from '../model/uploadCleanupJobResponse';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -274,6 +276,66 @@ export class InternalService extends BaseService implements InternalServiceInter
         let localVarPath = `/internal/jobs/freshness`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<FreshnessJobResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Delete unattached image uploads (service auth)
+     * Every 15 minutes. Deletes image uploads older than 1 h that no message consumed, with their stored objects. Records a job run.
+     * @endpoint post /internal/jobs/upload-cleanup
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public runUploadCleanupJob(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<UploadCleanupJobResponse>;
+    public runUploadCleanupJob(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UploadCleanupJobResponse>>;
+    public runUploadCleanupJob(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UploadCleanupJobResponse>>;
+    public runUploadCleanupJob(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        // authentication (serviceToken) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('serviceToken', 'X-Service-Token', localVarHeaders);
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/internal/jobs/upload-cleanup`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<UploadCleanupJobResponse>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

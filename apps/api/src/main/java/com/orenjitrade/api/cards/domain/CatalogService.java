@@ -310,6 +310,55 @@ public class CatalogService {
         return new PrintingDetail(printing, card, set, row.metadata());
     }
 
+    /**
+     * A printing of an ACTIVE game as a shareable link (Phase 5 messages and posts); empty when the
+     * printing does not exist or its game is hidden.
+     */
+    public Optional<CardLink> cardLink(UUID printingId) {
+        Optional<CatalogQueryRepository.PrintingRow> row = queries.findPrinting(printingId, true);
+        if (row.isEmpty()) {
+            return Optional.empty();
+        }
+        PrintingSummary printing = queries.withImages(List.of(row.get())).get(0);
+        return queries.findCardSummary(row.get().cardId(), true)
+                .map(this::summary)
+                .map(
+                        card ->
+                                new CardLink(
+                                        printing.id(),
+                                        card.id(),
+                                        card.name(),
+                                        printing.printingCode(),
+                                        frontImage(printing)));
+    }
+
+    /**
+     * Current front image URLs of printings (hidden games included, so shared links keep their
+     * picture), by printing id; unknown ids are absent.
+     */
+    public Map<UUID, String> frontImageUrls(Collection<UUID> printingIds) {
+        Map<UUID, String> urls = new LinkedHashMap<>();
+        if (printingIds.isEmpty()) {
+            return urls;
+        }
+        for (PrintingSummary printing : queries.printings(printingIds, false)) {
+            @Nullable String url = frontImage(printing);
+            if (url != null) {
+                urls.put(printing.id(), url);
+            }
+        }
+        return urls;
+    }
+
+    private static @Nullable String frontImage(PrintingSummary printing) {
+        return printing.images().stream()
+                .filter(image -> CatalogImages.KIND_FRONT.equals(image.kind()))
+                .findFirst()
+                .or(() -> printing.images().stream().findFirst())
+                .map(PrintingImage::url)
+                .orElse(null);
+    }
+
     /** Printings by id for other modules (Phase 3 inventory); unknown ids are skipped. */
     public List<PrintingSummary> printings(Collection<UUID> ids) {
         return queries.printings(ids);

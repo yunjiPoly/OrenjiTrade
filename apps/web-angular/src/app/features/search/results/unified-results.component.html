@@ -1,0 +1,194 @@
+@if (error(); as error) {
+  <app-error-state
+    title="Search could not load"
+    [message]="errorMessage()"
+    [requestId]="error.requestId"
+    (retry)="load(q())"
+  />
+} @else if (result(); as result) {
+  @if (resolved(); as resolved) {
+    <section class="holders" aria-labelledby="holders-banner-title">
+      <div class="holders__head">
+        <div>
+          <p class="holders__eyebrow">
+            <mat-icon aria-hidden="true">near_me</mat-icon>
+            Near you
+          </p>
+          <h2 class="holders__title" id="holders-banner-title">Who has {{ resolved.name }}</h2>
+          <p class="holders__sub">
+            {{ resolved.holders.length }}
+            {{ resolved.holders.length === 1 ? 'collector lists' : 'collectors list' }} it nearby.
+            @if (centre()?.city; as city) {
+              Around {{ city.label }}.
+            }
+          </p>
+        </div>
+        <div class="holders__actions">
+          <a matButton="filled" routerLink="/search" [queryParams]="resolved.query">
+            <mat-icon aria-hidden="true">tune</mat-icon>
+            All holders and prices
+          </a>
+          <a matButton="outlined" routerLink="/map" [queryParams]="mapQuery()">
+            <mat-icon aria-hidden="true">map</mat-icon>
+            Show on the map
+          </a>
+        </div>
+      </div>
+      @if (resolved.holders.length) {
+        <ul class="holders__list" aria-label="Nearby holders">
+          @for (collector of resolved.holders.slice(0, 3); track collector.id) {
+            <li>
+              <app-collector-result
+                [collector]="collector"
+                [signedIn]="centre()?.signedIn ?? false"
+              />
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="holders__none">Nobody nearby lists it yet. Try a larger area on the map.</p>
+      }
+    </section>
+  }
+
+  @if (empty()) {
+    <app-empty-state
+      icon="search_off"
+      title="Nothing matches"
+      description="Try another spelling, a printing code like AZR-EN001, a collector's name or a tag."
+    >
+      <a actions matButton="filled" routerLink="/cards">Browse the catalog</a>
+    </app-empty-state>
+  } @else {
+    <mat-tab-group
+      class="tabs"
+      mat-stretch-tabs="false"
+      animationDuration="150ms"
+      [selectedIndex]="tabIndex()"
+      (selectedIndexChange)="onTab($event)"
+    >
+      <mat-tab [label]="'Cards (' + cardCount() + ')'">
+        <section class="tab" aria-labelledby="search-cards-title">
+          <div class="tab__head">
+            <h2 id="search-cards-title" class="tab__title">Cards for “{{ q() }}”</h2>
+            @if (result.cards.length) {
+              <a routerLink="/cards" [queryParams]="{ q: q() }">See all cards in the catalog</a>
+            }
+          </div>
+          @if (result.cards.length) {
+            <app-card-grid [cards]="result.cards" label="Matching cards" />
+          }
+          @if (result.printings.length) {
+            <h3 class="tab__sub">Printings</h3>
+            <ul class="chips" aria-label="Matching printings">
+              @for (printing of result.printings; track printing.id) {
+                <li>
+                  <a
+                    class="chip"
+                    [routerLink]="['/cards', printing.cardId]"
+                    [queryParams]="{ printing: printing.id }"
+                  >
+                    <span class="mono">{{ code(printing) }}</span>
+                    <span class="chip__muted">{{ printing.setName }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+          @if (result.sets.length) {
+            <h3 class="tab__sub">Sets</h3>
+            <ul class="chips" aria-label="Matching sets">
+              @for (set of result.sets; track set.id) {
+                <li>
+                  <a class="chip" [routerLink]="['/sets', set.id]">
+                    <mat-icon aria-hidden="true">collections_bookmark</mat-icon>
+                    {{ set.name }} <span class="chip__muted mono">{{ set.code }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+          @if (cardCount() === 0) {
+            <app-empty-state
+              icon="style"
+              title="No cards match"
+              description="Try another spelling or a printing code like AZR-EN001."
+            />
+          }
+        </section>
+      </mat-tab>
+
+      <mat-tab [label]="'Collectors (' + result.collectors.length + ')'">
+        <section class="tab" aria-labelledby="search-collectors-title">
+          <h2 id="search-collectors-title" class="tab__title">Collectors</h2>
+          @if (result.collectors.length) {
+            <ul class="grid" aria-label="Matching collectors">
+              @for (collector of result.collectors; track collector.id) {
+                <li>
+                  <app-collector-result
+                    [collector]="collector"
+                    [signedIn]="centre()?.signedIn ?? false"
+                  />
+                </li>
+              }
+            </ul>
+          } @else {
+            <app-empty-state
+              icon="person_search"
+              title="No collectors match"
+              description="Collectors appear when they are on the map and allow name search."
+            />
+          }
+        </section>
+      </mat-tab>
+
+      <mat-tab [label]="'Binders (' + result.binders.length + ')'">
+        <section class="tab" aria-labelledby="search-binders-title">
+          <h2 id="search-binders-title" class="tab__title">Public binders</h2>
+          @if (result.binders.length) {
+            <ul class="grid" aria-label="Matching binders">
+              @for (binder of result.binders; track binder.id) {
+                <li class="binder">
+                  <app-public-binder-card [binder]="binder" />
+                  @if (binder.owner; as owner) {
+                    <a class="binder__owner" [routerLink]="['/collectors', owner.handle]">
+                      <app-avatar
+                        size="xs"
+                        [src]="owner.avatarUrl"
+                        [name]="owner.displayName"
+                        [decorative]="true"
+                      />
+                      <span class="binder__owner-text">
+                        <span class="binder__owner-name">{{ owner.displayName }}</span>
+                        @if (owner.location; as location) {
+                          <span class="chip__muted">
+                            {{ location.publicLabel }}
+                            @if (distance(location.distanceBucket); as distance) {
+                              · {{ distance }}
+                            }
+                          </span>
+                        }
+                      </span>
+                    </a>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <app-empty-state
+              icon="menu_book"
+              title="No public binders match"
+              description="Binders appear here while their owner keeps them public and fresh."
+            />
+          }
+        </section>
+      </mat-tab>
+    </mat-tab-group>
+  }
+} @else {
+  <div aria-busy="true">
+    <span class="visually-hidden">Searching</span>
+    <app-skeleton height="44px" width="320px" />
+    <app-card-grid [cards]="[]" [loading]="true" skeletonCount="4" />
+  </div>
+}
