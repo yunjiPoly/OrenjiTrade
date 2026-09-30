@@ -1,0 +1,183 @@
+<div class="page community">
+  <header class="community__header">
+    <div class="community__heading">
+      <h1 class="community__title">Community</h1>
+      <p class="community__subtitle">
+        Public channels by region, game and topic. Ask around, show off new listings and find trades
+        near you.
+      </p>
+    </div>
+    @if (auth.isAuthenticated() && store.channelsStatus() === 'ready') {
+      <button
+        matButton="tonal"
+        type="button"
+        class="community__channels-toggle"
+        aria-controls="community-channels"
+        [attr.aria-expanded]="channelsOpen()"
+        (click)="channelsOpen.set(!channelsOpen())"
+      >
+        <mat-icon aria-hidden="true">{{ channelsOpen() ? 'close' : 'tag' }}</mat-icon>
+        {{ store.channel()?.name ?? 'Channels' }}
+      </button>
+    }
+  </header>
+
+  @if (!auth.isAuthenticated()) {
+    <app-empty-state
+      icon="forum"
+      title="The community is for members"
+      description="Sign in to read and post in the channels of collectors near you."
+    >
+      <a
+        actions
+        matButton="filled"
+        routerLink="/auth/sign-in"
+        [queryParams]="{ returnUrl: '/community' }"
+      >
+        Sign in
+      </a>
+    </app-empty-state>
+  } @else {
+    @switch (store.channelsStatus()) {
+      @case ('loading') {
+        <div class="community__layout" aria-busy="true">
+          <span class="visually-hidden">Loading channels</span>
+          <div class="community__sidebar community__sidebar--skeleton">
+            <app-skeleton variant="list" lines="6" />
+          </div>
+          <div class="community__main">
+            <app-skeleton height="96px" />
+            <app-skeleton height="140px" />
+            <app-skeleton height="140px" />
+          </div>
+        </div>
+      }
+      @case ('error') {
+        <app-error-state
+          title="Channels could not load"
+          [message]="channelsErrorMessage()"
+          [requestId]="store.channelsError()?.requestId ?? null"
+          (retry)="retryChannels()"
+        />
+      }
+      @case ('disabled') {
+        <app-empty-state
+          icon="speaker_notes_off"
+          title="The community is closed right now"
+          description="Public channels are turned off for the moment. Private messages still work."
+        >
+          <a actions matButton="filled" routerLink="/messages">Open messages</a>
+        </app-empty-state>
+      }
+      @default {
+        <div class="community__layout" [class.community__layout--channels-open]="channelsOpen()">
+          <aside class="community__sidebar" id="community-channels">
+            <app-channel-sidebar [channels]="store.channels()" [selected]="store.slug()" />
+          </aside>
+
+          <section
+            class="community__main"
+            [attr.aria-labelledby]="store.channel() ? 'channel-title' : null"
+            [attr.aria-label]="store.channel() ? null : 'Channel'"
+          >
+            @if (store.channel(); as channel) {
+              <header class="channel-head">
+                <span class="channel-head__icon" aria-hidden="true">
+                  <mat-icon>{{ channelIcon(channel.kind) }}</mat-icon>
+                </span>
+                <div class="channel-head__text">
+                  <h2 class="channel-head__name" id="channel-title">{{ channel.name }}</h2>
+                  <p class="channel-head__description">{{ channel.description }}</p>
+                  <p class="channel-head__meta">
+                    @if (channel.game) {
+                      <app-game-chip [slug]="channel.game" />
+                    }
+                    @if (channel.regionLabel) {
+                      <span class="channel-head__pill">
+                        <mat-icon aria-hidden="true">location_on</mat-icon>
+                        {{ channel.regionLabel }}
+                      </span>
+                    }
+                    <span class="channel-head__activity" data-testid="channel-activity">
+                      {{ channel.postCount24h }}
+                      {{ channel.postCount24h === 1 ? 'post' : 'posts' }} today
+                    </span>
+                  </p>
+                </div>
+              </header>
+
+              <app-post-composer
+                [channelName]="channel.name"
+                [displayName]="session.displayName()"
+                [avatarUrl]="session.me()?.avatarUrl"
+                [busy]="store.posting()"
+                [error]="postError()"
+                (post)="onPost($event)"
+              />
+            }
+
+            @switch (store.postsStatus()) {
+              @case ('loading') {
+                <div class="feed" aria-busy="true">
+                  <span class="visually-hidden">Loading posts</span>
+                  @for (i of [1, 2, 3]; track i) {
+                    <div class="feed__skeleton">
+                      <app-skeleton variant="list" lines="1" />
+                      <app-skeleton height="48px" />
+                    </div>
+                  }
+                </div>
+              }
+              @case ('error') {
+                <app-error-state
+                  title="Posts could not load"
+                  [message]="postsErrorMessage()"
+                  [requestId]="store.postsError()?.requestId ?? null"
+                  (retry)="store.loadPosts()"
+                />
+              }
+              @case ('not-found') {
+                <app-empty-state
+                  icon="search_off"
+                  title="This channel does not exist"
+                  description="It may have been archived. Pick another channel from the list."
+                />
+              }
+              @case ('ready') {
+                @if (store.posts().length === 0) {
+                  <app-empty-state
+                    icon="chat_add_on"
+                    title="No posts yet"
+                    description="Be the first to post in this channel: what you are looking for, what you just listed, or a trade you want to make."
+                  />
+                } @else {
+                  <ol class="feed" aria-label="Posts">
+                    @for (post of store.posts(); track post.id) {
+                      <li>
+                        <app-post-item [post]="post" />
+                      </li>
+                    }
+                  </ol>
+                  @if (store.hasMore()) {
+                    <div class="feed__more">
+                      <button
+                        matButton="outlined"
+                        type="button"
+                        [disabled]="store.loadingMore()"
+                        (click)="store.loadMore()"
+                      >
+                        {{ store.loadingMore() ? 'Loading…' : 'Older posts' }}
+                      </button>
+                    </div>
+                  } @else {
+                    <p class="feed__end">You are all caught up.</p>
+                  }
+                }
+              }
+            }
+          </section>
+        </div>
+      }
+    }
+  }
+</div>

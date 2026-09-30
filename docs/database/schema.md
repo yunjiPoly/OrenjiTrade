@@ -38,6 +38,11 @@ update it in the same change.
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
+| `wishlist_item.notes` | Private owner notes | Owner only (`GET /wishlist`, `GET /me/export`); never in the public wishlist summary, matches, notifications, events, analytics or logs |
+| `wishlist_item` (rows) | What a collector is looking for | Owner only; others see card, printing and minimum condition through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block |
+| `wishlist_match.distance_bucket` | Derived distance class | Computed from the two stored **public points** only; the metres are never stored or returned |
+| `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
+| `push_token.token` | Device secret | Never returned by the API (export lists platform and dates only), never logged (the log provider logs the device count) |
 | Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
 
 ## Entity overview
@@ -102,6 +107,8 @@ Detailed column lists are appended per phase below as migrations land.
 | V040 | `V040__messaging.sql` | Phase 5: `conversation`, `conversation_participant`, `conversation_pair` (unique DIRECT pair), `message`, `message_attachment`, `image_upload`, `user_block` |
 | V041 | `V041__community.sql` | Phase 5: `community_channel` (+ the eight launch channels), `community_post`, `community_reply` |
 | V042 | `V042__moderation_flags.sql` | Phase 5: `moderation_flag`, `ck_moderation_rule_rate_pattern`, message/post banned terms, rate and repeated-content rules |
+| V050 | `V050__wishlist.sql` | Phase 6: `wishlist_item` (card or printing target, filters, radius, trade preference, private notes), `wishlist_match` (one row per wishlist item and inventory item) |
+| V051 | `V051__notifications.sql` | Phase 6: `notification` (in-app rows + channel delivery state, unique `dedup_key`), `push_token` |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -963,3 +970,100 @@ Redis keys of this phase (not tables): `rt:user:{userId}` (pub/sub channel of th
 `presence:{userId}` (TTL 60 s), `mod:rate:<scope>:<rule>:<user>` and
 `mod:repeat:<scope>:<rule>:<user>:<sha256>` (moderation windows), `community:post:<channel>:<user>`
 (channel post rate), `rl:image-upload:…` (upload rate limit).
+
+### Phase 6 — wishlist, matching, notifications (V050–V051)
+
+Wishlist rows never carry a location. Matching (`WishlistMatcher`, event-driven on
+`InventoryItemPublished`, plus the nightly `wishlist-rematch` job) measures `ST_DWithin` between
+the stored `user_location.public_point` of the wishlist owner and of the item owner (ADR 0004);
+trading-area centres are never read. Both collectors therefore need a public point (discoverable).
+The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, FREE 5 / PREMIUM
+unlimited) is counted through the `Limits` service in `usage_counter` (window = UTC day, Redis
+mirror); there is no separate notification rate-limit table.
+
+### V050 — wishlist items and matches
+
+#### `wishlist_item`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
+| `game_slug` | `text` | game of the card (slug pattern check) |
+| `card_id` | `uuid` | FK → `card.id` (cascade); always filled by the API (derived from the printing) |
+| `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card; `ck_wishlist_item_target`: card or printing required |
+| `rarity` | `text` | optional; a rarity of the game's `GameSchema` (validated by the API), 1-40 characters |
+| `condition_min` | `text` | optional worst acceptable condition, a code of `GameSchema.conditions` (ordered best first; matching uses `array_position`) |
+| `edition`, `language` | `text` | optional exact filters (upper-case code / ISO 639-1) |
+| `max_price` | `numeric(12,2)` | optional, ≥ 0; items priced in another currency never meet it; unpriced items pass |
+| `currency` | `char(3)` | default `CAD` |
+| `radius_km` | `integer` | 1-20000, default 25; capped by the API at the plan's `map.radius.max_km` (429 `LIMIT_REACHED`) |
+| `trade_preference` | `text` | `ANY`, `TRADE` (item TRADE or TRADE_OR_SALE), `SALE` (SALE or TRADE_OR_SALE) |
+| `notes` | `text` | **PRIVATE**, ≤ 500 |
+| `active` | `boolean` | inactive items are kept but never matched |
+| `created_at`, `updated_at` | `timestamptz` | `updated_at` drives the nightly rematch of edited items |
+| `last_matched_at` | `timestamptz` | when the item last gained a match |
+
+Indexes: `ix_wishlist_item_active_card (active, card_id)` and `ix_wishlist_item_active_printing
+(active, printing_id)` (contract; matching looks items up by printing or card),
+`ix_wishlist_item_owner (owner_id, created_at DESC)` (owner list; `wishlist.items.max` usage is
+counted from this table through a `LimitUsageSource`), `ix_wishlist_item_updated (updated_at) WHERE
+active` (rematch job).
+
+#### `wishlist_match`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `wishlist_item_id` | `uuid` | FK → `wishlist_item.id` (cascade) |
+| `inventory_item_id` | `uuid` | FK → `inventory_item.id` (cascade) |
+| `matched_at` | `timestamptz` | keyset cursor with `id` |
+| `distance_bucket` | `text` | `LT_1KM`, `KM_1_5`, `KM_5_10`, `KM_10_25`, `KM_25_50`, `GT_50KM` between the two public points at match time |
+| `notified` | `boolean` | a WISHLIST_MATCH notification exists (false for matches found when the wish was created or edited, suppressed by preferences or beyond the daily limit) |
+| `dismissed` | `boolean` | dismissed by the owner; never served by default, never re-created |
+
+Constraint `uq_wishlist_match (wishlist_item_id, inventory_item_id)`: inserts use `ON CONFLICT DO
+NOTHING`, so a re-publication, a redelivered event or the rematch job never match twice. Indexes:
+`ix_wishlist_match_item_matched (wishlist_item_id, matched_at DESC, id DESC)` (matches page),
+`ix_wishlist_match_inventory (inventory_item_id)`. Rows of items that stop being public, or whose
+owners are blocked in either direction, stay but are neither served nor counted in `matchCount`.
+Editing a wish's criteria deletes its undismissed matches that no longer apply.
+
+### V051 — notifications and push tokens
+
+#### `notification`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `user_id` | `uuid` | FK → `user_account.id` (cascade); the recipient |
+| `type` | `text` | `WISHLIST_MATCH`, `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
+| `title` | `text` | 1-200 |
+| `body` | `text` | ≤ 1000; never message text, notes or coordinates |
+| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/wishlist/<id>`, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
+| `dedup_key` | `text` | `uq_notification_dedup_key`; e.g. `wishlist:<wishlistItemId>:<inventoryItemId>`, `message:<messageId>`, `binder-warning:<owner>:<binder or unfiled>:<epoch second>`, `binder-hidden:<owner>:<binder or unfiled>:<UTC day>`, `limit:<user>:<type>:<UTC day>` |
+| `in_app` | `boolean` | listed in the notification centre (in-app channel enabled for the category) |
+| `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
+| `read_at`, `seen_at` | `timestamptz` | read marker (idempotent, the first time is kept) |
+| `channel_state` | `jsonb` | object `{realtime, push, pushReason, pushProvider, pushDelivered, pushFailed, email, emailReason, emailProvider, dispatchedAt}`; channels are `PENDING` until the dispatcher runs, then `SENT`, `FAILED` or `SKIPPED` (reasons `DISABLED`, `QUIET_HOURS`, `NO_TOKENS`, `NO_EMAIL`); seeded history rows carry `{"seed": true}` |
+
+Indexes: `ix_notification_user_created (user_id, created_at DESC, id DESC) WHERE in_app` (centre
+pages), `ix_notification_user_unread (user_id, type) WHERE in_app AND read_at IS NULL` (badge,
+per-conversation MESSAGE throttle).
+
+#### `push_token`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `user_id` | `uuid` | FK → `user_account.id` (cascade); the account that registered the token last |
+| `platform` | `text` | `IOS`, `ANDROID`, `WEB` |
+| `token` | `text` | **SECRET**; `uq_push_token_token`; 1-4096 printable characters |
+| `created_at`, `last_seen_at` | `timestamptz` | the 20 most recently seen valid tokens are used per push |
+| `invalid_at` | `timestamptz` | set when the push provider reports the token unregistered or invalid; cleared by a new registration |
+
+Index: `ix_push_token_user (user_id, last_seen_at DESC) WHERE invalid_at IS NULL`.
+
+Redis keys of this phase: none of its own. The daily alert counter is the `Limits` mirror of
+`usage_counter` (`orenji:usage:*`), and realtime notifications travel on the Phase 5 channel
+`rt:user:{userId}` to `/user/queue/notifications`.

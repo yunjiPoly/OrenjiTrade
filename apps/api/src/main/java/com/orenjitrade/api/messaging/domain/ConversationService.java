@@ -406,6 +406,18 @@ public class ConversationService {
                 .findFirst();
     }
 
+    /**
+     * Whether new messages of the conversation must not notify {@code userId} (Phase 6): the
+     * participant muted it, or is not a participant at all.
+     */
+    @Transactional(readOnly = true)
+    public boolean isMutedFor(UUID userId, UUID conversationId) {
+        return conversations
+                .participant(conversationId, userId)
+                .map(ParticipantRow::muted)
+                .orElse(true);
+    }
+
     /** Conversation partners of an account who are not blocked (presence notices). */
     @Transactional(readOnly = true)
     public List<UUID> partnersOf(UUID me) {

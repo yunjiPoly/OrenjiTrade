@@ -30,7 +30,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: 'Community',
     icon: 'forum',
     path: 'community',
-    phase: 5,
+    phase: null,
     area: 'moderation',
   },
   { id: 'reports', label: 'Reports', icon: 'flag', path: 'reports', phase: 7, area: 'moderation' },

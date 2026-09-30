@@ -17,6 +17,7 @@ import { FreshnessJobResponse } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { UploadCleanupJobResponse } from '../model/models';
+import { WishlistRematchResponse } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
@@ -61,5 +62,12 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/upload-cleanup
 */
     runUploadCleanupJob(extraHttpRequestParams?: any): Observable<UploadCleanupJobResponse>;
+
+    /**
+     * Re-run wishlist matching for the last 24 h (service auth)
+     * Nightly safety net: inventory items published in the last 24 hours are matched again (matches and notifications are idempotent, so only publications whose event was lost produce new ones) and wishlist items edited in that window are re-matched. Records a job run.
+     * @endpoint post /internal/jobs/wishlist-rematch
+*/
+    runWishlistRematchJob(extraHttpRequestParams?: any): Observable<WishlistRematchResponse>;
 
 }

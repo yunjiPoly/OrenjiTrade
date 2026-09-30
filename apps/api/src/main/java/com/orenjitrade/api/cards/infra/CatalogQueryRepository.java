@@ -288,6 +288,23 @@ public class CatalogQueryRepository {
                 .optional();
     }
 
+    /** Summaries of several cards (of ACTIVE games unless {@code activeOnly} is false). */
+    public List<CardSummary> findCardSummaries(Collection<UUID> ids, boolean activeOnly) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT "
+                                + CARD_COLUMNS
+                                + " FROM card c JOIN game g ON g.id = c.game_id"
+                                + " WHERE c.id IN (:ids) AND (g.status = 'ACTIVE' OR NOT"
+                                + " :activeOnly)")
+                .param("ids", ids)
+                .param("activeOnly", activeOnly)
+                .query(this::mapCard)
+                .list();
+    }
+
     /** Rules text of a card. */
     public String cardText(UUID id) {
         return jdbc.sql("SELECT text FROM card WHERE id = :id")

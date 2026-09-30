@@ -82,7 +82,8 @@ test.describe('settings', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Devon Okafor' })).toBeVisible();
     await expect(page.getByTestId('collector-public-label')).toContainText('Verdun, Montréal');
     await expect(page.getByText(/km away/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Message' })).toBeDisabled();
+    // Phase 5: Devon accepts messages from members with a profile.
+    await expect(page.getByRole('button', { name: 'Message Devon Okafor' })).toBeEnabled();
 
     await Promise.all(pending);
     const apiSamples = samples.filter((sample) => sample.url.startsWith(API_URL));

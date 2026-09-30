@@ -587,7 +587,8 @@ public class InventoryItemRepository {
                                 + " THEN 'STALE_UNCONFIRMED' ELSE NULL END"
                                 + " FROM computed c"
                                 + " WHERE i.id = c.id AND c.old_state <> c.new_state"
-                                + " RETURNING i.id, i.owner_id, c.old_state, c.new_state")
+                                + " RETURNING i.id, i.owner_id, i.binder_id, i.publicly_listed,"
+                                + " c.old_state, c.new_state")
                 .param("hiddenCutoff", Timestamp.from(policy.hiddenCutoff(now)))
                 .param("staleCutoff", Timestamp.from(policy.staleCutoff(now)))
                 .param("agingCutoff", Timestamp.from(policy.agingCutoff(now)))
@@ -596,6 +597,8 @@ public class InventoryItemRepository {
                                 new StateChange(
                                         rs.getObject("id", UUID.class),
                                         rs.getObject("owner_id", UUID.class),
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getBoolean("publicly_listed"),
                                         FreshnessState.valueOf(rs.getString("old_state")),
                                         FreshnessState.valueOf(rs.getString("new_state"))))
                 .list();
@@ -826,9 +829,23 @@ public class InventoryItemRepository {
     public record Confirmed(
             UUID itemId, UUID ownerId, @Nullable UUID binderId, FreshnessState previous) {}
 
-    /** A freshness change of an item. */
+    /**
+     * A freshness change of an item.
+     *
+     * @param itemId item
+     * @param ownerId owner
+     * @param binderId binder, {@code null} when unfiled
+     * @param publiclyListed whether the item was publicly listed before the change
+     * @param previous state before
+     * @param current state after
+     */
     public record StateChange(
-            UUID itemId, UUID ownerId, FreshnessState previous, FreshnessState current) {}
+            UUID itemId,
+            UUID ownerId,
+            @Nullable UUID binderId,
+            boolean publiclyListed,
+            FreshnessState previous,
+            FreshnessState current) {}
 
     /** An item that entered its warning window. */
     public record Warned(UUID itemId, UUID ownerId, @Nullable UUID binderId, Instant confirmedAt) {}

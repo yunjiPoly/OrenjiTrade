@@ -122,7 +122,10 @@ export function watchCoordinates(page: Page): {
         .catch(() => undefined),
     );
   });
-  return { samples, settle: async () => void (await Promise.all(pending)) };
+  // A response whose body never arrives (request aborted by a navigation) must not hang the spec.
+  const bounded = (promise: Promise<void>) =>
+    Promise.race([promise, new Promise<void>((resolve) => setTimeout(resolve, 5_000))]);
+  return { samples, settle: async () => void (await Promise.all(pending.map(bounded))) };
 }
 
 export function tooPrecise(samples: readonly CoordinateSample[]): CoordinateSample[] {

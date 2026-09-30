@@ -75,6 +75,20 @@ public class PrivacyPolicyService {
         return target.searchDiscoverable() && canAppearOnMap(viewer, targetId, target);
     }
 
+    /**
+     * Whether {@code viewer} may see the target's public wishlist summary (Phase 6): the owner
+     * always; others only when the target shows their wishlist ({@code wishlistVisible}), may see
+     * the profile and no block exists between them.
+     */
+    public boolean canSeeWishlist(ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
+        if (viewer.is(targetId)) {
+            return true;
+        }
+        return target.wishlistVisible()
+                && !viewer.blocked()
+                && canViewProfile(viewer, targetId, target);
+    }
+
     /** Whether {@code viewer} may start a private conversation with the target. */
     public boolean canMessage(ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         if (!viewer.isMember() || viewer.is(targetId) || viewer.blocked()) {

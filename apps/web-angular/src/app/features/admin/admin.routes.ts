@@ -83,6 +83,15 @@ export const ADMIN_ROUTES: Routes = [
           ),
       },
       {
+        // Moderators and admins (moderation area).
+        path: 'community',
+        title: 'Community · Admin',
+        loadComponent: () =>
+          import('./community/admin-community-page.component').then(
+            (m) => m.AdminCommunityPageComponent,
+          ),
+      },
+      {
         path: 'audit-logs',
         title: 'Audit logs · Admin',
         canActivate: [adminGuard],

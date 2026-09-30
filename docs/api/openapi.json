@@ -66,6 +66,10 @@
       "description": "Plans and usage limits (admin console)"
     },
     {
+      "name": "notifications",
+      "description": "In-app notification centre, unread badge, read state"
+    },
+    {
       "name": "admin-community",
       "description": "Community moderation (moderator console)"
     },
@@ -96,6 +100,10 @@
     {
       "name": "profile",
       "description": "The caller's public profile, avatar and tags"
+    },
+    {
+      "name": "wishlist",
+      "description": "The caller's wishlist and its matches nearby"
     },
     {
       "name": "admin-catalog",
@@ -1693,6 +1701,66 @@
         }
       }
     },
+    "/internal/jobs/wishlist-rematch": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Re-run wishlist matching for the last 24 h (service auth)",
+        "description": "Nightly safety net: inventory items published in the last 24 hours are matched again (matches and notifications are idempotent, so only publications whose event was lost produce new ones) and wishlist items edited in that window are re-matched. Records a job run.",
+        "operationId": "runWishlistRematchJob",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistRematchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/internal/jobs/upload-cleanup": {
       "post": {
         "tags": [
@@ -1993,6 +2061,266 @@
         ]
       }
     },
+    "/api/v1/wishlist": {
+      "get": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "The caller's wishlist items (newest first)",
+        "operationId": "listWishlist",
+        "responses": {
+          "200": {
+            "description": "Every item of the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WishlistItemResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Add a card to the wishlist",
+        "description": "cardId (any printing) or printingId is required. The new item is matched at once against the public inventory nearby (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500) or a radius beyond map.radius.max_km.",
+        "operationId": "createWishlistItem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWishlistItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The new item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistItemResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (target, vocabularies, price, radius, notes)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT: the same card with the same filters is already wished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (wishlist.items.max or map.radius.max_km)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wishlist/matches/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Dismiss a match",
+        "description": "Idempotent; a dismissed match never comes back for this wishlist item.",
+        "operationId": "dismissWishlistMatch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dismissed"
+          },
+          "404": {
+            "description": "Unknown match or not the caller's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{id}/block": {
       "post": {
         "tags": [
@@ -2234,6 +2562,255 @@
           },
           "415": {
             "description": "UNSUPPORTED_MEDIA_TYPE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark one notification read",
+        "description": "Idempotent: the first read time is kept.",
+        "operationId": "markNotificationRead",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The notification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown notification or not the caller's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark every notification read",
+        "operationId": "markAllNotificationsRead",
+        "responses": {
+          "200": {
+            "description": "How many notifications were marked read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadAllNotificationsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/push-tokens": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Register a device push token",
+        "description": "Idempotent. A token registered by another account moves to the caller; an invalidated token becomes valid again.",
+        "operationId": "registerPushToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Registered"
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown platform, empty or malformed token)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6077,6 +6654,203 @@
         }
       }
     },
+    "/api/v1/wishlist/{id}": {
+      "delete": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Remove a wishlist item",
+        "description": "Its matches are removed with it.",
+        "operationId": "deleteWishlistItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "404": {
+            "description": "Unknown item or not the caller's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Update a wishlist item (any subset of the fields)",
+        "description": "Absent fields are unchanged. Changing the criteria re-matches the item (dismissed matches stay dismissed).",
+        "operationId": "updateWishlistItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWishlistItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The updated item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistItemResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown item or not the caller's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (radius beyond map.radius.max_km)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inventory/items/{id}": {
       "get": {
         "tags": [
@@ -6953,6 +7727,142 @@
           },
           "404": {
             "description": "Unknown channel",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wishlist/{id}/matches": {
+      "get": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Public items matching a wishlist item (newest first)",
+        "description": "Cursor-paginated. Each match carries the public item (never private notes), the owner's map marker at the derived public point and the distance bucket between the two collectors' public points. Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.",
+        "operationId": "listWishlistMatches",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque cursor of the previous slice",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "includeDismissed",
+            "in": "query",
+            "description": "true: also list dismissed matches",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One slice of matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPageWishlistMatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (invalid cursor or limit)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown item or not the caller's",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8286,6 +9196,194 @@
         "security": []
       }
     },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "The caller's notifications (newest first)",
+        "description": "Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only. Notifications whose in-app channel was disabled by the caller's preferences are never listed.",
+        "operationId": "listNotifications",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque cursor of the previous slice",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "description": "true: unread notifications only",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One slice of notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPageNotificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (invalid cursor or limit)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Number of unread notifications (badge)",
+        "operationId": "getUnreadNotificationCount",
+        "responses": {
+          "200": {
+            "description": "The unread count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadNotificationCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "tags": [
@@ -9136,6 +10234,101 @@
           },
           "404": {
             "description": "Unknown, hidden or private collector",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/collectors/{handle}/wishlist": {
+      "get": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "A collector's public wishlist",
+        "description": "Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: the active items as card, printing and minimum condition (never notes, prices or radii). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.",
+        "operationId": "getCollectorWishlist",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The public wishlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WishlistSummaryEntry"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown collector or wishlist not visible",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -11224,6 +12417,81 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/push-tokens/{token}": {
+      "delete": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Remove a device push token (sign-out)",
+        "description": "Idempotent; tokens of other accounts are left untouched.",
+        "operationId": "deletePushToken",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed (or unknown)"
           },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
@@ -13416,6 +14684,38 @@
           }
         }
       },
+      "WishlistRematchResponse": {
+        "type": "object",
+        "properties": {
+          "inventoryItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wishlistItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "matchesCreated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notified": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failures": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "failures",
+          "inventoryItems",
+          "matchesCreated",
+          "notified",
+          "wishlistItems"
+        ]
+      },
       "UploadCleanupJobResponse": {
         "type": "object",
         "properties": {
@@ -13538,6 +14838,217 @@
           "skipped"
         ]
       },
+      "CreateWishlistItemRequest": {
+        "type": "object",
+        "description": "cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. radiusKm defaults to 25 km (lowered to the plan cap); beyond the plan's map.radius.max_km it is 429 LIMIT_REACHED.",
+        "properties": {
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rarity": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 0
+          },
+          "conditionMin": {
+            "type": "string",
+            "example": "LIGHTLY_PLAYED",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "edition": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2
+          },
+          "maxPrice": {
+            "type": "number",
+            "example": 60.0,
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD",
+            "maxLength": 3,
+            "minLength": 3
+          },
+          "radiusKm": {
+            "type": "integer",
+            "format": "int32",
+            "example": 25,
+            "maximum": 20000,
+            "minimum": 1
+          },
+          "tradePreference": {
+            "type": "string",
+            "enum": [
+              "ANY",
+              "TRADE",
+              "SALE"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WishlistCardRef": {
+        "type": "object",
+        "description": "The wished card",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "WishlistItemResponse": {
+        "type": "object",
+        "description": "A card the caller is looking for",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "card": {
+            "type": "null",
+            "$ref": "#/components/schemas/WishlistCardRef",
+            "description": "Null only if the catalog lost the card"
+          },
+          "printing": {
+            "type": "null",
+            "$ref": "#/components/schemas/PrintingSummary",
+            "description": "The wished printing; null = any printing"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Ultra Rare"
+          },
+          "conditionMin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Worst acceptable condition",
+            "example": "LIGHTLY_PLAYED"
+          },
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "FIRST_EDITION"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "en"
+          },
+          "maxPrice": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": 60.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "radiusKm": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Matching radius (km), capped by the plan",
+            "example": 25
+          },
+          "tradePreference": {
+            "type": "string",
+            "enum": [
+              "ANY",
+              "TRADE",
+              "SALE"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "description": "Private to the caller"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "matchCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Undismissed matches whose item is public right now (blocked collectors excluded)"
+          },
+          "lastMatchedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "active",
+          "createdAt",
+          "currency",
+          "game",
+          "id",
+          "matchCount",
+          "notes",
+          "radiusKm",
+          "tradePreference",
+          "updatedAt"
+        ]
+      },
       "BlockUserRequest": {
         "type": "object",
         "properties": {
@@ -13613,6 +15124,106 @@
           "uploadId",
           "url",
           "width"
+        ]
+      },
+      "NotificationResponse": {
+        "type": "object",
+        "description": "An in-app notification",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "WISHLIST_MATCH",
+              "MESSAGE",
+              "OFFER_RECEIVED",
+              "OFFER_ACCEPTED",
+              "OFFER_COUNTERED",
+              "OFFER_DECLINED",
+              "BINDER_EXPIRING",
+              "BINDER_STALE_WARNING",
+              "BINDER_HIDDEN",
+              "RATING_RECEIVED",
+              "TRADE_UPDATE",
+              "SHIPMENT_STATUS",
+              "PAYMENT_UPDATE",
+              "REPORT_DECISION",
+              "SYSTEM"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Wishlist match: Azure-Eyes"
+          },
+          "body": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Null while unread"
+          }
+        },
+        "required": [
+          "body",
+          "createdAt",
+          "data",
+          "id",
+          "title",
+          "type"
+        ]
+      },
+      "ReadAllNotificationsResponse": {
+        "type": "object",
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Notifications that were unread",
+            "example": 3
+          }
+        },
+        "required": [
+          "updated"
+        ]
+      },
+      "PushTokenRequest": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "IOS",
+              "ANDROID",
+              "WEB"
+            ]
+          },
+          "token": {
+            "type": "string",
+            "description": "FCM / Expo device token",
+            "maxLength": 4096,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "platform",
+          "token"
         ]
       },
       "AvatarResponse": {
@@ -15231,6 +16842,87 @@
           }
         }
       },
+      "UpdateWishlistItemRequest": {
+        "type": "object",
+        "description": "Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, conditionMin, edition, language, maxPrice and notes may be null to clear them. Changing the criteria re-matches the item against the current public inventory.",
+        "properties": {
+          "printingId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40,
+            "minLength": 0
+          },
+          "conditionMin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2,
+            "minLength": 2
+          },
+          "maxPrice": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 3,
+            "minLength": 3
+          },
+          "radiusKm": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 20000,
+            "minimum": 1
+          },
+          "tradePreference": {
+            "type": "string",
+            "enum": [
+              "ANY",
+              "TRADE",
+              "SALE"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateInventoryItemRequest": {
         "type": "object",
         "description": "Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it.",
@@ -15449,96 +17141,6 @@
           }
         }
       },
-      "PageResponseSetSummary": {
-        "type": "object",
-        "description": "Offset-paginated list",
-        "properties": {
-          "items": {
-            "type": "array",
-            "description": "Items of the current page",
-            "items": {
-              "$ref": "#/components/schemas/SetSummary"
-            }
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Zero-based page index",
-            "example": 0
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Requested page size",
-            "example": 20
-          },
-          "totalItems": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total number of items across all pages",
-            "example": 137
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Total number of pages",
-            "example": 7
-          }
-        }
-      },
-      "PageResponsePrintingSummary": {
-        "type": "object",
-        "description": "Offset-paginated list",
-        "properties": {
-          "items": {
-            "type": "array",
-            "description": "Items of the current page",
-            "items": {
-              "$ref": "#/components/schemas/PrintingSummary"
-            }
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Zero-based page index",
-            "example": 0
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Requested page size",
-            "example": 20
-          },
-          "totalItems": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total number of items across all pages",
-            "example": 137
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Total number of pages",
-            "example": 7
-          }
-        }
-      },
-      "SetDetail": {
-        "type": "object",
-        "description": "Card set with a page of its printings",
-        "properties": {
-          "set": {
-            "$ref": "#/components/schemas/SetSummary"
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": {}
-          },
-          "printings": {
-            "$ref": "#/components/schemas/PageResponsePrintingSummary"
-          }
-        }
-      },
       "CollectorMarker": {
         "type": "object",
         "description": "A collector on the map at the derived public point (never the real location)",
@@ -15689,6 +17291,30 @@
           "count"
         ]
       },
+      "CursorPageWishlistMatchResponse": {
+        "type": "object",
+        "description": "Cursor-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current slice",
+            "items": {
+              "$ref": "#/components/schemas/WishlistMatchResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another slice exists"
+          }
+        }
+      },
       "MatchingItem": {
         "type": "object",
         "description": "Public item matching the request's filters",
@@ -15781,6 +17407,238 @@
           "language",
           "printingId"
         ]
+      },
+      "PublicInventoryItem": {
+        "type": "object",
+        "description": "A public inventory item",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printing": {
+            "$ref": "#/components/schemas/PrintingSummary"
+          },
+          "card": {
+            "$ref": "#/components/schemas/InventoryCardRef"
+          },
+          "binder": {
+            "type": "null",
+            "$ref": "#/components/schemas/InventoryBinderRef",
+            "description": "Public binder holding the item, if any"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "condition": {
+            "type": "string",
+            "example": "NEAR_MINT"
+          },
+          "language": {
+            "type": "string",
+            "example": "en"
+          },
+          "edition": {
+            "type": "string",
+            "example": "FIRST_EDITION"
+          },
+          "finish": {
+            "type": "string",
+            "example": "NORMAL"
+          },
+          "askingPrice": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": 45.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "COLLECTION_ONLY",
+              "TRADE",
+              "SALE",
+              "TRADE_OR_SALE",
+              "NOT_AVAILABLE"
+            ]
+          },
+          "acceptsOffers": {
+            "type": "boolean"
+          },
+          "publicNotes": {
+            "type": "string"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryItemImage"
+            }
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          }
+        },
+        "required": [
+          "acceptsOffers",
+          "availability",
+          "card",
+          "condition",
+          "currency",
+          "edition",
+          "finish",
+          "freshness",
+          "id",
+          "images",
+          "language",
+          "printing",
+          "publicNotes",
+          "quantity"
+        ]
+      },
+      "WishlistMatchResponse": {
+        "type": "object",
+        "description": "A public item matching a wishlist item",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "wishlistItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item": {
+            "$ref": "#/components/schemas/PublicInventoryItem"
+          },
+          "collector": {
+            "$ref": "#/components/schemas/CollectorMarker"
+          },
+          "distanceBucket": {
+            "type": "string",
+            "description": "Approximate distance between the two collectors' public points when the item matched",
+            "enum": [
+              "LT_1KM",
+              "KM_1_5",
+              "KM_5_10",
+              "KM_10_25",
+              "KM_25_50",
+              "GT_50KM"
+            ]
+          },
+          "matchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dismissed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "collector",
+          "dismissed",
+          "distanceBucket",
+          "id",
+          "item",
+          "matchedAt",
+          "wishlistItemId"
+        ]
+      },
+      "PageResponseSetSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/SetSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "PageResponsePrintingSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/PrintingSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "SetDetail": {
+        "type": "object",
+        "description": "Card set with a page of its printings",
+        "properties": {
+          "set": {
+            "$ref": "#/components/schemas/SetSummary"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "printings": {
+            "$ref": "#/components/schemas/PageResponsePrintingSummary"
+          }
+        }
       },
       "PublicBinderOwner": {
         "type": "object",
@@ -16103,100 +17961,6 @@
           }
         }
       },
-      "PublicInventoryItem": {
-        "type": "object",
-        "description": "A public inventory item",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "printing": {
-            "$ref": "#/components/schemas/PrintingSummary"
-          },
-          "card": {
-            "$ref": "#/components/schemas/InventoryCardRef"
-          },
-          "binder": {
-            "type": "null",
-            "$ref": "#/components/schemas/InventoryBinderRef",
-            "description": "Public binder holding the item, if any"
-          },
-          "quantity": {
-            "type": "integer",
-            "format": "int32",
-            "example": 1
-          },
-          "condition": {
-            "type": "string",
-            "example": "NEAR_MINT"
-          },
-          "language": {
-            "type": "string",
-            "example": "en"
-          },
-          "edition": {
-            "type": "string",
-            "example": "FIRST_EDITION"
-          },
-          "finish": {
-            "type": "string",
-            "example": "NORMAL"
-          },
-          "askingPrice": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "example": 45.0
-          },
-          "currency": {
-            "type": "string",
-            "example": "CAD"
-          },
-          "availability": {
-            "type": "string",
-            "enum": [
-              "COLLECTION_ONLY",
-              "TRADE",
-              "SALE",
-              "TRADE_OR_SALE",
-              "NOT_AVAILABLE"
-            ]
-          },
-          "acceptsOffers": {
-            "type": "boolean"
-          },
-          "publicNotes": {
-            "type": "string"
-          },
-          "images": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/InventoryItemImage"
-            }
-          },
-          "freshness": {
-            "$ref": "#/components/schemas/Freshness"
-          }
-        },
-        "required": [
-          "acceptsOffers",
-          "availability",
-          "card",
-          "condition",
-          "currency",
-          "edition",
-          "finish",
-          "freshness",
-          "id",
-          "images",
-          "language",
-          "printing",
-          "publicNotes",
-          "quantity"
-        ]
-      },
       "LegalDocument": {
         "type": "object",
         "description": "A published legal document",
@@ -16414,6 +18178,43 @@
             "type": "string"
           }
         }
+      },
+      "CursorPageNotificationResponse": {
+        "type": "object",
+        "description": "Cursor-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current slice",
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another slice exists"
+          }
+        }
+      },
+      "UnreadNotificationCount": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3
+          }
+        },
+        "required": [
+          "count"
+        ]
       },
       "MetaResponse": {
         "type": "object",
@@ -17172,6 +18973,28 @@
           "label",
           "slug"
         ]
+      },
+      "WishlistSummaryEntry": {
+        "type": "object",
+        "description": "A card a collector is looking for (public wishlist)",
+        "properties": {
+          "card": {
+            "type": "null",
+            "$ref": "#/components/schemas/WishlistCardRef"
+          },
+          "printing": {
+            "type": "null",
+            "$ref": "#/components/schemas/PrintingSummary",
+            "description": "Null = any printing"
+          },
+          "conditionMin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "NEAR_MINT"
+          }
+        }
       },
       "CollectorPreview": {
         "type": "object",
