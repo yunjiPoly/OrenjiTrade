@@ -1,6 +1,6 @@
 # OrenjiTrade ML service. Build from apps/ml:  docker build -t orenjitrade-ml .
 # Runs as a non-root user; Cloud Run injects PORT.
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
