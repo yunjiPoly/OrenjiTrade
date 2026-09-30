@@ -1,6 +1,6 @@
 # Firebase Authentication emulator for local development.
 # The Auth emulator is implemented in Node (no Java required, unlike Firestore/RTDB emulators).
-FROM node:22-alpine
+FROM node:26-alpine
 
 # Exact version: every developer (and every `npm run infra:reset`) gets the same emulator.
 ARG FIREBASE_TOOLS_VERSION=14.27.0
