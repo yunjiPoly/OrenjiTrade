@@ -1,0 +1,142 @@
+<div class="map-page">
+  <h1 class="visually-hidden">Collectors near you</h1>
+  <mat-sidenav-container class="map-page__container" [hasBackdrop]="!isWide()">
+    <mat-sidenav
+      class="map-page__panel"
+      position="end"
+      [mode]="panelMode()"
+      [opened]="panelOpened()"
+      (openedChange)="panelOpened.set($event)"
+    >
+      <app-messages-panel (closeRequested)="panelOpened.set(false)" />
+    </mat-sidenav>
+
+    <mat-sidenav-content class="map-page__content">
+      <div class="stage">
+        <app-map-canvas
+          class="stage__map"
+          [markers]="markerSet().markers"
+          [circle]="circle()"
+          [view]="store.viewRequest()"
+          [fallbackCentre]="fallbackCentre"
+          (viewportChange)="onViewport($event)"
+          (markerActivate)="onMarker($event)"
+        />
+
+        @if (store.loading()) {
+          <mat-progress-bar
+            class="stage__progress"
+            mode="indeterminate"
+            aria-label="Loading collectors"
+          />
+        }
+
+        <div class="stage__top">
+          <app-unified-search-box
+            class="stage__search"
+            label="Search the map"
+            placeholder="Find a card, collector or tag"
+            [centre]="searchCentre()"
+            (picked)="onPicked($event)"
+            (submitted)="onSubmitted($event)"
+          />
+          <div class="stage__tools">
+            <p class="stage__status" role="status" data-testid="map-status">
+              {{ statusLabel() }}
+            </p>
+            <button
+              matButton="tonal"
+              type="button"
+              class="stage__tool"
+              aria-controls="discovery-panel"
+              [attr.aria-pressed]="listOpen()"
+              (click)="toggleList()"
+            >
+              <mat-icon aria-hidden="true">{{ listOpen() ? 'map' : 'view_list' }}</mat-icon>
+              List
+            </button>
+            <button
+              matIconButton
+              type="button"
+              class="stage__tool stage__tool--round"
+              [attr.aria-label]="toggleLabel()"
+              [attr.aria-expanded]="panelOpened()"
+              aria-controls="map-messages-panel"
+              [matTooltip]="toggleLabel()"
+              (click)="togglePanel()"
+            >
+              <mat-icon>{{ panelOpened() ? 'chat_bubble' : 'chat' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        @if (showAreaPrompt() && !listOpen()) {
+          <app-area-prompt
+            class="stage__prompt"
+            [city]="store.city()"
+            [signedIn]="store.signedIn()"
+            (cityChosen)="onCity($event)"
+          />
+        }
+
+        @if (store.error(); as error) {
+          @if (!listOpen()) {
+            <div class="stage__error" role="alert">
+              <mat-icon aria-hidden="true">cloud_off</mat-icon>
+              <span>{{ errorMessage() }}</span>
+              <button matButton type="button" (click)="store.retry()">Retry</button>
+            </div>
+          }
+        }
+
+        @if (listOpen()) {
+          <app-discovery-panel
+            id="discovery-panel"
+            class="stage__panel"
+            [collectors]="store.collectors()"
+            [holders]="holdersMode()"
+            [holdersName]="store.holdersTitle()"
+            [holdersQuery]="holdersQuery()"
+            [loading]="store.loading()"
+            [error]="store.error()"
+            [total]="store.result()?.total ?? 0"
+            [truncated]="store.result()?.truncated ?? false"
+            [radiusKm]="store.result()?.radiusKm ?? store.radiusKm()"
+            [selectedHandle]="store.selectedHandle()"
+            [signedIn]="store.signedIn()"
+            [selfId]="store.selfId()"
+            (selected)="store.select($event)"
+            (retry)="store.retry()"
+            (closed)="closeList()"
+            (clearHolders)="clearHolders()"
+          />
+        }
+
+        @if (store.preview().kind !== 'idle') {
+          <app-collector-preview-card
+            class="stage__preview"
+            [state]="store.preview()"
+            [binderId]="store.previewBinderId()"
+            [signedIn]="store.signedIn()"
+            [isSelf]="previewIsSelf()"
+            (closed)="store.select(null)"
+            (retry)="store.retryPreview()"
+          />
+        }
+
+        <app-map-legend class="stage__legend" [class.stage__legend--beside-panel]="listOpen()" />
+      </div>
+
+      <app-map-filters-bar
+        class="map-page__filters"
+        [params]="params()"
+        [radiusKm]="store.radiusKm()"
+        [radiusMax]="store.radiusCap()"
+        [games]="gameOptions()"
+        [tags]="tagOptions()"
+        (changed)="onFilters($event)"
+        (tagsRequested)="onTagsRequested()"
+      />
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>

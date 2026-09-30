@@ -1,0 +1,296 @@
+// App-level custom properties and styles for DOM rendered outside Angular's view encapsulation
+// (Leaflet markers, Material overlays). Component styles stay in their components.
+
+// Accent colours of the four games (decorative card art, game chips). Mid-tone values that keep
+// white text readable on light and dark surfaces.
+html {
+  --game-pokemon: #d97706;
+  --game-yugioh: #7c3aed;
+  --game-mtg: #15803d;
+  --game-riftbound: #0284c7;
+}
+
+// Map pins drawn by the Leaflet adapter (L.divIcon with these classes).
+.orenji-map-pin {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+}
+
+.orenji-map-pin__dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--color-primary);
+  border: 3px solid #fff;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.35);
+}
+
+.orenji-map-pin--collector .orenji-map-pin__dot {
+  background: var(--color-accent);
+}
+
+.orenji-map-pin--self .orenji-map-pin__dot {
+  background: var(--color-ink);
+}
+
+.leaflet-marker-draggable {
+  cursor: grab;
+}
+
+// Collector markers on /map: round avatars with a freshness ring, and cluster bubbles.
+.orenji-map-pin--avatar,
+.orenji-map-pin--cluster {
+  border-radius: 50%;
+  transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
+
+  &:hover,
+  &:focus-visible {
+    transform: scale(1.12);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.orenji-map-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow:
+    0 0 0 3px var(--marker-ring, var(--color-border-strong)),
+    0 6px 14px rgb(0 0 0 / 0.3);
+  overflow: hidden;
+}
+
+.orenji-map-avatar--fresh {
+  --marker-ring: var(--color-status-fresh);
+}
+
+.orenji-map-avatar--aging {
+  --marker-ring: var(--color-status-aging);
+}
+
+.orenji-map-avatar__img,
+.orenji-map-avatar__initials {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.orenji-map-avatar__initials {
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.orenji-map-pin--selected {
+  transform: scale(1.18);
+
+  .orenji-map-avatar {
+    box-shadow:
+      0 0 0 3px var(--color-surface),
+      0 0 0 6px var(--color-primary),
+      0 8px 18px rgb(0 0 0 / 0.35);
+  }
+}
+
+.orenji-map-cluster {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent),
+    0 6px 14px rgb(0 0 0 / 0.3);
+}
+
+// Leaflet containers take the token font and a focus ring consistent with the app.
+.leaflet-container {
+  font-family: var(--font-body);
+  background: var(--color-surface-variant);
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-width) * -1);
+  }
+}
+
+// Dialog widths used by feature dialogs.
+.app-dialog--md {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.app-dialog--lg {
+  --mat-dialog-container-max-width: 840px;
+
+  width: min(840px, calc(100vw - 32px));
+}
+
+// Side sheet (inventory item editor): a full-height dialog docked to the right edge.
+.app-side-sheet {
+  --mat-dialog-container-shape: var(--radius-lg) 0 0 var(--radius-lg);
+  --mat-dialog-container-max-width: 100vw;
+
+  .mat-mdc-dialog-surface {
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+
+  .mat-mdc-dialog-container {
+    animation: app-side-sheet-in var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  @media (max-width: 599px) {
+    --mat-dialog-container-shape: 0;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 0;
+    }
+  }
+}
+
+@keyframes app-side-sheet-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0.4;
+  }
+}
+
+// Error toast panel (errorInterceptor) keeps the danger accent.
+.app-toast--error {
+  --mat-snack-bar-button-color: var(--color-warning);
+}
+
+// Card autocomplete panel (app-card-search-box renders its options in a Material overlay).
+.csb-panel {
+  --mat-option-label-text-size: var(--font-size-sm);
+
+  .csb-option {
+    min-height: 60px;
+  }
+
+  .csb-option__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    width: 100%;
+  }
+
+  .csb-option__img {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 50px;
+    border-radius: 3px;
+    object-fit: cover;
+    background: var(--color-surface-variant);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+  }
+
+  .csb-option__text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .csb-option__name {
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .csb-option__meta {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+
+  .csb-option__kind {
+    flex: 0 0 auto;
+    padding: 2px var(--spacing-2);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-container);
+    color: var(--color-on-accent-container);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .csb-option--info {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .csb-option--all {
+    border-top: 1px solid var(--color-border);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+
+    .mat-icon {
+      color: var(--color-primary);
+    }
+  }
+}
+
+// Unified search autocomplete (app-unified-search-box): collectors, binders, sets and tags next
+// to the card entries of `.csb-panel`.
+.usb-panel {
+  --mat-optgroup-label-text-size: var(--font-size-xs);
+  --mat-optgroup-label-text-weight: var(--font-weight-semibold);
+  --mat-optgroup-label-text-color: var(--color-text-muted);
+
+  .mat-mdc-optgroup-label {
+    min-height: 32px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .usb-option__avatar,
+  .usb-option__icon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin: 7px 0;
+    border-radius: 50%;
+  }
+
+  .usb-option__avatar {
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .usb-option__icon {
+    border-radius: var(--radius-md);
+    background: var(--color-surface-variant);
+    color: var(--color-accent);
+
+    .mat-icon {
+      margin: 0;
+    }
+  }
+}

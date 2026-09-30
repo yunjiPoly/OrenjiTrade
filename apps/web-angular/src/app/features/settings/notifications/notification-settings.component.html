@@ -1,0 +1,149 @@
+@if (loading() && !draft()) {
+  <div class="section-skeleton" aria-busy="true">
+    <span class="visually-hidden">Loading your notification preferences</span>
+    <app-skeleton variant="list" lines="4" />
+  </div>
+} @else if (loadError(); as error) {
+  <app-error-state
+    title="We could not load your notification preferences"
+    [message]="error.message"
+    [requestId]="error.requestId"
+    (retry)="load()"
+  />
+} @else if (draft(); as settings) {
+  <app-section-card
+    heading="Channels"
+    headingId="notif-channels"
+    description="Turn a channel off to silence it everywhere."
+  >
+    <ul class="section-list">
+      @for (channel of channels; track channel.key) {
+        <li class="section-row">
+          <div class="section-row__text">
+            <span class="section-row__label" [id]="'notif-master-' + channel.key">
+              <mat-icon class="notif__icon" aria-hidden="true">{{ channel.icon }}</mat-icon>
+              {{ channel.label }}
+            </span>
+          </div>
+          <mat-slide-toggle
+            [checked]="settings[channel.master]"
+            (change)="setMaster(channel.master, $event.checked)"
+            [aria-labelledby]="'notif-master-' + channel.key"
+          />
+        </li>
+      }
+    </ul>
+  </app-section-card>
+
+  <app-section-card
+    heading="What to notify me about"
+    headingId="notif-categories"
+    description="Choose per topic and channel."
+  >
+    <div class="notif__table-wrap">
+      <table class="notif__table">
+        <caption class="visually-hidden">
+          Notification topics by channel
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Topic</th>
+            @for (channel of channels; track channel.key) {
+              <th scope="col">{{ channel.label }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (category of categories(); track category.key) {
+            <tr>
+              <th scope="row">
+                <span class="section-row__label">{{ category.label }}</span>
+                <span class="section-row__help notif__help">{{ category.help }}</span>
+              </th>
+              @for (channel of channels; track channel.key) {
+                <td>
+                  <mat-checkbox
+                    [checked]="settings.categories[category.key][channel.key]"
+                    [disabled]="!settings[channel.master]"
+                    (change)="setCategory(category.key, channel.key, $event.checked)"
+                    [aria-label]="category.label + ' by ' + channel.label"
+                  />
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </app-section-card>
+
+  <app-section-card
+    heading="Quiet hours"
+    headingId="notif-quiet"
+    description="No push notifications during these hours. In-app notifications still arrive."
+  >
+    <mat-slide-toggle
+      [checked]="settings.quietHours.enabled"
+      (change)="setQuiet('enabled', $event.checked)"
+    >
+      Pause push notifications at night
+    </mat-slide-toggle>
+    @if (settings.quietHours.enabled) {
+      <div class="notif__quiet">
+        <mat-form-field appearance="outline">
+          <mat-label>From</mat-label>
+          <input
+            matInput
+            type="time"
+            [ngModel]="settings.quietHours.start"
+            (ngModelChange)="setQuiet('start', $event)"
+            required
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Until</mat-label>
+          <input
+            matInput
+            type="time"
+            [ngModel]="settings.quietHours.end"
+            (ngModelChange)="setQuiet('end', $event)"
+            required
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="notif__tz">
+          <mat-label>Time zone</mat-label>
+          <mat-select
+            [value]="settings.quietHours.timezone"
+            (selectionChange)="setQuiet('timezone', $event.value)"
+          >
+            @for (zone of timeZones; track zone) {
+              <mat-option [value]="zone">{{ zone }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      @if (quietHoursInvalid()) {
+        <p class="section-error" role="alert">Choose a start and an end time that differ.</p>
+      }
+    }
+  </app-section-card>
+
+  <div class="notif__savebar" [class.notif__savebar--floating]="dirty()">
+    @if (saveError(); as message) {
+      <p class="section-error" role="alert">{{ message }}</p>
+    } @else if (dirty()) {
+      <p class="section-muted">You have unsaved changes.</p>
+    }
+    <button
+      matButton="filled"
+      type="button"
+      [disabled]="saving() || !dirty() || quietHoursInvalid()"
+      (click)="save()"
+    >
+      @if (saving()) {
+        <mat-spinner diameter="18" aria-hidden="true" />
+      }
+      Save preferences
+    </button>
+  </div>
+}

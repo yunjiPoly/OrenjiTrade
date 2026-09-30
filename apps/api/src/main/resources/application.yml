@@ -1,0 +1,428 @@
+# ---------------------------------------------------------------------------------------------
+# OrenjiTrade API configuration.
+#
+# Environment variables mirror /.env.example (DATABASE_URL, REDIS_URL, CORS_ALLOWED_ORIGINS, ...).
+# Profiles: local (default) | dev | staging | prod | test. Profile documents follow the base one.
+# Never put secrets here; everything sensitive is injected through the environment.
+# ---------------------------------------------------------------------------------------------
+spring:
+  application:
+    name: orenjitrade-api
+  profiles:
+    default: local
+  main:
+    banner-mode: off
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  mvc:
+    problemdetails:
+      enabled: true
+    contentnegotiation:
+      favor-parameter: false
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+    # Jackson 3 writes java.time values as ISO-8601 strings by default (DateTimeFeature); kept
+    # explicit so a future default change cannot silently switch the API to epoch numbers.
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/orenjitrade}
+    username: ${DATABASE_USERNAME:orenjitrade}
+    password: ${DATABASE_PASSWORD:orenjitrade_local}
+    hikari:
+      pool-name: orenji-db
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 10000
+      max-lifetime: 1800000
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only verifies that entities match it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        default_batch_fetch_size: 50
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-migration-naming: true
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          # The event_publication table is created by V002__event_publication.sql.
+          enabled: false
+      republish-outstanding-events-on-restart: true
+      completion-mode: update
+  web:
+    error:
+      whitelabel:
+        enabled: false
+      include-stacktrace: never
+      include-message: never
+      include-exception: false
+  autoconfigure:
+    exclude:
+      # Identity comes from Firebase ID tokens (auth module); no generated in-memory user.
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+server:
+  port: ${SERVER_PORT:${PORT:8080}}
+  # Trust X-Forwarded-* from Cloudflare / the Google load balancer (the rate limiter then keys
+  # anonymous requests by request.getRemoteAddr()).
+  forward-headers-strategy: native
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+      group:
+        # /actuator/health/liveness: the JVM is alive; never depends on infrastructure.
+        liveness:
+          include: livenessState,ping
+        # /actuator/health/readiness: the instance can serve traffic.
+        readiness:
+          include: readinessState,db,redis
+  info:
+    build:
+      enabled: true
+    env:
+      enabled: false
+    java:
+      enabled: false
+    os:
+      enabled: false
+
+springdoc:
+  api-docs:
+    enabled: ${orenji.openapi.enabled}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${orenji.openapi.enabled}
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+  # The servlet error dispatch target is not part of the contract (it is also @Hidden).
+  paths-to-exclude: /error
+  default-produces-media-type: application/json
+  show-actuator: false
+  writer-with-default-pretty-printer: true
+
+logging:
+  level:
+    root: INFO
+    com.orenjitrade: INFO
+
+# --- OrenjiTrade settings (bound by records in com.orenjitrade.api.config and the modules) ------
+orenji:
+  # local | development | staging | production | test (reported by GET /api/v1/meta)
+  environment: ${ORENJI_ENV:local}
+  openapi:
+    # springdoc + Swagger UI. true for local/dev/test, false for staging/prod (see profiles).
+    enabled: false
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081,http://localhost:19006}
+    hsts:
+      enabled: true
+    admin:
+      # /api/v1/admin/** additionally requires an ID token issued after a second factor.
+      require-mfa: true
+    # Shared secret accepted as X-Service-Token on /internal/** (Cloud Scheduler, Pub/Sub, ML).
+    # The default only works locally; staging/prod refuse to start with it (see profiles below).
+    service-token: ${SERVICE_TOKEN:local-service-token}
+    # Google OIDC alternative for /internal/**: expected audience (the Cloud Run URL) and the
+    # service-account emails allowed to invoke. Empty audience disables the OIDC path.
+    internal-audience: ${INTERNAL_AUDIENCE:}
+    internal-invokers: ${INTERNAL_INVOKERS:}
+  consents:
+    # Server-side salt for the SHA-256 hash of the client IP stored with each consent.
+    ip-salt: ${CONSENT_IP_SALT:local-consent-salt}
+  async:
+    core-size: 4
+    max-size: 16
+    queue-capacity: 500
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID:orenjitrade-local}
+    # Empty => Application Default Credentials against the real project.
+    auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+  google-cloud:
+    project: ${GOOGLE_CLOUD_PROJECT:}
+    region: ${GOOGLE_CLOUD_REGION:northamerica-northeast1}
+  events:
+    # local (in-process, transactional outbox) | pubsub
+    transport: ${EVENTS_TRANSPORT:local}
+    pubsub:
+      emulator-host: ${PUBSUB_EMULATOR_HOST:}
+      topic-domain-events: ${PUBSUB_TOPIC_DOMAIN_EVENTS:domain-events}
+      topic-analytics: ${PUBSUB_TOPIC_ANALYTICS:analytics-events}
+  analytics:
+    # Analytics events (ARCHITECTURE.md section 8): written to the log with EVENTS_TRANSPORT=local,
+    # published to the Pub/Sub topic analytics-events with EVENTS_TRANSPORT=pubsub (cloud only).
+    enabled: true
+    # HMAC key pseudonymising account ids (actor_hash). No default outside the local and test
+    # profiles: the application refuses to start without it.
+    actor-salt: ${ANALYTICS_ACTOR_SALT:}
+  search:
+    # Phase 4 map discovery and search. The plan-dependent radius cap is data (usage_limit
+    # map.radius.max_km, ADR 0014); these are technical defaults.
+    default-radius-km: 10
+    nearby-cache-ttl: 60s
+    matching-items-per-collector: 5
+  storage:
+    # local | gcs
+    provider: ${STORAGE_PROVIDER:local}
+    local-root: ${STORAGE_LOCAL_ROOT:./.local-storage}
+    # Origin of public media URLs. Empty: local media is served by this API
+    # (GET /api/v1/public/media/{key}) and URLs are built from the current request origin; with
+    # STORAGE_PROVIDER=gcs it defaults to https://storage.googleapis.com/<bucket>.
+    public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
+    gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
+  location:
+    # HMAC-SHA256 key seeding the deterministic public-point jitter (ADR 0004). No default outside
+    # the local and test profiles: the application refuses to start without it.
+    jitter-secret: ${LOCATION_JITTER_SECRET:}
+    # Approximate label of a public point comes from the static region table (StaticRegionGeocoder).
+    geocoder: static
+  account:
+    # A deletion request needs an ID token whose auth_time is younger than this (401 otherwise).
+    reauth-window: 5m
+    # Grace period between the deletion request and the anonymising job.
+    deletion-grace-days: 7
+  payments:
+    # fake | stripe
+    provider: ${PAYMENT_PROVIDER:fake}
+  push:
+    # log | fcm
+    provider: ${PUSH_PROVIDER:log}
+  email:
+    # log | sendgrid | ses
+    provider: ${EMAIL_PROVIDER:log}
+    from: ${EMAIL_FROM:no-reply@orenjitrade.com}
+  ml:
+    service-url: ${ML_SERVICE_URL:http://localhost:8000}
+    timeout-ms: ${ML_SERVICE_TIMEOUT_MS:1500}
+  seed:
+    # SeedDataRunner: fictional accounts (+ emulator users) for local/dev only.
+    enabled: false
+    emulator-password: ${SEED_EMULATOR_PASSWORD:LocalDev!2026}
+  ratelimit:
+    # Fixed windows in Redis. First matching policy wins, so specific ones come first.
+    # Contract table: docs/api/contracts/phase1-auth-users.md#rate-limiting
+    enabled: true
+    policies:
+      - name: avatar-upload
+        path-patterns: ["/api/v1/me/profile/avatar"]
+        methods: [POST]
+        limit: 10
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-image-upload
+        path-patterns: ["/api/v1/inventory/items/*/images"]
+        methods: [POST]
+        limit: 60
+        window-seconds: 3600
+        key-by: USER
+      - name: image-upload
+        path-patterns: ["/api/v1/uploads/images"]
+        methods: [POST]
+        limit: 30
+        window-seconds: 3600
+        key-by: USER
+      - name: export
+        path-patterns: ["/api/v1/me/export"]
+        methods: [GET]
+        limit: 10
+        window-seconds: 3600
+        key-by: USER
+      - name: deletion-requests
+        path-patterns: ["/api/v1/me/deletion-requests", "/api/v1/me/deletion-requests/**"]
+        limit: 5
+        window-seconds: 86400
+        key-by: USER
+      - name: tags-search
+        path-patterns: ["/api/v1/tags"]
+        methods: [GET]
+        limit: 60
+        window-seconds: 60
+        key-by: USER
+      - name: default-authenticated
+        path-patterns: ["/api/**"]
+        limit: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}
+        window-seconds: 60
+        key-by: USER
+      - name: default-anonymous
+        path-patterns: ["/api/**"]
+        limit: ${RATE_LIMIT_ANONYMOUS_PER_MINUTE:60}
+        window-seconds: 60
+        key-by: IP
+
+---
+# --- local: developer machine against docker compose ------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: local
+orenji:
+  environment: ${ORENJI_ENV:local}
+  openapi:
+    enabled: true
+  security:
+    hsts:
+      enabled: false
+    admin:
+      require-mfa: false
+  firebase:
+    auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
+  location:
+    jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
+  analytics:
+    actor-salt: ${ANALYTICS_ACTOR_SALT:local-analytics-salt}
+  seed:
+    enabled: true
+logging:
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint} %clr(%5p) %clr([%X{requestId:-}]){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+  level:
+    com.orenjitrade: DEBUG
+
+---
+# --- dev: shared development environment on Google Cloud --------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: dev
+orenji:
+  environment: ${ORENJI_ENV:development}
+  openapi:
+    enabled: true
+  seed:
+    enabled: true
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        environment: ${orenji.environment}
+
+---
+# --- staging ----------------------------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: staging
+orenji:
+  environment: ${ORENJI_ENV:staging}
+  openapi:
+    enabled: false
+  security:
+    # No default: ServiceTokenStartupValidator fails the start-up when SERVICE_TOKEN is unset.
+    service-token: ${SERVICE_TOKEN:}
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        environment: ${orenji.environment}
+
+---
+# --- prod -------------------------------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:20}
+orenji:
+  environment: ${ORENJI_ENV:production}
+  openapi:
+    enabled: false
+  security:
+    service-token: ${SERVICE_TOKEN:}
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        environment: ${orenji.environment}
+  level:
+    com.orenjitrade: INFO
+
+---
+# --- test: integration tests (Testcontainers supply the datasource and Redis) -------------------
+spring:
+  config:
+    activate:
+      on-profile: test
+orenji:
+  environment: test
+  openapi:
+    enabled: true
+  security:
+    cors:
+      allowed-origins: http://localhost:4200,http://localhost:8081
+    hsts:
+      enabled: false
+    admin:
+      require-mfa: false
+    internal-invokers: scheduler@orenjitrade-test.iam.gserviceaccount.com
+  firebase:
+    auth-emulator-host: ""
+  location:
+    jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
+  analytics:
+    actor-salt: ${ANALYTICS_ACTOR_SALT:local-analytics-salt}
+  storage:
+    # Each test JVM gets its own media root (deleted by the OS); never the repository directory.
+    local-root: ${java.io.tmpdir}/orenjitrade-test-media
+  seed:
+    enabled: false
+  ratelimit:
+    # Off by default; RateLimitIT switches it on with a tiny policy.
+    enabled: false
+management:
+  endpoint:
+    health:
+      # Expose component statuses (not details) so readiness tests can assert db + redis.
+      show-components: always
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%X{requestId:-}] --- [%15.15t] %-40.40logger{39} : %m%n%wEx"
+  level:
+    com.orenjitrade: DEBUG
+    org.testcontainers: INFO

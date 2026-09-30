@@ -1,0 +1,233 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// Full height under the top bar (and above the bottom navigation on small screens).
+.map-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: max(520px, calc(100dvh - 64px));
+}
+
+.map-page__container {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: transparent;
+}
+
+.map-page__panel {
+  width: min(360px, 90vw);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.map-page__content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-page__filters {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stage__map {
+  position: absolute;
+  inset: 0;
+}
+
+.stage__progress {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1100;
+}
+
+// Floating layers above Leaflet's panes (z-index up to 1000); the preview stays on top.
+.stage__top,
+.stage__prompt,
+.stage__error,
+.stage__panel,
+.stage__preview,
+.stage__legend {
+  position: absolute;
+  z-index: 1001;
+}
+
+.stage__panel {
+  z-index: 1002;
+}
+
+.stage__preview {
+  z-index: 1003;
+}
+
+.stage__top {
+  top: var(--spacing-3);
+  right: var(--spacing-3);
+  left: var(--spacing-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.stage__search {
+  flex: 1 1 320px;
+  max-width: 460px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-floating);
+}
+
+.stage__tools {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-left: auto;
+}
+
+.stage__status {
+  margin: 0;
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-menu);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.stage__tool {
+  box-shadow: var(--elevation-floating);
+}
+
+.stage__tool--round {
+  background: var(--color-surface);
+}
+
+.stage__prompt {
+  top: 84px;
+  left: 50%;
+  width: min(560px, calc(100% - 2 * var(--spacing-3)));
+  transform: translateX(-50%);
+}
+
+.stage__error {
+  top: 84px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2) var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-floating);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  transform: translateX(-50%);
+}
+
+.stage__panel {
+  top: 76px;
+  bottom: var(--spacing-3);
+  left: var(--spacing-3);
+  width: min(380px, calc(100% - 2 * var(--spacing-3)));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--elevation-floating);
+}
+
+.stage__preview {
+  top: 76px;
+  right: var(--spacing-3);
+  width: min(360px, calc(100% - 2 * var(--spacing-3)));
+  max-height: calc(100% - 76px - var(--spacing-3));
+  display: flex;
+  flex-direction: column;
+}
+
+.stage__legend {
+  bottom: var(--spacing-3);
+  left: var(--spacing-3);
+}
+
+.stage__legend--beside-panel {
+  left: calc(min(380px, 100% - 2 * var(--spacing-3)) + 2 * var(--spacing-3));
+}
+
+// Tablets: the list and the preview share the width.
+@media (max-width: 959px) {
+  .map-page {
+    height: max(480px, calc(100dvh - 64px - 64px));
+  }
+}
+
+// Phones: the list covers the map; the preview is a bottom sheet.
+@media (max-width: 599px) {
+  .stage__top {
+    top: var(--spacing-2);
+    right: var(--spacing-2);
+    left: var(--spacing-2);
+  }
+
+  .stage__search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .stage__tools {
+    width: 100%;
+  }
+
+  .stage__panel {
+    top: 128px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .stage__preview {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: 72%;
+  }
+
+  .stage__prompt,
+  .stage__error {
+    top: 128px;
+  }
+
+  .stage__legend {
+    bottom: var(--spacing-2);
+    left: var(--spacing-2);
+  }
+
+  // The list covers the map on phones (it repeats the privacy note).
+  .stage__legend--beside-panel {
+    display: none;
+  }
+}

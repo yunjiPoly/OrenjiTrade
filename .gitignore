@@ -1,0 +1,72 @@
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# --- secrets & local env (never commit) ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.p12
+*.key
+service-account*.json
+firebase-adminsdk*.json
+*.tfvars
+!*.example.tfvars
+
+# --- Node ---
+node_modules/
+dist/
+.angular/
+.expo/
+expo-env.d.ts
+web-build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+playwright-report/
+test-results/
+coverage/
+
+# --- Java / Gradle ---
+.gradle/
+build/
+out/
+*.class
+*.log
+!gradle/wrapper/gradle-wrapper.jar
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+htmlcov/
+
+# --- Terraform ---
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+
+# --- Docker / local data ---
+.local-storage/
+.local-dev/
+infrastructure/docker/data/
+*.local.yml
+
+# --- misc ---
+tmp/
+.scratch/

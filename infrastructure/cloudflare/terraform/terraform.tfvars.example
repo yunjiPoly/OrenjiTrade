@@ -1,0 +1,45 @@
+# Copy to terraform.tfvars (git-ignored). Every value here is fictional.
+# Export CLOUDFLARE_API_TOKEN in the shell instead of setting cloudflare_api_token here.
+
+zone_id   = "0123456789abcdef0123456789abcdef"
+zone_name = "orenjitrade.com"
+
+# terraform -chdir=../../terraform/environments/prod output -raw load_balancer_ipv4
+load_balancer_ipv4 = "203.0.113.10"
+# load_balancer_ipv6 = "2001:db8::10"
+
+# Non-production origins (outputs of environments/dev and environments/staging).
+additional_a_records = {
+  "dev"         = "203.0.113.20"
+  "dev-api"     = "203.0.113.20"
+  "staging"     = "203.0.113.30"
+  "staging-api" = "203.0.113.30"
+}
+
+# Replace the placeholders once the transactional email provider is chosen.
+email_records = {
+  "@" = {
+    type    = "TXT"
+    content = "v=spf1 include:_spf.example-mail-provider.com -all"
+  }
+  "_dmarc" = {
+    type    = "TXT"
+    content = "v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@example.com; adkim=s; aspf=s"
+  }
+  "mail._domainkey" = {
+    type    = "CNAME"
+    content = "mail.dkim.example-mail-provider.com"
+  }
+}
+
+security_level     = "medium"
+bot_fight_mode     = true
+enable_managed_waf = false # true on Pro or higher
+hsts_max_age       = 31536000
+hsts_preload       = false
+
+rate_limit_requests_per_10s = {
+  auth      = 20
+  messaging = 20
+  search    = 60
+}

@@ -1,0 +1,39 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. Every value here is fictional.
+# Sizing defaults for prod live in variables.tf; override only what differs.
+
+project_id        = "orenjitrade-prod-123456"
+region            = "northamerica-northeast1"
+github_repository = "example-org/orenjitrade"
+alert_email       = "oncall@example.com"
+
+# Public hostnames (Cloudflare records point at the load balancer IP output).
+web_host = "www.orenjitrade.com"
+api_host = "api.orenjitrade.com"
+
+# Firebase project when it differs from the GCP project.
+# firebase_project_id = "orenjitrade-prod-123456"
+
+# Enable only after adding versions to stripe-secret-key and stripe-webhook-secret.
+stripe_secrets_enabled = false
+
+# Cloud Armor: admit only Cloudflare edge ranges at the load balancer.
+restrict_to_cloudflare = true
+# extra_allowed_ranges = ["203.0.113.0/24"]
+
+# Images are deployed by GitHub Actions; the defaults are placeholders for the first apply.
+# api_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/api:latest"
+# web_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/web:latest"
+# ml_image  = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/ml:latest"
+
+# Production: only main may impersonate the deployer SA.
+wif_allowed_refs = ["refs/heads/main"]
+
+# Keep deletion protection on. Turning it off requires a change review.
+deletion_protection = true
+
+# Analysts group with read access to the analytics dataset.
+# analytics_reader_members = ["group:analytics@example.com"]
+
+labels = {
+  cost_center = "orenjitrade"
+}

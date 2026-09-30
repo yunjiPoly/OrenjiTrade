@@ -1,0 +1,143 @@
+name: Docker build
+
+# Builds api, web and ml images and pushes them to Artifact Registry through Workload
+# Identity Federation (no service-account keys). Repository variables required:
+#   GCP_WORKLOAD_IDENTITY_PROVIDER  projects/<number>/locations/global/workloadIdentityPools/github/providers/github-oidc
+#   GCP_DEPLOYER_SA                 github-deployer@<project>.iam.gserviceaccount.com
+#   GCP_PROJECT_ID                  project that hosts the Artifact Registry repo (dev by default; images are promoted)
+#   GCP_REGION                      northamerica-northeast1
+# Images: <region>-docker.pkg.dev/<project>/orenjitrade/<service>:<git sha> and :latest (main).
+
+# Cloud deployment is intentionally deferred (owner decision 2026-09-29, see
+# docs/deployment/DEFERRED.md). The automatic triggers are disabled so pushes to main never
+# try to reach Google Cloud. Restore them when Phase 14 starts:
+#   push: { branches: [main], tags: ["v*"] }
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev
+  REPOSITORY: ${{ vars.GCP_PROJECT_ID }}/orenjitrade
+
+jobs:
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            context: apps/api
+            file: apps/api/Dockerfile
+          - service: web
+            context: . # needs packages/design-tokens from the repo root
+            file: apps/web-angular/Dockerfile
+          - service: ml
+            context: apps/ml
+            file: apps/ml/Dockerfile
+    # Matrix jobs overwrite shared outputs, so digests are published as artifacts and
+    # aggregated by the `digests` job below.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          token_format: access_token
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ matrix.service }}
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+          labels: |
+            org.opencontainers.image.title=orenjitrade-${{ matrix.service }}
+            org.opencontainers.image.vendor=OrenjiTrade
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+
+      - name: Record digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}/${{ matrix.service }}
+        run: |
+          mkdir -p digests
+          printf '{"service":"%s","image":"%s","tag":"%s","digest":"%s"}\n' \
+            "${{ matrix.service }}" "$IMAGE" "${{ github.sha }}" "$DIGEST" > "digests/${{ matrix.service }}.json"
+          {
+            echo "### ${{ matrix.service }}"
+            echo '```'
+            echo "$IMAGE:${{ github.sha }}"
+            echo "$IMAGE@$DIGEST"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-digest-${{ matrix.service }}
+          path: digests/${{ matrix.service }}.json
+          retention-days: 30
+
+  digests:
+    name: Collect image digests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.collect.outputs.api }}
+      web: ${{ steps.collect.outputs.web }}
+      ml: ${{ steps.collect.outputs.ml }}
+      image_tag: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-digest-*
+          merge-multiple: true
+          path: digests
+      - name: Expose digests as outputs
+        id: collect
+        run: |
+          for s in api web ml; do
+            d=$(jq -r .digest "digests/$s.json")
+            echo "$s=$d" >> "$GITHUB_OUTPUT"
+            echo "$s -> $d"
+          done

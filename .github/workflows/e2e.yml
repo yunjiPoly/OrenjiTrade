@@ -1,0 +1,134 @@
+name: E2E
+
+# Nightly (and on demand) end-to-end run against a locally composed stack:
+# PostGIS + Redis + Firebase Auth emulator (docker compose), the API (gradle bootRun, local
+# profile), the built Angular app served statically, and Playwright.
+# Phase 13 (hardening) extends the steps marked "Phase 13" with the full acceptance-flow suite
+# and Maestro for mobile.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC nightly
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  JAVA_VERSION: "21"
+
+jobs:
+  e2e:
+    name: Playwright against local stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start infrastructure (PostGIS, Redis, Firebase Auth emulator)
+        run: |
+          docker compose up -d postgres redis firebase-auth
+          for i in $(seq 1 30); do
+            unhealthy=$(docker compose ps --format json | jq -rs '[.[] | select(.Health != "healthy")] | length')
+            [ "$unhealthy" = "0" ] && break
+            echo "waiting for containers ($i/30)"; sleep 5
+          done
+          docker compose ps
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Start API (local profile, background)
+        working-directory: apps/api
+        env:
+          SPRING_PROFILES_ACTIVE: local
+          DATABASE_URL: jdbc:postgresql://localhost:5432/orenjitrade
+          DATABASE_USERNAME: orenjitrade
+          DATABASE_PASSWORD: orenjitrade_local
+          REDIS_URL: redis://localhost:6379
+          FIREBASE_PROJECT_ID: orenjitrade-local
+          FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
+          EVENTS_TRANSPORT: local
+          STORAGE_PROVIDER: local
+          PAYMENT_PROVIDER: fake
+          PUSH_PROVIDER: log
+          EMAIL_PROVIDER: log
+        run: |
+          nohup ./gradlew bootRun --no-daemon --args='--spring.profiles.active=local' > "$RUNNER_TEMP/api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/api.pid"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # One install for the whole npm workspace (root package-lock.json covers apps/web-angular,
+      # apps/mobile and packages/*), then the design tokens and the web build.
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Build design tokens and web app
+        run: |
+          npm run build:tokens
+          npm run build -w apps/web-angular
+
+      - name: Wait for API readiness
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
+              echo "API ready"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::API did not become ready"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Serve web build (background)
+        working-directory: apps/web-angular
+        run: |
+          DIST_DIR=$(dirname "$(find dist -name index.html | head -n 1)")
+          echo "serving $DIST_DIR"
+          nohup npx --yes serve -s "$DIST_DIR" -l 4200 > "$RUNNER_TEMP/web.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -fsS http://localhost:4200/ >/dev/null 2>&1 && break; sleep 2; done
+
+      - name: Install Playwright browsers
+        working-directory: apps/web-angular
+        run: npx playwright install --with-deps chromium
+
+      # Phase 13: extend to every acceptance flow (register, publish binder, map, message,
+      # wishlist match, offer, report, admin) and add Maestro for apps/mobile.
+      - name: Run Playwright
+        working-directory: apps/web-angular
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:4200
+          API_BASE_URL: http://localhost:8080
+          FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
+        run: npm run e2e
+
+      - name: Upload Playwright report and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            apps/web-angular/playwright-report/**
+            apps/web-angular/test-results/**
+            ${{ runner.temp }}/api.log
+            ${{ runner.temp }}/web.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Stop stack
+        if: always()
+        run: |
+          [ -f "$RUNNER_TEMP/api.pid" ] && kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true
+          docker compose down -v --remove-orphans

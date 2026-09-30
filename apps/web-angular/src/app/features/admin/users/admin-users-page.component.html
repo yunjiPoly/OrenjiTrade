@@ -1,0 +1,75 @@
+<div class="admin-page">
+  <app-page-header title="Users" subtitle="Search accounts, review their status and act on them." />
+
+  <div class="admin-filters" role="search" aria-label="Filter accounts">
+    <mat-form-field appearance="outline" class="admin-filters__search" subscriptSizing="dynamic">
+      <mat-label>Search handle, name or email</mat-label>
+      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+      <input matInput type="search" [value]="params().query ?? ''" (input)="onSearch($event)" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Status</mat-label>
+      <mat-select [value]="params().status ?? null" (selectionChange)="setStatus($event.value)">
+        <mat-option [value]="null">Any status</mat-option>
+        @for (status of statuses; track status) {
+          <mat-option [value]="status">{{ statusLabels[status] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Role</mat-label>
+      <mat-select [value]="params().role ?? null" (selectionChange)="setRole($event.value)">
+        <mat-option [value]="null">Any role</mat-option>
+        @for (role of roles; track role) {
+          <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (error(); as error) {
+    <app-error-state
+      title="Accounts could not load"
+      [message]="errorMessage()"
+      [requestId]="error.requestId"
+      (retry)="reload()"
+    />
+  } @else if (loading() && !result()) {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading accounts</span>
+      <app-skeleton variant="list" lines="6" />
+    </div>
+  } @else if (result(); as page) {
+    @if ((page.items ?? []).length === 0) {
+      <app-empty-state
+        icon="person_search"
+        title="No accounts match"
+        [description]="
+          hasFilters() ? 'Try another search or clear the filters.' : 'No accounts yet.'
+        "
+      >
+        @if (hasFilters()) {
+          <button actions type="button" class="admin-link" (click)="clearFilters()">
+            Clear filters
+          </button>
+        }
+      </app-empty-state>
+    } @else {
+      <p class="admin-count" aria-live="polite">
+        {{ page.totalItems }} {{ page.totalItems === 1 ? 'account' : 'accounts' }}
+        @if (loading()) {
+          · updating…
+        }
+      </p>
+      <app-admin-users-table [users]="page.items ?? []" [class.admin-dim]="loading()" />
+      <mat-paginator
+        [length]="page.totalItems ?? 0"
+        [pageIndex]="page.page ?? 0"
+        [pageSize]="page.size ?? 20"
+        [pageSizeOptions]="pageSizes"
+        (page)="onPage($event)"
+        aria-label="Accounts pages"
+      />
+    }
+  }
+</div>

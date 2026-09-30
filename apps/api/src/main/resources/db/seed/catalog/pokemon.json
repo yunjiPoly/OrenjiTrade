@@ -1,0 +1,954 @@
+{
+  "game": "pokemon",
+  "sets": [
+    {
+      "id": "pkm-set-svx",
+      "code": "SVX",
+      "name": "Stellar Vortex",
+      "releaseDate": "2024-03-22",
+      "totalCards": 198,
+      "series": "Stellar Era",
+      "metadata": {
+        "symbol": "svx"
+      }
+    },
+    {
+      "id": "pkm-set-pft",
+      "code": "PFT",
+      "name": "Prismatic Frontier",
+      "releaseDate": "2024-06-14",
+      "totalCards": 198,
+      "series": "Stellar Era",
+      "metadata": {
+        "symbol": "pft"
+      }
+    },
+    {
+      "id": "pkm-set-twl",
+      "code": "TWL",
+      "name": "Twilight Lagoon",
+      "releaseDate": "2024-09-13",
+      "totalCards": 198,
+      "series": "Stellar Era",
+      "metadata": {
+        "symbol": "twl"
+      }
+    },
+    {
+      "id": "pkm-set-emb",
+      "code": "EMB",
+      "name": "Ember Summit",
+      "releaseDate": "2025-02-07",
+      "totalCards": 198,
+      "series": "Summit Era",
+      "metadata": {
+        "symbol": "emb"
+      }
+    }
+  ],
+  "cards": [
+    {
+      "id": "pkm-c001",
+      "name": "Emberfang Fox VMAX",
+      "cardType": "Pokémon",
+      "subtype": "VMAX",
+      "text": "Emberfang Fox VMAX — a fictional Fire creature from the Stellar Vortex set.",
+      "metadata": {
+        "hp": 320,
+        "types": [
+          "Fire"
+        ],
+        "stage": "VMAX",
+        "weakness": "Water"
+      },
+      "printings": [
+        {
+          "id": "pkm-p001a",
+          "set": "SVX",
+          "number": "001",
+          "code": "SVX-001",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 38.0,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p001b",
+          "set": "SVX",
+          "number": "001",
+          "code": "SVX-001",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "REVERSE_HOLO",
+          "price": null,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c002",
+      "name": "Emberfang Fox",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Emberfang Fox — a fictional Fire creature from the Prismatic Frontier set.",
+      "metadata": {
+        "hp": 70,
+        "types": [
+          "Fire"
+        ],
+        "stage": "Basic",
+        "weakness": "Water"
+      },
+      "printings": [
+        {
+          "id": "pkm-p002a",
+          "set": "PFT",
+          "number": "002",
+          "code": "PFT-002",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.3,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p002b",
+          "set": "PFT",
+          "number": "002",
+          "code": "PFT-002",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.42,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c003",
+      "name": "Sproutling",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Sproutling — a fictional Grass creature from the Twilight Lagoon set.",
+      "metadata": {
+        "hp": 60,
+        "types": [
+          "Grass"
+        ],
+        "stage": "Basic",
+        "weakness": "Fire"
+      },
+      "printings": [
+        {
+          "id": "pkm-p003a",
+          "set": "TWL",
+          "number": "003",
+          "code": "TWL-003",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.15,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p003b",
+          "set": "TWL",
+          "number": "003",
+          "code": "TWL-003",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.21,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c004",
+      "name": "Thornbloom",
+      "cardType": "Pokémon",
+      "subtype": "Stage 1",
+      "text": "Thornbloom — a fictional Grass creature from the Ember Summit set.",
+      "metadata": {
+        "hp": 100,
+        "types": [
+          "Grass"
+        ],
+        "stage": "Stage 1",
+        "weakness": "Fire"
+      },
+      "printings": [
+        {
+          "id": "pkm-p004a",
+          "set": "EMB",
+          "number": "004",
+          "code": "EMB-004",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.4,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p004b",
+          "set": "EMB",
+          "number": "004",
+          "code": "EMB-004",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.56,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c005",
+      "name": "Pétalune",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Pétalune — a fictional Psychic creature from the Stellar Vortex set.",
+      "metadata": {
+        "hp": 70,
+        "types": [
+          "Psychic"
+        ],
+        "stage": "Basic",
+        "weakness": "Darkness"
+      },
+      "printings": [
+        {
+          "id": "pkm-p005a",
+          "set": "SVX",
+          "number": "013",
+          "code": "SVX-013",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 2.5,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p005b",
+          "set": "SVX",
+          "number": "013",
+          "code": "SVX-013",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": null,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c006",
+      "name": "Pétalune ex",
+      "cardType": "Pokémon",
+      "subtype": "ex",
+      "text": "Pétalune ex — a fictional Psychic creature from the Prismatic Frontier set.",
+      "metadata": {
+        "hp": 230,
+        "types": [
+          "Psychic"
+        ],
+        "stage": "ex",
+        "weakness": "Darkness"
+      },
+      "printings": [
+        {
+          "id": "pkm-p006a",
+          "set": "PFT",
+          "number": "014",
+          "code": "PFT-014",
+          "rarity": "Double Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 14.0,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p006b",
+          "set": "PFT",
+          "number": "014",
+          "code": "PFT-014",
+          "rarity": "Double Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 19.6,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c007",
+      "name": "Voltadillo",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Voltadillo — a fictional Lightning creature from the Twilight Lagoon set.",
+      "metadata": {
+        "hp": 80,
+        "types": [
+          "Lightning"
+        ],
+        "stage": "Basic",
+        "weakness": "Fighting"
+      },
+      "printings": [
+        {
+          "id": "pkm-p007a",
+          "set": "TWL",
+          "number": "015",
+          "code": "TWL-015",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.2,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p007b",
+          "set": "TWL",
+          "number": "015",
+          "code": "TWL-015",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "REVERSE_HOLO",
+          "price": 0.28,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c008",
+      "name": "Voltarmor",
+      "cardType": "Pokémon",
+      "subtype": "Stage 1",
+      "text": "Voltarmor — a fictional Lightning creature from the Ember Summit set.",
+      "metadata": {
+        "hp": 130,
+        "types": [
+          "Lightning"
+        ],
+        "stage": "Stage 1",
+        "weakness": "Fighting"
+      },
+      "printings": [
+        {
+          "id": "pkm-p008a",
+          "set": "EMB",
+          "number": "016",
+          "code": "EMB-016",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.6,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p008b",
+          "set": "EMB",
+          "number": "016",
+          "code": "EMB-016",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.84,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c009",
+      "name": "Tidal Otterling",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Tidal Otterling — a fictional Water creature from the Stellar Vortex set.",
+      "metadata": {
+        "hp": 60,
+        "types": [
+          "Water"
+        ],
+        "stage": "Basic",
+        "weakness": "Lightning"
+      },
+      "printings": [
+        {
+          "id": "pkm-p009a",
+          "set": "SVX",
+          "number": "025",
+          "code": "SVX-025",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.15,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p009b",
+          "set": "SVX",
+          "number": "025",
+          "code": "SVX-025",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": null,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c010",
+      "name": "Coral Guardian",
+      "cardType": "Pokémon",
+      "subtype": "Stage 2",
+      "text": "Coral Guardian — a fictional Water creature from the Prismatic Frontier set.",
+      "metadata": {
+        "hp": 150,
+        "types": [
+          "Water"
+        ],
+        "stage": "Stage 2",
+        "weakness": "Lightning"
+      },
+      "printings": [
+        {
+          "id": "pkm-p010a",
+          "set": "PFT",
+          "number": "026",
+          "code": "PFT-026",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 3.1,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p010b",
+          "set": "PFT",
+          "number": "026",
+          "code": "PFT-026",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 4.34,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c011",
+      "name": "Cragmaw Golem",
+      "cardType": "Pokémon",
+      "subtype": "Stage 1",
+      "text": "Cragmaw Golem — a fictional Fighting creature from the Twilight Lagoon set.",
+      "metadata": {
+        "hp": 140,
+        "types": [
+          "Fighting"
+        ],
+        "stage": "Stage 1",
+        "weakness": "Grass"
+      },
+      "printings": [
+        {
+          "id": "pkm-p011a",
+          "set": "TWL",
+          "number": "027",
+          "code": "TWL-027",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.5,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p011b",
+          "set": "TWL",
+          "number": "027",
+          "code": "TWL-027",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.7,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c012",
+      "name": "Duskwing Bat",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Duskwing Bat — a fictional Darkness creature from the Ember Summit set.",
+      "metadata": {
+        "hp": 70,
+        "types": [
+          "Darkness"
+        ],
+        "stage": "Basic",
+        "weakness": "Grass"
+      },
+      "printings": [
+        {
+          "id": "pkm-p012a",
+          "set": "EMB",
+          "number": "028",
+          "code": "EMB-028",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.2,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p012b",
+          "set": "EMB",
+          "number": "028",
+          "code": "EMB-028",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.28,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c013",
+      "name": "Nocturne Stalker ex",
+      "cardType": "Pokémon",
+      "subtype": "ex",
+      "text": "Nocturne Stalker ex — a fictional Darkness creature from the Stellar Vortex set.",
+      "metadata": {
+        "hp": 260,
+        "types": [
+          "Darkness"
+        ],
+        "stage": "ex",
+        "weakness": "Grass"
+      },
+      "printings": [
+        {
+          "id": "pkm-p013a",
+          "set": "SVX",
+          "number": "037",
+          "code": "SVX-037",
+          "rarity": "Special Illustration Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 95.0,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p013b",
+          "set": "SVX",
+          "number": "037",
+          "code": "SVX-037",
+          "rarity": "Special Illustration Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "REVERSE_HOLO",
+          "price": null,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c014",
+      "name": "Ironhide Beetle",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Ironhide Beetle — a fictional Metal creature from the Prismatic Frontier set.",
+      "metadata": {
+        "hp": 120,
+        "types": [
+          "Metal"
+        ],
+        "stage": "Basic",
+        "weakness": "Fire"
+      },
+      "printings": [
+        {
+          "id": "pkm-p014a",
+          "set": "PFT",
+          "number": "038",
+          "code": "PFT-038",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.45,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p014b",
+          "set": "PFT",
+          "number": "038",
+          "code": "PFT-038",
+          "rarity": "Uncommon",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.63,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c015",
+      "name": "Skyscale Wyrm",
+      "cardType": "Pokémon",
+      "subtype": "Stage 2",
+      "text": "Skyscale Wyrm — a fictional Dragon creature from the Twilight Lagoon set.",
+      "metadata": {
+        "hp": 170,
+        "types": [
+          "Dragon"
+        ],
+        "stage": "Stage 2",
+        "weakness": "Colorless"
+      },
+      "printings": [
+        {
+          "id": "pkm-p015a",
+          "set": "TWL",
+          "number": "039",
+          "code": "TWL-039",
+          "rarity": "Illustration Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 26.0,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p015b",
+          "set": "TWL",
+          "number": "039",
+          "code": "TWL-039",
+          "rarity": "Illustration Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 36.4,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c016",
+      "name": "Puffcloud",
+      "cardType": "Pokémon",
+      "subtype": "Basic",
+      "text": "Puffcloud — a fictional Colorless creature from the Ember Summit set.",
+      "metadata": {
+        "hp": 60,
+        "types": [
+          "Colorless"
+        ],
+        "stage": "Basic",
+        "weakness": "Fighting"
+      },
+      "printings": [
+        {
+          "id": "pkm-p016a",
+          "set": "EMB",
+          "number": "040",
+          "code": "EMB-040",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "NORMAL",
+          "price": 0.1,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p016b",
+          "set": "EMB",
+          "number": "040",
+          "code": "EMB-040",
+          "rarity": "Common",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 0.14,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c017",
+      "name": "Galecrest Owl",
+      "cardType": "Pokémon",
+      "subtype": "Stage 1",
+      "text": "Galecrest Owl — a fictional Colorless creature from the Stellar Vortex set.",
+      "metadata": {
+        "hp": 110,
+        "types": [
+          "Colorless"
+        ],
+        "stage": "Stage 1",
+        "weakness": "Lightning"
+      },
+      "printings": [
+        {
+          "id": "pkm-p017a",
+          "set": "SVX",
+          "number": "049",
+          "code": "SVX-049",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 1.8,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p017b",
+          "set": "SVX",
+          "number": "049",
+          "code": "SVX-049",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": null,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c018",
+      "name": "Magmaw Tortoise",
+      "cardType": "Pokémon",
+      "subtype": "Stage 2",
+      "text": "Magmaw Tortoise — a fictional Fire/Fighting creature from the Prismatic Frontier set.",
+      "metadata": {
+        "hp": 160,
+        "types": [
+          "Fire",
+          "Fighting"
+        ],
+        "stage": "Stage 2",
+        "weakness": "Water"
+      },
+      "printings": [
+        {
+          "id": "pkm-p018a",
+          "set": "PFT",
+          "number": "050",
+          "code": "PFT-050",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 2.2,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p018b",
+          "set": "PFT",
+          "number": "050",
+          "code": "PFT-050",
+          "rarity": "Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 3.08,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c019",
+      "name": "Glacier Kitsune",
+      "cardType": "Pokémon",
+      "subtype": "Stage 1",
+      "text": "Glacier Kitsune — a fictional Water/Psychic creature from the Twilight Lagoon set.",
+      "metadata": {
+        "hp": 120,
+        "types": [
+          "Water",
+          "Psychic"
+        ],
+        "stage": "Stage 1",
+        "weakness": "Metal"
+      },
+      "printings": [
+        {
+          "id": "pkm-p019a",
+          "set": "TWL",
+          "number": "051",
+          "code": "TWL-051",
+          "rarity": "Illustration Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 18.5,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p019b",
+          "set": "TWL",
+          "number": "051",
+          "code": "TWL-051",
+          "rarity": "Illustration Rare",
+          "edition": "UNLIMITED",
+          "language": "fr",
+          "finish": "REVERSE_HOLO",
+          "price": 25.9,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pkm-c020",
+      "name": "Aurora Stag VMAX",
+      "cardType": "Pokémon",
+      "subtype": "VMAX",
+      "text": "Aurora Stag VMAX — a fictional Grass/Psychic creature from the Ember Summit set.",
+      "metadata": {
+        "hp": 330,
+        "types": [
+          "Grass",
+          "Psychic"
+        ],
+        "stage": "VMAX",
+        "weakness": "Fire"
+      },
+      "printings": [
+        {
+          "id": "pkm-p020a",
+          "set": "EMB",
+          "number": "052",
+          "code": "EMB-052",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "HOLO",
+          "price": 44.0,
+          "metadata": {
+            "illustrator": "Atelier Orenji"
+          }
+        },
+        {
+          "id": "pkm-p020b",
+          "set": "EMB",
+          "number": "052",
+          "code": "EMB-052",
+          "rarity": "Ultra Rare",
+          "edition": "UNLIMITED",
+          "language": "en",
+          "finish": "REVERSE_HOLO",
+          "price": 61.6,
+          "metadata": {
+            "pattern": "cosmos"
+          }
+        }
+      ]
+    }
+  ]
+}

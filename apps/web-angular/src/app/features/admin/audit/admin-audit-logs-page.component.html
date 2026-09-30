@@ -1,0 +1,167 @@
+<div class="admin-page">
+  <app-page-header
+    title="Audit logs"
+    subtitle="Every admin and account action, newest first. Entries cannot be edited."
+  />
+
+  <form
+    class="audit-filters"
+    [formGroup]="form"
+    (ngSubmit)="applyFilters()"
+    aria-label="Filter audit logs"
+  >
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Action</mat-label>
+      <mat-select formControlName="action">
+        <mat-option value="">Any action</mat-option>
+        @for (action of actions; track action) {
+          <mat-option [value]="action">{{ auditActionLabel(action) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Target type</mat-label>
+      <input matInput formControlName="targetType" placeholder="USER" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Target id</mat-label>
+      <input matInput formControlName="targetId" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Actor id</mat-label>
+      <input matInput formControlName="actorId" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>From</mat-label>
+      <input matInput type="date" formControlName="from" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>To</mat-label>
+      <input matInput type="date" formControlName="to" />
+    </mat-form-field>
+    <div class="audit-filters__buttons">
+      <button matButton="filled" type="submit">
+        <mat-icon aria-hidden="true">filter_list</mat-icon>
+        Apply
+      </button>
+      @if (hasFilters()) {
+        <button matButton type="button" (click)="clearFilters()">Clear</button>
+      }
+    </div>
+  </form>
+
+  @if (error(); as error) {
+    <app-error-state
+      title="The audit log could not load"
+      [message]="errorMessage()"
+      [requestId]="error.requestId"
+      (retry)="reload()"
+    />
+  } @else if (loading() && !result()) {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading audit entries</span>
+      <app-skeleton variant="list" lines="6" />
+    </div>
+  } @else if (result(); as page) {
+    @if ((page.items ?? []).length === 0) {
+      <app-empty-state
+        icon="history"
+        title="No audit entries"
+        [description]="
+          hasFilters() ? 'Nothing matches these filters.' : 'Nothing has been recorded yet.'
+        "
+      />
+    } @else {
+      <p class="admin-count" aria-live="polite">
+        {{ page.totalItems }} {{ page.totalItems === 1 ? 'entry' : 'entries' }}
+      </p>
+      <div class="audit-table" [class.admin-dim]="loading()">
+        <table
+          mat-table
+          [dataSource]="page.items ?? []"
+          aria-label="Audit entries"
+          multiTemplateDataRows
+        >
+          <ng-container matColumnDef="when">
+            <th mat-header-cell *matHeaderCellDef scope="col">When</th>
+            <td mat-cell *matCellDef="let entry" class="audit-when">
+              {{ entry.occurredAt | date: 'MMM d, y, HH:mm:ss' }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actor">
+            <th mat-header-cell *matHeaderCellDef scope="col">Actor</th>
+            <td mat-cell *matCellDef="let entry">
+              <span class="audit-actor">{{
+                entry.actor.handle ? '@' + entry.actor.handle : '—'
+              }}</span>
+              <span class="audit-type">{{ entry.actor.type }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="action">
+            <th mat-header-cell *matHeaderCellDef scope="col">Action</th>
+            <td mat-cell *matCellDef="let entry">
+              <span class="audit-action">{{ auditActionLabel(entry.action) }}</span>
+              <code class="audit-code">{{ entry.action }}</code>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="target">
+            <th mat-header-cell *matHeaderCellDef scope="col">Target</th>
+            <td mat-cell *matCellDef="let entry">
+              @if (entry.targetType === 'USER' && entry.targetId) {
+                <a [routerLink]="['/admin/users', entry.targetId]"
+                  >User {{ entry.targetId.slice(0, 8) }}</a
+                >
+              } @else {
+                {{ entry.targetType }} {{ entry.targetId?.slice(0, 8) }}
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="details">
+            <th mat-header-cell *matHeaderCellDef scope="col">Details</th>
+            <td mat-cell *matCellDef="let entry">
+              <button
+                type="button"
+                class="audit-toggle"
+                [attr.aria-expanded]="expanded() === entry.id"
+                (click)="toggle(entry)"
+              >
+                {{ summarizeDetails(entry.details) || 'No details' }}
+                <mat-icon aria-hidden="true">{{
+                  expanded() === entry.id ? 'expand_less' : 'expand_more'
+                }}</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="expanded">
+            <td
+              mat-cell
+              *matCellDef="let entry"
+              [attr.colspan]="columns.length"
+              class="audit-expanded"
+            >
+              @if (expanded() === entry.id) {
+                <pre class="audit-json">{{ json(entry.details) }}</pre>
+                @if (entry.requestId) {
+                  <p class="admin-muted">
+                    Request id <span class="mono">{{ entry.requestId }}</span>
+                  </p>
+                }
+              }
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['expanded']" class="audit-detail-row"></tr>
+        </table>
+      </div>
+      <mat-paginator
+        [length]="page.totalItems ?? 0"
+        [pageIndex]="page.page ?? 0"
+        [pageSize]="page.size ?? 25"
+        [hidePageSize]="true"
+        (page)="onPage($event)"
+        aria-label="Audit log pages"
+      />
+    }
+  }
+</div>

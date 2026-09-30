@@ -1,0 +1,88 @@
+<app-auth-layout [heading]="heading()">
+  @if (loading()) {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading your account status</span>
+      <app-skeleton variant="list" lines="2" />
+    </div>
+  } @else {
+    @if (error(); as message) {
+      <div class="form__alert" role="alert">
+        <mat-icon aria-hidden="true">error</mat-icon>
+        <p>{{ message }}</p>
+      </div>
+    }
+
+    @switch (session.status()) {
+      @case ('deletion-pending') {
+        <div class="form__alert form__alert--info" role="status">
+          <mat-icon aria-hidden="true">schedule</mat-icon>
+          <p>
+            @if (pending(); as request) {
+              Your account and profile will be permanently deleted on
+              <strong>{{ request.scheduledFor | date: 'longDate' }}</strong
+              >. Until then you are hidden from the map and search.
+            } @else {
+              Your account is hidden while its deletion is pending.
+            }
+          </p>
+        </div>
+        <p class="form__muted">
+          Changed your mind? Cancel the deletion to restore everything exactly as it was. You can
+          also download a copy of your data first.
+        </p>
+        <div class="form__actions">
+          <button
+            matButton="filled"
+            type="button"
+            [disabled]="!pending() || working() !== null"
+            (click)="cancelDeletion()"
+          >
+            @if (working() === 'cancel') {
+              <mat-spinner class="form__spinner" diameter="18" aria-hidden="true" />
+            }
+            Cancel deletion
+          </button>
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="working() !== null"
+            (click)="exportData()"
+          >
+            <mat-icon aria-hidden="true">download</mat-icon>
+            Download my data
+          </button>
+          <button matButton type="button" (click)="signOut()">Sign out</button>
+        </div>
+      }
+      @case ('suspended') {
+        <div class="form__alert" role="status">
+          <mat-icon aria-hidden="true">block</mat-icon>
+          <p>
+            {{ session.suspension()?.message || 'This account is suspended.' }}
+            @if (session.suspension()?.until; as until) {
+              The suspension ends on <strong>{{ until | date: 'medium' }}</strong
+              >.
+            }
+          </p>
+        </div>
+        <p class="form__muted">
+          While suspended you cannot use OrenjiTrade. If you think this is a mistake, contact
+          <a href="mailto:support@orenjitrade.com">support&#64;orenjitrade.com</a> and quote your
+          account email.
+        </p>
+        <div class="form__actions">
+          <button matButton="filled" type="button" (click)="signOut()">Sign out</button>
+          <a matButton routerLink="/legal/community-guidelines">Community guidelines</a>
+        </div>
+      }
+      @case ('anonymous') {
+        <p class="form__muted">Sign in to see the status of your account.</p>
+        <a matButton="filled" routerLink="/auth/sign-in">Sign in</a>
+      }
+      @default {
+        <p class="form__muted">Nothing is blocking your account right now.</p>
+        <a matButton="filled" routerLink="/map">Go to the map</a>
+      }
+    }
+  }
+</app-auth-layout>

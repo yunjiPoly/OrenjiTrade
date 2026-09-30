@@ -1,0 +1,102 @@
+.notif__icon {
+  width: 20px;
+  height: 20px;
+  margin-right: var(--spacing-2);
+  font-size: 20px;
+  vertical-align: text-bottom;
+  color: var(--color-text-muted);
+}
+
+.notif__table-wrap {
+  overflow-x: auto;
+}
+
+.notif__table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: var(--spacing-2);
+    border-bottom: 1px solid var(--color-border);
+    text-align: center;
+  }
+
+  thead th {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  th[scope='row'],
+  thead th:first-child {
+    text-align: left;
+  }
+
+  tbody tr:last-child th,
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+}
+
+.notif__help {
+  display: block;
+  font-weight: var(--font-weight-regular);
+}
+
+.notif__quiet {
+  display: grid;
+  grid-template-columns: 140px 140px minmax(0, 1fr);
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-4);
+
+  @media (max-width: 599px) {
+    grid-template-columns: 1fr 1fr;
+
+    .notif__tz {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+.notif__savebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  transition:
+    box-shadow var(--motion-duration-base) var(--motion-easing-standard),
+    background var(--motion-duration-base) var(--motion-easing-standard);
+
+  &--floating {
+    position: sticky;
+    bottom: var(--spacing-4);
+    padding: var(--spacing-3) var(--spacing-4);
+    border-color: var(--color-border);
+    background: var(--color-surface-elevated);
+    box-shadow: var(--elevation-floating);
+  }
+
+  .section-muted {
+    margin-right: auto;
+  }
+
+  mat-spinner {
+    display: inline-block;
+    margin-right: var(--spacing-2);
+  }
+
+  .section-error {
+    margin: 0;
+  }
+}
+
+@media (max-width: 959px) {
+  .notif__savebar--floating {
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}

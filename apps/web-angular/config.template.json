@@ -1,0 +1,14 @@
+{
+  "apiBaseUrl": "${API_BASE_URL}",
+  "wsBaseUrl": "${WS_BASE_URL}",
+  "firebase": {
+    "apiKey": "${FIREBASE_API_KEY}",
+    "authDomain": "${FIREBASE_AUTH_DOMAIN}",
+    "projectId": "${FIREBASE_PROJECT_ID}",
+    "appId": "${FIREBASE_APP_ID}"
+  },
+  "firebaseAuthEmulatorHost": "${FIREBASE_AUTH_EMULATOR_HOST}",
+  "googleMapsApiKey": "${GOOGLE_MAPS_API_KEY}",
+  "googleMapsMapId": "${GOOGLE_MAPS_MAP_ID}",
+  "environment": "${ENVIRONMENT}"
+}

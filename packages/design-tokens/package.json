@@ -1,0 +1,24 @@
+{
+  "name": "@orenji/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OrenjiTrade design tokens: tokens.json -> dist/tokens.css (CSS custom properties) + dist/tokens.ts (typed constants).",
+  "type": "module",
+  "exports": {
+    ".": "./dist/tokens.ts",
+    "./tokens.css": "./dist/tokens.css",
+    "./tokens.json": "./tokens.json"
+  },
+  "files": [
+    "dist",
+    "tokens.json",
+    "build.mjs"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

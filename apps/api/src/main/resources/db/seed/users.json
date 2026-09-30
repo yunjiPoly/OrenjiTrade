@@ -1,0 +1,14 @@
+[
+  { "nn": "01", "handle": "collector1", "email": "collector1@orenjitrade.test", "displayName": "Maïka Tremblay", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "02", "handle": "collector2", "email": "collector2@orenjitrade.test", "displayName": "Devon Okafor", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "03", "handle": "collector3", "email": "collector3@orenjitrade.test", "displayName": "Priya Raman", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "04", "handle": "collector4", "email": "collector4@orenjitrade.test", "displayName": "Lucas Bergeron", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "05", "handle": "collector5", "email": "collector5@orenjitrade.test", "displayName": "Sofia Nguyen", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "06", "handle": "collector6", "email": "collector6@orenjitrade.test", "displayName": "Ethan Walsh", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "07", "handle": "collector7", "email": "collector7@orenjitrade.test", "displayName": "Amara Diallo", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "08", "handle": "collector8", "email": "collector8@orenjitrade.test", "displayName": "Noah Kim", "roles": ["USER"], "planCode": "FREE" },
+  { "nn": "09", "handle": "premium_user", "providerUid": "seed-premium-user", "email": "premium@orenjitrade.test", "displayName": "Camille Roy", "roles": ["USER", "PREMIUM_USER"], "planCode": "PREMIUM" },
+  { "nn": "10", "handle": "moderator", "email": "moderator@orenjitrade.test", "displayName": "Jordan Lavoie", "roles": ["USER", "MODERATOR"], "planCode": "FREE" },
+  { "nn": "11", "handle": "admin", "email": "admin@orenjitrade.test", "displayName": "Alex Morin", "roles": ["USER", "ADMIN"], "planCode": "FREE" },
+  { "nn": "12", "handle": "superadmin", "email": "superadmin@orenjitrade.test", "displayName": "Sam Gagnon", "roles": ["USER", "SUPER_ADMIN"], "planCode": "FREE" }
+]

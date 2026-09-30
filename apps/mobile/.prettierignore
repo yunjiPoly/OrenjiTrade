@@ -1,0 +1,11 @@
+node_modules
+.expo
+dist
+web-build
+android
+ios
+coverage
+package-lock.json
+expo-env.d.ts
+src/theme/tokens.ts
+assets

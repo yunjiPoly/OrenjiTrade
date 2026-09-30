@@ -1,0 +1,14 @@
+{
+  "apiBaseUrl": "http://localhost:8080",
+  "wsBaseUrl": "ws://localhost:8080/ws",
+  "firebase": {
+    "apiKey": "demo-local-key",
+    "authDomain": "orenjitrade-local.firebaseapp.com",
+    "projectId": "orenjitrade-local",
+    "appId": ""
+  },
+  "firebaseAuthEmulatorHost": "localhost:9099",
+  "googleMapsApiKey": "",
+  "googleMapsMapId": "",
+  "environment": "local"
+}

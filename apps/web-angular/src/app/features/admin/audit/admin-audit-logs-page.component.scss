@@ -1,0 +1,85 @@
+.audit-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--spacing-3);
+  align-items: center;
+  margin-bottom: var(--spacing-4);
+}
+
+.audit-filters__buttons {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.audit-table {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+
+  table {
+    width: 100%;
+    --mat-table-background-color: transparent;
+  }
+}
+
+.audit-when {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-actor,
+.audit-action {
+  display: block;
+  font-weight: var(--font-weight-medium);
+}
+
+.audit-type,
+.audit-code {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.audit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  max-width: 360px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+
+  mat-icon {
+    flex: 0 0 auto;
+  }
+}
+
+.audit-detail-row {
+  height: 0;
+}
+
+.audit-expanded {
+  padding: 0 var(--spacing-4);
+  border-bottom-width: 0;
+
+  &:has(.audit-json) {
+    padding: var(--spacing-2) var(--spacing-4) var(--spacing-3);
+    border-bottom-width: 1px;
+  }
+}
+
+.audit-json {
+  margin: 0 0 var(--spacing-2);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-variant);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

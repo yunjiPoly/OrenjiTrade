@@ -1,0 +1,234 @@
+<div class="page inv">
+  <app-page-header title="Inventory" subtitle="Your binders and cards. Private by default.">
+    @if (signedIn()) {
+      <button actions matButton="outlined" type="button" (click)="openBinderManager()">
+        <mat-icon aria-hidden="true">menu_book</mat-icon>
+        Manage binders
+      </button>
+    }
+    @if (signedIn()) {
+      <button actions matButton="filled" type="button" (click)="openAddCard()">
+        <mat-icon aria-hidden="true">add</mat-icon>
+        Add card
+      </button>
+    }
+  </app-page-header>
+
+  @if (signedIn() === false) {
+    <app-empty-state
+      icon="style"
+      title="Sign in to build your inventory"
+      description="Record the cards you own, group them into binders and publish the ones you trade. Everything starts private."
+    >
+      <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }">
+        Sign in
+      </a>
+      <a actions matButton="outlined" routerLink="/auth/sign-up" [queryParams]="{ returnUrl }">
+        Create account
+      </a>
+    </app-empty-state>
+  } @else if (signedIn() === null) {
+    <div class="inv__loading" aria-busy="true">
+      <span class="visually-hidden">Loading your inventory</span>
+      <app-skeleton height="86px" />
+      <app-skeleton height="360px" />
+    </div>
+  } @else {
+    <app-inventory-summary
+      class="inv__summary"
+      [summary]="store.summary()"
+      [confirming]="confirming()"
+      (confirmAll)="confirmAll()"
+    />
+
+    @if (showPrivacyBanner()) {
+      <aside class="inv__banner" aria-label="Visibility notice">
+        <span class="inv__banner-icon" aria-hidden="true"><mat-icon>visibility_off</mat-icon></span>
+        <p class="inv__banner-text">
+          <strong>Your public cards are not visible yet.</strong>
+          Collectors only see the binders of members who appear on the map or have a public profile.
+        </p>
+        <a matButton="outlined" routerLink="/settings/privacy">Privacy settings</a>
+      </aside>
+    }
+
+    <div class="inv__layout">
+      <aside class="inv__side">
+        <app-binder-list
+          [binders]="store.binders()"
+          [selected]="params().binder"
+          [totalItems]="store.summary()?.totalItems ?? null"
+          [unfiledCount]="store.unfiledCount()"
+          [ownerVisible]="store.ownerVisible()"
+          [error]="!!store.bindersError()"
+          (newBinder)="newBinder()"
+          (manage)="openBinderManager()"
+          (retry)="store.loadBinders()"
+        />
+      </aside>
+
+      <section class="inv__main" aria-labelledby="inv-list-title">
+        @if (selectedBinder(); as binder) {
+          <app-binder-header
+            [binder]="binder"
+            [status]="binderStatus()!"
+            [busy]="binderBusy()"
+            (publish)="publishBinder(binder, $event)"
+            (unpublish)="unpublishBinder(binder)"
+            (confirm)="confirmBinder(binder)"
+            (edit)="editBinder(binder)"
+            (remove)="deleteBinder(binder)"
+          />
+        }
+
+        <app-inventory-toolbar
+          [params]="params()"
+          [games]="games.games() ?? []"
+          (paramsChange)="onParams($event)"
+        />
+
+        <div class="inv__list-head">
+          <h2 id="inv-list-title" class="inv__list-title">{{ listTitle() }}</h2>
+          @if (store.page(); as page) {
+            <p class="inv__count" aria-live="polite" data-testid="inventory-count">
+              {{ page.totalItems ?? 0 }} {{ page.totalItems === 1 ? 'card' : 'cards' }}
+              @if (store.itemsLoading()) {
+                <span>· updating…</span>
+              }
+            </p>
+          }
+        </div>
+
+        @if (store.selectedCount() > 0) {
+          <app-bulk-bar
+            class="inv__bulk"
+            [count]="store.selectedCount()"
+            [binders]="store.binders() ?? []"
+            [allSelected]="store.allSelected()"
+            [busy]="bulkBusy()"
+            (action)="onBulk($event)"
+            (toggleAll)="store.toggleAll()"
+            (clear)="store.clearSelection()"
+          />
+        }
+        @if (bulkResult(); as result) {
+          <p class="inv__result" role="status">
+            <mat-icon aria-hidden="true">info</mat-icon>
+            <span data-testid="bulk-result">{{ result }}</span>
+          </p>
+        }
+
+        @if (unknownBinder()) {
+          <app-empty-state
+            icon="menu_book"
+            title="This binder does not exist"
+            description="It may have been deleted. Your cards are still in your inventory."
+          >
+            <a
+              actions
+              matButton="filled"
+              routerLink="."
+              [queryParams]="{ binder: null, page: null }"
+              queryParamsHandling="merge"
+              >Show all cards</a
+            >
+          </app-empty-state>
+        } @else if (store.itemsError() && !store.itemsLoading()) {
+          <app-error-state
+            title="Your cards could not load"
+            [message]="errorMessage()"
+            [requestId]="store.itemsError()?.requestId ?? null"
+            (retry)="reload()"
+          />
+        } @else if (store.page(); as page) {
+          @if (rows().length === 0) {
+            @if (isEmptyInventory()) {
+              <app-empty-state
+                icon="style"
+                title="Your inventory is empty"
+                description="Add the cards you own. They start private: prepare them now, publish when you are ready."
+              >
+                <button actions matButton="filled" type="button" (click)="openAddCard()">
+                  <mat-icon aria-hidden="true">add</mat-icon>
+                  Add your first card
+                </button>
+              </app-empty-state>
+            } @else if (hasFilters()) {
+              <app-empty-state
+                icon="filter_alt_off"
+                title="No cards match these filters"
+                description="Try another search, or clear the filters."
+              >
+                <button actions matButton="outlined" type="button" (click)="clearFilters()">
+                  Clear filters
+                </button>
+              </app-empty-state>
+            } @else if (params().binder === unfiled) {
+              <app-empty-state
+                icon="inbox"
+                title="Every card is in a binder"
+                description="Cards you add without a binder show up here."
+              />
+            } @else {
+              <app-empty-state
+                icon="menu_book"
+                title="This binder is empty"
+                description="Add a card here, or select cards in All cards and move them with the bulk bar."
+              >
+                <button actions matButton="filled" type="button" (click)="openAddCard()">
+                  <mat-icon aria-hidden="true">add</mat-icon>
+                  Add card
+                </button>
+              </app-empty-state>
+            }
+          } @else if (params().view === 'table') {
+            <app-inventory-item-table
+              [class.inv__dim]="store.itemsLoading()"
+              [rows]="rows()"
+              [allSelected]="store.allSelected()"
+              [someSelected]="store.selectedCount() > 0"
+              (edit)="openEditor($event)"
+              (selectedChange)="onSelection($event)"
+              (toggleAll)="store.toggleAll()"
+              (quantityChange)="onQuantity($event)"
+            />
+          } @else {
+            <ul class="inv__grid" [class.inv__dim]="store.itemsLoading()" aria-label="Your cards">
+              @for (row of rows(); track row.item.id) {
+                <li class="inv__cell">
+                  <app-inventory-item-card
+                    [item]="row.item"
+                    [status]="row.status"
+                    [selected]="row.selected"
+                    [busy]="row.busy"
+                    (edit)="openEditor(row.item)"
+                    (selectedChange)="onSelection({ id: row.item.id, selected: $event })"
+                    (quantityChange)="onQuantity({ item: row.item, quantity: $event })"
+                  />
+                </li>
+              }
+            </ul>
+          }
+          @if ((page.totalPages ?? 0) > 1 || (page.size ?? defaultSize) !== defaultSize) {
+            <mat-paginator
+              class="inv__paginator"
+              [length]="page.totalItems ?? 0"
+              [pageIndex]="page.page ?? 0"
+              [pageSize]="page.size ?? defaultSize"
+              [pageSizeOptions]="pageSizes"
+              (page)="onPage($event)"
+              aria-label="Inventory pages"
+            />
+          }
+        } @else {
+          <div class="inv__grid" aria-busy="true">
+            <span class="visually-hidden">Loading your cards</span>
+            @for (slot of skeletons; track slot) {
+              <app-skeleton variant="card" />
+            }
+          </div>
+        }
+      </section>
+    </div>
+  }
+</div>

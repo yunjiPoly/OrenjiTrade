@@ -1,0 +1,294 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # dorny/paths-filter lists changed files through the PR API on pull_request events.
+  pull-requests: read
+
+env:
+  NODE_VERSION: "24"
+  JAVA_VERSION: "21"
+  PYTHON_VERSION: "3.12"
+  TERRAFORM_VERSION: "1.16.x"
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      ml: ${{ steps.filter.outputs.ml }}
+      infra: ${{ steps.filter.outputs.infra }}
+      packages: ${{ steps.filter.outputs.packages }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'docker-compose.yml'
+            web:
+              - 'apps/web-angular/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.npmrc'
+            mobile:
+              - 'apps/mobile/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.npmrc'
+            ml:
+              - 'apps/ml/**'
+            infra:
+              - 'infrastructure/**'
+            packages:
+              - 'packages/**'
+            workflows:
+              - '.github/workflows/**'
+
+  api:
+    name: API (Gradle)
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      # Testcontainers (postgis/postgis:17-3.5) uses the Docker daemon available on ubuntu runners.
+      - name: Build and test
+        run: ./gradlew build --no-daemon --stacktrace
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-reports
+          path: |
+            apps/api/build/reports/**
+            apps/api/build/test-results/**
+          retention-days: 7
+          if-no-files-found: ignore
+
+  web:
+    name: Web (Angular)
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # One install for the whole npm workspace (apps/web-angular, apps/mobile, packages/*).
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Build design tokens
+        run: npm run build:tokens
+      - name: Lint
+        run: npm run lint -w apps/web-angular
+      - name: Format check
+        run: npm run format:check -w apps/web-angular
+      - name: Unit tests
+        run: npm run test -w apps/web-angular
+      - name: Build
+        run: npm run build -w apps/web-angular
+
+  mobile:
+    name: Mobile (Expo)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # One install for the whole npm workspace; @orenji/shared-types is a workspace dependency
+      # of apps/mobile, so its own dependencies (openapi-fetch) come with it.
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck -w apps/mobile
+      - name: Lint
+        run: npm run lint -w apps/mobile
+      - name: Unit tests
+        run: npm run test -w apps/mobile
+
+  ml:
+    name: ML (FastAPI)
+    needs: changes
+    if: needs.changes.outputs.ml == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: apps/ml/requirements*.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy app
+      - name: Pytest with coverage
+        run: pytest --cov=app --cov-fail-under=85
+
+  terraform:
+    name: Terraform (${{ matrix.dir }})
+    needs: changes
+    if: needs.changes.outputs.infra == 'true' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - infrastructure/terraform/environments/dev
+          - infrastructure/terraform/environments/staging
+          - infrastructure/terraform/environments/prod
+          - infrastructure/cloudflare/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: Format check (whole tree)
+        run: terraform fmt -check -recursive -diff infrastructure
+      - name: Init (no backend)
+        working-directory: ${{ matrix.dir }}
+        run: terraform init -backend=false -input=false
+      - name: Validate
+        working-directory: ${{ matrix.dir }}
+        run: terraform validate -no-color
+
+  security:
+    name: Security scans
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read # upload-sarif reads workflow-run metadata
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan (vulnerabilities, secrets, misconfigurations)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+      # Code Scanning (SARIF upload) needs GitHub Advanced Security, which private personal
+      # repositories do not have. Set the repository variable CODE_SCANNING_ENABLED=true once
+      # it is available; until then the SARIF is kept as a workflow artifact.
+      - name: Upload Trivy SARIF to Code Scanning
+        if: always() && vars.CODE_SCANNING_ENABLED == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs
+      - name: Keep Trivy SARIF as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-sarif
+          path: trivy-results.sarif
+          retention-days: 14
+      - name: Trivy gate (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # The root package-lock.json covers every npm workspace (web, mobile, packages/*).
+      - name: npm audit (npm workspace)
+        if: hashFiles('package-lock.json') != ''
+        run: npm audit --audit-level=high
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: pip-audit (ml)
+        if: hashFiles('apps/ml/requirements.txt') != ''
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r apps/ml/requirements.txt
+
+  ci-ok:
+    name: CI OK
+    # Required status check for branch protection: succeeds only when every needed job
+    # succeeded or was skipped because its paths did not change.
+    needs: [changes, api, web, mobile, ml, terraform, security]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq .
+          if echo "$RESULTS" | jq -e 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled")' >/dev/null; then
+            echo "::error::At least one CI job failed or was cancelled."
+            exit 1
+          fi
+          echo "All CI jobs succeeded or were skipped."

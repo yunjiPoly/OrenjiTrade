@@ -1,0 +1,136 @@
+<div class="page onboarding">
+  <header class="onboarding__header">
+    <p class="onboarding__eyebrow">Welcome to OrenjiTrade</p>
+    <h1 class="onboarding__title">Let's set up your collector profile</h1>
+    <p class="onboarding__subtitle">
+      Three quick steps so collectors nearby can find you. You can change everything later in
+      Settings.
+    </p>
+  </header>
+
+  @if (loading()) {
+    <div class="onboarding__card" aria-busy="true">
+      <span class="visually-hidden">Loading your profile</span>
+      <app-skeleton width="40%" height="1.5rem" />
+      <app-skeleton variant="list" lines="3" />
+    </div>
+  } @else if (loadError(); as error) {
+    <app-error-state
+      title="We could not load your profile"
+      [message]="error.message"
+      [requestId]="error.requestId"
+      (retry)="load()"
+    />
+  } @else {
+    <mat-stepper
+      class="onboarding__card"
+      linear
+      labelPosition="bottom"
+      aria-label="Onboarding steps"
+    >
+      <mat-step label="Profile" [completed]="profileDone()" [editable]="true">
+        <h2 class="onboarding__step-title">Who are you?</h2>
+        <p class="onboarding__step-text">
+          Your handle is your public address; your display name is what collectors see.
+        </p>
+        <form [formGroup]="form" (ngSubmit)="saveProfile()" novalidate aria-label="Profile">
+          <app-profile-fields [form]="form" />
+          @if (stepError() && busy() === null) {
+            <p class="onboarding__error" role="alert">{{ stepError() }}</p>
+          }
+          <div class="onboarding__actions">
+            <button matButton="filled" type="submit" [disabled]="busy() !== null">
+              @if (busy() === 'profile') {
+                <mat-spinner diameter="18" aria-hidden="true" />
+              }
+              Continue
+            </button>
+          </div>
+        </form>
+      </mat-step>
+
+      <mat-step label="Interests" [completed]="interestsDone()" [editable]="true">
+        <h2 class="onboarding__step-title">What do you collect?</h2>
+        <p class="onboarding__step-text">
+          Pick your games and a few tags. They appear on your profile and help matching.
+        </p>
+        <app-game-picker [value]="games()" (valueChange)="games.set($event)" />
+        <h3 class="onboarding__sub">Languages</h3>
+        <app-language-picker [value]="languages()" (valueChange)="languages.set($event)" />
+        <h3 class="onboarding__sub">Tags</h3>
+        <app-tag-picker
+          [selected]="tags()"
+          (selectedChange)="tags.set($event)"
+          [customLabels]="customTags()"
+          (customLabelsChange)="customTags.set($event)"
+        />
+        @if (interestsInvalid() && !hasInterests()) {
+          <p class="onboarding__error" role="alert">Choose at least one game or one tag.</p>
+        }
+        @if (stepError() && busy() === null) {
+          <p class="onboarding__error" role="alert">{{ stepError() }}</p>
+        }
+        <div class="onboarding__actions">
+          <button matButton type="button" matStepperPrevious>Back</button>
+          <button
+            matButton="filled"
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="saveInterests()"
+          >
+            @if (busy() === 'interests') {
+              <mat-spinner diameter="18" aria-hidden="true" />
+            }
+            Continue
+          </button>
+        </div>
+      </mat-step>
+
+      <mat-step label="Trading area">
+        <ng-template matStepContent>
+          <h2 class="onboarding__step-title">Where do you trade?</h2>
+          <p class="onboarding__step-text">
+            Choose the area where you like to meet or ship from. Only an approximate point is ever
+            shown to others.
+          </p>
+          <app-trading-area-picker [value]="area()" (valueChange)="area.set($event)" />
+
+          <div class="onboarding__discover">
+            <mat-slide-toggle
+              [checked]="discoverable()"
+              (change)="discoverable.set($event.checked)"
+              aria-describedby="discover-help"
+            >
+              Show me on the map
+            </mat-slide-toggle>
+            <p class="onboarding__step-text" id="discover-help">
+              When on, collectors nearby see your approximate area and can find your public binders.
+              Off by default; change it anytime in Settings → Privacy.
+            </p>
+          </div>
+
+          @if (stepError() && busy() === null) {
+            <p class="onboarding__error" role="alert">{{ stepError() }}</p>
+          }
+          <div class="onboarding__actions">
+            <button matButton type="button" matStepperPrevious>Back</button>
+            <button matButton type="button" [disabled]="busy() !== null" (click)="finish(false)">
+              Skip for now
+            </button>
+            <button
+              matButton="filled"
+              type="button"
+              [disabled]="busy() !== null"
+              (click)="finish(true)"
+            >
+              @if (busy() === 'area') {
+                <mat-spinner diameter="18" aria-hidden="true" />
+              }
+              Finish
+            </button>
+          </div>
+        </ng-template>
+      </mat-step>
+    </mat-stepper>
+  }
+</div>

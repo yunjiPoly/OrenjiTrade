@@ -1,0 +1,10 @@
+# Maestro smoke flow: `maestro test .maestro/smoke.yaml`
+# Requires a development build (or Expo Go with the dev server running) on the device.
+appId: com.orenjitrade.app
+name: OrenjiTrade smoke
+---
+- launchApp
+- assertVisible: 'Map'
+- assertVisible: 'Inventory'
+- tapOn: 'Profile'
+- assertVisible: 'Profile'

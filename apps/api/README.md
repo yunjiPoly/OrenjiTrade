@@ -1,0 +1,741 @@
+# OrenjiTrade API (`apps/api`)
+
+Spring Boot 4.1 / Java 21 modular monolith behind `api.orenjitrade.com`. One Gradle project, one
+package per module under `com.orenjitrade.api` (see `CLAUDE.md` and
+[ADR 0001](../../docs/architecture/adr/0001-modular-monolith.md)).
+
+| | |
+| --- | --- |
+| Runtime | Java 21 (Gradle toolchain, auto-provisioned by the foojay resolver; JDK 17 is enough to *run* Gradle) |
+| Framework | Spring Boot 4.1.1, Spring Framework 7, Security 7, Hibernate 7 (+ `hibernate-spatial`), Jackson 3 (`tools.jackson.*`) |
+| Build | Gradle 9.7 Kotlin DSL (`./gradlew`), Spotless (google-java-format, AOSP style) |
+| Data | PostgreSQL 17 + PostGIS via Flyway (`src/main/resources/db/migration`), Redis (Lettuce) |
+| Events | Spring Modulith 2.1 JDBC event publication registry (transactional outbox) |
+| Tests | JUnit 6, AssertJ, Testcontainers 2 (`postgis/postgis:17-3.5`, `redis:7-alpine`) |
+
+## Run locally
+
+```bash
+# 1. infrastructure (PostGIS, Redis, Firebase Auth emulator) from the repository root
+docker compose up -d
+
+# 2. the API (profile `local` is also the default when none is given)
+cd apps/api
+./gradlew bootRun --args="--spring.profiles.active=local"
+```
+
+Then:
+
+| URL | Purpose |
+| --- | --- |
+| `http://localhost:8080/api/v1/meta` | name, version, environment, server time (public) |
+| `http://localhost:8080/swagger-ui.html` | Swagger UI (local, dev and test profiles only) |
+| `http://localhost:8080/v3/api-docs` | OpenAPI 3.1 document (same profiles) |
+| `http://localhost:8080/actuator/health/liveness` | liveness probe (`livenessState`, `ping`) |
+| `http://localhost:8080/actuator/health/readiness` | readiness probe (`readinessState`, `db`, `redis`) |
+| `http://localhost:8080/actuator/info` | build info |
+
+Every response carries an `X-Request-Id` header (echoed when the client sends a safe one, generated
+otherwise) and the same id appears in every log line of that request. Errors are RFC 9457 problem
+documents with `errorCode`, `message`, `requestId`, `timestamp` and, for validation, `errors[]`.
+
+## Configuration
+
+`src/main/resources/application.yml` reads the variables defined in `/.env.example`; the defaults
+match `docker compose`. The most relevant ones:
+
+| Variable | Default | Used for |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | `local` | active profile (see below) |
+| `ORENJI_ENV` | `local` | value reported as `environment` by `/api/v1/meta` |
+| `SERVER_PORT` / `PORT` | `8080` | HTTP port (`PORT` is what Cloud Run injects) |
+| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | local compose values | PostgreSQL / Cloud SQL |
+| `DATABASE_POOL_SIZE` | `10` (`20` in prod) | Hikari maximum pool size |
+| `REDIS_URL` | `redis://localhost:6379` | cache, rate limits, realtime fan-out |
+| `CORS_ALLOWED_ORIGINS` | web + Expo dev origins | comma separated browser origins allowed with credentials |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_AUTH_EMULATOR_HOST` | `orenjitrade-local`, `localhost:9099` (`local` profile only; empty elsewhere) | ID token verification (auth module) |
+| `SERVICE_TOKEN` | `local-service-token` (refused in staging/prod) | `X-Service-Token` for `/internal/**` |
+| `INTERNAL_AUDIENCE`, `INTERNAL_INVOKERS` | empty | Google OIDC alternative for `/internal/**` (audience = Cloud Run URL, comma separated service-account emails) |
+| `CONSENT_IP_SALT` | `local-consent-salt` | salt of the hashed client IP stored with consents |
+| `SEED_EMULATOR_PASSWORD` | `LocalDev!2026` | password of the seeded emulator users (`local`/`dev` only) |
+| `EVENTS_TRANSPORT` | `local` | `local` in-process outbox (analytics events are logged) or `pubsub` (analytics events published to `PUBSUB_TOPIC_ANALYTICS` with Application Default Credentials; cloud only) |
+| `ANALYTICS_ACTOR_SALT` | `local-analytics-salt` (`local`/`test` only) | HMAC key pseudonymising account ids in analytics events (`actor_hash`, `owner_hash`, `target_hash`); every other profile refuses to start when it is missing, the development default or shorter than 32 characters |
+| `STORAGE_PROVIDER`, `STORAGE_LOCAL_ROOT` | `local`, `./.local-storage` | media storage adapter (`local` files served by the API, or `gcs`) |
+| `STORAGE_PUBLIC_BASE_URL` | empty | origin of media URLs; empty = this API (built from the request) for `local`, `https://storage.googleapis.com/<bucket>` for `gcs` |
+| `GCS_BUCKET_MEDIA` | empty | media bucket, required only with `STORAGE_PROVIDER=gcs` (Application Default Credentials) |
+| `LOCATION_JITTER_SECRET` | `local-jitter-secret` (`local`/`test` only) | HMAC key of the public-point jitter (ADR 0004); every other profile refuses to start when it is missing, the development default or shorter than 32 characters |
+| `PAYMENT_PROVIDER`, `PUSH_PROVIDER`, `EMAIL_PROVIDER` | `fake`, `log`, `log` | provider abstractions |
+| `ML_SERVICE_URL`, `ML_SERVICE_TIMEOUT_MS` | `http://localhost:8000`, `1500` | optional ML service |
+| `RATE_LIMIT_DEFAULT_PER_MINUTE`, `RATE_LIMIT_ANONYMOUS_PER_MINUTE` | `120`, `60` | default rate limits (per user / per IP) |
+
+Application-specific settings live under the `orenji.*` prefix (`orenji.security.*`,
+`orenji.ratelimit.*`, `orenji.firebase.*`, `orenji.consents.*`, `orenji.seed.*`, `orenji.openapi.enabled`,
+`orenji.async.*`, ...). Never commit secrets; production values come from Secret Manager through the
+environment.
+
+## Authentication and access control
+
+`Authorization: Bearer <Firebase ID token>` on everything except `/api/v1/public/**`, `/api/v1/meta`,
+the health probes and the OpenAPI endpoints (ADR 0008). Inside the security filter chain:
+
+1. `BearerTokenAuthenticationFilter` verifies the token (`IdentityTokenVerifier`: Firebase Admin SDK,
+   or the static verifier under the `test` profile), loads or **provisions** the account through the
+   users module (`AccountResolver`: role `USER`, status `ACTIVE`, handle derived from the email local
+   part, numeric suffix on collision) and sets an `AuthenticatedUser` principal with `ROLE_<role>`
+   authorities. A present-but-invalid token is a `401 UNAUTHENTICATED` problem straight away.
+   `last_active_at` is refreshed at most every 5 minutes (Redis `SET NX`).
+2. `AccountAccessFilter`: `SUSPENDED` → `403 ACCOUNT_SUSPENDED` (with `suspendedUntil` when temporary;
+   expired suspensions are lifted automatically); `DELETION_REQUESTED` → only `GET /me` and
+   `/me/deletion-requests` work, everything else is `403 ACCOUNT_SUSPENDED` "deletion pending".
+3. `RateLimitFilter` (see below).
+4. Authorization: `/api/v1/admin/**` needs `ADMIN` or `SUPER_ADMIN` **and**, when
+   `orenji.security.admin.require-mfa=true` (default; `false` in `local`/`test`), an ID token whose
+   session used a second factor (`firebase.sign_in_second_factor`); otherwise `403` with the message
+   "Multi-factor authentication is required for admin access". `/internal/**` needs the service
+   authentication described below.
+5. `TermsEnforcementFilter`: while `GET /me` lists `requiredConsents`, every other `/api/**` route
+   (except `/me/consents`, `/me/deletion-requests`, `/public/**`, `/meta`) answers
+   `428 TERMS_ACCEPTANCE_REQUIRED` with the `requiredConsents[]` extension. Accept with
+   `POST /api/v1/me/consents {documentType, version}` (`409` when the version is not current).
+
+Roles live in `user_role` (`USER` always kept). `PUT /api/v1/admin/users/{id}/roles` may grant or
+revoke `ADMIN`/`SUPER_ADMIN` only when the caller is a `SUPER_ADMIN`, and nobody can drop their own
+`SUPER_ADMIN`. Every admin write (`suspend`, `unsuspend`, `roles`) is recorded in `audit_log` with the
+request id and mirrored to the identity provider (`IdentityAdminClient` disables/enables the Firebase
+user). `GET /api/v1/admin/audit-logs` queries the log.
+
+### Test tokens (profile `test`)
+
+`StaticIdentityTokenVerifier` accepts `test-token:<uid>[:<email>][:<flags>]` where `flags` is a comma
+list of `unverified` (email not verified), `mfa` (second factor used) and `stale` (`authTime` one hour
+ago). The email defaults to `<uid>@orenjitrade.test`. Example: `Authorization: Bearer test-token:alice::mfa`.
+No emulator is needed for `./gradlew test`.
+
+### Service authentication for `/internal/**`
+
+Internal routes (Cloud Scheduler, Pub/Sub push, the ML service; never exposed through Cloudflare)
+accept either `X-Service-Token: <SERVICE_TOKEN>` (constant-time comparison) or
+`Authorization: Bearer <Google OIDC ID token>` whose audience is `INTERNAL_AUDIENCE` and whose verified
+email is listed in `INTERNAL_INVOKERS`. Staging and production refuse to start with the default token
+(`ServiceTokenStartupValidator`). `POST /internal/jobs/ping` is the smoke test; it records a `job_run`.
+
+### Rate limiting
+
+Fixed windows in Redis (`INCR` + `PEXPIRE` in one Lua script), keyed
+`rl:<policy>:{USER:<id>|IP:<addr>}:<windowStart>`. Policies come from `orenji.ratelimit.policies`
+(name, path patterns, methods, limit, window, `key-by USER|IP`); the first matching policy wins, so
+specific ones precede the defaults (120/min per user, 60/min per IP for anonymous calls, 10/h for
+avatar upload and export, 5/day for deletion requests, 60/min for tag search). Responses carry
+`X-RateLimit-Limit` / `X-RateLimit-Remaining`; a `429 RATE_LIMITED` problem adds `Retry-After`. When
+Redis is unreachable the filter logs a warning and lets the request through. Disabled under the `test`
+profile except where a test opts in (`RateLimitIT`).
+
+### Seed accounts (profiles `local`, `dev`)
+
+`SeedDataRunner` (`orenji.seed.enabled=true`) runs every `SeedContributor` bean in order at start-up,
+idempotently. The users module contributes the 12 fictional accounts of
+`docs/development/seed-data.md` (`db/seed/users.json`: ids `00000000-0000-4000-8000-0000000000NN`,
+provider uid `seed-<handle>`, roles, `PREMIUM` plan for `premium_user`, consents to every required
+document) and, when `FIREBASE_AUTH_EMULATOR_HOST` is set, the matching Auth-emulator users (verified
+email, password `SEED_EMULATOR_PASSWORD`, existing users left untouched). Later modules add profiles,
+locations and catalog data by registering their own `SeedContributor` with the ordering constants of
+that interface. Phase 1-B adds `profiles` (order 200: profile, bio, games, languages, tags and
+privacy settings from `db/seed/profiles.json`; discoverable: collectors 1-6, 8 and `premium_user`) and
+`trading areas` (order 300: `db/seed/locations.json`, public neighbourhood centroids, 5 km radius;
+public points derived by the server). Both only insert missing rows, so local edits survive restarts.
+Phase 2 adds `feature flags` (order 50, local/dev only) and `catalog` (order 400, the four mock
+catalogs); see "Catalog and platform rules" below. Phase 3 adds `inventory` (order 500, binders and
+items of the fictional collectors); see "Inventory, binders, freshness" below.
+Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for the premium account)
+and `LocalDev!2026`; see `docs/development/test-accounts.md`.
+
+### Profiles
+
+| Profile | Environment | OpenAPI / Swagger | HSTS | Logging |
+| --- | --- | --- | --- | --- |
+| `local` (default) | developer machine + `docker compose` | on | off | coloured text with `[requestId]` |
+| `dev` | shared cloud development | on | on | ECS structured JSON |
+| `staging` | pre-production | off | on | ECS structured JSON |
+| `prod` | production | off | on | ECS structured JSON |
+| `test` | integration tests (Testcontainers) | on | off | text with `[requestId]` |
+
+## Profiles, location, settings, deletion (Phase 1-B)
+
+Contract: `docs/api/contracts/phase1-auth-users.md`. All routes need a bearer token and accepted terms
+unless stated.
+
+| Route | Module | Notes |
+| --- | --- | --- |
+| `GET/PUT /api/v1/me/profile` | profiles | handle (3-24 `[a-z0-9_]`, trimmed + lower-cased, reserved list, `409 HANDLE_TAKEN` case-insensitively), display name (mirrored on the account), bio (≤ 500), games (slugs of the ACTIVE `game` rows through the games module's `GameCatalog`), ISO 639-1 languages; banned-term check on display name and bio (`moderation_rule`, scope `PROFILE`). First save sets onboarding `profileComplete` |
+| `POST/DELETE /api/v1/me/profile/avatar` | profiles | multipart `file`, JPEG/PNG/WebP ≤ 5 MB (type sniffed from the bytes; 413/415/400), header-checked dimensions (≤ 8192 px, ≤ 40 MP), centre cover-crop to 512×512, re-encoded **JPEG** without any metadata (see "Deviations"), stored through `ObjectStorage` under a random key; the previous object is deleted after commit |
+| `GET /api/v1/tags?query=&category=&limit=` | profiles | active tags, accent/case-insensitive substring, prefix matches first, then by usage |
+| `PUT /api/v1/me/profile/tags` | profiles | `tagIds` + `customLabels` (2-24 chars, banned-term check scope `TAG`), max 12; custom labels reuse the tag with the same slug or create a `CUSTOM` tag; usage counts recomputed |
+| `GET /api/v1/collectors/{handle}` | profiles | public view per `PrivacyPolicyService`; 404 for unknown / suspended / deletion-pending / deleted accounts and for PRIVATE profiles (except the owner); `location` only for discoverable collectors (public point + label + distance bucket); `onlineStatus` OFFLINE/HIDDEN until presence exists; `publicBinderCount`, `rating`, `isBlocked` come from optional provider beans (`PublicBinderCountProvider`, `RatingSummaryProvider`, `BlockRelationProvider`, `PresenceProvider`) |
+| `GET /api/v1/me/location`, `PUT /api/v1/me/location/trading-area`, `DELETE /api/v1/me/location` | location | the only endpoint returning the caller's own centre; radius 1-50 km, latitude within ±85 |
+| `GET/PUT /api/v1/me/settings/privacy` | profiles | safe defaults (not discoverable, online status hidden, MEMBERS, MEMBERS_WITH_PROFILE, wishlist hidden); toggling `discoverable` derives or clears the public point in the same transaction |
+| `GET/PUT /api/v1/me/settings/notifications` | notifications | channel master switches, per-category matrix (MARKETING off by default), quiet hours (HH:mm + IANA zone) |
+| `GET /api/v1/me/export` | users | JSON attachment assembled by every `ExportContributor` (account + consents + deletion requests, profile, privacy settings, location trading area, notification preferences); rate-limited 10/h; allowed while a deletion is pending |
+| `POST/GET /api/v1/me/deletion-requests`, `DELETE /api/v1/me/deletion-requests/{id}` | users | see below |
+| `POST /internal/jobs/account-deletion` | users | service token / OIDC; `@Scheduled` hourly under `local` |
+| `GET /api/v1/public/media/{key}` | common/storage | public, strict key syntax (`ObjectKeys`), `Cache-Control: public, max-age=31536000, immutable` |
+
+### Approximate location (ADR 0004)
+
+`user_location` keeps the private trading-area centre (stored at 3 decimals) and a derived
+`public_point`: the centre's ~1 km grid cell (`floor(lat/0.009)`, `floor(lng/(0.009/cos(row lat)))`)
+plus a deterministic offset from `HMAC-SHA256(LOCATION_JITTER_SECRET, userId)` with a 0.001° margin,
+rounded to 3 decimals. The same user always gets the same point inside a cell; different users get
+different points; the point never leaves the cell. The public point exists only while the collector
+is discoverable (`DiscoverabilityPolicy`, implemented by the privacy settings) and is cleared while an
+account is suspended or pending deletion. Labels come from `StaticRegionGeocoder` (offline table of
+Montréal-area neighbourhoods and Canadian cities; no API key). Distances are bucketed
+(`LT_1KM`, `KM_1_5`, `KM_5_10`, `KM_10_25`, `KM_25_50`, `GT_50KM`) from the viewer's own centre to the
+target's public point. Events carry the grid cell id only; coordinates are never logged.
+`GeoPrivacyContractTest` walks every seeded collector's public profile and admin detail and fails on
+any coordinate with more than 3 decimals, any coordinate other than the stored public point, private
+location keys, or coordinates in the captured logs.
+
+### Account deletion and export
+
+1. `POST /me/deletion-requests {reason?, exportFirst?}` needs an ID token whose `auth_time` is at most
+   `orenji.account.reauth-window` (5 min) old, else `401 REAUTHENTICATION_REQUIRED`. Every
+   `DeletionParticipant.blockers()` is consulted (`409 DELETION_BLOCKED` with `blockers[]`); a second
+   request is `409 CONFLICT`. On success: `201` with the request (`PENDING`, `scheduledFor` = +7 days),
+   account `DELETION_REQUESTED`, participants hide public traces (map point), every identity-provider
+   session is revoked. The identity stays enabled so the owner can sign in again; while pending only
+   `GET /me`, `GET /me/export` and the deletion endpoints answer (everything else `403 ACCOUNT_SUSPENDED`).
+2. `DELETE /me/deletion-requests/{id}` (owner only, 404 otherwise; 409 once not pending) cancels and
+   restores the account and its map point.
+3. `POST /internal/jobs/account-deletion` processes due requests one transaction each
+   (`FOR UPDATE SKIP LOCKED`): `purge()` on every participant (profile + tags + avatar + privacy
+   settings, location, notification preferences, later modules), anonymise the account
+   (`deleted+<id>@anonymized.invalid`, `deleted_<hex>`, "Deleted collector", only `USER` kept), delete
+   the identity-provider user, complete the request (reason cleared), audit `account.deletion.complete`
+   (SYSTEM). Consents and audit rows are kept. Records a `job_run`.
+
+Every write is audited (`account.deletion.request`, `account.deletion.cancel`,
+`account.deletion.complete`, `user.handle.change`).
+
+### Storage
+
+`ObjectStorage` (`common/storage`): `LocalFileObjectStorage` (default, files under
+`STORAGE_LOCAL_ROOT`, served by `GET /api/v1/public/media/{key}`) or `GcsObjectStorage`
+(`STORAGE_PROVIDER=gcs`, Google Cloud Storage client library, ADC; created lazily and never
+instantiated locally). Keys are random (`avatars/<user>/<32 hex>.jpg`), so objects are immutable.
+
+### Deviations from the Phase 1 contract
+
+- Avatars are re-encoded as **JPEG** (not WebP): the JDK has no WebP encoder and the TwelveMonkeys
+  plugin only decodes WebP. Uploads may still be WebP. Switching the encoder later only touches
+  `AvatarImageProcessor` (keys carry the extension, URLs are derived).
+- A deletion request **revokes sessions instead of disabling** the identity-provider user: a disabled
+  user could never sign in again to cancel during the grace period (the Auth emulator rejects its
+  tokens at once). The identity is deleted by the job.
+- Additive: `GET /me/deletion-requests` (lets clients find the pending request after a reload).
+
+## Catalog and platform rules (Phase 2)
+
+Contracts: `docs/api/contracts/phase2-catalog.md` (catalog) and
+`docs/api/contracts/phase10-freemium-credits-ads-donations.md` "Plans and limits" (foundation). Catalog
+and plan reads are public GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`): no token needed, and a
+token of an account with pending consents or a suspension does not block them (same treatment as
+`/api/v1/public/**`). Other methods on those paths stay protected.
+
+| Route | Module | Notes |
+| --- | --- | --- |
+| `GET /api/v1/games`, `GET /api/v1/games/{slug}` | games | ACTIVE games in display order with their `GameSchema` (vocabularies, metadata fields, summary fields) |
+| `GET /api/v1/cards?game=&query=&set=&rarity=&language=&edition=&metadata.<key>=&page=&size=` | cards | FTS (`websearch_to_tsquery('simple', unaccent(q))`, `ts_rank_cd`) on name/type/text; trigram fallback (`%`, `<%` on `normalized_name`) when fewer than 5 rows match; exact printing code (`azr-en001`) short-circuits to that card; `set` = id or code; `metadata.<key>` only for filterable GameSchema fields of the given `game` (typed: number, string with case-insensitive options, string_list — repeat the key to require several values —, boolean) and matched with `metadata @>` (GIN); summaries carry the game's `summaryFields` only |
+| `GET /api/v1/cards/suggest?game=&q=&limit=8` | cards | printing-code prefixes first (`kind=PRINTING`), then cards by prefix / substring / FTS / trigram (`kind=CARD`, with the earliest printing's set and code) |
+| `GET /api/v1/cards/{id}`, `GET /api/v1/cards/{id}/printings`, `GET /api/v1/printings/{id}` | cards | full metadata, printings (earliest set first) with images (placeholder when none) and indicative market price |
+| `GET /api/v1/sets?game=&query=`, `GET /api/v1/sets/{id}?page=&size=` | cards | newest first; exact code first when querying; set detail pages its printings |
+| `GET /api/v1/public/placeholder-images/{game}/{slug}.svg` | cards | server-generated SVG with the card name (XML-escaped, no scripts or external references, `Content-Security-Policy: default-src 'none'`), `Cache-Control: public, max-age=86400` + ETag / 304; 404 for unknown cards |
+| `GET /api/v1/public/feature-flags` | featureflags | `{flag: boolean}`; anonymous callers see flags rolled out to 100 %, a bearer token evaluates partial rollouts for the caller |
+| `GET /api/v1/plans` | billing | active plans with features and limits (`limit` null = unlimited) |
+| `GET /api/v1/me/plan` | billing | the caller's plan, every limit with the effective value (entitlements applied), current usage, remaining and reset time (UTC day/month; none for totals and caps), effective features and active entitlements (without admin notes) |
+| `GET /api/v1/admin/feature-flags`, `PUT /api/v1/admin/feature-flags/{key}` | featureflags | read ADMIN+, write SUPER_ADMIN; audited `feature_flag.update`; cache evicted |
+| `GET /api/v1/admin/plans`, `PUT /api/v1/admin/plans/{code}` | billing | read ADMIN+, write SUPER_ADMIN (name, description, display price, active — FREE cannot be disabled —, order, feature upserts); audited `plan.update` |
+| `GET /api/v1/admin/usage-limits?plan=`, `PUT /api/v1/admin/usage-limits/{id}` | billing | read ADMIN+, write SUPER_ADMIN (`{unlimited, maxValue, window, description}`, caps keep `TOTAL`); live, audited `usage_limit.update` |
+| `GET/POST /api/v1/admin/users/{id}/entitlements`, `DELETE .../entitlements/{entitlementId}` | billing | ADMIN+; grant a limit override (`value` number or `unlimited`) or a feature (`true`/`false`), optional `expiresAt`/`note`; revocation keeps history; audited `entitlement.grant` / `entitlement.revoke` |
+| `GET /api/v1/admin/games`, `POST /api/v1/admin/games`, `PUT /api/v1/admin/games/{slug}` | games | ADMIN+; slug immutable; schema validated (types, unique keys, summary fields exist); HIDDEN removes a game from public endpoints and profile choices; audited |
+| `POST /api/v1/admin/sets`, `PUT /api/v1/admin/sets/{id}`, `POST /api/v1/admin/cards`, `PUT /api/v1/admin/cards/{id}`, `POST /api/v1/admin/cards/{id}/printings`, `PUT /api/v1/admin/printings/{id}` | cards | ADMIN+; values checked against the game's GameSchema (edition, language, finish, rarity vocabularies; declared metadata types); duplicate printing variant 409; audited `card_set.*`, `card.*`, `card_printing.*` |
+| `POST /api/v1/admin/catalog/sync`, `GET /api/v1/admin/catalog/sync-runs[/{id}]`, `GET /api/v1/admin/catalog/providers` | cards | ADMIN+; 202 with the QUEUED run; the import runs after commit through `CatalogSyncRequestedEvent` (`@ApplicationModuleListener`, idempotent: only QUEUED runs start); audited `catalog.sync.request` |
+
+### Feature flags, plans, limits (ADR 0014)
+
+- `FeatureFlags.isEnabled(key[, userId])`, `FeatureFlags.require(key, userId)` → `404
+  FEATURE_DISABLED` (extension `feature`). `ErrorCode.FEATURE_DISABLED` now defaults to 404 (the
+  Phase 9 contract's "404 FEATURE_DISABLED").
+- `Limits.check(userId, key)` → `LimitDecision {key, allowed, kind, window, limit, used, remaining,
+  resetsAt, planCode, overridden, upgradeUrl}`; `Limits.consume(userId, key)` increments atomically in
+  `usage_counter` (conditional upsert, never passes the limit) and throws `LimitReachedException` →
+  `429 LIMIT_REACHED` with extensions `limitKey`, `limit`, `used`, `resetsAt`, `planCode`,
+  `upgradeUrl: "/premium"`; `Limits.checkValue(userId, key, requested)` for caps
+  (`map.radius.max_km`). The plan comes from `user_account.plan_code` (FREE when unknown or inactive);
+  active entitlements win (most generous). `Entitlements.has(userId, featureKey)` resolves features the
+  same way. `LimitUsageSource` beans let owning modules report TOTAL usage (Phase 3 binders).
+- Rules are cached in Redis through `common.cache.RedisJsonCache` (60 s TTL, explicit eviction after
+  every admin write and after commit, fail-open to the database). Usage counters are mirrored in
+  Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check` fast path.
+- Phase 3 consumes `binders.max` (binder creation) and `binder.views.per_day` (public binder views);
+  Phase 4 checks the radius cap `map.radius.max_km` on discovery and search (signed-out callers
+  through `Limits.checkValueForAnonymous`, FREE plan). The integration tests also exercise the HTTP behaviour through
+  a test-only, OpenAPI-hidden probe controller.
+
+### Card catalog
+
+- `CardProvider` (contract interface) with `MockCardProvider` (profiles `local`, `dev`, `test`)
+  serving `db/seed/catalog/{yugioh,pokemon,mtg,riftbound}.json`: 4 sets, 20 cards and 40 printings per
+  game, invented names, game-specific metadata, FR/JA printings and finish variants, indicative CAD
+  prices, placeholder images. No provider is registered in staging/prod yet (real adapters later).
+- `CatalogImportService` upserts by `external_ref` (sets by game + code, printings fall back to their
+  variant key) under a per-game advisory lock, rewrites only changed rows (a repeated import reports 0
+  upserts), keeps card slugs stable, and records every import in `catalog_sync_run`.
+- `CatalogService` is the module's read interface; `printings(ids)` is ready for Phase 3 inventory.
+
+### Seed (Phase 2)
+
+`feature flags` (order 50, `local`/`dev` only): enables `protectedPayments`, `advertising` and
+`donations` unless an admin changed them; `mlScanning` stays off. `catalog` (order 400): imports the
+four mock catalogs through `CatalogImportService` (idempotent; one sync run per game and start-up).
+
+### Deviations from the Phase 2 / Phase 10 contracts
+
+- `usage_limit.window` is stored as `limit_window` (`WINDOW` is reserved in PostgreSQL); the API field
+  is `window`. Additive column `usage_limit.kind` (`COUNTER` / `CAP`) distinguishes counted limits from
+  caps such as `map.radius.max_km`.
+- Admin writes are per resource: `PUT /admin/feature-flags/{key}`, `PUT /admin/plans/{code}`,
+  `PUT /admin/usage-limits/{id}`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` (the contract
+  names the collections `GET/PUT /admin/plans`, `/admin/usage-limits`, "grant/revoke").
+- `GET /me/plan` has no `subscription` yet (Phase 10) and adds `features`, `upgradeUrl`; limit entries
+  add `kind`, `window`, `remaining`, `allowed`, `overridden`, `planCode`.
+- `SetDetail` is `{set, metadata, printings: PageResponse}`; `PrintingDetail` is `{printing, card, set,
+  metadata}`; `PrintingSummary.marketPrice` is `{amount, currency, updatedAt}`; `CardSuggestion` adds
+  `kind` and `printingId`.
+- Additive columns `card_set.external_ref` and `card.external_ref` (idempotent imports), and additive
+  admin routes `GET /admin/games`, `POST/PUT /admin/sets`, `GET /admin/catalog/sync-runs/{id}`,
+  `GET /admin/catalog/providers`, `GET /admin/users/{id}/entitlements`.
+- `INCREMENTAL` syncs pass the last successful run's start to the provider; the mock provider has no
+  change tracking and returns everything (still idempotent).
+
+## Inventory, binders, freshness (Phase 3)
+
+Contract: `docs/api/contracts/phase3-inventory.md`. Modules: `delisting` (policy, pure freshness
+rules, freshness event log, `delist` job, admin policy endpoints) ← `binders` (binders, effective
+visibility rules, public binder views, `BinderContents` extension point) ← `inventory` (items,
+photos, bulk operations, public item lists, reconciliation of the publication events, `freshness`
+job; implements `BinderContents`). Owner routes need a bearer token and accepted terms; the public
+routes are permitAll GETs (`/api/v1/public/**` plus `SecurityConfig.PUBLIC_GET_PATTERNS`
+`/api/v1/collectors/*/binders` and `/api/v1/collectors/*/inventory`) that still honour a token
+(distance buckets, binder-view limit, the owner's own view).
+
+| Route | Module | Notes |
+| --- | --- | --- |
+| `GET /api/v1/inventory/items?query=&game=&binderId=&unfiled=&visibility=&availability=&condition=&freshness=&sort=updated\|name\|price&direction=&page=&size=` | inventory | the caller's items; `query` = card name (FTS + substring, accent-insensitive), printing-code prefix, set code/name |
+| `POST /api/v1/inventory/items` | inventory | 201 + `Location`; defaults: quantity 1, condition NEAR_MINT (must be one of the game's `GameSchema.conditions`), language/edition/finish of the printing, CAD, COLLECTION_ONLY; visibility PUBLIC inside a binder (the binder decides), PRIVATE unfiled; TEMPORARILY_PUBLIC needs `publicUntil` ≤ 30 days ahead |
+| `GET/PATCH/DELETE /api/v1/inventory/items/{id}` | inventory | PATCH = any subset (absent = unchanged, `askingPrice`/`publicUntil`/`binderId`/`notes`/`publicNotes` may be null); DELETE = soft delete (photos removed) |
+| `POST /api/v1/inventory/items/{id}/confirm` | inventory | `confirmed_at` = now, freshness ACTIVE (HIDDEN → RESTORED), also confirms its binder |
+| `POST /api/v1/inventory/items/{id}/images`, `DELETE .../images/{imageId}` | inventory | multipart `file` (JPEG/PNG/WebP sniffed, ≤ 8 MB), re-encoded JPEG ≤ 1600 px without metadata into `ObjectStorage` (`inventory/<owner>/<random>.jpg`, served by `/api/v1/public/media/**`); ≤ 4 per item (409); 201 returns the item; rate-limited 60/hour |
+| `POST /api/v1/inventory/items/bulk` | inventory | `SET_VISIBILITY`, `MOVE_TO_BINDER` (`binderId` null = unfiled), `SET_AVAILABILITY`, `CONFIRM`, `DELETE`; one transaction; every id checked against the caller (`skipped[].reason` NOT_FOUND / UNCHANGED) |
+| `GET /api/v1/inventory/summary` | inventory | totals, `byVisibility`, `byGame`, `agingCount`, `staleCount`, `hiddenCount`, `effectivePublicCount`, `nextExpiry` (items and binders) |
+| `GET/POST /api/v1/binders`, `GET/PATCH/DELETE /api/v1/binders/{id}` | binders | owner only (others 404); create consumes `binders.max` (429 LIMIT_REACHED, usage = binder count through a `LimitUsageSource`); DELETE unfiles the items (kept visibility only for a PUBLIC binder, otherwise PRIVATE) or soft-deletes them with `?deleteItems=true` |
+| `POST /api/v1/binders/{id}/publish` `{mode}`, `.../unpublish`, `.../confirm`, `PUT /api/v1/binders/reorder` | binders | PUBLIC / UNTIL_DISABLED → PUBLIC; ONE_HOUR / ONE_DAY → TEMPORARILY_PUBLIC until now + 1 h / 24 h; publishing and confirming confirm the binder and its items |
+| `GET /api/v1/binders/{id}/items` | inventory | the caller's items of one binder (same filters) |
+| `GET /api/v1/collectors/{handle}/binders` | binders | public binders with ≥ 1 public item (`PublicBinderSummary`) |
+| `GET /api/v1/public/binders/{id}` | binders | `PublicBinderResponse` with an owner block (handle, display name, avatar, `location: {publicLabel, distanceBucket}`, never a point); signed-in visitors other than the owner consume `binder.views.per_day` once per binder and UTC day (Redis de-duplication, 429 beyond the plan) |
+| `GET /api/v1/public/binders/{id}/items`, `GET /api/v1/collectors/{handle}/inventory` | inventory | `PublicInventoryItem` pages (no `notes`, no coordinates) |
+| `GET /api/v1/admin/delist-policies`, `PUT /api/v1/admin/delist-policies/{id}` | delisting | ADMIN+ (Phase 7 contract, built with the table); ordering validated, audited `delist_policy.update`, cache evicted |
+| `POST /internal/jobs/freshness` (hourly), `POST /internal/jobs/delist` (daily) | inventory, delisting | service auth; `@Scheduled` stand-ins under `local` (`FreshnessScheduler` every hour, `DelistScheduler` daily); both record a `job_run` |
+
+### Effective public visibility
+
+Item public ⇔ visibility PUBLIC or TEMPORARILY_PUBLIC not expired ∧ binder public (or none) ∧
+freshness ≠ HIDDEN ∧ not deleted ∧ game ACTIVE ∧ owner listed. Binder public ⇔ same visibility and
+expiry rule ∧ binder freshness ≠ HIDDEN ∧ owner listed. Owner listed ⇔ account ACTIVE (or a temporary
+suspension already over) ∧ (discoverable ∨ profile PUBLIC) ∧ profile ≠ PRIVATE. Public collectors are
+404 when suspended, pending deletion, deleted, PRIVATE or blocked (`BlockRelationProvider`, Phase 5).
+`PublicVisibilityRules` holds the SQL fragments and a pure Java twin (`VisibilityRulesTest`); every
+public read evaluates them live (expiries apply at once).
+
+### Publication events and freshness
+
+- `ListingReconciler` stores the last evaluation in `publicly_listed` (items and binders) and emits
+  `InventoryItemPublished {itemId, ownerId, printingId, cardId, gameSlug, availability, askingPrice,
+  currency, publishedAt}`, `InventoryItemUnpublished`, `BinderPublished`, `BinderUnpublished` once per
+  flip, inside the transaction (Modulith outbox). It runs after every write, on
+  `UserSuspendedEvent` / `UserUnsuspendedEvent` / `PrivacySettingsChangedEvent` (async
+  `@ApplicationModuleListener`s), from the deletion participant, and in the hourly job (expiries,
+  suspensions that ended). Seed data is reconciled silently.
+- The freshness job: expired temporary publications → PRIVATE; freshness re-derived from
+  `confirmed_at` and the active `delist_policy` (items and binders, both directions; AGED / STALED /
+  HIDDEN / RESTORED rows in `inventory_freshness_event`, `BinderFreshnessChanged`); reconciliation
+  (HIDDEN → `InventoryItemUnpublished`); publicly listed items and binders in the warning window
+  (`warn_before_hidden_days`) get one WARNED row per confirmation cycle and one
+  `BinderFreshnessWarning {ownerId, binderId|null, itemCount, hidesAt}` per binder (null = unfiled
+  items) and run. Nothing is ever deleted.
+- Account deletion: the inventory participant unpublishes everything at the request (the owner is no
+  longer listed), republishes on cancellation and purges items, photos (after commit) and, through the
+  binders participant, binders. Export sections `inventory` (with private notes: the owner's own data)
+  and `binders`.
+
+### Seed (Phase 3)
+
+`inventory` (order 500, `db/seed/inventory.json`): 10 binders / 36 items for the fictional
+collectors from the seeded mock printings (CAD prices, several accepting offers): fresh public
+binders for collectors 1, 2, 5, 8 (plus a private binder and an unfiled lot for collector1), a
+STALE binder (40 days) for collector3, a HIDDEN binder (50 days, hidden until confirmed) for
+collector6, a binder public for 24 h for collector4 and private-only inventory for collector7 (not
+discoverable). Stable ids `00000000-0000-4000-8b00-…` (binders) and `…-8c00-…` (items); inserted once
+(`ON CONFLICT DO NOTHING`), dates relative to the first seed run.
+
+### Deviations from the Phase 3 contract
+
+- The owner rule additionally excludes PRIVATE profiles (the contract says "discoverable or
+  profile public"; a discoverable collector with a PRIVATE profile publishes nothing).
+- Additive columns: `binder.freshness_state` / `warned_at` / `publicly_listed` /
+  `listing_changed_at`, `inventory_item.warned_at` / `publicly_listed` / `listing_changed_at`,
+  `inventory_freshness_event.owner_id`, `delist_policy.max_strikes` / `created_at`. Binder freshness
+  is derived from `binder.confirmed_at` like items; a HIDDEN binder is not public.
+- Additive response fields: `BinderResponse.sortOrder`, `effectivePublic`, `games`,
+  `coverPrintingId`; `PublicInventoryItem.binder`; `PublicBinderResponse.kind`, `publicUntil`,
+  `coverImageUrl`; summary `agingCount`, `effectivePublicCount`; list parameters `unfiled`,
+  `direction`; `PublicBinderSummary` = `{id, name, description, kind, publicUntil, itemCount, games,
+  coverImageUrl, freshness}`. Events carry `ownerId` and a timestamp; `BinderUnpublished` and
+  `BinderFreshnessWarning` are additional.
+- Defaults the contract leaves open: item visibility PUBLIC inside a binder / PRIVATE unfiled;
+  unfiling (PATCH `binderId: null`, bulk move to none, binder deletion) keeps the item's visibility
+  only when the source binder is PUBLIC without an end date; making an item public and publishing a
+  binder count as confirmations; the job turns expired temporary publications PRIVATE.
+- Photo upload answers 201 with the item; photos are JPEG (no JDK WebP encoder), ≤ 1600 px.
+- `binder.views.per_day` is consumed on `GET /public/binders/{id}` only, for signed-in visitors
+  other than the owner (web clients must send their token on that route for it to count).
+- `POST /internal/jobs/delist` records runs but pauses nobody until strike tracking exists.
+- Text of binders and public notes is not yet run through `TextModerationService` (Phase 7).
+
+## Map discovery and search (Phase 4)
+
+Contract: `docs/api/contracts/phase4-map-search.md`. Module `search` (reads the tables of the
+location, profiles, users, binders, inventory and catalog modules read-only through SQL, uses the
+public point only) and a minimal `analytics` module. Every route is a permitAll GET
+(`SecurityConfig.PUBLIC_GET_PATTERNS`) that honours a bearer token when present.
+
+| Route | Notes |
+| --- | --- |
+| `GET /api/v1/collectors/nearby?lat=&lng=&radiusKm=&game=&availability=&freshness=&tags=&hasPrintingId=&hasCardId=&query=&limit=200` | collectors **on the map** (public point set, `discoverable`, account ACTIVE, profile not PRIVATE) within `ST_DWithin(public_point, centre, radius)`; filters per the contract (`availability` TRADE / SALE / TRADE_OR_SALE / ACCEPTS_OFFERS, `freshness` ACTIVE / AGING, `tags` any, `hasPrintingId` / `hasCardId` / `availability` / `game` = an effectively public ACTIVE-or-AGING item, `game` also matches the profile games, `query` = handle, display name or tag text of collectors with `searchDiscoverable`); `matchingItems` (at most 5 per marker) when a printing, card or availability filter is set; ranking freshness (ACTIVE > AGING > no listings), distance bucket, rating, distance; `total` / `truncated`; Redis cache 60 s |
+| `GET /api/v1/collectors/{handle}/preview?lat=&lng=` | the marker of one collector on the map + `canMessage` (PrivacyPolicyService) + `isBlocked`; 404 when not on the map |
+| `GET /api/v1/search?q=&types=&game=&lat=&lng=&radiusKm=&limit=10` | cards (catalog FTS + trigram), printings (code prefix, or the printings of the resolved card), sets, collectors, public binders (`search_vector` + name substring, at least one public item, owner on the map within the radius when a centre is known; each with an `owner` block); `resolved` = `{printingId, cardId}`; with a resolution `collectors` lists the holders with `matchingItems` |
+| `GET /api/v1/search/card-holders?printingId=&#124;cardId=&lat=&lng=&radiusKm=&availability=&condition=&minPrice=&maxPrice=&freshness=&edition=&language=&acceptsOffers=&sort=distance&#124;price&#124;freshness&page=&size=` | `PageResponse<CardHolderResult {collector: CollectorMarker, item: PublicInventoryItem}>`; effectively public ACTIVE/AGING items of collectors on the map within the radius; the own items of the caller are excluded |
+| `GET /api/v1/search/suggest?q=&game=&lat=&lng=&limit=10` | `[{type, id, label, sublabel, imageUrl, game, slug, cardId}]` (type CARD, PRINTING, SET, COLLECTOR, BINDER or TAG), one entry per kind in turn |
+
+### Geography (ADR 0004)
+
+- **Centre**: `lat`/`lng` when given, else the trading area of the signed-in caller
+  (`LocationService.searchCentreOf`, never another collector's); always snapped to 0.01 degree
+  (about 1 km, `SearchCentre`) before it reaches SQL, the cache key (a SHA-256 of the canonical
+  request) or the response (`center`, 2 decimals). Signed-out callers must pass `lat`/`lng` to
+  `nearby` and `card-holders` (400 otherwise); `search` and `suggest` also work without a centre
+  (then not geographic, no distances).
+- **Radius**: default 10 km (`orenji.search.default-radius-km`), lowered to the cap of the caller; an
+  explicit `radiusKm` beyond `map.radius.max_km` (FREE 25, PREMIUM 100, entitlements apply;
+  signed-out callers: FREE through `Limits.checkValueForAnonymous`) is `429 LIMIT_REACHED` with
+  `used` = the requested radius rounded up. 0.1 km steps; 0.1 to 20 000 km accepted as input.
+- Markers carry the stored public point (3 decimals) and its label; `distanceBucket` is measured from
+  the snapped centre to the public point and only returned to signed-in callers for collectors with
+  `showDistance` (never for oneself). `lastActiveBucket` / `onlineStatus` follow
+  `PrivacyPolicyService` (hidden from signed-out visitors of MEMBERS profiles). No raw distance ever
+  leaves the server. `GeoPrivacyContractTest` walks nearby, preview, search, card holders and suggest
+  for the seeded collectors, signed out and signed in.
+
+### Cache
+
+`NearbyCache`: `orenji:cache:nearby:<generation>:<sha256>` for 60 s (`orenji.search.nearby-cache-ttl`),
+holding the viewer-independent rows (public point, privacy switches, statistics, matching items;
+never a trading-area centre). Viewer-specific rules (distance buckets, last activity, blocks, rating
+order) are applied per request. `NearbyCacheInvalidator` bumps the generation after commit on
+`InventoryItemPublished` / `Unpublished`, `BinderPublished` / `Unpublished`, `BinderFreshnessChanged`,
+`TradingAreaChangedEvent`, `LocationRemovedEvent`, `PrivacySettingsChangedEvent`, `UserSuspendedEvent`
+and `UserUnsuspendedEvent` (plain listeners, not stored in the event publication registry); other
+changes (a price edit) show within the TTL. Fails open without Redis.
+
+### Analytics (minimal slice of Phase 12)
+
+`AnalyticsEvent` `{event_id, event_type, event_version: 1, occurred_at, actor_hash, region_label,
+geo_cell, payload}` (the columns of the BigQuery `events` table): `actor_hash` = HMAC-SHA256 of the
+account id (`ANALYTICS_ACTOR_SALT`), geography = the ~1 km grid cell id and region label only,
+payload values = scrubbed strings (e-mails, decimal numbers and long digit runs masked, 64
+characters), whole numbers, booleans, string lists and `*_hash` hex digests; floating-point values
+and keys such as `lat`, `lng`, `email`, `handle`, `user_id` are refused. `AnalyticsPublisher` sends
+asynchronously and never fails a request. `LogAnalyticsTransport` (default, `EVENTS_TRANSPORT=local`)
+writes `analytics {json}` lines on the logger `orenji.analytics`; `PubSubAnalyticsTransport` (only
+with `EVENTS_TRANSPORT=pubsub`) publishes to `projects/<GOOGLE_CLOUD_PROJECT>/topics/<PUBSUB_TOPIC_ANALYTICS>`
+through the Pub/Sub REST API with Application Default Credentials (or `PUBSUB_EMULATOR_HOST` without
+credentials); nothing is created or contacted locally. Events: `search_performed` /
+`search_no_results` (`GET /search`, `GET /search/card-holders`, and `GET /collectors/nearby` when
+`query`, `hasPrintingId` or `hasCardId` is used; payload `surface`, scrubbed `query`, `game`,
+`types`, `resolved`, `result_count`, `radius_km`, filter names), `collector_viewed` (profile and
+preview, `target_hash`), `binder_viewed` (`binder_id`, `owner_hash`), `card_viewed` (`card_id`,
+`printing_id`, `game`). They are derived from in-process notifications (`SearchPerformed`,
+`CollectorPreviewed`, `CollectorProfileViewed`, `PublicBinderViewed`, `CardViewed`), so no module
+depends on analytics. `AnalyticsIT` checks that no emitted event carries a coordinate, an e-mail
+address, a raw account id or (views) a handle.
+
+### Binder views
+
+`binder.views.per_day` (Phase 3) is covered by `BinderViewLimitIT`: signed-in FREE visitors consume
+one unit per binder and UTC day; repeated, owner and signed-out views never count; PREMIUM and
+entitled visitors are not limited; a refused view consumes nothing.
+
+### Deviations from the Phase 4 contract
+
+- **Who is on the map**: discoverable collectors whose profile is not PRIVATE appear for signed-out
+  visitors too (the contract rule "discoverable, ACTIVE, not deletion-requested"; `discoverable` is
+  the explicit consent to be shown at the public point), with reduced detail: no distance, no
+  messaging, last activity hidden for MEMBERS profiles (`PrivacyPolicyService.canAppearOnMap`). The
+  profile page itself stays members-only for MEMBERS profiles.
+- **Freshness**: collectors whose public listings are all STALE never appear; collectors without any
+  public listing do appear (`binderFreshness: null`, ranked after AGING). STALE / HIDDEN items never
+  match a filter or a card-holder search. `binderFreshness` is the best freshness of the public items.
+- **Ranking**: freshness, then distance *bucket*, then rating, then exact distance (so the rating can
+  decide between collectors at a similar distance; ratings arrive with Phase 7).
+- The marker of the caller is not removed from `nearby` (it shows where others see them);
+  `card-holders` excludes the items of the caller. Blocked collectors (real since Phase 5, one
+  lookup per page) are filtered after the cached page is read: `total` excludes the blocked
+  collectors of the page but may still count blocked ones beyond the limit.
+- `card-holders` needs a centre like `nearby` (400 for signed-out callers without `lat`/`lng`).
+- Additive: `center` is snapped to 2 decimals; `MatchingItem` adds `printingId`, `cardId`,
+  `cardName`, `game`, `language`, `edition`, `acceptsOffers`, `freshness`; the preview accepts
+  optional `lat`/`lng`; `PublicBinderSummary` gains an optional `owner` block (search results only);
+  `suggest` accepts `game` and adds `slug` (COLLECTOR handle, TAG slug) and `cardId` (PRINTING);
+  `limit` of `nearby` is 1 to 500.
+- Resolution: an exact printing code carried by one printing resolves the printing; a code shared by
+  several printings of one card, an exact card name, or a single card hit resolves the card.
+- Collector text matching is substring-only (handle, display name, tag label or slug); fuzzy
+  matching is kept for `suggest`.
+- `nearby` is a reserved handle (the route `/collectors/nearby` shadows it).
+- Phase 4 adds no seed data: discovery reads the Phase 1 to 3 seed (profiles, trading areas,
+  binders, items).
+
+## Messaging, realtime, community (Phase 5)
+
+Contract: `docs/api/contracts/phase5-chat.md`. Modules `messaging` (conversations, messages, blocks,
+uploads, realtime), `community` (channels, posts, replies) and `moderation` (`ModerationService`,
+flags). Migrations V040–V042. Every route needs a signed-in, compliant account.
+
+| Route | Notes |
+| --- | --- |
+| `GET /api/v1/conversations?cursor=&limit=20&archived=false` | `CursorPage<ConversationSummary>`, newest activity first; conversations hidden by a block (either direction) and empty conversations started by the other participant are omitted; `other.onlineStatus` is HIDDEN unless the participant shows it |
+| `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`) |
+| `PATCH /api/v1/conversations/{id} {muted?, archived?}` | per participant; a new message un-archives for both |
+| `GET /api/v1/conversations/{id}/messages?cursor=&limit=50` | newest first; `readByOther` = the participant who did not send the message has read it; REMOVED messages keep their place with empty body and payload |
+| `POST /api/v1/conversations/{id}/messages {kind, body, cardPrintingId?, binderId?, offerId?, imageUploadId?}` | TEXT, CARD_LINK, BINDER_LINK (public binders only), IMAGE; OFFER_LINK and SYSTEM are 400; moderation (422 `MESSAGE_BLOCKED`, FLAG rules store the message `FLAGGED`), rate rule 30/min (429 `RATE_LIMITED` + `retryAfterSeconds`); publishes `MessageSent`; pushed to both participants on `/user/queue/messages` after commit |
+| `POST /api/v1/conversations/{id}/read {lastReadMessageId}` | 204; the marker only moves forward; publishes `MessageRead`; receipt `{conversationId, userId, lastReadMessageId, readAt}` on `/user/queue/receipts` of both participants |
+| `POST /api/v1/uploads/images` (multipart `file`, `kind=MESSAGE`) | 201 `{uploadId, url, width, height, expiresAt}`; sniffed JPEG/PNG/WebP up to 8 MB (413 / 415 / 400), re-encoded without metadata by the inventory `ItemImageProcessor`, `ImageUploadInspector` hook (allow-all default); attach within 1 h; rate-limited 30 per hour |
+| `POST /api/v1/users/{id}/block {reason?}`, `DELETE /api/v1/users/{id}/block`, `GET /api/v1/me/blocks` | idempotent; the reason is private and never echoed; publishes `UserBlocked` / `UserUnblocked` |
+| `GET /api/v1/community/channels?game=&region=` | active channels (the eight V041 launch channels and region channels) with `postCount24h` |
+| `GET` / `POST /api/v1/community/channels/{slug}/posts` | newest first; `{body ≤ 2000, cardPrintingId?, binderId?}`; 409 `DUPLICATE_POST` (same normalised text by the author within 24 h), 429 above the channel's `post_rate_limit_per_hour` (default 10) or the moderation rate rule, 422 `POST_BLOCKED`; publishes `CommunityPostCreated` |
+| `PATCH /api/v1/community/posts/{id} {body}`, `DELETE /api/v1/community/posts/{id}` | the author edits (403 for others); the author or MODERATOR+ deletes (moderator deletions audited) |
+| `GET` / `POST /api/v1/community/posts/{id}/replies`, `DELETE /api/v1/community/replies/{id}` | oldest first; `{body ≤ 1000}`; same moderation |
+| `GET` / `POST /api/v1/admin/community/channels`, `PATCH /api/v1/admin/community/channels/{id}`, `POST /api/v1/admin/community/posts/{id}/remove {reason}`, `POST /api/v1/admin/community/replies/{id}/remove {reason}` | MODERATOR+ (`SecurityConfig.MODERATOR_PATTERNS`), audited (`community.channel.create` / `update`, `community.post.remove`, `community.reply.remove`); removals resolve the content's open flags |
+| `GET /api/v1/admin/moderation/flags?state=OPEN|RESOLVED|ALL&subjectType=&page=&size=`, `POST /api/v1/admin/moderation/flags/{id}/resolve {note?}` | MODERATOR+; flags reference content by id only (no message text); resolutions audited (`moderation.flag.resolve`) |
+| `POST /internal/jobs/upload-cleanup` | service auth; deletes uploads not attached within 1 h with their objects; `job_run`; every 15 minutes under `local` |
+
+Community member routes are gated by the `publicChat` feature flag (404 `FEATURE_DISABLED`,
+extension `feature`). Posts and replies of collectors blocked in either direction, of suspended,
+deletion-pending or deleted accounts, and deleted or REMOVED ones are never served; archived
+channels are 404 for members.
+
+### Realtime (STOMP over WebSocket)
+
+- Endpoint `ws://<api host>/ws` (native WebSocket, no SockJS; allowed origins =
+  `CORS_ALLOWED_ORIGINS`). Authenticate the handshake with `?access_token=<Firebase ID token>`
+  (browsers cannot set headers on WebSocket requests) or `Authorization: Bearer` (native clients),
+  or send `Authorization: Bearer <token>` in the STOMP `CONNECT` frame. The same
+  `IdentityTokenVerifier` and `AccountResolver` as REST are used (Auth emulator locally, static
+  tokens in tests). Invalid tokens get 401 at the handshake (403 for suspended or deleted accounts)
+  or a STOMP `ERROR` frame. `/ws` is therefore open at the HTTP layer
+  (`SecurityConfig.PUBLIC_PATTERNS`).
+- Subscriptions are limited to the caller's own queues (`StompSecurityInterceptor`):
+  `/user/queue/messages` (`MessageResponse`), `/user/queue/receipts`, `/user/queue/typing`
+  (`{conversationId, userId}`), `/user/queue/presence` (`{userId, status: ONLINE|OFFLINE}`),
+  `/user/queue/notifications` (reserved for Phase 6) and `/user/queue/errors`. `/user/<someone>/...`,
+  raw `/queue/...` and `/topic/...` are refused with an `ERROR` frame. Clients may only `SEND` to
+  `/app/typing {conversationId}`.
+- Fan-out: `RealtimePublisher` publishes `{destination, payload}` to the Redis channel
+  `rt:user:{userId}`; every instance subscribes to `rt:user:*` (`RealtimeRedisListener`) and delivers
+  to its local sessions through the user destination resolver. Without Redis the payload reaches the
+  local instance only. Pushes are best effort; clients re-sync over REST.
+- Presence: `presence:{userId}` (TTL 60 s) is set on CONNECT, refreshed by the session's frames and
+  STOMP heartbeats (server heartbeat 20 s) and cleared when the last local session disconnects.
+  `onlineStatus` of collector profiles, map markers and conversation lists is real now
+  (`PresenceProvider`) and shown only with `showOnlineStatus`; ONLINE/OFFLINE changes are announced to
+  the conversation partners who may see them.
+
+### Moderation (`ModerationService`, ADR 0014)
+
+`check(scope, text, authorId)` applies the active `moderation_rule`s of `MESSAGE` or `POST` (replies
+use `POST`): `RATE_LIMIT` `<count>/<seconds>` per author in Redis (BLOCK → 429, FLAG → one open USER
+flag), `BANNED_TERM` regular expressions on accent-stripped lower-case text (BLOCK → 422, FLAG → the
+content is stored `FLAGGED` with a flag), `THRESHOLD` `<count>/<seconds>` repeated-content detection
+on the SHA-256 of the normalised text (never the text itself) per author. V042 seeds placeholder
+banned terms, the contract's 30 messages per minute, 60 posts and replies per hour and the
+repeated-content thresholds (5 identical messages in 10 minutes, 3 identical posts in an hour →
+FLAG). Rules are cached 60 s per instance. No automatic ban; flags are unique per open subject and
+reason.
+
+### Blocks elsewhere
+
+`BlockRelationProvider` (profiles SPI) is implemented by the messaging module: collector profiles
+(`isBlocked`, `canMessage`), map markers and previews (one lookup per page through `blockedAmong`),
+public binders, binder links and community feeds all see real blocks.
+
+### Seed (Phase 5)
+
+`MessagingSeedContributor` ("conversations"): collector1 ↔ collector2
+(`00000000-0000-4000-8d00-000000000001`), six messages including a binder link (collector1's
+Yu-Gi-Oh! trade binder) and a card link (`ygo-p001a`); collector2 has one unread message.
+`CommunitySeedContributor` ("community"): five posts (`00000000-0000-4000-8e00-0000000001NN`) in
+montreal-yugioh, looking-for, new-listings, general and trades, and three replies. The eight channels
+themselves are V041 reference data (every environment). Region channels (e.g. Laval, Longueuil)
+appear as seeded collectors are put on the map.
+
+### Account data
+
+Export sections `messaging` (conversation ids, own sent messages, own blocks; never the other
+participant's text) and `community` (own posts and replies). Deletion: the content of sent messages
+is erased (rows kept for the other participant's history), photos and pending uploads deleted,
+blocks removed in both directions, posts and replies deleted and erased.
+
+### Deviations from the Phase 5 contract
+
+- `POST /conversations` answers 201 for a new conversation and 200 for an existing one.
+- The recipient's messaging permission applies to **new** conversations; existing conversations
+  continue unless a block exists. Messages to suspended, deletion-pending or deleted participants are
+  403 `MESSAGING_BLOCKED`; conversations hidden by a block answer 404 to reads and 403 to sends.
+- Additive: `MessageResponse.conversationId`; `CardLink.cardId` (its `id` is the printing id);
+  `ConversationSummary.createdAt`; `LastMessage.id`; `GET /conversations?archived=`;
+  `ImageUploadResponse.width` / `height` / `expiresAt`; `PostResponse.channelSlug` /
+  `moderationState`; `PATCH /community/posts/{id}` (the contract lists `editedAt` and `canEdit`);
+  `POST /admin/community/replies/{id}/remove`; `GET /admin/community/channels`;
+  `POST /admin/moderation/flags/{id}/resolve`.
+- `POST /uploads/images` with `kind=INVENTORY` is 400: inventory photos keep
+  `POST /inventory/items/{id}/images` until an inventory flow consumes uploads.
+- Message photos are served like other media from unguessable keys
+  (`/api/v1/public/media/uploads/...`); signed URLs are left for the cloud storage work.
+- `moderation_flag` adds `author_id` and `resolution_note`; `reason` is a code (`BANNED_TERM`,
+  `RATE_THRESHOLD`, `REPEATED_CONTENT`).
+- Region channels are created with the city of the collector's public label
+  ("Plateau-Mont-Royal, Montréal" → Montréal) only when no REGION channel of that city exists (the
+  seeded Montréal per-game channels count).
+- Realtime pushes are made from the request thread after commit (so URLs are absolute like in the
+  REST response) rather than from an event listener; `MessageSent` / `MessageRead` stay in the event
+  registry for Phases 6 and 7. Open sessions of an account suspended later are not closed (it can no
+  longer send through REST).
+
+## Build, format, test
+
+```bash
+./gradlew spotlessApply          # format (google-java-format, AOSP)
+./gradlew build -x test          # compile + jar + spotlessCheck
+./gradlew test                   # unit + integration tests (Docker required for the *IT classes)
+./gradlew check                  # test + spotlessCheck
+```
+
+Integration tests extend `AbstractIntegrationTest`, which starts one PostGIS and one Redis
+container per JVM (static singletons wired through `@ServiceConnection`) and boots the application
+with the `test` profile on a random port. Docker Desktop (or any Docker socket Testcontainers can
+reach) must be running; without it the `*IT` tests fail at container start-up while the unit tests
+(`*Test`) still pass.
+
+## OpenAPI export
+
+`docs/api/openapi.json` is generated from the running application, never edited by hand:
+
+```bash
+./gradlew exportOpenApi          # requires Docker; rewrites ../../docs/api/openapi.json
+```
+
+The task runs the `openapi`-tagged `OpenApiExportTest`, which the regular `test` task excludes. Run it
+after every API change so `packages/api-client` and `packages/shared-types` can be regenerated.
+
+## Docker image
+
+```bash
+# from the repository root
+docker build -t orenjitrade-api apps/api
+docker run --rm -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  -e DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/orenjitrade \
+  -e REDIS_URL=redis://host.docker.internal:6379 \
+  orenjitrade-api
+```
+
+Multi-stage build: `eclipse-temurin:21-jdk` runs the Gradle wrapper (dependency cache layer first,
+then `bootJar`) and explodes the jar with `java -Djarmode=tools -jar app.jar extract --layers`;
+the runtime stage is `eclipse-temurin:21-jre-alpine`, runs as the non-root `orenji` user, exposes
+8080, honours `SERVER_PORT`/`PORT` and starts the JVM with `-XX:MaxRAMPercentage=75` (extra flags via
+`JAVA_OPTS`).
+
+## Database migrations
+
+Flyway migrations are `V<NNN>__<snake_case>.sql` in `src/main/resources/db/migration` and are never
+edited once applied. `V001__extensions.sql` installs PostGIS, `pg_trgm`, `unaccent`, `pgcrypto` and
+the `unaccent_immutable(text)` helper; `V002__event_publication.sql` creates the Spring Modulith
+`event_publication` outbox table; `V003__users.sql` creates `user_account`, `user_role`,
+`legal_document` (with the eight documents of version `2026-09-01`), `user_consent`, `audit_log` and
+`job_run`; `V004__profiles.sql` (`profile`, `tag`, `profile_tag`, `moderation_rule`,
+`privacy_settings`), `V005__location.sql` (`user_location`), `V006__settings.sql`
+(`notification_preferences`) and `V007__deletion.sql` (`account_deletion_request`) complete Phase 1.
+Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql` (`plan`,
+`plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; `user_account.plan_code` becomes a FK),
+`V012__games.sql` (`game` with GameSchema) and `V013__catalog.sql` (`card_set`, `card`,
+`card_printing`, `card_image`, `catalog_sync_run`). Phase 3 adds `V020__delist_policy.sql`
+(`delist_policy`), `V021__binder.sql` (`binder`) and `V022__inventory.sql` (`inventory_item` with the
+`binder.item_count` trigger, `inventory_item_image`, `inventory_freshness_event`). Phase 4 adds
+`V030__search_indexes.sql` (discovery and search indexes, no table). Phase 5 adds
+`V040__messaging.sql` (`conversation`, `conversation_participant`, `conversation_pair`, `message`,
+`message_attachment`, `image_upload`, `user_block`), `V041__community.sql` (`community_channel` with the
+eight launch channels, `community_post`, `community_reply`) and `V042__moderation_flags.sql`
+(`moderation_flag`, the rate-pattern check and the Phase 5 moderation rules).
+Details and column lists: `docs/database/schema.md`.
+
+## Module layout
+
+```
+com.orenjitrade.api
+├── common/      error codes, ApiException, ProblemDetailsExceptionHandler, RequestIdFilter,
+│                TimeProvider, PageResponse, CursorPage, MdcTaskDecorator, seed runner (OPEN module)
+├── config/      SecurityConfig (+ ProblemDetail entry point / access-denied handler), OpenApiConfig,
+│                AsyncConfig, WebConfig, property records, startup validators (OPEN module)
+├── meta/        GET /api/v1/meta
+├── auth/        IdentityTokenVerifier (Firebase / static), bearer + service-auth filters,
+│                AuthenticatedUser, Role, AccountStatus, admin MFA rule, rate limiting
+├── users/       UserAccount + roles, provisioning, consents + legal documents, /me endpoints,
+│                terms filter, seed accounts (implements auth's AccountResolver)
+├── audit/       AuditService (append-only audit_log), GET /api/v1/admin/audit-logs
+├── admin/       /api/v1/admin/users (list, detail, suspend, unsuspend, roles)
+├── jobs/        job_run records, POST /internal/jobs/ping
+├── profiles/    profile, avatar, tags, privacy settings + PrivacyPolicyService, collector view
+├── location/    user_location, ApproximateLocationService, StaticRegionGeocoder (ADR 0004)
+├── notifications/ notification preferences (dispatch arrives in Phase 6)
+├── moderation/  moderation_rule + TextModerationService (banned terms), ModerationService
+│                (rates, repeated content), moderation_flag + /admin/moderation/flags
+├── games/       game table + GameSchema, GameCatalog (profiles), /games, /admin/games
+├── cards/       sets, cards, printings, images, CardProvider + MockCardProvider, idempotent
+│                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
+├── featureflags/ feature_flag, FeatureFlags (Redis cache), public + admin endpoints
+├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements)
+├── delisting/   delist_policy, FreshnessPolicy / FreshnessLabels, freshness event log, delist job,
+│                /admin/delist-policies
+├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
+├── inventory/   items, photos, bulk operations, public item lists, ListingReconciler (publication
+│                events), freshness job (implements BinderContents)
+├── search/      /collectors/nearby + preview, /search, /search/card-holders, /search/suggest,
+│                Redis nearby cache (Phase 4)
+├── analytics/   AnalyticsEvent, AnalyticsPublisher, log / Pub/Sub transports (Phase 4 slice)
+├── messaging/   conversations, messages, uploads, blocks, STOMP /ws + Redis fan-out, presence
+├── community/   channels, posts, replies, /admin/community (Phase 5)
+└── wishlist ratings reports offers trades payments credits donations ads
+                                                          (documented in each package-info.java)
+```
+
+Inside a module: `api/` (controllers + DTOs), `domain/`, `infra/`, `events/`. Entities never leave a
+module; cross-module calls go through service interfaces or published domain events.

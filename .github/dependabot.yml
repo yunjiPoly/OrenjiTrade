@@ -1,0 +1,103 @@
+# Dependabot: weekly, grouped minor/patch updates per ecosystem so the PR count stays sane.
+# Major updates arrive as individual PRs. Security updates are always separate and immediate.
+version: 2
+
+updates:
+  - package-ecosystem: gradle
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    labels: [dependencies, api]
+    groups:
+      gradle-minor-patch:
+        update-types: [minor, patch]
+
+  # One npm workspace (root package-lock.json covers apps/web-angular, apps/mobile, packages/*).
+  # packages/api-client/tools is deliberately NOT a workspace (generator CLI kept apart), so it
+  # keeps its own lockfile and is listed separately.
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /packages/api-client/tools
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 10
+    labels: [dependencies, frontend]
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Angular and Expo majors are coordinated upgrades, never automatic.
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: pip
+    directory: /apps/ml
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    labels: [dependencies, ml]
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    labels: [dependencies, ci]
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: terraform
+    directories:
+      - /infrastructure/terraform/environments/dev
+      - /infrastructure/terraform/environments/staging
+      - /infrastructure/terraform/environments/prod
+      - /infrastructure/cloudflare/terraform
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    labels: [dependencies, infrastructure]
+    groups:
+      terraform-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/web-angular
+      - /apps/ml
+      - /infrastructure/docker/firebase-emulator
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Toronto
+    open-pull-requests-limit: 5
+    labels: [dependencies, docker]
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]

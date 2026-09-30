@@ -1,0 +1,116 @@
+// Shared styles of the settings sections (each section component uses this file).
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+}
+
+.section-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.section-sub {
+  margin: var(--spacing-5) 0 var(--spacing-3);
+  font-size: var(--font-size-md);
+}
+
+.section-error {
+  margin: var(--spacing-3) 0 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.section-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-4);
+
+  mat-spinner {
+    display: inline-block;
+    margin-right: var(--spacing-2);
+  }
+}
+
+.section-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+
+  mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+  }
+}
+
+.section-callout {
+  display: flex;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-container);
+  color: var(--color-on-accent-container);
+  font-size: var(--font-size-sm);
+
+  mat-icon {
+    flex: 0 0 auto;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.section-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.section-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) 0;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.section-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.section-row__label {
+  font-weight: var(--font-weight-medium);
+}
+
+.section-row__help {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
