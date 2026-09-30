@@ -72,6 +72,21 @@ export const routes: Routes = [
       import('./features/premium/premium-page.component').then((m) => m.PremiumPageComponent),
   },
   {
+    path: 'credits',
+    title: 'Credits',
+    canActivate: [authGuard, onboardingGuard, featureGuard(FEATURE.credits, 'Credits')],
+    loadComponent: () =>
+      import('./features/credits/credits-page.component').then((m) => m.CreditsPageComponent),
+  },
+  {
+    // Voluntary donations; signed-out visitors see the supporters and are invited to sign in.
+    path: 'support',
+    title: 'Support OrenjiTrade',
+    canActivate: [accountStateGuard, featureGuard(FEATURE.donations, 'Donations')],
+    loadComponent: () =>
+      import('./features/support/support-page.component').then((m) => m.SupportPageComponent),
+  },
+  {
     path: 'community',
     title: 'Community',
     canActivate: [onboardingGuard, featureGuard(FEATURE.publicChat, 'Community')],
@@ -132,6 +147,26 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/checkout/fake-checkout-page.component').then(
         (m) => m.FakeCheckoutPageComponent,
+      ),
+  },
+  {
+    // The local fake billing provider's subscription checkout (the member who opened it only).
+    path: 'checkout/fake-billing/:ref',
+    title: 'Premium checkout',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () =>
+      import('./features/checkout/fake-billing-checkout-page.component').then(
+        (m) => m.FakeBillingCheckoutPageComponent,
+      ),
+  },
+  {
+    // The local fake donation provider's checkout (the donor only).
+    path: 'checkout/fake-donation/:ref',
+    title: 'Donation checkout',
+    canActivate: [authGuard, onboardingGuard],
+    loadComponent: () =>
+      import('./features/checkout/fake-donation-checkout-page.component').then(
+        (m) => m.FakeDonationCheckoutPageComponent,
       ),
   },
   {

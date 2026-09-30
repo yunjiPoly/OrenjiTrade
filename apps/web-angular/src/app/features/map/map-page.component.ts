@@ -50,6 +50,7 @@ import {
 } from './map-filters-bar/map-filters-bar.component';
 import { MapLegendComponent } from './map-legend/map-legend.component';
 import { MessagesPanelComponent } from './messages-panel.component';
+import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
 
 /** Design-system `md` breakpoint: the messages panel docks to the side from here. */
 const WIDE_QUERY = '(min-width: 960px)';
@@ -76,6 +77,7 @@ const WIDE_QUERY = '(min-width: 960px)';
     MapFiltersBarComponent,
     MapLegendComponent,
     MessagesPanelComponent,
+    SponsoredSlotComponent,
     UnifiedSearchBoxComponent,
   ],
   providers: [MapDiscoveryStore],
