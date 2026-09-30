@@ -14,8 +14,19 @@
  */
 export interface DisputeSummary { 
     id: string;
+    /**
+     * OPEN, UNDER_REVIEW, FROZEN, RESOLVED_BUYER, RESOLVED_SELLER, RESOLVED_SPLIT, CLOSED
+     */
     status: string;
+    /**
+     * NOT_RECEIVED, NOT_AS_DESCRIBED, COUNTERFEIT, DAMAGED, OTHER
+     */
     reason: string;
     openedAt: string;
+    resolvedAt?: string | null;
+    /**
+     * Refunded to the buyer by the resolution
+     */
+    refundAmount?: number | null;
 }
 

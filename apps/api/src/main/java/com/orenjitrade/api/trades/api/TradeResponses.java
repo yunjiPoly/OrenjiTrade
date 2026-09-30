@@ -7,6 +7,7 @@ import com.orenjitrade.api.offers.api.OfferResponses.OfferPartyResponse;
 import com.orenjitrade.api.offers.api.OfferResponses.OfferResponse;
 import com.orenjitrade.api.offers.domain.OfferKind;
 import com.orenjitrade.api.offers.domain.OfferRole;
+import com.orenjitrade.api.trades.domain.TradeProtection;
 import com.orenjitrade.api.trades.domain.TradeRow;
 import com.orenjitrade.api.trades.domain.TradeRules.NextAction;
 import com.orenjitrade.api.trades.domain.TradeRules.Operation;
@@ -23,7 +24,10 @@ import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** Response bodies of {@code /api/v1/trades} (Phase 8). Never a location or payment data. */
+/**
+ * Response bodies of {@code /api/v1/trades} (Phase 8, payment protection of Phase 9). Never a
+ * location, card data or provider references.
+ */
 public final class TradeResponses {
 
     private TradeResponses() {}
@@ -62,10 +66,16 @@ public final class TradeResponses {
                     List<Operation> allowedOperations,
             @Schema(requiredMode = RequiredMode.REQUIRED, description = "Oldest first")
                     List<TradeEventResponse> timeline,
-            @Schema(nullable = true, description = "Payment protection (Phase 9); null for now")
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "Protected payment (Phase 9); null until the buyer starts the"
+                                            + " checkout")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable PaymentSummary payment,
-            @Schema(nullable = true, description = "Dispute (Phase 9); null for now")
+            @Schema(
+                            nullable = true,
+                            description = "Dispute (Phase 9); null unless the buyer opened one")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable DisputeSummary dispute,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -75,7 +85,14 @@ public final class TradeResponses {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable Instant completedAt,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable Instant cancelledAt) {
+                    @Nullable Instant cancelledAt,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "The seller's shipping confirmation (Phase 9); null until"
+                                            + " shipped")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable ShipmentSummary shipment) {
 
         public static TradeResponse from(Detail detail, Instant now) {
             TradeRow row = detail.row();
@@ -98,13 +115,14 @@ public final class TradeResponses {
                     detail.nextAction(),
                     detail.operations(),
                     detail.timeline().stream().map(TradeEventResponse::from).toList(),
-                    null,
-                    null,
+                    PaymentSummary.from(detail.protection(), detail.viewerRole()),
+                    DisputeSummary.from(detail.protection()),
                     row.cancelReason(),
                     row.createdAt(),
                     row.updatedAt(),
                     row.completedAt(),
-                    row.cancelledAt());
+                    row.cancelledAt(),
+                    ShipmentSummary.from(detail.protection()));
         }
     }
 
@@ -162,8 +180,11 @@ public final class TradeResponses {
                             requiredMode = RequiredMode.REQUIRED,
                             description =
                                     "CREATED, MEETUP_PROPOSED, MEETUP_AGREED, PROTECTION_REMOVED,"
-                                            + " COMPLETION_CONFIRMED, COMPLETED, CANCELLED (Phase"
-                                            + " 9 adds payment, shipping and dispute events)")
+                                            + " COMPLETION_CONFIRMED, COMPLETED, CANCELLED; Phase"
+                                            + " 9: PAYMENT_STARTED, PAYMENT_FAILED,"
+                                            + " PAYMENT_CANCELLED, PAYMENT_SECURED, SHIPPED,"
+                                            + " RECEIPT_CONFIRMED, PAYOUT_RELEASED,"
+                                            + " DISPUTE_OPENED, DISPUTE_RESOLVED, REFUNDED")
                     String event,
             @Schema(nullable = true, description = "Null for the platform")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -176,7 +197,7 @@ public final class TradeResponses {
                     Map<String, Object> details,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt) {
 
-        static TradeEventResponse from(TimelineEntry entry) {
+        public static TradeEventResponse from(TimelineEntry entry) {
             return new TradeEventResponse(
                     entry.event().id(),
                     entry.event().event(),
@@ -186,20 +207,140 @@ public final class TradeResponses {
         }
     }
 
-    /** Payment protection of a trade (Phase 9 fills it; always null in Phase 8). */
+    /** Payment protection of a trade (Phase 9). */
     @Schema(name = "PaymentSummary", description = "Payment protection of a trade (Phase 9)")
     public record PaymentSummary(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String status,
-            @Schema(requiredMode = RequiredMode.REQUIRED) BigDecimal amount,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String currency,
-            @Schema(nullable = true) @Nullable Instant securedAt) {}
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "REQUIRES_ACTION, SECURED, PAYOUT_PENDING, PAID_OUT, REFUNDED,"
+                                            + " PARTIALLY_REFUNDED, FAILED, CANCELLED")
+                    String status,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "40.00") BigDecimal amount,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "CAD") String currency,
+            @Schema(nullable = true) @Nullable Instant securedAt,
+            @Schema(description = "fake or stripe") @Nullable String provider,
+            @Schema(description = "Fee kept by the platform", example = "2.00")
+                    @Nullable BigDecimal platformFee,
+            @Schema(description = "What the seller receives with a full payout", example = "38.00")
+                    @Nullable BigDecimal sellerAmount,
+            @Schema(description = "Refunded to the buyer so far", example = "0.00")
+                    @Nullable BigDecimal refundedAmount,
+            @Schema(nullable = true, description = "Released to the seller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable BigDecimal payoutAmount,
+            @Schema(description = "An open dispute holds the payout") boolean payoutFrozen,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "Buyer only, while REQUIRES_ACTION: where to complete the"
+                                        + " payment (relative /checkout/fake/<ref> with the fake"
+                                        + " provider)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String checkoutUrl,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "End of the dispute window (shipment + the configured days);"
+                                            + " afterwards the payout is released automatically")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant disputeWindowEndsAt,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant payoutReleasedAt,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant refundedAt) {
 
-    /** Dispute of a trade (Phase 9 fills it; always null in Phase 8). */
+        static @Nullable PaymentSummary from(
+                TradeProtection.@Nullable State state, OfferRole viewer) {
+            if (state == null || state.payment() == null) {
+                return null;
+            }
+            TradeProtection.Payment payment = state.payment();
+            boolean showCheckout =
+                    viewer == OfferRole.BUYER && "REQUIRES_ACTION".equals(payment.status());
+            return new PaymentSummary(
+                    payment.id(),
+                    payment.status(),
+                    payment.amount(),
+                    payment.currency(),
+                    payment.securedAt(),
+                    payment.provider(),
+                    payment.platformFee(),
+                    payment.sellerAmount(),
+                    payment.refundedAmount(),
+                    payment.payoutAmount(),
+                    payment.payoutFrozen(),
+                    showCheckout ? payment.checkoutUrl() : null,
+                    payment.disputeWindowEndsAt(),
+                    payment.payoutReleasedAt(),
+                    payment.refundedAt());
+        }
+    }
+
+    /** Dispute of a trade (Phase 9). */
     @Schema(name = "DisputeSummary", description = "Dispute of a trade (Phase 9)")
     public record DisputeSummary(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String status,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String reason,
-            @Schema(requiredMode = RequiredMode.REQUIRED) Instant openedAt) {}
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "OPEN, UNDER_REVIEW, FROZEN, RESOLVED_BUYER, RESOLVED_SELLER,"
+                                            + " RESOLVED_SPLIT, CLOSED")
+                    String status,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "NOT_RECEIVED, NOT_AS_DESCRIBED, COUNTERFEIT, DAMAGED, OTHER")
+                    String reason,
+            @Schema(requiredMode = RequiredMode.REQUIRED) Instant openedAt,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant resolvedAt,
+            @Schema(nullable = true, description = "Refunded to the buyer by the resolution")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable BigDecimal refundAmount) {
+
+        static @Nullable DisputeSummary from(TradeProtection.@Nullable State state) {
+            if (state == null || state.dispute() == null) {
+                return null;
+            }
+            TradeProtection.Dispute dispute = state.dispute();
+            return new DisputeSummary(
+                    dispute.id(),
+                    dispute.status(),
+                    dispute.reason(),
+                    dispute.openedAt(),
+                    dispute.resolvedAt(),
+                    dispute.refundAmount());
+        }
+    }
+
+    /** The seller's shipping confirmation (Phase 9). */
+    @Schema(name = "ShipmentSummary", description = "Shipping confirmation of a protected trade")
+    public record ShipmentSummary(
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String carrier,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String trackingNumber,
+            @Schema(nullable = true, description = "The seller's notes for the buyer")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String sellerNotes,
+            @Schema(requiredMode = RequiredMode.REQUIRED) Instant shippedAt,
+            @Schema(nullable = true, description = "When receipt was confirmed")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant deliveredAt) {
+
+        static @Nullable ShipmentSummary from(TradeProtection.@Nullable State state) {
+            if (state == null || state.shipment() == null) {
+                return null;
+            }
+            TradeProtection.Shipment shipment = state.shipment();
+            return new ShipmentSummary(
+                    shipment.carrier(),
+                    shipment.trackingNumber(),
+                    shipment.notes(),
+                    shipment.shippedAt(),
+                    shipment.deliveredAt());
+        }
+    }
 }

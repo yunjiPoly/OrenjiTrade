@@ -40,8 +40,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * {@code /api/v1/trades} (Phase 8 contract "Trades"): the caller's trades, the trade page with its
- * next action, meetup, completion and cancellation. Payment, shipping and receipt confirmation are
- * Phase 9. Only the two parties see a trade.
+ * next action, meetup, completion and cancellation. Payment, shipping, receipt confirmation and
+ * disputes of protected trades (Phase 9) live in the payments module ({@code
+ * TradePaymentController}). Only the two parties see a trade.
  */
 @RestController
 @RequestMapping(path = "/api/v1/trades", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -115,9 +116,10 @@ public class TradeController {
             description =
                     "Parties only (404 for anybody else). nextAction: AGREED trades MEET (each"
                         + " party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer"
-                        + " PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs (the"
-                        + " last three are Phase 9), NONE otherwise. payment and dispute are null"
-                        + " until Phase 9.")
+                        + " PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs, NONE"
+                        + " otherwise (DISPUTED: an admin decides). payment, shipment and dispute"
+                        + " describe payment protection (Phase 9); allowedOperations adds PAY,"
+                        + " SHIP, CONFIRM_RECEIPT and OPEN_DISPUTE for protected trades.")
     @ApiResponse(responseCode = "200", description = "The trade")
     @ApiResponse(
             responseCode = "404",

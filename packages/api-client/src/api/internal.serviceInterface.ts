@@ -15,6 +15,7 @@ import { AccountDeletionJobResponse } from '../model/models';
 import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
 import { OfferExpiryJobResponse } from '../model/models';
+import { PaymentsAutoReleaseJobResult } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { UploadCleanupJobResponse } from '../model/models';
@@ -63,6 +64,13 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/offers-expire
 */
     runOfferExpiryJob(extraHttpRequestParams?: any): Observable<OfferExpiryJobResponse>;
+
+    /**
+     * Release payouts after the dispute window (service auth)
+     * Hourly. Reminds buyers payments.release_reminder_hours before the window ends; SHIPPED trades whose window ended without a dispute are treated as received: payout released, trade COMPLETED. Nothing happens while payments.auto_release_enabled is false. Records a job run.
+     * @endpoint post /internal/jobs/payments-auto-release
+*/
+    runPaymentsAutoReleaseJob(extraHttpRequestParams?: any): Observable<PaymentsAutoReleaseJobResult>;
 
     /**
      * Delete unattached image uploads (service auth)

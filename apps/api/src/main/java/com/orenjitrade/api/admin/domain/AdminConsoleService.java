@@ -21,8 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Admin console "Dashboard" and "System Health" (Phase 7 contract): counters across the platform
  * and the technical state (actuator health with component statuses only, the event outbox backlog,
- * notifications waiting for dispatch and the last run of every job). Disputes and webhook failures
- * are 0 until Phase 9 adds them.
+ * notifications waiting for dispatch and the last run of every job). Phase 9: open disputes (OPEN,
+ * UNDER_REVIEW, FROZEN) and payment webhooks that failed or had an invalid signature in 24 h.
  */
 @Service
 public class AdminConsoleService {
@@ -63,9 +63,9 @@ public class AdminConsoleService {
                 counters.get("stale_items"),
                 counters.get("hidden_items"),
                 counters.get("paused_owners"),
-                0L,
+                counters.get("open_disputes"),
                 counters.get("notifications_failed_24h"),
-                0L);
+                counters.get("webhook_failures_24h"));
     }
 
     /** {@code GET /admin/system/health}. */

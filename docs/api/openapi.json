@@ -50,6 +50,10 @@
       "description": "Binders (admin console)"
     },
     {
+      "name": "admin-payments",
+      "description": "Admin: transactions, payments, disputes, webhooks"
+    },
+    {
       "name": "reports",
       "description": "Reporting collectors to the moderation team"
     },
@@ -138,6 +142,10 @@
       "description": "The caller's public profile, avatar and tags"
     },
     {
+      "name": "disputes",
+      "description": "Disputes of protected trades"
+    },
+    {
       "name": "wishlist",
       "description": "The caller's wishlist and its matches nearby"
     },
@@ -154,6 +162,10 @@
       "description": "Unified search over cards, printings, sets, collectors and public binders, card holders near you and mixed autocomplete (auth optional)"
     },
     {
+      "name": "webhooks",
+      "description": "Payment provider webhooks (signature verified)"
+    },
+    {
       "name": "settings",
       "description": "Privacy and notification settings of the caller"
     },
@@ -164,6 +176,10 @@
     {
       "name": "admin-delisting",
       "description": "Auto-delist rules (admin console)"
+    },
+    {
+      "name": "payments",
+      "description": "Payment protection: payouts, checkout, shipping, receipt"
     },
     {
       "name": "admin-analytics",
@@ -1634,6 +1650,168 @@
         }
       }
     },
+    "/api/v1/admin/payments/settings": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "The payment rules (ADMIN)",
+        "description": "platform_settings payments.*: dispute window, platform fee, auto-release, reminder lead time, admin refund policy.",
+        "operationId": "getPaymentSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Change the payment rules (SUPER_ADMIN)",
+        "description": "Absent fields keep their value. 403 for ADMIN. Audited (payments.settings.update); every instance applies the change within 60 s.",
+        "operationId": "updatePaymentSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/moderation/rules/{id}": {
       "put": {
         "tags": [
@@ -2361,6 +2539,66 @@
         ]
       }
     },
+    "/internal/jobs/payments-auto-release": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Release payouts after the dispute window (service auth)",
+        "description": "Hourly. Reminds buyers payments.release_reminder_hours before the window ends; SHIPPED trades whose window ended without a dispute are treated as received: payout released, trade COMPLETED. Nothing happens while payments.auto_release_enabled is false. Records a job run.",
+        "operationId": "runPaymentsAutoReleaseJob",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentsAutoReleaseJobResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/internal/jobs/offers-expire": {
       "post": {
         "tags": [
@@ -2556,6 +2794,146 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AccountDeletionJobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/internal/fake-payments/{ref}/succeed": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Emit a synthetic payment.secured webhook (service auth, fake provider)",
+        "description": "404 when another provider is active or protectedPayments is off.",
+        "operationId": "succeedFakePayment",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentWebhookReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/internal/fake-payments/{ref}/fail": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Emit a synthetic payment.failed webhook (service auth, fake provider)",
+        "description": "404 when another provider is active or protectedPayments is off.",
+        "operationId": "failFakePayment",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentWebhookReceipt"
                 }
               }
             }
@@ -2861,6 +3239,106 @@
         }
       }
     },
+    "/api/v1/webhooks/payments/{provider}": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "summary": "Payment provider webhook",
+        "description": "Called by the active provider only (fake: X-Fake-Signature; stripe: Stripe-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider's event id: a retry answers duplicate=true) and processed after the 200. 404 for another provider or while protectedPayments is off for everybody (FEATURE_DISABLED); 413 above 256 KB.",
+        "operationId": "receivePaymentWebhook",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "fake or stripe",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Fake-Signature",
+            "in": "header",
+            "description": "Signature of the fake provider (t=<unix seconds>,v1=<hex HMAC-SHA256>)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "description": "Signature of Stripe (t=<unix seconds>,v1=<hex HMAC-SHA256>)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "*/*": {
+              "schema": {
+                "type": "string",
+                "format": "byte"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentWebhookReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "WEBHOOK_SIGNATURE_INVALID, VALIDATION_FAILED (unreadable body)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND (provider), FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/users/{id}/block": {
       "post": {
         "tags": [
@@ -3163,6 +3641,241 @@
         }
       }
     },
+    "/api/v1/trades/{id}/ship": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Confirm the shipment (seller)",
+        "description": "PAID protected trades → SHIPPED; optional carrier, tracking number and notes for the buyer. The dispute window (payments.dispute_window_days) starts: payment.disputeWindowEndsAt. The buyer gets SHIPMENT_STATUS. 403 for the buyer, 409 INVALID_STATE_TRANSITION otherwise.",
+        "operationId": "shipTrade",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipTradeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The trade",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND, FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trades/{id}/pay": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Start the protected checkout (buyer)",
+        "description": "AWAITING_PAYMENT protected trades; the seller's payout account must be ACTIVE (409 SELLER_NOT_ONBOARDED). Creates the payment through the provider and answers where to pay: checkoutUrl (fake provider: the web path /checkout/fake/<ref>) or clientSecret (Stripe). Repeating the call answers the open checkout; a failed or cancelled one is restarted. The provider's payment.secured webhook moves the trade to PAID. 403 for the seller, 409 INVALID_STATE_TRANSITION otherwise, 404 FEATURE_DISABLED while the flag is off.",
+        "operationId": "payTrade",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The checkout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectedPayment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND, FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION, SELLER_NOT_ONBOARDED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE (provider unreachable)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trades/{id}/meetup": {
       "post": {
         "tags": [
@@ -3189,6 +3902,232 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trades/{id}/disputes": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Open a dispute (buyer)",
+        "description": "PAID or SHIPPED protected trades within the dispute window (409 DISPUTE_WINDOW_CLOSED afterwards, extension disputeWindowEndsAt); one dispute per trade. The payout is frozen, the trade becomes DISPUTED and the seller gets DISPUTE_UPDATE. 403 for the seller.",
+        "operationId": "openTradeDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenDisputeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dispute"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND, FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION, DISPUTE_WINDOW_CLOSED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trades/{id}/confirm-receipt": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Confirm the card arrived (buyer)",
+        "description": "SHIPPED protected trades: RECEIVED, the payout is released to the seller (payment PAID_OUT) and the trade COMPLETED (inventory transfer, both parties may rate each other). 403 for the seller, 409 INVALID_STATE_TRANSITION otherwise (a dispute holds the payout).",
+        "operationId": "confirmTradeReceipt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The completed trade",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND, FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -3738,6 +4677,107 @@
           },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/fake/{ref}/confirm": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Pay a fake-provider checkout (buyer, local only)",
+        "description": "Emits a signed synthetic payment.secured (outcome SUCCEEDED, the default) or payment.failed (FAILED) webhook through the regular webhook pipeline; the trade moves to PAID asynchronously (poll GET /trades/{id}). 409 unless the checkout is REQUIRES_ACTION; 404 when another provider is active.",
+        "operationId": "confirmFakeCheckout",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FakeCheckoutConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The synthetic webhook was received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentWebhookReceipt"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT (checkout not awaiting payment)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4586,6 +5626,107 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReadAllNotificationsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/seller-account/onboarding": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Start or resume the payout onboarding",
+        "description": "Returns where to continue: the provider-hosted onboarding (Stripe Connect Express) or, with the fake provider, the return path at once (the account is ACTIVE immediately). returnUrl must be a web path (default /settings/payouts). No bank details ever reach OrenjiTrade.",
+        "operationId": "startSellerOnboarding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellerOnboardingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Where to continue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerOnboarding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (returnUrl)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -5809,6 +6950,269 @@
           },
           "400": {
             "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/disputes/{id}/messages": {
+      "post": {
+        "tags": [
+          "disputes"
+        ],
+        "summary": "Post in the dispute thread",
+        "description": "The two parties (not while FROZEN) and admins, until the dispute is resolved (409 INVALID_STATE_TRANSITION). The other side gets DISPUTE_UPDATE.",
+        "operationId": "postDisputeMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeMessage"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/disputes/{id}/evidence": {
+      "post": {
+        "tags": [
+          "disputes"
+        ],
+        "summary": "Add TEXT or TRACKING evidence (a party)",
+        "description": "While OPEN or UNDER_REVIEW (409 INVALID_STATE_TRANSITION while FROZEN or resolved); at most 10 per party (409 EVIDENCE_LIMIT_REACHED, extension limit). TEXT needs body; TRACKING needs body (tracking number, carrier) and may carry an https url. IMAGE and DOCUMENT use the multipart form of this route; VIDEO is reserved (400). Admins add notes instead (403).",
+        "operationId": "addDisputeEvidence",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "description": "IMAGE or DOCUMENT",
+                    "enum": [
+                      "IMAGE",
+                      "DOCUMENT"
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "description": "Optional caption (≤ 2000)"
+                  }
+                },
+                "required": [
+                  "file",
+                  "kind"
+                ]
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeEvidenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeEvidence"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION, EVIDENCE_LIMIT_REACHED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8596,6 +10000,119 @@
         }
       }
     },
+    "/api/v1/admin/payments/{id}/refund": {
+      "post": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Refund a payment (SUPER_ADMIN, or ADMIN under the refund policy)",
+        "description": "Refunds amount (at most what is still refundable) through the provider. 403 unless SUPER_ADMIN, or ADMIN while payments.admin_refunds_enabled; 409 for payments not secured or already refunded, or with an open dispute (resolve it instead). A full refund cancels an unfinished trade. Audited (payment.refund).",
+        "operationId": "refundAdminPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundPaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPaymentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/notifications/broadcast": {
       "post": {
         "tags": [
@@ -9280,6 +10797,417 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputes/{id}/unfreeze": {
+      "post": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Lift the hold of a dispute (ADMIN)",
+        "description": "FROZEN → UNDER_REVIEW (the payout stays frozen until the resolution). Audited (dispute.unfreeze).",
+        "operationId": "unfreezeDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDispute"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputes/{id}/resolve": {
+      "post": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Resolve a dispute (ADMIN)",
+        "description": "BUYER: the whole refundable amount goes back to the buyer through the provider, the trade is CANCELLED. SELLER: the payout is released, the trade COMPLETED. SPLIT: refundAmount (more than 0, less than the refundable amount) is refunded, the rest paid out minus the fee on it, the trade COMPLETED. The note is shown to both parties. Audited (dispute.resolve). 409 when already resolved or the payment is no longer held.",
+        "operationId": "resolveDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveDisputeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The resolved dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDispute"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (refundAmount, note)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION, CONFLICT",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputes/{id}/notes": {
+      "post": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Add an internal note (ADMIN)",
+        "description": "Never shown to the parties; the first note moves an OPEN dispute to UNDER_REVIEW. Audited (dispute.note, without the text).",
+        "operationId": "addDisputeNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDispute"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputes/{id}/freeze": {
+      "post": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Hold a dispute (ADMIN)",
+        "description": "OPEN or UNDER_REVIEW → FROZEN: the payout stays frozen and the parties can no longer add evidence or messages; an optional reason becomes an internal note. Audited (dispute.freeze). 409 INVALID_STATE_TRANSITION otherwise.",
+        "operationId": "freezeDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeDisputeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDispute"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_STATE_TRANSITION",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -11462,7 +13390,7 @@
           "trades"
         ],
         "summary": "One trade with its timeline and next action",
-        "description": "Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs (the last three are Phase 9), NONE otherwise. payment and dispute are null until Phase 9.",
+        "description": "Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs, NONE otherwise (DISPUTED: an admin decides). payment, shipment and dispute describe payment protection (Phase 9); allowedOperations adds PAY, SHIP, CONFIRM_RECEIPT and OPEN_DISPUTE for protected trades.",
         "operationId": "getTrade",
         "parameters": [
           {
@@ -12951,6 +14879,98 @@
         "security": []
       }
     },
+    "/api/v1/payments/fake/{ref}": {
+      "get": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "A fake-provider checkout (buyer, local only)",
+        "description": "What /checkout/fake/<ref> shows: amount, currency, terms and status. The buyer only; 404 when another provider is active.",
+        "operationId": "getFakeCheckout",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The checkout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FakeCheckout"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND, FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/offers/{id}": {
       "get": {
         "tags": [
@@ -13289,6 +15309,88 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/seller-account": {
+      "get": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "The caller's payout account",
+        "description": "NOT_STARTED without an account; ready = ACTIVE with payouts enabled (buyers can pay protected trades). 404 FEATURE_DISABLED while protectedPayments is off for the caller.",
+        "operationId": "getSellerAccount",
+        "responses": {
+          "200": {
+            "description": "The account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerAccount"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -14087,6 +16189,208 @@
           }
         },
         "security": []
+      }
+    },
+    "/api/v1/disputes/{id}": {
+      "get": {
+        "tags": [
+          "disputes"
+        ],
+        "summary": "A dispute with its timeline, evidence and thread",
+        "description": "The two parties and admins (404 for anybody else). Admin messages appear as OrenjiTrade support; internal notes are never included.",
+        "operationId": "getDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dispute"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND, FEATURE_DISABLED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/disputes/{id}/evidence/{evidenceId}/file": {
+      "get": {
+        "tags": [
+          "disputes"
+        ],
+        "summary": "The file of IMAGE or DOCUMENT evidence",
+        "description": "The two parties and admins (404 otherwise); never cached by shared caches.",
+        "operationId": "getDisputeEvidenceFile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "evidenceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/community/channels": {
@@ -16106,6 +18410,316 @@
         }
       }
     },
+    "/api/v1/admin/transactions": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Trades with a protected payment (ADMIN)",
+        "description": "Most recent activity first; status filters the payment status.",
+        "operationId": "listAdminTransactions",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Payment status filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUIRES_ACTION",
+                "SECURED",
+                "PAYOUT_PENDING",
+                "PAID_OUT",
+                "REFUNDED",
+                "PARTIALLY_REFUNDED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminTransaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/transactions/pending-shipment": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Paid trades waiting for the seller's shipment (ADMIN)",
+        "description": "Secured payments without a shipment or dispute, oldest payment first.",
+        "operationId": "listPendingShipmentTransactions",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminTransaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/transactions/pending-confirmation": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Shipped trades waiting for the buyer's confirmation (ADMIN)",
+        "description": "Secured payments of shipped trades without a dispute, the dispute window ending first (the auto-release job releases them after it).",
+        "operationId": "listPendingConfirmationTransactions",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminTransaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/system/health": {
       "get": {
         "tags": [
@@ -16564,6 +19178,429 @@
                   "items": {
                     "$ref": "#/components/schemas/AdminPlan"
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/payments": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "Protected payments (ADMIN)",
+        "description": "Most recent activity first; status filters.",
+        "operationId": "listAdminPayments",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Status filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUIRES_ACTION",
+                "SECURED",
+                "PAYOUT_PENDING",
+                "PAID_OUT",
+                "REFUNDED",
+                "PARTIALLY_REFUNDED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminTransaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/payments/{id}": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "A payment with its history (ADMIN)",
+        "description": "Payment events, refunds and linked webhooks; refundAllowed tells whether the caller may refund it now.",
+        "operationId": "getAdminPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPaymentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/payments/webhooks": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "The provider webhook browser (ADMIN)",
+        "description": "Every stored webhook, newest first (without payloads); status and provider filter.",
+        "operationId": "listPaymentWebhooks",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Status filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RECEIVED",
+                "PROCESSED",
+                "IGNORED",
+                "FAILED"
+              ]
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "fake or stripe",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{1,31}$"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponsePaymentWebhookEvent"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/payments/webhooks/{id}": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "One stored webhook with its payload (ADMIN)",
+        "operationId": "getPaymentWebhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentWebhookEvent"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -17164,6 +20201,214 @@
         }
       }
     },
+    "/api/v1/admin/disputes": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "The dispute queue (ADMIN)",
+        "description": "Newest first; status filters.",
+        "operationId": "listAdminDisputes",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Status filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "UNDER_REVIEW",
+                "FROZEN",
+                "RESOLVED_BUYER",
+                "RESOLVED_SELLER",
+                "RESOLVED_SPLIT",
+                "CLOSED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminDisputeSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/disputes/{id}": {
+      "get": {
+        "tags": [
+          "admin-payments"
+        ],
+        "summary": "A dispute with its full history (ADMIN)",
+        "description": "The member view plus internal notes, the trade timeline, payment events, refunds, webhooks, both parties' moderation histories (reports, ratings, suspensions) and rating summaries.",
+        "operationId": "getAdminDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDispute"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/delist-policies": {
       "get": {
         "tags": [
@@ -17245,7 +20490,7 @@
           "admin-console"
         ],
         "summary": "Dashboard counters (ADMIN)",
-        "description": "Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes and webhook failures (0 until Phase 9) and notifications whose push or email failed in the last 24 hours.",
+        "description": "Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes (OPEN, UNDER_REVIEW, FROZEN), payment webhooks that failed or had an invalid signature and notifications whose push or email failed in the last 24 hours.",
         "operationId": "getAdminDashboard",
         "responses": {
           "200": {
@@ -19868,6 +23113,83 @@
           }
         }
       },
+      "UpdatePaymentSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "disputeWindowDays": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 60,
+            "minimum": 1
+          },
+          "platformFeePercent": {
+            "type": "number",
+            "example": 5.0,
+            "maximum": 30.0,
+            "minimum": 0.0
+          },
+          "autoReleaseEnabled": {
+            "type": "boolean"
+          },
+          "releaseReminderHours": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 168,
+            "minimum": 1
+          },
+          "adminRefundsEnabled": {
+            "type": "boolean",
+            "description": "ADMIN (not only SUPER_ADMIN) may issue refunds"
+          }
+        }
+      },
+      "PaymentSettings": {
+        "type": "object",
+        "description": "Configurable payment rules (ADR 0014)",
+        "properties": {
+          "disputeWindowDays": {
+            "type": "integer",
+            "format": "int32",
+            "example": 7
+          },
+          "platformFeePercent": {
+            "type": "number",
+            "example": 5.0
+          },
+          "autoReleaseEnabled": {
+            "type": "boolean"
+          },
+          "releaseReminderHours": {
+            "type": "integer",
+            "format": "int32",
+            "example": 48
+          },
+          "adminRefundsEnabled": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "adminRefundsEnabled",
+          "autoReleaseEnabled",
+          "disputeWindowDays",
+          "platformFeePercent",
+          "releaseReminderHours"
+        ]
+      },
       "UpdateModerationRuleRequest": {
         "type": "object",
         "properties": {
@@ -20522,6 +23844,30 @@
           "ok"
         ]
       },
+      "PaymentsAutoReleaseJobResult": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "payments.auto_release_enabled"
+          },
+          "reminded": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Buyers reminded"
+          },
+          "released": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Payouts released"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Releases that failed (retried next run)"
+          }
+        }
+      },
       "OfferExpiryJobResponse": {
         "type": "object",
         "properties": {
@@ -20643,6 +23989,36 @@
           "failed",
           "processed",
           "skipped"
+        ]
+      },
+      "PaymentWebhookReceipt": {
+        "type": "object",
+        "description": "A received provider webhook",
+        "properties": {
+          "received": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "description": "The provider already sent this event (no new change)"
+          },
+          "webhookEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Stored event (null for a duplicate)"
+          },
+          "type": {
+            "type": "string",
+            "example": "payment.secured"
+          }
+        },
+        "required": [
+          "duplicate",
+          "received",
+          "type"
         ]
       },
       "CreateWishlistItemRequest": {
@@ -20933,6 +24309,29 @@
           "width"
         ]
       },
+      "ShipTradeRequest": {
+        "type": "object",
+        "properties": {
+          "carrier": {
+            "type": "string",
+            "example": "Postal service",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "trackingNumber": {
+            "type": "string",
+            "example": "LOCAL-000123",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "notes": {
+            "type": "string",
+            "description": "Shown to the buyer",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        }
+      },
       "CollectorRating": {
         "type": "object",
         "properties": {
@@ -20962,14 +24361,30 @@
             "format": "uuid"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "description": "OPEN, UNDER_REVIEW, FROZEN, RESOLVED_BUYER, RESOLVED_SELLER, RESOLVED_SPLIT, CLOSED"
           },
           "reason": {
-            "type": "string"
+            "type": "string",
+            "description": "NOT_RECEIVED, NOT_AS_DESCRIBED, COUNTERFEIT, DAMAGED, OTHER"
           },
           "openedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "refundAmount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Refunded to the buyer by the resolution"
           }
         },
         "required": [
@@ -21469,15 +24884,77 @@
             "format": "uuid"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "description": "REQUIRES_ACTION, SECURED, PAYOUT_PENDING, PAID_OUT, REFUNDED, PARTIALLY_REFUNDED, FAILED, CANCELLED"
           },
           "amount": {
-            "type": "number"
+            "type": "number",
+            "example": 40.0
           },
           "currency": {
-            "type": "string"
+            "type": "string",
+            "example": "CAD"
           },
           "securedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "provider": {
+            "type": "string",
+            "description": "fake or stripe"
+          },
+          "platformFee": {
+            "type": "number",
+            "description": "Fee kept by the platform",
+            "example": 2.0
+          },
+          "sellerAmount": {
+            "type": "number",
+            "description": "What the seller receives with a full payout",
+            "example": 38.0
+          },
+          "refundedAmount": {
+            "type": "number",
+            "description": "Refunded to the buyer so far",
+            "example": 0.0
+          },
+          "payoutAmount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Released to the seller"
+          },
+          "payoutFrozen": {
+            "type": "boolean",
+            "description": "An open dispute holds the payout"
+          },
+          "checkoutUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Buyer only, while REQUIRES_ACTION: where to complete the payment (relative /checkout/fake/<ref> with the fake provider)"
+          },
+          "disputeWindowEndsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "End of the dispute window (shipment + the configured days); afterwards the payout is released automatically"
+          },
+          "payoutReleasedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "refundedAt": {
             "type": [
               "string",
               "null"
@@ -21614,6 +25091,46 @@
           "publicLabel"
         ]
       },
+      "ShipmentSummary": {
+        "type": "object",
+        "description": "Shipping confirmation of a protected trade",
+        "properties": {
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sellerNotes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The seller's notes for the buyer"
+          },
+          "shippedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When receipt was confirmed"
+          }
+        },
+        "required": [
+          "shippedAt"
+        ]
+      },
       "TradeEvent": {
         "type": "object",
         "description": "Entry of a trade's timeline",
@@ -21624,7 +25141,7 @@
           },
           "event": {
             "type": "string",
-            "description": "CREATED, MEETUP_PROPOSED, MEETUP_AGREED, PROTECTION_REMOVED, COMPLETION_CONFIRMED, COMPLETED, CANCELLED (Phase 9 adds payment, shipping and dispute events)"
+            "description": "CREATED, MEETUP_PROPOSED, MEETUP_AGREED, PROTECTION_REMOVED, COMPLETION_CONFIRMED, COMPLETED, CANCELLED; Phase 9: PAYMENT_STARTED, PAYMENT_FAILED, PAYMENT_CANCELLED, PAYMENT_SECURED, SHIPPED, RECEIPT_CONFIRMED, PAYOUT_RELEASED, DISPUTE_OPENED, DISPUTE_RESOLVED, REFUNDED"
           },
           "actorRole": {
             "type": [
@@ -21778,7 +25295,11 @@
               "enum": [
                 "MARK_MEETUP",
                 "CONFIRM_COMPLETION",
-                "CANCEL"
+                "CANCEL",
+                "PAY",
+                "SHIP",
+                "CONFIRM_RECEIPT",
+                "OPEN_DISPUTE"
               ]
             }
           },
@@ -21792,12 +25313,12 @@
           "payment": {
             "type": "null",
             "$ref": "#/components/schemas/PaymentSummary",
-            "description": "Payment protection (Phase 9); null for now"
+            "description": "Protected payment (Phase 9); null until the buyer starts the checkout"
           },
           "dispute": {
             "type": "null",
             "$ref": "#/components/schemas/DisputeSummary",
-            "description": "Dispute (Phase 9); null for now"
+            "description": "Dispute (Phase 9); null unless the buyer opened one"
           },
           "cancelReason": {
             "type": [
@@ -21826,6 +25347,11 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "shipment": {
+            "type": "null",
+            "$ref": "#/components/schemas/ShipmentSummary",
+            "description": "The seller's shipping confirmation (Phase 9); null until shipped"
           }
         },
         "required": [
@@ -21844,6 +25370,463 @@
           "timeline",
           "updatedAt",
           "viewerRole"
+        ]
+      },
+      "ProtectedPayment": {
+        "type": "object",
+        "description": "A started protected checkout",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tradeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "fake"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUIRES_ACTION",
+              "SECURED",
+              "PAYOUT_PENDING",
+              "PAID_OUT",
+              "REFUNDED",
+              "PARTIALLY_REFUNDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "example": 40.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "platformFee": {
+            "type": "number",
+            "example": 2.0
+          },
+          "sellerAmount": {
+            "type": "number",
+            "example": 38.0
+          },
+          "checkoutUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where the buyer completes the payment (fake provider: the web path /checkout/fake/<ref>)"
+          },
+          "clientSecret": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Client secret for an embedded payment form (Stripe); returned once, never stored"
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "paymentId",
+          "platformFee",
+          "provider",
+          "sellerAmount",
+          "status",
+          "tradeId"
+        ]
+      },
+      "OpenDisputeRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "NOT_RECEIVED",
+              "NOT_AS_DESCRIBED",
+              "COUNTERFEIT",
+              "DAMAGED",
+              "OTHER"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "description",
+          "reason"
+        ]
+      },
+      "Dispute": {
+        "type": "object",
+        "description": "A dispute as its parties and admins see it",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tradeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UNDER_REVIEW",
+              "FROZEN",
+              "RESOLVED_BUYER",
+              "RESOLVED_SELLER",
+              "RESOLVED_SPLIT",
+              "CLOSED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "NOT_RECEIVED",
+              "NOT_AS_DESCRIBED",
+              "COUNTERFEIT",
+              "DAMAGED",
+              "OTHER"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "The buyer's description"
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "resolutionNote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Admin note shown with the decision"
+          },
+          "refundAmount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "viewerRole": {
+            "type": "string",
+            "description": "BUYER, SELLER or ADMIN"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/DisputeParty"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/DisputeParty"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/DisputePayment"
+          },
+          "shipment": {
+            "type": "null",
+            "$ref": "#/components/schemas/ShipmentSummary"
+          },
+          "summary": {
+            "type": "string",
+            "example": "40.00 CAD for Azure-Eyes Sky Dragon"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DisputeEvidence"
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "description": "Oldest first",
+            "items": {
+              "$ref": "#/components/schemas/DisputeEvent"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "description": "Oldest first",
+            "items": {
+              "$ref": "#/components/schemas/DisputeMessage"
+            }
+          },
+          "canAddEvidence": {
+            "type": "boolean"
+          },
+          "canPostMessage": {
+            "type": "boolean"
+          },
+          "evidenceLeft": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Evidence items the caller may still add (max 10)"
+          }
+        },
+        "required": [
+          "buyer",
+          "canAddEvidence",
+          "canPostMessage",
+          "description",
+          "evidence",
+          "evidenceLeft",
+          "id",
+          "messages",
+          "openedAt",
+          "payment",
+          "reason",
+          "seller",
+          "status",
+          "summary",
+          "timeline",
+          "tradeId",
+          "updatedAt",
+          "viewerRole"
+        ]
+      },
+      "DisputeEvent": {
+        "type": "object",
+        "description": "Entry of a dispute's timeline",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event": {
+            "type": "string",
+            "description": "OPENED, EVIDENCE_ADDED, MESSAGE_POSTED, NOTE_ADDED, UNDER_REVIEW, FROZEN, UNFROZEN, RESOLVED"
+          },
+          "actorRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "BUYER, SELLER, ADMIN or null (platform)"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt",
+          "details",
+          "event",
+          "id"
+        ]
+      },
+      "DisputeEvidence": {
+        "type": "object",
+        "description": "Evidence of a party",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "DOCUMENT",
+              "TRACKING",
+              "VIDEO"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "description": "BUYER or SELLER"
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Text, caption or tracking details"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "TRACKING: https link"
+          },
+          "fileUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IMAGE / DOCUMENT: API path of the file (parties and admins, bearer token required)"
+          },
+          "contentType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "image/jpeg"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "kind",
+          "role"
+        ]
+      },
+      "DisputeMessage": {
+        "type": "object",
+        "description": "Message of a dispute thread",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorRole": {
+            "type": "string",
+            "description": "BUYER, SELLER or ADMIN"
+          },
+          "authorName": {
+            "type": "string",
+            "description": "Display name (admins: OrenjiTrade support)"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "authorName",
+          "authorRole",
+          "body",
+          "createdAt",
+          "id"
+        ]
+      },
+      "DisputeParty": {
+        "type": "object",
+        "description": "A party of a dispute (no location)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "displayName",
+          "handle",
+          "id"
+        ]
+      },
+      "DisputePayment": {
+        "type": "object",
+        "description": "The protected payment a dispute holds",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUIRES_ACTION",
+              "SECURED",
+              "PAYOUT_PENDING",
+              "PAID_OUT",
+              "REFUNDED",
+              "PARTIALLY_REFUNDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "example": 40.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "refundedAmount": {
+            "type": "number",
+            "example": 0.0
+          },
+          "payoutAmount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "payoutFrozen": {
+            "type": "boolean"
+          },
+          "disputeWindowEndsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "id",
+          "payoutFrozen",
+          "refundedAmount",
+          "status"
         ]
       },
       "CancelTradeRequest": {
@@ -22063,6 +26046,19 @@
           "overall"
         ]
       },
+      "FakeCheckoutConfirmRequest": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "description": "SUCCEEDED (default) or FAILED",
+            "enum": [
+              "SUCCEEDED",
+              "FAILED"
+            ]
+          }
+        }
+      },
       "CreateOfferRequest": {
         "type": "object",
         "properties": {
@@ -22249,6 +26245,7 @@
               "TRADE_UPDATE",
               "SHIPMENT_STATUS",
               "PAYMENT_UPDATE",
+              "DISPUTE_UPDATE",
               "REPORT_DECISION",
               "SYSTEM"
             ]
@@ -22300,6 +26297,74 @@
         },
         "required": [
           "updated"
+        ]
+      },
+      "SellerOnboardingRequest": {
+        "type": "object",
+        "properties": {
+          "returnUrl": {
+            "type": "string",
+            "description": "Web path the provider returns to (default /settings/payouts)",
+            "example": "/settings/payouts",
+            "maxLength": 300,
+            "minLength": 0
+          }
+        }
+      },
+      "SellerAccount": {
+        "type": "object",
+        "description": "The caller's payout account",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "example": "fake"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_STARTED",
+              "PENDING",
+              "ACTIVE",
+              "RESTRICTED"
+            ]
+          },
+          "payoutsEnabled": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean",
+            "description": "ACTIVE with payouts enabled: buyers can pay"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "payoutsEnabled",
+          "provider",
+          "ready",
+          "status"
+        ]
+      },
+      "SellerOnboarding": {
+        "type": "object",
+        "description": "Where the seller continues the onboarding",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Provider-hosted page, or the return path once the account is active (fake provider)"
+          },
+          "account": {
+            "$ref": "#/components/schemas/SellerAccount"
+          }
+        },
+        "required": [
+          "account",
+          "url"
         ]
       },
       "PushTokenRequest": {
@@ -22840,6 +26905,50 @@
         "required": [
           "itemId",
           "reason"
+        ]
+      },
+      "DisputeMessageRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "DisputeEvidenceRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "TEXT or TRACKING here; IMAGE and DOCUMENT use the multipart form; VIDEO is reserved (400)",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "DOCUMENT",
+              "TRACKING",
+              "VIDEO"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "description": "Text, or tracking number and carrier",
+            "maxLength": 2000,
+            "minLength": 0
+          },
+          "url": {
+            "type": "string",
+            "description": "TRACKING only: https link",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "kind"
         ]
       },
       "StartConversationRequest": {
@@ -23939,6 +28048,439 @@
           "rating"
         ]
       },
+      "RefundPaymentRequest": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 10.0,
+            "minimum": 0.01
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "amount",
+          "reason"
+        ]
+      },
+      "AdminPaymentDetail": {
+        "type": "object",
+        "description": "A payment with its full history",
+        "properties": {
+          "transaction": {
+            "$ref": "#/components/schemas/AdminTransaction"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentEvent"
+            }
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentRefund"
+            }
+          },
+          "webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentWebhookEvent"
+            }
+          },
+          "refundAllowed": {
+            "type": "boolean",
+            "description": "Whether the caller may refund it now"
+          }
+        },
+        "required": [
+          "events",
+          "refundAllowed",
+          "refunds",
+          "transaction",
+          "webhooks"
+        ]
+      },
+      "AdminPaymentParty": {
+        "type": "object",
+        "description": "A party (admin views)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "displayName",
+          "handle",
+          "id"
+        ]
+      },
+      "AdminTransaction": {
+        "type": "object",
+        "description": "A trade with its protected payment",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tradeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tradeStatus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "AGREED",
+              "AWAITING_PAYMENT",
+              "PAID",
+              "SHIPPED",
+              "RECEIVED",
+              "COMPLETED",
+              "CANCELLED",
+              "DISPUTED"
+            ]
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "REQUIRES_ACTION",
+              "SECURED",
+              "PAYOUT_PENDING",
+              "PAID_OUT",
+              "REFUNDED",
+              "PARTIALLY_REFUNDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "example": "fake"
+          },
+          "amount": {
+            "type": "number",
+            "example": 40.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "feePercent": {
+            "type": "number",
+            "example": 5.0
+          },
+          "platformFee": {
+            "type": "number",
+            "example": 2.0
+          },
+          "sellerAmount": {
+            "type": "number",
+            "example": 38.0
+          },
+          "refundedAmount": {
+            "type": "number",
+            "example": 0.0
+          },
+          "payoutAmount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "payoutFrozen": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/AdminPaymentParty"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/AdminPaymentParty"
+          },
+          "securedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "shippedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deliveredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "disputeWindowEndsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "payoutReleasedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "disputeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "disputeStatus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "OPEN",
+              "UNDER_REVIEW",
+              "FROZEN",
+              "RESOLVED_BUYER",
+              "RESOLVED_SELLER",
+              "RESOLVED_SPLIT",
+              "CLOSED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "amount",
+          "buyer",
+          "createdAt",
+          "currency",
+          "feePercent",
+          "paymentId",
+          "paymentStatus",
+          "payoutFrozen",
+          "platformFee",
+          "provider",
+          "refundedAmount",
+          "seller",
+          "sellerAmount",
+          "summary",
+          "tradeId",
+          "updatedAt"
+        ]
+      },
+      "PaymentEvent": {
+        "type": "object",
+        "description": "Entry of a payment's history",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event": {
+            "type": "string",
+            "example": "SECURED"
+          },
+          "providerEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt",
+          "details",
+          "event",
+          "id"
+        ]
+      },
+      "PaymentRefund": {
+        "type": "object",
+        "description": "A refund to the buyer",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "example": 10.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "ADMIN, DISPUTE or SYSTEM"
+          },
+          "status": {
+            "type": "string",
+            "description": "PENDING, SUCCEEDED or FAILED"
+          },
+          "requestedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "amount",
+          "createdAt",
+          "currency",
+          "id",
+          "reason",
+          "source",
+          "status"
+        ]
+      },
+      "PaymentWebhookEvent": {
+        "type": "object",
+        "description": "A stored provider webhook",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "fake"
+          },
+          "providerEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when the signature was invalid"
+          },
+          "type": {
+            "type": "string",
+            "example": "payment.secured"
+          },
+          "signatureValid": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "PROCESSED",
+              "IGNORED",
+              "FAILED"
+            ]
+          },
+          "paymentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "UNKNOWN_PAYMENT"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "payload": {
+            "type": "string",
+            "description": "The event as received (detail only)"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "receivedAt",
+          "signatureValid",
+          "status",
+          "type"
+        ]
+      },
       "BroadcastRequest": {
         "type": "object",
         "properties": {
@@ -24334,6 +28876,509 @@
         "required": [
           "reason"
         ]
+      },
+      "AdminDispute": {
+        "type": "object",
+        "description": "A dispute with its full history (admin)",
+        "properties": {
+          "dispute": {
+            "$ref": "#/components/schemas/Dispute"
+          },
+          "internalNotes": {
+            "type": "array",
+            "description": "Internal admin notes (never shown to the parties)",
+            "items": {
+              "$ref": "#/components/schemas/DisputeNote"
+            }
+          },
+          "tradeTimeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TradeEvent"
+            }
+          },
+          "paymentEvents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentEvent"
+            }
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentRefund"
+            }
+          },
+          "webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentWebhookEvent"
+            }
+          },
+          "buyerHistory": {
+            "$ref": "#/components/schemas/ModerationHistory"
+          },
+          "sellerHistory": {
+            "$ref": "#/components/schemas/ModerationHistory"
+          },
+          "buyerRatings": {
+            "$ref": "#/components/schemas/DisputePartyRatings"
+          },
+          "sellerRatings": {
+            "$ref": "#/components/schemas/DisputePartyRatings"
+          }
+        },
+        "required": [
+          "buyerHistory",
+          "buyerRatings",
+          "dispute",
+          "internalNotes",
+          "paymentEvents",
+          "refunds",
+          "sellerHistory",
+          "sellerRatings",
+          "tradeTimeline",
+          "webhooks"
+        ]
+      },
+      "AuditActor": {
+        "type": "object",
+        "description": "Actor of an audit-log entry",
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Acting account id; absent for SYSTEM actions"
+          },
+          "handle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Handle of the acting account when it still exists"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN",
+              "SYSTEM"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "description": "Audit-log entry",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditActor"
+          },
+          "action": {
+            "type": "string",
+            "example": "user.suspend"
+          },
+          "targetType": {
+            "type": "string",
+            "example": "USER"
+          },
+          "targetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Structured details; never contains coordinates"
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "actor",
+          "details",
+          "id",
+          "occurredAt",
+          "targetType"
+        ]
+      },
+      "DisputeNote": {
+        "type": "object",
+        "description": "Internal admin note (never shown to parties)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "body",
+          "createdAt",
+          "id"
+        ]
+      },
+      "DisputePartyRatings": {
+        "type": "object",
+        "description": "Rating summary of a party",
+        "properties": {
+          "average": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "HistoryFlag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "BANNED_TERM",
+              "RATE_THRESHOLD",
+              "REPEATED_CONTENT",
+              "REPORT_THRESHOLD"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "reason"
+        ]
+      },
+      "HistoryListingStatus": {
+        "type": "object",
+        "properties": {
+          "paused": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "UNRESPONSIVE",
+              "REPORT_THRESHOLD",
+              "MODERATION",
+              "ADMIN"
+            ]
+          },
+          "pausedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "strikes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "paused",
+          "strikes"
+        ]
+      },
+      "HistoryRating": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "raterHandle": {
+            "type": "string"
+          },
+          "overall": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "moderationState": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "HIDDEN"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "moderationState",
+          "overall",
+          "raterHandle"
+        ]
+      },
+      "HistoryRemovedContent": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "POST",
+              "REPLY"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channelSlug": {
+            "type": "string"
+          },
+          "removedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "channelSlug",
+          "id",
+          "kind"
+        ]
+      },
+      "HistoryReport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "SCAM",
+              "COUNTERFEIT",
+              "HARASSMENT",
+              "SPAM",
+              "INAPPROPRIATE_BEHAVIOR",
+              "MISLEADING_LISTINGS",
+              "OTHER"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UNDER_REVIEW",
+              "ACTIONED",
+              "DISMISSED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resolutionAction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "NONE",
+              "WARNING",
+              "LISTINGS_PAUSED",
+              "SUSPENDED",
+              "BANNED"
+            ]
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "reason",
+          "status"
+        ]
+      },
+      "ModerationHistory": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "openReports": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recentReports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryReport"
+            }
+          },
+          "recentRatings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryRating"
+            }
+          },
+          "recentPostsRemoved": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryRemovedContent"
+            }
+          },
+          "suspensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEntry"
+            }
+          },
+          "listingsPaused": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEntry"
+            }
+          },
+          "listingStatus": {
+            "$ref": "#/components/schemas/HistoryListingStatus"
+          },
+          "openFlags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryFlag"
+            }
+          }
+        },
+        "required": [
+          "listingStatus",
+          "listingsPaused",
+          "openFlags",
+          "openReports",
+          "recentPostsRemoved",
+          "recentRatings",
+          "recentReports",
+          "suspensions",
+          "userId"
+        ]
+      },
+      "ResolveDisputeRequest": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "BUYER",
+              "SELLER",
+              "SPLIT"
+            ]
+          },
+          "refundAmount": {
+            "type": "number",
+            "description": "SPLIT: refunded to the buyer (more than 0, less than the refundable amount); BUYER: empty or the whole refundable amount; SELLER: empty or 0",
+            "example": 10.0,
+            "minimum": 0.0
+          },
+          "note": {
+            "type": "string",
+            "description": "Shown to both parties with the decision",
+            "maxLength": 1000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "note",
+          "outcome"
+        ]
+      },
+      "DisputeNoteRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "FreezeDisputeRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Kept as an internal note",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        }
       },
       "RemoveContentRequest": {
         "type": "object",
@@ -26088,6 +31133,57 @@
           }
         }
       },
+      "FakeCheckout": {
+        "type": "object",
+        "description": "A fake-provider checkout (local only)",
+        "properties": {
+          "ref": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tradeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUIRES_ACTION",
+              "SECURED",
+              "PAYOUT_PENDING",
+              "PAID_OUT",
+              "REFUNDED",
+              "PARTIALLY_REFUNDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "example": 40.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "summary": {
+            "type": "string",
+            "example": "40.00 CAD for Azure-Eyes Sky Dragon"
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "paymentId",
+          "ref",
+          "status",
+          "summary",
+          "tradeId"
+        ]
+      },
       "CursorPageOfferSummary": {
         "type": "object",
         "description": "Cursor-paginated list",
@@ -27649,88 +32745,6 @@
           "updatedAt"
         ]
       },
-      "AuditActor": {
-        "type": "object",
-        "description": "Actor of an audit-log entry",
-        "properties": {
-          "id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid",
-            "description": "Acting account id; absent for SYSTEM actions"
-          },
-          "handle": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Handle of the acting account when it still exists"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "USER",
-              "ADMIN",
-              "SYSTEM"
-            ]
-          }
-        },
-        "required": [
-          "type"
-        ]
-      },
-      "AuditLogEntry": {
-        "type": "object",
-        "description": "Audit-log entry",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "occurredAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "actor": {
-            "$ref": "#/components/schemas/AuditActor"
-          },
-          "action": {
-            "type": "string",
-            "example": "user.suspend"
-          },
-          "targetType": {
-            "type": "string",
-            "example": "USER"
-          },
-          "targetId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Structured details; never contains coordinates"
-          },
-          "requestId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "action",
-          "actor",
-          "details",
-          "id",
-          "occurredAt",
-          "targetType"
-        ]
-      },
       "ConsentSummary": {
         "type": "object",
         "description": "An accepted legal document version",
@@ -27791,260 +32805,42 @@
           "status"
         ]
       },
-      "HistoryFlag": {
+      "PageResponseAdminTransaction": {
         "type": "object",
+        "description": "Offset-paginated list",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/AdminTransaction"
+            }
           },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "BANNED_TERM",
-              "RATE_THRESHOLD",
-              "REPEATED_CONTENT",
-              "REPORT_THRESHOLD"
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "createdAt",
-          "id",
-          "reason"
-        ]
-      },
-      "HistoryListingStatus": {
-        "type": "object",
-        "properties": {
-          "paused": {
-            "type": "boolean"
-          },
-          "source": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "UNRESPONSIVE",
-              "REPORT_THRESHOLD",
-              "MODERATION",
-              "ADMIN"
-            ]
-          },
-          "pausedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "strikes": {
+          "page": {
             "type": "integer",
-            "format": "int32"
-          }
-        },
-        "required": [
-          "paused",
-          "strikes"
-        ]
-      },
-      "HistoryRating": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
           },
-          "raterHandle": {
-            "type": "string"
-          },
-          "overall": {
+          "size": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
           },
-          "comment": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "moderationState": {
-            "type": "string",
-            "enum": [
-              "OK",
-              "HIDDEN"
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "createdAt",
-          "id",
-          "moderationState",
-          "overall",
-          "raterHandle"
-        ]
-      },
-      "HistoryRemovedContent": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "POST",
-              "REPLY"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "channelSlug": {
-            "type": "string"
-          },
-          "removedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "channelSlug",
-          "id",
-          "kind"
-        ]
-      },
-      "HistoryReport": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "SCAM",
-              "COUNTERFEIT",
-              "HARASSMENT",
-              "SPAM",
-              "INAPPROPRIATE_BEHAVIOR",
-              "MISLEADING_LISTINGS",
-              "OTHER"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "UNDER_REVIEW",
-              "ACTIONED",
-              "DISMISSED"
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "resolutionAction": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "NONE",
-              "WARNING",
-              "LISTINGS_PAUSED",
-              "SUSPENDED",
-              "BANNED"
-            ]
-          }
-        },
-        "required": [
-          "createdAt",
-          "id",
-          "reason",
-          "status"
-        ]
-      },
-      "ModerationHistory": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "openReports": {
+          "totalItems": {
             "type": "integer",
-            "format": "int32"
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
           },
-          "recentReports": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HistoryReport"
-            }
-          },
-          "recentRatings": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HistoryRating"
-            }
-          },
-          "recentPostsRemoved": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HistoryRemovedContent"
-            }
-          },
-          "suspensions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogEntry"
-            }
-          },
-          "listingsPaused": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogEntry"
-            }
-          },
-          "listingStatus": {
-            "$ref": "#/components/schemas/HistoryListingStatus"
-          },
-          "openFlags": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HistoryFlag"
-            }
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
           }
-        },
-        "required": [
-          "listingStatus",
-          "listingsPaused",
-          "openFlags",
-          "openReports",
-          "recentPostsRemoved",
-          "recentRatings",
-          "recentReports",
-          "suspensions",
-          "userId"
-        ]
+        }
       },
       "JobStatus": {
         "type": "object",
@@ -28498,6 +33294,43 @@
           }
         }
       },
+      "PageResponsePaymentWebhookEvent": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/PaymentWebhookEvent"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
       "NotificationStats": {
         "type": "object",
         "properties": {
@@ -28708,6 +33541,122 @@
           "owner",
           "state"
         ]
+      },
+      "AdminDisputeSummary": {
+        "type": "object",
+        "description": "A dispute in the admin queue",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tradeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "UNDER_REVIEW",
+              "FROZEN",
+              "RESOLVED_BUYER",
+              "RESOLVED_SELLER",
+              "RESOLVED_SPLIT",
+              "CLOSED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "NOT_RECEIVED",
+              "NOT_AS_DESCRIBED",
+              "COUNTERFEIT",
+              "DAMAGED",
+              "OTHER"
+            ]
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "amount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buyer": {
+            "type": "null",
+            "$ref": "#/components/schemas/AdminPaymentParty"
+          },
+          "seller": {
+            "type": "null",
+            "$ref": "#/components/schemas/AdminPaymentParty"
+          }
+        },
+        "required": [
+          "id",
+          "openedAt",
+          "paymentId",
+          "reason",
+          "status",
+          "tradeId"
+        ]
+      },
+      "PageResponseAdminDisputeSummary": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/AdminDisputeSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
       },
       "AdminDashboard": {
         "type": "object",
@@ -29044,6 +33993,10 @@
               "INVALID_STATE_TRANSITION",
               "ITEM_UNAVAILABLE",
               "TRADING_BLOCKED",
+              "SELLER_NOT_ONBOARDED",
+              "DISPUTE_WINDOW_CLOSED",
+              "EVIDENCE_LIMIT_REACHED",
+              "WEBHOOK_SIGNATURE_INVALID",
               "CONFLICT",
               "HANDLE_TAKEN",
               "DELETION_BLOCKED",

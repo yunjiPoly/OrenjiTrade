@@ -3,6 +3,7 @@ package com.orenjitrade.api.location;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
+import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpMethod;
@@ -46,6 +48,8 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
 
     /** Seed admin token uid with its real email (so the login does not rewrite the seed email). */
     static final String SEED_ADMIN = "seed-admin:admin@orenjitrade.test";
+
+    @Autowired private FeatureFlags featureFlags;
 
     private UUID idOf(String handle) {
         return (UUID)
@@ -673,6 +677,85 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             }
         }
         callJson(HttpMethod.GET, "/api/v1/offers/" + openOffer, collector6, null, 404);
+
+        String logs = output.getAll();
+        assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())
+                .as("no coordinates in the logs")
+                .isFalse();
+    }
+
+    @Test
+    void paymentsAndDisputesNeverCarryCoordinatesOrProviderAccounts(CapturedOutput output) {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        String collector5 = "seed-collector5:collector5@orenjitrade.test";
+        String collector8 = "seed-collector8:collector8@orenjitrade.test";
+        String shippedTrade = "00000000-0000-4000-9d00-000000000003";
+        String disputedTrade = "00000000-0000-4000-9d00-000000000004";
+        String dispute = "00000000-0000-4000-9f00-000000000101";
+
+        List<JsonNode> documents = new ArrayList<>();
+        testUsers.update(
+                "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key ="
+                        + " 'protectedPayments'");
+        featureFlags.invalidate();
+        try {
+            documents.add(
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/trades/" + shippedTrade,
+                            collector8,
+                            null,
+                            200));
+            documents.add(
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/trades/" + shippedTrade,
+                            collector1,
+                            null,
+                            200));
+            documents.add(
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/trades/" + disputedTrade,
+                            collector5,
+                            null,
+                            200));
+            documents.add(
+                    callJson(HttpMethod.GET, "/api/v1/disputes/" + dispute, collector5, null, 200));
+            documents.add(
+                    callJson(HttpMethod.GET, "/api/v1/disputes/" + dispute, collector2, null, 200));
+            documents.add(
+                    callJson(HttpMethod.GET, "/api/v1/me/seller-account", collector1, null, 200));
+            callJson(HttpMethod.GET, "/api/v1/disputes/" + dispute, collector1, null, 404);
+        } finally {
+            testUsers.update(
+                    "UPDATE feature_flag SET enabled = false WHERE key = 'protectedPayments'");
+            featureFlags.invalidate();
+        }
+        for (String path :
+                List.of(
+                        "/api/v1/admin/disputes?size=100",
+                        "/api/v1/admin/disputes/" + dispute,
+                        "/api/v1/admin/transactions?size=100",
+                        "/api/v1/admin/transactions/pending-confirmation?size=100",
+                        "/api/v1/admin/payments?size=100",
+                        "/api/v1/admin/payments/00000000-0000-4000-9f00-000000000001",
+                        "/api/v1/admin/payments/webhooks?size=100",
+                        "/api/v1/admin/payments/settings")) {
+            documents.add(callJson(HttpMethod.GET, path, SEED_ADMIN, null, 200));
+        }
+        assertThat(documents.get(0).path("status").asString()).isEqualTo("SHIPPED");
+        assertThat(documents.get(0).path("payment").path("status").asString()).isEqualTo("SECURED");
+        assertThat(documents.get(2).path("status").asString()).isEqualTo("DISPUTED");
+        assertThat(documents.get(3).path("reason").asString()).isEqualTo("NOT_AS_DESCRIBED");
+        for (JsonNode document : documents) {
+            assertPublicListing(document, "phase 9 document");
+            assertThat(document.toString())
+                    .as("provider accounts never leave the server")
+                    .doesNotContain("fake_acct_")
+                    .doesNotContain("storageKey");
+        }
 
         String logs = output.getAll();
         assertThat(LONGITUDE_IN_LOGS.matcher(logs).find())

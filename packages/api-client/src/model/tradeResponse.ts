@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { ShipmentSummary } from './shipmentSummary';
 import { OfferParty } from './offerParty';
 import { PaymentSummary } from './paymentSummary';
 import { TradeEvent } from './tradeEvent';
@@ -49,11 +50,11 @@ export interface TradeResponse {
      */
     timeline: Array<TradeEvent>;
     /**
-     * Payment protection (Phase 9); null for now
+     * Protected payment (Phase 9); null until the buyer starts the checkout
      */
     payment?: PaymentSummary;
     /**
-     * Dispute (Phase 9); null for now
+     * Dispute (Phase 9); null unless the buyer opened one
      */
     dispute?: DisputeSummary;
     cancelReason?: string | null;
@@ -61,6 +62,10 @@ export interface TradeResponse {
     updatedAt: string;
     completedAt?: string | null;
     cancelledAt?: string | null;
+    /**
+     * The seller\'s shipping confirmation (Phase 9); null until shipped
+     */
+    shipment?: ShipmentSummary;
 }
 export enum TradeResponseViewerRoleEnum {
     Buyer = 'BUYER',
@@ -84,7 +89,11 @@ export enum TradeResponseStatusEnum {
 export enum TradeResponseAllowedOperationsEnum {
     MarkMeetup = 'MARK_MEETUP',
     ConfirmCompletion = 'CONFIRM_COMPLETION',
-    Cancel = 'CANCEL'
+    Cancel = 'CANCEL',
+    Pay = 'PAY',
+    Ship = 'SHIP',
+    ConfirmReceipt = 'CONFIRM_RECEIPT',
+    OpenDispute = 'OPEN_DISPUTE'
 };
 
 

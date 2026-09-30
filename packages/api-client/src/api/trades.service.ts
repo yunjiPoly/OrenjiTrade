@@ -189,7 +189,7 @@ export class TradesService extends BaseService implements TradesServiceInterface
 
     /**
      * One trade with its timeline and next action
-     * Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs (the last three are Phase 9), NONE otherwise. payment and dispute are null until Phase 9.
+     * Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs, NONE otherwise (DISPUTED: an admin decides). payment, shipment and dispute describe payment protection (Phase 9); allowedOperations adds PAY, SHIP, CONFIRM_RECEIPT and OPEN_DISPUTE for protected trades.
      * @endpoint get /api/v1/trades/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

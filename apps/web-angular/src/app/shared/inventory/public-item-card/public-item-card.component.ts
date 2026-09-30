@@ -7,15 +7,25 @@ import { gameInfo } from '../../domain/games';
 import { FreshnessBadgeComponent } from '../../ui/freshness-badge/freshness-badge.component';
 import { badgeFreshness, formatPrice, printingCode, printingImageUrl } from '../inventory-labels';
 import { ItemChipsComponent } from '../item-chips/item-chips.component';
+import { MakeOfferButtonComponent } from '../../offers/make-offer-button.component';
+import { OfferSeller, offerTargetFromItem } from '../../offers/offer-target';
 
 /**
  * A public inventory item (public binder page, collector page): picture, card name (links to the
  * catalog card), printing code, condition / availability / offers chips, price, quantity,
  * freshness and the owner's public note. Never private notes (the API does not send them).
+ * With its `seller`, the card offers "Make an offer" (when the card accepts offers and is not the
+ * viewer's own).
  */
 @Component({
   selector: 'app-public-item-card',
-  imports: [RouterLink, CardImageComponent, FreshnessBadgeComponent, ItemChipsComponent],
+  imports: [
+    RouterLink,
+    CardImageComponent,
+    FreshnessBadgeComponent,
+    ItemChipsComponent,
+    MakeOfferButtonComponent,
+  ],
   template: `
     @let it = item();
     <article class="pic" [style.--pic-accent]="accent()" [attr.aria-label]="it.card.name">
@@ -58,6 +68,9 @@ import { ItemChipsComponent } from '../item-chips/item-chips.component';
         </div>
         @if (it.publicNotes) {
           <p class="pic__note">“{{ it.publicNotes }}”</p>
+        }
+        @if (offerTarget(); as target) {
+          <app-make-offer-button class="pic__offer" appearance="tonal" compact [target]="target" />
         }
       </div>
     </article>
@@ -141,6 +154,12 @@ import { ItemChipsComponent } from '../item-chips/item-chips.component';
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-regular);
     }
+    .pic__offer {
+      margin-top: var(--spacing-2);
+    }
+    .pic__offer:empty {
+      display: none;
+    }
     .pic__note {
       margin: var(--spacing-1) 0 0;
       color: var(--color-text-muted);
@@ -152,6 +171,13 @@ import { ItemChipsComponent } from '../item-chips/item-chips.component';
 })
 export class PublicItemCardComponent {
   readonly item = input.required<PublicInventoryItem>();
+  /** The owner: enables "Make an offer" (public binder page, collector page). */
+  readonly seller = input<OfferSeller | null>(null);
+
+  protected readonly offerTarget = computed(() => {
+    const seller = this.seller();
+    return seller ? offerTargetFromItem(this.item(), seller) : null;
+  });
 
   protected readonly image = computed(
     () => this.item().images[0]?.url ?? printingImageUrl(this.item().printing),

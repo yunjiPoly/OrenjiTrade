@@ -13,12 +13,15 @@ import {
   printingImageUrl,
 } from '../../../shared/inventory/inventory-labels';
 import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-chips.component';
+import { MakeOfferButtonComponent } from '../../../shared/offers/make-offer-button.component';
+import { offerTargetFromItem, sellerFromMarker } from '../../../shared/offers/offer-target';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 
 /**
  * One "who near me has this card" result: the listed copy (picture, printing, chips, price,
- * freshness, public note) and its holder (approximate place and distance only).
+ * freshness, public note) and its holder (approximate place and distance only), with "Make an
+ * offer" when the copy accepts offers.
  */
 @Component({
   selector: 'app-holder-row',
@@ -30,6 +33,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
     CardImageComponent,
     FreshnessBadgeComponent,
     ItemChipsComponent,
+    MakeOfferButtonComponent,
   ],
   template: `
     @let r = result();
@@ -79,6 +83,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
             </span>
           </div>
         </div>
+        <app-make-offer-button appearance="filled" compact [target]="offerTarget()" />
         @if (r.item.binder; as binder) {
           <a matButton="outlined" class="hr__binder" [routerLink]="['/binders', binder.id]">
             <mat-icon aria-hidden="true">menu_book</mat-icon>
@@ -179,6 +184,9 @@ export class HolderRowComponent {
   readonly result = input.required<CardHolderResult>();
   readonly signedIn = input(false);
 
+  protected readonly offerTarget = computed(() =>
+    offerTargetFromItem(this.result().item, sellerFromMarker(this.result().collector)),
+  );
   protected readonly code = computed(() => printingCode(this.result().item.printing));
   protected readonly image = computed(() => printingImageUrl(this.result().item.printing));
   protected readonly language = computed(() => languageLabel(this.result().item.language));

@@ -304,7 +304,7 @@ public final class ReportResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) ListingStatusResponse listingStatus,
             @Schema(requiredMode = RequiredMode.REQUIRED) List<FlagResponse> openFlags) {
 
-        static HistoryResponse from(ModerationHistory history) {
+        public static HistoryResponse from(ModerationHistory history) {
             return new HistoryResponse(
                     history.userId(),
                     history.openReports(),

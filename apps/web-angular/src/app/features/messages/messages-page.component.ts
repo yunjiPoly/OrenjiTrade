@@ -2,6 +2,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -15,13 +16,15 @@ const SPLIT_QUERY = '(min-width: 840px)';
 /**
  * `/messages` and `/messages/:id`: the full-page messenger (same components as the map panel).
  * Wide screens show the list beside the thread; narrow screens show one at a time, like the
- * mobile app. The open conversation lives in the URL.
+ * mobile app. The open conversation lives in the URL. Offers and trades are one click away (the
+ * mobile app keeps them under Messages).
  */
 @Component({
   selector: 'app-messages-page',
   imports: [
     RouterLink,
     MatButtonModule,
+    MatIconModule,
     EmptyStateComponent,
     MessengerComponent,
     RealtimeStatusComponent,
@@ -32,6 +35,16 @@ const SPLIT_QUERY = '(min-width: 840px)';
         <header class="messages-page__header">
           <h1 class="messages-page__title">Messages</h1>
           <app-realtime-status />
+          <nav class="messages-page__links" aria-label="Deals">
+            <a matButton routerLink="/offers">
+              <mat-icon aria-hidden="true">local_offer</mat-icon>
+              Offers
+            </a>
+            <a matButton routerLink="/trades">
+              <mat-icon aria-hidden="true">sync_alt</mat-icon>
+              Trades
+            </a>
+          </nav>
         </header>
         <app-messenger
           class="messages-page__box"
@@ -65,11 +78,17 @@ const SPLIT_QUERY = '(min-width: 840px)';
     }
     .messages-page__header {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: var(--spacing-3);
     }
     .messages-page__title {
       font-size: var(--font-size-3xl);
+    }
+    .messages-page__links {
+      display: flex;
+      gap: var(--spacing-1);
+      margin-left: auto;
     }
     .messages-page__box {
       height: max(480px, calc(100dvh - 64px - 180px));

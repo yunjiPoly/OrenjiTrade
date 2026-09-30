@@ -20,7 +20,7 @@ import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-ch
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 import { VisibilityBadgeComponent } from '../../../shared/ui/visibility-badge/visibility-badge.component';
 import { VisibilityStatus } from '../data/visibility-status';
-import { QuantityStepperComponent } from './quantity-stepper.component';
+import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/quantity-stepper.component';
 
 /**
  * One owned card in the inventory grid: selection checkbox, picture, name (opens the editor; the

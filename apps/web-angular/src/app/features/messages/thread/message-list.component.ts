@@ -62,10 +62,11 @@ const LOAD_OLDER_PX = 200;
           <div
             class="msg"
             [class.msg--own]="item.own"
+            [class.msg--system]="item.message.kind === 'SYSTEM'"
             [class.msg--first]="item.firstOfGroup"
             [attr.data-message-id]="item.message.id"
           >
-            @if (!item.own) {
+            @if (!item.own && item.message.kind !== 'SYSTEM') {
               <span class="msg__avatar" aria-hidden="true">
                 @if (item.lastOfGroup) {
                   <app-avatar
@@ -77,7 +78,15 @@ const LOAD_OLDER_PX = 200;
                 }
               </span>
             }
-            <span class="visually-hidden">{{ item.own ? 'You' : other().displayName }}:</span>
+            <span class="visually-hidden"
+              >{{
+                item.message.kind === 'SYSTEM'
+                  ? 'OrenjiTrade'
+                  : item.own
+                    ? 'You'
+                    : other().displayName
+              }}:</span
+            >
             <app-message-bubble
               [message]="item.message"
               [own]="item.own"
@@ -153,6 +162,10 @@ const LOAD_OLDER_PX = 200;
     }
     .msg--own {
       justify-content: flex-end;
+    }
+    .msg--system {
+      justify-content: center;
+      margin: var(--spacing-2) 0;
     }
     .msg__avatar {
       flex: 0 0 28px;

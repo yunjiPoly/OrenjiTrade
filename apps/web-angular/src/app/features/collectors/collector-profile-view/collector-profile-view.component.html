@@ -258,7 +258,7 @@
           </div>
           <ul class="collector__items" aria-label="Public cards">
             @for (item of items; track item.id) {
-              <li><app-public-item-card [item]="item" /></li>
+              <li><app-public-item-card [item]="item" [seller]="isOwn() ? null : seller()" /></li>
             }
           </ul>
         </section>

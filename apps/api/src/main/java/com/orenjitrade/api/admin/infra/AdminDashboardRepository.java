@@ -54,7 +54,11 @@ public class AdminDashboardRepository {
                               AND (paused_until IS NULL OR paused_until > :now)) AS paused_owners,
                           (SELECT count(*) FROM notification WHERE created_at >= :day
                               AND (channel_state ->> 'push' = 'FAILED'
-                                   OR channel_state ->> 'email' = 'FAILED')) AS notifications_failed_24h
+                                   OR channel_state ->> 'email' = 'FAILED')) AS notifications_failed_24h,
+                          (SELECT count(*) FROM dispute
+                              WHERE status IN ('OPEN', 'UNDER_REVIEW', 'FROZEN')) AS open_disputes,
+                          (SELECT count(*) FROM payment_webhook_event WHERE received_at >= :day
+                              AND (status = 'FAILED' OR NOT signature_valid)) AS webhook_failures_24h
                         """)
                 .param("now", Timestamp.from(now))
                 .param("week", Timestamp.from(now.minus(Duration.ofDays(7))))
@@ -76,7 +80,9 @@ public class AdminDashboardRepository {
                                         "stale_items",
                                         "hidden_items",
                                         "paused_owners",
-                                        "notifications_failed_24h"
+                                        "notifications_failed_24h",
+                                        "open_disputes",
+                                        "webhook_failures_24h"
                                     }) {
                                 counters.put(key, rs.getLong(key));
                             }

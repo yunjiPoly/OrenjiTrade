@@ -36,6 +36,12 @@ export const SETTINGS_ROUTES: Routes = [
           ),
       },
       {
+        path: 'offers',
+        title: 'Offer settings',
+        loadComponent: () =>
+          import('./offers/offer-settings.component').then((m) => m.OfferSettingsComponent),
+      },
+      {
         path: 'blocked',
         title: 'Blocked users',
         loadComponent: () =>

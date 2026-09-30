@@ -35,7 +35,11 @@ import tools.jackson.databind.node.ObjectNode;
  *   <li>{@code …0003}: collector5's OPEN cash offer of 40.00 CAD for collector1's Azure-Eyes Sky
  *       Dragon (collector1's turn);
  *   <li>{@code …0004} / {@code …0005}: collector6's MIXED offer for collector2's Magic foil,
- *       countered by collector2 (COUNTERED, collector6's turn).
+ *       countered by collector2 (COUNTERED, collector6's turn);
+ *   <li>{@code …0006}: collector8's accepted 55.00 CAD offer with payment protection for
+ *       collector1's Yu-Gi-Oh! single (Phase 9: trade {@code 9d00…0003}, shipped);
+ *   <li>{@code …0007}: collector5's accepted 35.00 CAD offer with payment protection for
+ *       collector2's Magic card (Phase 9: trade {@code 9d00…0004}, disputed).
  * </ul>
  *
  * Inserted once ({@code ON CONFLICT DO NOTHING}), dates relative to the first run (the live
@@ -49,6 +53,7 @@ public class OfferSeedContributor implements SeedContributor {
     static final UUID COLLECTOR2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
     static final UUID COLLECTOR5 = UUID.fromString("00000000-0000-4000-8000-000000000005");
     static final UUID COLLECTOR6 = UUID.fromString("00000000-0000-4000-8000-000000000006");
+    static final UUID COLLECTOR8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
 
     static final UUID OFFER_2_TO_1 = UUID.fromString("00000000-0000-4000-9c00-000000000001");
     static final UUID OFFER_5_TO_1_ACCEPTED =
@@ -56,6 +61,8 @@ public class OfferSeedContributor implements SeedContributor {
     static final UUID OFFER_5_TO_1_OPEN = UUID.fromString("00000000-0000-4000-9c00-000000000003");
     static final UUID OFFER_6_TO_2 = UUID.fromString("00000000-0000-4000-9c00-000000000004");
     static final UUID COUNTER_2_TO_6 = UUID.fromString("00000000-0000-4000-9c00-000000000005");
+    static final UUID PROTECTED_8_TO_1 = UUID.fromString("00000000-0000-4000-9c00-000000000006");
+    static final UUID PROTECTED_5_TO_2 = UUID.fromString("00000000-0000-4000-9c00-000000000007");
 
     /** collector1: Azure-Eyes Sky Dragon (ygo-p001a), 45.00 CAD, TRADE_OR_SALE. */
     static final UUID ITEM_AZURE = UUID.fromString("00000000-0000-4000-8c00-000000010101");
@@ -275,6 +282,101 @@ public class OfferSeedContributor implements SeedContributor {
                 List.of(new Line(items.get(ITEM_6_MTG), 1)));
         event(OFFER_6_TO_2, OFFER_6_TO_2, COLLECTOR6, "CREATED", "OPEN", 0, created4, 1);
         event(COUNTER_2_TO_6, OFFER_6_TO_2, COLLECTOR2, "COUNTERED", "COUNTERED", 0, countered, 1);
+
+        if (!active(COLLECTOR8)) {
+            return;
+        }
+        // Phase 9: collector8 -> collector1, CASH 55.00 CAD with payment protection, accepted
+        // (trade 9d00...0003, shipped; the payments module seeds its payment and shipment).
+        Instant created6 = now.minus(Duration.ofDays(3)).minus(Duration.ofHours(2));
+        Instant accepted6 = now.minus(Duration.ofDays(3));
+        protectedOffer(
+                new Seeded(
+                        PROTECTED_8_TO_1,
+                        PROTECTED_8_TO_1,
+                        null,
+                        null,
+                        items.get(ITEM_1_YGO),
+                        COLLECTOR1,
+                        COLLECTOR8,
+                        "CASH",
+                        "55.00",
+                        "CAD",
+                        "ACCEPTED",
+                        "SELLER",
+                        "I would like payment protection and shipping, if that works for you.",
+                        created6,
+                        accepted6,
+                        accepted6,
+                        1));
+        event(PROTECTED_8_TO_1, PROTECTED_8_TO_1, COLLECTOR8, "CREATED", "OPEN", 0, created6, 1);
+        event(
+                PROTECTED_8_TO_1,
+                PROTECTED_8_TO_1,
+                COLLECTOR1,
+                "ACCEPTED",
+                "ACCEPTED",
+                1,
+                accepted6,
+                2);
+        interactions.record(
+                InteractionKind.OFFER_ACCEPTED,
+                COLLECTOR8,
+                COLLECTOR1,
+                InteractionKind.OFFER_ACCEPTED.subjectType(),
+                PROTECTED_8_TO_1,
+                accepted6);
+
+        // Phase 9: collector5 -> collector2, CASH 35.00 CAD with payment protection, accepted
+        // (trade 9d00...0004, disputed by collector5).
+        Instant created7 = now.minus(Duration.ofDays(6)).minus(Duration.ofHours(3));
+        Instant accepted7 = now.minus(Duration.ofDays(6));
+        protectedOffer(
+                new Seeded(
+                        PROTECTED_5_TO_2,
+                        PROTECTED_5_TO_2,
+                        null,
+                        null,
+                        items.get(ITEM_2_MTG),
+                        COLLECTOR2,
+                        COLLECTOR5,
+                        "CASH",
+                        "35.00",
+                        "CAD",
+                        "ACCEPTED",
+                        "SELLER",
+                        "Protected payment please; I can pay right away.",
+                        created7,
+                        accepted7,
+                        accepted7,
+                        1));
+        event(PROTECTED_5_TO_2, PROTECTED_5_TO_2, COLLECTOR5, "CREATED", "OPEN", 0, created7, 1);
+        event(
+                PROTECTED_5_TO_2,
+                PROTECTED_5_TO_2,
+                COLLECTOR2,
+                "ACCEPTED",
+                "ACCEPTED",
+                1,
+                accepted7,
+                2);
+        interactions.record(
+                InteractionKind.OFFER_ACCEPTED,
+                COLLECTOR5,
+                COLLECTOR2,
+                InteractionKind.OFFER_ACCEPTED.subjectType(),
+                PROTECTED_5_TO_2,
+                accepted7);
+    }
+
+    /** A seeded cash proposal with payment protection requested (Phase 9). */
+    private void protectedOffer(Seeded offer) {
+        offer(offer, List.of());
+        jdbc.sql(
+                        "UPDATE offer SET protection_requested = true WHERE id = :id AND NOT"
+                                + " protection_requested")
+                .param("id", offer.id())
+                .update();
     }
 
     /** A seeded proposal. */
@@ -377,8 +479,8 @@ public class OfferSeedContributor implements SeedContributor {
         List<Map<String, Object>> rows =
                 jdbc.sql(
                                 "SELECT kind, cash_amount::text AS cash, currency, message,"
-                                        + " current_turn, expires_at, item_id, seller_id, buyer_id"
-                                        + " FROM offer WHERE id = :id")
+                                        + " current_turn, expires_at, item_id, seller_id, buyer_id,"
+                                        + " protection_requested FROM offer WHERE id = :id")
                         .param("id", offerId)
                         .query()
                         .listOfRows();
@@ -414,7 +516,7 @@ public class OfferSeedContributor implements SeedContributor {
         snapshot.put("currentTurn", (String) row.get("current_turn"));
         snapshot.put("expiresAt", ((Timestamp) row.get("expires_at")).toInstant().toString());
         snapshot.put("version", version);
-        snapshot.put("protectionRequested", false);
+        snapshot.put("protectionRequested", Boolean.TRUE.equals(row.get("protection_requested")));
         snapshot.put("itemId", row.get("item_id").toString());
         snapshot.put("sellerId", row.get("seller_id").toString());
         snapshot.put("buyerId", row.get("buyer_id").toString());

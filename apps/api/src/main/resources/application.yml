@@ -218,8 +218,17 @@ orenji:
     # Grace period between the deletion request and the anonymising job.
     deletion-grace-days: 7
   payments:
-    # fake | stripe
+    # fake | stripe (ADR 0011). fake needs no credentials; stripe needs both STRIPE_* secrets.
     provider: ${PAYMENT_PROVIDER:fake}
+    fake:
+      # HMAC key of the fake provider's synthetic webhooks (X-Fake-Signature); not a real secret.
+      webhook-secret: ${FAKE_PAYMENTS_WEBHOOK_SECRET:local-fake-payments-webhook-secret}
+      # Empty: checkout URLs are the web path /checkout/fake/<ref>.
+      checkout-base-url: ${FAKE_CHECKOUT_BASE_URL:}
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      web-base-url: ${WEB_BASE_URL:https://www.orenjitrade.com}
   push:
     # log | fcm
     provider: ${PUSH_PROVIDER:log}
@@ -274,6 +283,12 @@ orenji:
         limit: 60
         window-seconds: 60
         key-by: USER
+      - name: payment-webhooks
+        path-patterns: ["/api/v1/webhooks/payments/*"]
+        methods: [POST]
+        limit: 600
+        window-seconds: 60
+        key-by: IP
       - name: default-authenticated
         path-patterns: ["/api/**"]
         limit: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}

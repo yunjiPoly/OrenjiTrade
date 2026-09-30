@@ -280,6 +280,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The payment rules (ADMIN)
+         * @description platform_settings payments.*: dispute window, platform fee, auto-release, reminder lead time, admin refund policy.
+         */
+        get: operations["getPaymentSettings"];
+        /**
+         * Change the payment rules (SUPER_ADMIN)
+         * @description Absent fields keep their value. 403 for ADMIN. Audited (payments.settings.update); every instance applies the change within 60 s.
+         */
+        put: operations["updatePaymentSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/moderation/rules/{id}": {
         parameters: {
             query?: never;
@@ -444,6 +468,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/jobs/payments-auto-release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release payouts after the dispute window (service auth)
+         * @description Hourly. Reminds buyers payments.release_reminder_hours before the window ends; SHIPPED trades whose window ended without a dispute are treated as received: payout released, trade COMPLETED. Nothing happens while payments.auto_release_enabled is false. Records a job run.
+         */
+        post: operations["runPaymentsAutoReleaseJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/jobs/offers-expire": {
         parameters: {
             query?: never;
@@ -524,6 +568,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/fake-payments/{ref}/succeed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emit a synthetic payment.secured webhook (service auth, fake provider)
+         * @description 404 when another provider is active or protectedPayments is off.
+         */
+        post: operations["succeedFakePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/fake-payments/{ref}/fail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emit a synthetic payment.failed webhook (service auth, fake provider)
+         * @description 404 when another provider is active or protectedPayments is off.
+         */
+        post: operations["failFakePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/wishlist": {
         parameters: {
             query?: never;
@@ -559,6 +643,26 @@ export interface paths {
          * @description Idempotent; a dismissed match never comes back for this wishlist item.
          */
         post: operations["dismissWishlistMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/payments/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Payment provider webhook
+         * @description Called by the active provider only (fake: X-Fake-Signature; stripe: Stripe-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider's event id: a retry answers duplicate=true) and processed after the 200. 404 for another provider or while protectedPayments is off for everybody (FEATURE_DISABLED); 413 above 256 KB.
+         */
+        post: operations["receivePaymentWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -609,6 +713,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trades/{id}/ship": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the shipment (seller)
+         * @description PAID protected trades → SHIPPED; optional carrier, tracking number and notes for the buyer. The dispute window (payments.dispute_window_days) starts: payment.disputeWindowEndsAt. The buyer gets SHIPMENT_STATUS. 403 for the buyer, 409 INVALID_STATE_TRANSITION otherwise.
+         */
+        post: operations["shipTrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trades/{id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the protected checkout (buyer)
+         * @description AWAITING_PAYMENT protected trades; the seller's payout account must be ACTIVE (409 SELLER_NOT_ONBOARDED). Creates the payment through the provider and answers where to pay: checkoutUrl (fake provider: the web path /checkout/fake/<ref>) or clientSecret (Stripe). Repeating the call answers the open checkout; a failed or cancelled one is restarted. The provider's payment.secured webhook moves the trade to PAID. 403 for the seller, 409 INVALID_STATE_TRANSITION otherwise, 404 FEATURE_DISABLED while the flag is off.
+         */
+        post: operations["payTrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/trades/{id}/meetup": {
         parameters: {
             query?: never;
@@ -623,6 +767,46 @@ export interface paths {
          * @description AGREED or AWAITING_PAYMENT trades; idempotent per party. Once both parties marked it, meetup is true and payment protection is dropped (AWAITING_PAYMENT goes back to AGREED). The other party gets TRADE_UPDATE. 409 INVALID_STATE_TRANSITION otherwise.
          */
         post: operations["markTradeMeetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trades/{id}/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a dispute (buyer)
+         * @description PAID or SHIPPED protected trades within the dispute window (409 DISPUTE_WINDOW_CLOSED afterwards, extension disputeWindowEndsAt); one dispute per trade. The payout is frozen, the trade becomes DISPUTED and the seller gets DISPUTE_UPDATE. 403 for the seller.
+         */
+        post: operations["openTradeDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trades/{id}/confirm-receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the card arrived (buyer)
+         * @description SHIPPED protected trades: RECEIVED, the payout is released to the seller (payment PAID_OUT) and the trade COMPLETED (inventory transfer, both parties may rate each other). 403 for the seller, 409 INVALID_STATE_TRANSITION otherwise (a dispute holds the payout).
+         */
+        post: operations["confirmTradeReceipt"];
         delete?: never;
         options?: never;
         head?: never;
@@ -723,6 +907,26 @@ export interface paths {
          * @description overall 1-5 is required, the breakdown scores are optional (1-5), the comment at most 600 characters (banned terms refused). 403 RATING_NOT_ELIGIBLE when the interaction does not exist or is not the caller's; 409 ALREADY_RATED (extension ratingId) for a second rating of the same interaction. The collector gets a RATING_RECEIVED notification. The rating stays editable for 14 days (PUT /ratings/{id}).
          */
         post: operations["createRating"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/fake/{ref}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay a fake-provider checkout (buyer, local only)
+         * @description Emits a signed synthetic payment.secured (outcome SUCCEEDED, the default) or payment.failed (FAILED) webhook through the regular webhook pipeline; the trade moves to PAID asynchronously (poll GET /trades/{id}). 409 unless the checkout is REQUIRES_ACTION; 404 when another provider is active.
+         */
+        post: operations["confirmFakeCheckout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -864,6 +1068,26 @@ export interface paths {
         put?: never;
         /** Mark every notification read */
         post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/seller-account/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start or resume the payout onboarding
+         * @description Returns where to continue: the provider-hosted onboarding (Stripe Connect Express) or, with the fake provider, the return path at once (the account is ACTIVE immediately). returnUrl must be a web path (default /settings/payouts). No bank details ever reach OrenjiTrade.
+         */
+        post: operations["startSellerOnboarding"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1053,6 +1277,46 @@ export interface paths {
          * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE. Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
          */
         post: operations["bulkUpdateInventoryItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/disputes/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post in the dispute thread
+         * @description The two parties (not while FROZEN) and admins, until the dispute is resolved (409 INVALID_STATE_TRANSITION). The other side gets DISPUTE_UPDATE.
+         */
+        post: operations["postDisputeMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/disputes/{id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add TEXT or TRACKING evidence (a party)
+         * @description While OPEN or UNDER_REVIEW (409 INVALID_STATE_TRANSITION while FROZEN or resolved); at most 10 per party (409 EVIDENCE_LIMIT_REACHED, extension limit). TEXT needs body; TRACKING needs body (tracking number, carrier) and may carry an https url. IMAGE and DOCUMENT use the multipart form of this route; VIDEO is reserved (400). Admins add notes instead (403).
+         */
+        post: operations["addDisputeEvidence"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1523,6 +1787,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refund a payment (SUPER_ADMIN, or ADMIN under the refund policy)
+         * @description Refunds amount (at most what is still refundable) through the provider. 403 unless SUPER_ADMIN, or ADMIN while payments.admin_refunds_enabled; 409 for payments not secured or already refunded, or with an open dispute (resolve it instead). A full refund cancels an unfinished trade. Audited (payment.refund).
+         */
+        post: operations["refundAdminPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/notifications/broadcast": {
         parameters: {
             query?: never;
@@ -1642,6 +1926,86 @@ export interface paths {
          * @description 409 when the slug exists. Audited (`game.create`).
          */
         post: operations["createGame"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/disputes/{id}/unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lift the hold of a dispute (ADMIN)
+         * @description FROZEN → UNDER_REVIEW (the payout stays frozen until the resolution). Audited (dispute.unfreeze).
+         */
+        post: operations["unfreezeDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/disputes/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a dispute (ADMIN)
+         * @description BUYER: the whole refundable amount goes back to the buyer through the provider, the trade is CANCELLED. SELLER: the payout is released, the trade COMPLETED. SPLIT: refundAmount (more than 0, less than the refundable amount) is refunded, the rest paid out minus the fee on it, the trade COMPLETED. The note is shown to both parties. Audited (dispute.resolve). 409 when already resolved or the payment is no longer held.
+         */
+        post: operations["resolveDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/disputes/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an internal note (ADMIN)
+         * @description Never shown to the parties; the first note moves an OPEN dispute to UNDER_REVIEW. Audited (dispute.note, without the text).
+         */
+        post: operations["addDisputeNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/disputes/{id}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold a dispute (ADMIN)
+         * @description OPEN or UNDER_REVIEW → FROZEN: the payout stays frozen and the parties can no longer add evidence or messages; an optional reason becomes an internal note. Audited (dispute.freeze). 409 INVALID_STATE_TRANSITION otherwise.
+         */
+        post: operations["freezeDispute"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1979,7 +2343,7 @@ export interface paths {
         };
         /**
          * One trade with its timeline and next action
-         * @description Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs (the last three are Phase 9), NONE otherwise. payment and dispute are null until Phase 9.
+         * @description Parties only (404 for anybody else). nextAction: AGREED trades MEET (each party meets or exchanges, then confirms), AWAITING_PAYMENT the buyer PAYs, PAID the seller SHIPs, SHIPPED the buyer CONFIRM_RECEIPTs, NONE otherwise (DISPUTED: an admin decides). payment, shipment and dispute describe payment protection (Phase 9); allowedOperations adds PAY, SHIP, CONFIRM_RECEIPT and OPEN_DISPUTE for protected trades.
          */
         get: operations["getTrade"];
         put?: never;
@@ -2304,6 +2668,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/fake/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A fake-provider checkout (buyer, local only)
+         * @description What /checkout/fake/<ref> shows: amount, currency, terms and status. The buyer only; 404 when another provider is active.
+         */
+        get: operations["getFakeCheckout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/offers/{id}": {
         parameters: {
             query?: never;
@@ -2390,6 +2774,26 @@ export interface paths {
          * @description Provisions the account on the first call. Exempt from the terms-acceptance check so clients can discover `requiredConsents`.
          */
         get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/seller-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's payout account
+         * @description NOT_STARTED without an account; ready = ACTIVE with payouts enabled (buyers can pay protected trades). 404 FEATURE_DISABLED while protectedPayments is off for the caller.
+         */
+        get: operations["getSellerAccount"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2591,6 +2995,46 @@ export interface paths {
          * @description 404 for unknown or hidden games.
          */
         get: operations["getGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/disputes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A dispute with its timeline, evidence and thread
+         * @description The two parties and admins (404 for anybody else). Admin messages appear as OrenjiTrade support; internal notes are never included.
+         */
+        get: operations["getDispute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/disputes/{id}/evidence/{evidenceId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The file of IMAGE or DOCUMENT evidence
+         * @description The two parties and admins (404 otherwise); never cached by shared caches.
+         */
+        get: operations["getDisputeEvidenceFile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2976,6 +3420,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trades with a protected payment (ADMIN)
+         * @description Most recent activity first; status filters the payment status.
+         */
+        get: operations["listAdminTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/transactions/pending-shipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paid trades waiting for the seller's shipment (ADMIN)
+         * @description Secured payments without a shipment or dispute, oldest payment first.
+         */
+        get: operations["listPendingShipmentTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/transactions/pending-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shipped trades waiting for the buyer's confirmation (ADMIN)
+         * @description Secured payments of shipped trades without a dispute, the dispute window ending first (the auto-release job releases them after it).
+         */
+        get: operations["listPendingConfirmationTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/system/health": {
         parameters: {
             query?: never;
@@ -3068,6 +3572,83 @@ export interface paths {
          * @description Active and inactive plans, by sort order.
          */
         get: operations["listAdminPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Protected payments (ADMIN)
+         * @description Most recent activity first; status filters.
+         */
+        get: operations["listAdminPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A payment with its history (ADMIN)
+         * @description Payment events, refunds and linked webhooks; refundAllowed tells whether the caller may refund it now.
+         */
+        get: operations["getAdminPayment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The provider webhook browser (ADMIN)
+         * @description Every stored webhook, newest first (without payloads); status and provider filter.
+         */
+        get: operations["listPaymentWebhooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One stored webhook with its payload (ADMIN) */
+        get: operations["getPaymentWebhook"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3176,6 +3757,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The dispute queue (ADMIN)
+         * @description Newest first; status filters.
+         */
+        get: operations["listAdminDisputes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/disputes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A dispute with its full history (ADMIN)
+         * @description The member view plus internal notes, the trade timeline, payment events, refunds, webhooks, both parties' moderation histories (reports, ratings, suspensions) and rating summaries.
+         */
+        get: operations["getAdminDispute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/delist-policies": {
         parameters: {
             query?: never;
@@ -3205,7 +3826,7 @@ export interface paths {
         };
         /**
          * Dashboard counters (ADMIN)
-         * @description Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes and webhook failures (0 until Phase 9) and notifications whose push or email failed in the last 24 hours.
+         * @description Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes (OPEN, UNDER_REVIEW, FROZEN), payment webhooks that failed or had an invalid signature and notifications whose push or email failed in the last 24 hours.
          */
         get: operations["getAdminDashboard"];
         put?: never;
@@ -4018,6 +4639,38 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        UpdatePaymentSettingsRequest: {
+            /** Format: int32 */
+            disputeWindowDays?: number;
+            /** @example 5 */
+            platformFeePercent?: number;
+            autoReleaseEnabled?: boolean;
+            /** Format: int32 */
+            releaseReminderHours?: number;
+            /** @description ADMIN (not only SUPER_ADMIN) may issue refunds */
+            adminRefundsEnabled?: boolean;
+        };
+        /** @description Configurable payment rules (ADR 0014) */
+        PaymentSettings: {
+            /**
+             * Format: int32
+             * @example 7
+             */
+            disputeWindowDays: number;
+            /** @example 5 */
+            platformFeePercent: number;
+            autoReleaseEnabled: boolean;
+            /**
+             * Format: int32
+             * @example 48
+             */
+            releaseReminderHours: number;
+            adminRefundsEnabled: boolean;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
+        };
         UpdateModerationRuleRequest: {
             pattern?: string | null;
             /** @enum {string|null} */
@@ -4253,6 +4906,25 @@ export interface components {
         PingJobResponse: {
             ok: boolean;
         };
+        PaymentsAutoReleaseJobResult: {
+            /** @description payments.auto_release_enabled */
+            enabled?: boolean;
+            /**
+             * Format: int32
+             * @description Buyers reminded
+             */
+            reminded?: number;
+            /**
+             * Format: int32
+             * @description Payouts released
+             */
+            released?: number;
+            /**
+             * Format: int32
+             * @description Releases that failed (retried next run)
+             */
+            failed?: number;
+        };
         OfferExpiryJobResponse: {
             /** Format: int32 */
             expired: number;
@@ -4311,6 +4983,19 @@ export interface components {
              * @description Requests left pending after an error
              */
             failed: number;
+        };
+        /** @description A received provider webhook */
+        PaymentWebhookReceipt: {
+            received: boolean;
+            /** @description The provider already sent this event (no new change) */
+            duplicate: boolean;
+            /**
+             * Format: uuid
+             * @description Stored event (null for a duplicate)
+             */
+            webhookEventId?: string | null;
+            /** @example payment.secured */
+            type: string;
         };
         /** @description cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. radiusKm defaults to 25 km (lowered to the plan cap); beyond the plan's map.radius.max_km it is 429 LIMIT_REACHED. */
         CreateWishlistItemRequest: {
@@ -4422,6 +5107,14 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        ShipTradeRequest: {
+            /** @example Postal service */
+            carrier?: string;
+            /** @example LOCAL-000123 */
+            trackingNumber?: string;
+            /** @description Shown to the buyer */
+            notes?: string;
+        };
         CollectorRating: {
             /**
              * Format: double
@@ -4435,10 +5128,16 @@ export interface components {
         DisputeSummary: {
             /** Format: uuid */
             id: string;
+            /** @description OPEN, UNDER_REVIEW, FROZEN, RESOLVED_BUYER, RESOLVED_SELLER, RESOLVED_SPLIT, CLOSED */
             status: string;
+            /** @description NOT_RECEIVED, NOT_AS_DESCRIBED, COUNTERFEIT, DAMAGED, OTHER */
             reason: string;
             /** Format: date-time */
             openedAt: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            /** @description Refunded to the buyer by the resolution */
+            refundAmount?: number | null;
         };
         /** @description Binder holding an inventory item */
         InventoryBinderRef: {
@@ -4616,11 +5315,46 @@ export interface components {
         PaymentSummary: {
             /** Format: uuid */
             id: string;
+            /** @description REQUIRES_ACTION, SECURED, PAYOUT_PENDING, PAID_OUT, REFUNDED, PARTIALLY_REFUNDED, FAILED, CANCELLED */
             status: string;
+            /** @example 40 */
             amount: number;
+            /** @example CAD */
             currency: string;
             /** Format: date-time */
             securedAt?: string | null;
+            /** @description fake or stripe */
+            provider?: string;
+            /**
+             * @description Fee kept by the platform
+             * @example 2
+             */
+            platformFee?: number;
+            /**
+             * @description What the seller receives with a full payout
+             * @example 38
+             */
+            sellerAmount?: number;
+            /**
+             * @description Refunded to the buyer so far
+             * @example 0
+             */
+            refundedAmount?: number;
+            /** @description Released to the seller */
+            payoutAmount?: number | null;
+            /** @description An open dispute holds the payout */
+            payoutFrozen?: boolean;
+            /** @description Buyer only, while REQUIRES_ACTION: where to complete the payment (relative /checkout/fake/<ref> with the fake provider) */
+            checkoutUrl?: string | null;
+            /**
+             * Format: date-time
+             * @description End of the dispute window (shipment + the configured days); afterwards the payout is released automatically
+             */
+            disputeWindowEndsAt?: string | null;
+            /** Format: date-time */
+            payoutReleasedAt?: string | null;
+            /** Format: date-time */
+            refundedAt?: string | null;
         };
         /** @description A public inventory item */
         PublicInventoryItem: {
@@ -4664,11 +5398,25 @@ export interface components {
              */
             distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
         };
+        /** @description Shipping confirmation of a protected trade */
+        ShipmentSummary: {
+            carrier?: string | null;
+            trackingNumber?: string | null;
+            /** @description The seller's notes for the buyer */
+            sellerNotes?: string | null;
+            /** Format: date-time */
+            shippedAt: string;
+            /**
+             * Format: date-time
+             * @description When receipt was confirmed
+             */
+            deliveredAt?: string | null;
+        };
         /** @description Entry of a trade's timeline */
         TradeEvent: {
             /** Format: uuid */
             id: string;
-            /** @description CREATED, MEETUP_PROPOSED, MEETUP_AGREED, PROTECTION_REMOVED, COMPLETION_CONFIRMED, COMPLETED, CANCELLED (Phase 9 adds payment, shipping and dispute events) */
+            /** @description CREATED, MEETUP_PROPOSED, MEETUP_AGREED, PROTECTION_REMOVED, COMPLETION_CONFIRMED, COMPLETED, CANCELLED; Phase 9: PAYMENT_STARTED, PAYMENT_FAILED, PAYMENT_CANCELLED, PAYMENT_SECURED, SHIPPED, RECEIPT_CONFIRMED, PAYOUT_RELEASED, DISPUTE_OPENED, DISPUTE_RESOLVED, REFUNDED */
             event: string;
             /**
              * @description Null for the platform
@@ -4717,12 +5465,12 @@ export interface components {
             sellerConfirmedAt?: string | null;
             nextAction: components["schemas"]["TradeNextAction"];
             /** @description What the caller may call now */
-            allowedOperations: ("MARK_MEETUP" | "CONFIRM_COMPLETION" | "CANCEL")[];
+            allowedOperations: ("MARK_MEETUP" | "CONFIRM_COMPLETION" | "CANCEL" | "PAY" | "SHIP" | "CONFIRM_RECEIPT" | "OPEN_DISPUTE")[];
             /** @description Oldest first */
             timeline: components["schemas"]["TradeEvent"][];
-            /** @description Payment protection (Phase 9); null for now */
+            /** @description Protected payment (Phase 9); null until the buyer starts the checkout */
             payment?: components["schemas"]["PaymentSummary"];
-            /** @description Dispute (Phase 9); null for now */
+            /** @description Dispute (Phase 9); null unless the buyer opened one */
             dispute?: components["schemas"]["DisputeSummary"];
             cancelReason?: string | null;
             /** Format: date-time */
@@ -4733,6 +5481,150 @@ export interface components {
             completedAt?: string | null;
             /** Format: date-time */
             cancelledAt?: string | null;
+            /** @description The seller's shipping confirmation (Phase 9); null until shipped */
+            shipment?: components["schemas"]["ShipmentSummary"];
+        };
+        /** @description A started protected checkout */
+        ProtectedPayment: {
+            /** Format: uuid */
+            paymentId: string;
+            /** Format: uuid */
+            tradeId: string;
+            /** @example fake */
+            provider: string;
+            /** @enum {string} */
+            status: "REQUIRES_ACTION" | "SECURED" | "PAYOUT_PENDING" | "PAID_OUT" | "REFUNDED" | "PARTIALLY_REFUNDED" | "FAILED" | "CANCELLED";
+            /** @example 40 */
+            amount: number;
+            /** @example CAD */
+            currency: string;
+            /** @example 2 */
+            platformFee: number;
+            /** @example 38 */
+            sellerAmount: number;
+            /** @description Where the buyer completes the payment (fake provider: the web path /checkout/fake/<ref>) */
+            checkoutUrl?: string | null;
+            /** @description Client secret for an embedded payment form (Stripe); returned once, never stored */
+            clientSecret?: string | null;
+        };
+        OpenDisputeRequest: {
+            /** @enum {string} */
+            reason: "NOT_RECEIVED" | "NOT_AS_DESCRIBED" | "COUNTERFEIT" | "DAMAGED" | "OTHER";
+            description: string;
+        };
+        /** @description A dispute as its parties and admins see it */
+        Dispute: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tradeId: string;
+            /** @enum {string} */
+            status: "OPEN" | "UNDER_REVIEW" | "FROZEN" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "RESOLVED_SPLIT" | "CLOSED";
+            /** @enum {string} */
+            reason: "NOT_RECEIVED" | "NOT_AS_DESCRIBED" | "COUNTERFEIT" | "DAMAGED" | "OTHER";
+            /** @description The buyer's description */
+            description: string;
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            /** @description Admin note shown with the decision */
+            resolutionNote?: string | null;
+            refundAmount?: number | null;
+            /** @description BUYER, SELLER or ADMIN */
+            viewerRole: string;
+            buyer: components["schemas"]["DisputeParty"];
+            seller: components["schemas"]["DisputeParty"];
+            payment: components["schemas"]["DisputePayment"];
+            shipment?: components["schemas"]["ShipmentSummary"];
+            /** @example 40.00 CAD for Azure-Eyes Sky Dragon */
+            summary: string;
+            evidence: components["schemas"]["DisputeEvidence"][];
+            /** @description Oldest first */
+            timeline: components["schemas"]["DisputeEvent"][];
+            /** @description Oldest first */
+            messages: components["schemas"]["DisputeMessage"][];
+            canAddEvidence: boolean;
+            canPostMessage: boolean;
+            /**
+             * Format: int32
+             * @description Evidence items the caller may still add (max 10)
+             */
+            evidenceLeft: number;
+        };
+        /** @description Entry of a dispute's timeline */
+        DisputeEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @description OPENED, EVIDENCE_ADDED, MESSAGE_POSTED, NOTE_ADDED, UNDER_REVIEW, FROZEN, UNFROZEN, RESOLVED */
+            event: string;
+            /** @description BUYER, SELLER, ADMIN or null (platform) */
+            actorRole?: string | null;
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Evidence of a party */
+        DisputeEvidence: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "TEXT" | "IMAGE" | "DOCUMENT" | "TRACKING" | "VIDEO";
+            /** @description BUYER or SELLER */
+            role: string;
+            /** @description Text, caption or tracking details */
+            body?: string | null;
+            /** @description TRACKING: https link */
+            url?: string | null;
+            /** @description IMAGE / DOCUMENT: API path of the file (parties and admins, bearer token required) */
+            fileUrl?: string | null;
+            /** @example image/jpeg */
+            contentType?: string | null;
+            /** Format: int32 */
+            sizeBytes?: number | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Message of a dispute thread */
+        DisputeMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @description BUYER, SELLER or ADMIN */
+            authorRole: string;
+            /** @description Display name (admins: OrenjiTrade support) */
+            authorName: string;
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description A party of a dispute (no location) */
+        DisputeParty: {
+            /** Format: uuid */
+            id: string;
+            handle: string;
+            displayName: string;
+            avatarUrl?: string | null;
+        };
+        /** @description The protected payment a dispute holds */
+        DisputePayment: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "REQUIRES_ACTION" | "SECURED" | "PAYOUT_PENDING" | "PAID_OUT" | "REFUNDED" | "PARTIALLY_REFUNDED" | "FAILED" | "CANCELLED";
+            /** @example 40 */
+            amount: number;
+            /** @example CAD */
+            currency: string;
+            /** @example 0 */
+            refundedAmount: number;
+            payoutAmount?: number | null;
+            payoutFrozen: boolean;
+            /** Format: date-time */
+            disputeWindowEndsAt?: string | null;
         };
         CancelTradeRequest: {
             /** @description Reason shown to the other party */
@@ -4800,6 +5692,13 @@ export interface components {
             /** Format: int32 */
             meetupReliability?: number;
             comment?: string;
+        };
+        FakeCheckoutConfirmRequest: {
+            /**
+             * @description SUCCEEDED (default) or FAILED
+             * @enum {string}
+             */
+            outcome?: "SUCCEEDED" | "FAILED";
         };
         CreateOfferRequest: {
             /**
@@ -4888,7 +5787,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "WISHLIST_MATCH" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "REPORT_DECISION" | "SYSTEM";
+            type: "WISHLIST_MATCH" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
             /** @example Wishlist match: Azure-Eyes */
             title: string;
             /** @example Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away */
@@ -4912,6 +5811,31 @@ export interface components {
              * @example 3
              */
             updated: number;
+        };
+        SellerOnboardingRequest: {
+            /**
+             * @description Web path the provider returns to (default /settings/payouts)
+             * @example /settings/payouts
+             */
+            returnUrl?: string;
+        };
+        /** @description The caller's payout account */
+        SellerAccount: {
+            /** @example fake */
+            provider: string;
+            /** @enum {string} */
+            status: "NOT_STARTED" | "PENDING" | "ACTIVE" | "RESTRICTED";
+            payoutsEnabled: boolean;
+            /** @description ACTIVE with payouts enabled: buyers can pay */
+            ready: boolean;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        /** @description Where the seller continues the onboarding */
+        SellerOnboarding: {
+            /** @description Provider-hosted page, or the return path once the account is active (fake provider) */
+            url: string;
+            account: components["schemas"]["SellerAccount"];
         };
         PushTokenRequest: {
             /** @enum {string} */
@@ -5110,6 +6034,20 @@ export interface components {
              * @enum {string}
              */
             reason: "NOT_FOUND" | "UNCHANGED";
+        };
+        DisputeMessageRequest: {
+            body: string;
+        };
+        DisputeEvidenceRequest: {
+            /**
+             * @description TEXT or TRACKING here; IMAGE and DOCUMENT use the multipart form; VIDEO is reserved (400)
+             * @enum {string}
+             */
+            kind: "TEXT" | "IMAGE" | "DOCUMENT" | "TRACKING" | "VIDEO";
+            /** @description Text, or tracking number and carrier */
+            body?: string;
+            /** @description TRACKING only: https link */
+            url?: string;
         };
         StartConversationRequest: {
             /**
@@ -5501,6 +6439,136 @@ export interface components {
             /** Format: date-time */
             hiddenAt?: string | null;
         };
+        RefundPaymentRequest: {
+            /** @example 10 */
+            amount: number;
+            reason: string;
+        };
+        /** @description A payment with its full history */
+        AdminPaymentDetail: {
+            transaction: components["schemas"]["AdminTransaction"];
+            events: components["schemas"]["PaymentEvent"][];
+            refunds: components["schemas"]["PaymentRefund"][];
+            webhooks: components["schemas"]["PaymentWebhookEvent"][];
+            /** @description Whether the caller may refund it now */
+            refundAllowed: boolean;
+        };
+        /** @description A party (admin views) */
+        AdminPaymentParty: {
+            /** Format: uuid */
+            id: string;
+            handle: string;
+            displayName: string;
+        };
+        /** @description A trade with its protected payment */
+        AdminTransaction: {
+            /** Format: uuid */
+            paymentId: string;
+            /** Format: uuid */
+            tradeId: string;
+            /** @enum {string|null} */
+            tradeStatus?: "AGREED" | "AWAITING_PAYMENT" | "PAID" | "SHIPPED" | "RECEIVED" | "COMPLETED" | "CANCELLED" | "DISPUTED" | null;
+            /** @enum {string} */
+            paymentStatus: "REQUIRES_ACTION" | "SECURED" | "PAYOUT_PENDING" | "PAID_OUT" | "REFUNDED" | "PARTIALLY_REFUNDED" | "FAILED" | "CANCELLED";
+            /** @example fake */
+            provider: string;
+            /** @example 40 */
+            amount: number;
+            /** @example CAD */
+            currency: string;
+            /** @example 5 */
+            feePercent: number;
+            /** @example 2 */
+            platformFee: number;
+            /** @example 38 */
+            sellerAmount: number;
+            /** @example 0 */
+            refundedAmount: number;
+            payoutAmount?: number | null;
+            payoutFrozen: boolean;
+            summary: string;
+            buyer: components["schemas"]["AdminPaymentParty"];
+            seller: components["schemas"]["AdminPaymentParty"];
+            /** Format: date-time */
+            securedAt?: string | null;
+            /** Format: date-time */
+            shippedAt?: string | null;
+            carrier?: string | null;
+            trackingNumber?: string | null;
+            /** Format: date-time */
+            deliveredAt?: string | null;
+            /** Format: date-time */
+            disputeWindowEndsAt?: string | null;
+            /** Format: date-time */
+            payoutReleasedAt?: string | null;
+            /** Format: uuid */
+            disputeId?: string | null;
+            /** @enum {string|null} */
+            disputeStatus?: "OPEN" | "UNDER_REVIEW" | "FROZEN" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "RESOLVED_SPLIT" | "CLOSED" | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description Entry of a payment's history */
+        PaymentEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @example SECURED */
+            event: string;
+            providerEventId?: string | null;
+            /** Format: uuid */
+            actorId?: string | null;
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description A refund to the buyer */
+        PaymentRefund: {
+            /** Format: uuid */
+            id: string;
+            /** @example 10 */
+            amount: number;
+            /** @example CAD */
+            currency: string;
+            reason: string;
+            /** @description ADMIN, DISPUTE or SYSTEM */
+            source: string;
+            /** @description PENDING, SUCCEEDED or FAILED */
+            status: string;
+            /** Format: uuid */
+            requestedBy?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt?: string | null;
+        };
+        /** @description A stored provider webhook */
+        PaymentWebhookEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @example fake */
+            provider: string;
+            /** @description Null when the signature was invalid */
+            providerEventId?: string | null;
+            /** @example payment.secured */
+            type: string;
+            signatureValid: boolean;
+            /** @enum {string} */
+            status: "RECEIVED" | "PROCESSED" | "IGNORED" | "FAILED";
+            /** Format: uuid */
+            paymentId?: string | null;
+            /** @example UNKNOWN_PAYMENT */
+            error?: string | null;
+            /** Format: date-time */
+            receivedAt: string;
+            /** Format: date-time */
+            processedAt?: string | null;
+            /** @description The event as received (detail only) */
+            payload?: string;
+        };
         BroadcastRequest: {
             title: string;
             body: string;
@@ -5621,6 +6689,149 @@ export interface components {
         HideListingRequest: {
             /** @description Why (audited) */
             reason: string;
+        };
+        /** @description A dispute with its full history (admin) */
+        AdminDispute: {
+            dispute: components["schemas"]["Dispute"];
+            /** @description Internal admin notes (never shown to the parties) */
+            internalNotes: components["schemas"]["DisputeNote"][];
+            tradeTimeline: components["schemas"]["TradeEvent"][];
+            paymentEvents: components["schemas"]["PaymentEvent"][];
+            refunds: components["schemas"]["PaymentRefund"][];
+            webhooks: components["schemas"]["PaymentWebhookEvent"][];
+            buyerHistory: components["schemas"]["ModerationHistory"];
+            sellerHistory: components["schemas"]["ModerationHistory"];
+            buyerRatings: components["schemas"]["DisputePartyRatings"];
+            sellerRatings: components["schemas"]["DisputePartyRatings"];
+        };
+        /** @description Actor of an audit-log entry */
+        AuditActor: {
+            /**
+             * Format: uuid
+             * @description Acting account id; absent for SYSTEM actions
+             */
+            id?: string | null;
+            /** @description Handle of the acting account when it still exists */
+            handle?: string | null;
+            /** @enum {string} */
+            type: "USER" | "ADMIN" | "SYSTEM";
+        };
+        /** @description Audit-log entry */
+        AuditLogEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            occurredAt: string;
+            actor: components["schemas"]["AuditActor"];
+            /** @example user.suspend */
+            action: string;
+            /** @example USER */
+            targetType: string;
+            targetId?: string | null;
+            /** @description Structured details; never contains coordinates */
+            details: {
+                [key: string]: unknown;
+            };
+            requestId?: string | null;
+        };
+        /** @description Internal admin note (never shown to parties) */
+        DisputeNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            authorId?: string | null;
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Rating summary of a party */
+        DisputePartyRatings: {
+            /** Format: double */
+            average?: number | null;
+            /** Format: int32 */
+            count: number;
+        };
+        HistoryFlag: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            reason: "BANNED_TERM" | "RATE_THRESHOLD" | "REPEATED_CONTENT" | "REPORT_THRESHOLD";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        HistoryListingStatus: {
+            paused: boolean;
+            /** @enum {string|null} */
+            source?: "UNRESPONSIVE" | "REPORT_THRESHOLD" | "MODERATION" | "ADMIN" | null;
+            /** Format: date-time */
+            pausedAt?: string | null;
+            /** Format: int32 */
+            strikes: number;
+        };
+        HistoryRating: {
+            /** Format: uuid */
+            id: string;
+            raterHandle: string;
+            /** Format: int32 */
+            overall: number;
+            comment?: string | null;
+            /** @enum {string} */
+            moderationState: "OK" | "HIDDEN";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        HistoryRemovedContent: {
+            /** @enum {string} */
+            kind: "POST" | "REPLY";
+            /** Format: uuid */
+            id: string;
+            channelSlug: string;
+            /** Format: date-time */
+            removedAt?: string | null;
+            reason?: string | null;
+        };
+        HistoryReport: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            reason: "SCAM" | "COUNTERFEIT" | "HARASSMENT" | "SPAM" | "INAPPROPRIATE_BEHAVIOR" | "MISLEADING_LISTINGS" | "OTHER";
+            /** @enum {string} */
+            status: "OPEN" | "UNDER_REVIEW" | "ACTIONED" | "DISMISSED";
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string|null} */
+            resolutionAction?: "NONE" | "WARNING" | "LISTINGS_PAUSED" | "SUSPENDED" | "BANNED" | null;
+        };
+        ModerationHistory: {
+            /** Format: uuid */
+            userId: string;
+            /** Format: int32 */
+            openReports: number;
+            recentReports: components["schemas"]["HistoryReport"][];
+            recentRatings: components["schemas"]["HistoryRating"][];
+            recentPostsRemoved: components["schemas"]["HistoryRemovedContent"][];
+            suspensions: components["schemas"]["AuditLogEntry"][];
+            listingsPaused: components["schemas"]["AuditLogEntry"][];
+            listingStatus: components["schemas"]["HistoryListingStatus"];
+            openFlags: components["schemas"]["HistoryFlag"][];
+        };
+        ResolveDisputeRequest: {
+            /** @enum {string} */
+            outcome: "BUYER" | "SELLER" | "SPLIT";
+            /**
+             * @description SPLIT: refunded to the buyer (more than 0, less than the refundable amount); BUYER: empty or the whole refundable amount; SELLER: empty or 0
+             * @example 10
+             */
+            refundAmount?: number;
+            /** @description Shown to both parties with the decision */
+            note: string;
+        };
+        DisputeNoteRequest: {
+            body: string;
+        };
+        FreezeDisputeRequest: {
+            /** @description Kept as an internal note */
+            reason?: string;
         };
         RemoveContentRequest: {
             /** @description Moderator note (audited, never shown to members) */
@@ -6274,6 +7485,22 @@ export interface components {
             limit?: number;
             description?: string;
         };
+        /** @description A fake-provider checkout (local only) */
+        FakeCheckout: {
+            ref: string;
+            /** Format: uuid */
+            paymentId: string;
+            /** Format: uuid */
+            tradeId: string;
+            /** @enum {string} */
+            status: "REQUIRES_ACTION" | "SECURED" | "PAYOUT_PENDING" | "PAID_OUT" | "REFUNDED" | "PARTIALLY_REFUNDED" | "FAILED" | "CANCELLED";
+            /** @example 40 */
+            amount: number;
+            /** @example CAD */
+            currency: string;
+            /** @example 40.00 CAD for Azure-Eyes Sky Dragon */
+            summary: string;
+        };
         /** @description Cursor-paginated list */
         CursorPageOfferSummary: {
             /** @description Items of the current slice */
@@ -6872,36 +8099,6 @@ export interface components {
              */
             bannedAt?: string | null;
         };
-        /** @description Actor of an audit-log entry */
-        AuditActor: {
-            /**
-             * Format: uuid
-             * @description Acting account id; absent for SYSTEM actions
-             */
-            id?: string | null;
-            /** @description Handle of the acting account when it still exists */
-            handle?: string | null;
-            /** @enum {string} */
-            type: "USER" | "ADMIN" | "SYSTEM";
-        };
-        /** @description Audit-log entry */
-        AuditLogEntry: {
-            /** Format: uuid */
-            id: string;
-            /** Format: date-time */
-            occurredAt: string;
-            actor: components["schemas"]["AuditActor"];
-            /** @example user.suspend */
-            action: string;
-            /** @example USER */
-            targetType: string;
-            targetId?: string | null;
-            /** @description Structured details; never contains coordinates */
-            details: {
-                [key: string]: unknown;
-            };
-            requestId?: string | null;
-        };
         /** @description An accepted legal document version */
         ConsentSummary: {
             /** @enum {string} */
@@ -6922,69 +8119,34 @@ export interface components {
             /** Format: date-time */
             scheduledFor: string;
         };
-        HistoryFlag: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            reason: "BANNED_TERM" | "RATE_THRESHOLD" | "REPEATED_CONTENT" | "REPORT_THRESHOLD";
-            /** Format: date-time */
-            createdAt: string;
-        };
-        HistoryListingStatus: {
-            paused: boolean;
-            /** @enum {string|null} */
-            source?: "UNRESPONSIVE" | "REPORT_THRESHOLD" | "MODERATION" | "ADMIN" | null;
-            /** Format: date-time */
-            pausedAt?: string | null;
-            /** Format: int32 */
-            strikes: number;
-        };
-        HistoryRating: {
-            /** Format: uuid */
-            id: string;
-            raterHandle: string;
-            /** Format: int32 */
-            overall: number;
-            comment?: string | null;
-            /** @enum {string} */
-            moderationState: "OK" | "HIDDEN";
-            /** Format: date-time */
-            createdAt: string;
-        };
-        HistoryRemovedContent: {
-            /** @enum {string} */
-            kind: "POST" | "REPLY";
-            /** Format: uuid */
-            id: string;
-            channelSlug: string;
-            /** Format: date-time */
-            removedAt?: string | null;
-            reason?: string | null;
-        };
-        HistoryReport: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            reason: "SCAM" | "COUNTERFEIT" | "HARASSMENT" | "SPAM" | "INAPPROPRIATE_BEHAVIOR" | "MISLEADING_LISTINGS" | "OTHER";
-            /** @enum {string} */
-            status: "OPEN" | "UNDER_REVIEW" | "ACTIONED" | "DISMISSED";
-            /** Format: date-time */
-            createdAt: string;
-            /** @enum {string|null} */
-            resolutionAction?: "NONE" | "WARNING" | "LISTINGS_PAUSED" | "SUSPENDED" | "BANNED" | null;
-        };
-        ModerationHistory: {
-            /** Format: uuid */
-            userId: string;
-            /** Format: int32 */
-            openReports: number;
-            recentReports: components["schemas"]["HistoryReport"][];
-            recentRatings: components["schemas"]["HistoryRating"][];
-            recentPostsRemoved: components["schemas"]["HistoryRemovedContent"][];
-            suspensions: components["schemas"]["AuditLogEntry"][];
-            listingsPaused: components["schemas"]["AuditLogEntry"][];
-            listingStatus: components["schemas"]["HistoryListingStatus"];
-            openFlags: components["schemas"]["HistoryFlag"][];
+        /** @description Offset-paginated list */
+        PageResponseAdminTransaction: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["AdminTransaction"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
         };
         JobStatus: {
             /** @example freshness */
@@ -7152,6 +8314,35 @@ export interface components {
              */
             totalPages?: number;
         };
+        /** @description Offset-paginated list */
+        PageResponsePaymentWebhookEvent: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["PaymentWebhookEvent"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
+        };
         NotificationStats: {
             /** Format: date-time */
             from: string;
@@ -7277,6 +8468,56 @@ export interface components {
             state: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
             /** Format: date-time */
             warnedAt?: string | null;
+        };
+        /** @description A dispute in the admin queue */
+        AdminDisputeSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tradeId: string;
+            /** Format: uuid */
+            paymentId: string;
+            /** @enum {string} */
+            status: "OPEN" | "UNDER_REVIEW" | "FROZEN" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "RESOLVED_SPLIT" | "CLOSED";
+            /** @enum {string} */
+            reason: "NOT_RECEIVED" | "NOT_AS_DESCRIBED" | "COUNTERFEIT" | "DAMAGED" | "OTHER";
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            amount?: number | null;
+            currency?: string | null;
+            buyer?: components["schemas"]["AdminPaymentParty"];
+            seller?: components["schemas"]["AdminPaymentParty"];
+        };
+        /** @description Offset-paginated list */
+        PageResponseAdminDisputeSummary: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["AdminDisputeSummary"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
         };
         AdminDashboard: {
             /** Format: date-time */
@@ -7454,7 +8695,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -8699,6 +9940,149 @@ export interface operations {
             };
         };
     };
+    getPaymentSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettings"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updatePaymentSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePaymentSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description The rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettings"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateModerationRule: {
         parameters: {
             query?: never;
@@ -9269,6 +10653,53 @@ export interface operations {
             };
         };
     };
+    runPaymentsAutoReleaseJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentsAutoReleaseJobResult"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     runOfferExpiryJob: {
         parameters: {
             query?: never;
@@ -9426,6 +10857,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountDeletionJobResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    succeedFakePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentWebhookReceipt"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    failFakePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentWebhookReceipt"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -9656,6 +11185,74 @@ export interface operations {
             };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    receivePaymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Signature of the fake provider (t=<unix seconds>,v1=<hex HMAC-SHA256>) */
+                "X-Fake-Signature"?: string;
+                /** @description Signature of Stripe (t=<unix seconds>,v1=<hex HMAC-SHA256>) */
+                "Stripe-Signature"?: string;
+            };
+            path: {
+                /** @description fake or stripe */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "*/*": string;
+            };
+        };
+        responses: {
+            /** @description Received */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentWebhookReceipt"];
+                };
+            };
+            /** @description WEBHOOK_SIGNATURE_INVALID, VALIDATION_FAILED (unreadable body) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND (provider), FEATURE_DISABLED */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9921,6 +11518,198 @@ export interface operations {
             };
         };
     };
+    shipTrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ShipTradeRequest"];
+            };
+        };
+        responses: {
+            /** @description The trade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND, FEATURE_DISABLED */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    payTrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checkout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtectedPayment"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND, FEATURE_DISABLED */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION, SELLER_NOT_ONBOARDED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description SERVICE_UNAVAILABLE (provider unreachable) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     markTradeMeetup: {
         parameters: {
             query?: never;
@@ -9952,6 +11741,189 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    openTradeDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description The dispute */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dispute"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND, FEATURE_DISABLED */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION, DISPUTE_WINDOW_CLOSED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    confirmTradeReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The completed trade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND, FEATURE_DISABLED */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10389,6 +12361,86 @@ export interface operations {
                 };
             };
             /** @description ALREADY_RATED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    confirmFakeCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FakeCheckoutConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description The synthetic webhook was received */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentWebhookReceipt"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description CONFLICT (checkout not awaiting payment) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11059,6 +13111,93 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    startSellerOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SellerOnboardingRequest"];
+            };
+        };
+        responses: {
+            /** @description Where to continue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SellerOnboarding"];
+                };
+            };
+            /** @description VALIDATION_FAILED (returnUrl) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FEATURE_DISABLED */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12007,6 +14146,204 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    postDisputeMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description The message */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisputeMessage"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    addDisputeEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /**
+                     * @description IMAGE or DOCUMENT
+                     * @enum {string}
+                     */
+                    kind: "IMAGE" | "DOCUMENT";
+                    /** @description Optional caption (≤ 2000) */
+                    body?: string;
+                };
+                "application/json": components["schemas"]["DisputeEvidenceRequest"];
+            };
+        };
+        responses: {
+            /** @description The evidence */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisputeEvidence"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION, EVIDENCE_LIMIT_REACHED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description PAYLOAD_TOO_LARGE */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description UNSUPPORTED_MEDIA_TYPE */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14178,6 +16515,95 @@ export interface operations {
             };
         };
     };
+    refundAdminPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description The payment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentDetail"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     broadcastNotification: {
         parameters: {
             query?: never;
@@ -14736,6 +17162,331 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    unfreezeDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDispute"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resolveDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description The resolved dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDispute"];
+                };
+            };
+            /** @description VALIDATION_FAILED (refundAmount, note) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION, CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    addDisputeNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDispute"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    freezeDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FreezeDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description The dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDispute"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description INVALID_STATE_TRANSITION */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17315,6 +20066,82 @@ export interface operations {
             };
         };
     };
+    getFakeCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checkout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FakeCheckout"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND, FEATURE_DISABLED */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getOffer: {
         parameters: {
             query?: never;
@@ -17603,6 +20430,80 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getSellerAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SellerAccount"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FEATURE_DISABLED */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18278,6 +21179,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameResponse"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dispute"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND, FEATURE_DISABLED */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getDisputeEvidenceFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                evidenceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "application/pdf": string;
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -19542,6 +22597,212 @@ export interface operations {
             };
         };
     };
+    listAdminTransactions: {
+        parameters: {
+            query?: {
+                /** @description Payment status filter */
+                status?: "REQUIRES_ACTION" | "SECURED" | "PAYOUT_PENDING" | "PAID_OUT" | "REFUNDED" | "PARTIALLY_REFUNDED" | "FAILED" | "CANCELLED";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseAdminTransaction"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listPendingShipmentTransactions: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseAdminTransaction"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listPendingConfirmationTransactions: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseAdminTransaction"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getSystemHealth: {
         parameters: {
             query?: never;
@@ -19891,6 +23152,300 @@ export interface operations {
             };
         };
     };
+    listAdminPayments: {
+        parameters: {
+            query?: {
+                /** @description Status filter */
+                status?: "REQUIRES_ACTION" | "SECURED" | "PAYOUT_PENDING" | "PAID_OUT" | "REFUNDED" | "PARTIALLY_REFUNDED" | "FAILED" | "CANCELLED";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseAdminTransaction"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getAdminPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listPaymentWebhooks: {
+        parameters: {
+            query?: {
+                /** @description Status filter */
+                status?: "RECEIVED" | "PROCESSED" | "IGNORED" | "FAILED";
+                /** @description fake or stripe */
+                provider?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponsePaymentWebhookEvent"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getPaymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentWebhookEvent"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getNotificationStats: {
         parameters: {
             query?: {
@@ -20199,6 +23754,152 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listAdminDisputes: {
+        parameters: {
+            query?: {
+                /** @description Status filter */
+                status?: "OPEN" | "UNDER_REVIEW" | "FROZEN" | "RESOLVED_BUYER" | "RESOLVED_SELLER" | "RESOLVED_SPLIT" | "CLOSED";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseAdminDisputeSummary"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getAdminDispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDispute"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

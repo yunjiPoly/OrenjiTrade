@@ -240,7 +240,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         testUsers.count(
                                 "SELECT count(*) FROM offer WHERE id::text LIKE"
                                         + " '00000000-0000-4000-9c00-%'"))
-                .isEqualTo(5);
+                .isEqualTo(7);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM trade WHERE id::text LIKE"
@@ -293,8 +293,60 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                 "SELECT count(*) FROM offer WHERE id::text LIKE"
                                         + " '00000000-0000-4000-9c00-%'"))
                 .as("idempotent")
-                .isEqualTo(5);
+                .isEqualTo(7);
         assertThat(testUsers.count("SELECT count(*) FROM offer_event")).isEqualTo(events);
+    }
+
+    @Test
+    void seedsProtectedTradesWithPaymentsShipmentsAndADispute() {
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM trade WHERE id IN"
+                                        + " ('00000000-0000-4000-9d00-000000000003',"
+                                        + " '00000000-0000-4000-9d00-000000000004') AND"
+                                        + " protection_enabled"))
+                .isEqualTo(2);
+        assertThat(
+                        testUsers
+                                .query(
+                                        "SELECT status FROM trade WHERE id ="
+                                                + " '00000000-0000-4000-9d00-000000000004'")
+                                .get(0)
+                                .get("status"))
+                .isEqualTo("DISPUTED");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM payment WHERE id::text LIKE"
+                                        + " '00000000-0000-4000-9f00-%' AND status = 'SECURED'"))
+                .isEqualTo(2);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM seller_account WHERE status = 'ACTIVE' AND"
+                                        + " provider = 'fake' AND user_id IN"
+                                        + " ('00000000-0000-4000-8000-000000000001',"
+                                        + " '00000000-0000-4000-8000-000000000002')"))
+                .isEqualTo(2);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM shipment WHERE trade_id::text LIKE"
+                                        + " '00000000-0000-4000-9d00-%'"))
+                .isEqualTo(2);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM dispute WHERE id ="
+                                        + " '00000000-0000-4000-9f00-000000000101' AND status ="
+                                        + " 'OPEN'"))
+                .isEqualTo(1);
+        int events = testUsers.count("SELECT count(*) FROM payment_event");
+        seedDataRunner.seedAll();
+        assertThat(testUsers.count("SELECT count(*) FROM payment_event"))
+                .as("idempotent")
+                .isEqualTo(events);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM dispute_message WHERE dispute_id ="
+                                        + " '00000000-0000-4000-9f00-000000000101'"))
+                .isEqualTo(2);
     }
 
     @Test
@@ -321,7 +373,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "ratings",
                         "reports",
                         "offers",
-                        "trades");
+                        "trades",
+                        "payments");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(
