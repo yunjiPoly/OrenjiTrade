@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "8045d3a9-1ef0-4c76-b2c3-5b4bf1b07ea4"
+      }
+    },
+    "android": {
+      "package": "com.orenji3.orenjitrade"
+    },
+    "ios": {
+      "bundleIdentifier": "com.orenji3.orenjitrade",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
