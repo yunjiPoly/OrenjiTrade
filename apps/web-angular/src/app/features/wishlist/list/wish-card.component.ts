@@ -5,7 +5,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RouterLink } from '@angular/router';
 import type { WishlistItemResponse } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';

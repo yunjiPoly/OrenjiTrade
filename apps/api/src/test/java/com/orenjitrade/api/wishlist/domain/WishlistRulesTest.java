@@ -100,11 +100,13 @@ class WishlistRulesTest {
         UUID wisher = UUID.fromString("00000000-0000-4000-8000-000000000002");
         UUID owner = UUID.fromString("00000000-0000-4000-8000-000000000001");
         UUID match = UUID.fromString("00000000-0000-4000-8f00-00000000aaaa");
+        UUID printing = UUID.fromString("00000000-0000-4000-8e00-000000000001");
         Candidate candidate =
                 new Candidate(
                         wish,
                         wisher,
                         item,
+                        printing,
                         owner,
                         "Azure-Eyes Sky Dragon",
                         "AZR-EN001",
@@ -112,8 +114,9 @@ class WishlistRulesTest {
                         "CAD",
                         "yugioh",
                         7_213.456);
+        String picture = "/api/v1/public/card-images/00000000-0000-4000-8d00-000000000001";
         NotificationRequest request =
-                WishlistMatcher.request(candidate, match, DistanceBucket.KM_5_10);
+                WishlistMatcher.request(candidate, match, DistanceBucket.KM_5_10, picture);
         assertThat(request.userId()).isEqualTo(wisher);
         assertThat(request.type()).isEqualTo(NotificationType.WISHLIST_MATCH);
         assertThat(request.title()).isEqualTo("Wishlist match: Azure-Eyes Sky Dragon");
@@ -128,13 +131,30 @@ class WishlistRulesTest {
                 .containsEntry("inventoryItemId", item.toString())
                 .containsEntry("collectorId", owner.toString())
                 .containsEntry("distanceBucket", "KM_5_10")
-                .containsEntry("deepLink", "/wishlist/" + wish);
+                .containsEntry("deepLink", "/wishlist/" + wish)
+                .containsEntry("cardName", "Azure-Eyes Sky Dragon")
+                .containsEntry("game", "yugioh")
+                .containsEntry("cardImageUrl", picture);
         assertThat(request.toString()).doesNotContain("7213").doesNotContain("7_213");
 
         Candidate unpriced =
                 new Candidate(
-                        wish, wisher, item, owner, "Tidebinder", null, null, "CAD", "mtg", 400);
-        assertThat(WishlistMatcher.request(unpriced, match, DistanceBucket.LT_1KM).body())
-                .isEqualTo("Tidebinder was listed less than 1 km away.");
+                        wish,
+                        wisher,
+                        item,
+                        printing,
+                        owner,
+                        "Tidebinder",
+                        null,
+                        null,
+                        "CAD",
+                        "mtg",
+                        400);
+        NotificationRequest unpricedRequest =
+                WishlistMatcher.request(unpriced, match, DistanceBucket.LT_1KM, null);
+        assertThat(unpricedRequest.body()).isEqualTo("Tidebinder was listed less than 1 km away.");
+        assertThat(unpricedRequest.data())
+                .containsEntry("cardName", "Tidebinder")
+                .doesNotContainKey("cardImageUrl");
     }
 }

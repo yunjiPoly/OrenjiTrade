@@ -9,7 +9,14 @@
   @if (resolved(); as resolved) {
     <section class="holders" aria-labelledby="holders-banner-title">
       <div class="holders__head">
-        <div>
+        <app-card-image
+          class="holders__card"
+          size="sm"
+          [src]="resolved.pictures?.imageUrl"
+          [alt]="resolved.pictures?.name ?? ''"
+          [game]="resolved.pictures?.game"
+        />
+        <div class="holders__titles">
           <p class="holders__eyebrow">
             <mat-icon aria-hidden="true">near_me</mat-icon>
             Near you
@@ -41,6 +48,7 @@
               <app-collector-result
                 [collector]="collector"
                 [signedIn]="centre()?.signedIn ?? false"
+                [pictures]="resolved.pictures"
               />
             </li>
           }
@@ -84,10 +92,11 @@
               @for (printing of result.printings; track printing.id) {
                 <li>
                   <a
-                    class="chip"
+                    class="chip chip--printing"
                     [routerLink]="['/cards', printing.cardId]"
                     [queryParams]="{ printing: printing.id }"
                   >
+                    <app-card-image class="chip__thumb" size="xs" [src]="image(printing)" alt="" />
                     <span class="mono">{{ code(printing) }}</span>
                     <span class="chip__muted">{{ printing.setName }}</span>
                   </a>

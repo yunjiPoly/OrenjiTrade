@@ -331,7 +331,7 @@ public class NotificationService {
                 type,
                 row.title(),
                 row.body(),
-                parse(row.data()),
+                NotificationCards.forClients(parse(row.data())),
                 row.createdAt(),
                 row.readAt());
     }

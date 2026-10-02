@@ -62,8 +62,11 @@ htmlcov/
 crash.log
 
 # --- Docker / local data ---
+# .local-storage/ also holds the card image cache (card-images/); .local-dev/ the raw provider
+# snapshots (provider-data/). Never commit provider data or card image files (ADR 0015).
 .local-storage/
 .local-dev/
+provider-data/
 infrastructure/docker/data/
 *.local.yml
 

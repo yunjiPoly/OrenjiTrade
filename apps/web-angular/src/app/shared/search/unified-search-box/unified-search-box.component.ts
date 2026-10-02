@@ -41,6 +41,7 @@ import {
 import { avatarColor } from '../../discovery/discovery-labels';
 import { initialsOf, roundCoordinate } from '../../domain/location-labels';
 import type { LatLng } from '../../map/map-adapter';
+import { CardImageComponent } from '../../ui/card-image/card-image.component';
 import {
   SuggestionGroup,
   groupSuggestions,
@@ -70,6 +71,7 @@ const LIMIT = 10;
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    CardImageComponent,
   ],
   template: `
     <form class="usb" role="search" [attr.aria-label]="label()" (submit)="submit($event)">
@@ -110,14 +112,13 @@ const LIMIT = 10;
           @for (item of group.items; track item.type + ':' + item.id) {
             <mat-option [value]="item" class="csb-option">
               <span class="csb-option__row">
-                @if (item.imageUrl && (item.type === 'CARD' || item.type === 'PRINTING')) {
-                  <img
+                @if (item.type === 'CARD' || item.type === 'PRINTING') {
+                  <app-card-image
                     class="csb-option__img"
+                    size="xs"
                     [src]="item.imageUrl"
+                    [game]="item.game"
                     alt=""
-                    width="36"
-                    height="50"
-                    loading="lazy"
                   />
                 } @else if (item.type === 'COLLECTOR') {
                   <span class="usb-option__avatar" [style.background]="color(item.label)">

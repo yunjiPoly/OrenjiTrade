@@ -33,6 +33,7 @@ import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { CatalogSyncPanelComponent } from './catalog-sync-panel.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
@@ -48,6 +49,7 @@ function toInt(value: string | undefined, fallback: number): number {
 @Component({
   selector: 'app-admin-cards-page',
   imports: [
+    CardImageComponent,
     RouterLink,
     MatFormFieldModule,
     MatIconModule,
@@ -136,12 +138,11 @@ function toInt(value: string | undefined, fallback: number): number {
                 @for (card of page.items ?? []; track card.id) {
                   <tr>
                     <td class="cards__thumb">
-                      <img
+                      <app-card-image
+                        size="xs"
                         [src]="card.primaryImageUrl"
-                        alt=""
-                        width="36"
-                        height="50"
-                        loading="lazy"
+                        [alt]="card.name ?? ''"
+                        [game]="card.game"
                       />
                     </td>
                     <td>
@@ -212,13 +213,8 @@ function toInt(value: string | undefined, fallback: number): number {
     .cards tbody tr:last-child td {
       border-bottom: 0;
     }
-    .cards__thumb img {
-      display: block;
-      width: 36px;
-      height: 50px;
-      border-radius: 3px;
-      object-fit: cover;
-      background: var(--color-surface-variant);
+    .cards__thumb app-card-image {
+      --card-image-shadow: none;
     }
     .cards__name {
       display: block;

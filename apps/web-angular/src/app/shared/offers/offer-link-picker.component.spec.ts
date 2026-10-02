@@ -34,10 +34,19 @@ describe('OfferLinkPickerComponent', () => {
         'u-2',
       ),
     ).toEqual([
-      { offerId: 'a', cardName: 'Lantern Fox Spirit', terms: '$20.00 + 1 card', status: 'OPEN' },
+      {
+        offerId: 'a',
+        cardName: 'Lantern Fox Spirit',
+        imageUrl: 'http://localhost/card.svg',
+        game: 'yugioh',
+        terms: '$20.00 + 1 card',
+        status: 'OPEN',
+      },
       {
         offerId: 'c',
         cardName: 'Lantern Fox Spirit',
+        imageUrl: 'http://localhost/card.svg',
+        game: 'yugioh',
         terms: '$20.00 + 1 card',
         status: 'ACCEPTED',
       },

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { PublicBinderSummary } from '@orenji/api-client';
-import { CardImageComponent } from '../../catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../ui/card-image/card-image.component';
 import { FreshnessBadgeComponent } from '../../ui/freshness-badge/freshness-badge.component';
 import { GameChipComponent } from '../../ui/game-chip/game-chip.component';
 import { BINDER_KIND_INFO, BinderKind, badgeFreshness, endsLabel } from '../inventory-labels';

@@ -44,6 +44,8 @@ import {
 } from '../../../shared/catalog/catalog-labels';
 import { GamesStore } from '../../../shared/catalog/games.store';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
+import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
@@ -73,6 +75,7 @@ import {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    CardImageComponent,
     EmptyStateComponent,
     ErrorStateComponent,
     GameChipComponent,
@@ -113,6 +116,8 @@ export class AdminCardEditPageComponent {
   protected readonly serverErrors = signal<Record<string, string>>({});
 
   protected readonly edition = editionLabel;
+  /** Front picture of a printing (API URL). */
+  protected readonly printingImage = printingImageUrl;
   protected readonly finish = finishLabel;
   protected readonly language = languageLabel;
   protected readonly price = formatMarketPrice;

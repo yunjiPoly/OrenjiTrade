@@ -3,12 +3,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { CollectorMarker } from '@orenji/api-client';
+import type { CardPictures } from '../../../shared/catalog/card-pictures';
 import { ApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { CollectorListComponent } from '../collector-list/collector-list.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /**
  * Left panel of the map: the collectors as a list ("List" toggle) or, in holders mode, the
@@ -18,6 +20,7 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
 @Component({
   selector: 'app-discovery-panel',
   imports: [
+    CardImageComponent,
     RouterLink,
     MatButtonModule,
     MatIconModule,
@@ -29,6 +32,16 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
   template: `
     <section class="panel" [attr.aria-labelledby]="'discovery-panel-title'">
       <header class="panel__head">
+        @if (holders()) {
+          <app-card-image
+            class="panel__card"
+            size="sm"
+            data-testid="holders-card-image"
+            [src]="holdersCard()?.imageUrl"
+            [alt]="holdersCard()?.name ?? ''"
+            [game]="holdersCard()?.game"
+          />
+        }
         <div class="panel__titles">
           <h2 class="panel__title" id="discovery-panel-title">{{ title() }}</h2>
           <p class="panel__count" aria-live="polite">{{ countLabel() }}</p>
@@ -85,6 +98,7 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
             [holders]="holders()"
             [signedIn]="signedIn()"
             [selfId]="selfId()"
+            [pictures]="holdersCard()"
             [label]="
               holders() ? 'Holders of ' + (holdersName() ?? 'this card') : 'Collectors on the map'
             "
@@ -120,6 +134,13 @@ import { CollectorListComponent } from '../collector-list/collector-list.compone
       justify-content: space-between;
       gap: var(--spacing-2);
       padding: var(--spacing-3) var(--spacing-2) var(--spacing-2) var(--spacing-4);
+    }
+    .panel__titles {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .panel__card {
+      --card-image-shadow: 0 4px 10px -4px rgb(0 0 0 / 0.35);
     }
     .panel__title {
       font-size: var(--font-size-lg);
@@ -172,6 +193,8 @@ export class DiscoveryPanelComponent {
   readonly holders = input(false);
   /** Card (or printing) name in holders mode; `null` while unknown. */
   readonly holdersName = input<string | null>(null);
+  /** Pictures of the card in holders mode (header and listings); `null` while unknown. */
+  readonly holdersCard = input<CardPictures | null>(null);
   readonly holdersQuery = input<Record<string, string>>({});
   readonly loading = input(false);
   readonly error = input<ApiError | null>(null);

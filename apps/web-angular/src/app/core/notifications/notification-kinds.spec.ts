@@ -1,5 +1,11 @@
 import { NotificationResponseTypeEnum as Type } from '@orenji/api-client';
-import { isUnread, notificationKind, notificationLink, safeAppPath } from './notification-kinds';
+import {
+  isUnread,
+  notificationCard,
+  notificationKind,
+  notificationLink,
+  safeAppPath,
+} from './notification-kinds';
 
 describe('notification kinds', () => {
   it('gives each type an icon, a tone and a label, with a neutral fallback', () => {
@@ -138,6 +144,31 @@ describe('notification kinds', () => {
       tone: 'warning',
       label: 'Dispute',
     });
+  });
+
+  it('shows the card a payload carries, only with an API picture URL', () => {
+    expect(
+      notificationCard({
+        data: {
+          cardImageUrl: 'http://localhost:8080/api/v1/public/card-images/img-1',
+          cardName: 'Azure-Eyes Sky Dragon',
+          game: 'yugioh',
+        },
+      }),
+    ).toEqual({
+      imageUrl: 'http://localhost:8080/api/v1/public/card-images/img-1',
+      name: 'Azure-Eyes Sky Dragon',
+      game: 'yugioh',
+    });
+    expect(
+      notificationCard({ data: { cardImageUrl: '/api/v1/public/placeholder-images/a/b.svg' } }),
+    ).toEqual({ imageUrl: '/api/v1/public/placeholder-images/a/b.svg', name: '', game: null });
+    // Today's wishlist alerts carry ids only: the type icon stays.
+    expect(notificationCard({ data: { wishlistItemId: 'w-1', game: 'yugioh' } })).toBeNull();
+    expect(notificationCard({ data: { cardImageUrl: 'javascript:alert(1)' } })).toBeNull();
+    expect(notificationCard({ data: { cardImageUrl: '//evil.example/x.jpg' } })).toBeNull();
+    expect(notificationCard({ data: { cardImageUrl: 42 } })).toBeNull();
+    expect(notificationCard({ data: {} })).toBeNull();
   });
 
   it('knows unread notifications', () => {

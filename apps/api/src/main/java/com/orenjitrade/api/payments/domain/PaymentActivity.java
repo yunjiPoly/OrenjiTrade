@@ -3,6 +3,7 @@ package com.orenjitrade.api.payments.domain;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationService;
 import com.orenjitrade.api.notifications.domain.NotificationType;
+import com.orenjitrade.api.offers.domain.OfferCard;
 import com.orenjitrade.api.payments.domain.PaymentRows.PaymentRow;
 import com.orenjitrade.api.payments.events.DisputeUpdated;
 import com.orenjitrade.api.payments.events.PaymentUpdated;
@@ -29,8 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
  * seller is told to ship once the payment is secured, the buyer about failures, reminders and
  * refunds, the seller about payouts and missing payout accounts), SHIPMENT_STATUS to the buyer when
  * the card ships, DISPUTE_UPDATE to the parties for dispute changes; unpaid checkouts of cancelled
- * trades and agreed meetups are cancelled. Texts carry card names, amounts and dates only.
- * Idempotent through the de-duplication keys ({@code payment:<id>:<event>:<recipient>}, {@code
+ * trades and agreed meetups are cancelled. Texts carry card names, amounts and dates only; the data
+ * carries the traded card's name, game and picture ({@link OfferCard}). Idempotent through the
+ * de-duplication keys ({@code payment:<id>:<event>:<recipient>}, {@code
  * dispute:<id>:<event>[:<subject>]:<recipient>}).
  */
 @Service
@@ -71,7 +73,8 @@ public class PaymentActivity {
             return;
         }
         PaymentRow payment = found.get();
-        String card = trades.cardName(trade.get());
+        OfferCard tradeCard = trades.card(trade.get());
+        String card = tradeCard.name();
         String link = "/trades/" + event.tradeId();
         switch (event.event()) {
             case "SECURED" -> {
@@ -84,6 +87,7 @@ public class PaymentActivity {
                                 + " through payment protection. Ship the card and confirm the"
                                 + " shipment on the trade page.",
                         event,
+                        tradeCard,
                         link);
                 notify(
                         event.buyerId(),
@@ -92,6 +96,7 @@ public class PaymentActivity {
                         "Your payment is protected until you confirm receipt or the dispute"
                                 + " window ends.",
                         event,
+                        tradeCard,
                         link);
             }
             case "FAILED" ->
@@ -102,6 +107,7 @@ public class PaymentActivity {
                             "The payment did not go through. You can try again from the trade"
                                     + " page.",
                             event,
+                            tradeCard,
                             link);
             case "SHIPPED" ->
                     notify(
@@ -113,6 +119,7 @@ public class PaymentActivity {
                                     + date(payment)
                                     + ".",
                             event,
+                            tradeCard,
                             link);
             case "RELEASE_REMINDER" ->
                     notify(
@@ -123,6 +130,7 @@ public class PaymentActivity {
                                     + date(payment)
                                     + " unless you open a dispute before then.",
                             event,
+                            tradeCard,
                             link);
             case "PAYOUT_RELEASED" ->
                     notify(
@@ -136,6 +144,7 @@ public class PaymentActivity {
                                             payment.currency())
                                     + " is on its way to your payout account.",
                             event,
+                            tradeCard,
                             link);
             case "REFUNDED" ->
                     notify(
@@ -145,6 +154,7 @@ public class PaymentActivity {
                             money(payment.refundedAmount(), payment.currency())
                                     + " has been refunded to your payment method.",
                             event,
+                            tradeCard,
                             link);
             default -> {
                 // nothing to tell
@@ -159,7 +169,8 @@ public class PaymentActivity {
         if (trade.isEmpty()) {
             return;
         }
-        String card = trades.cardName(trade.get());
+        OfferCard tradeCard = trades.card(trade.get());
+        String card = tradeCard.name();
         String link = "/disputes/" + event.disputeId();
         List<UUID> recipients = new ArrayList<>();
         String title;
@@ -208,6 +219,7 @@ public class PaymentActivity {
             data.put("tradeId", event.tradeId().toString());
             data.put("event", event.event());
             data.put("status", event.status());
+            tradeCard.putInto(data);
             data.put("deepLink", link);
             String subject = event.subjectId() == null ? "" : ":" + event.subjectId();
             notifications.notify(
@@ -243,10 +255,12 @@ public class PaymentActivity {
             case CREATED -> {
                 if (event.protectionEnabled() && !sellers.ready(event.sellerId())) {
                     Optional<TradeRow> trade = trades.row(event.tradeId());
-                    String card = trade.map(trades::cardName).orElse("your card");
+                    OfferCard tradeCard = trade.map(trades::card).orElse(OfferCard.UNKNOWN);
+                    String card = trade.isPresent() ? tradeCard.name() : "your card";
                     Map<String, @Nullable Object> data = new LinkedHashMap<>();
                     data.put("tradeId", event.tradeId().toString());
                     data.put("event", "SELLER_ONBOARDING_NEEDED");
+                    tradeCard.putInto(data);
                     data.put("deepLink", SellerAccountService.DEFAULT_RETURN_URL);
                     notifications.notify(
                             new NotificationRequest(
@@ -276,12 +290,14 @@ public class PaymentActivity {
             String title,
             String body,
             PaymentUpdated event,
+            OfferCard card,
             String link) {
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("tradeId", event.tradeId().toString());
         data.put("paymentId", String.valueOf(event.paymentId()));
         data.put("event", event.event());
         data.put("status", event.status());
+        card.putInto(data);
         data.put("deepLink", link);
         notifications.notify(
                 new NotificationRequest(

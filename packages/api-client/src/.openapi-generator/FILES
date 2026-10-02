@@ -185,9 +185,15 @@ model/bulkSkipped.ts
 model/cancelTradeRequest.ts
 model/cardDetail.ts
 model/cardHolderResult.ts
+model/cardImageCacheClearRequest.ts
+model/cardImageCacheClearResponse.ts
+model/cardImageCacheGameStatus.ts
+model/cardImageCacheReconcileResult.ts
+model/cardImageCacheStatus.ts
 model/cardLink.ts
 model/cardSuggestion.ts
 model/cardSummary.ts
+model/catalogImportReport.ts
 model/catalogSyncRequest.ts
 model/catalogSyncRun.ts
 model/channelPreferences.ts
@@ -281,6 +287,7 @@ model/historyRating.ts
 model/historyRemovedContent.ts
 model/historyReport.ts
 model/imageUploadResponse.ts
+model/internalCardImageCacheStatus.ts
 model/inventoryBinderRef.ts
 model/inventoryCardRef.ts
 model/inventoryItemImage.ts

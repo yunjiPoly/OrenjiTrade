@@ -58,6 +58,8 @@ describe('message drafts', () => {
           offer: {
             offerId: 'o-1',
             cardName: 'Lantern Fox Spirit',
+            imageUrl: null,
+            game: 'yugioh',
             terms: '$38.00',
             status: 'OPEN',
           },

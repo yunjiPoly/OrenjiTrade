@@ -24,7 +24,7 @@ class TradeLifecycleIT extends AbstractOffersIT {
         String itemId = listing(seller, "TRADE_OR_SALE", 2);
 
         String offerId = makeOffer(buyer, cash(itemId, "40.00"), 201).path("id").asString();
-        awaitNotification(seller, "OFFER_RECEIVED");
+        assertCardPicture(awaitNotification(seller, "OFFER_RECEIVED"), "Azure-Eyes Sky Dragon");
         JsonNode accepted = act(seller, offerId, "accept", null, 200);
         String tradeId = accepted.path("tradeId").asString();
 
@@ -92,10 +92,11 @@ class TradeLifecycleIT extends AbstractOffersIT {
         rating.put("overall", 5);
         callJson(HttpMethod.POST, "/api/v1/ratings", buyer.uid(), rating, 201);
 
-        awaitNotification(buyer, "OFFER_ACCEPTED");
+        assertCardPicture(awaitNotification(buyer, "OFFER_ACCEPTED"), "Azure-Eyes Sky Dragon");
         awaitNotification(seller, "OFFER_ACCEPTED");
         JsonNode done = awaitNotification(buyer, "TRADE_UPDATE");
         assertThat(done.path("data").path("tradeId").asString()).isEqualTo(tradeId);
+        assertCardPicture(done, "Azure-Eyes Sky Dragon");
         awaitNotification(seller, "TRADE_UPDATE");
         List<JsonNode> messages = awaitSystemMessages(buyer, seller, 3);
         JsonNode newest = messages.get(0);
@@ -106,6 +107,9 @@ class TradeLifecycleIT extends AbstractOffersIT {
         assertThat(link.path("id").asString()).isEqualTo(offerId);
         assertThat(link.path("status").asString()).isEqualTo("ACCEPTED");
         assertThat(link.path("summary").asString()).contains("40.00 CAD");
+        assertThat(link.path("imageUrl").asString()).matches(CARD_PICTURE);
+        assertThat(newest.path("payload").path("offer").path("imageUrl").asString())
+                .matches(CARD_PICTURE);
 
         // Offer links can also be shared by the parties themselves.
         String conversationId = conversation(buyer, seller);
@@ -118,6 +122,8 @@ class TradeLifecycleIT extends AbstractOffersIT {
                         201);
         assertThat(shared.path("payload").path("offer").path("status").asString())
                 .isEqualTo("ACCEPTED");
+        assertThat(shared.path("payload").path("offer").path("imageUrl").asString())
+                .matches(CARD_PICTURE);
         Collector stranger = member("tl-stranger");
         String strangerConversation = conversation(stranger, seller);
         callJson(

@@ -4,7 +4,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import type { CreatePostRequest } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { BinderLinkPickerComponent } from '../../../shared/links/binder-link-picker.component';
 import { CardLinkPickerComponent } from '../../../shared/links/card-link-picker.component';
 import { BinderLinkChoice, CardLinkChoice } from '../../../shared/links/link-choices';
@@ -75,7 +75,7 @@ type Picker = 'card' | 'binder' | null;
 
       @if (card(); as c) {
         <div class="chip" data-testid="post-attachment">
-          <app-card-image class="chip__thumb" [src]="c.imageUrl" [game]="c.game ?? ''" alt="" />
+          <app-card-image class="chip__thumb" [src]="c.imageUrl" [game]="c.game" [alt]="c.name" />
           <span class="chip__text"
             >{{ c.name }}
             @if (c.printingCode) {

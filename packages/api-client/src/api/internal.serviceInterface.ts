@@ -14,9 +14,14 @@ import { Observable }                                        from 'rxjs';
 import { AccountDeletionJobResponse } from '../model/models';
 import { AdConversionRequest } from '../model/models';
 import { AdConversionResult } from '../model/models';
+import { CardImageCacheClearResponse } from '../model/models';
+import { CardImageCacheReconcileResult } from '../model/models';
+import { CatalogSyncRequest } from '../model/models';
+import { CatalogSyncRun } from '../model/models';
 import { CreditsReconcileJobResult } from '../model/models';
 import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
+import { InternalCardImageCacheStatus } from '../model/models';
 import { OfferExpiryJobResponse } from '../model/models';
 import { PaymentsAutoReleaseJobResult } from '../model/models';
 import { PingJobResponse } from '../model/models';
@@ -29,9 +34,21 @@ import { WishlistRematchResponse } from '../model/models';
 import { Configuration }                                     from '../configuration';
 
 
+export interface ClearCardImageCacheJobRequestParams {
+    game?: string;
+}
+
+export interface GetCatalogImportJobRequestParams {
+    id: string;
+}
+
 export interface RecordAdConversionRequestParams {
     clickId: string;
     adConversionRequest: AdConversionRequest;
+}
+
+export interface RunCatalogImportJobRequestParams {
+    catalogSyncRequest: CatalogSyncRequest;
 }
 
 
@@ -40,11 +57,41 @@ export interface InternalServiceInterface {
     configuration: Configuration;
 
     /**
+     * Delete cached card images (service auth)
+     * Deletes the cached renditions (of one game with &#x60;game&#x60;) and releases their capacity; metadata and source references stay. Records a job run.
+     * @endpoint post /internal/jobs/card-images/clear
+* @param requestParameters
+     */
+    clearCardImageCacheJob(requestParameters: ClearCardImageCacheJobRequestParams, extraHttpRequestParams?: any): Observable<CardImageCacheClearResponse>;
+
+    /**
+     * Local card image cache status with its directory (service auth)
+     * 
+     * @endpoint get /internal/jobs/card-images/status
+*/
+    getCardImageCacheJobStatus(extraHttpRequestParams?: any): Observable<InternalCardImageCacheStatus>;
+
+    /**
+     * One catalog import run with its report (service auth)
+     * 
+     * @endpoint get /internal/jobs/catalog-import/{id}
+* @param requestParameters
+     */
+    getCatalogImportJob(requestParameters: GetCatalogImportJobRequestParams, extraHttpRequestParams?: any): Observable<CatalogSyncRun>;
+
+    /**
      * Connectivity check for schedulers (service auth)
      * Records a &#x60;ping&#x60; job run and answers &#x60;{ \&quot;ok\&quot;: true }&#x60;.
      * @endpoint post /internal/jobs/ping
 */
     pingInternalJobs(extraHttpRequestParams?: any): Observable<PingJobResponse>;
+
+    /**
+     * Reconcile cache files, rows and accounting (service auth)
+     * 
+     * @endpoint post /internal/jobs/card-images/reconcile
+*/
+    reconcileCardImageCacheJob(extraHttpRequestParams?: any): Observable<CardImageCacheReconcileResult>;
 
     /**
      * Record a conversion of an ad click (service auth)
@@ -60,6 +107,14 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/account-deletion
 */
     runAccountDeletionJob(extraHttpRequestParams?: any): Observable<AccountDeletionJobResponse>;
+
+    /**
+     * Queue a catalog import (service auth)
+     * Same as &#x60;POST /admin/catalog/sync&#x60; for schedulers and the local &#x60;npm run catalog:import&#x60; script: metadata is always imported, &#x60;imageMode&#x60; (default REFERENCED for providers with image downloads) fills the capped local image cache. Poll &#x60;GET /internal/jobs/catalog-import/{id}&#x60; for the report. 409 while another import of the game is queued or running.
+     * @endpoint post /internal/jobs/catalog-import
+* @param requestParameters
+     */
+    runCatalogImportJob(requestParameters: RunCatalogImportJobRequestParams, extraHttpRequestParams?: any): Observable<CatalogSyncRun>;
 
     /**
      * Compare cached credit balances with the ledger (service auth)

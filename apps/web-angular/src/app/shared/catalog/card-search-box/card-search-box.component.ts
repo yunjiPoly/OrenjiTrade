@@ -32,6 +32,7 @@ import {
 } from 'rxjs';
 import { silentErrors } from '../../../core/http/http-context';
 import { gameInfo } from '../../domain/games';
+import { CardImageComponent } from '../../ui/card-image/card-image.component';
 import {
   QUERY_MAX_LENGTH,
   SUGGEST_DEBOUNCE_MS,
@@ -84,6 +85,7 @@ function isSeeAll(value: unknown): value is SeeAllOption {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    CardImageComponent,
   ],
   template: `
     <form class="csb" role="search" [attr.aria-label]="label()" (submit)="submit($event)">
@@ -122,13 +124,12 @@ function isSeeAll(value: unknown): value is SeeAllOption {
       @for (suggestion of suggestions(); track trackKey(suggestion)) {
         <mat-option [value]="suggestion" class="csb-option">
           <span class="csb-option__row">
-            <img
+            <app-card-image
               class="csb-option__img"
+              size="xs"
               [src]="suggestion.imageUrl"
+              [game]="suggestion.game"
               alt=""
-              width="36"
-              height="50"
-              loading="lazy"
             />
             <span class="csb-option__text">
               <span class="csb-option__name">{{ suggestion.name }}</span>

@@ -91,6 +91,7 @@ class WishlistMatchingIT extends AbstractWishlistIT {
         assertThat(data.path("collectorId").asString()).isEqualTo(seller.id().toString());
         assertThat(data.path("distanceBucket").asString()).isEqualTo(bucket);
         assertThat(data.path("deepLink").asString()).isEqualTo("/wishlist/" + wishId);
+        assertCardPicture(notification, "Azure-Eyes Sky Dragon");
         assertThat(notification.path("readAt").isNull()).isTrue();
         assertAtMostThreeDecimals(notification, "notification");
         assertThat(notification.toString())

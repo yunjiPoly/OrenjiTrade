@@ -25,6 +25,16 @@ import { AdminSetRequest } from '../model/adminSetRequest';
 // @ts-ignore
 import { CardDetail } from '../model/cardDetail';
 // @ts-ignore
+import { CardImageCacheClearRequest } from '../model/cardImageCacheClearRequest';
+// @ts-ignore
+import { CardImageCacheClearResponse } from '../model/cardImageCacheClearResponse';
+// @ts-ignore
+import { CardImageCacheReconcileResult } from '../model/cardImageCacheReconcileResult';
+// @ts-ignore
+import { CardImageCacheStatus } from '../model/cardImageCacheStatus';
+// @ts-ignore
+import { CatalogImportReport } from '../model/catalogImportReport';
+// @ts-ignore
 import { CatalogSyncRequest } from '../model/catalogSyncRequest';
 // @ts-ignore
 import { CatalogSyncRun } from '../model/catalogSyncRun';
@@ -47,11 +57,14 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     AdminCatalogServiceInterface,
+    ClearCardImageCacheRequestParams,
     CreateCardRequestParams,
     CreateGameRequestParams,
     CreatePrintingRequestParams,
     CreateSetRequestParams,
+    EvictCardImageRequestParams,
     GetCatalogSyncRunRequestParams,
+    GetCatalogSyncRunReportRequestParams,
     ListCatalogSyncRunsRequestParams,
     RequestCatalogSyncRequestParams,
     UpdateCardRequestParams,
@@ -69,6 +82,78 @@ export class AdminCatalogService extends BaseService implements AdminCatalogServ
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Delete cached card images (ADMIN, SUPER_ADMIN)
+     * Deletes the cached renditions (of one game when &#x60;game&#x60; is given) and releases their capacity; card metadata and image source references stay. Audited (&#x60;card_images.cache.clear&#x60;).
+     * @endpoint post /api/v1/admin/card-images/clear
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public clearCardImageCache(requestParameters: ClearCardImageCacheRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CardImageCacheClearResponse>;
+    public clearCardImageCache(requestParameters: ClearCardImageCacheRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CardImageCacheClearResponse>>;
+    public clearCardImageCache(requestParameters: ClearCardImageCacheRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CardImageCacheClearResponse>>;
+    public clearCardImageCache(requestParameters: ClearCardImageCacheRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const cardImageCacheClearRequest = requestParameters?.cardImageCacheClearRequest;
+        if (cardImageCacheClearRequest === null || cardImageCacheClearRequest === undefined) {
+            throw new Error('Required parameter cardImageCacheClearRequest was null or undefined when calling clearCardImageCache.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/card-images/clear`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<CardImageCacheClearResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: cardImageCacheClearRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**
@@ -364,6 +449,124 @@ export class AdminCatalogService extends BaseService implements AdminCatalogServ
     }
 
     /**
+     * Evict one cached card image (ADMIN, SUPER_ADMIN)
+     * The row goes back to NOT_CACHED; the file is deleted unless another artwork shares it. 404 when the image is not cached. Audited (&#x60;card_images.cache.evict&#x60;).
+     * @endpoint delete /api/v1/admin/card-images/{imageId}/cache
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public evictCardImage(requestParameters: EvictCardImageRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public evictCardImage(requestParameters: EvictCardImageRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public evictCardImage(requestParameters: EvictCardImageRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public evictCardImage(requestParameters: EvictCardImageRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const imageId = requestParameters?.imageId;
+        if (imageId === null || imageId === undefined) {
+            throw new Error('Required parameter imageId was null or undefined when calling evictCardImage.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/card-images/${this.configuration.encodeParam({name: "imageId", value: imageId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/cache`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Local card image cache status (ADMIN, SUPER_ADMIN)
+     * Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 500 MB) and provider artworks per cache status and game.
+     * @endpoint get /api/v1/admin/card-images/status
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getCardImageCacheStatus(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CardImageCacheStatus>;
+    public getCardImageCacheStatus(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CardImageCacheStatus>>;
+    public getCardImageCacheStatus(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CardImageCacheStatus>>;
+    public getCardImageCacheStatus(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/card-images/status`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<CardImageCacheStatus>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * One catalog import run (ADMIN, SUPER_ADMIN)
      * @endpoint get /api/v1/admin/catalog/sync-runs/{id}
      * @param requestParameters
@@ -412,6 +615,68 @@ export class AdminCatalogService extends BaseService implements AdminCatalogServ
         let localVarPath = `/api/v1/admin/catalog/sync-runs/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<CatalogSyncRun>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Report of one catalog import run (ADMIN, SUPER_ADMIN)
+     * Counts of cards, sets and printings, image cache fill (downloaded, already cached, skipped because the cache is full, failed, missing at the source), cache figures and the first errors. Available while the run is in progress; 404 for runs without a report.
+     * @endpoint get /api/v1/admin/catalog/sync-runs/{id}/report
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getCatalogSyncRunReport(requestParameters: GetCatalogSyncRunReportRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CatalogImportReport>;
+    public getCatalogSyncRunReport(requestParameters: GetCatalogSyncRunReportRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CatalogImportReport>>;
+    public getCatalogSyncRunReport(requestParameters: GetCatalogSyncRunReportRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CatalogImportReport>>;
+    public getCatalogSyncRunReport(requestParameters: GetCatalogSyncRunReportRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getCatalogSyncRunReport.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/catalog/sync-runs/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/report`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<CatalogImportReport>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -628,8 +893,65 @@ export class AdminCatalogService extends BaseService implements AdminCatalogServ
     }
 
     /**
+     * Reconcile cache files, rows and accounting (ADMIN, SUPER_ADMIN)
+     * Deletes orphan temporary files and files no row references, marks cached rows whose file is missing as not cached, reclaims expired reservations and recomputes the usage from the files on disk. Audited (&#x60;card_images.cache.reconcile&#x60;).
+     * @endpoint post /api/v1/admin/card-images/reconcile
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public reconcileCardImageCache(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CardImageCacheReconcileResult>;
+    public reconcileCardImageCache(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CardImageCacheReconcileResult>>;
+    public reconcileCardImageCache(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CardImageCacheReconcileResult>>;
+    public reconcileCardImageCache(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/card-images/reconcile`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<CardImageCacheReconcileResult>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Queue a catalog import (ADMIN, SUPER_ADMIN)
-     * Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Poll &#x60;GET /admin/catalog/sync-runs/{id}&#x60;. Audited (&#x60;catalog.sync.request&#x60;).
+     * Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Metadata is always imported; &#x60;imageMode&#x60; then fills the local card image cache (REFERENCED by default for providers with image downloads such as &#x60;ygoprodeck&#x60;, capped at CARD_IMAGE_LOCAL_CACHE_MAX_MB). Poll &#x60;GET /admin/catalog/sync-runs/{id}&#x60;. 409 while another import of the game is queued or running. Audited (&#x60;catalog.sync.request&#x60;).
      * @endpoint post /api/v1/admin/catalog/sync
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

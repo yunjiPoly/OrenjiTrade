@@ -21,8 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
  * What an offer event causes after commit (Phase 8 contract): notifications (OFFER_RECEIVED,
  * OFFER_COUNTERED, OFFER_ACCEPTED to both parties, OFFER_DECLINED, OFFER_CANCELLED, OFFER_EXPIRED
  * to both parties) and a SYSTEM message with the offer link in the pair conversation (created when
- * absent). Idempotent: notifications are de-duplicated per offer, event and recipient, SYSTEM
- * messages per offer and event, so a redelivered event changes nothing.
+ * absent). Notifications carry the offered card's name, game and picture ({@link OfferCard}).
+ * Idempotent: notifications are de-duplicated per offer, event and recipient, SYSTEM messages per
+ * offer and event, so a redelivered event changes nothing.
  */
 @Service
 public class OfferActivity {
@@ -48,18 +49,20 @@ public class OfferActivity {
             return;
         }
         OfferRow row = found.get();
-        String summary = offers.summaryText(row);
+        OfferCard card = offers.card(row);
+        String summary = offers.summaryText(row, card);
         String buyerName = offers.displayName(row.buyerId());
         notify(
                 row.sellerId(),
                 NotificationType.OFFER_RECEIVED,
                 OfferEventType.CREATED,
                 row,
+                card,
                 buyerName,
                 summary,
                 false,
                 null);
-        post(row, row.buyerId(), OfferEventType.CREATED, buyerName, summary);
+        post(row, card, row.buyerId(), OfferEventType.CREATED, buyerName, summary);
     }
 
     /** A later transition: the other party (both for acceptance and expiry) and the message. */
@@ -76,7 +79,8 @@ public class OfferActivity {
         } catch (IllegalArgumentException e) {
             return;
         }
-        String summary = offers.summaryText(row);
+        OfferCard card = offers.card(row);
+        String summary = offers.summaryText(row, card);
         @Nullable UUID actor = event.actorId();
         String actorName = offers.displayName(actor);
         @Nullable NotificationType notificationType =
@@ -102,12 +106,13 @@ public class OfferActivity {
                     notificationType,
                     type,
                     row,
+                    card,
                     actorName,
                     summary,
                     isActor,
                     event.tradeId());
         }
-        post(row, actor != null ? actor : row.buyerId(), type, actorName, summary);
+        post(row, card, actor != null ? actor : row.buyerId(), type, actorName, summary);
     }
 
     private void notify(
@@ -115,11 +120,11 @@ public class OfferActivity {
             NotificationType notificationType,
             OfferEventType event,
             OfferRow row,
+            OfferCard card,
             String actorName,
             String summary,
             boolean forActor,
             @Nullable UUID tradeId) {
-        String cardName = offers.cardName(row);
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("offerId", row.id().toString());
         data.put("rootOfferId", row.rootOfferId().toString());
@@ -130,26 +135,32 @@ public class OfferActivity {
         if (tradeId != null) {
             data.put("tradeId", tradeId.toString());
         }
+        card.putInto(data);
         data.put("deepLink", tradeId != null ? "/trades/" + tradeId : "/offers/" + row.id());
         notifications.notify(
                 new NotificationRequest(
                         recipient,
                         notificationType,
-                        OfferTexts.title(event, cardName, forActor),
+                        OfferTexts.title(event, card.name(), forActor),
                         OfferTexts.body(event, actorName, summary, forActor),
                         data,
                         "offer:" + row.id() + ":" + event.name() + ":" + recipient));
     }
 
     private void post(
-            OfferRow row, UUID initiator, OfferEventType event, String actorName, String summary) {
+            OfferRow row,
+            OfferCard card,
+            UUID initiator,
+            OfferEventType event,
+            String actorName,
+            String summary) {
         UUID other = initiator.equals(row.buyerId()) ? row.sellerId() : row.buyerId();
         conversations.postSystemMessage(
                 new SystemNotice(
                         initiator,
                         other,
                         OfferTexts.systemMessage(event, actorName, summary),
-                        new OfferLink(row.id(), row.status().name(), summary),
+                        new OfferLink(row.id(), row.status().name(), summary, card.imageUrl()),
                         "offer:" + row.id() + ":" + event.name()));
     }
 }

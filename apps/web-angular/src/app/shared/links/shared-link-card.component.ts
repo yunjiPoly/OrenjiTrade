@@ -2,8 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { BinderLink, CardLink } from '@orenji/api-client';
-import { CardImageComponent } from '../catalog/card-image/card-image.component';
-import { MediaUrlPipe } from '../pipes/media-url.pipe';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 
 /**
  * A card or binder shared in a message or a community post: thumbnail, name and a link to the
@@ -11,7 +10,7 @@ import { MediaUrlPipe } from '../pipes/media-url.pipe';
  */
 @Component({
   selector: 'app-shared-link-card',
-  imports: [RouterLink, MatIconModule, CardImageComponent, MediaUrlPipe],
+  imports: [RouterLink, MatIconModule, CardImageComponent],
   template: `
     @if (card(); as c) {
       <a
@@ -20,7 +19,7 @@ import { MediaUrlPipe } from '../pipes/media-url.pipe';
         [queryParams]="{ printing: c.id }"
         [attr.aria-label]="'Card: ' + c.name + (c.printingCode ? ', ' + c.printingCode : '')"
       >
-        <app-card-image class="link__thumb" [src]="c.imageUrl | mediaUrl" alt="" />
+        <app-card-image class="link__thumb" [src]="c.imageUrl" [alt]="c.name" />
         <span class="link__text">
           <span class="link__eyebrow">Card</span>
           <span class="link__name">{{ c.name }}</span>

@@ -15,6 +15,11 @@ import { AdminCardRequest } from '../model/models';
 import { AdminPrintingRequest } from '../model/models';
 import { AdminSetRequest } from '../model/models';
 import { CardDetail } from '../model/models';
+import { CardImageCacheClearRequest } from '../model/models';
+import { CardImageCacheClearResponse } from '../model/models';
+import { CardImageCacheReconcileResult } from '../model/models';
+import { CardImageCacheStatus } from '../model/models';
+import { CatalogImportReport } from '../model/models';
 import { CatalogSyncRequest } from '../model/models';
 import { CatalogSyncRun } from '../model/models';
 import { GameRequest } from '../model/models';
@@ -27,6 +32,10 @@ import { SetSummary } from '../model/models';
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface ClearCardImageCacheRequestParams {
+    cardImageCacheClearRequest: CardImageCacheClearRequest;
+}
 
 export interface CreateCardRequestParams {
     adminCardRequest: AdminCardRequest;
@@ -45,7 +54,15 @@ export interface CreateSetRequestParams {
     adminSetRequest: AdminSetRequest;
 }
 
+export interface EvictCardImageRequestParams {
+    imageId: string;
+}
+
 export interface GetCatalogSyncRunRequestParams {
+    id: string;
+}
+
+export interface GetCatalogSyncRunReportRequestParams {
     id: string;
 }
 
@@ -85,6 +102,14 @@ export interface AdminCatalogServiceInterface {
     configuration: Configuration;
 
     /**
+     * Delete cached card images (ADMIN, SUPER_ADMIN)
+     * Deletes the cached renditions (of one game when &#x60;game&#x60; is given) and releases their capacity; card metadata and image source references stay. Audited (&#x60;card_images.cache.clear&#x60;).
+     * @endpoint post /api/v1/admin/card-images/clear
+* @param requestParameters
+     */
+    clearCardImageCache(requestParameters: ClearCardImageCacheRequestParams, extraHttpRequestParams?: any): Observable<CardImageCacheClearResponse>;
+
+    /**
      * Create a card (ADMIN, SUPER_ADMIN)
      * The slug is derived from the name (suffixed when taken) and never changes. Metadata of declared GameSchema fields must have the declared type. Audited (&#x60;card.create&#x60;).
      * @endpoint post /api/v1/admin/cards
@@ -117,12 +142,35 @@ export interface AdminCatalogServiceInterface {
     createSet(requestParameters: CreateSetRequestParams, extraHttpRequestParams?: any): Observable<SetSummary>;
 
     /**
+     * Evict one cached card image (ADMIN, SUPER_ADMIN)
+     * The row goes back to NOT_CACHED; the file is deleted unless another artwork shares it. 404 when the image is not cached. Audited (&#x60;card_images.cache.evict&#x60;).
+     * @endpoint delete /api/v1/admin/card-images/{imageId}/cache
+* @param requestParameters
+     */
+    evictCardImage(requestParameters: EvictCardImageRequestParams, extraHttpRequestParams?: any): Observable<{}>;
+
+    /**
+     * Local card image cache status (ADMIN, SUPER_ADMIN)
+     * Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 500 MB) and provider artworks per cache status and game.
+     * @endpoint get /api/v1/admin/card-images/status
+*/
+    getCardImageCacheStatus(extraHttpRequestParams?: any): Observable<CardImageCacheStatus>;
+
+    /**
      * One catalog import run (ADMIN, SUPER_ADMIN)
      * 
      * @endpoint get /api/v1/admin/catalog/sync-runs/{id}
 * @param requestParameters
      */
     getCatalogSyncRun(requestParameters: GetCatalogSyncRunRequestParams, extraHttpRequestParams?: any): Observable<CatalogSyncRun>;
+
+    /**
+     * Report of one catalog import run (ADMIN, SUPER_ADMIN)
+     * Counts of cards, sets and printings, image cache fill (downloaded, already cached, skipped because the cache is full, failed, missing at the source), cache figures and the first errors. Available while the run is in progress; 404 for runs without a report.
+     * @endpoint get /api/v1/admin/catalog/sync-runs/{id}/report
+* @param requestParameters
+     */
+    getCatalogSyncRunReport(requestParameters: GetCatalogSyncRunReportRequestParams, extraHttpRequestParams?: any): Observable<CatalogImportReport>;
 
     /**
      * List games including hidden ones (ADMIN, SUPER_ADMIN)
@@ -147,8 +195,15 @@ export interface AdminCatalogServiceInterface {
     listCatalogSyncRuns(requestParameters: ListCatalogSyncRunsRequestParams, extraHttpRequestParams?: any): Observable<PageResponseCatalogSyncRun>;
 
     /**
+     * Reconcile cache files, rows and accounting (ADMIN, SUPER_ADMIN)
+     * Deletes orphan temporary files and files no row references, marks cached rows whose file is missing as not cached, reclaims expired reservations and recomputes the usage from the files on disk. Audited (&#x60;card_images.cache.reconcile&#x60;).
+     * @endpoint post /api/v1/admin/card-images/reconcile
+*/
+    reconcileCardImageCache(extraHttpRequestParams?: any): Observable<CardImageCacheReconcileResult>;
+
+    /**
      * Queue a catalog import (ADMIN, SUPER_ADMIN)
-     * Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Poll &#x60;GET /admin/catalog/sync-runs/{id}&#x60;. Audited (&#x60;catalog.sync.request&#x60;).
+     * Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Metadata is always imported; &#x60;imageMode&#x60; then fills the local card image cache (REFERENCED by default for providers with image downloads such as &#x60;ygoprodeck&#x60;, capped at CARD_IMAGE_LOCAL_CACHE_MAX_MB). Poll &#x60;GET /admin/catalog/sync-runs/{id}&#x60;. 409 while another import of the game is queued or running. Audited (&#x60;catalog.sync.request&#x60;).
      * @endpoint post /api/v1/admin/catalog/sync
 * @param requestParameters
      */

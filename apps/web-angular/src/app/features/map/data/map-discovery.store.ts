@@ -26,6 +26,11 @@ import { SessionService } from '../../../core/auth/session.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
 import { limitReachedInfo } from '../../../core/limits/limit-reached';
+import {
+  CardPictures,
+  cardPicturesOfCard,
+  cardPicturesOfPrinting,
+} from '../../../shared/catalog/card-pictures';
 import { DiscoveryCentreService } from '../../../shared/discovery/discovery-centre';
 import { CITY_PRESETS, CityPreset, zoomForRadius } from '../../../shared/location/city-presets';
 import {
@@ -106,6 +111,7 @@ export class MapDiscoveryStore {
   private readonly errorState = signal<ApiError | null>(null);
   private readonly zoomState = signal(zoomForRadius(10));
   private readonly holdersTitleState = signal<string | null>(null);
+  private readonly holdersCardState = signal<CardPictures | null>(null);
   private readonly selectedState = signal<string | null>(null);
   private readonly previewState = signal<PreviewState>({ kind: 'idle' });
   private readonly previewBinderState = signal<string | null | undefined>(undefined);
@@ -131,6 +137,8 @@ export class MapDiscoveryStore {
   readonly holders = computed(() => holdersTarget(this.paramsState()));
   /** Name of the card (or printing) in "holders of X" mode; `null` while unknown. */
   readonly holdersTitle = this.holdersTitleState.asReadonly();
+  /** Pictures of the card (and its printings) in "holders of X" mode; `null` while unknown. */
+  readonly holdersCard = this.holdersCardState.asReadonly();
   readonly selectedHandle = this.selectedState.asReadonly();
   readonly preview = this.previewState.asReadonly();
   /** First public binder of the previewed collector: `undefined` while loading, `null` if none. */
@@ -448,26 +456,36 @@ export class MapDiscoveryStore {
   private loadHoldersTitle(): void {
     this.titleSubscription?.unsubscribe();
     this.holdersTitleState.set(null);
+    this.holdersCardState.set(null);
     const target = holdersTarget(this.paramsState());
     if (!target) {
       return;
     }
-    const request: Observable<string> =
+    const request: Observable<{ title: string; pictures: CardPictures }> =
       target.kind === 'card'
-        ? this.catalog
-            .getCard({ id: target.id }, 'body', false, { context: silentErrors() })
-            .pipe(map((card) => card.name ?? 'this card'))
+        ? this.catalog.getCard({ id: target.id }, 'body', false, { context: silentErrors() }).pipe(
+            map((card) => ({
+              title: card.name ?? 'this card',
+              pictures: cardPicturesOfCard(card),
+            })),
+          )
         : this.catalog
             .getPrinting({ id: target.id }, 'body', false, { context: silentErrors() })
             .pipe(
               map((detail) => {
                 const name = detail.card?.name ?? 'this card';
                 const code = detail.printing?.printingCode;
-                return code ? `${name} (${code})` : name;
+                return {
+                  title: code ? `${name} (${code})` : name,
+                  pictures: cardPicturesOfPrinting(detail),
+                };
               }),
             );
     this.titleSubscription = request.subscribe({
-      next: (title) => this.holdersTitleState.set(title),
+      next: ({ title, pictures }) => {
+        this.holdersTitleState.set(title);
+        this.holdersCardState.set(pictures);
+      },
       error: () => this.holdersTitleState.set('this card'),
     });
   }

@@ -35,6 +35,7 @@ class FakeStore {
   readonly zoom = signal(12);
   readonly holders = computed(() => holdersTarget(this.params()));
   readonly holdersTitle = signal<string | null>(null);
+  readonly holdersCard = signal(null);
   readonly selectedHandle = signal<string | null>(null);
   readonly preview = signal<PreviewState>({ kind: 'idle' });
   readonly previewBinderId = signal<string | null | undefined>(undefined);

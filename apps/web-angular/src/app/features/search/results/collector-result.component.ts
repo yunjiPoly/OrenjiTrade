@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { CollectorMarker } from '@orenji/api-client';
+import type { CollectorMarker, MatchingItem } from '@orenji/api-client';
+import { CardPictures, pictureFor } from '../../../shared/catalog/card-pictures';
 import { listingsLabel, ratingLabel, tagLabel } from '../../../shared/discovery/discovery-labels';
 import { distanceBucketLabel } from '../../../shared/domain/location-labels';
 import { badgeFreshness, formatPrice } from '../../../shared/inventory/inventory-labels';
@@ -8,6 +9,7 @@ import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-ch
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /**
  * A collector in search results: avatar, name (profile link), approximate place and distance,
@@ -16,6 +18,7 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
 @Component({
   selector: 'app-collector-result',
   imports: [
+    CardImageComponent,
     RouterLink,
     AvatarComponent,
     FreshnessBadgeComponent,
@@ -50,6 +53,12 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
           <ul class="cr__items" [attr.aria-label]="'Listings of ' + c.displayName">
             @for (item of c.matchingItems; track item.itemId) {
               <li class="cr__item">
+                <app-card-image
+                  size="xs"
+                  [src]="picture(item)"
+                  [alt]="item.cardName"
+                  [game]="item.game"
+                />
                 <span class="mono">{{ item.printingCode ?? item.cardName }}</span>
                 <app-item-chips
                   [condition]="item.condition"
@@ -134,6 +143,8 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
 export class CollectorResultComponent {
   readonly collector = input.required<CollectorMarker>();
   readonly signedIn = input(false);
+  /** Pictures of the searched card (listing thumbnails); `null` shows the placeholder art. */
+  readonly pictures = input<CardPictures | null>(null);
 
   protected readonly distance = computed(() =>
     this.signedIn() ? distanceBucketLabel(this.collector().distanceBucket) : null,
@@ -146,6 +157,10 @@ export class CollectorResultComponent {
       .tags.map((tag) => tagLabel(tag))
       .join(' · '),
   );
+
+  protected picture(item: MatchingItem): string | null {
+    return pictureFor(this.pictures(), item.printingId);
+  }
 
   protected price(amount: number | null | undefined, currency: string, offers: boolean): string {
     return formatPrice(amount, currency) ?? (offers ? 'Make an offer' : 'No price');

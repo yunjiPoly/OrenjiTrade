@@ -33,7 +33,8 @@ public class WishlistMatchRepository {
     static final String CANDIDATES =
             """
             SELECT w.id AS wishlist_item_id, w.owner_id AS wisher_id, i.id AS item_id,
-                   i.owner_id AS item_owner_id, c.name AS card_name, p.printing_code,
+                   i.printing_id, i.owner_id AS item_owner_id, c.name AS card_name,
+                   p.printing_code,
                    i.asking_price, i.currency, g.slug AS game,
                    ST_Distance(ul.public_point, ol.public_point) AS distance_m
               FROM inventory_item i
@@ -230,6 +231,7 @@ public class WishlistMatchRepository {
                 rs.getObject("wishlist_item_id", UUID.class),
                 rs.getObject("wisher_id", UUID.class),
                 rs.getObject("item_id", UUID.class),
+                rs.getObject("printing_id", UUID.class),
                 rs.getObject("item_owner_id", UUID.class),
                 rs.getString("card_name"),
                 rs.getString("printing_code"),
@@ -258,6 +260,7 @@ public class WishlistMatchRepository {
      * @param wishlistItemId wishlist item
      * @param wisherId owner of the wishlist item
      * @param itemId inventory item
+     * @param printingId printing of the inventory item (its picture in the notification)
      * @param itemOwnerId owner of the inventory item
      * @param cardName card name
      * @param printingCode printing code
@@ -270,6 +273,7 @@ public class WishlistMatchRepository {
             UUID wishlistItemId,
             UUID wisherId,
             UUID itemId,
+            UUID printingId,
             UUID itemOwnerId,
             String cardName,
             @Nullable String printingCode,

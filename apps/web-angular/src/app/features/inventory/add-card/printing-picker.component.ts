@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, model } from '@angular/core';
 import { MatRadioModule } from '@angular/material/radio';
 import type { PrintingSummary } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import {
   editionLabel,
   finishLabel,

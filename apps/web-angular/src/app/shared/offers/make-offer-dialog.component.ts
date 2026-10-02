@@ -15,7 +15,7 @@ import { firstValueFrom, startWith } from 'rxjs';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { toApiError } from '../../core/http/api-error';
 import { newRequestId, silentErrors } from '../../core/http/http-context';
-import { CardImageComponent } from '../catalog/card-image/card-image.component';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 import { CURRENCIES, formatPrice } from '../inventory/inventory-labels';
 import { ItemChipsComponent } from '../inventory/item-chips/item-chips.component';
 import { ProtectionExplainerComponent } from '../payments/protection-explainer.component';

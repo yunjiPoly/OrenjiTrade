@@ -22,7 +22,7 @@ import {
   OfferLinkChoice,
   OfferLinkPickerComponent,
 } from '../../../shared/offers/offer-link-picker.component';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { DraftAttachment, IMAGE_TYPES, MessageDraft, imageProblem } from '../data/message-draft';
 import { MESSAGE_MAX_LENGTH } from '../data/message-text';
 
@@ -75,8 +75,8 @@ type Picker = 'card' | 'binder' | 'offer' | null;
               <app-card-image
                 class="attachment__thumb"
                 [src]="a.card.imageUrl"
-                [game]="a.card.game ?? ''"
-                alt=""
+                [game]="a.card.game"
+                [alt]="a.card.name"
               />
               <span class="attachment__text">
                 <span class="attachment__eyebrow">Card</span>
@@ -96,9 +96,12 @@ type Picker = 'card' | 'binder' | 'offer' | null;
               </span>
             }
             @case ('offer') {
-              <span class="attachment__icon" aria-hidden="true"
-                ><mat-icon>local_offer</mat-icon></span
-              >
+              <app-card-image
+                class="attachment__thumb"
+                [src]="a.offer.imageUrl"
+                [game]="a.offer.game"
+                [alt]="a.offer.cardName"
+              />
               <span class="attachment__text">
                 <span class="attachment__eyebrow">Offer</span>
                 <span class="attachment__name">{{ a.offer.cardName }}</span>

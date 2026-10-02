@@ -8,6 +8,8 @@ import {
   formatMarketPrice,
   languageLabel,
 } from '../../../shared/catalog/catalog-labels';
+import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /**
  * Printings as a table. `card` mode (card detail) links each set and lets the collector pick the
@@ -15,12 +17,13 @@ import {
  */
 @Component({
   selector: 'app-printings-table',
-  imports: [DatePipe, RouterLink],
+  imports: [CardImageComponent, DatePipe, RouterLink],
   template: `
     <div class="wrap" tabindex="0" role="region" [attr.aria-label]="label() + ' (scrollable)'">
       <table class="printings" [attr.aria-label]="label()">
         <thead>
           <tr>
+            <th scope="col" class="printings__pic"><span class="visually-hidden">Picture</span></th>
             @if (mode() === 'set') {
               <th scope="col">No.</th>
               <th scope="col">Card</th>
@@ -40,6 +43,15 @@ import {
           @for (printing of printings(); track printing.id) {
             @let selected = mode() === 'card' && printing.id === selectedId();
             <tr [class.printings__row--selected]="selected" [attr.aria-current]="selected || null">
+              <td class="printings__pic">
+                <app-card-image
+                  class="printings__thumb"
+                  size="xs"
+                  [src]="image(printing)"
+                  [alt]="mode() === 'set' ? nameOf(printing) : cardName()"
+                  [game]="game()"
+                />
+              </td>
               @if (mode() === 'set') {
                 <td class="mono">{{ printing.collectorNumber }}</td>
                 <td>
@@ -48,7 +60,7 @@ import {
                     [routerLink]="['/cards', printing.cardId]"
                     [queryParams]="{ printing: printing.id }"
                   >
-                    {{ cardName(printing) }}
+                    {{ nameOf(printing) }}
                   </a>
                 </td>
               } @else {
@@ -120,6 +132,7 @@ import {
     th,
     td {
       padding: var(--spacing-2) var(--spacing-3);
+      vertical-align: middle;
       border-bottom: 1px solid var(--color-border);
       text-align: left;
       white-space: nowrap;
@@ -147,6 +160,13 @@ import {
     }
     .printings__num {
       text-align: right;
+    }
+    .printings__pic {
+      width: 36px;
+      padding-right: 0;
+    }
+    .printings__thumb {
+      --card-image-shadow: none;
     }
     .printings__set,
     .printings__card {
@@ -205,15 +225,24 @@ export class PrintingsTableComponent {
   readonly selectedId = input<string | null>(null);
   /** `set` mode: card names by card id. */
   readonly cardNames = input<Readonly<Record<string, string>>>({});
+  /** `card` mode: the card's name (picture alt text). */
+  readonly cardName = input('');
+  /** Game slug tinting the placeholder pictures. */
+  readonly game = input<string | null | undefined>('');
   readonly pick = output<string>();
 
   protected readonly edition = editionLabel;
   protected readonly finish = finishLabel;
   protected readonly language = languageLabel;
 
-  protected cardName(printing: PrintingSummary): string {
+  protected nameOf(printing: PrintingSummary): string {
     const names: Readonly<Record<string, string | undefined>> = this.cardNames();
     return names[printing.cardId ?? ''] ?? printing.printingCode ?? 'Card';
+  }
+
+  /** The printing's front picture (an API URL; the placeholder art when missing). */
+  protected image(printing: PrintingSummary): string | null {
+    return printingImageUrl(printing);
   }
 
   protected price(printing: PrintingSummary): string | null {

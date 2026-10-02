@@ -3,23 +3,27 @@ package com.orenjitrade.api.cards.infra;
 import com.orenjitrade.api.cards.domain.CardSearchCriteria;
 import com.orenjitrade.api.cards.domain.CardSuggestion;
 import com.orenjitrade.api.cards.domain.CardSummary;
-import com.orenjitrade.api.cards.domain.CatalogImages;
 import com.orenjitrade.api.cards.domain.CatalogText;
 import com.orenjitrade.api.cards.domain.MarketPrice;
 import com.orenjitrade.api.cards.domain.PrintingImage;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.cards.domain.SetSummary;
+import com.orenjitrade.api.cards.domain.images.CardImageUrlResolver;
+import com.orenjitrade.api.cards.domain.images.CardImageUrlResolver.ImageRef;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -31,7 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
  * websearch_to_tsquery('simple', unaccent(q))}, ranked with {@code ts_rank_cd}) plus a trigram
  * fallback on {@code card.normalized_name} when fewer than {@link #FUZZY_THRESHOLD} rows match,
  * printing-code lookups, sets, printings and autocomplete. Only cards of ACTIVE games are visible.
- * Image URLs are resolved against the request origin; printings without images get the placeholder.
+ * Image URLs come from {@link CardImageUrlResolver} (ADR 0015): printing images, else the card's
+ * primary artwork, else the placeholder; provider source URLs of re-host-only providers never leave
+ * the server.
  */
 @Repository
 public class CatalogQueryRepository {
@@ -47,12 +53,11 @@ public class CatalogQueryRepository {
             """
             c.id, g.slug AS game, c.name, c.slug, c.card_type, c.subtype, c.metadata::text AS metadata,
             (SELECT count(*) FROM card_printing pc WHERE pc.card_id = c.id) AS printing_count,
-            (SELECT i.url FROM card_printing pi
-               JOIN card_set si ON si.id = pi.set_id
-               JOIN card_image i ON i.id = pi.image_id
-              WHERE pi.card_id = c.id
-              ORDER BY si.release_date NULLS LAST, pi.printing_code NULLS LAST, pi.id
-              LIMIT 1) AS image_url
+            coalesce((SELECT pi.image_id FROM card_printing pi
+                        JOIN card_set si ON si.id = pi.set_id
+                       WHERE pi.card_id = c.id AND pi.image_id IS NOT NULL
+                       ORDER BY si.release_date NULLS LAST, pi.printing_code NULLS LAST, pi.id
+                       LIMIT 1), c.image_id) AS image_id
             """;
 
     private static final String PRINTING_COLUMNS =
@@ -60,7 +65,7 @@ public class CatalogQueryRepository {
             p.id, p.card_id, p.set_id, s.code AS set_code, s.name AS set_name, p.collector_number,
             p.printing_code, p.rarity, p.edition, p.language, p.finish, p.market_price,
             p.market_price_currency, p.market_price_updated_at, p.metadata::text AS metadata,
-            g.slug AS game, c.slug AS card_slug
+            g.slug AS game, c.slug AS card_slug, c.image_id AS card_image_id
             """;
 
     private static final String PRINTING_FROM =
@@ -75,12 +80,18 @@ public class CatalogQueryRepository {
             " ORDER BY s.release_date NULLS LAST, s.code, p.collector_number, p.edition,"
                     + " p.language, p.finish, p.id";
 
+    private static final String IMAGE_REF_COLUMNS =
+            "id, kind, url, provider, provider_image_id, source_url, cache_status, width, height";
+
     private final JdbcClient jdbc;
     private final JsonMapper jsonMapper;
+    private final CardImageUrlResolver images;
 
-    public CatalogQueryRepository(JdbcClient jdbc, JsonMapper jsonMapper) {
+    public CatalogQueryRepository(
+            JdbcClient jdbc, JsonMapper jsonMapper, CardImageUrlResolver images) {
         this.jdbc = jdbc;
         this.jsonMapper = jsonMapper;
+        this.images = images;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -175,7 +186,7 @@ public class CatalogQueryRepository {
         }
         params.put("limit", criteria.size());
         params.put("offset", (long) criteria.page() * criteria.size());
-        List<CardSummary> items =
+        List<CardRow> rows =
                 jdbc.sql(
                                 "SELECT "
                                         + CARD_COLUMNS
@@ -186,7 +197,7 @@ public class CatalogQueryRepository {
                         .params(params)
                         .query(this::mapCard)
                         .list();
-        return new Page<>(items, total);
+        return new Page<>(summaries(rows), total);
     }
 
     /** The card holding the printing {@code code} (upper-case) in an ACTIVE game. */
@@ -285,7 +296,8 @@ public class CatalogQueryRepository {
                 .param("id", id)
                 .param("activeOnly", activeOnly)
                 .query(this::mapCard)
-                .optional();
+                .optional()
+                .map(row -> summaries(List.of(row)).get(0));
     }
 
     /** Summaries of several cards (of ACTIVE games unless {@code activeOnly} is false). */
@@ -293,16 +305,17 @@ public class CatalogQueryRepository {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return jdbc.sql(
-                        "SELECT "
-                                + CARD_COLUMNS
-                                + " FROM card c JOIN game g ON g.id = c.game_id"
-                                + " WHERE c.id IN (:ids) AND (g.status = 'ACTIVE' OR NOT"
-                                + " :activeOnly)")
-                .param("ids", ids)
-                .param("activeOnly", activeOnly)
-                .query(this::mapCard)
-                .list();
+        return summaries(
+                jdbc.sql(
+                                "SELECT "
+                                        + CARD_COLUMNS
+                                        + " FROM card c JOIN game g ON g.id = c.game_id"
+                                        + " WHERE c.id IN (:ids) AND (g.status = 'ACTIVE' OR NOT"
+                                        + " :activeOnly)")
+                        .param("ids", ids)
+                        .param("activeOnly", activeOnly)
+                        .query(this::mapCard)
+                        .list());
     }
 
     /** Rules text of a card. */
@@ -407,53 +420,148 @@ public class CatalogQueryRepository {
                 .optional();
     }
 
-    /** Adds images (or the placeholder) to printing rows. */
+    /**
+     * Adds images to printing rows: the printing's own images, else the card's primary artwork,
+     * else the placeholder.
+     */
     public List<PrintingSummary> withImages(List<PrintingRow> rows) {
         if (rows.isEmpty()) {
             return List.of();
         }
-        Map<UUID, List<PrintingImage>> images = new LinkedHashMap<>();
+        Map<UUID, List<ImageRef>> own = new LinkedHashMap<>();
         jdbc.sql(
-                        """
-                        SELECT printing_id, kind, url, width, height FROM card_image
-                         WHERE printing_id IN (:ids)
-                         ORDER BY CASE kind WHEN 'FRONT' THEN 0 WHEN 'BACK' THEN 1 ELSE 2 END
-                        """)
-                .param("ids", rows.stream().map(PrintingRow::id).toList())
+                        "SELECT printing_id, "
+                                + IMAGE_REF_COLUMNS
+                                + " FROM card_image WHERE printing_id IN (:ids) ORDER BY CASE kind"
+                                + " WHEN 'FRONT' THEN 0 WHEN 'BACK' THEN 1 ELSE 2 END, position,"
+                                + " id")
+                .param("ids", rows.stream().map(PrintingRow::id).distinct().toList())
                 .query(
                         rs -> {
-                            images.computeIfAbsent(
+                            own.computeIfAbsent(
                                             rs.getObject("printing_id", UUID.class),
                                             id -> new ArrayList<>())
-                                    .add(
-                                            new PrintingImage(
-                                                    rs.getString("kind"),
-                                                    CatalogImages.resolve(rs.getString("url")),
-                                                    nullableInt(rs, "width"),
-                                                    nullableInt(rs, "height")));
+                                    .add(imageRef(rs));
                         });
+        Map<UUID, ImageRef> cardImages =
+                imageRefs(
+                        rows.stream()
+                                .filter(row -> !own.containsKey(row.id()))
+                                .map(PrintingRow::cardImageId)
+                                .filter(Objects::nonNull)
+                                .toList());
         return rows.stream()
                 .map(
-                        row ->
-                                row.toSummary(
-                                        CatalogImages.orPlaceholder(
-                                                images.getOrDefault(row.id(), List.of()),
-                                                row.game(),
-                                                row.cardSlug())))
+                        row -> {
+                            List<ImageRef> refs = own.get(row.id());
+                            List<PrintingImage> printingImages;
+                            if (refs != null && !refs.isEmpty()) {
+                                printingImages =
+                                        refs.stream()
+                                                .map(
+                                                        ref ->
+                                                                images.printingImage(
+                                                                        ref,
+                                                                        row.game(),
+                                                                        row.cardSlug()))
+                                                .toList();
+                            } else {
+                                @Nullable ImageRef card =
+                                        row.cardImageId() == null
+                                                ? null
+                                                : cardImages.get(row.cardImageId());
+                                printingImages =
+                                        List.of(
+                                                images.printingImage(
+                                                        card, row.game(), row.cardSlug()));
+                            }
+                            return row.toSummary(printingImages);
+                        })
                 .toList();
     }
 
+    /** Image rows by id (resolver input). */
+    public Map<UUID, ImageRef> imageRefs(Collection<UUID> ids) {
+        Map<UUID, ImageRef> refs = new HashMap<>();
+        if (ids.isEmpty()) {
+            return refs;
+        }
+        List<UUID> distinct = ids.stream().distinct().toList();
+        for (int from = 0; from < distinct.size(); from += 1000) {
+            jdbc.sql("SELECT " + IMAGE_REF_COLUMNS + " FROM card_image WHERE id IN (:ids)")
+                    .param("ids", distinct.subList(from, Math.min(distinct.size(), from + 1000)))
+                    .query(
+                            rs -> {
+                                ImageRef ref = imageRef(rs);
+                                refs.put(ref.id(), ref);
+                            });
+        }
+        return refs;
+    }
+
+    private static ImageRef imageRef(ResultSet rs) throws SQLException {
+        return new ImageRef(
+                rs.getObject("id", UUID.class),
+                rs.getString("kind"),
+                rs.getString("url"),
+                rs.getString("provider"),
+                rs.getString("provider_image_id"),
+                rs.getString("source_url"),
+                rs.getString("cache_status"),
+                nullableInt(rs, "width"),
+                nullableInt(rs, "height"));
+    }
+
+    /** Client URL of an image id (or the placeholder). */
+    private String imageUrl(
+            @Nullable UUID imageId, Map<UUID, ImageRef> refs, String game, String cardSlug) {
+        return images.url(imageId == null ? null : refs.get(imageId), game, cardSlug);
+    }
+
+    private List<CardSuggestion> suggestions(List<SuggestionRow> rows) {
+        Map<UUID, ImageRef> refs =
+                imageRefs(
+                        rows.stream()
+                                .map(SuggestionRow::imageId)
+                                .filter(Objects::nonNull)
+                                .toList());
+        return rows.stream()
+                .map(
+                        row -> {
+                            CardSuggestion suggestion = row.suggestion();
+                            return new CardSuggestion(
+                                    suggestion.kind(),
+                                    suggestion.id(),
+                                    suggestion.printingId(),
+                                    suggestion.name(),
+                                    suggestion.game(),
+                                    suggestion.setCode(),
+                                    suggestion.printingCode(),
+                                    imageUrl(
+                                            row.imageId(),
+                                            refs,
+                                            suggestion.game(),
+                                            row.cardSlug()));
+                        })
+                .toList();
+    }
+
+    /** A suggestion before its image URL is resolved. */
+    private record SuggestionRow(
+            CardSuggestion suggestion, String cardSlug, @Nullable UUID imageId) {}
+
     /** Printing codes starting with {@code prefix} (autocomplete). */
     public List<CardSuggestion> suggestPrintings(@Nullable UUID gameId, String prefix, int limit) {
-        return jdbc.sql(
+        return jdbc
+                .sql(
                         """
                         SELECT p.id AS printing_id, c.id AS card_id, c.name, c.slug AS card_slug,
-                               g.slug AS game, s.code AS set_code, p.printing_code, i.url
+                               g.slug AS game, s.code AS set_code, p.printing_code,
+                               coalesce(p.image_id, c.image_id) AS image_id
                           FROM card_printing p
                           JOIN card c ON c.id = p.card_id
                           JOIN game g ON g.id = c.game_id
                           JOIN card_set s ON s.id = p.set_id
-                          LEFT JOIN card_image i ON i.id = p.image_id
                          WHERE g.status = 'ACTIVE' AND p.printing_code LIKE :prefix ESCAPE '\\'
                            AND (CAST(:gameId AS uuid) IS NULL OR c.game_id = CAST(:gameId AS uuid))
                          ORDER BY p.printing_code, p.edition, p.language, p.finish
@@ -464,36 +572,39 @@ public class CatalogQueryRepository {
                 .param("limit", limit)
                 .query(
                         (rs, rowNum) ->
-                                new CardSuggestion(
-                                        CardSuggestion.PRINTING,
-                                        rs.getObject("card_id", UUID.class),
-                                        rs.getObject("printing_id", UUID.class),
-                                        rs.getString("name"),
-                                        rs.getString("game"),
-                                        rs.getString("set_code"),
-                                        rs.getString("printing_code"),
-                                        CatalogImages.resolveOrPlaceholder(
-                                                rs.getString("url"),
+                                new SuggestionRow(
+                                        new CardSuggestion(
+                                                CardSuggestion.PRINTING,
+                                                rs.getObject("card_id", UUID.class),
+                                                rs.getObject("printing_id", UUID.class),
+                                                rs.getString("name"),
                                                 rs.getString("game"),
-                                                rs.getString("card_slug"))))
-                .list();
+                                                rs.getString("set_code"),
+                                                rs.getString("printing_code"),
+                                                null),
+                                        rs.getString("card_slug"),
+                                        rs.getObject("image_id", UUID.class)))
+                .list()
+                .stream()
+                .collect(Collectors.collectingAndThen(Collectors.toList(), this::suggestions));
     }
 
     /** Cards whose name starts with, contains, full-text matches or resembles {@code query}. */
     public List<CardSuggestion> suggestCards(@Nullable UUID gameId, String query, int limit) {
         String normalised = CatalogText.normalise(query);
         String escaped = CatalogText.escapeLike(normalised);
-        return jdbc.sql(
+        return jdbc
+                .sql(
                         """
                         SELECT c.id, c.name, c.slug, g.slug AS game,
-                               pp.set_code, pp.printing_code, pp.url
+                               pp.set_code, pp.printing_code,
+                               coalesce(pp.image_id, c.image_id) AS image_id
                           FROM card c
                           JOIN game g ON g.id = c.game_id
                           LEFT JOIN LATERAL (
-                                SELECT s.code AS set_code, p.printing_code, i.url
+                                SELECT s.code AS set_code, p.printing_code, p.image_id
                                   FROM card_printing p
                                   JOIN card_set s ON s.id = p.set_id
-                                  LEFT JOIN card_image i ON i.id = p.image_id
                                  WHERE p.card_id = c.id
                                  ORDER BY s.release_date NULLS LAST, p.printing_code NULLS LAST, p.id
                                  LIMIT 1) pp ON true
@@ -518,19 +629,21 @@ public class CatalogQueryRepository {
                 .param("limit", limit)
                 .query(
                         (rs, rowNum) ->
-                                new CardSuggestion(
-                                        CardSuggestion.CARD,
-                                        rs.getObject("id", UUID.class),
-                                        null,
-                                        rs.getString("name"),
-                                        rs.getString("game"),
-                                        rs.getString("set_code"),
-                                        rs.getString("printing_code"),
-                                        CatalogImages.resolveOrPlaceholder(
-                                                rs.getString("url"),
+                                new SuggestionRow(
+                                        new CardSuggestion(
+                                                CardSuggestion.CARD,
+                                                rs.getObject("id", UUID.class),
+                                                null,
+                                                rs.getString("name"),
                                                 rs.getString("game"),
-                                                rs.getString("slug"))))
-                .list();
+                                                rs.getString("set_code"),
+                                                rs.getString("printing_code"),
+                                                null),
+                                        rs.getString("slug"),
+                                        rs.getObject("image_id", UUID.class)))
+                .list()
+                .stream()
+                .collect(Collectors.collectingAndThen(Collectors.toList(), this::suggestions));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -624,20 +737,50 @@ public class CatalogQueryRepository {
         return jdbc.sql("SELECT count(*) " + from).params(params).query(Long.class).single();
     }
 
-    private CardSummary mapCard(ResultSet rs, int rowNum) throws SQLException {
-        String game = rs.getString("game");
-        String slug = rs.getString("slug");
-        return new CardSummary(
+    private CardRow mapCard(ResultSet rs, int rowNum) throws SQLException {
+        return new CardRow(
                 rs.getObject("id", UUID.class),
-                game,
+                rs.getString("game"),
                 rs.getString("name"),
-                slug,
+                rs.getString("slug"),
                 rs.getString("card_type"),
                 rs.getString("subtype"),
-                CatalogImages.resolveOrPlaceholder(rs.getString("image_url"), game, slug),
+                rs.getObject("image_id", UUID.class),
                 rs.getInt("printing_count"),
                 readMap(rs.getString("metadata")));
     }
+
+    /** Card rows with their image URLs resolved in one query. */
+    private List<CardSummary> summaries(List<CardRow> rows) {
+        Map<UUID, ImageRef> refs =
+                imageRefs(rows.stream().map(CardRow::imageId).filter(Objects::nonNull).toList());
+        return rows.stream()
+                .map(
+                        row ->
+                                new CardSummary(
+                                        row.id(),
+                                        row.game(),
+                                        row.name(),
+                                        row.slug(),
+                                        row.cardType(),
+                                        row.subtype(),
+                                        imageUrl(row.imageId(), refs, row.game(), row.slug()),
+                                        row.printingCount(),
+                                        row.metadata()))
+                .toList();
+    }
+
+    /** A card row before its image URL is resolved. */
+    private record CardRow(
+            UUID id,
+            String game,
+            String name,
+            String slug,
+            @Nullable String cardType,
+            @Nullable String subtype,
+            @Nullable UUID imageId,
+            int printingCount,
+            Map<String, Object> metadata) {}
 
     private PrintingRow mapPrinting(ResultSet rs, int rowNum) throws SQLException {
         @Nullable MarketPrice price = null;
@@ -664,7 +807,8 @@ public class CatalogQueryRepository {
                 price,
                 readMap(rs.getString("metadata")),
                 rs.getString("game"),
-                rs.getString("card_slug"));
+                rs.getString("card_slug"),
+                rs.getObject("card_image_id", UUID.class));
     }
 
     private SetSummary mapSet(ResultSet rs) throws SQLException {
@@ -719,7 +863,8 @@ public class CatalogQueryRepository {
             @Nullable MarketPrice marketPrice,
             Map<String, Object> metadata,
             String game,
-            String cardSlug) {
+            String cardSlug,
+            @Nullable UUID cardImageId) {
 
         PrintingSummary toSummary(List<PrintingImage> images) {
             return new PrintingSummary(

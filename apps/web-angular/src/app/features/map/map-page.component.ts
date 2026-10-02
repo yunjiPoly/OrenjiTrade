@@ -19,6 +19,7 @@ import { Router } from '@angular/router';
 import {
   CollectorPreview,
   ConversationSummary,
+  MatchingItem,
   ProfileService,
   SearchSuggestion,
 } from '@orenji/api-client';
@@ -146,6 +147,16 @@ export class MapPageComponent {
 
   protected readonly listOpen = computed(() => this.params().view === 'list');
   protected readonly holdersMode = computed(() => this.store.holders() !== null);
+  /** Holders mode: the previewed collector's listings of the card (from their marker). */
+  protected readonly previewMatchingItems = computed<readonly MatchingItem[]>(() => {
+    if (!this.holdersMode()) {
+      return [];
+    }
+    const handle = this.store.selectedHandle();
+    return (
+      this.store.collectors().find((collector) => collector.handle === handle)?.matchingItems ?? []
+    );
+  });
   protected readonly holdersQuery = computed<Record<string, string>>(() => {
     const target = this.store.holders();
     return target ? { [target.kind]: target.id } : {};

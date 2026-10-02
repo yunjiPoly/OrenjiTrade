@@ -43,6 +43,17 @@ and metadata that exercise the JSONB model:
 Names must not copy real card names verbatim when paired with real set codes (use invented
 names such as "Azure-Eyes Sky Dragon", "Emberfang Fox VMAX", "Tidebinder Sovereign").
 
+### Real Yu-Gi-Oh! catalog demo (optional)
+
+The real catalog is never part of the automatic seed. After `npm run catalog:import -- --game yugioh
+--provider ygoprodeck` (see [local setup](local-setup.md#card-images-and-the-real-yu-gi-oh-catalog)),
+the `real-catalog-demo` seed step (order 550, also run right after each YGOPRODeck metadata import)
+adds eight real printings to collector1's public "Yu-Gi-Oh! trade binder" with stable ids
+`00000000-0000-4000-8c00-0000000101a1` … `a8`: Blue-Eyes White Dragon (LOB-EN001), Dark Magician
+(LOB-EN005), Red-Eyes Black Dragon (LOB-EN070) and the five Exodia pieces (LOB-EN120 … LOB-EN124),
+near mint, for trade. The collector stays fictional; the cards are the provider's real catalog
+entries. Nothing happens while the real catalog is absent.
+
 ## Interactions
 
 - Conversation between collector1 and collector2 (6 messages, one card link, one binder link).

@@ -29,7 +29,7 @@ import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyError, friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 import { limitReachedInfo } from '../../core/limits/limit-reached';
-import { CardImageComponent } from '../catalog/card-image/card-image.component';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 import { GamesStore } from '../catalog/games.store';
 import { ErrorStateComponent } from '../ui/error-state/error-state.component';
 import { GameChipComponent } from '../ui/game-chip/game-chip.component';

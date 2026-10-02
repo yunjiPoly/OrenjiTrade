@@ -13,6 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import type { PublicInventoryItem, RatingEligibilityInteraction } from '@orenji/api-client';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { ConversationStarterService } from '../../../shared/messaging/conversation-starter.service';
 import { DealSummaryComponent } from '../../../shared/offers/deal-summary.component';
 import { OfferActionsService } from '../../../shared/offers/offer-actions.service';
@@ -34,11 +35,14 @@ import { TradePayoutSetupComponent } from './trade-payout-setup.component';
 import { TradeShipmentCardComponent } from './trade-shipment-card.component';
 import { TradeStepsComponent } from './trade-steps.component';
 import { TradeTimelineComponent } from './trade-timeline.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /** A card the viewer received in a completed trade (to add to their inventory). */
 interface ReceivedCard {
   key: string;
   name: string;
+  game: string;
+  imageUrl: string | null;
   printingId: string | null;
   cardId: string;
   quantity: number;
@@ -58,6 +62,7 @@ interface ReceivedCard {
 @Component({
   selector: 'app-trade-page',
   imports: [
+    CardImageComponent,
     RouterLink,
     MatButtonModule,
     MatIconModule,
@@ -284,11 +289,19 @@ interface ReceivedCard {
                     <ul class="tp__received-list">
                       @for (card of received(); track card.key) {
                         <li>
-                          <span class="tp__received-name">
-                            {{ card.name }}
-                            @if (card.quantity > 1) {
-                              ×{{ card.quantity }}
-                            }
+                          <span class="tp__received-card">
+                            <app-card-image
+                              size="xs"
+                              [src]="card.imageUrl"
+                              [alt]="card.name"
+                              [game]="card.game"
+                            />
+                            <span class="tp__received-name">
+                              {{ card.name }}
+                              @if (card.quantity > 1) {
+                                ×{{ card.quantity }}
+                              }
+                            </span>
                           </span>
                           <a
                             matButton="tonal"
@@ -512,6 +525,11 @@ interface ReceivedCard {
       justify-content: space-between;
       gap: var(--spacing-2);
     }
+    .tp__received-card {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-2);
+    }
     .tp__received-name {
       font-weight: var(--font-weight-semibold);
     }
@@ -607,6 +625,8 @@ export class TradePageComponent {
       .map((card, index) => ({
         key: `${card.item.id}-${index}`,
         name: card.item.card.name,
+        game: card.item.card.game,
+        imageUrl: printingImageUrl(card.item.printing),
         printingId: card.item.printing.id ?? null,
         cardId: card.item.card.id,
         quantity: card.quantity,

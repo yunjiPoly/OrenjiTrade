@@ -19,7 +19,13 @@
     />
   } @else if (card(); as card) {
     <header class="edit__header">
-      <img class="edit__thumb" [src]="card.primaryImageUrl" alt="" width="72" height="100" />
+      <app-card-image
+        class="edit__thumb"
+        [src]="card.primaryImageUrl"
+        [alt]="card.name ?? ''"
+        [game]="card.game"
+        [eager]="true"
+      />
       <div class="edit__heading">
         <app-game-chip [slug]="card.game ?? ''" />
         <h1 class="edit__title">{{ card.name }}</h1>
@@ -133,6 +139,7 @@
           <table class="edit__table" aria-label="Printings">
             <thead>
               <tr>
+                <th scope="col"><span class="visually-hidden">Picture</span></th>
                 <th scope="col">Code</th>
                 <th scope="col">Set</th>
                 <th scope="col">No.</th>
@@ -147,6 +154,14 @@
             <tbody>
               @for (printing of card.printings ?? []; track printing.id) {
                 <tr>
+                  <td class="edit__pic">
+                    <app-card-image
+                      size="xs"
+                      [src]="printingImage(printing)"
+                      [alt]="card.name ?? ''"
+                      [game]="card.game"
+                    />
+                  </td>
                   <td class="mono">{{ printing.printingCode || '—' }}</td>
                   <td>{{ printing.setCode }}</td>
                   <td class="mono">{{ printing.collectorNumber }}</td>
