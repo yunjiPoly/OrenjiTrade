@@ -37,7 +37,8 @@
     "card-images:reconcile": "node scripts/card-images.mjs reconcile",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "audit:gate": "node scripts/audit-gate.mjs"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.5"

@@ -261,9 +261,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       # The root package-lock.json covers every npm workspace (web, mobile, packages/*).
-      - name: npm audit (npm workspace)
+      # Fails on any high/critical advisory not in security/npm-audit-allowlist.json (entries are
+      # only for advisories without a patched release, with a reason and an expiry date).
+      - name: npm audit gate (npm workspace)
         if: hashFiles('package-lock.json') != ''
-        run: npm audit --audit-level=high
+        run: node scripts/audit-gate.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
