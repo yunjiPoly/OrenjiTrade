@@ -50,4 +50,33 @@ describe('offer cards in the conversation', () => {
     );
     expect(element.textContent).toContain('Here is my offer.');
   });
+
+  it('shows the offered card picture the API sent, with an offer badge', async () => {
+    const element = await render(
+      message({
+        payload: {
+          offer: {
+            id: 'offer-2',
+            status: 'OPEN',
+            summary: '42.00 CAD for Lantern Fox Spirit',
+            imageUrl: 'http://localhost:8080/api/v1/public/card-images/img-7',
+          },
+        },
+      }),
+    );
+    const card = element.querySelector('[data-testid="offer-link-card-image"]');
+    const image = card?.querySelector('img');
+    expect(image?.getAttribute('src')).toBe(
+      'http://localhost:8080/api/v1/public/card-images/img-7',
+    );
+    expect(image?.getAttribute('alt')).toBe('');
+    expect(card?.querySelector('.olc__badge mat-icon')?.textContent).toContain('local_offer');
+    expect(element.querySelector('.olc__icon')).toBeNull();
+  });
+
+  it('keeps the offer icon when the link carries no picture', async () => {
+    const element = await render(message({}));
+    expect(element.querySelector('[data-testid="offer-link-card-image"]')).toBeNull();
+    expect(element.querySelector('.olc__icon mat-icon')?.textContent).toContain('local_offer');
+  });
 });

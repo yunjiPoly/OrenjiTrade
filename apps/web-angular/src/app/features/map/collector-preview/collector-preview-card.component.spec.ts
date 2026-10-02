@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ApiError } from '../../../core/http/api-error';
 import type { PreviewState } from '../data/map-discovery.store';
-import { collector, preview } from '../data/testing/collector-fixtures';
+import { collector, matchingItem, preview } from '../data/testing/collector-fixtures';
 import { CollectorPreviewCardComponent } from './collector-preview-card.component';
 
 describe('CollectorPreviewCardComponent', () => {
@@ -168,5 +168,44 @@ describe('CollectorPreviewCardComponent', () => {
     expect(element.querySelector('button[aria-label="Report Maïka Tremblay"]')).toBeNull();
     await render(state, { signedIn: true, isSelf: true });
     expect(element.querySelector('button[aria-label="Report Maïka Tremblay"]')).toBeNull();
+  });
+
+  it('lists the listings of the card with their pictures (holders mode)', async () => {
+    const api = 'http://localhost:8080/api/v1/public';
+    await render(
+      { kind: 'ready', handle: 'maika', preview: preview('maika') },
+      {
+        signedIn: true,
+        matchingItems: [
+          matchingItem(),
+          matchingItem({ itemId: 'item-2', printingId: 'p-unknown', printingCode: 'AZR-FR001' }),
+        ],
+        pictures: {
+          name: 'Azure-Eyes Sky Dragon',
+          game: 'yugioh',
+          imageUrl: `${api}/card-images/card`,
+          byPrinting: { 'p-en': `${api}/card-images/p-en` },
+        },
+      },
+    );
+    const list = element.querySelector('[data-testid=preview-matching-items]');
+    expect(list?.getAttribute('aria-label')).toBe('Listings of this card by Collector maika');
+    const images = [...(list?.querySelectorAll('img') ?? [])];
+    expect(images.map((image) => image.getAttribute('src'))).toEqual([
+      `${api}/card-images/p-en`,
+      `${api}/card-images/card`,
+    ]);
+    expect(images[0].getAttribute('alt')).toBe('Azure-Eyes Sky Dragon');
+    expect(list?.textContent).toContain('AZR-EN001');
+    expect(list?.textContent).toContain('Near Mint');
+    expect(list?.textContent).toContain('$42.00');
+
+    await render(
+      { kind: 'ready', handle: 'maika', preview: preview('maika') },
+      {
+        matchingItems: [],
+      },
+    );
+    expect(element.querySelector('[data-testid=preview-matching-items]')).toBeNull();
   });
 });

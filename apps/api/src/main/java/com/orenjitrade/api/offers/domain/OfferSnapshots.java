@@ -104,10 +104,30 @@ public class OfferSnapshots {
 
     /** The card name of a stored item snapshot, if any. */
     public java.util.Optional<String> itemCardName(String itemSnapshotJson) {
+        return itemCard(itemSnapshotJson).map(SnapshotCard::cardName);
+    }
+
+    /** The card of a stored item snapshot (name, game and printing), if it names one. */
+    public java.util.Optional<SnapshotCard> itemCard(String itemSnapshotJson) {
         JsonNode node = jsonMapper.readTree(itemSnapshotJson);
         String name = node.path("cardName").asString("");
-        return name.isBlank() ? java.util.Optional.empty() : java.util.Optional.of(name);
+        if (name.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        String game = node.path("game").asString("");
+        return java.util.Optional.of(
+                new SnapshotCard(
+                        name, game.isBlank() ? null : game, uuid(node.path("printingId"))));
     }
+
+    /**
+     * The card of an item snapshot.
+     *
+     * @param cardName card name
+     * @param game game slug
+     * @param printingId printing (its picture), {@code null} when the snapshot has none
+     */
+    public record SnapshotCard(String cardName, @Nullable String game, @Nullable UUID printingId) {}
 
     /** Parses a stored snapshot (missing members fall back to {@code fallback}'s values). */
     public Snapshot read(String json, OfferRow fallback) {

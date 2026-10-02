@@ -20,16 +20,18 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { CardGridComponent } from '../../../shared/catalog/card-grid/card-grid.component';
+import { cardPicturesOfResults } from '../../../shared/catalog/card-pictures';
 import {
   DiscoveryCentre,
   DiscoveryCentreService,
 } from '../../../shared/discovery/discovery-centre';
 import { distanceBucketLabel } from '../../../shared/domain/location-labels';
 import { PublicBinderCardComponent } from '../../../shared/inventory/public-binder-card/public-binder-card.component';
-import { printingCode } from '../../../shared/inventory/inventory-labels';
+import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { SEARCH_TABS, SearchTab } from '../data/search-params';
 import { CollectorResultComponent } from './collector-result.component';
@@ -51,6 +53,7 @@ const SECTION_LIMIT = 12;
     MatTabsModule,
     AvatarComponent,
     CardGridComponent,
+    CardImageComponent,
     CollectorResultComponent,
     EmptyStateComponent,
     ErrorStateComponent,
@@ -106,6 +109,7 @@ export class UnifiedResultsComponent {
       name: code ? `${name} (${code})` : name,
       query: printingId ? { printing: printingId } : { card: cardId as string },
       holders: result.collectors.filter((collector) => collector.matchingItems.length > 0),
+      pictures: cardPicturesOfResults(card, result.printings, printingId),
     };
   });
   protected readonly mapQuery = computed(() => ({
@@ -157,6 +161,10 @@ export class UnifiedResultsComponent {
 
   protected distance(bucket: string | null | undefined): string | null {
     return this.centre()?.signedIn ? distanceBucketLabel(bucket) : null;
+  }
+
+  protected image(printing: Parameters<typeof printingImageUrl>[0]): string | null {
+    return printingImageUrl(printing);
   }
 
   protected code(printing: Parameters<typeof printingCode>[0]): string {

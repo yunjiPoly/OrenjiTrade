@@ -144,3 +144,35 @@ export function notificationLink(
 export function isUnread(notification: Pick<NotificationResponse, 'readAt'>): boolean {
   return !notification.readAt;
 }
+
+/** A card carried by a notification's payload (wishlist alerts, offers). */
+export interface NotificationCard {
+  /** Card name (alt text); empty when the payload has none. */
+  name: string;
+  /** Picture URL from the API (OrenjiTrade's own image route or an API-relative path). */
+  imageUrl: string;
+  game: string | null;
+}
+
+/** Absolute http(s) URLs and API-relative paths; anything else is ignored. */
+const PICTURE_URL = /^(https?:\/\/|\/(?!\/))\S+$/;
+
+function textOf(data: NotificationResponse['data'] | undefined, key: string): string | null {
+  const value = data?.[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+/**
+ * The card a notification shows: `data.cardImageUrl` (with `data.cardName` and `data.game`) when
+ * the payload carries one, otherwise `null` (the type icon is shown).
+ */
+export function notificationCard(
+  notification: Pick<NotificationResponse, 'data'>,
+): NotificationCard | null {
+  const data = notification.data;
+  const imageUrl = textOf(data, 'cardImageUrl');
+  if (!imageUrl || !PICTURE_URL.test(imageUrl)) {
+    return null;
+  }
+  return { imageUrl, name: textOf(data, 'cardName') ?? '', game: textOf(data, 'game') };
+}

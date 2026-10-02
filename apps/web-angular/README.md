@@ -769,7 +769,9 @@ src/app/
     notifications/ /notifications: data/ (NotificationFeedStore, day groups)
     legal, not-found
   shared/
-    catalog/    GamesStore, card image / tile / grid, card search box, catalog labels
+    catalog/    GamesStore, card tile / grid, card search box, catalog labels, card pictures
+                (CardPictures: card + printing pictures for id-only listings), card data
+                attribution (provider credits per game, footer and card/set pages)
     inventory/  inventory labels, item chips, public item card, public binder card
     plans/      PlansStore, plan and limit wording
     billing/    subscription / credit / donation wording and refusals, active boosts
@@ -787,10 +789,29 @@ src/app/
                 link card and picker, CursorList, OfferActionsService
     wishlist/   WishlistActions, add/edit dialog (card picker, criteria fields), form, labels
     pipes/      relativeTime, mediaUrl
-    ui/         avatar, card-art, confirm-dialog, game-chip, section-card, empty-state,
-                error-state, skeleton, page-header, freshness-badge, condition-chip,
+    ui/         avatar, card-art, card-image, confirm-dialog, game-chip, section-card,
+                empty-state, error-state, skeleton, page-header, freshness-badge, condition-chip,
                 availability-chip, visibility-badge, search-field, wordmark, quantity-stepper
 ```
+
+### Card pictures (ADR 0015)
+
+Every card picture goes through `shared/ui/card-image` (`<app-card-image>`), whatever the game:
+`src` is always a URL the API sent (`primaryImageUrl`, `PrintingSummary.images`, suggestion,
+card-link, wishlist and binder cover URLs; API-relative paths from realtime payloads are resolved
+against the API origin). Never build provider image URLs in the client: re-host-only providers
+(YGOPRODeck) are served from OrenjiTrade's own `/api/v1/public/card-images/{id}`, the API falls
+back to its placeholder SVG, and the component falls back to the game's placeholder card art when
+a URL is missing or fails. Inputs: `src`, `alt` (the card name; `''` only inside a control that
+already names the card, such as an autocomplete option), `size` (`xs` 36 px, `sm` 56, `md` 120,
+`lg` 240, `xl` 360, `fill` = container width, the default), `game` (placeholder tint), `eager`
+(the card detail hero). The frame is a fixed 5:7 trading-card ratio with explicit width/height,
+lazy loading, async decoding, a shimmer skeleton (static under reduced motion), dark-mode tokens,
+and `data-state` `loading | loaded | placeholder | error`. Parents restyle it through
+`--card-image-width`, `--card-image-radius`, `--card-image-shadow` and `--card-image-fit`.
+Provider credits (`shared/catalog/card-data-attribution`, wording from
+`docs/providers/<provider>.md`) show in the footer and on card and set pages of games with an
+external catalog source (Yu-Gi-Oh!: YGOPRODeck, Konami / 4K Media).
 
 Rules: standalone components, `ChangeDetectionStrategy.OnPush`, signals for state, feature
 folders, no giant components, skeleton + empty + error(retry) states on every screen, labels on
@@ -986,9 +1007,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     `/inventory` without the reason), moderation rules with inline pattern validation, the
     auto-delist editor's inline ordering error and reset (nothing saved), notification
     statistics (broadcast locked for admins), analytics, system health and the audit entries.
-    Catalog pictures are served from memory in these specs (`stubCardImages`): the API
-    counts every placeholder image against its anonymous 60/min per-IP rate limit, which the
-    parallel suite shares.
+    Catalog pictures are served from memory in these specs (`stubCardImages`), so the
+    parallel suite spends no picture requests; `e2e/card-images.spec.ts` checks the real ones.
+  - `e2e/card-images.spec.ts`: card pictures on the top-bar suggestions, the catalog grid, the
+    card detail (eager hero, printings table, provider attribution in the page and the footer),
+    the set page, the inventory, a public binder, the collector profile and the wishlist, all
+    from the API's own picture routes with a non-zero natural size and none failed; no request,
+    `img` src or JSON answer points at `images.ygoprodeck.com` (provider hosts are blocked).
+    Offline: the seed catalog's placeholder pictures are not stubbed in this spec.
     They skip with a clear message only when the API (`E2E_API_URL`, default
     `http://localhost:8080`) or the Auth emulator (`E2E_AUTH_EMULATOR_URL`, default
     `http://localhost:9099`) is unreachable.

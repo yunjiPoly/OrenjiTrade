@@ -19,7 +19,7 @@ import { Observable, Subscription, map } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { GamesStore } from '../../../shared/catalog/games.store';
 import {
   DiscoveryCentre,

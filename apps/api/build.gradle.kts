@@ -103,6 +103,13 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // One card image cache directory for every application context of a test JVM (they share the
+    // Testcontainers database and therefore the cache accounting, ADR 0015). Stale files of an
+    // earlier run are removed by the start-up reconciliation against the fresh database.
+    systemProperty(
+        "CARD_IMAGE_CACHE_DIR",
+        layout.buildDirectory.dir("test-card-image-cache").get().asFile.absolutePath,
+    )
     testLogging {
         events("failed", "skipped")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

@@ -206,6 +206,38 @@ orenji:
     # STORAGE_PROVIDER=gcs it defaults to https://storage.googleapis.com/<bucket>.
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
     gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
+  card-images:
+    # Local card image cache (ADR 0015). Card metadata lives in PostgreSQL; only the image files are
+    # cached here, never more than max-mb (hard ceiling 500: larger values stop the start-up).
+    cache:
+      max-mb: ${CARD_IMAGE_LOCAL_CACHE_MAX_MB:500}
+      # One directory per database (reconciliation deletes files no row references).
+      dir: ${CARD_IMAGE_CACHE_DIR:${orenji.storage.local-root}/card-images}
+      # One rendition per artwork: JPEG (the JVM has no WebP encoder), 320 px wide, never upscaled.
+      target-width: 320
+      jpeg-quality: 0.82
+      max-download-size: 2MB
+      max-parallel-downloads: 4
+      reservation-ttl: 10m
+      download-timeout: 60s
+    on-demand:
+      # GET /api/v1/public/card-images/{id} may fill the cache for a not yet cached artwork.
+      enabled: ${CARD_IMAGE_ON_DEMAND_ENABLED:true}
+      wait-timeout: 3s
+      max-per-second: 2
+  card-providers:
+    ygoprodeck:
+      # Real Yu-Gi-Oh! catalog (docs/providers/ygoprodeck.md). Imported only on request
+      # (npm run catalog:import, POST /admin/catalog/sync); the start-up seed stays on the mock.
+      enabled: ${YGOPRODECK_ENABLED:true}
+      game-slug: yugioh
+      api-base-url: ${YGOPRODECK_API_BASE_URL:https://db.ygoprodeck.com/api/v7/}
+      image-base-url: ${YGOPRODECK_IMAGE_BASE_URL:https://images.ygoprodeck.com/images/cards/}
+      # Provider limit 20/s (IP blocked for an hour above it); refused above 15.
+      requests-per-second: ${YGOPRODECK_REQUESTS_PER_SECOND:5}
+      # Raw JSON snapshots per database version (git-ignored), reused while the version is unchanged.
+      snapshot-dir: ${PROVIDER_DATA_DIR:./.local-dev/provider-data}/ygoprodeck
+      snapshot-only: ${YGOPRODECK_SNAPSHOT_ONLY:false}
   location:
     # HMAC-SHA256 key seeding the deterministic public-point jitter (ADR 0004). No default outside
     # the local and test profiles: the application refuses to start without it.
@@ -330,6 +362,13 @@ orenji:
       - name: ad-events
         path-patterns: ["/api/v1/ads/*/impression", "/api/v1/ads/*/click"]
         limit: 600
+        window-seconds: 60
+        key-by: IP
+      - name: card-images
+        # Card pictures (cached artworks and placeholders): a page shows dozens of them.
+        path-patterns: ["/api/v1/public/card-images/*", "/api/v1/public/placeholder-images/**"]
+        methods: [GET]
+        limit: ${RATE_LIMIT_CARD_IMAGES_PER_MINUTE:600}
         window-seconds: 60
         key-by: IP
       - name: default-authenticated
@@ -468,6 +507,18 @@ orenji:
   storage:
     # Each test JVM gets its own media root (deleted by the OS); never the repository directory.
     local-root: ${java.io.tmpdir}/orenjitrade-test-media
+  card-images:
+    cache:
+      # AbstractIntegrationTest sets CARD_IMAGE_CACHE_DIR to one directory per test JVM.
+      reconcile-on-startup: true
+  card-providers:
+    ygoprodeck:
+      # Tests never touch the network: closed local ports unless a test points them at its stub.
+      api-base-url: http://127.0.0.1:9/api/v7/
+      image-base-url: http://127.0.0.1:9/images/cards/
+      snapshot-dir: ${java.io.tmpdir}/orenjitrade-test-provider-data/ygoprodeck
+      initial-backoff: 10ms
+      max-backoff: 40ms
   seed:
     enabled: false
   ratelimit:

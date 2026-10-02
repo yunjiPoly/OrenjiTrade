@@ -14,8 +14,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import type { CollectorPreview } from '@orenji/api-client';
+import type { CollectorPreview, MatchingItem } from '@orenji/api-client';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { CardPictures, pictureFor } from '../../../shared/catalog/card-pictures';
 import { listingsLabel, ratingLabel, tagLabel } from '../../../shared/discovery/discovery-labels';
 import {
   LAST_ACTIVE_LABELS,
@@ -23,13 +24,18 @@ import {
   distanceBucketLabel,
   lastActiveTone,
 } from '../../../shared/domain/location-labels';
-import { badgeFreshness } from '../../../shared/inventory/inventory-labels';
+import {
+  badgeFreshness,
+  conditionLabel,
+  formatPrice,
+} from '../../../shared/inventory/inventory-labels';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import type { PreviewState } from '../data/map-discovery.store';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /**
  * Preview card of a collector chosen on the map or in the list (`GET /collectors/{handle}/preview`):
@@ -41,6 +47,7 @@ import type { PreviewState } from '../data/map-discovery.store';
 @Component({
   selector: 'app-collector-preview-card',
   imports: [
+    CardImageComponent,
     RouterLink,
     MatButtonModule,
     MatIconModule,
@@ -161,6 +168,29 @@ import type { PreviewState } from '../data/map-discovery.store';
               }
             </ul>
           }
+          @if (matchingItems().length) {
+            <ul
+              class="preview__items"
+              data-testid="preview-matching-items"
+              [attr.aria-label]="'Listings of this card by ' + p.displayName"
+            >
+              @for (item of matchingItems(); track item.itemId) {
+                <li class="preview__item">
+                  <app-card-image
+                    size="xs"
+                    [src]="picture(item)"
+                    [alt]="item.cardName"
+                    [game]="item.game"
+                  />
+                  <span class="preview__item-text">
+                    <span class="mono">{{ item.printingCode ?? item.cardName }}</span>
+                    <span class="preview__muted">{{ condition(item.condition) }}</span>
+                  </span>
+                  <strong class="preview__item-price">{{ price(item) }}</strong>
+                </li>
+              }
+            </ul>
+          }
 
           <div class="preview__actions">
             <a matButton="filled" [routerLink]="['/collectors', p.handle]">
@@ -252,6 +282,10 @@ export class CollectorPreviewCardComponent {
   readonly isSelf = input(false);
   /** The conversation with this collector is being opened. */
   readonly messaging = input(false);
+  /** Holders mode: the collector's listings of the card (from their map marker). */
+  readonly matchingItems = input<readonly MatchingItem[]>([]);
+  /** Holders mode: pictures of the card and its printings. */
+  readonly pictures = input<CardPictures | null>(null);
   readonly closed = output<void>();
   /** "Message" pressed: open or start the conversation. */
   readonly messageRequested = output<CollectorPreview>();
@@ -310,5 +344,20 @@ export class CollectorPreviewCardComponent {
 
   protected tag_(slug: string): string {
     return tagLabel(slug);
+  }
+
+  protected picture(item: MatchingItem): string | null {
+    return pictureFor(this.pictures(), item.printingId);
+  }
+
+  protected condition(code: string): string {
+    return conditionLabel(code);
+  }
+
+  protected price(item: MatchingItem): string {
+    return (
+      formatPrice(item.askingPrice, item.currency) ??
+      (item.acceptsOffers ? 'Make an offer' : 'No price')
+    );
   }
 }

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { WishlistSummaryEntry } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { conditionLabel, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { wishPrintingLabel } from '../../../shared/wishlist/wishlist-labels';
 

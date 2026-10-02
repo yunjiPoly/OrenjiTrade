@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { OfferTradeItem, PublicInventoryItem } from '@orenji/api-client';
-import { CardImageComponent } from '../catalog/card-image/card-image.component';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 import {
   conditionLabel,
   formatPrice,
@@ -85,7 +85,7 @@ import { OFFER_KIND_INFO, OfferKind, kindHasCards, kindHasCash } from './offer-l
                     class="line__img"
                     [src]="imageOf(card)"
                     [game]="card.card.game"
-                    alt=""
+                    [alt]="card.card.name"
                   />
                   <span class="line__text">
                     <a

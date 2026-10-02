@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { RouterLink } from '@angular/router';
 import type { PublicInventoryItem } from '@orenji/api-client';
 import { editionLabel, languageLabel } from '../../catalog/catalog-labels';
-import { CardImageComponent } from '../../catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../ui/card-image/card-image.component';
 import { gameInfo } from '../../domain/games';
 import { FreshnessBadgeComponent } from '../../ui/freshness-badge/freshness-badge.component';
 import { badgeFreshness, formatPrice, printingCode, printingImageUrl } from '../inventory-labels';

@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-09-30 (final independent verification of the local web MVP: stage 12 local environment tooling + web acceptance suite verified from a clean state; acceptance tracker updated; next: mobile development after owner confirmation)
+**Last updated:** 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -54,7 +54,7 @@ _Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1
 _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 354 API tests / 55 classes green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI re-exported (59 paths, no Phase 1 path/schema lost), clients regenerated, live smoke on `api-phase2.jar`). Web Phase 2 complete (stage 3, independently re-verified: 153 web unit tests / 31 files, 26/26 Playwright specs against `api-phase3.jar`, 0 skipped). Mobile deferred by owner decision._
 
 - [x] `game`, `card`, `card_set`, `card_printing`, `card_image` with JSONB metadata — migrations V012 (`game` with a `GameSchema` jsonb per game) and V013 (`card_set`, `card`, `card_printing`, `card_image`, `catalog_sync_run`; generated tsvector columns, trigram, jsonb GIN and printing-code indexes). `games` module: `GameService` implements `GameCatalog` from the DB (ACTIVE games only), replacing `ConfiguredGameCatalog`/`GamesProperties`/`orenji.games.slugs`. Tests GamesIT (3)
-- [x] `CardProvider` interface + `MockCardProvider` + import/sync pipeline — `apps/api/.../cards`: `CardProvider` (contract shape), `MockCardProvider` (profiles local/dev/test), idempotent `CatalogImportService` (keyed by `external_ref`, per-game advisory lock, only changed rows rewritten, stable slugs), `POST /admin/catalog/sync` → 202 + `CatalogSyncRequestedEvent` handled by an `@ApplicationModuleListener`, `GET /admin/catalog/sync-runs[/{id}]`, `GET /admin/catalog/providers`. Tests CatalogImportIT (3). Debt: no real provider adapter yet (mock only, by design locally)
+- [x] `CardProvider` interface + `MockCardProvider` + import/sync pipeline — `apps/api/.../cards`: `CardProvider` (contract shape), `MockCardProvider` (profiles local/dev/test), idempotent `CatalogImportService` (keyed by `external_ref`, per-game advisory lock, only changed rows rewritten, stable slugs), `POST /admin/catalog/sync` → 202 + `CatalogSyncRequestedEvent` handled by an `@ApplicationModuleListener`, `GET /admin/catalog/sync-runs[/{id}]`, `GET /admin/catalog/providers`. Tests CatalogImportIT (3). Real provider since 2026-10-01: `YgoProDeckCardProvider` (see "Card images + real Yu-Gi-Oh! catalog")
 - [x] Seed catalog: Yu-Gi-Oh!, Pokémon, Magic: The Gathering, Riftbound (fictional-safe subset) — `db/seed/catalog/{yugioh,pokemon,mtg,riftbound}.json`, 4 sets / 20 cards / 40 printings per game, invented names, per-game metadata; imported at local/dev startup by `CatalogSeedContributor` (order 400). Server-generated SVG placeholders `GET /public/placeholder-images/{game}/{slug}.svg` (escaped, no scripts, CSP, 1-day cache, ETag/304) — tests CatalogMetadataIT (5), PlaceholderImageIT (3)
 - [x] Catalog search: FTS + trigram, filters (game, set, rarity, language, edition) — `CatalogQueryRepository`: `ts_rank_cd` FTS, trigram fallback under 5 hits, accent-insensitive, printing-code short-circuit, set/rarity/language/edition filters and typed `metadata.<key>` filters (jsonb containment, validated against the `GameSchema`), `GET /cards/suggest` — tests CatalogSearchIT (9), CatalogTextTest (4)
 - [x] `/api/v1/games`, `/api/v1/cards`, `/api/v1/cards/{id}/printings`, `/api/v1/sets` — plus `/games/{slug}`, `/cards/{id}`, `/printings/{id}`, `/sets/{id}`; public GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`, also exempt from the account-state and 428 terms checks); admin writes `POST/PUT /admin/games`, `/admin/sets`, `/admin/cards`, `POST /admin/cards/{id}/printings`, `PUT /admin/printings/{id}` (audited, schema-validated) — tests AdminCatalogIT (3), CatalogSearchIT. Deviation: OpenAPI path is `/public/placeholder-images/{game}/{file}` (file = `<slug>.svg`)
@@ -186,6 +186,180 @@ no coordinate with more than 3 decimals)._
 - [x] Fixes during stage 12: `InventoryStore.deleteBinder` waits for queued binder-order saves (a save sent after the deletion named the deleted binder → 404 and a lost move; Vitest regression test); `e2e/map.spec.ts` picks trading-area centres on the public-grid latitude lines so the "never equals a stored centre" check cannot fail by chance; `e2e/payments.spec.ts` waits for the shipment dialog's focus before typing; production build optimisation block made explicit (`inlineCritical: false`)
 - Debt: `docker compose --profile app` builds were verified during stage 12 only (not re-run in the final verification); rapid full-page reloads (≈ 15 page loads per minute, each re-fetching 5–27 API resources incl. placeholder card images) reach the default 120 requests/minute per-user limit (`RATE_LIMIT_DEFAULT_PER_MINUTE`) and the anonymous 60/minute per-IP limit that placeholder images count against — normal in-app navigation at a human pace stays well below (28/28 UI checks with a 4 s pause); revisit the limits in Phase 13
 
+## Card images + real Yu-Gi-Oh! catalog (ADR 0015)
+
+_Workflow `card-images`, task "backend" (2026-10-01, branch `feature/card-images`): game-agnostic
+card image architecture with the YGOPRODeck adapter as the first real provider. Migrations V100–V102
+(range V100–V109). Owner rules: the local image cache never exceeds 500 MB; YGOPRODeck images are
+never hotlinked (re-host only); metadata is always imported completely; real imports are explicit,
+seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 API tests / 152 classes, 0 failures, 0 skipped (previously 704 / 140); `./gradlew exportOpenApi` (254 paths, previously 243; no path, operation or schema lost; 7 schemas added); `npm run generate:api`; `npm run build -w apps/web-angular` (877.57 kB initial, unchanged) and the web spec typecheck pass. Live smoke (API jar on :8090, profile `local`, database `orenjitrade_test`, Redis db 1, `CARD_IMAGE_LOCAL_CACHE_MAX_MB=5`, temporary cache directory, stopped and deleted afterwards): `npm run catalog:import -- --game yugioh --provider ygoprodeck --images limit:60 --api http://localhost:8090` → SUCCEEDED in 27 s, database 147.20, 14,592 cards created, 650 sets, 44,568 printings, 14,764 artworks referenced, 60 selected (the 8 demo printings first) → 52 downloaded + 8 deduplicated (identical artworks), 8.8 MB received, 2.31 MB of 5 MB used (= bytes on disk, 52 files), limit not reached; the second run: 0 created / 0 updated / 0 upserted, 60 already cached, 0 downloaded, 4.2 s; cached images served as 320 px JPEG (≈ 43 KB) with `immutable` caching; the demo binder's items carry `/api/v1/public/card-images/` URLs and no provider URL. Real provider traffic during the whole development: 1 snapshot (checkDBVer + cardinfo + cardsets), 2 more checkDBVer, 60 image downloads._
+
+- [x] Data model — V100: `card_image` = one row per provider artwork (`game_id`, owner `card_id`
+  + optional `printing_id`, `provider` + `provider_image_id` unique, `position`, server-side
+  `source_url`, `cache_status` NOT_CACHED/CACHED/FAILED/MISSING_AT_SOURCE, storage key, type, size,
+  dimensions, SHA-256, download/access times, attempts, last error), `card.image_id` (primary
+  artwork; printings resolve their picture through their card), `card_image_cache_usage` (single
+  row locked `FOR UPDATE`), `card_image_cache_reservation` (expiring), `catalog_sync_run` image
+  mode / limit / provider version / phase / report. V101: printing variant key includes the rarity;
+  yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, all
+  monster types, common rarities. Documented in `docs/database/schema.md`.
+- [x] Provider abstraction — `CardProvider.imageHostingPolicy()` (`REHOST_REQUIRED` default /
+  `HOTLINK_ALLOWED`), `supportsImageDownloads()`, `openImage()`; `ProviderCard.images` (card-level
+  artworks), `ProviderImage.providerImageId`, `SyncResult.providerVersion`/`warnings`; reusable
+  `ProviderHttpClient` (RestClient on the JDK client, timeouts, no redirects, User-Agent,
+  `HostRateLimiter` per host default 5/s hard ceiling 15, `RetryPolicy` exponential backoff for
+  timeouts/5xx/429 with `Retry-After`, never other 4xx).
+- [x] `YgoProDeckCardProvider` (`cards/infra/ygoprodeck`) — checkDBVer first, raw snapshot per
+  `database_version` under `PROVIDER_DATA_DIR/ygoprodeck/<version>/` (git-ignored) reused while
+  unchanged, else one `cardinfo.php?misc=yes` + `cardsets.php` download; snapshot-only mode;
+  `YgoProDeckMapper` (cards, metadata, sets per code with products, printings per code + rarity,
+  USD indicative prices, one artwork per image id, provider data errors skipped as warnings); image
+  URL allow-list (SSRF guard). Real catalog (database 147.20): 14,592 cards, 44,568 printings, 650
+  sets, 14,764 artworks imported in ~14 s, unchanged re-import ~4.5 s with 0 changes.
+- [x] `CardImageCache` (`cards/domain/images`) — `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default 500,
+  start-up refused above 500), `CARD_IMAGE_CACHE_DIR`; reserve under lock → stream to
+  `.tmp/<reservation>.part` (aborted above the reservation) → sniff/decode (HTML, empty, wrong type
+  refused) → 320 px JPEG q0.82 without metadata → SHA-256 dedupe → commit usage + release
+  reservation → atomic move; cleanup on every failure; expiring reservations; single-flight,
+  4 parallel downloads; no request while less than a typical download fits; reconciliation at
+  start-up and on demand (orphan temps, missing files, unreferenced files, usage from disk, LRU
+  eviction when the limit was lowered); eviction and per-game clears release capacity; status.
+- [x] Serving + URLs — `GET /api/v1/public/card-images/{imageId}` (cached JPEG `public,
+  max-age=31536000, immutable` + SHA-256 ETag/304; otherwise a rate-limited single-flight on-demand
+  fill (3 s) while capacity remains, else the placeholder SVG with 5 min caching; never a provider
+  URL); `CardImageUrlResolver` is the only source of image URLs for `CardSummary.primaryImageUrl`,
+  `CardDetail.primaryImageUrl`, `PrintingSummary.images[]` (card detail, printings, sets, printing
+  detail, inventory items, public inventory items, offers/trades items, card holders),
+  `CardSuggestion.imageUrl` (cards and unified search suggest, discovery results),
+  `CardLink.imageUrl` (messages, community posts), binder `coverImageUrl` (own, public, collector
+  binder lists), wishlist `card.imageUrl` (wishlist, matches, public wishlist summary),
+  notification `data.cardImageUrl` (+ `cardName`, `game`) of `WISHLIST_MATCH`, `OFFER_*`,
+  `TRADE_UPDATE`, `PAYMENT_UPDATE`, `SHIPMENT_STATUS`, `DISPUTE_UPDATE` (`NotificationCards`;
+  stored API-relative, absolute in `GET /notifications`), `OfferLink.imageUrl` (OFFER_LINK and
+  SYSTEM messages, resolved when read, never stored), `AdminListingItem.imageUrl` (admin listings
+  and stale queue). Mock placeholders unchanged. Rate limit policy `card-images` 600/min per IP.
+- [x] Importer — `CatalogImportService`: provider fetch (outage → FAILED with a clear message,
+  catalog kept), metadata in chunks of 500 cards with prefetched state and JDBC batches (failing
+  chunk retried card by card), `CatalogImportedEvent`, then image mode NONE / REFERENCED (default:
+  inventory, binders, wishlists, offers/trades, message and community card links through the
+  `CardImageReferenceSource` SPI) / ALL / LIMIT n (deterministic), never failing on a full cache;
+  `CatalogImportReport` stored on the run (progress per phase); 409 while an import of the game
+  runs; interrupted runs failed on the next run.
+- [x] Triggers — admin `POST /admin/catalog/sync` (+ `imageMode`, `imageLimit`),
+  `GET /admin/catalog/sync-runs/{id}/report`; internal `POST /internal/jobs/catalog-import`,
+  `GET /internal/jobs/catalog-import/{id}`; root scripts `npm run catalog:import -- --game yugioh
+  --provider ygoprodeck --images referenced|all|none|limit:<n>` (polls and prints the report),
+  `npm run card-images:status`, `npm run card-images:clear -- --yes [--game <slug>]`,
+  `npm run card-images:reconcile` (plain Node, `scripts/lib/internal-api.mjs`).
+- [x] Admin cache console API (audited) — `GET /admin/card-images/status`,
+  `POST /admin/card-images/clear`, `POST /admin/card-images/reconcile`,
+  `DELETE /admin/card-images/{imageId}/cache`.
+- [x] Local demo — `RealCatalogDemoSeedContributor` (`real-catalog-demo`, order 550, also after
+  each YGOPRODeck metadata import): Blue-Eyes White Dragon LOB-EN001, Dark Magician LOB-EN005,
+  Red-Eyes Black Dragon LOB-EN070 and the five Exodia pieces in collector1's public binder; silent
+  without the real catalog.
+- [x] Tests (offline: `YgoProDeckStub` = JDK HttpServer API + raw-socket image host, fictional
+  fixtures, images generated in memory) — YgoProDeckMapperTest (6), YgoProDeckCardProviderTest (2),
+  ProviderHttpClientTest (8), HostRateLimiterTest (3), CardImageConfigTest (5, rejects > 500),
+  CardImageProcessorTest (4), CardImageFileStoreTest (3), YgoProDeckImportIT (5: complete metadata,
+  idempotent re-imports downloading nothing, REFERENCED/LIMIT, image problems, outage, admin and
+  internal triggers), CardImageCacheIT (7: rendition, dedupe, dropped connection, invalid content,
+  reservation expiry, reconciliation, eviction/clear), CardImageCacheLimitIT (3, 1 MB cache: sampled
+  disk + reservations and DB accounting never above the limit under parallel downloads, cache-full
+  import, placeholder when full), CardImageServingIT (5), CardImageUrlContractIT (2: every DTO with
+  card imagery, no provider URL; notifications WISHLIST_MATCH / OFFER_RECEIVED (listed absolute,
+  stored relative), message offer links (never stored), admin listings + hide answer),
+  NotificationCardsTest (2), OfferSnapshotsTest (1); WishlistRulesTest, WishlistMatchingIT,
+  TradeLifecycleIT, ProtectedPaymentFlowIT and DelistingAdminIT assert the card picture of their
+  notifications, offer links and listings; SeedDataRunnerIT and OpenApiExportTest extended.
+- [x] Docs — ADR 0015 (+ README index, ADR 0005 link), `docs/providers/ygoprodeck.md`,
+  `docs/database/schema.md`, `docs/development/local-setup.md` ("Card images and the real Yu-Gi-Oh!
+  catalog"), `docs/development/seed-data.md`, `apps/api/README.md`, `ARCHITECTURE.md`,
+  `.env.example`, `CLAUDE.md` rule, `.gitignore`.
+- [x] Web card pictures (workflow `card-images`, task "web", 2026-10-01) — `apps/web-angular`:
+  game-agnostic `shared/ui/card-image` (`<app-card-image>`, replaces `shared/catalog/card-image`):
+  inputs `src` (API URL only; API-relative realtime paths resolved against the API origin), `alt`
+  (card name; `''` only inside autocomplete options/pickers that already name the card), `size`
+  (`xs`/`sm`/`md`/`lg`/`xl`/`fill`), `game` (placeholder tint), `eager` (hero); fixed 5:7 frame,
+  explicit width/height, `loading="lazy"`, `decoding="async"`, shimmer skeleton until `load`
+  (static under reduced motion), the game's placeholder card art on a missing URL or a load error
+  (still announced as `role="img"` with the name), dark-mode tokens, `data-state`
+  loading/loaded/placeholder/error, restyled through `--card-image-*` custom properties. Used on
+  every card surface: top-bar and unified suggest lists, card/printing/link/wish pickers, add-card
+  dialog search + printing picker, catalog grid tiles, card detail hero, printings tables (card
+  detail, set checklist, admin card edit; new picture column), set page grid, inventory grid/table
+  and edit sheet, public binder page + header, collector profile (public cards, binder previews,
+  "Looking for"), map holders panel header + each listing + the preview card's matching listings
+  (new `CardPictures` from `GET /cards/{id}` or `/printings/{id}`, `MatchingItem` carries ids
+  only), search holders banner + collector results listings + printing chips, card-holders view,
+  wishlist list, add/edit dialog, matches drawer and match cards, notifications bell + page (card
+  picture with a type badge when the payload carries `data.cardImageUrl`), offers make-offer
+  dialog, card picker, inbox rows, deal summary (offer and trade pages), trades list and the trade
+  page's "Cards you received", message composer card/offer attachments, offer link picker, message
+  and community card links, community post composer, admin cards list and edit page. Provider
+  credits: `shared/catalog/card-data-attribution` (per game, wording of `docs/providers/ygoprodeck.md`)
+  on Yu-Gi-Oh! card and set pages and in the footer. Tests: Vitest +12 (599 tests / 125 files:
+  card image loading/skeleton/error fallback/alt/sizes/relative URLs, card pictures, attribution,
+  notification card payloads and entry, printings table pictures, preview listings, store holders
+  pictures, suggestion pictures); Playwright `e2e/card-images.spec.ts` (2, offline on the seed
+  catalog, placeholders not stubbed: pictures render with a non-zero natural size from the API's
+  own routes, none fail; provider hosts blocked and no request, `img` src or JSON answer points at
+  `images.ygoprodeck.com`); `e2e/catalog.spec.ts` rarity option made exact (V101 added
+  Platinum/Prismatic/... Secret Rare). Debt: initial bundle 887.59 kB (was 877.57 kB; budget
+  warning 900 kB).
+- [x] Image gaps (workflow `card-images`, task "image gaps", 2026-10-01) — backend: notifications
+  about one card carry `data.cardName`, `data.game`, `data.cardImageUrl` (`WishlistMatcher` from the
+  item's printing via `CatalogService.frontImageUrls`; offers, trades, payments and disputes through
+  the offers module's new `OfferCard` = live item, else the offer's item snapshot printing,
+  `OfferService.card` / `TradeService.card`); `OfferLink.imageUrl` and `AdminListingItem.imageUrl`
+  (additive, nullable). Web: notification bell/page already rendered `data.cardImageUrl`
+  (unchanged); `app-offer-link-card` shows the card picture with an offer badge (icon when no
+  picture), admin listing rows show the card picture (`app-card-image`, placeholder art without
+  one). Verification: `./gradlew spotlessApply build` 762 API tests / 154 classes, 0 failures,
+  0 skipped; `./gradlew exportOpenApi` (254 paths and 371 schemas, unchanged counts; only
+  `AdminListingItem`, `NotificationResponse` (description) and `OfferLink` changed);
+  `npm run generate:api`; web lint and format clean, 603 Vitest tests / 126 files (+4), production
+  build 887.59 kB initial (unchanged). Playwright left to the verifier. Mobile: no card image
+  component exists in `apps/mobile` (deferred).
+- [x] Independent verification (workflow `card-images`, 2026-10-01) — `npm run test:all` green on
+  the final tree: API 764 tests / 155 classes (0 failures, 0 skipped), web lint + 603 Vitest tests /
+  126 files, mobile typecheck + lint + 29 jest tests, Playwright 69/69 (0 flaky). Cache invariant
+  reviewed and hardened: a temporary file is exempt from the capacity check only while its live
+  reservation or the committed usage covers it (previously any download of the JVM was exempt, so
+  the partial file of a download whose reservation expired was not counted; new
+  `CardImageCacheIT.aDownloadWhoseReservationExpiredKeepsCountingItsTemporaryFile`, which fails on
+  the old rule), and an attempt stops when its raw body cannot be deleted before the rendition is
+  written; per-game `cachedBytes` count a deduplicated file once (status showed 15.13 MB for a
+  14.88 MB / 15 MB cache). V102 `trg_card_image_fill_owner`: code that predates V100 (the `main`
+  checkout sharing the local database, older revisions during a rolling deploy) failed its mock
+  catalog seed with a not-null violation on `card_image.card_id`/`game_id`, so its API could not
+  start; `CardImageLegacyWriterIT` runs that upsert verbatim. E2E: `catalog.spec.ts` and
+  `card-images.spec.ts` no longer assume the seed catalog is the only Yu-Gi-Oh! catalog (they
+  failed once the real catalog was imported locally), and `npm run test:e2e` starts its API with
+  `CARD_IMAGE_ON_DEMAND_ENABLED=false` (a run had fetched 22 artworks from YGOPRODeck on demand).
+  Live (dev database, profile `local`, default 500 MB cache): `npm run catalog:import -- --game
+  yugioh --provider ygoprodeck --images referenced` → SUCCEEDED, YGOPRODeck database 147.22 (new
+  snapshot, byte-identical to 147.21), 14,595 cards (0 created/updated), 650 sets, 44,568
+  printings, 14,767 artworks referenced, 12,353 printings upserted (price date = provider
+  `last_update`), 8 referenced artworks already cached, 0 downloaded; the re-run upserted and
+  downloaded nothing (4.2 s). Cap proof (separate database and temporary cache directory,
+  `CARD_IMAGE_LOCAL_CACHE_MAX_MB=15`, `--images all`): metadata complete (14,595 cards created,
+  44,568 printings), 331 downloaded + 8 deduplicated, 14,428 skipped, `cacheLimitReached=true`,
+  14.88 MB used = 15,600,834 bytes on disk (`du -sb`, sampled every 0.1 s during the run including
+  `.tmp/`: maximum 15,600,834 ≤ 15,728,640); the re-run downloaded 0; database, folder and Redis db
+  removed afterwards. Average cached rendition 47,132 bytes (320 px JPEG; raw downloads average
+  ≈ 159 KB) → about 11,100 artworks fit in 500 MB (≈ 75 % of the 14,767). `CARD_IMAGE_LOCAL_CACHE_MAX_MB=501`
+  stops the start-up. Browser (Playwright on the running stack): card detail of Blue-Eyes White
+  Dragon and Dark Magician, `/cards?q=forbidden one` and `/search?q=forbidden one` render real
+  pictures from `/api/v1/public/card-images/` (320×466, natural size > 0); no request to any
+  `ygoprodeck.com` host and no provider URL in the DOM.
+- [ ] Mobile — deferred by owner decision (no card image component exists in `apps/mobile` yet;
+  the web `app-card-image` contract — API URLs only, 5:7 frame, placeholder fallback — applies).
+- Debt: the cache is local-disk only (cloud would need GCS + shared accounting, deferred with Phase
+  14); on-demand fills are per instance; the real catalog has 13 invalid printing codes and 9 code
+  + rarity pairs claimed by two cards (skipped, reported as warnings); production legal review of
+  the YGOPRODeck terms, card image rights and attribution is required before any public launch.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -284,7 +458,7 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 - **ML (on hold):** Phase 11 card recognition and scanning.
 - **Legal:** counsel review of the 8 draft legal pages (criterion 38).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
-- **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 877.57 kB close to the 900 kB warning budget; the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
+- **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 887.59 kB close to the 900 kB warning budget (877.57 kB before the card pictures); the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
 - **Hardening (Phase 13):** dedicated security review and header audit, rate-limit tuning (rapid full reloads reach the 120/min per-user and 60/min anonymous per-IP limits, see stage 12 debt), accessibility pass, load test script, DB index review, backup/restore docs, failure testing; first GitHub run of the E2E workflow.
 
 ---
@@ -299,6 +473,15 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 > `wip/stage6-partial`. Root `app.json`, `eas.json` and the `react-native-worklets` bump in
 > `apps/mobile/package.json` / `package-lock.json` belong to the owner and are kept out of every
 > commit.
+
+> **Card images (2026-10-01, branch `feature/card-images`):** backend and web of ADR 0015 done
+> (see "Card images + real Yu-Gi-Oh! catalog"): `npm run catalog:import -- --game yugioh --provider
+> ygoprodeck --images referenced` imports the real Yu-Gi-Oh! catalog and caches the referenced
+> artworks (cache ≤ 500 MB, YGOPRODeck never hotlinked); every web card surface renders the API's
+> picture URLs through `app-card-image`, with YGOPRODeck / Konami / 4K Media credits; card pictures
+> in notification payloads, `OfferLink` and admin listing rows. Independently verified and committed
+> on `feature/card-images` (not pushed); next: PR and merge to `main`. The shared local database is
+> at V102 (V102 keeps the `main` checkout's API able to start against it).
 
 **Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
 everything runs locally, web application first (**done**), then mobile. Phase 11 (ML card

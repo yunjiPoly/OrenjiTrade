@@ -22,6 +22,15 @@
   margin-bottom: var(--spacing-4);
 }
 
+.holders__card {
+  flex: 0 0 auto;
+}
+
+.holders__titles {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
 .holders__eyebrow {
   display: flex;
   align-items: center;
@@ -163,4 +172,13 @@
 
 .binder__owner-name {
   font-weight: var(--font-weight-semibold);
+}
+
+.chip--printing {
+  padding-left: var(--spacing-1);
+}
+
+.chip__thumb {
+  --card-image-width: 24px;
+  --card-image-shadow: none;
 }

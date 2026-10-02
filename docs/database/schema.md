@@ -64,6 +64,7 @@ update it in the same change.
 | `ad_impression.user_hash`, `ad_click.user_hash`, `ad_conversion.user_hash` | Pseudonymous viewer id | HMAC of the account id (analytics actor hash); never an account id, never returned by the API; ad targeting reads public grid cells and region labels only, never `user_location` |
 | `donation.message` | Donor free text | Admins and the donor's own export only; never public; erased on purge |
 | `donation.public_thanks` | Opt-in | Only opted-in, active donors' display names (and month) are listed publicly; never amounts |
+| `card_image.source_url` | Provider image URL | Server-side only (ADR 0015): never returned to members or visitors for `REHOST_REQUIRED` providers such as YGOPRODeck (clients get `/api/v1/public/card-images/{id}`) |
 | Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
 
 ## Entity overview
@@ -81,6 +82,7 @@ erDiagram
   GAME ||--o{ CARD_SET : has
   CARD ||--o{ CARD_PRINTING : has
   CARD_SET ||--o{ CARD_PRINTING : includes
+  CARD ||--o{ CARD_IMAGE : artworks
   CARD_PRINTING ||--o{ CARD_IMAGE : has
   CARD_PRINTING ||--o{ INVENTORY_ITEM : instance
   USER_ACCOUNT ||--o{ WISHLIST_ITEM : wants
@@ -156,6 +158,9 @@ Detailed column lists are appended per phase below as migrations land.
 | V091 | `V091__credits.sql` | Phase 10: append-only `credit_ledger_entry` (trigger), view `credit_balance`, `credit_product` (+ 3 products), `referral_code`, `referral_redemption`, `credits.*` settings |
 | V092 | `V092__advertising.sql` | Phase 10: `advertiser`, `ad_placement` (+ 5 placements), `ad_campaign`, `ad_creative`, `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily` |
 | V093 | `V093__donations.sql` | Phase 10: `donation`, `donation_webhook_event`, `donations.*` settings |
+| V100 | `V100__card_image_cache.sql` | Card images (ADR 0015): `card_image` becomes one row per provider artwork (owner card/printing, provider id, server-side source URL, cache state), `card.image_id`, `card_image_cache_usage`, `card_image_cache_reservation`, `catalog_sync_run` image mode / provider version / phase / report |
+| V101 | `V101__yugioh_catalog_fields.sql` | Real Yu-Gi-Oh! catalog: the printing variant key includes the rarity (`uq_card_printing_variant` becomes a unique index); the yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, the complete monster types and common rarities |
+| V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -643,19 +648,24 @@ Indexes: `ix_card_search_vector` (GIN, `websearch_to_tsquery` ranked with `ts_ra
 | `external_ref` | `jsonb` | provider identity |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-Constraint `uq_card_printing_variant (set_id, collector_number, edition, language, finish)`. Indexes:
+Constraint `uq_card_printing_variant (set_id, collector_number, edition, language, finish)` (since
+V101 a unique index that also includes `coalesce(rarity, '')`: Yu-Gi-Oh! reprints one code in several
+rarities). Indexes:
 `ix_card_printing_card_id`, `ix_card_printing_set_id`, `ix_card_printing_code` (`text_pattern_ops`,
 partial: equality and prefix autocomplete), `ix_card_printing_metadata` (GIN),
 `uq_card_printing_external_ref`.
 
 #### `card_image`
 
+V013 columns below; V100 turned the table into one row per provider artwork (owner card, provider
+identity, server-side source URL, cache state), see "V100" further down.
+
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK |
-| `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `UNIQUE (printing_id, kind)` |
+| `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `UNIQUE (printing_id, kind)`; nullable since V100 (card-level artworks) |
 | `kind` | `text` | `FRONT`, `BACK`, `ART_CROP` |
-| `url` | `text` | absolute URL or API-relative path (`/api/v1/public/placeholder-images/<game>/<card slug>.svg`), resolved against the request origin when served; the local catalog never hotlinks third-party images |
+| `url` | `text` | absolute URL or API-relative path (`/api/v1/public/placeholder-images/<game>/<card slug>.svg`), resolved against the request origin when served; the local catalog never hotlinks third-party images; nullable since V100 (provider artworks get their URL from `CardImageUrlResolver`) |
 | `width`, `height` | `integer` | pixels (placeholders 488 × 680) |
 | `source` | `text` | `placeholder` or the provider |
 | `storage_key` | `text` | `ObjectStorage` key for stored images (future uploads) |
@@ -1087,7 +1097,7 @@ Editing a wish's criteria deletes its undismissed matches that no longer apply.
 | `type` | `text` | `WISHLIST_MATCH`, `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
 | `title` | `text` | 1-200 |
 | `body` | `text` | ≤ 1000; never message text, notes or coordinates |
-| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/wishlist/<id>`, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
+| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/wishlist/<id>`, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
 | `dedup_key` | `text` | `uq_notification_dedup_key`; e.g. `wishlist:<wishlistItemId>:<inventoryItemId>`, `message:<messageId>`, `binder-warning:<owner>:<binder or unfiled>:<epoch second>`, `binder-hidden:<owner>:<binder or unfiled>:<UTC day>`, `limit:<user>:<type>:<UTC day>` |
 | `in_app` | `boolean` | listed in the notification centre (in-app channel enabled for the category) |
 | `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
@@ -1788,3 +1798,89 @@ rows stay). Seed (local/dev): premium_user's ACTIVE fake subscription `a000…00
 credits + code `COLLECTOR1` redeemed by collector8 (`a100…0001`), premium_user 500 credits; advertiser
 "Maple Sleeve Co." and the house advertiser with campaigns `a200…0101`–`0103` and six creatives;
 donations `a300…0001` (collector2, public thanks) and `…0002` (collector5).
+
+### Card images and the real Yu-Gi-Oh! catalog (V100–V102)
+
+[ADR 0015](../architecture/adr/0015-card-images-provider-hosting-capped-cache.md): card metadata
+(always imported completely) and the image files (a capped local cache, at most 500 MB) are
+separate. One `card_image` row describes one provider artwork; inventory items, binders, wishlists,
+offers and messages reference printings or cards, never image files.
+
+### V100 — card images and the capped local image cache (ADR 0015)
+
+#### `card_image` (columns added or changed by V100)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `game_id` | `uuid` | FK → `game.id` (cascade), not null (backfilled from the printing's card) |
+| `card_id` | `uuid` | FK → `card.id` (cascade), not null: the owning card; card-level artworks have `printing_id` NULL |
+| `printing_id` | `uuid` | now nullable: set only for printing-specific images (the mock placeholders) |
+| `provider`, `provider_image_id` | `text` | provider artwork identity (`ygoprodeck`, `89631139`); both or neither (`ck_card_image_provider_ref`); unique together (`uq_card_image_provider`, partial); id `^[A-Za-z0-9._-]{1,64}$` |
+| `position` | `integer` | artwork order within the card, 0 = primary (`card.image_id`) |
+| `url` | `text` | now nullable: placeholder/legacy location; every row has `url` or a provider id (`ck_card_image_location`) |
+| `source_url` | `text` | **server-side only**: where the provider serves the artwork (≤ 1000 characters); required for provider artworks; never sent to clients of `REHOST_REQUIRED` providers |
+| `cache_status` | `text` | `NOT_CACHED`, `CACHED`, `FAILED`, `MISSING_AT_SOURCE` (provider artworks; NULL for placeholders) |
+| `storage_key` | `text` | relative path of the cached rendition `<game>/<provider>/<shard>/<providerImageId>.jpg` (no `..`, no leading `/`, ≤ 300); rows with identical checksums share one file |
+| `content_type`, `width`, `height`, `file_size_bytes`, `checksum_sha256` | | rendition type (`image/jpeg`), pixels (320 wide, never upscaled), bytes, lower-case hex SHA-256 (ETag, deduplication); all required when CACHED (`ck_card_image_cached_file`) |
+| `downloaded_at`, `last_accessed_at` | `timestamptz` | cache fill time; last serving (updated at most hourly; least recently used first when a lowered limit forces evictions) |
+| `attempt_count`, `last_attempt_at`, `last_error` | | download attempts; client-safe failure reason (≤ 500 characters, never a stack trace) |
+
+Indexes: `uq_card_image_provider (provider, provider_image_id) WHERE provider_image_id IS NOT NULL`,
+`ix_card_image_card (card_id, position)`, `ix_card_image_game_cache (game_id, cache_status)`
+(provider artworks), `ix_card_image_checksum`, `ix_card_image_storage_key` (partial).
+
+#### `card.image_id`
+
+`uuid`, FK → `card_image.id` (`ON DELETE SET NULL`): the card's primary artwork. A printing shows its
+own image (`card_printing.image_id`), else its card's `image_id`, else the placeholder SVG.
+
+#### `card_image_cache_usage`
+
+Single row (`id = 1`, `ck_card_image_cache_usage_single`): `used_bytes` (bytes of the final files,
+≥ 0), `file_count`, `reconciled_at`, `updated_at`. Every reservation, commit, eviction, clear and
+reconciliation locks it with `SELECT ... FOR UPDATE`; `used_bytes` plus the live reservations never
+exceeds `CARD_IMAGE_LOCAL_CACHE_MAX_MB`. Reconciliation recomputes it from the files on disk. Use one
+cache directory per database.
+
+#### `card_image_cache_reservation`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK; temporary files are named after it (`.tmp/<id>.part`, `.tmp/<id>.jpg.tmp`) and never exceed `bytes` |
+| `image_id` | `uuid` | FK → `card_image.id` (`SET NULL`) |
+| `bytes` | `bigint` | > 0: the announced `Content-Length` (bounded by the per-image maximum) or that maximum |
+| `owner` | `text` | API instance id |
+| `created_at`, `expires_at` | `timestamptz` | expired reservations (default lifetime 10 minutes) are reclaimed under the lock together with their temporary files, so a crash cannot leak capacity |
+
+Index: `ix_card_image_cache_reservation_expires`.
+
+#### `catalog_sync_run` (columns added by V100)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `image_mode` | `text` | `NONE` (default, also for existing rows), `REFERENCED`, `ALL`, `LIMIT` |
+| `image_limit` | `integer` | > 0, required exactly for `LIMIT` (`ck_catalog_sync_run_image_limit`) |
+| `provider_db_version` | `text` | provider catalog version imported (YGOPRODeck `database_version`) |
+| `phase` | `text` | progress: `FETCHING`, `METADATA`, `IMAGES`, `DONE` |
+| `report` | `jsonb` | `CatalogImportReport` object (counts, image fill, cache figures, truncated errors and warnings); written at each phase, final at the end |
+
+### V101 — real Yu-Gi-Oh! catalog fields
+
+- `uq_card_printing_variant` is now a unique **index** on `(set_id, collector_number, edition,
+  language, finish, coalesce(rarity, ''))`: LOB-EN001 Ultra Rare and a Quarter Century Secret Rare
+  reprint with the same code are two printings.
+- `game.schema` of `yugioh`: the metadata fields `rank`, `linkRating`, `linkMarkers` (string list),
+  `pendulumScale`, `property` (spells/traps: Normal, Continuous, Quick-Play, Field, Equip, Counter,
+  Ritual), `archetype` and `frameType` are added when missing; `monsterType` gets the complete list
+  of 26 monster types; 25 common YGOPRODeck rarities are added (40 at most); `rank` and
+  `linkRating` join the summary fields. Admin edits are kept.
+
+### V102 — `card_image` writable by pre-V100 code
+
+V100 made `card_image.card_id` and `game_id` NOT NULL. Code built before V100 (an older Cloud Run
+revision still serving during a rolling deploy, or the `main` checkout sharing a developer database)
+inserts printing images as `(id, printing_id, kind, url, width, height, source)` only; the not-null
+violation aborted its mock catalog seed and with it the API start-up. The `BEFORE INSERT OR UPDATE`
+trigger `trg_card_image_fill_owner` (function `card_image_fill_owner()`) fills the missing owners from
+the printing and its card; rows that set them (all current code) are left untouched. Covered by
+`CardImageLegacyWriterIT`, which runs the pre-V100 upsert verbatim.

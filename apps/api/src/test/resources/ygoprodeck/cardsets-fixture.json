@@ -1,0 +1,7 @@
+[
+  {"set_name": "Zephyrine Test Set", "set_code": "ZTST", "num_of_cards": 60, "tcg_date": "2024-05-01"},
+  {"set_name": "Zephyrine Test Set: Special Edition", "set_code": "ZTST", "num_of_cards": 3, "tcg_date": "2024-06-01"},
+  {"set_name": "Second Test Set", "set_code": "ZTS2", "num_of_cards": 20, "tcg_date": "2025-01-10"},
+  {"set_name": "Unused Test Set", "set_code": "ZUNU", "num_of_cards": 5},
+  {"set_name": "Broken Code Test Set", "set_code": "bad code!", "num_of_cards": 1}
+]

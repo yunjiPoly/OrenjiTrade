@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import type { CollectorMarker, MatchingItem } from '@orenji/api-client';
+import { CardPictures, pictureFor } from '../../../shared/catalog/card-pictures';
 import { editionLabel, languageLabel } from '../../../shared/catalog/catalog-labels';
 import { listingsLabel } from '../../../shared/discovery/discovery-labels';
 import { distanceBucketLabel } from '../../../shared/domain/location-labels';
@@ -10,6 +11,7 @@ import { OfferTarget, offerTargetFromMatch } from '../../../shared/offers/offer-
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /**
  * The collectors of the map as an accessible list (keyboard alternative to the markers). In
@@ -20,6 +22,7 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
 @Component({
   selector: 'app-collector-list',
   imports: [
+    CardImageComponent,
     AvatarComponent,
     FreshnessBadgeComponent,
     GameChipComponent,
@@ -76,9 +79,17 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
               <ul class="row__items" [attr.aria-label]="'Listings of ' + collector.displayName">
                 @for (item of collector.matchingItems; track item.itemId) {
                   <li class="item">
+                    <app-card-image
+                      class="item__thumb"
+                      size="xs"
+                      [src]="picture(item)"
+                      [alt]="item.cardName"
+                      [game]="item.game"
+                    />
                     <span class="item__code mono">{{ item.printingCode ?? item.cardName }}</span>
                     <span class="item__meta">{{ itemMeta(item) }}</span>
                     <app-item-chips
+                      class="item__chips"
                       [condition]="item.condition"
                       [availability]="item.availability"
                       [acceptsOffers]="item.acceptsOffers"
@@ -111,6 +122,8 @@ export class CollectorListComponent {
   /** The viewer's own account id (their marker stays on the map, labelled "You"). */
   readonly selfId = input<string | null>(null);
   readonly label = input('Collectors on the map');
+  /** Pictures of the card in holders mode (thumbnails of the listings). */
+  readonly pictures = input<CardPictures | null>(null);
   readonly selected = output<string>();
 
   private readonly anonymous = computed(() => !this.signedIn());
@@ -148,6 +161,11 @@ export class CollectorListComponent {
     const target = offerTargetFromMatch(item, collector);
     this.targets.set(item.itemId, { source: item, target });
     return target;
+  }
+
+  /** The listed printing's picture (API URL), else the card's; the placeholder art while unknown. */
+  protected picture(item: MatchingItem): string | null {
+    return pictureFor(this.pictures(), item.printingId);
   }
 
   protected price(item: MatchingItem): string {

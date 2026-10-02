@@ -8,7 +8,8 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import type { NotificationResponse } from '@orenji/api-client';
 import { RelativeTimePipe } from '../../shared/pipes/relative-time.pipe';
-import { isUnread, notificationKind } from './notification-kinds';
+import { isUnread, notificationCard, notificationKind } from './notification-kinds';
+import { CardImageComponent } from '../../shared/ui/card-image/card-image.component';
 
 /**
  * One notification as content (the bell menu wraps it in a menu item, the notifications page in a
@@ -16,12 +17,21 @@ import { isUnread, notificationKind } from './notification-kinds';
  */
 @Component({
   selector: 'app-notification-entry',
-  imports: [MatIconModule, RelativeTimePipe],
+  imports: [CardImageComponent, MatIconModule, RelativeTimePipe],
   template: `
     @let n = notification();
-    <span class="ne__icon" [attr.data-tone]="kind().tone" aria-hidden="true">
-      <mat-icon>{{ kind().icon }}</mat-icon>
-    </span>
+    @if (card(); as card) {
+      <span class="ne__card" data-testid="notification-card-image">
+        <app-card-image size="xs" [src]="card.imageUrl" [alt]="card.name" [game]="card.game" />
+        <span class="ne__badge" [attr.data-tone]="kind().tone" aria-hidden="true">
+          <mat-icon>{{ kind().icon }}</mat-icon>
+        </span>
+      </span>
+    } @else {
+      <span class="ne__icon" [attr.data-tone]="kind().tone" aria-hidden="true">
+        <mat-icon>{{ kind().icon }}</mat-icon>
+      </span>
+    }
     <span class="ne__text">
       <span class="ne__meta">
         <span class="ne__label">{{ kind().label }}</span>
@@ -61,20 +71,48 @@ import { isUnread, notificationKind } from './notification-kinds';
       width: 22px;
       height: 22px;
     }
-    .ne__icon[data-tone='match'] {
+    .ne__card {
+      position: relative;
+      flex: 0 0 auto;
+      width: 40px;
+    }
+    .ne__card app-card-image {
+      --card-image-width: 40px;
+    }
+    .ne__badge {
+      position: absolute;
+      right: -6px;
+      bottom: -4px;
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--color-surface);
+      border-radius: 50%;
+      background: var(--ne-tone-bg, var(--color-surface-variant));
+      color: var(--ne-tone, var(--color-text-muted));
+    }
+    .ne__badge mat-icon {
+      margin: 0;
+      font-size: 13px;
+      width: 13px;
+      height: 13px;
+    }
+    [data-tone='match'] {
       --ne-tone: var(--color-primary);
       --ne-tone-bg: var(--color-primary-container);
     }
-    .ne__icon[data-tone='message'] {
+    [data-tone='message'] {
       --ne-tone: var(--color-accent);
       --ne-tone-bg: var(--color-accent-container);
     }
-    .ne__icon[data-tone='offer'],
-    .ne__icon[data-tone='trade'] {
+    [data-tone='offer'],
+    [data-tone='trade'] {
       --ne-tone: var(--color-success);
       --ne-tone-bg: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
     }
-    .ne__icon[data-tone='warning'] {
+    .ne__icon[data-tone='warning'],
+    .ne__badge[data-tone='warning'] {
       --ne-tone: var(--color-warning);
       --ne-tone-bg: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
     }
@@ -132,5 +170,7 @@ export class NotificationEntryComponent {
   readonly compact = input(false, { transform: booleanAttribute });
 
   protected readonly kind = computed(() => notificationKind(this.notification()));
+  /** The card the payload carries (wishlist alerts, offers), shown instead of the icon. */
+  protected readonly card = computed(() => notificationCard(this.notification()));
   protected readonly unread = computed(() => isUnread(this.notification()));
 }

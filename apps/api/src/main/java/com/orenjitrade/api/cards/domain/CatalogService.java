@@ -350,7 +350,11 @@ public class CatalogService {
         return urls;
     }
 
-    private static @Nullable String frontImage(PrintingSummary printing) {
+    /**
+     * The FRONT image URL of a printing (else its first image), {@code null} without images; the
+     * URLs of a {@link PrintingSummary} come from {@code CardImageUrlResolver}.
+     */
+    public static @Nullable String frontImage(PrintingSummary printing) {
         return printing.images().stream()
                 .filter(image -> CatalogImages.KIND_FRONT.equals(image.kind()))
                 .findFirst()

@@ -41,6 +41,7 @@ import {
 import { uniqueSuggestions } from '../catalog/card-search-box/card-search-box.component';
 import { gameInfo } from '../domain/games';
 import { CardLinkChoice, printingForSuggestion } from './link-choices';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 
 type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 
@@ -52,6 +53,7 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 @Component({
   selector: 'app-card-link-picker',
   imports: [
+    CardImageComponent,
     ReactiveFormsModule,
     MatAutocompleteModule,
     MatButtonModule,
@@ -100,13 +102,12 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
       @for (suggestion of suggestions(); track trackKey(suggestion)) {
         <mat-option [value]="suggestion">
           <span class="picker-option">
-            <img
+            <app-card-image
               class="picker-option__img"
+              size="xs"
               [src]="suggestion.imageUrl"
+              [game]="suggestion.game"
               alt=""
-              width="30"
-              height="42"
-              loading="lazy"
             />
             <span class="picker-option__text">
               <span class="picker-option__name">{{ suggestion.name }}</span>
@@ -146,11 +147,8 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
       gap: var(--spacing-3);
     }
     .picker-option__img {
+      flex: 0 0 30px;
       width: 30px;
-      height: 42px;
-      border-radius: 3px;
-      object-fit: cover;
-      background: var(--color-surface-variant);
     }
     .picker-option__text {
       display: flex;

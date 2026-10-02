@@ -3944,6 +3944,219 @@
         ]
       }
     },
+    "/internal/jobs/catalog-import": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Queue a catalog import (service auth)",
+        "description": "Same as `POST /admin/catalog/sync` for schedulers and the local `npm run catalog:import` script: metadata is always imported, `imageMode` (default REFERENCED for providers with image downloads) fills the capped local image cache. Poll `GET /internal/jobs/catalog-import/{id}` for the report. 409 while another import of the game is queued or running.",
+        "operationId": "runCatalogImportJob",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSyncRun"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "An import of the game is already running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSyncRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/internal/jobs/card-images/reconcile": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Reconcile cache files, rows and accounting (service auth)",
+        "operationId": "reconcileCardImageCacheJob",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardImageCacheReconcileResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/internal/jobs/card-images/clear": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Delete cached card images (service auth)",
+        "description": "Deletes the cached renditions (of one game with `game`) and releases their capacity; metadata and source references stay. Records a job run.",
+        "operationId": "clearCardImageCacheJob",
+        "parameters": [
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Only this game's images",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardImageCacheClearResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/internal/jobs/account-deletion": {
       "post": {
         "tags": [
@@ -14243,7 +14456,7 @@
           "admin-catalog"
         ],
         "summary": "Queue a catalog import (ADMIN, SUPER_ADMIN)",
-        "description": "Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Poll `GET /admin/catalog/sync-runs/{id}`. Audited (`catalog.sync.request`).",
+        "description": "Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Metadata is always imported; `imageMode` then fills the local card image cache (REFERENCED by default for providers with image downloads such as `ygoprodeck`, capped at CARD_IMAGE_LOCAL_CACHE_MAX_MB). Poll `GET /admin/catalog/sync-runs/{id}`. 409 while another import of the game is queued or running. Audited (`catalog.sync.request`).",
         "operationId": "requestCatalogSync",
         "requestBody": {
           "content": {
@@ -14258,6 +14471,16 @@
         "responses": {
           "202": {
             "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSyncRun"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "An import of the game is already running",
             "content": {
               "application/json": {
                 "schema": {
@@ -14437,6 +14660,160 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PrintingDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/card-images/reconcile": {
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Reconcile cache files, rows and accounting (ADMIN, SUPER_ADMIN)",
+        "description": "Deletes orphan temporary files and files no row references, marks cached rows whose file is missing as not cached, reclaims expired reservations and recomputes the usage from the files on disk. Audited (`card_images.cache.reconcile`).",
+        "operationId": "reconcileCardImageCache",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardImageCacheReconcileResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/card-images/clear": {
+      "post": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Delete cached card images (ADMIN, SUPER_ADMIN)",
+        "description": "Deletes the cached renditions (of one game when `game` is given) and releases their capacity; card metadata and image source references stay. Audited (`card_images.cache.clear`).",
+        "operationId": "clearCardImageCache",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardImageCacheClearRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardImageCacheClearResponse"
                 }
               }
             }
@@ -16210,6 +16587,135 @@
         }
       }
     },
+    "/internal/jobs/catalog-import/{id}": {
+      "get": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "One catalog import run with its report (service auth)",
+        "operationId": "getCatalogImportJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSyncRun"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/internal/jobs/card-images/status": {
+      "get": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Local card image cache status with its directory (service auth)",
+        "operationId": "getCardImageCacheJobStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalCardImageCacheStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/wishlist/{id}/matches": {
       "get": {
         "tags": [
@@ -17734,6 +18240,97 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/public/card-images/{imageId}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Card artwork (cached rendition or placeholder)",
+        "description": "Serves a card artwork from OrenjiTrade's own cache (JPEG, `Cache-Control: public, max-age=31536000, immutable`, ETag = SHA-256). When the artwork is not cached yet, a bounded download may fill the cache; otherwise the card's placeholder SVG is returned with a short cache lifetime. Provider URLs are never exposed.",
+        "operationId": "getCardImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "description": "Card image id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image (JPEG) or the placeholder (SVG)",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown image",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
                 }
               }
             }
@@ -25144,6 +25741,89 @@
         }
       }
     },
+    "/api/v1/admin/catalog/sync-runs/{id}/report": {
+      "get": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Report of one catalog import run (ADMIN, SUPER_ADMIN)",
+        "description": "Counts of cards, sets and printings, image cache fill (downloaded, already cached, skipped because the cache is full, failed, missing at the source), cache figures and the first errors. Available while the run is in progress; 404 for runs without a report.",
+        "operationId": "getCatalogSyncRunReport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/catalog/providers": {
       "get": {
         "tags": [
@@ -25164,6 +25844,78 @@
                       "type": "string"
                     }
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/card-images/status": {
+      "get": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Local card image cache status (ADMIN, SUPER_ADMIN)",
+        "description": "Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 500 MB) and provider artworks per cache status and game.",
+        "operationId": "getCardImageCacheStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardImageCacheStatus"
                 }
               }
             }
@@ -26141,6 +26893,85 @@
         "responses": {
           "204": {
             "description": "Revoked"
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/card-images/{imageId}/cache": {
+      "delete": {
+        "tags": [
+          "admin-catalog"
+        ],
+        "summary": "Evict one cached card image (ADMIN, SUPER_ADMIN)",
+        "description": "The row goes back to NOT_CACHED; the file is deleted unless another artwork shares it. 404 when the image is not cached. Audited (`card_images.cache.evict`).",
+        "operationId": "evictCardImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Evicted"
+          },
+          "404": {
+            "description": "Unknown or not cached"
           },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
@@ -29289,6 +30120,352 @@
           }
         }
       },
+      "CatalogSyncRequest": {
+        "type": "object",
+        "description": "Catalog sync request",
+        "properties": {
+          "gameSlug": {
+            "type": "string",
+            "example": "yugioh",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "provider": {
+            "type": "string",
+            "example": "ygoprodeck",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "INCREMENTAL"
+            ]
+          },
+          "imageMode": {
+            "type": "string",
+            "description": "NONE, REFERENCED (artworks of cards members reference; default), ALL (until the cache is full) or LIMIT (imageLimit artworks)",
+            "enum": [
+              "NONE",
+              "REFERENCED",
+              "ALL",
+              "LIMIT"
+            ]
+          },
+          "imageLimit": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 1000000,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "gameSlug",
+          "mode",
+          "provider"
+        ]
+      },
+      "CatalogImportReport": {
+        "type": "object",
+        "description": "Catalog import report",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "providerDbVersion": {
+            "type": "string"
+          },
+          "imageMode": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "REFERENCED",
+              "ALL",
+              "LIMIT"
+            ]
+          },
+          "imageLimit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCardsProcessed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardsCreated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardsUpdated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardsUnchanged": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardsFailed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "setsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "printingsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "printingsSkipped": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesReferenced": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "imagesSelected": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesAlreadyCached": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesDownloaded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesDeduplicated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesSkippedCacheFull": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesFailed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imagesMissingAtSource": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bytesDownloaded": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cacheUsedMb": {
+            "type": "number",
+            "format": "double"
+          },
+          "cacheReservedMb": {
+            "type": "number",
+            "format": "double"
+          },
+          "cacheLimitMb": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cacheLimitReached": {
+            "type": "boolean"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "bytesDownloaded",
+          "cacheLimitMb",
+          "cacheLimitReached",
+          "cacheReservedMb",
+          "cacheUsedMb",
+          "cardsCreated",
+          "cardsFailed",
+          "cardsUnchanged",
+          "cardsUpdated",
+          "durationSeconds",
+          "errors",
+          "imageMode",
+          "imagesAlreadyCached",
+          "imagesDeduplicated",
+          "imagesDownloaded",
+          "imagesFailed",
+          "imagesMissingAtSource",
+          "imagesReferenced",
+          "imagesSelected",
+          "imagesSkippedCacheFull",
+          "printingsSkipped",
+          "printingsUpserted",
+          "provider",
+          "setsUpserted",
+          "totalCardsProcessed",
+          "warnings"
+        ]
+      },
+      "CatalogSyncRun": {
+        "type": "object",
+        "description": "Catalog import run",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "mock"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "INCREMENTAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED"
+            ]
+          },
+          "requestedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "setsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cardsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "printingsUpserted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "imageMode": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "REFERENCED",
+              "ALL",
+              "LIMIT"
+            ]
+          },
+          "imageLimit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "providerDbVersion": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "FETCHING",
+              "METADATA",
+              "IMAGES",
+              "DONE"
+            ]
+          },
+          "report": {
+            "$ref": "#/components/schemas/CatalogImportReport"
+          }
+        }
+      },
+      "CardImageCacheReconcileResult": {
+        "type": "object",
+        "properties": {
+          "expiredReservations": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "orphanTempFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missingFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "orphanFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "evicted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "usedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "files": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CardImageCacheClearResponse": {
+        "type": "object",
+        "properties": {
+          "images": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "filesDeleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bytesReleased": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "bytesReleased",
+          "filesDeleted",
+          "images"
+        ]
+      },
       "AccountDeletionJobResponse": {
         "type": "object",
         "properties": {
@@ -31677,7 +32854,7 @@
           "data": {
             "type": "object",
             "additionalProperties": {},
-            "description": "Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>)"
+            "description": "Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_MATCH, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes)"
           },
           "createdAt": {
             "type": "string",
@@ -33130,6 +34307,13 @@
           },
           "summary": {
             "type": "string"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Picture of the offered card (OrenjiTrade's own card image or placeholder URL)"
           }
         },
         "required": [
@@ -34782,6 +35966,13 @@
               "null"
             ]
           },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Picture of the printing (OrenjiTrade's own card image or placeholder URL)"
+          },
           "game": {
             "type": "string"
           },
@@ -35757,98 +36948,14 @@
           "updatedAt"
         ]
       },
-      "CatalogSyncRequest": {
+      "CardImageCacheClearRequest": {
         "type": "object",
-        "description": "Catalog sync request",
         "properties": {
-          "gameSlug": {
-            "type": "string",
-            "example": "yugioh",
-            "maxLength": 32,
-            "minLength": 0
-          },
-          "provider": {
-            "type": "string",
-            "example": "mock",
-            "maxLength": 32,
-            "minLength": 0
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "FULL",
-              "INCREMENTAL"
-            ]
-          }
-        },
-        "required": [
-          "gameSlug",
-          "mode",
-          "provider"
-        ]
-      },
-      "CatalogSyncRun": {
-        "type": "object",
-        "description": "Catalog import run",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "provider": {
-            "type": "string",
-            "example": "mock"
-          },
           "game": {
             "type": "string",
-            "example": "yugioh"
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "FULL",
-              "INCREMENTAL"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "QUEUED",
-              "RUNNING",
-              "SUCCEEDED",
-              "FAILED"
-            ]
-          },
-          "requestedBy": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "startedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "finishedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "setsUpserted": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "cardsUpserted": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "printingsUpserted": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "error": {
-            "type": "string"
+            "maxLength": 32,
+            "minLength": 0,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
           }
         }
       },
@@ -36249,6 +37356,126 @@
             "minLength": 0
           }
         }
+      },
+      "CardImageCacheGameStatus": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "cachedBytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "cachedBytes",
+          "game",
+          "images",
+          "provider"
+        ]
+      },
+      "CardImageCacheStatus": {
+        "type": "object",
+        "description": "Local card image cache state",
+        "properties": {
+          "usedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reservedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "remainingBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "limitBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "usedMb": {
+            "type": "number",
+            "format": "double"
+          },
+          "reservedMb": {
+            "type": "number",
+            "format": "double"
+          },
+          "remainingMb": {
+            "type": "number",
+            "format": "double"
+          },
+          "limitMb": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "files": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "activeReservations": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardImageCacheGameStatus"
+            }
+          },
+          "reconciledAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "activeReservations",
+          "files",
+          "games",
+          "images",
+          "limitBytes",
+          "limitMb",
+          "remainingBytes",
+          "remainingMb",
+          "reservedBytes",
+          "reservedMb",
+          "usedBytes",
+          "usedMb"
+        ]
+      },
+      "InternalCardImageCacheStatus": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CardImageCacheStatus"
+          }
+        },
+        "required": [
+          "directory",
+          "status"
+        ]
       },
       "CollectorMarker": {
         "type": "object",

@@ -34,6 +34,7 @@ import {
   SUGGEST_MIN_CHARS,
 } from '../catalog/catalog-constants';
 import { gameInfo } from '../domain/games';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 
 /** A card chosen in the picker: the card, and the printing when a printing code was chosen. */
 export interface PickedCard {
@@ -50,6 +51,7 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 @Component({
   selector: 'app-wish-card-picker',
   imports: [
+    CardImageComponent,
     ReactiveFormsModule,
     MatAutocompleteModule,
     MatFormFieldModule,
@@ -84,12 +86,12 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
       @for (suggestion of suggestions(); track trackKey(suggestion)) {
         <mat-option [value]="suggestion" class="csb-option">
           <span class="csb-option__row">
-            <img
+            <app-card-image
               class="csb-option__img"
+              size="xs"
               [src]="suggestion.imageUrl"
+              [game]="suggestion.game"
               alt=""
-              width="36"
-              height="50"
             />
             <span class="csb-option__text">
               <span class="csb-option__name">{{ suggestion.name }}</span>

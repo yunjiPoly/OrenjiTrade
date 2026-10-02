@@ -1,4 +1,4 @@
-import type { CollectorMarker, CollectorPreview } from '@orenji/api-client';
+import type { CollectorMarker, CollectorPreview, MatchingItem } from '@orenji/api-client';
 
 /** A fictional collector marker for unit tests. */
 export function collector(
@@ -50,6 +50,27 @@ export function preview(
     publicItemCount: marker.publicItemCount,
     canMessage: false,
     isBlocked: false,
+    ...overrides,
+  };
+}
+
+/** A fictional listing of the searched card (holders mode) for unit tests. */
+export function matchingItem(overrides: Partial<MatchingItem> = {}): MatchingItem {
+  return {
+    itemId: 'item-1',
+    printingId: 'p-en',
+    printingCode: 'AZR-EN001',
+    cardId: 'card-1',
+    cardName: 'Azure-Eyes Sky Dragon',
+    game: 'yugioh',
+    availability: 'TRADE_OR_SALE' as MatchingItem['availability'],
+    askingPrice: 42,
+    currency: 'CAD',
+    condition: 'NEAR_MINT',
+    language: 'en',
+    edition: 'FIRST_EDITION',
+    acceptsOffers: true,
+    freshness: 'ACTIVE' as MatchingItem['freshness'],
     ...overrides,
   };
 }

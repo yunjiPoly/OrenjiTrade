@@ -416,6 +416,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "trading areas",
                         "catalog",
                         "inventory",
+                        "real-catalog-demo",
                         "conversations",
                         "community",
                         "wishlist",

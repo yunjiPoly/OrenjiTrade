@@ -18,7 +18,7 @@ import { MatInputModule } from '@angular/material/input';
 import { InventoryItemResponse, InventoryService } from '@orenji/api-client';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { silentErrors } from '../../core/http/http-context';
-import { CardImageComponent } from '../catalog/card-image/card-image.component';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 import { conditionLabel } from '../inventory/inventory-labels';
 import { QuantityStepperComponent } from '../ui/quantity-stepper/quantity-stepper.component';
 import { OFFER_TRADE_ITEMS_MAX } from './offer-labels';
@@ -53,7 +53,12 @@ type SearchState =
         <ul class="chosen" aria-label="Cards in your offer">
           @for (line of lines(); track line.inventoryItemId) {
             <li class="chosen__row">
-              <app-card-image class="chosen__img" [src]="line.imageUrl" [game]="line.game" alt="" />
+              <app-card-image
+                class="chosen__img"
+                [src]="line.imageUrl"
+                [game]="line.game"
+                [alt]="line.cardName"
+              />
               <span class="chosen__text">
                 <span class="chosen__name">{{ line.cardName }}</span>
                 <span class="chosen__meta">
@@ -149,7 +154,7 @@ type SearchState =
                       class="results__img"
                       [src]="imageOf(item)"
                       [game]="item.card.game"
-                      alt=""
+                      [alt]="item.card.name"
                     />
                     <span class="results__text">
                       <span class="results__name">{{ item.card.name }}</span>

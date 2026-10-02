@@ -22,6 +22,7 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { APP_NAME } from '../../../core/routing/orenji-title.strategy';
+import { CardDataAttributionComponent } from '../../../shared/catalog/card-data-attribution/card-data-attribution.component';
 import { CardGridComponent } from '../../../shared/catalog/card-grid/card-grid.component';
 import { metadataEntries } from '../../../shared/catalog/catalog-labels';
 import { gameInfo } from '../../../shared/domain/games';
@@ -47,6 +48,7 @@ const SET_CARDS_LIMIT = 100;
     MatButtonModule,
     MatIconModule,
     MatPaginatorModule,
+    CardDataAttributionComponent,
     CardGridComponent,
     EmptyStateComponent,
     ErrorStateComponent,
@@ -147,6 +149,7 @@ const SET_CARDS_LIMIT = 100;
                 <a routerLink="/cards" [queryParams]="{ game: set.game, set: set.code }">See all</a>
               </p>
             }
+            <app-card-data-attribution class="set__attribution" [game]="set.game ?? null" />
           }
         </section>
 
@@ -157,6 +160,7 @@ const SET_CARDS_LIMIT = 100;
               mode="set"
               [printings]="detail()?.printings?.items ?? []"
               [cardNames]="cardNames()"
+              [game]="set.game"
               [label]="set.name + ' checklist'"
             />
             @if ((detail()?.printings?.totalPages ?? 0) > 1) {
@@ -276,6 +280,9 @@ const SET_CARDS_LIMIT = 100;
     .set__h2 {
       margin-bottom: var(--spacing-3);
       font-size: var(--font-size-xl);
+    }
+    .set__attribution {
+      margin-top: var(--spacing-3);
     }
     .set__more,
     .set__muted {

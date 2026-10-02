@@ -16,10 +16,21 @@ export interface CatalogSyncRequest {
     gameSlug: string;
     provider: string;
     mode: CatalogSyncRequestModeEnum;
+    /**
+     * NONE, REFERENCED (artworks of cards members reference; default), ALL (until the cache is full) or LIMIT (imageLimit artworks)
+     */
+    imageMode?: CatalogSyncRequestImageModeEnum;
+    imageLimit?: number;
 }
 export enum CatalogSyncRequestModeEnum {
     Full = 'FULL',
     Incremental = 'INCREMENTAL'
+};
+export enum CatalogSyncRequestImageModeEnum {
+    None = 'NONE',
+    Referenced = 'REFERENCED',
+    All = 'ALL',
+    Limit = 'LIMIT'
 };
 
 

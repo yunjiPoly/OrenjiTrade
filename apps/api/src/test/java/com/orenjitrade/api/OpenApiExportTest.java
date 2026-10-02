@@ -318,6 +318,27 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .isNotEmpty();
                             });
         }
+        // Card images (ADR 0015): serving, admin cache console, catalog import jobs.
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/public/card-images/{imageId}",
+                        "/api/v1/admin/card-images/status",
+                        "/api/v1/admin/card-images/clear",
+                        "/api/v1/admin/card-images/reconcile",
+                        "/api/v1/admin/card-images/{imageId}/cache",
+                        "/api/v1/admin/catalog/sync-runs/{id}/report",
+                        "/internal/jobs/catalog-import",
+                        "/internal/jobs/catalog-import/{id}",
+                        "/internal/jobs/card-images/status",
+                        "/internal/jobs/card-images/clear",
+                        "/internal/jobs/card-images/reconcile")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+        }
+        for (String schema :
+                java.util.List.of(
+                        "CardImageCacheStatus", "CatalogImportReport", "CatalogSyncRun")) {
+            assertThat(document.path("components").path("schemas").has(schema)).as(schema).isTrue();
+        }
         // Phase 10 (subscriptions, credits, referrals, ads, donations, admin).
         for (String path :
                 java.util.List.of(

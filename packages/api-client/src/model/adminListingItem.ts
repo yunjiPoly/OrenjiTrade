@@ -15,6 +15,10 @@ export interface AdminListingItem {
     cardName: string;
     printingId: string;
     printingCode?: string | null;
+    /**
+     * Picture of the printing (OrenjiTrade\'s own card image or placeholder URL)
+     */
+    imageUrl?: string | null;
     game: string;
     binderId?: string | null;
     binderName?: string | null;

@@ -1,7 +1,9 @@
 package com.orenjitrade.api.wishlist.domain;
 
+import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.location.domain.DistanceBucket;
+import com.orenjitrade.api.notifications.domain.NotificationCards;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationService;
 import com.orenjitrade.api.notifications.domain.NotificationType;
@@ -13,9 +15,11 @@ import com.orenjitrade.api.wishlist.infra.WishlistRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -33,7 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       re-publication or a redelivered event never matches or notifies twice) → {@link
  *       NotificationService#notify} with the dedup key {@code
  *       wishlist:<wishlistItemId>:<inventoryItemId>} (preferences, quiet hours and the {@code
- *       wishlist.alerts.per_day} limit apply there);
+ *       wishlist.alerts.per_day} limit apply there); the notification carries the card's name and
+ *       picture (the printing's image URL from the cards module, ADR 0015);
  *   <li>{@link #matchWishlistItem}: a wishlist item was created or edited → its matches among the
  *       current public inventory, without notifications (the collector is looking at them).
  * </ul>
@@ -44,6 +49,7 @@ public class WishlistMatcher {
     private final WishlistMatchRepository matches;
     private final WishlistRepository items;
     private final NotificationService notifications;
+    private final CatalogService catalog;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
 
@@ -51,11 +57,13 @@ public class WishlistMatcher {
             WishlistMatchRepository matches,
             WishlistRepository items,
             NotificationService notifications,
+            CatalogService catalog,
             ApplicationEventPublisher events,
             TimeProvider timeProvider) {
         this.matches = matches;
         this.items = items;
         this.notifications = notifications;
+        this.catalog = catalog;
         this.events = events;
         this.timeProvider = timeProvider;
     }
@@ -67,6 +75,7 @@ public class WishlistMatcher {
         List<Candidate> candidates = matches.candidatesForItem(inventoryItemId, now);
         int created = 0;
         int notified = 0;
+        @Nullable Map<UUID, String> pictures = null;
         for (Candidate candidate : candidates) {
             DistanceBucket bucket = DistanceBucket.ofKm(candidate.distanceMetres() / 1000.0);
             Optional<UUID> matchId = matches.insert(candidate, bucket, now);
@@ -75,7 +84,16 @@ public class WishlistMatcher {
             }
             created++;
             items.touchMatched(candidate.wishlistItemId(), now);
-            NotifyResult result = notifications.notify(request(candidate, matchId.get(), bucket));
+            if (pictures == null) {
+                pictures = pictures(candidates);
+            }
+            NotifyResult result =
+                    notifications.notify(
+                            request(
+                                    candidate,
+                                    matchId.get(),
+                                    bucket,
+                                    pictures.get(candidate.printingId())));
             boolean delivered = result.delivered();
             if (delivered) {
                 matches.markNotified(matchId.get());
@@ -110,8 +128,20 @@ public class WishlistMatcher {
         return matching;
     }
 
-    /** The notification of a new match ("Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km..."). */
-    static NotificationRequest request(Candidate candidate, UUID matchId, DistanceBucket bucket) {
+    /** Picture URLs of the candidates' printings (one lookup per published item). */
+    private Map<UUID, String> pictures(List<Candidate> candidates) {
+        Set<UUID> printingIds = new LinkedHashSet<>();
+        candidates.forEach(candidate -> printingIds.add(candidate.printingId()));
+        return catalog.frontImageUrls(printingIds);
+    }
+
+    /**
+     * The notification of a new match ("Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km..."), with
+     * the card's name, game and picture ({@code imageUrl} from the cards module, {@code null} when
+     * the printing has none) in its data.
+     */
+    static NotificationRequest request(
+            Candidate candidate, UUID matchId, DistanceBucket bucket, @Nullable String imageUrl) {
         StringBuilder body = new StringBuilder(candidate.cardName());
         if (candidate.printingCode() != null) {
             body.append(' ').append(candidate.printingCode());
@@ -129,7 +159,7 @@ public class WishlistMatcher {
         data.put("matchId", matchId.toString());
         data.put("inventoryItemId", candidate.itemId().toString());
         data.put("collectorId", candidate.itemOwnerId().toString());
-        data.put("game", candidate.game());
+        NotificationCards.put(data, candidate.cardName(), candidate.game(), imageUrl);
         data.put("distanceBucket", bucket.name());
         data.put("deepLink", "/wishlist/" + candidate.wishlistItemId());
         return new NotificationRequest(

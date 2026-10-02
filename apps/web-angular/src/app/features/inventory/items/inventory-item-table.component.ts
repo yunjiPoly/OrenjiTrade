@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } from '@angular/core';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import type { InventoryItemResponse } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import {
   badgeFreshness,
   formatPrice,
@@ -59,7 +59,12 @@ import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/qu
               </td>
               <td>
                 <div class="it__card">
-                  <app-card-image class="it__thumb" [src]="imageOf(it)" [game]="it.card.game" />
+                  <app-card-image
+                    class="it__thumb"
+                    [src]="imageOf(it)"
+                    [alt]="it.card.name"
+                    [game]="it.card.game"
+                  />
                   <div class="it__text">
                     <button
                       type="button"

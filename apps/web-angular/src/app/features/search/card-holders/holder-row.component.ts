@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { CardHolderResult } from '@orenji/api-client';
 import { editionLabel, languageLabel } from '../../../shared/catalog/catalog-labels';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { distanceBucketLabel } from '../../../shared/domain/location-labels';
 import {
   badgeFreshness,
