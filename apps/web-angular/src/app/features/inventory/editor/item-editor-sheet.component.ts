@@ -20,7 +20,7 @@ import type { InventoryItemResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../../../core/http/api-error';
 import { friendlyError } from '../../../core/http/api-error-messages';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { GamesStore } from '../../../shared/catalog/games.store';
 import { gameInfo } from '../../../shared/domain/games';
 import {
@@ -70,7 +70,12 @@ export type ItemEditorResult = 'saved' | 'deleted' | undefined;
   template: `
     @let it = item();
     <header class="es__header" [style.--es-accent]="accent()">
-      <app-card-image class="es__thumb" [src]="image()" [game]="it.card.game" />
+      <app-card-image
+        class="es__thumb"
+        [src]="image()"
+        [alt]="it.card.name"
+        [game]="it.card.game"
+      />
       <div class="es__heading">
         <p class="es__game">{{ gameLabel() }}</p>
         <h2 class="es__title" mat-dialog-title>{{ it.card.name }}</h2>

@@ -13,6 +13,11 @@ export { WordmarkComponent, type WordmarkSize } from './wordmark/wordmark.compon
 export { AvatarComponent, type AvatarSize } from './avatar/avatar.component';
 export { CardArtComponent } from './card-art/card-art.component';
 export {
+  CARD_IMAGE_DIMENSIONS,
+  CardImageComponent,
+  type CardImageSize,
+} from './card-image/card-image.component';
+export {
   ConfirmDialogComponent,
   type ConfirmDialogData,
 } from './confirm-dialog/confirm-dialog.component';

@@ -15,13 +15,18 @@ import { MatIconModule } from '@angular/material/icon';
 import { OfferSummary, OffersService } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { silentErrors } from '../../core/http/http-context';
+import { printingImageUrl } from '../inventory/inventory-labels';
 import { offerStatusInfo, offerTermsText } from './offer-labels';
 import { StatusChipComponent } from './status-chip.component';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
 
 /** An offer the caller may link in a conversation (`OFFER_LINK` message). */
 export interface OfferLinkChoice {
   offerId: string;
   cardName: string;
+  /** Picture of the offer's card (API URL), `null` when unknown. */
+  imageUrl: string | null;
+  game: string | null;
   terms: string;
   status: string;
 }
@@ -38,6 +43,8 @@ export function offerChoices(offers: readonly OfferSummary[], otherId: string): 
     .map((offer) => ({
       offerId: offer.id,
       cardName: offer.item?.card.name ?? 'A card',
+      imageUrl: printingImageUrl(offer.item?.printing),
+      game: offer.item?.card.game ?? null,
       terms: offerTermsText({
         kind: offer.kind,
         cashAmount: offer.cashAmount,
@@ -55,7 +62,7 @@ export function offerChoices(offers: readonly OfferSummary[], otherId: string): 
  */
 @Component({
   selector: 'app-offer-link-picker',
-  imports: [MatButtonModule, MatIconModule, StatusChipComponent],
+  imports: [CardImageComponent, MatButtonModule, MatIconModule, StatusChipComponent],
   template: `
     <div class="olp" role="group" aria-label="Share an offer" (keydown.escape)="cancelled.emit()">
       <div class="olp__head">
@@ -90,7 +97,13 @@ export function offerChoices(offers: readonly OfferSummary[], otherId: string): 
               @for (choice of choices(); track choice.offerId) {
                 <li>
                   <button type="button" class="olp__choice" (click)="picked.emit(choice)">
-                    <mat-icon aria-hidden="true">local_offer</mat-icon>
+                    <app-card-image
+                      class="olp__img"
+                      size="xs"
+                      [src]="choice.imageUrl"
+                      [game]="choice.game"
+                      alt=""
+                    />
                     <span class="olp__text">
                       <span class="olp__name">{{ choice.cardName }}</span>
                       <span class="olp__terms">{{ choice.terms }}</span>
@@ -160,8 +173,9 @@ export function offerChoices(offers: readonly OfferSummary[], otherId: string): 
     .olp__choice:focus-visible {
       background: var(--color-surface-variant);
     }
-    .olp__choice > mat-icon {
-      color: var(--color-availability-offers);
+    .olp__img {
+      --card-image-width: 30px;
+      --card-image-shadow: none;
     }
     .olp__text {
       display: flex;

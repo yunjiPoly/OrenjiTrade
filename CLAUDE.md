@@ -33,6 +33,16 @@ branding assets are supplied.
 | Maps | PostGIS is the geographic source of truth. Google Maps in production; UI map code sits behind a `MapAdapter` (Leaflet fallback when no key) |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
+### Card images (ADR 0015, owner rule 2026-10-01)
+The local card image cache never holds more than **500 MB** (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`,
+default 500, start-up fails above it; temp files and reservations count). **Never hotlink
+YGOPRODeck images**: browsers only get `/api/v1/public/card-images/{id}` (cached file or
+placeholder); provider URLs stay server-side (`card_image.source_url`). Card metadata is always
+imported completely; images are a separate, capped cache. Real provider imports are explicit
+(`npm run catalog:import`); seeds, tests and CI never call YGOPRODeck. Keep provider etiquette:
+checkDBVer first, reuse the stored snapshot, at most 5 requests/second, no scraping, never commit
+image binaries or snapshots.
+
 ### ON HOLD by owner instruction (2026-09-29): Python ML card recognition
 Do **not** start Phase 11 (ML card identification model, the camera → upload → Pub/Sub → ML
 worker scan pipeline, `/v1/identify` beyond the existing stub, mobile card scanning) until the

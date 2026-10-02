@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import type { InventoryItemResponse } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { gameInfo } from '../../../shared/domain/games';
 import {
   badgeFreshness,
@@ -48,7 +48,7 @@ import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/qu
       data-testid="inventory-item"
     >
       <div class="ic__media">
-        <app-card-image [src]="image()" [alt]="''" [game]="it.card.game" />
+        <app-card-image [src]="image()" [alt]="it.card.name" [game]="it.card.game" />
         <mat-checkbox
           class="ic__select ic__above"
           [checked]="selected()"

@@ -714,12 +714,14 @@ public class ConversationService {
         if (offerId != null) {
             offer = offers.get(offerId);
             if (offer == null) {
-                // The state stored with the message (the resolver answers for the parties only).
+                // The state stored with the message (the resolver answers for the parties only);
+                // the picture is never stored with a message.
                 offer =
                         new OfferLink(
                                 offerId,
                                 offerNode.path("status").asString(""),
-                                offerNode.path("summary").asString(""));
+                                offerNode.path("summary").asString(""),
+                                null);
             }
         }
         @Nullable MessageImage image = null;

@@ -56,7 +56,15 @@ describe('MapDiscoveryStore', () => {
     nearby = vi.fn((params: ListNearbyCollectorsRequestParams) => of(answer(params)));
     previewApi = vi.fn(() => of(preview('maika', { publicBinderCount: 2 })));
     binders = vi.fn(() => of([{ id: 'b1' }, { id: 'b2' }]));
-    getCard = vi.fn(() => of({ id: CARD, name: 'Azure-Eyes Sky Dragon' }));
+    getCard = vi.fn(() =>
+      of({
+        id: CARD,
+        name: 'Azure-Eyes Sky Dragon',
+        game: 'yugioh',
+        primaryImageUrl: 'http://localhost:8080/api/v1/public/card-images/img-1',
+        printings: [],
+      }),
+    );
     myPlan = vi.fn(() =>
       of({ limits: [{ key: 'map.radius.max_km', limit: options.planLimit ?? 25 }] }),
     );
@@ -148,6 +156,13 @@ describe('MapDiscoveryStore', () => {
     expect(nearby.mock.calls[1][0]).toMatchObject({ game: 'yugioh', hasCardId: CARD });
     expect(store.holders()).toEqual({ kind: 'card', id: CARD });
     expect(store.holdersTitle()).toBe('Azure-Eyes Sky Dragon');
+    // The holders list shows the card's API picture (never a provider URL built here).
+    expect(store.holdersCard()).toEqual({
+      name: 'Azure-Eyes Sky Dragon',
+      game: 'yugioh',
+      imageUrl: 'http://localhost:8080/api/v1/public/card-images/img-1',
+      byPrinting: {},
+    });
   });
 
   it('lowers the radius to the plan cap after a 429 LIMIT_REACHED and retries', async () => {

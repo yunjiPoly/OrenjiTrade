@@ -34,7 +34,13 @@ public record NotificationView(
                         requiredMode = RequiredMode.REQUIRED,
                         description =
                                 "Ids of the objects concerned and `deepLink` (web path, e.g."
-                                        + " /wishlist/<id> or /messages/<conversationId>)")
+                                        + " /wishlist/<id> or /messages/<conversationId>)."
+                                        + " Notifications about one card (WISHLIST_MATCH,"
+                                        + " OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE,"
+                                        + " SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`,"
+                                        + " `game` and `cardImageUrl` (OrenjiTrade's own card"
+                                        + " picture or placeholder URL; API-relative in realtime"
+                                        + " pushes)")
                 Map<String, Object> data,
         @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt,
         @Schema(nullable = true, description = "Null while unread")

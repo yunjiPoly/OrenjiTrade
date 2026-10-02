@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { CatalogImportReport } from './catalogImportReport';
 
 
 /**
@@ -26,6 +27,11 @@ export interface CatalogSyncRun {
     cardsUpserted?: number;
     printingsUpserted?: number;
     error?: string;
+    imageMode?: CatalogSyncRunImageModeEnum;
+    imageLimit?: number;
+    providerDbVersion?: string;
+    phase?: CatalogSyncRunPhaseEnum;
+    report?: CatalogImportReport;
 }
 export enum CatalogSyncRunModeEnum {
     Full = 'FULL',
@@ -36,6 +42,18 @@ export enum CatalogSyncRunStatusEnum {
     Running = 'RUNNING',
     Succeeded = 'SUCCEEDED',
     Failed = 'FAILED'
+};
+export enum CatalogSyncRunImageModeEnum {
+    None = 'NONE',
+    Referenced = 'REFERENCED',
+    All = 'ALL',
+    Limit = 'LIMIT'
+};
+export enum CatalogSyncRunPhaseEnum {
+    Fetching = 'FETCHING',
+    Metadata = 'METADATA',
+    Images = 'IMAGES',
+    Done = 'DONE'
 };
 
 

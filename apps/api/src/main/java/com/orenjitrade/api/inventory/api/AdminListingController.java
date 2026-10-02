@@ -6,6 +6,7 @@ import com.orenjitrade.api.binders.domain.ListingVisibility;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.AdminListingService;
+import com.orenjitrade.api.inventory.domain.AdminListingView;
 import com.orenjitrade.api.inventory.domain.Availability;
 import com.orenjitrade.api.inventory.domain.ItemRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.AdminRow;
@@ -133,7 +134,7 @@ public class AdminListingController {
     }
 
     private static <T> PageResponse<T> map(
-            PageResponse<AdminRow> page, Function<AdminRow, T> mapper) {
+            PageResponse<AdminListingView> page, Function<AdminListingView, T> mapper) {
         return new PageResponse<>(
                 page.items().stream().map(mapper).toList(),
                 page.page(),
@@ -154,7 +155,7 @@ public class AdminListingController {
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED) String handle) {}
 
-    /** The listed item (never private notes). */
+    /** The listed item with its card's picture (never private notes). */
     @Schema(name = "AdminListingItem")
     public record ItemResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
@@ -163,6 +164,13 @@ public class AdminListingController {
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID printingId,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String printingCode,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "Picture of the printing (OrenjiTrade's own card image or"
+                                            + " placeholder URL)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String imageUrl,
             @Schema(requiredMode = RequiredMode.REQUIRED) String game,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable UUID binderId,
@@ -179,7 +187,8 @@ public class AdminListingController {
                     @Nullable Instant publicUntil,
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean effectivePublic) {
 
-        static ItemResponse from(AdminRow row) {
+        static ItemResponse from(AdminListingView listing) {
+            AdminRow row = listing.row();
             ItemRow item = row.item();
             return new ItemResponse(
                     item.id(),
@@ -187,6 +196,7 @@ public class AdminListingController {
                     item.cardName(),
                     item.printingId(),
                     row.printingCode(),
+                    listing.imageUrl(),
                     item.game(),
                     item.binderId(),
                     item.binderName(),
@@ -211,9 +221,10 @@ public class AdminListingController {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable Instant warnedAt) {
 
-        static StaleListingResponse from(AdminRow row) {
+        static StaleListingResponse from(AdminListingView listing) {
+            AdminRow row = listing.row();
             return new StaleListingResponse(
-                    ItemResponse.from(row),
+                    ItemResponse.from(listing),
                     new OwnerResponse(row.item().ownerId(), row.ownerHandle()),
                     row.item().confirmedAt(),
                     row.item().freshnessState(),
@@ -232,9 +243,10 @@ public class AdminListingController {
                     @Nullable Instant warnedAt,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt) {
 
-        static AdminListingResponse from(AdminRow row) {
+        static AdminListingResponse from(AdminListingView listing) {
+            AdminRow row = listing.row();
             return new AdminListingResponse(
-                    ItemResponse.from(row),
+                    ItemResponse.from(listing),
                     new OwnerResponse(row.item().ownerId(), row.ownerHandle()),
                     row.item().confirmedAt(),
                     row.item().freshnessState(),

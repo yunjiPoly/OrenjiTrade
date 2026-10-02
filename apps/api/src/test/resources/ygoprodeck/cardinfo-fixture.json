@@ -1,0 +1,172 @@
+{
+  "data": [
+    {
+      "id": 900000001,
+      "name": "Zephyrine Test Dragon",
+      "typeline": ["Dragon", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "A fictional test dragon that only exists in OrenjiTrade fixtures.",
+      "race": "Dragon",
+      "atk": 3000,
+      "def": 2500,
+      "level": 8,
+      "attribute": "LIGHT",
+      "archetype": "Zephyrine",
+      "ygoprodeck_url": "https://example.test/card/zephyrine-test-dragon",
+      "card_images": [
+        {
+          "id": 900000001,
+          "image_url": "https://images.ygoprodeck.com/images/cards/900000001.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/900000001.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/900000001.jpg"
+        },
+        {
+          "id": 900000011,
+          "image_url": "https://images.ygoprodeck.com/images/cards/900000011.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/900000011.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/900000011.jpg"
+        }
+      ],
+      "card_sets": [
+        {"set_name": "Zephyrine Test Set", "set_code": "ZTST-EN001", "set_rarity": "Ultra Rare", "set_rarity_code": "(UR)", "set_price": "12.50"},
+        {"set_name": "Zephyrine Test Set: Special Edition", "set_code": "ZTST-EN001", "set_rarity": "Secret Rare", "set_rarity_code": "(ScR)", "set_price": "0"},
+        {"set_name": "Second Test Set", "set_code": "ZTS2-EN010", "set_rarity": "Common", "set_rarity_code": "(C)", "set_price": "0.25"}
+      ],
+      "card_prices": [{"cardmarket_price": "0.10", "tcgplayer_price": "0.20"}],
+      "misc_info": [{"views": 10, "konami_id": 91001, "tcg_date": "2024-05-01"}]
+    },
+    {
+      "id": 900000002,
+      "name": "Quokka Spellcaster of Tests",
+      "typeline": ["Spellcaster", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Fictional: when this card is tested, draw 1 assertion.",
+      "race": "Spellcaster",
+      "atk": 1800,
+      "def": 1000,
+      "level": 4,
+      "attribute": "DARK",
+      "card_images": [
+        {"id": 900000002, "image_url": "https://images.ygoprodeck.com/images/cards/900000002.jpg"}
+      ],
+      "card_sets": [
+        {"set_name": "Zephyrine Test Set", "set_code": "ZTST-EN002", "set_rarity": "Super Rare", "set_rarity_code": "(SR)", "set_price": "3.10"},
+        {"set_name": "Zephyrine Test Set", "set_code": "ZTST-EN099", "set_rarity": "secret rare", "set_rarity_code": "(ScR)", "set_price": "0"}
+      ],
+      "misc_info": [{"konami_id": 91002}]
+    },
+    {
+      "id": 900000003,
+      "name": "Gravel Link Test",
+      "typeline": ["Cyberse", "Link", "Effect"],
+      "type": "Link Monster",
+      "humanReadableCardType": "Link Effect Monster",
+      "frameType": "link",
+      "desc": "Fictional link monster.",
+      "race": "Cyberse",
+      "atk": 2300,
+      "linkval": 3,
+      "linkmarkers": ["Top", "Bottom-Left", "Bottom-Right"],
+      "attribute": "EARTH",
+      "card_images": [
+        {"id": 900000003, "image_url": "https://images.ygoprodeck.com/images/cards/900000003.jpg"}
+      ],
+      "card_sets": [
+        {"set_name": "Zephyrine Test Set", "set_code": "ZTST-EN003", "set_rarity": "Ultra Rare", "set_rarity_code": "(UR)", "set_price": "0"}
+      ]
+    },
+    {
+      "id": 900000004,
+      "name": "Mirage Xyz Test",
+      "typeline": ["Machine", "Xyz", "Effect"],
+      "type": "XYZ Monster",
+      "humanReadableCardType": "Xyz Effect Monster",
+      "frameType": "xyz",
+      "desc": "Fictional Xyz monster.",
+      "race": "Machine",
+      "atk": 2500,
+      "def": 2000,
+      "level": 4,
+      "attribute": "WIND",
+      "card_images": [
+        {"id": 900000004, "image_url": "https://images.ygoprodeck.com/images/cards/900000004.jpg"}
+      ],
+      "card_sets": [
+        {"set_name": "Second Test Set", "set_code": "ZTS2-EN004", "set_rarity": "Rare", "set_rarity_code": "(R)", "set_price": "0"}
+      ]
+    },
+    {
+      "id": 900000005,
+      "name": "Pendulum Test Sage",
+      "typeline": ["Spellcaster", "Pendulum", "Effect"],
+      "type": "Pendulum Effect Monster",
+      "humanReadableCardType": "Pendulum Effect Monster",
+      "frameType": "effect_pendulum",
+      "desc": "Fictional pendulum monster.",
+      "race": "Spellcaster",
+      "atk": 1200,
+      "def": 2400,
+      "level": 5,
+      "scale": 8,
+      "attribute": "LIGHT",
+      "card_images": [
+        {"id": 900000005, "image_url": "https://images.ygoprodeck.com/images/cards/900000005.jpg"}
+      ],
+      "card_sets": [
+        {"set_name": "Test Promo", "set_code": "ZTPR-EN001", "set_rarity": "Secret Rare", "set_rarity_code": "(ScR)", "set_price": "0"}
+      ]
+    },
+    {
+      "id": 900000006,
+      "name": "Fixture Field Spell",
+      "type": "Spell Card",
+      "humanReadableCardType": "Field Spell",
+      "frameType": "spell",
+      "desc": "Fictional field spell.",
+      "race": "Field",
+      "archetype": "Zephyrine",
+      "card_images": [
+        {"id": 900000006, "image_url": "https://images.ygoprodeck.com/images/cards/900000006.jpg"}
+      ],
+      "card_sets": [
+        {"set_name": "Zephyrine Test Set", "set_code": "ZTST-EN002", "set_rarity": "Super Rare", "set_rarity_code": "(SR)", "set_price": "0"},
+        {"set_name": "Second Test Set", "set_code": "ZTS2-EN006", "set_rarity": "Common", "set_rarity_code": "(C)", "set_price": "0"},
+        {"set_name": "Dark Test", "set_code": "DB49", "set_rarity": "Common", "set_rarity_code": "(C)", "set_price": "0"}
+      ]
+    },
+    {
+      "id": 900000007,
+      "name": "Fixture Counter Trap",
+      "type": "Trap Card",
+      "humanReadableCardType": "Counter Trap",
+      "frameType": "trap",
+      "desc": "Fictional counter trap without any artwork.",
+      "race": "Counter",
+      "card_images": [],
+      "card_sets": [
+        {"set_name": "Second Test Set", "set_code": "ZTS2-EN007", "set_rarity": "Common", "set_rarity_code": "(C)", "set_price": "0"}
+      ]
+    },
+    {
+      "id": 900000008,
+      "name": "OCG Only Test Card",
+      "typeline": ["Fiend", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Fictional card without TCG printings.",
+      "race": "Fiend",
+      "atk": 1000,
+      "def": 1000,
+      "level": 3,
+      "attribute": "DARK",
+      "card_images": [
+        {"id": 900000008, "image_url": "https://images.ygoprodeck.com/images/cards/900000008.jpg"}
+      ]
+    }
+  ]
+}

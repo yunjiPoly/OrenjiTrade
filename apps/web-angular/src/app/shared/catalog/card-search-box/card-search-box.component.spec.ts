@@ -99,6 +99,15 @@ describe('CardSearchBoxComponent', () => {
     expect(texts[0]).toContain('AZR-EN001');
     expect(texts[1]).toContain('Printing');
     expect(texts.at(-1)).toContain('See all results for “az”');
+    // Each card suggestion shows the API's picture (decorative: the option names the card).
+    const pictures = options()
+      .map((option) => option.querySelector('app-card-image img'))
+      .filter((image): image is HTMLImageElement => !!image);
+    expect(pictures.map((image) => image.getAttribute('src'))).toEqual([
+      `${API}/img/azure.svg`,
+      `${API}/img/fox.svg`,
+    ]);
+    expect(pictures.every((image) => image.getAttribute('alt') === '')).toBe(true);
   });
 
   it('drops printings that repeat the same card and printing code', () => {

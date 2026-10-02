@@ -43,6 +43,14 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
 
     public static final Duration WAIT = Duration.ofSeconds(20);
 
+    /**
+     * A card picture as clients receive it (ADR 0015): OrenjiTrade's own card image route or the
+     * card's placeholder, absolute against the API origin, never a provider URL.
+     */
+    public static final String CARD_PICTURE =
+            "^http://localhost:[0-9]+/api/v1/public/(card-images/[0-9a-f-]{36}"
+                    + "|placeholder-images/[a-z0-9-]+/[a-z0-9-]+\\.svg)$";
+
     @Autowired private CatalogImportService importService;
 
     @BeforeEach
@@ -293,6 +301,15 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
                         .expectBody()
                         .returnResult();
         return json(result);
+    }
+
+    /** The notification shows its card: name, game and picture ({@link #CARD_PICTURE}). */
+    public static void assertCardPicture(JsonNode notification, String cardName) {
+        JsonNode data = notification.path("data");
+        String type = notification.path("type").asString();
+        assertThat(data.path("cardName").asString()).as(type).isEqualTo(cardName);
+        assertThat(data.path("game").asString()).as(type).isEqualTo("yugioh");
+        assertThat(data.path("cardImageUrl").asString()).as(type).matches(CARD_PICTURE);
     }
 
     /** Every number of the document has at most 3 decimals (ADR 0004). */

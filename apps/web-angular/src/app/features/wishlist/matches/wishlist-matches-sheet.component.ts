@@ -7,7 +7,7 @@ import { Router, RouterLink } from '@angular/router';
 import type { WishlistItemResponse, WishlistMatchResponse } from '@orenji/api-client';
 import { ApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { ConversationStarterService } from '../../../shared/messaging/conversation-starter.service';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';

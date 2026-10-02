@@ -154,6 +154,15 @@ flowchart LR
 Only `public_point` is ever read by public queries. Precise fields never reach DTOs, logs or
 analytics. A contract test rejects coordinates with more than 3 decimals in any response.
 
+### Card catalog and images
+
+Card metadata comes from `CardProvider` adapters (`MockCardProvider` locally, `YgoProDeckCardProvider`
+for the real Yu-Gi-Oh! catalog) and is always imported completely. Card images are separate: one
+`card_image` row per provider artwork, a provider hosting policy (`REHOST_REQUIRED` /
+`HOTLINK_ALLOWED`), a single `CardImageUrlResolver` for every DTO and a capped local cache (at most
+500 MB) served by `GET /api/v1/public/card-images/{id}` — see
+[ADR 0015](adr/0015-card-images-provider-hosting-capped-cache.md).
+
 ## 6. Inventory model
 
 ```mermaid

@@ -5,7 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type { WishlistMatchResponse } from '@orenji/api-client';
 import { editionLabel, languageLabel } from '../../../shared/catalog/catalog-labels';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { ratingLabel } from '../../../shared/discovery/discovery-labels';
 import {
   LAST_ACTIVE_LABELS,

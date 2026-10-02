@@ -52,6 +52,8 @@ Later starts take about a minute (measured on a Windows 11 laptop with warm cach
 | `npm run web:dev` | Only the web app: `ng serve` on :4200 (builds the design tokens first). |
 | `npm run infra:validate` | `terraform fmt -check` and `terraform init -backend=false` + `validate` for every environment. Never plans or applies anything. |
 | `npm run generate:api` | Regenerates the Angular client and the mobile types from `docs/api/openapi.json`. |
+| `npm run catalog:import -- --game yugioh --provider ygoprodeck --images referenced` | Imports the real Yu-Gi-Oh! catalog and caches the referenced card images (needs a running API), see [Card images](#card-images-and-the-real-yu-gi-oh-catalog). |
+| `npm run card-images:status` / `card-images:clear -- --yes [--game yugioh]` | Shows / empties the local card image cache (at most 500 MB). |
 
 `npm run dev` writes the complete output of both children to `.local-dev/logs/api.log` and
 `.local-dev/logs/web.log` (overwritten on every start) and echoes it with `[api]` / `[web]`
@@ -104,6 +106,8 @@ Host ports of the infrastructure can be moved with `POSTGRES_PORT`, `REDIS_PORT`
 | Firebase Auth emulator accounts | Docker named volume `orenjitrade_firebase-data`, exported to `/data/export` when the emulator stops and imported on the next start | clean stops (`infra:down`, `docker compose stop/restart`, Docker Desktop quit); a killed container loses accounts created since its last start (the seed users are re-created by the next API start) |
 | Uploaded media (avatars, inventory and dispute images) of a host-run API | `apps/api/.local-storage/` (git-ignored), served by `GET /api/v1/public/media/{key}` | everything except `infra:reset` |
 | Uploaded media of the Docker `app` profile API | Docker named volume `orenjitrade_api-media` | deleted by `infra:reset` |
+| Card image cache of a host-run API (at most `CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 500 MB) | `apps/api/.local-storage/card-images/` (`CARD_IMAGE_CACHE_DIR`, git-ignored) | everything except `infra:reset` and `npm run card-images:clear` |
+| Raw YGOPRODeck JSON snapshots (one directory per provider database version) | `apps/api/.local-dev/provider-data/ygoprodeck/<version>/` (`PROVIDER_DATA_DIR`, git-ignored) | everything (delete the folder to force a fresh download) |
 | Script logs, E2E jar copy, Terraform plugin cache | `.local-dev/` (git-ignored) | |
 
 Nothing is stored in the repository itself; `.local-dev/`, `.local-storage/` and `.env` are
@@ -147,7 +151,7 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | `npm run test:api` | `gradlew test --rerun check` in `apps/api`: Spotless format check, unit tests, integration tests (always executed, never reported UP-TO-DATE) | Testcontainers starts its own PostGIS and Redis (Docker must run); independent of the dev stack |
 | `npm run test:web` | `ng lint` + `ng test` (Vitest) for `apps/web-angular` | |
 | `npm run test:mobile` | `tsc --noEmit`, `expo lint`, `jest` for `apps/mobile` | mobile feature work is deferred; the suite must stay green |
-| `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) against the real local stack | ensures the infrastructure, builds the API jar (`gradlew bootJar`), starts it on :8080 and `ng serve` on :4200, installs Chromium for Playwright if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), then stops the API and the web server it started. Ports 8080/4200 must be free (stop `npm run dev` first) or pass `-- --reuse-running`. Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0` |
+| `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) against the real local stack | ensures the infrastructure, builds the API jar (`gradlew bootJar`), starts it on :8080 (with `CARD_IMAGE_ON_DEMAND_ENABLED=false`: uncached real catalog artworks show placeholders instead of being downloaded from the provider during the run) and `ng serve` on :4200, installs Chromium for Playwright if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), then stops the API and the web server it started. Ports 8080/4200 must be free (stop `npm run dev` first) or pass `-- --reuse-running`. Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0` |
 | `npm run test:all` | api, web, mobile, e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
 | `npm run test:ml` | `pytest` in `apps/ml` with `apps/ml/.venv` when present | optional; Phase 11 is on hold, this only runs the existing skeleton tests |
 | `npm run infra:validate` | Terraform format + validate | optional; needs Terraform |
@@ -161,6 +165,74 @@ E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playw
 screenshots of failures under `apps/web-angular/test-results/`. The specs create additional
 fictional accounts (`e2e-*@example.test`) in the local emulator and database; `infra:reset`
 removes them.
+
+## Card images and the real Yu-Gi-Oh! catalog
+
+The start-up seed imports only the fictional mock catalog (offline, placeholder images). The real
+Yu-Gi-Oh! TCG catalog comes from YGOPRODeck ([provider notes](../providers/ygoprodeck.md),
+[ADR 0015](../architecture/adr/0015-card-images-provider-hosting-capped-cache.md)) and is imported
+on request, with the API running:
+
+```bash
+npm run catalog:import -- --game yugioh --provider ygoprodeck --images referenced
+```
+
+- **Metadata** (14,592 cards, about 44,600 printings, 650 sets on 2026-10-01) is always imported
+  completely into PostgreSQL. The first run downloads the catalog once (`checkDBVer.php`, then
+  `cardinfo.php` + `cardsets.php`) and stores the raw JSON under
+  `apps/api/.local-dev/provider-data/ygoprodeck/<database_version>/`; later runs only call
+  `checkDBVer.php` and reuse the snapshot while the version is unchanged. A run takes about 15 s
+  locally (about 5 s when nothing changed).
+- **Images** go into the local cache. `--images` chooses which artworks are downloaded:
+  `referenced` (default: cards in inventories, binders, wishlists, offers/trades, message and
+  community card links), `all` (every artwork until the cache is full), `limit:<n>` (the first
+  `n`: referenced ones first, then by card name, so a second run downloads nothing new), `none`.
+  Each image is stored once (320 px wide JPEG, about 45 KB; the 5 MB smoke cache held 52 files in
+  2.3 MB) and served by
+  `GET /api/v1/public/card-images/{id}`; YGOPRODeck URLs never reach the browser. Artworks that are
+  not cached show the placeholder (or are fetched on first view while capacity remains).
+- **Demo:** in the local/dev seed, collector1's public "Yu-Gi-Oh! trade binder" receives a few real
+  printings (Blue-Eyes White Dragon LOB-EN001, Dark Magician LOB-EN005, Red-Eyes Black Dragon
+  LOB-EN070, the five Exodia pieces) as soon as the real catalog exists, so a `referenced` import
+  shows real pictures on its public binder page.
+- **Limit:** `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default and maximum **500**; the API refuses to start
+  above 500, smaller values are fine). Final files, temporary downloads and in-flight reservations
+  together never exceed it. When the limit is reached the import still succeeds and reports
+  `cacheLimitReached: true`.
+- **Location:** `CARD_IMAGE_CACHE_DIR`, default `apps/api/.local-storage/card-images/` (one
+  directory per database; a start-up reconciliation deletes files no row references).
+
+The command polls the run and prints its report:
+
+| Field | Meaning |
+| --- | --- |
+| `provider`, `providerDbVersion`, `imageMode`, `imageLimit` | what was imported |
+| `totalCardsProcessed`, `cardsCreated`, `cardsUpdated`, `cardsUnchanged`, `cardsFailed` | card rows (a repeated import reports 0 created / 0 updated) |
+| `setsUpserted`, `printingsUpserted`, `printingsSkipped` | sets and printings inserted or changed; printings skipped for provider data errors (listed in `warnings`) |
+| `imagesReferenced` | artworks known for the game (source references stored, cached or not) |
+| `imagesSelected`, `imagesAlreadyCached`, `imagesDownloaded`, `imagesDeduplicated` | the image mode's selection and what happened to it |
+| `imagesSkippedCacheFull`, `imagesFailed`, `imagesMissingAtSource` | not cached: cache full, download/content error, 404 at the provider |
+| `bytesDownloaded`, `cacheUsedMb`, `cacheReservedMb`, `cacheLimitMb`, `cacheLimitReached` | transfer and cache figures |
+| `durationSeconds`, `errors`, `warnings` | run time, first errors (truncated), provider data notes |
+
+Other commands (all need the API; `--api http://localhost:<port>` targets another port):
+
+```bash
+npm run card-images:status                          # used / reserved / remaining / limit, artworks per status and game
+npm run card-images:clear -- --yes                  # delete every cached image file (metadata and references stay)
+npm run card-images:clear -- --yes --game yugioh    # only one game
+npm run card-images:reconcile                       # re-sync files, rows and accounting (also runs at start-up)
+```
+
+Admins have the same in the API (`GET /api/v1/admin/card-images/status`,
+`POST /api/v1/admin/card-images/clear`, `DELETE /api/v1/admin/card-images/{id}/cache`,
+`POST /api/v1/admin/catalog/sync` with `provider: ygoprodeck` and `imageMode`,
+`GET /api/v1/admin/catalog/sync-runs/{id}/report`). **Reset the cache** with
+`npm run card-images:clear -- --yes` (or stop the API and delete `apps/api/.local-storage/card-images`;
+the next start reconciles). `npm run infra:reset` deletes it together with the database.
+
+Etiquette while developing: never loop the importer; the provider allows 20 requests/second and
+blocks the IP for an hour above it (OrenjiTrade paces at 5/s). Tests and CI never call YGOPRODeck.
 
 ## Fake and log providers (local defaults)
 
@@ -177,6 +249,7 @@ removes them.
 | Identity | Firebase Auth emulator | `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099` (implied by the `local` profile) | Emulator UI <http://localhost:4000>; verification / reset e-mail links are printed in `docker compose logs firebase-auth` |
 | Maps | Leaflet + OpenStreetMap tiles in the web app | empty Google Maps key | the map page; exact coordinates never leave the API (ADR 0004) |
 | Card recognition (ML) | none (on hold) | `mlScanning` flag off | the API does not call the ML service |
+| Card catalog | `MockCardProvider` (fictional, placeholder images) at start-up; YGOPRODeck only on request | seed + `npm run catalog:import` | `GET /api/v1/admin/catalog/sync-runs`; card images under `apps/api/.local-storage/card-images/` |
 
 With `npm run dev` the API output is in `.local-dev/logs/api.log`, for example:
 

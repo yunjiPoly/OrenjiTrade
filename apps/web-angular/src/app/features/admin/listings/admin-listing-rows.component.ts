@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { AdminListingItem, ListingOwner } from '@orenji/api-client';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
 import { AdminChipComponent, ChipTone } from '../shared/admin-chip.component';
 
@@ -43,9 +44,9 @@ export function listingStateLabel(state: string): string {
 }
 
 /**
- * Listing rows of the admin console (review queue and search): card, owner, binder, freshness
- * state, last confirmation and warning, price, visibility, with Restore (confirm on the owner's
- * behalf) and Hide (make private). Private notes never reach the console.
+ * Listing rows of the admin console (review queue and search): card picture and name, owner,
+ * binder, freshness state, last confirmation and warning, price, visibility, with Restore (confirm
+ * on the owner's behalf) and Hide (make private). Private notes never reach the console.
  */
 @Component({
   selector: 'app-admin-listing-rows',
@@ -56,6 +57,7 @@ export function listingStateLabel(state: string): string {
     MatButtonModule,
     MatIconModule,
     AdminChipComponent,
+    CardImageComponent,
     GameChipComponent,
     RelativeTimePipe,
   ],
@@ -64,25 +66,35 @@ export function listingStateLabel(state: string): string {
       @for (row of rows(); track row.item.id) {
         <li class="row" [attr.data-listing]="row.item.id">
           <div class="row__card">
-            <p class="row__name">
-              {{ row.item.cardName }}
-              @if (row.item.printingCode) {
-                <span class="row__code">{{ row.item.printingCode }}</span>
-              }
-            </p>
-            <p class="row__meta">
-              <app-game-chip [slug]="row.item.game" />
-              <span>×{{ row.item.quantity }}</span>
-              @if (row.item.askingPrice !== null && row.item.askingPrice !== undefined) {
-                <span>{{ row.item.askingPrice | currency: row.item.currency }}</span>
-              }
-              <span>{{ visibility(row.item.visibility) }}</span>
-              @if (row.item.binderName) {
-                <span>
-                  <mat-icon aria-hidden="true">menu_book</mat-icon>{{ row.item.binderName }}
-                </span>
-              }
-            </p>
+            <app-card-image
+              class="row__thumb"
+              size="sm"
+              data-testid="admin-listing-image"
+              [src]="row.item.imageUrl"
+              [alt]="row.item.cardName"
+              [game]="row.item.game"
+            />
+            <div class="row__info">
+              <p class="row__name">
+                {{ row.item.cardName }}
+                @if (row.item.printingCode) {
+                  <span class="row__code">{{ row.item.printingCode }}</span>
+                }
+              </p>
+              <p class="row__meta">
+                <app-game-chip [slug]="row.item.game" />
+                <span>×{{ row.item.quantity }}</span>
+                @if (row.item.askingPrice !== null && row.item.askingPrice !== undefined) {
+                  <span>{{ row.item.askingPrice | currency: row.item.currency }}</span>
+                }
+                <span>{{ visibility(row.item.visibility) }}</span>
+                @if (row.item.binderName) {
+                  <span>
+                    <mat-icon aria-hidden="true">menu_book</mat-icon>{{ row.item.binderName }}
+                  </span>
+                }
+              </p>
+            </div>
           </div>
           <div class="row__owner">
             <a [routerLink]="['/admin/users', row.owner.id]">&#64;{{ row.owner.handle }}</a>
@@ -152,6 +164,18 @@ export function listingStateLabel(state: string): string {
     }
     .row p {
       margin: 0;
+    }
+    .row__card {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-3);
+      min-width: 0;
+    }
+    .row__thumb {
+      --card-image-width: 44px;
+    }
+    .row__info {
+      min-width: 0;
     }
     .row__name {
       font-weight: var(--font-weight-semibold);

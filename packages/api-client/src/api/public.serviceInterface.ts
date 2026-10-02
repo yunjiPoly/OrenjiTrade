@@ -17,6 +17,11 @@ import { ProblemDetail } from '../model/models';
 import { Configuration }                                     from '../configuration';
 
 
+export interface GetCardImageRequestParams {
+    imageId: string;
+    ifNoneMatch?: string;
+}
+
 export interface GetPlaceholderImageRequestParams {
     game: string;
     file: string;
@@ -31,6 +36,14 @@ export interface GetPublicMediaRequestParams {
 export interface PublicServiceInterface {
     defaultHeaders: HttpHeaders;
     configuration: Configuration;
+
+    /**
+     * Card artwork (cached rendition or placeholder)
+     * Serves a card artwork from OrenjiTrade\&#39;s own cache (JPEG, &#x60;Cache-Control: public, max-age&#x3D;31536000, immutable&#x60;, ETag &#x3D; SHA-256). When the artwork is not cached yet, a bounded download may fill the cache; otherwise the card\&#39;s placeholder SVG is returned with a short cache lifetime. Provider URLs are never exposed.
+     * @endpoint get /api/v1/public/card-images/{imageId}
+* @param requestParameters
+     */
+    getCardImage(requestParameters: GetCardImageRequestParams, extraHttpRequestParams?: any): Observable<Blob>;
 
     /**
      * Card placeholder image (SVG)

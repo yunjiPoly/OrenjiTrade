@@ -31,9 +31,14 @@
     "test:ml": "node scripts/test.mjs ml",
     "build:tokens": "npm run build -w packages/design-tokens",
     "generate:api": "npm run generate -w packages/api-client && npm run generate -w packages/shared-types",
+    "catalog:import": "node scripts/catalog-import.mjs",
+    "card-images:status": "node scripts/card-images.mjs status",
+    "card-images:clear": "node scripts/card-images.mjs clear",
+    "card-images:reconcile": "node scripts/card-images.mjs reconcile",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "audit:gate": "node scripts/audit-gate.mjs"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.5"

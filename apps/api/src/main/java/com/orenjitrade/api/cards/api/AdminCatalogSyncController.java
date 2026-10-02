@@ -1,7 +1,9 @@
 package com.orenjitrade.api.cards.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
+import com.orenjitrade.api.cards.domain.CatalogImportReport;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.cards.domain.ImageMode;
 import com.orenjitrade.api.cards.domain.SyncRunView;
 import com.orenjitrade.api.cards.infra.SyncRunRepository;
 import com.orenjitrade.api.common.ApiException;
@@ -66,14 +68,23 @@ public class AdminCatalogSyncController {
             summary = "Queue a catalog import (ADMIN, SUPER_ADMIN)",
             description =
                     "Returns the QUEUED run at once; the import runs asynchronously and is"
-                            + " idempotent (unchanged rows are not rewritten). Poll"
-                            + " `GET /admin/catalog/sync-runs/{id}`. Audited"
-                            + " (`catalog.sync.request`).")
+                            + " idempotent (unchanged rows are not rewritten). Metadata is always"
+                            + " imported; `imageMode` then fills the local card image cache"
+                            + " (REFERENCED by default for providers with image downloads such as"
+                            + " `ygoprodeck`, capped at CARD_IMAGE_LOCAL_CACHE_MAX_MB). Poll"
+                            + " `GET /admin/catalog/sync-runs/{id}`. 409 while another import of"
+                            + " the game is queued or running. Audited (`catalog.sync.request`).")
     @ApiResponse(responseCode = "202", description = "Queued")
+    @ApiResponse(responseCode = "409", description = "An import of the game is already running")
     public SyncRunView sync(
             @AuthenticationPrincipal AuthenticatedUser actor,
             @Valid @RequestBody CatalogSyncRequest body) {
-        return importService.requestSync(actor, body.gameSlug(), body.provider(), body.mode());
+        ImageMode imageMode =
+                body.imageMode() != null
+                        ? body.imageMode()
+                        : importService.defaultImageMode(body.provider());
+        return importService.requestSync(
+                actor, body.gameSlug(), body.provider(), body.mode(), imageMode, body.imageLimit());
     }
 
     @GetMapping("/sync-runs")
@@ -103,5 +114,23 @@ public class AdminCatalogSyncController {
             summary = "One catalog import run (ADMIN, SUPER_ADMIN)")
     public SyncRunView syncRun(@PathVariable UUID id) {
         return runs.find(id).orElseThrow(() -> ApiException.notFound("Sync run not found"));
+    }
+
+    @GetMapping("/sync-runs/{id}/report")
+    @Operation(
+            operationId = "getCatalogSyncRunReport",
+            summary = "Report of one catalog import run (ADMIN, SUPER_ADMIN)",
+            description =
+                    "Counts of cards, sets and printings, image cache fill (downloaded, already"
+                            + " cached, skipped because the cache is full, failed, missing at the"
+                            + " source), cache figures and the first errors. Available while the"
+                            + " run is in progress; 404 for runs without a report.")
+    public CatalogImportReport syncRunReport(@PathVariable UUID id) {
+        SyncRunView run =
+                runs.find(id).orElseThrow(() -> ApiException.notFound("Sync run not found"));
+        if (run.report() == null) {
+            throw ApiException.notFound("This run has no report yet");
+        }
+        return run.report();
     }
 }

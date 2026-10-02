@@ -39,12 +39,16 @@ test.describe('card catalog', () => {
     await signInThroughUi(page, collector.email, collector.password);
     await expect(page).toHaveURL(/\/map$/);
     const search = topSearch(page);
-    await search.fill('azure');
+    // Specific enough to rank the fictional card first when the real Yu-Gi-Oh! catalog is
+    // imported locally (it has an "Azure-Eyes Silver Dragon").
+    await search.fill('azure-eyes sky');
     const option = page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ });
     await expect(option).toBeVisible();
     await expect(option).toContainText('Yu-Gi-Oh!');
     await expect(option).toContainText('AZR-EN001');
-    await expect(page.getByRole('option', { name: /See all results for “azure”/ })).toBeVisible();
+    await expect(
+      page.getByRole('option', { name: /See all results for “azure-eyes sky”/ }),
+    ).toBeVisible();
 
     // Keyboard only: highlight the first suggestion and open it.
     await search.press('ArrowDown');
@@ -147,7 +151,8 @@ test.describe('card catalog', () => {
     await page.getByRole('option', { name: 'Azure Dawn (AZR)' }).click();
     await expect(page).toHaveURL(/set=AZR/);
     await page.getByRole('combobox', { name: 'Rarity' }).click();
-    await page.getByRole('option', { name: 'Secret Rare' }).click();
+    // Exact: the Yu-Gi-Oh! schema also lists Platinum, Prismatic, Gold... Secret Rare (V101).
+    await page.getByRole('option', { name: 'Secret Rare', exact: true }).click();
     await expect(page).toHaveURL(/rarity=Secret(%20|\+)Rare/);
     const results = page.getByRole('list', { name: 'Search results' });
     await expect(page.getByTestId('catalog-count')).toHaveText(/^\s*1 card\b/);
@@ -215,10 +220,14 @@ test.describe('card catalog', () => {
     ).toHaveCount(1);
 
     // Enter without choosing a suggestion searches the whole catalog.
-    await search.fill('dragon');
-    await expect(page.getByRole('option', { name: /See all results for “dragon”/ })).toBeVisible();
+    // "sky dragon", not "dragon": with the real Yu-Gi-Oh! catalog imported locally, more than a
+    // page of real dragons would push the fictional card off the first page.
+    await search.fill('sky dragon');
+    await expect(
+      page.getByRole('option', { name: /See all results for “sky dragon”/ }),
+    ).toBeVisible();
     await search.press('Enter');
-    await expect(page).toHaveURL(/\/cards\?q=dragon$/);
+    await expect(page).toHaveURL(/\/cards\?q=sky(%20|\+)dragon$/);
     await expect(
       page.getByRole('list', { name: 'Search results' }).getByRole('link', {
         name: 'Azure-Eyes Sky Dragon',

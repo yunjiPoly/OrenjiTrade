@@ -3,6 +3,7 @@ package com.orenjitrade.api.offers.domain;
 import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.PublicBinderService;
 import com.orenjitrade.api.binders.domain.PublicOwner;
+import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.ErrorCode;
@@ -97,6 +98,7 @@ public class OfferService {
     private final OfferSnapshots snapshots;
     private final OfferPreferencesService preferences;
     private final InventoryService inventory;
+    private final CatalogService catalog;
     private final PublicBinderService publicBinders;
     private final MemberDirectory members;
     private final RatingSummaryProvider ratings;
@@ -115,6 +117,7 @@ public class OfferService {
             OfferSnapshots snapshots,
             OfferPreferencesService preferences,
             InventoryService inventory,
+            CatalogService catalog,
             PublicBinderService publicBinders,
             MemberDirectory members,
             RatingSummaryProvider ratings,
@@ -131,6 +134,7 @@ public class OfferService {
         this.snapshots = snapshots;
         this.preferences = preferences;
         this.inventory = inventory;
+        this.catalog = catalog;
         this.publicBinders = publicBinders;
         this.members = members;
         this.ratings = ratings;
@@ -637,27 +641,55 @@ public class OfferService {
      */
     @Transactional(readOnly = true)
     public String summaryText(OfferRow row) {
-        int cards = offers.tradeItems(List.of(row.id())).getOrDefault(row.id(), List.of()).size();
-        return OfferTexts.summary(
-                row.kind(), row.cashAmount(), row.currency(), cards, cardName(row));
+        return summaryText(row, card(row));
     }
 
-    /** The card of a proposal (live item, else the stored snapshot). */
+    /** {@link #summaryText(OfferRow)} with the proposal's card already looked up. */
+    @Transactional(readOnly = true)
+    public String summaryText(OfferRow row, OfferCard card) {
+        int cards = offers.tradeItems(List.of(row.id())).getOrDefault(row.id(), List.of()).size();
+        return OfferTexts.summary(row.kind(), row.cashAmount(), row.currency(), cards, card.name());
+    }
+
+    /** The card name of a proposal (live item, else the stored snapshot). */
     @Transactional(readOnly = true)
     public String cardName(OfferRow row) {
+        return card(row).name();
+    }
+
+    /**
+     * The card of a proposal: the live item (name, game and its printing's picture), else the
+     * snapshot stored with the offer (picture of the snapshot's printing), else {@link
+     * OfferCard#UNKNOWN}. Pictures come from the cards module (ADR 0015), never from a provider.
+     */
+    @Transactional(readOnly = true)
+    public OfferCard card(OfferRow row) {
         if (row.itemId() != null) {
             @Nullable InventoryItemView item =
                     inventory.itemsForParties(List.of(row.itemId())).get(row.itemId());
             if (item != null) {
-                return item.row().cardName();
+                return OfferCard.of(
+                        item.row().cardName(),
+                        item.row().game(),
+                        CatalogService.frontImage(item.printing()));
             }
         }
-        return snapshots.itemCardName(offers.itemSnapshot(row.id())).orElse("a card");
+        return snapshots
+                .itemCard(offers.itemSnapshot(row.id()))
+                .map(card -> OfferCard.of(card.cardName(), card.game(), picture(card.printingId())))
+                .orElse(OfferCard.UNKNOWN);
+    }
+
+    /** The picture of a printing (hidden games included), {@code null} when unknown. */
+    private @Nullable String picture(@Nullable UUID printingId) {
+        return printingId == null
+                ? null
+                : catalog.frontImageUrls(List.of(printingId)).get(printingId);
     }
 
     /**
      * {@link OfferLink}s of messages for a party: the live proposal of each requested offer's chain
-     * (offers of other collectors are absent).
+     * with its card's picture (offers of other collectors are absent).
      */
     @Transactional(readOnly = true)
     public Map<UUID, OfferLink> links(UUID viewerId, Collection<UUID> offerIds) {
@@ -667,9 +699,14 @@ public class OfferService {
             if (!latest.involves(viewerId)) {
                 continue;
             }
+            OfferCard card = card(latest);
             result.put(
                     entry.getKey(),
-                    new OfferLink(latest.id(), latest.status().name(), summaryText(latest)));
+                    new OfferLink(
+                            latest.id(),
+                            latest.status().name(),
+                            summaryText(latest, card),
+                            card.imageUrl()));
         }
         return result;
     }

@@ -182,7 +182,8 @@ public class CatalogAdminService {
                         values.collectorNumber(),
                         values.edition(),
                         values.language(),
-                        values.finish())
+                        values.finish(),
+                        values.rarity())
                 .isPresent()) {
             throw ApiException.conflict("This printing already exists");
         }
@@ -215,7 +216,8 @@ public class CatalogAdminService {
                         values.collectorNumber(),
                         values.edition(),
                         values.language(),
-                        values.finish())
+                        values.finish(),
+                        values.rarity())
                 .filter(other -> !other.equals(printingId))
                 .ifPresent(
                         other -> {

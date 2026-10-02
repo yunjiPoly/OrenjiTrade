@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { LEGAL_DOCUMENT_LIST } from '../../../features/legal/legal-content';
+import { CardDataAttributionComponent } from '../../../shared/catalog/card-data-attribution/card-data-attribution.component';
 import { WordmarkComponent } from '../../../shared/ui/wordmark/wordmark.component';
 import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { ApiVersionComponent } from '../api-version/api-version.component';
@@ -13,7 +14,13 @@ const ACCOUNT_PAGE = /^\/auth(\/|\?|#|$)/;
 
 @Component({
   selector: 'app-footer',
-  imports: [RouterLink, MatIconModule, WordmarkComponent, ApiVersionComponent],
+  imports: [
+    RouterLink,
+    MatIconModule,
+    CardDataAttributionComponent,
+    WordmarkComponent,
+    ApiVersionComponent,
+  ],
   template: `
     <footer class="footer">
       <div class="footer__inner">
@@ -54,6 +61,7 @@ const ACCOUNT_PAGE = /^\/auth(\/|\?|#|$)/;
             <span class="footer__version-slot" aria-hidden="true"></span>
           }
         </div>
+        <app-card-data-attribution class="footer__credits" />
       </div>
     </footer>
   `,
@@ -122,6 +130,9 @@ const ACCOUNT_PAGE = /^\/auth(\/|\?|#|$)/;
       display: flex;
       align-items: center;
       gap: var(--spacing-4);
+    }
+    .footer__credits {
+      flex: 1 1 100%;
     }
     .footer__version-slot {
       display: inline-block;

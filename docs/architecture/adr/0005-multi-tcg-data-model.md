@@ -21,3 +21,6 @@ a `GameSchema` JSON document stored with the game row, not by Java classes per g
 - Adding a game is a data operation plus an optional provider adapter.
 - Queries filtering on metadata use JSONB operators; hot filters get expression indexes.
 - Rejected: table-per-game schemas; hard-coding game logic across modules.
+- Card images (one row per provider artwork, hosting policies, the capped local cache) are
+  specified in [ADR 0015](0015-card-images-provider-hosting-capped-cache.md); the first real
+  adapter is `YgoProDeckCardProvider`.

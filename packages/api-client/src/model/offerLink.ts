@@ -16,5 +16,9 @@ export interface OfferLink {
     id: string;
     status: string;
     summary: string;
+    /**
+     * Picture of the offered card (OrenjiTrade\'s own card image or placeholder URL)
+     */
+    imageUrl?: string | null;
 }
 

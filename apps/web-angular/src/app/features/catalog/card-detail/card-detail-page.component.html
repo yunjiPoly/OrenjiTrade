@@ -29,9 +29,10 @@
       <div class="detail__media">
         <app-card-image
           class="detail__image"
+          data-testid="card-hero-image"
           [src]="heroImage()"
           [alt]="heroAlt()"
-          [game]="card.game ?? ''"
+          [game]="card.game"
           [eager]="true"
         />
         @if (selected(); as printing) {
@@ -40,6 +41,7 @@
             · {{ printing.setName }}
           </p>
         }
+        <app-card-data-attribution class="detail__attribution" [game]="card.game ?? null" />
       </div>
 
       <div class="detail__info">
@@ -136,6 +138,8 @@
         <app-printings-table
           mode="card"
           [printings]="printings()"
+          [cardName]="card.name ?? ''"
+          [game]="card.game"
           [selectedId]="selected()?.id ?? null"
           [label]="'Printings of ' + card.name"
           (pick)="selectPrinting($event)"

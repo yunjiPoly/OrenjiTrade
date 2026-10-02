@@ -120,29 +120,40 @@
 
 .item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 2px var(--spacing-2);
   align-items: center;
 }
 
+.item__thumb {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  align-self: start;
+}
+
 .item__code {
+  grid-column: 2;
   font-weight: var(--font-weight-semibold);
 }
 
+.item__meta,
+.item__chips {
+  grid-column: 2 / -1;
+}
+
 .item__meta {
-  grid-column: 1 / -1;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
 
 .item__price {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   font-weight: var(--font-weight-semibold);
 }
 
 .item__offer {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   justify-self: start;
   margin-top: var(--spacing-1);
 

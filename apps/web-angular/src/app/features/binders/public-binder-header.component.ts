@@ -10,7 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { PublicBinderResponse } from '@orenji/api-client';
-import { CardImageComponent } from '../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../shared/ui/card-image/card-image.component';
 import { distanceBucketLabel } from '../../shared/domain/location-labels';
 import {
   BINDER_KIND_INFO,

@@ -96,6 +96,7 @@ class DelistingAdminIT extends AbstractPhase7IT {
         JsonNode mine = find(stale, itemId);
         assertThat(mine).as("the hidden listing is in the review list").isNotNull();
         assertThat(mine.path("state").asString()).isEqualTo("HIDDEN");
+        assertThat(mine.path("item").path("imageUrl").asString()).matches(CARD_PICTURE);
         assertThat(mine.path("owner").path("handle").asString()).isEqualTo(owner.handle());
         assertThat(mine.path("warnedAt").asString()).isNotBlank();
         assertThat(mine.path("confirmedAt").asString()).isNotBlank();

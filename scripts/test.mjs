@@ -5,7 +5,8 @@
 //   npm run test:web      apps/web-angular: lint + unit tests (Vitest)
 //   npm run test:mobile   apps/mobile: typecheck + lint + jest
 //   npm run test:e2e      Playwright suite against the real local stack: ensures the infrastructure,
-//                         builds and starts the API jar on :8080 and ng serve on :4200, runs every
+//                         builds and starts the API jar on :8080 (no on-demand card image
+//                         downloads from providers) and ng serve on :4200, runs every
 //                         spec, then stops what it started. Extra args go to Playwright, e.g.
 //                         npm run test:e2e -- e2e/map.spec.ts   (--reuse-running: use an API/web already up)
 //   npm run test:all      api + web + mobile + e2e, then a summary with timings
@@ -145,7 +146,10 @@ async function testE2e(args) {
       started.push(
         new ManagedProcess('api', { command: java, args: ['-jar', jar], shell: false }, {
           cwd: API_DIR,
-          env: { ...env, SERVER_PORT: String(PORTS.api) },
+          // No on-demand card image downloads: when the real Yu-Gi-Oh! catalog is imported locally
+          // (npm run catalog:import), pages showing uncached real cards would otherwise fetch
+          // artworks from the provider during the run; they get placeholders instead (ADR 0015).
+          env: { ...env, SERVER_PORT: String(PORTS.api), CARD_IMAGE_ON_DEMAND_ENABLED: 'false' },
           echo: false,
           logFile: path.join(LOG_DIR, 'e2e-api.log'),
         }).start(),

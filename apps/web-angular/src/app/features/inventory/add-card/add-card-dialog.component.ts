@@ -39,7 +39,7 @@ import {
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyError, friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { uniqueSuggestions } from '../../../shared/catalog/card-search-box/card-search-box.component';
 import {
   QUERY_MAX_LENGTH,
@@ -136,12 +136,12 @@ const STEPS: readonly { id: Step; label: string }[] = [
             @for (suggestion of suggestions(); track trackKey(suggestion)) {
               <mat-option [value]="suggestion" class="csb-option">
                 <span class="csb-option__row">
-                  <img
+                  <app-card-image
                     class="csb-option__img"
+                    size="xs"
                     [src]="suggestion.imageUrl"
+                    [game]="suggestion.game"
                     alt=""
-                    width="36"
-                    height="50"
                   />
                   <span class="csb-option__text">
                     <span class="csb-option__name">{{ suggestion.name }}</span>
@@ -181,7 +181,8 @@ const STEPS: readonly { id: Step; label: string }[] = [
               <app-card-image
                 class="ac__card-img"
                 [src]="card.primaryImageUrl"
-                [game]="card.game ?? ''"
+                [alt]="card.name ?? ''"
+                [game]="card.game"
               />
               <div>
                 <p class="ac__game">{{ gameLabel(card.game) }}</p>
@@ -207,7 +208,8 @@ const STEPS: readonly { id: Step; label: string }[] = [
               <app-card-image
                 class="ac__card-img"
                 [src]="printingImage()"
-                [game]="card()?.game ?? ''"
+                [alt]="card()?.name ?? ''"
+                [game]="card()?.game"
               />
               <div>
                 <h3 class="ac__card-name">{{ card()?.name }}</h3>

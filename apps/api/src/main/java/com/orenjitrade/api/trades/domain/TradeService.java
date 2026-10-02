@@ -12,6 +12,7 @@ import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.InventoryService.TransferLine;
 import com.orenjitrade.api.inventory.domain.InventoryService.TransferResult;
 import com.orenjitrade.api.offers.domain.AcceptedOffer;
+import com.orenjitrade.api.offers.domain.OfferCard;
 import com.orenjitrade.api.offers.domain.OfferRole;
 import com.orenjitrade.api.offers.domain.OfferRules;
 import com.orenjitrade.api.offers.domain.OfferService;
@@ -462,10 +463,16 @@ public class TradeService {
         return offers.row(row.offerId()).map(offers::summaryText).orElse("a trade");
     }
 
-    /** The card of a trade (live item or the offer's snapshot). */
+    /** The card name of a trade (live item or the offer's snapshot). */
     @Transactional(readOnly = true)
     public String cardName(TradeRow row) {
-        return offers.row(row.offerId()).map(offers::cardName).orElse("a card");
+        return card(row).name();
+    }
+
+    /** The card of a trade with its picture (live item or the offer's snapshot). */
+    @Transactional(readOnly = true)
+    public OfferCard card(TradeRow row) {
+        return offers.row(row.offerId()).map(offers::card).orElse(OfferCard.UNKNOWN);
     }
 
     // ---------------------------------------------------------------------------------------

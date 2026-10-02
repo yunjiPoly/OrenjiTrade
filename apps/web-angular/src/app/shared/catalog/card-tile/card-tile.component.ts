@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import type { CardSummary, GameMetadataField } from '@orenji/api-client';
 import { gameInfo } from '../../domain/games';
 import { metadataEntries } from '../catalog-labels';
-import { CardImageComponent } from '../card-image/card-image.component';
+import { CardImageComponent } from '../../ui/card-image/card-image.component';
 
 /**
  * One catalog card in a results grid: picture, name (the link; the whole tile is clickable),
@@ -14,7 +14,12 @@ import { CardImageComponent } from '../card-image/card-image.component';
   imports: [RouterLink, CardImageComponent],
   template: `
     <article class="tile" [style.--tile-accent]="accent()">
-      <app-card-image class="tile__image" [src]="card().primaryImageUrl" [game]="game()" />
+      <app-card-image
+        class="tile__image"
+        [src]="card().primaryImageUrl"
+        [alt]="card().name ?? ''"
+        [game]="game()"
+      />
       <div class="tile__body">
         <span class="tile__game">{{ gameLabel() }}</span>
         <h3 class="tile__name">

@@ -292,11 +292,46 @@ token of an account with pending consents or a suspension does not block them (s
 - `CardProvider` (contract interface) with `MockCardProvider` (profiles `local`, `dev`, `test`)
   serving `db/seed/catalog/{yugioh,pokemon,mtg,riftbound}.json`: 4 sets, 20 cards and 40 printings per
   game, invented names, game-specific metadata, FR/JA printings and finish variants, indicative CAD
-  prices, placeholder images. No provider is registered in staging/prod yet (real adapters later).
+  prices, placeholder images. `YgoProDeckCardProvider` (all profiles, `YGOPRODECK_ENABLED`) imports
+  the real Yu-Gi-Oh! catalog on request only (docs/providers/ygoprodeck.md); the test profile points
+  it at closed local ports, the tests at an offline stub.
 - `CatalogImportService` upserts by `external_ref` (sets by game + code, printings fall back to their
   variant key) under a per-game advisory lock, rewrites only changed rows (a repeated import reports 0
   upserts), keeps card slugs stable, and records every import in `catalog_sync_run`.
 - `CatalogService` is the module's read interface; `printings(ids)` is ready for Phase 3 inventory.
+
+### Card images (ADR 0015)
+
+- One `card_image` row per provider artwork (V100); printings without their own image show their
+  card's primary artwork (`card.image_id`). Every image URL of every DTO comes from
+  `CardImageUrlResolver`: re-host-only providers (YGOPRODeck) -> `GET /api/v1/public/card-images/{id}`,
+  hotlink-allowed providers -> their URL, no artwork -> the placeholder SVG. Re-host-only provider
+  URLs never reach clients (`CardImageUrlContractIT`).
+- Card pictures outside the catalog DTOs: notifications about one card (`WISHLIST_MATCH`, the
+  `OFFER_*` types, `TRADE_UPDATE`, `PAYMENT_UPDATE`, `SHIPMENT_STATUS`, `DISPUTE_UPDATE`) add
+  `data.cardName`, `data.game` and `data.cardImageUrl` (`NotificationCards`; stored as the
+  resolver produced it, an API-relative path from the after-commit listeners, made absolute against
+  the request origin by `GET /notifications` and `POST /notifications/{id}/read`; realtime pushes
+  keep the relative path); `OfferLink.imageUrl` (OFFER_LINK and SYSTEM messages, resolved when
+  read through the offers module, never stored with the message; `null` when only the stored
+  state is known); `AdminListingItem.imageUrl` (admin listings, stale queue, restore and hide
+  answers). The offers module's `OfferCard` (live item, else the offer's item snapshot) feeds the
+  offer, trade, payment and dispute notifications.
+- `CardImageCache`: capped local cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 500, refused above
+  500), reservations under a lock on `card_image_cache_usage`, one 320 px JPEG per artwork
+  deduplicated by SHA-256, single-flight bounded downloads, expiring reservations, reconciliation at
+  start-up and on demand. Serving: cached file with `immutable` caching + ETag, else a bounded
+  on-demand fill, else the placeholder (5 minutes).
+- Imports: `POST /admin/catalog/sync` and `POST /internal/jobs/catalog-import` take `imageMode`
+  (`NONE`, `REFERENCED` default for `ygoprodeck`, `ALL`, `LIMIT` + `imageLimit`); 409 while another
+  import of the game runs; `catalog_sync_run.report` holds the `CatalogImportReport`
+  (`GET /admin/catalog/sync-runs/{id}/report`). Metadata is imported in chunks of 500 cards (a
+  failing chunk is retried card by card); a provider outage fails the run and keeps the catalog.
+- Admin: `GET /admin/card-images/status`, `POST /admin/card-images/clear`,
+  `POST /admin/card-images/reconcile`, `DELETE /admin/card-images/{imageId}/cache` (audited).
+  Internal: `GET /internal/jobs/card-images/status`, `POST /internal/jobs/card-images/clear`,
+  `POST /internal/jobs/card-images/reconcile` (job runs) for `npm run card-images:*`.
+- Rate limit policy `card-images`: 600 GET per minute and IP on card images and placeholders.
 
 ### Seed (Phase 2)
 

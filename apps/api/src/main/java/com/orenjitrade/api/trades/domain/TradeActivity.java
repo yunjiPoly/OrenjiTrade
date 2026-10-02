@@ -6,6 +6,7 @@ import com.orenjitrade.api.messaging.domain.SystemNotice;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationService;
 import com.orenjitrade.api.notifications.domain.NotificationType;
+import com.orenjitrade.api.offers.domain.OfferCard;
 import com.orenjitrade.api.offers.domain.OfferRow;
 import com.orenjitrade.api.offers.domain.OfferService;
 import com.orenjitrade.api.trades.events.TradeUpdated;
@@ -22,10 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
  * What a trade change causes after commit (Phase 8): TRADE_UPDATE notifications (the other party
  * for proposals, confirmations and cancellations; both parties for an agreed meetup and the
  * completion) and SYSTEM messages in the pair conversation for completion and cancellation.
- * Idempotent through the de-duplication keys ({@code trade:<id>:<event>:<recipient>}). The Phase 9
- * payment, shipping and dispute events ({@link TradeEventType#PROTECTED_FLOW}) are notified by the
- * payments module; a protected trade's completion and its cancellation after a refund (no acting
- * party) are handled here like the Phase 8 ones.
+ * Notifications carry the traded card's name, game and picture ({@link OfferCard}). Idempotent
+ * through the de-duplication keys ({@code trade:<id>:<event>:<recipient>}). The Phase 9 payment,
+ * shipping and dispute events ({@link TradeEventType#PROTECTED_FLOW}) are notified by the payments
+ * module; a protected trade's completion and its cancellation after a refund (no acting party) are
+ * handled here like the Phase 8 ones.
  */
 @Service
 public class TradeActivity {
@@ -64,8 +66,9 @@ public class TradeActivity {
         if (trade.isEmpty() || offer.isEmpty()) {
             return;
         }
-        String cardName = offers.cardName(offer.get());
-        String summary = offers.summaryText(offer.get());
+        OfferCard card = offers.card(offer.get());
+        String cardName = card.name();
+        String summary = offers.summaryText(offer.get(), card);
         @Nullable UUID actor = event.actorId();
         String actorName = offers.displayName(actor);
         boolean both =
@@ -82,6 +85,7 @@ public class TradeActivity {
                     recipient,
                     event,
                     type,
+                    card,
                     title(type, cardName),
                     actor == null && type == TradeEventType.CANCELLED
                             ? "The trade for "
@@ -105,18 +109,28 @@ public class TradeActivity {
                             initiator,
                             other,
                             text,
-                            new OfferLink(offer.get().id(), offer.get().status().name(), summary),
+                            new OfferLink(
+                                    offer.get().id(),
+                                    offer.get().status().name(),
+                                    summary,
+                                    card.imageUrl()),
                             "trade:" + event.tradeId() + ":" + type.name()));
         }
     }
 
     private void notify(
-            UUID recipient, TradeUpdated event, TradeEventType type, String title, String body) {
+            UUID recipient,
+            TradeUpdated event,
+            TradeEventType type,
+            OfferCard card,
+            String title,
+            String body) {
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("tradeId", event.tradeId().toString());
         data.put("offerId", event.offerId().toString());
         data.put("event", type.name());
         data.put("status", event.status());
+        card.putInto(data);
         data.put("deepLink", "/trades/" + event.tradeId());
         notifications.notify(
                 new NotificationRequest(

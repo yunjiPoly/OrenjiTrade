@@ -16,12 +16,9 @@
 }
 
 .edit__thumb {
-  width: 72px;
-  height: 100px;
-  border-radius: 5px;
-  object-fit: cover;
-  background: var(--color-surface-variant);
-  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.5);
+  --card-image-width: 72px;
+  --card-image-radius: 5px;
+  --card-image-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.5);
 }
 
 .edit__heading {
@@ -107,5 +104,13 @@
 @media (max-width: 599px) {
   .edit__form {
     grid-template-columns: 1fr;
+  }
+}
+
+.edit__pic {
+  width: 36px;
+
+  app-card-image {
+    --card-image-shadow: none;
   }
 }

@@ -19,3 +19,4 @@ major decision silently: add a superseding ADR and link both ways.
 | [0012](0012-postgres-search-before-elasticsearch.md) | PostgreSQL full-text + trigram search before any search engine |
 | [0013](0013-google-client-libraries-not-spring-cloud-gcp.md) | Google Cloud client libraries instead of Spring Cloud GCP |
 | [0014](0014-configurable-business-rules.md) | Business rules (limits, delisting, flags) are data, not code |
+| [0015](0015-card-images-provider-hosting-capped-cache.md) | Card images: provider hosting policies and a capped local image cache (≤ 500 MB) |

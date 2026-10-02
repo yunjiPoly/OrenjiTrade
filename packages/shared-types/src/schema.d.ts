@@ -751,6 +751,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/jobs/catalog-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue a catalog import (service auth)
+         * @description Same as `POST /admin/catalog/sync` for schedulers and the local `npm run catalog:import` script: metadata is always imported, `imageMode` (default REFERENCED for providers with image downloads) fills the capped local image cache. Poll `GET /internal/jobs/catalog-import/{id}` for the report. 409 while another import of the game is queued or running.
+         */
+        post: operations["runCatalogImportJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/jobs/card-images/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconcile cache files, rows and accounting (service auth) */
+        post: operations["reconcileCardImageCacheJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/jobs/card-images/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete cached card images (service auth)
+         * @description Deletes the cached renditions (of one game with `game`) and releases their capacity; metadata and source references stay. Records a job run.
+         */
+        post: operations["clearCardImageCacheJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/jobs/account-deletion": {
         parameters: {
             query?: never;
@@ -2590,7 +2647,7 @@ export interface paths {
         put?: never;
         /**
          * Queue a catalog import (ADMIN, SUPER_ADMIN)
-         * @description Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Poll `GET /admin/catalog/sync-runs/{id}`. Audited (`catalog.sync.request`).
+         * @description Returns the QUEUED run at once; the import runs asynchronously and is idempotent (unchanged rows are not rewritten). Metadata is always imported; `imageMode` then fills the local card image cache (REFERENCED by default for providers with image downloads such as `ygoprodeck`, capped at CARD_IMAGE_LOCAL_CACHE_MAX_MB). Poll `GET /admin/catalog/sync-runs/{id}`. 409 while another import of the game is queued or running. Audited (`catalog.sync.request`).
          */
         post: operations["requestCatalogSync"];
         delete?: never;
@@ -2633,6 +2690,46 @@ export interface paths {
          * @description Set of the same game; edition, language, finish and rarity from the GameSchema; 409 for a duplicate (set, number, edition, language, finish). Audited (`card_printing.create`).
          */
         post: operations["createPrinting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/card-images/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile cache files, rows and accounting (ADMIN, SUPER_ADMIN)
+         * @description Deletes orphan temporary files and files no row references, marks cached rows whose file is missing as not cached, reclaims expired reservations and recomputes the usage from the files on disk. Audited (`card_images.cache.reconcile`).
+         */
+        post: operations["reconcileCardImageCache"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/card-images/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete cached card images (ADMIN, SUPER_ADMIN)
+         * @description Deletes the cached renditions (of one game when `game` is given) and releases their capacity; card metadata and image source references stay. Audited (`card_images.cache.clear`).
+         */
+        post: operations["clearCardImageCache"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2860,6 +2957,40 @@ export interface paths {
          * @description Absent fields are kept; `status: ARCHIVED` hides the channel from members. Audited (`community.channel.update`).
          */
         patch: operations["updateCommunityChannel"];
+        trace?: never;
+    };
+    "/internal/jobs/catalog-import/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One catalog import run with its report (service auth) */
+        get: operations["getCatalogImportJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/jobs/card-images/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Local card image cache status with its directory (service auth) */
+        get: operations["getCardImageCacheJobStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/wishlist/{id}/matches": {
@@ -3171,6 +3302,26 @@ export interface paths {
          * @description Display names of active members who chose publicThanks, most recent first, with the month of their latest donation; never amounts, notes or handles. Voluntary support never affects ratings, ranking or trust. 404 FEATURE_DISABLED while donations is off.
          */
         get: operations["listSupporters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/card-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Card artwork (cached rendition or placeholder)
+         * @description Serves a card artwork from OrenjiTrade's own cache (JPEG, `Cache-Control: public, max-age=31536000, immutable`, ETag = SHA-256). When the artwork is not cached yet, a bounded download may fill the cache; otherwise the card's placeholder SVG is returned with a short cache lifetime. Provider URLs are never exposed.
+         */
+        get: operations["getCardImage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4713,6 +4864,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/catalog/sync-runs/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report of one catalog import run (ADMIN, SUPER_ADMIN)
+         * @description Counts of cards, sets and printings, image cache fill (downloaded, already cached, skipped because the cache is full, failed, missing at the source), cache figures and the first errors. Available while the run is in progress; 404 for runs without a report.
+         */
+        get: operations["getCatalogSyncRunReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/catalog/providers": {
         parameters: {
             query?: never;
@@ -4722,6 +4893,26 @@ export interface paths {
         };
         /** Card providers and the games they serve (ADMIN, SUPER_ADMIN) */
         get: operations["listCatalogProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/card-images/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Local card image cache status (ADMIN, SUPER_ADMIN)
+         * @description Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 500 MB) and provider artworks per cache status and game.
+         */
+        get: operations["getCardImageCacheStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4919,6 +5110,26 @@ export interface paths {
          * @description 404 when the entitlement does not belong to the account or is no longer active. Audited (`entitlement.revoke`).
          */
         delete: operations["revokeEntitlement"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/card-images/{imageId}/cache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Evict one cached card image (ADMIN, SUPER_ADMIN)
+         * @description The row goes back to NOT_CACHED; the file is deleted unless another artwork shares it. 404 when the image is not cached. Audited (`card_images.cache.evict`).
+         */
+        delete: operations["evictCardImage"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6170,6 +6381,136 @@ export interface components {
              */
             ledgerMismatches?: number;
         };
+        /** @description Catalog sync request */
+        CatalogSyncRequest: {
+            /** @example yugioh */
+            gameSlug: string;
+            /** @example ygoprodeck */
+            provider: string;
+            /** @enum {string} */
+            mode: "FULL" | "INCREMENTAL";
+            /**
+             * @description NONE, REFERENCED (artworks of cards members reference; default), ALL (until the cache is full) or LIMIT (imageLimit artworks)
+             * @enum {string}
+             */
+            imageMode?: "NONE" | "REFERENCED" | "ALL" | "LIMIT";
+            /** Format: int32 */
+            imageLimit?: number;
+        };
+        /** @description Catalog import report */
+        CatalogImportReport: {
+            provider: string;
+            providerDbVersion?: string;
+            /** @enum {string} */
+            imageMode: "NONE" | "REFERENCED" | "ALL" | "LIMIT";
+            /** Format: int32 */
+            imageLimit?: number;
+            /** Format: int32 */
+            totalCardsProcessed: number;
+            /** Format: int32 */
+            cardsCreated: number;
+            /** Format: int32 */
+            cardsUpdated: number;
+            /** Format: int32 */
+            cardsUnchanged: number;
+            /** Format: int32 */
+            cardsFailed: number;
+            /** Format: int32 */
+            setsUpserted: number;
+            /** Format: int32 */
+            printingsUpserted: number;
+            /** Format: int32 */
+            printingsSkipped: number;
+            /** Format: int64 */
+            imagesReferenced: number;
+            /** Format: int32 */
+            imagesSelected: number;
+            /** Format: int32 */
+            imagesAlreadyCached: number;
+            /** Format: int32 */
+            imagesDownloaded: number;
+            /** Format: int32 */
+            imagesDeduplicated: number;
+            /** Format: int32 */
+            imagesSkippedCacheFull: number;
+            /** Format: int32 */
+            imagesFailed: number;
+            /** Format: int32 */
+            imagesMissingAtSource: number;
+            /** Format: int64 */
+            bytesDownloaded: number;
+            /** Format: double */
+            cacheUsedMb: number;
+            /** Format: double */
+            cacheReservedMb: number;
+            /** Format: int32 */
+            cacheLimitMb: number;
+            cacheLimitReached: boolean;
+            /** Format: double */
+            durationSeconds: number;
+            errors: string[];
+            warnings: string[];
+        };
+        /** @description Catalog import run */
+        CatalogSyncRun: {
+            /** Format: uuid */
+            id?: string;
+            /** @example mock */
+            provider?: string;
+            /** @example yugioh */
+            game?: string;
+            /** @enum {string} */
+            mode?: "FULL" | "INCREMENTAL";
+            /** @enum {string} */
+            status?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+            /** Format: uuid */
+            requestedBy?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: int32 */
+            setsUpserted?: number;
+            /** Format: int32 */
+            cardsUpserted?: number;
+            /** Format: int32 */
+            printingsUpserted?: number;
+            error?: string;
+            /** @enum {string} */
+            imageMode?: "NONE" | "REFERENCED" | "ALL" | "LIMIT";
+            /** Format: int32 */
+            imageLimit?: number;
+            providerDbVersion?: string;
+            /** @enum {string} */
+            phase?: "FETCHING" | "METADATA" | "IMAGES" | "DONE";
+            report?: components["schemas"]["CatalogImportReport"];
+        };
+        CardImageCacheReconcileResult: {
+            /** Format: int32 */
+            expiredReservations?: number;
+            /** Format: int32 */
+            orphanTempFiles?: number;
+            /** Format: int32 */
+            missingFiles?: number;
+            /** Format: int32 */
+            orphanFiles?: number;
+            /** Format: int32 */
+            evicted?: number;
+            /** Format: int64 */
+            usedBytes?: number;
+            /** Format: int32 */
+            files?: number;
+        };
+        CardImageCacheClearResponse: {
+            /** Format: int32 */
+            images: number;
+            /** Format: int32 */
+            filesDeleted: number;
+            /** Format: int64 */
+            bytesReleased: number;
+        };
         AccountDeletionJobResponse: {
             /**
              * Format: int32
@@ -7029,7 +7370,7 @@ export interface components {
             title: string;
             /** @example Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away */
             body: string;
-            /** @description Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>) */
+            /** @description Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_MATCH, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes) */
             data: {
                 [key: string]: unknown;
             };
@@ -7609,6 +7950,8 @@ export interface components {
             id: string;
             status: string;
             summary: string;
+            /** @description Picture of the offered card (OrenjiTrade's own card image or placeholder URL) */
+            imageUrl?: string | null;
         };
         CreateReplyRequest: {
             body: string;
@@ -8157,6 +8500,8 @@ export interface components {
             /** Format: uuid */
             printingId: string;
             printingCode?: string | null;
+            /** @description Picture of the printing (OrenjiTrade's own card image or placeholder URL) */
+            imageUrl?: string | null;
             game: string;
             /** Format: uuid */
             binderId?: string | null;
@@ -8468,42 +8813,8 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        /** @description Catalog sync request */
-        CatalogSyncRequest: {
-            /** @example yugioh */
-            gameSlug: string;
-            /** @example mock */
-            provider: string;
-            /** @enum {string} */
-            mode: "FULL" | "INCREMENTAL";
-        };
-        /** @description Catalog import run */
-        CatalogSyncRun: {
-            /** Format: uuid */
-            id?: string;
-            /** @example mock */
-            provider?: string;
-            /** @example yugioh */
+        CardImageCacheClearRequest: {
             game?: string;
-            /** @enum {string} */
-            mode?: "FULL" | "INCREMENTAL";
-            /** @enum {string} */
-            status?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
-            /** Format: uuid */
-            requestedBy?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            startedAt?: string;
-            /** Format: date-time */
-            finishedAt?: string;
-            /** Format: int32 */
-            setsUpserted?: number;
-            /** Format: int32 */
-            cardsUpserted?: number;
-            /** Format: int32 */
-            printingsUpserted?: number;
-            error?: string;
         };
         UnpublishBinderRequest: {
             /** @description Why (audited) */
@@ -8618,6 +8929,48 @@ export interface components {
             game?: string;
             /** @description City; blank removes it */
             regionLabel?: string;
+        };
+        CardImageCacheGameStatus: {
+            game: string;
+            provider: string;
+            images: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            cachedBytes: number;
+        };
+        /** @description Local card image cache state */
+        CardImageCacheStatus: {
+            /** Format: int64 */
+            usedBytes: number;
+            /** Format: int64 */
+            reservedBytes: number;
+            /** Format: int64 */
+            remainingBytes: number;
+            /** Format: int64 */
+            limitBytes: number;
+            /** Format: double */
+            usedMb: number;
+            /** Format: double */
+            reservedMb: number;
+            /** Format: double */
+            remainingMb: number;
+            /** Format: int32 */
+            limitMb: number;
+            /** Format: int32 */
+            files: number;
+            /** Format: int64 */
+            activeReservations: number;
+            images: {
+                [key: string]: number;
+            };
+            games: components["schemas"]["CardImageCacheGameStatus"][];
+            /** Format: date-time */
+            reconciledAt?: string;
+        };
+        InternalCardImageCacheStatus: {
+            directory: string;
+            status: components["schemas"]["CardImageCacheStatus"];
         };
         /** @description A collector on the map at the derived public point (never the real location) */
         CollectorMarker: {
@@ -13595,6 +13948,163 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditsReconcileJobResult"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    runCatalogImportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSyncRun"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description An import of the game is already running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSyncRun"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reconcileCardImageCacheJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardImageCacheReconcileResult"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    clearCardImageCacheJob: {
+        parameters: {
+            query?: {
+                /** @description Only this game's images */
+                game?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardImageCacheClearResponse"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -21810,6 +22320,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description An import of the game is already running */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSyncRun"];
+                };
+            };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
                 headers: {
@@ -21930,6 +22449,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrintingDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reconcileCardImageCache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardImageCacheReconcileResult"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    clearCardImageCache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardImageCacheClearRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardImageCacheClearResponse"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -23354,6 +24007,102 @@ export interface operations {
             };
         };
     };
+    getCatalogImportJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogSyncRun"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getCardImageCacheJobStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalCardImageCacheStatus"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listWishlistMatches: {
         parameters: {
             query?: {
@@ -24239,6 +24988,68 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getCardImage: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-None-Match"?: string;
+            };
+            path: {
+                /** @description Card image id */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image (JPEG) or the placeholder (SVG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/svg+xml": string;
+                };
+            };
+            /** @description Not modified (If-None-Match) */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description Unknown image */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -29495,6 +30306,73 @@ export interface operations {
             };
         };
     };
+    getCatalogSyncRunReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogImportReport"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listCatalogProviders: {
         parameters: {
             query?: never;
@@ -29513,6 +30391,71 @@ export interface operations {
                     "application/json": {
                         [key: string]: string[];
                     };
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getCardImageCacheStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardImageCacheStatus"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -30241,6 +31184,78 @@ export interface operations {
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    evictCardImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Evicted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or not cached */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {

@@ -22,7 +22,8 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { APP_NAME } from '../../../core/routing/orenji-title.strategy';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardDataAttributionComponent } from '../../../shared/catalog/card-data-attribution/card-data-attribution.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import {
   editionLabel,
   finishLabel,
@@ -53,6 +54,7 @@ import { CardMetadataComponent } from './card-metadata.component';
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    CardDataAttributionComponent,
     CardImageComponent,
     CardMetadataComponent,
     EmptyStateComponent,

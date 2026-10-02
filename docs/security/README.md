@@ -196,3 +196,15 @@ Advanced Security, which private personal repositories do not have, so the uploa
 gated on the repository variable `CODE_SCANNING_ENABLED=true`. Until it is set, results are
 attached to each run as workflow artifacts (`codeql-<language>-sarif`, `trivy-fs-sarif`) and the
 Trivy gate step (fail on CRITICAL/HIGH) remains the enforced check.
+
+## npm audit exceptions
+
+CI runs `node scripts/audit-gate.mjs` (also `npm run audit:gate`) instead of a bare
+`npm audit --audit-level=high`. It fails on every high or critical advisory except those listed in
+`security/npm-audit-allowlist.json`. An entry is allowed only when **no patched release exists**,
+must state the exposure and why it is acceptable, and carries an expiry date after which the gate
+fails again until someone re-reviews it. Moderate/low advisories are printed but never block.
+
+| Advisory | Package | Expires | Why accepted |
+| --- | --- | --- | --- |
+| GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 (no fix published) | 2026-11-30 | Only via Expo build tooling (`@expo/cli` → `@expo/code-signing-certificates`) for expo-updates code signing, which is not used; not in the API or the web bundle. npm's "fix" would downgrade Expo to SDK 44. |

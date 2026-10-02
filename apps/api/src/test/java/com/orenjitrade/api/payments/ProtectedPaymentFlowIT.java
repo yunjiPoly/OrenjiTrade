@@ -83,6 +83,7 @@ class ProtectedPaymentFlowIT extends AbstractPaymentsIT {
         assertThat(paid.path("allowedOperations").toString()).contains("SHIP");
         JsonNode shipNow = awaitNotificationEvent(seller, "PAYMENT_UPDATE", "SECURED");
         assertThat(shipNow.path("title").asString()).startsWith("Payment secured: ship");
+        assertCardPicture(shipNow, "Azure-Eyes Sky Dragon");
         callJson(
                 HttpMethod.POST,
                 "/api/v1/payments/fake/" + ref + "/confirm",

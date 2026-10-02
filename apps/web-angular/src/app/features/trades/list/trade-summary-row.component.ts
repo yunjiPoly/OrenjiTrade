@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { TradeSummary } from '@orenji/api-client';
-import { CardImageComponent } from '../../../shared/catalog/card-image/card-image.component';
+import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { offerTermsText } from '../../../shared/offers/offer-labels';
 import { StatusChipComponent } from '../../../shared/offers/status-chip.component';
@@ -30,7 +30,12 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
       [attr.aria-label]="label()"
       data-testid="trade-row"
     >
-      <app-card-image class="row__img" [src]="image()" [game]="t.item?.card?.game ?? ''" alt="" />
+      <app-card-image
+        class="row__img"
+        [src]="image()"
+        [game]="t.item?.card?.game"
+        [alt]="t.item?.card?.name ?? ''"
+      />
       <span class="row__main">
         <span class="row__card">
           {{ t.item?.card?.name ?? 'Card no longer available' }}
