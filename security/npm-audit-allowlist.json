@@ -1,0 +1,12 @@
+{
+  "$comment": "High/critical npm advisories accepted temporarily because NO patched release exists. Every entry needs a reason and an expiry date; scripts/audit-gate.mjs fails again after expiry. Policy: docs/security/README.md (npm audit exceptions).",
+  "advisories": [
+    {
+      "id": "GHSA-86w9-cpqp-85rv",
+      "package": "node-forge <= 1.4.0",
+      "addedOn": "2026-10-02",
+      "expires": "2026-11-30",
+      "reason": "No patched node-forge release exists (vulnerable range covers every published version). It reaches the repo only through expo -> @expo/cli -> @expo/code-signing-certificates, i.e. Expo build tooling for expo-updates code signing, which OrenjiTrade does not use; the API (Java) and the web bundle do not include node-forge. npm's suggested fix downgrades Expo to SDK 44, which is not viable. Re-check when node-forge or @expo/cli publishes a fix."
+    }
+  ]
+}
