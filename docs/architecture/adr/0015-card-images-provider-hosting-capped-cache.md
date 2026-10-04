@@ -1,6 +1,7 @@
 # ADR 0015 — Card images: provider hosting policies and a capped local image cache
 
-**Status:** Accepted · **Date:** 2026-10-01 · Extends [ADR 0005](0005-multi-tcg-data-model.md)
+**Status:** Accepted · **Date:** 2026-10-01 · **Amended:** 2026-10-04 (cache cap 500 MB → 5 GB) ·
+Extends [ADR 0005](0005-multi-tcg-data-model.md)
 
 ## Context
 
@@ -13,8 +14,9 @@ forbid continual hotlinking ("download and re-host the images yourself", or the 
 blacklisted) and ask clients to store pulled data locally to keep API calls to a minimum. Pokémon,
 Magic and Riftbound sources will follow with different terms (some CDNs explicitly allow
 hotlinking). The full Yu-Gi-Oh! catalog is 14,592 cards / 14,764 artworks (≈ 128 KB per full
-image), more than a developer machine should store, and the owner requires that the local image
-cache never exceeds 500 MB.
+image), more than a developer machine should store, and the owner required (2026-10-01) that the
+local image cache never exceeds 500 MB; on 2026-10-04 the owner raised that cap to 5 GB (see
+"Amendment 2026-10-04" below).
 
 ## Decision
 
@@ -38,7 +40,8 @@ cache never exceeds 500 MB.
    one card carry `data.cardImageUrl` (+ `cardName`, `game`), message offer links
    `OfferLink.imageUrl`, admin listings `AdminListingItem.imageUrl`.
 4. **Capped, game-agnostic cache** (`CardImageCache`): `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default
-   500; values above 500 stop the start-up, never silently lowered; smaller values allowed). Final
+   5120 MiB = 5 GB since 2026-10-04, previously 500; values above 5120 stop the start-up, never
+   silently lowered; smaller values allowed; every byte figure is a 64-bit `long` / `bigint`). Final
    files, temporary download files and outstanding reservations together never exceed the limit:
    bytes are reserved in `card_image_cache_reservation` under a lock on the single
    `card_image_cache_usage` row (`SELECT … FOR UPDATE`) before streaming (announced
@@ -68,6 +71,22 @@ cache never exceeds 500 MB.
    `Cache-Control: public, max-age=31536000, immutable` and the SHA-256 as ETag. The start-up seed
    stays on the offline `MockCardProvider`; tests and CI never touch the network.
 
+## Amendment 2026-10-04
+
+2026-10-04: owner raised the cap to 5 GB so the full Yu-Gi-Oh! catalog at 320 px fits locally.
+`CARD_IMAGE_LOCAL_CACHE_MAX_MB` now defaults to 5120 MiB, which is also the hard ceiling (5121 or
+more stops the start-up with "between 1 and 5120"; smaller values stay allowed and are never
+changed silently). The 14,764 artworks at about 45 KB each need about 650 MB, so 5 GB holds the
+whole Yu-Gi-Oh! catalog with room for the Pokémon, Magic and Riftbound catalogs that follow.
+Nothing else changes: one 320 px JPEG rendition per artwork (quality 0.82, no full-size or
+cropped copies), the 2 MB per-download maximum, reservations and temporary files counting toward
+the cap, eviction, reconciliation, the on-demand fill rate limits, and browsers only ever receive
+`/api/v1/public/card-images/{id}` (YGOPRODeck is never hotlinked). 5 GB (5,368,709,120 bytes)
+exceeds the 32-bit range: the accounting columns (`card_image_cache_usage.used_bytes`,
+`card_image_cache_reservation.bytes`, `card_image.file_size_bytes`) were already `bigint` in V100,
+the Java accounting uses `long` throughout and the OpenAPI byte fields are `int64`, so no migration
+was needed. Local development only: the cloud storage question (below) is unchanged.
+
 ## Consequences
 
 - Adding Pokémon, Magic or Riftbound means writing a `CardProvider` adapter (mapping, hosting
@@ -84,6 +103,8 @@ cache never exceeds 500 MB.
   Entertainment, Inc.; attribution to YGOPRODeck is shown in docs and must be reviewed by counsel
   before any public launch (docs/providers/ygoprodeck.md).
 - Rejected: hotlinking provider images (forbidden, privacy leak of visitors' IPs to the provider);
-  storing every artwork (full size ≈ 2 GB; even the 320 px renditions, ≈ 45 KB each, would need
-  ≈ 650 MB, above the 500 MB cap); storing full and cropped variants (one
-  UI-sized rendition is enough); a separate image service (modular monolith, ADR 0001).
+  storing every artwork at full size (≈ 2 GB for Yu-Gi-Oh! alone; the 320 px renditions, ≈ 45 KB
+  each, need ≈ 650 MB — above the original 500 MB cap, but well within the 5 GB cap since
+  2026-10-04, so `--images all` may now cache the whole catalog at 320 px); storing full and
+  cropped variants (one UI-sized rendition is enough); a separate image service (modular
+  monolith, ADR 0001).

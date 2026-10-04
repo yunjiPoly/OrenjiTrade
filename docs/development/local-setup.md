@@ -21,7 +21,9 @@ Bash, macOS and Linux shells (they are Node scripts under `scripts/`, no extra d
 | Python (optional) | 3.12+ (`python` on Windows) | `npm run test:ml` only; ML work is **on hold** |
 
 Resources: give Docker Desktop at least 4 GB of memory (6 GB+ if you run the API test suite and the
-dev stack at the same time). Disk: about 5 GB for images, Gradle and npm caches.
+dev stack at the same time). Disk: about 5 GB for Docker images, Gradle and npm caches, plus up to
+5 GB for the local card image cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`; the full Yu-Gi-Oh! catalog
+at 320 px takes about 650 MB).
 
 ## First-time setup
 
@@ -53,7 +55,7 @@ Later starts take about a minute (measured on a Windows 11 laptop with warm cach
 | `npm run infra:validate` | `terraform fmt -check` and `terraform init -backend=false` + `validate` for every environment. Never plans or applies anything. |
 | `npm run generate:api` | Regenerates the Angular client and the mobile types from `docs/api/openapi.json`. |
 | `npm run catalog:import -- --game yugioh --provider ygoprodeck --images referenced` | Imports the real Yu-Gi-Oh! catalog and caches the referenced card images (needs a running API), see [Card images](#card-images-and-the-real-yu-gi-oh-catalog). |
-| `npm run card-images:status` / `card-images:clear -- --yes [--game yugioh]` | Shows / empties the local card image cache (at most 500 MB). |
+| `npm run card-images:status` / `card-images:clear -- --yes [--game yugioh]` | Shows / empties the local card image cache (at most 5 GB). |
 
 `npm run dev` writes the complete output of both children to `.local-dev/logs/api.log` and
 `.local-dev/logs/web.log` (overwritten on every start) and echoes it with `[api]` / `[web]`
@@ -106,7 +108,7 @@ Host ports of the infrastructure can be moved with `POSTGRES_PORT`, `REDIS_PORT`
 | Firebase Auth emulator accounts | Docker named volume `orenjitrade_firebase-data`, exported to `/data/export` when the emulator stops and imported on the next start | clean stops (`infra:down`, `docker compose stop/restart`, Docker Desktop quit); a killed container loses accounts created since its last start (the seed users are re-created by the next API start) |
 | Uploaded media (avatars, inventory and dispute images) of a host-run API | `apps/api/.local-storage/` (git-ignored), served by `GET /api/v1/public/media/{key}` | everything except `infra:reset` |
 | Uploaded media of the Docker `app` profile API | Docker named volume `orenjitrade_api-media` | deleted by `infra:reset` |
-| Card image cache of a host-run API (at most `CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 500 MB) | `apps/api/.local-storage/card-images/` (`CARD_IMAGE_CACHE_DIR`, git-ignored) | everything except `infra:reset` and `npm run card-images:clear` |
+| Card image cache of a host-run API (at most `CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 5 GB = 5120 MiB) | `apps/api/.local-storage/card-images/` (`CARD_IMAGE_CACHE_DIR`, git-ignored) | everything except `infra:reset` and `npm run card-images:clear` |
 | Raw YGOPRODeck JSON snapshots (one directory per provider database version) | `apps/api/.local-dev/provider-data/ygoprodeck/<version>/` (`PROVIDER_DATA_DIR`, git-ignored) | everything (delete the folder to force a fresh download) |
 | Script logs, E2E jar copy, Terraform plugin cache | `.local-dev/` (git-ignored) | |
 
@@ -185,8 +187,10 @@ npm run catalog:import -- --game yugioh --provider ygoprodeck --images reference
   locally (about 5 s when nothing changed).
 - **Images** go into the local cache. `--images` chooses which artworks are downloaded:
   `referenced` (default: cards in inventories, binders, wishlists, offers/trades, message and
-  community card links), `all` (every artwork until the cache is full), `limit:<n>` (the first
-  `n`: referenced ones first, then by card name, so a second run downloads nothing new), `none`.
+  community card links), `all` (every artwork until the cache is full; the whole Yu-Gi-Oh!
+  catalog, about 14,800 artworks / 650 MB at 320 px, fits in the default 5 GB), `limit:<n>` (the
+  first `n`: referenced ones first, then by card name, so a second run downloads nothing new),
+  `none`.
   Each image is stored once (320 px wide JPEG, about 45 KB; the 5 MB smoke cache held 52 files in
   2.3 MB) and served by
   `GET /api/v1/public/card-images/{id}`; YGOPRODeck URLs never reach the browser. Artworks that are
@@ -195,10 +199,13 @@ npm run catalog:import -- --game yugioh --provider ygoprodeck --images reference
   printings (Blue-Eyes White Dragon LOB-EN001, Dark Magician LOB-EN005, Red-Eyes Black Dragon
   LOB-EN070, the five Exodia pieces) as soon as the real catalog exists, so a `referenced` import
   shows real pictures on its public binder page.
-- **Limit:** `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default and maximum **500**; the API refuses to start
-  above 500, smaller values are fine). Final files, temporary downloads and in-flight reservations
-  together never exceed it. When the limit is reached the import still succeeds and reports
-  `cacheLimitReached: true`.
+- **Limit:** `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default and maximum **5120** MiB = 5 GB since
+  2026-10-04, previously 500; the API refuses to start above 5120 with "between 1 and 5120",
+  smaller values are fine and are used as configured). Final files, temporary downloads and
+  in-flight reservations together never exceed it. When the limit is reached the import still
+  succeeds and reports `cacheLimitReached: true`. A `.env` copied from an older `.env.example`
+  still says `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500`: delete the line or set 5120 to get the new
+  default.
 - **Location:** `CARD_IMAGE_CACHE_DIR`, default `apps/api/.local-storage/card-images/` (one
   directory per database; a start-up reconciliation deletes files no row references).
 

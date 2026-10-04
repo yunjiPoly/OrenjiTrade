@@ -1802,7 +1802,8 @@ donations `a300…0001` (collector2, public thanks) and `…0002` (collector5).
 ### Card images and the real Yu-Gi-Oh! catalog (V100–V102)
 
 [ADR 0015](../architecture/adr/0015-card-images-provider-hosting-capped-cache.md): card metadata
-(always imported completely) and the image files (a capped local cache, at most 500 MB) are
+(always imported completely) and the image files (a capped local cache, at most 5 GB = 5120 MiB
+since 2026-10-04, previously 500 MB) are
 separate. One `card_image` row describes one provider artwork; inventory items, binders, wishlists,
 offers and messages reference printings or cards, never image files.
 
@@ -1836,8 +1837,9 @@ own image (`card_printing.image_id`), else its card's `image_id`, else the place
 
 #### `card_image_cache_usage`
 
-Single row (`id = 1`, `ck_card_image_cache_usage_single`): `used_bytes` (bytes of the final files,
-≥ 0), `file_count`, `reconciled_at`, `updated_at`. Every reservation, commit, eviction, clear and
+Single row (`id = 1`, `ck_card_image_cache_usage_single`): `used_bytes` (`bigint`, bytes of the
+final files, ≥ 0; the 5 GB limit is 5,368,709,120 bytes, beyond the 32-bit range), `file_count`,
+`reconciled_at`, `updated_at`. Every reservation, commit, eviction, clear and
 reconciliation locks it with `SELECT ... FOR UPDATE`; `used_bytes` plus the live reservations never
 exceeds `CARD_IMAGE_LOCAL_CACHE_MAX_MB`. Reconciliation recomputes it from the files on disk. Use one
 cache directory per database.

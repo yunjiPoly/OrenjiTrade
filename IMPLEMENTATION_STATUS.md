@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -190,7 +190,8 @@ no coordinate with more than 3 decimals)._
 
 _Workflow `card-images`, task "backend" (2026-10-01, branch `feature/card-images`): game-agnostic
 card image architecture with the YGOPRODeck adapter as the first real provider. Migrations V100–V102
-(range V100–V109). Owner rules: the local image cache never exceeds 500 MB; YGOPRODeck images are
+(range V100–V109). Owner rules: the local image cache never exceeds 500 MB (raised to 5 GB on
+2026-10-04, see "Card image cache raised to 5 GB" below); YGOPRODeck images are
 never hotlinked (re-host only); metadata is always imported completely; real imports are explicit,
 seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 API tests / 152 classes, 0 failures, 0 skipped (previously 704 / 140); `./gradlew exportOpenApi` (254 paths, previously 243; no path, operation or schema lost; 7 schemas added); `npm run generate:api`; `npm run build -w apps/web-angular` (877.57 kB initial, unchanged) and the web spec typecheck pass. Live smoke (API jar on :8090, profile `local`, database `orenjitrade_test`, Redis db 1, `CARD_IMAGE_LOCAL_CACHE_MAX_MB=5`, temporary cache directory, stopped and deleted afterwards): `npm run catalog:import -- --game yugioh --provider ygoprodeck --images limit:60 --api http://localhost:8090` → SUCCEEDED in 27 s, database 147.20, 14,592 cards created, 650 sets, 44,568 printings, 14,764 artworks referenced, 60 selected (the 8 demo printings first) → 52 downloaded + 8 deduplicated (identical artworks), 8.8 MB received, 2.31 MB of 5 MB used (= bytes on disk, 52 files), limit not reached; the second run: 0 created / 0 updated / 0 upserted, 60 already cached, 0 downloaded, 4.2 s; cached images served as 320 px JPEG (≈ 43 KB) with `immutable` caching; the demo binder's items carry `/api/v1/public/card-images/` URLs and no provider URL. Real provider traffic during the whole development: 1 snapshot (checkDBVer + cardinfo + cardsets), 2 more checkDBVer, 60 image downloads._
 
@@ -216,8 +217,9 @@ seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 A
   USD indicative prices, one artwork per image id, provider data errors skipped as warnings); image
   URL allow-list (SSRF guard). Real catalog (database 147.20): 14,592 cards, 44,568 printings, 650
   sets, 14,764 artworks imported in ~14 s, unchanged re-import ~4.5 s with 0 changes.
-- [x] `CardImageCache` (`cards/domain/images`) — `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default 500,
-  start-up refused above 500), `CARD_IMAGE_CACHE_DIR`; reserve under lock → stream to
+- [x] `CardImageCache` (`cards/domain/images`) — `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default 5120 MiB
+  = 5 GB, start-up refused above 5120, since 2026-10-04; 500 before), `CARD_IMAGE_CACHE_DIR`;
+  reserve under lock → stream to
   `.tmp/<reservation>.part` (aborted above the reservation) → sniff/decode (HTML, empty, wrong type
   refused) → 320 px JPEG q0.82 without metadata → SHA-256 dedupe → commit usage + release
   reservation → atomic move; cleanup on every failure; expiring reservations; single-flight,
@@ -260,7 +262,7 @@ seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 A
   without the real catalog.
 - [x] Tests (offline: `YgoProDeckStub` = JDK HttpServer API + raw-socket image host, fictional
   fixtures, images generated in memory) — YgoProDeckMapperTest (6), YgoProDeckCardProviderTest (2),
-  ProviderHttpClientTest (8), HostRateLimiterTest (3), CardImageConfigTest (5, rejects > 500),
+  ProviderHttpClientTest (8), HostRateLimiterTest (3), CardImageConfigTest (5, rejects > 5120 since 2026-10-04, > 500 before),
   CardImageProcessorTest (4), CardImageFileStoreTest (3), YgoProDeckImportIT (5: complete metadata,
   idempotent re-imports downloading nothing, REFERENCED/LIMIT, image problems, outage, admin and
   internal triggers), CardImageCacheIT (7: rendition, dedupe, dropped connection, invalid content,
@@ -337,7 +339,7 @@ seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 A
   `card-images.spec.ts` no longer assume the seed catalog is the only Yu-Gi-Oh! catalog (they
   failed once the real catalog was imported locally), and `npm run test:e2e` starts its API with
   `CARD_IMAGE_ON_DEMAND_ENABLED=false` (a run had fetched 22 artworks from YGOPRODeck on demand).
-  Live (dev database, profile `local`, default 500 MB cache): `npm run catalog:import -- --game
+  Live (dev database, profile `local`, default cache, 500 MB at the time): `npm run catalog:import -- --game
   yugioh --provider ygoprodeck --images referenced` → SUCCEEDED, YGOPRODeck database 147.22 (new
   snapshot, byte-identical to 147.21), 14,595 cards (0 created/updated), 650 sets, 44,568
   printings, 14,767 artworks referenced, 12,353 printings upserted (price date = provider
@@ -348,8 +350,9 @@ seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 A
   14.88 MB used = 15,600,834 bytes on disk (`du -sb`, sampled every 0.1 s during the run including
   `.tmp/`: maximum 15,600,834 ≤ 15,728,640); the re-run downloaded 0; database, folder and Redis db
   removed afterwards. Average cached rendition 47,132 bytes (320 px JPEG; raw downloads average
-  ≈ 159 KB) → about 11,100 artworks fit in 500 MB (≈ 75 % of the 14,767). `CARD_IMAGE_LOCAL_CACHE_MAX_MB=501`
-  stops the start-up. Browser (Playwright on the running stack): card detail of Blue-Eyes White
+  ≈ 159 KB) → about 11,100 artworks fit in the former 500 MB cap (≈ 75 % of the 14,767; all of
+  them, ≈ 696 MB, fit in the 5 GB cap since 2026-10-04). `CARD_IMAGE_LOCAL_CACHE_MAX_MB=501`
+  stopped the start-up then (5121 since 2026-10-04). Browser (Playwright on the running stack): card detail of Blue-Eyes White
   Dragon and Dark Magician, `/cards?q=forbidden one` and `/search?q=forbidden one` render real
   pictures from `/api/v1/public/card-images/` (320×466, natural size > 0); no request to any
   `ygoprodeck.com` host and no provider URL in the DOM.
@@ -426,6 +429,82 @@ coordinate. Mutation check: removing the cap from both adapters fails 8 adapter 
   `e2e/smoke.spec.ts`. Mutation check: removing the cap from either adapter fails 9 adapter tests.
 - Open question for the owner (ADR 0004): sparse rural grid cells may hold very few homes; grid
   left unchanged pending a decision.
+
+## Card image cache raised to 5 GB (ADR 0015 amendment, 2026-10-04)
+
+_Workflow task "build" on branch `feature/card-image-cache-5gb` (worktree, API + docs only; no
+migration, no web/mobile/cloud change). Owner decision 2026-10-04 replaces the 500 MB rule of
+2026-10-01: the local card image cache may hold up to 5 GB (5120 MiB) so the whole Yu-Gi-Oh!
+catalog at 320 px (14,764 artworks ≈ 650 MB) fits locally with room for other games._
+
+- [x] Limit — `CardImageCacheProperties.MAX_ALLOWED_MB` = 5120 and `@DefaultValue("5120")`,
+  `application.yml` `max-mb: ${CARD_IMAGE_LOCAL_CACHE_MAX_MB:5120}`, `.env.example` 5120. Values
+  above 5120 still stop the start-up ("must be between 1 and 5120 (configured: …); the local card
+  image cache may never exceed 5120 MB (5 GB)"), smaller values are used as configured, never
+  silently changed. Unchanged: 320 px JPEG q0.82, 2 MB per-download maximum, reservations and
+  temporary files counting toward the cap, eviction, reconciliation, on-demand rate limits, only
+  `/api/v1/public/card-images/{id}` reaches browsers, no full-size or cropped copies.
+- [x] 64-bit audit (5120 MiB = 5,368,709,120 bytes > `Integer.MAX_VALUE`) — database:
+  `card_image_cache_usage.used_bytes`, `card_image_cache_reservation.bytes`,
+  `card_image.file_size_bytes` are `bigint` in V100 (no migration needed; the V100 SQL comment
+  "<= 500 MB" stays because applied migrations are never edited). Java: `limitBytes()` multiplies
+  by the `long` `BYTES_PER_MB` (now with an explicit `(long)` cast), every usage / reservation /
+  remaining / temporary-file figure in `CardImageCache`, `CardImageCacheRepository` (`getLong`,
+  `query(Long.class)`), `CardImageFileStore`, `CardImageCacheStatus`, `ReconcileResult`,
+  `ClearResult`, `ImageFillResult` and `CatalogImportReport` is `long`/`double`; no `int` cast,
+  `Math.toIntExact` or int multiplication on byte counts in production code; `limitMb`,
+  `cacheLimitMb` and file counts stay `int` (5120 and ~120,000 files fit). OpenAPI: all byte
+  fields `int64`. TypeScript: no web screen shows cache figures; `scripts/card-images.mjs` /
+  `catalog-import.mjs` format with `Number(bytes) / (1024 * 1024)` (exact below 2^53, no bitwise
+  ops). Test-side fix: `CardImageCacheLimitIT` allocated `new byte[(int) (limitBytes - 8 KiB)]`
+  (would wrap with a large cap) → `Math.toIntExact` behind an assertion that its cap stays tiny.
+- [x] Tests — `CardImageConfigTest` (5: default 5120 and `limitBytes() == 5120L * 1024 * 1024`
+  > `Integer.MAX_VALUE`, 5120 / 5119 / 2048 / 500 / 5 / 1 accepted, 5121 and 6000 fail with
+  "between 1 and 5120", 100000 / 5000000000 / 0 / -5 fail); `CardImageCacheIT` new
+  `theDefaultFiveGigabyteLimitIsAccountedIn64Bits` (default config: 2.5 GiB pretended usage + a
+  ~2.5 GiB phantom reservation, no gigabytes written; exact status and admin JSON figures, 8 KiB left
+  → CACHE_FULL without a provider request, then a real download commits on top of 2.5 GiB);
+  `CardImageCacheLimitIT` (still a 1 MiB cap) new `aSmallerLimitIsHonouredBelowTheFiveGigabyteCeiling`
+  (admin status reports 1 MiB, not the default).
+- [x] Docs — ADR 0015 amended in place ("Amendment 2026-10-04", Rejected bullet), CLAUDE.md
+  card-images rule, ADR index, ARCHITECTURE.md, schema.md, local-setup.md (limit, disk space, old
+  `.env` note), apps/api/README.md, `scripts/catalog-import.mjs` comment; OpenAPI description of
+  `getCardImageCacheStatus` regenerated (`docs/api/openapi.json`, `packages/api-client`,
+  `packages/shared-types`).
+- Verification (builder): `./gradlew spotlessApply test` 766 tests / 155 classes, 0 failures,
+  0 errors, 0 skipped (incl. CardImageConfigTest 5, CardImageCacheIT 10, CardImageCacheLimitIT 5);
+  `./gradlew exportOpenApi` (only the `getCardImageCacheStatus` description changed, no path,
+  schema or type change); `npm run generate:api` (description only in 3 generated files); in
+  `apps/web-angular` `npm run lint` pass, `npm test` 129 files / 629 tests, `npm run build`
+  (initial 887.66 kB, unchanged, no warnings); `npm run typecheck -w apps/mobile` pass. Live (API
+  jar on :8081, profile `local`, database `orenjitrade_e2e`, Redis db 2, temporary
+  `CARD_IMAGE_CACHE_DIR`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, `YGOPRODECK_ENABLED=false`): the
+  default configuration logs "limit 5120 MB"; `GET /internal/jobs/card-images/status` and
+  `node scripts/card-images.mjs status --api http://localhost:8081` report a limit of 5120 MiB =
+  5,368,709,120 bytes (remaining 5,368,709,120); `CARD_IMAGE_LOCAL_CACHE_MAX_MB=6000` stops the
+  start-up ("APPLICATION FAILED TO START … must be between 1 and 5120 (configured: 6000); the local
+  card image cache may never exceed 5120 MB (5 GB)"). The admin endpoint's JSON (same
+  `CardImageCacheStatus`) is asserted by `CardImageCacheIT`; a live admin call was not possible
+  because the local infrastructure was reset externally during the session (emulator accounts and
+  `orenjitrade_e2e` gone; the empty `orenjitrade_e2e` was re-created for the 6000 check, now at V102
+  without seed data). No YGOPRODeck request was made.
+- Verification (independent verifier, 2026-10-04): repo-wide search finds no current 500 MB card
+  image cap (only dated history, the applied V100 SQL comment and the old-`.env` notes); 64-bit
+  audit re-done (V100 `bigint` columns, `long` accounting in `CardImageCache` /
+  `CardImageCacheRepository`, OpenAPI byte fields `int64`, no web screen shows cache figures, the
+  scripts use `Number()` without bitwise ops) with no finding; `./gradlew test --rerun` 766 tests /
+  155 classes, 0 failures, 0 skipped (CardImageConfigTest 5, CardImageCacheIT 10 in 9 s,
+  CardImageCacheLimitIT 5 in 9 s); `exportOpenApi` + `npm run generate:api` reproduce the committed
+  generated files exactly; web lint, `npm test` 129 files / 629 tests, build 887.66 kB; mobile
+  typecheck pass. Live (jar on :8081, profile `local`, `orenjitrade_e2e` re-seeded, Redis db 2,
+  temporary cache directory, on-demand fills and YGOPRODeck disabled, `CARD_IMAGE_LOCAL_CACHE_MAX_MB`
+  unset): `GET /api/v1/admin/card-images/status` with the emulator admin token and
+  `GET /internal/jobs/card-images/status` with the local service token both report `limitMb` 5120,
+  `limitBytes` 5,368,709,120; `CARD_IMAGE_LOCAL_CACHE_MAX_MB=6000` stops the start-up with
+  "must be between 1 and 5120 (configured: 6000)". No YGOPRODeck request was made.
+- Note for the owner: a local `.env` copied from the old `.env.example` still sets
+  `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500` and keeps the old cap until that line is removed or set to
+  5120.
 
 ## Phase 11 — ML
 
@@ -544,7 +623,7 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 > **Card images (2026-10-01, branch `feature/card-images`):** backend and web of ADR 0015 done
 > (see "Card images + real Yu-Gi-Oh! catalog"): `npm run catalog:import -- --game yugioh --provider
 > ygoprodeck --images referenced` imports the real Yu-Gi-Oh! catalog and caches the referenced
-> artworks (cache ≤ 500 MB, YGOPRODeck never hotlinked); every web card surface renders the API's
+> artworks (cache ≤ 500 MB then, ≤ 5 GB since 2026-10-04; YGOPRODeck never hotlinked); every web card surface renders the API's
 > picture URLs through `app-card-image`, with YGOPRODeck / Konami / 4K Media credits; card pictures
 > in notification payloads, `OfferLink` and admin listing rows. Independently verified and committed
 > on `feature/card-images` (not pushed); next: PR and merge to `main`. The shared local database is
@@ -556,6 +635,15 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 > "about 2 km" wording. Independently verified and committed on the branch (not pushed).
 > **Next:** push `feature/map-privacy-zoom`, open the PR and merge to `main` when CI is green; then
 > ask the owner about the open rural-cell question in ADR 0004 ("Open questions for the owner").
+
+> **Card image cache 5 GB (2026-10-04, branch `feature/card-image-cache-5gb`):** builder done and
+> independently verified (see "Card image cache raised to 5 GB"): `CARD_IMAGE_LOCAL_CACHE_MAX_MB`
+> default and ceiling 5120 MiB, 64-bit accounting audited and tested, ADR 0015 amended, docs and
+> generated clients updated; committed on `feature/card-image-cache-5gb` (not pushed). **Next:**
+> push the branch, open the PR and merge to `main` when CI is green. Afterwards, only if the owner asks: `npm run catalog:import -- --game yugioh
+> --provider ygoprodeck --images all` caches the whole Yu-Gi-Oh! catalog (an explicit real provider
+> import: ≈ 14,800 image downloads paced at 5/s ≈ 50 minutes, ≈ 650 MB). A local `.env` that still
+> sets `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500` must be updated first.
 
 **Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
 everything runs locally, web application first (**done**), then mobile. Phase 11 (ML card

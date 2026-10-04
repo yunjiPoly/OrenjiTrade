@@ -59,8 +59,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Game-agnostic local cache of provider card artworks with a hard capacity limit (ADR 0015).
  *
  * <p><b>Capacity.</b> Final files, temporary download files and outstanding reservations together
- * never exceed {@link CardImageCacheProperties#limitBytes()} (at most 500 MB). Every capacity
- * change locks the single {@code card_image_cache_usage} row ({@code SELECT ... FOR UPDATE}):
+ * never exceed {@link CardImageCacheProperties#limitBytes()} (at most 5 GB = 5120 MiB; all byte
+ * accounting is {@code long}). Every capacity change locks the single {@code
+ * card_image_cache_usage} row ({@code SELECT ... FOR UPDATE}):
  *
  * <ol>
  *   <li>after the provider answered, bytes are <b>reserved</b> (the announced {@code

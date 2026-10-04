@@ -8,10 +8,12 @@ import org.springframework.util.unit.DataSize;
 /**
  * {@code orenji.card-images.cache.*}: the capped local card image cache (ADR 0015).
  *
- * <p>The cache never holds more than {@code maxMb} megabytes of image files (final files, temporary
+ * <p>The cache never holds more than {@code maxMb} MiB of image files (final files, temporary
  * download files and outstanding reservations together). {@code maxMb} comes from {@code
- * CARD_IMAGE_LOCAL_CACHE_MAX_MB} (default {@value #MAX_ALLOWED_MB}); values above {@value
- * #MAX_ALLOWED_MB} are refused at start-up (never silently lowered), smaller values are allowed.
+ * CARD_IMAGE_LOCAL_CACHE_MAX_MB} (default {@value #MAX_ALLOWED_MB} = 5 GB, owner decision
+ * 2026-10-04: the whole Yu-Gi-Oh! catalog at 320 px, about 650 MB, fits with room for other games);
+ * values above {@value #MAX_ALLOWED_MB} are refused at start-up (never silently lowered), smaller
+ * values are allowed. Byte figures are {@code long}: 5 GB exceeds {@link Integer#MAX_VALUE}.
  *
  * @param maxMb capacity in MiB (1 to {@value #MAX_ALLOWED_MB})
  * @param dir cache directory ({@code CARD_IMAGE_CACHE_DIR}, default {@code
@@ -30,7 +32,7 @@ import org.springframework.util.unit.DataSize;
  */
 @ConfigurationProperties(prefix = "orenji.card-images.cache")
 public record CardImageCacheProperties(
-        @DefaultValue("500") int maxMb,
+        @DefaultValue("5120") int maxMb,
         @DefaultValue("./.local-storage/card-images") String dir,
         @DefaultValue("320") int targetWidth,
         @DefaultValue("0.82") float jpegQuality,
@@ -42,8 +44,8 @@ public record CardImageCacheProperties(
         @DefaultValue("1h") Duration failedRetryAfter,
         @DefaultValue("true") boolean reconcileOnStartup) {
 
-    /** Hard ceiling of the local image cache (owner requirement), in MiB. */
-    public static final int MAX_ALLOWED_MB = 500;
+    /** Hard ceiling of the local image cache (owner decision 2026-10-04: 5 GB), in MiB. */
+    public static final int MAX_ALLOWED_MB = 5120;
 
     public static final long BYTES_PER_MB = 1024L * 1024L;
 
@@ -57,7 +59,7 @@ public record CardImageCacheProperties(
                             + maxMb
                             + "); the local card image cache may never exceed "
                             + MAX_ALLOWED_MB
-                            + " MB");
+                            + " MB (5 GB)");
         }
         if (dir == null || dir.isBlank()) {
             throw new IllegalArgumentException("orenji.card-images.cache.dir must not be blank");
@@ -94,9 +96,9 @@ public record CardImageCacheProperties(
         }
     }
 
-    /** Capacity in bytes. */
+    /** Capacity in bytes (a {@code long}: 5120 MiB = 5,368,709,120 bytes overflows an int). */
     public long limitBytes() {
-        return maxMb * BYTES_PER_MB;
+        return (long) maxMb * BYTES_PER_MB;
     }
 
     public long maxDownloadBytes() {

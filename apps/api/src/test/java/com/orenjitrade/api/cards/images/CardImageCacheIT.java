@@ -2,9 +2,11 @@ package com.orenjitrade.api.cards.images;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.cards.domain.ImageMode;
 import com.orenjitrade.api.cards.domain.images.CardImageCache;
 import com.orenjitrade.api.cards.domain.images.CardImageCache.Outcome;
+import com.orenjitrade.api.cards.domain.images.CardImageCacheProperties;
 import com.orenjitrade.api.cards.domain.images.CardImageCacheStatus;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -18,11 +20,14 @@ import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
+import tools.jackson.databind.JsonNode;
 
 /**
  * The game-agnostic card image cache (ADR 0015) against the offline stub: one re-encoded rendition
  * per artwork, deduplication by checksum, cleanup after partial and invalid downloads, reservation
- * expiry, reconciliation and capacity release on eviction and clears.
+ * expiry, reconciliation and capacity release on eviction and clears. Runs with the default
+ * configuration, i.e. the 5 GB limit (5120 MiB), whose byte figures exceed the int range.
  */
 class CardImageCacheIT extends AbstractCardImageIT {
 
@@ -64,6 +69,72 @@ class CardImageCacheIT extends AbstractCardImageIT {
         assertThat(cache.ensureCached(imageId("900000002")).outcome())
                 .isEqualTo(Outcome.ALREADY_CACHED);
         assertThat(STUB.hits("/images/cards/900000002.jpg")).isEqualTo(hits);
+    }
+
+    @Test
+    void theDefaultFiveGigabyteLimitIsAccountedIn64Bits() throws Exception {
+        long mib = 1024L * 1024L;
+        long limit = 5120L * mib;
+        assertThat(cacheProperties.maxMb())
+                .as("application.yml default")
+                .isEqualTo(CardImageCacheProperties.MAX_ALLOWED_MB)
+                .isEqualTo(5120);
+        assertThat(cache.limitBytes()).isEqualTo(limit).isGreaterThan(Integer.MAX_VALUE);
+
+        // Usage and reservations beyond the int range without writing gigabytes: 2.5 GiB of
+        // (pretended) files and a phantom download holding all but 8 KiB of the rest (bigint).
+        long used = 2560L * mib;
+        long reserved = limit - used - 8 * 1024;
+        assertThat(reserved).isGreaterThan(Integer.MAX_VALUE);
+        UUID phantom = UUID.randomUUID();
+        try {
+            testUsers.update("UPDATE card_image_cache_usage SET used_bytes = ? WHERE id = 1", used);
+            testUsers.update(
+                    "INSERT INTO card_image_cache_reservation (id, bytes, owner, created_at,"
+                            + " expires_at) VALUES (?, ?, 'phantom-instance', now(), now() +"
+                            + " interval '5 minutes')",
+                    phantom,
+                    reserved);
+
+            CardImageCacheStatus status = cache.status();
+            assertThat(status.usedBytes()).isEqualTo(used);
+            assertThat(status.reservedBytes()).isEqualTo(reserved);
+            assertThat(status.remainingBytes()).isEqualTo(8 * 1024);
+            assertThat(status.limitBytes()).isEqualTo(limit);
+            assertThat(status.limitMb()).isEqualTo(5120);
+            assertThat(status.usedMb()).isEqualTo(2560.0);
+            assertThat(cache.remainingBytes()).isEqualTo(8 * 1024);
+
+            // The admin console receives the same exact 64-bit figures.
+            String admin = uniqueUid("img-admin");
+            provisionWithRoles(admin, Role.ADMIN);
+            JsonNode json =
+                    callJson(HttpMethod.GET, "/api/v1/admin/card-images/status", admin, null, 200);
+            assertThat(json.path("limitBytes").asLong()).isEqualTo(5_368_709_120L);
+            assertThat(json.path("limitMb").asInt()).isEqualTo(5120);
+            assertThat(json.path("usedBytes").asLong()).isEqualTo(used);
+            assertThat(json.path("reservedBytes").asLong()).isEqualTo(reserved);
+            assertThat(json.path("remainingBytes").asLong()).isEqualTo(8 * 1024);
+
+            // 8 KiB left: no download starts.
+            int hits = STUB.hits("/images/cards/900000002.jpg");
+            assertThat(cache.ensureCached(imageId("900000002")).outcome())
+                    .isEqualTo(Outcome.CACHE_FULL);
+            assertThat(STUB.hits("/images/cards/900000002.jpg")).isEqualTo(hits);
+
+            // Without the phantom, 2.5 GiB remain: the reservation and commit compare and add
+            // 64-bit figures (an int-sized limit would wrap to 1 GiB and refuse it).
+            testUsers.update("DELETE FROM card_image_cache_reservation WHERE id = ?", phantom);
+            assertThat(cache.ensureCached(imageId("900000002")).outcome())
+                    .isEqualTo(Outcome.DOWNLOADED);
+            long file = Files.size(fileOf("900000002"));
+            assertThat(usedBytes()).isEqualTo(used + file);
+            assertThat(cache.status().remainingBytes()).isEqualTo(limit - used - file);
+        } finally {
+            testUsers.update("DELETE FROM card_image_cache_reservation WHERE id = ?", phantom);
+            cache.reconcile();
+        }
+        assertThat(usedBytes()).as("recomputed from the disk").isEqualTo(bytesOnDisk());
     }
 
     @Test
