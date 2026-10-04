@@ -57,6 +57,7 @@ import {
   DEV_API_PORT,
   E2E_API_PORT,
   E2E_DB,
+  E2E_REDIS_DB,
   E2E_WEB_PORT,
   INFO_KEY,
   assertIsolated,
@@ -66,6 +67,7 @@ import {
   isRunAccount,
   newRunId,
   portProblem,
+  redisDatabaseOf,
   reuseRefusal,
   webReuseRefusal,
   webRuntimeConfig,
@@ -75,7 +77,8 @@ export const WORK_DIR = path.join(LOCAL_DEV_DIR, 'e2e');
 const STATE_FILE = path.join(WORK_DIR, 'state.json');
 /** config.json served by `ng serve --configuration e2e` (angular.json, git-ignored). */
 export const WEB_RUNTIME_CONFIG = path.join(WEB_DIR, 'e2e', '.runtime', 'config.json');
-const INFRA_CONTAINERS = ['orenjitrade-postgres', 'orenjitrade-redis', 'orenjitrade-firebase-auth'];
+const REDIS_CONTAINER = 'orenjitrade-redis';
+const INFRA_CONTAINERS = ['orenjitrade-postgres', REDIS_CONTAINER, 'orenjitrade-firebase-auth'];
 
 // ------------------------------------------------------------------------------- settings
 
@@ -214,6 +217,18 @@ async function ensureInfrastructure() {
   return infraUp();
 }
 
+/** FLUSHDB of the E2E Redis logical database (refuses any other). */
+function flushE2eRedis(redisUrl) {
+  const db = redisDatabaseOf(redisUrl);
+  if (db !== E2E_REDIS_DB) {
+    throw new Error(`Refusing to flush Redis db ${db}: only the E2E db ${E2E_REDIS_DB} is flushed.`);
+  }
+  const result = capture('docker', ['exec', REDIS_CONTAINER, 'redis-cli', '-n', String(db), 'FLUSHDB']);
+  if (result.status !== 0 || !/OK/.test(result.stdout)) {
+    log.warn(`Could not flush the E2E Redis db ${db} (cached pages expire within a minute anyway).`);
+  }
+}
+
 // ------------------------------------------------------------------------------ guards
 
 function runGuardTests() {
@@ -348,7 +363,9 @@ export async function runWebE2e(argv) {
         );
         return 1;
       }
-      const refusal = reuseRefusal(s.apiUrl, info.body, state?.instance);
+      const refusal =
+        reuseRefusal(s.apiUrl, info.body, state?.instance ?? '') ??
+        (state ? null : 'no stack recorded in .local-dev/e2e/state.json by this checkout; start one with --keep-running.');
       if (refusal) {
         log.error(`--reuse-running: ${refusal}`);
         return 1;
@@ -393,10 +410,12 @@ export async function runWebE2e(argv) {
       } else {
         log.step(`Recreating the E2E database ${E2E_DB} (fresh schema and seed for every run)`);
         recreateDatabase(E2E_DB);
-        // Files of the previous database would only be reconciled away; start empty.
+        // Files and cached pages of the previous database would only be stale; start empty. Only
+        // the E2E logical database is flushed, never the developer's db 0 or the mobile db 1.
         for (const dir of [apiEnv.STORAGE_LOCAL_ROOT, apiEnv.CARD_IMAGE_CACHE_DIR]) {
           fs.rmSync(dir, { recursive: true, force: true });
         }
+        flushE2eRedis(apiEnv.REDIS_URL);
       }
       for (const dir of [apiEnv.STORAGE_LOCAL_ROOT, apiEnv.CARD_IMAGE_CACHE_DIR, apiEnv.PROVIDER_DATA_DIR]) {
         fs.mkdirSync(dir, { recursive: true });
