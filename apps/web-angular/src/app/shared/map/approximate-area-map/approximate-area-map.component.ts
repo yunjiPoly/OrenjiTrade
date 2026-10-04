@@ -21,8 +21,8 @@ import { LatLng, MapAdapter, circleBounds } from '../map-adapter';
 import { MapAdapterFactory } from '../map-adapter.factory';
 
 /**
- * Small map showing a collector's public point as an approximate area about 2 km wide (the shared
- * {@link APPROXIMATE_AREA_RADIUS_M} disc, never a pin on an address), never zoomed closer than
+ * Small map showing a collector's public point as an approximate area about 3 km wide (the shared
+ * {@link APPROXIMATE_AREA_RADIUS_M} zone, never a pin on an address), never zoomed closer than
  * {@link COLLECTOR_MAP_MAX_ZOOM}. Uses the MapAdapter (Leaflet/OpenStreetMap unless a Google key
  * is configured).
  */
