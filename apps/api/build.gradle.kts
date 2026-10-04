@@ -154,8 +154,8 @@ tasks.register("resolveDependencies") {
 spotless {
     java {
         target("src/**/*.java")
-        // 1.28.0 is the newest release that runs on the JDK 17 that contributors may use for Gradle itself.
-        googleJavaFormat("1.28.0").aosp().reflowLongStrings()
+        // Google Java Format 1.30+ requires JDK 21+ for Gradle/Spotless execution.
+        googleJavaFormat("1.30.0").aosp().reflowLongStrings()
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()
