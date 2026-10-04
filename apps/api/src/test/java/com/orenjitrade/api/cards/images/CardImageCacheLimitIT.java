@@ -2,11 +2,13 @@ package com.orenjitrade.api.cards.images;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.cards.domain.CatalogImportReport;
 import com.orenjitrade.api.cards.domain.ImageMode;
 import com.orenjitrade.api.cards.domain.SyncRunStatus;
 import com.orenjitrade.api.cards.domain.SyncRunView;
 import com.orenjitrade.api.cards.domain.images.CardImageCache;
+import com.orenjitrade.api.cards.domain.images.CardImageCacheProperties;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -29,11 +31,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
 
 /**
  * The hard capacity limit (ADR 0015) with a tiny 1 MB cache and noisy filler images of a few
@@ -41,6 +45,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  * outstanding reservations never exceed the limit at any sampled moment, nor does the database
  * accounting; a full cache never fails the catalog import (all metadata is imported, the limit is
  * reported) and the image endpoint falls back to the placeholder.
+ *
+ * <p>The cap is configured far below the 5 GB ceiling ({@link
+ * CardImageCacheProperties#MAX_ALLOWED_MB} = 5120 MiB, the default): a smaller limit is honoured as
+ * configured, and the tests stay fast because they never fill more than this one MiB. The 64-bit
+ * accounting of the default 5 GB limit is covered by {@code CardImageCacheIT} without writing
+ * gigabytes.
  */
 @TestPropertySource(
         properties = {
@@ -167,6 +177,21 @@ class CardImageCacheLimitIT extends AbstractCardImageIT {
     }
 
     @Test
+    void aSmallerLimitIsHonouredBelowTheFiveGigabyteCeiling() {
+        assertThat(cacheProperties.maxMb())
+                .isEqualTo(1)
+                .isLessThan(CardImageCacheProperties.MAX_ALLOWED_MB);
+        assertThat(CardImageCacheProperties.MAX_ALLOWED_MB).isEqualTo(5120);
+        String admin = uniqueUid("img-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+        JsonNode status =
+                callJson(HttpMethod.GET, "/api/v1/admin/card-images/status", admin, null, 200);
+        assertThat(status.path("limitMb").asInt()).as("never raised to the default").isEqualTo(1);
+        assertThat(status.path("limitBytes").asLong()).isEqualTo(1024L * 1024L);
+        assertThat(status.path("remainingBytes").asLong()).isLessThanOrEqualTo(1024L * 1024L);
+    }
+
+    @Test
     void parallelDownloadsNeverExceedTheLimit() throws Exception {
         long limit = cache.limitBytes();
         assertThat(limit).isEqualTo(1024L * 1024L);
@@ -234,8 +259,11 @@ class CardImageCacheLimitIT extends AbstractCardImageIT {
     void temporaryFilesWithoutAReservationCountAgainstTheLimit() throws Exception {
         // A temporary file no live reservation covers (its deletion failed, or a crashed process
         // left it behind) still occupies the disk: no reservation may ignore it.
+        assertThat(cache.limitBytes())
+                .as("this test writes almost the whole capacity: keep the configured cap tiny")
+                .isLessThanOrEqualTo(16L * 1024 * 1024);
         Path leftover = cache.directory().resolve(".tmp").resolve(UUID.randomUUID() + ".part");
-        Files.write(leftover, new byte[(int) (cache.limitBytes() - 8 * 1024)]);
+        Files.write(leftover, new byte[Math.toIntExact(cache.limitBytes() - 8 * 1024)]);
         UUID image = fillerImages().get(0);
         int hits = STUB.imageHits();
         assertThat(cache.ensureCached(image).outcome())

@@ -13,10 +13,14 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 
 /**
  * Start-up validation of the cache and provider settings through Spring Boot's binder (what the
- * application does with {@code CARD_IMAGE_LOCAL_CACHE_MAX_MB}): above 500 MB the application
- * refuses to start, it never lowers the value silently; smaller limits are allowed.
+ * application does with {@code CARD_IMAGE_LOCAL_CACHE_MAX_MB}): above 5 GB (5120 MiB, owner
+ * decision 2026-10-04) the application refuses to start, it never lowers the value silently;
+ * smaller limits are allowed. The limit in bytes exceeds {@link Integer#MAX_VALUE}, so it must be
+ * computed in 64 bits.
  */
 class CardImageConfigTest {
+
+    private static final long MIB = 1024L * 1024L;
 
     private static CardImageCacheProperties cache(Map<String, String> values) {
         Map<String, String> source = new HashMap<>();
@@ -26,10 +30,15 @@ class CardImageConfigTest {
     }
 
     @Test
-    void theDefaultLimitIsFiveHundredMegabytes() {
+    void theDefaultLimitIsFiveGigabytes() {
         CardImageCacheProperties properties = cache(Map.of());
-        assertThat(properties.maxMb()).isEqualTo(500);
-        assertThat(properties.limitBytes()).isEqualTo(500L * 1024 * 1024);
+        assertThat(CardImageCacheProperties.MAX_ALLOWED_MB).isEqualTo(5120);
+        assertThat(properties.maxMb()).isEqualTo(5120);
+        assertThat(properties.limitBytes()).isEqualTo(5120L * 1024 * 1024);
+        assertThat(properties.limitBytes())
+                .as("5 GB does not fit in an int (an int multiplication would wrap to 1 GiB)")
+                .isEqualTo(5_368_709_120L)
+                .isGreaterThan(Integer.MAX_VALUE);
         assertThat(properties.targetWidth()).isEqualTo(320);
         assertThat(properties.jpegQuality()).isEqualTo(0.82f);
         assertThat(properties.maxDownloadBytes()).isEqualTo(2L * 1024 * 1024);
@@ -37,24 +46,41 @@ class CardImageConfigTest {
     }
 
     @Test
-    void limitsAboveFiveHundredMegabytesAreRejected() {
-        assertThatThrownBy(() -> cache(Map.of("max-mb", "501")))
+    void limitsAboveFiveGigabytesAreRejected() {
+        assertThatThrownBy(() -> cache(Map.of("max-mb", "5121")))
                 .isInstanceOf(BindException.class)
                 .rootCause()
                 .hasMessageContaining("CARD_IMAGE_LOCAL_CACHE_MAX_MB")
-                .hasMessageContaining("between 1 and 500")
-                .hasMessageContaining("501");
+                .hasMessageContaining("between 1 and 5120")
+                .hasMessageContaining("5121");
+        assertThatThrownBy(() -> cache(Map.of("max-mb", "6000")))
+                .isInstanceOf(BindException.class)
+                .rootCause()
+                .hasMessageContaining("between 1 and 5120")
+                .hasMessageContaining("6000");
         assertThatThrownBy(() -> cache(Map.of("max-mb", "100000")))
+                .isInstanceOf(BindException.class);
+        // Beyond the int range: refused as well (conversion failure), never wrapped or clamped.
+        assertThatThrownBy(() -> cache(Map.of("max-mb", "5000000000")))
                 .isInstanceOf(BindException.class);
         assertThatThrownBy(() -> cache(Map.of("max-mb", "0"))).isInstanceOf(BindException.class);
         assertThatThrownBy(() -> cache(Map.of("max-mb", "-5"))).isInstanceOf(BindException.class);
     }
 
     @Test
-    void smallerLimitsAreAllowed() {
-        assertThat(cache(Map.of("max-mb", "1")).limitBytes()).isEqualTo(1024L * 1024);
+    void theCeilingAndSmallerLimitsAreAllowed() {
+        CardImageCacheProperties ceiling = cache(Map.of("max-mb", "5120"));
+        assertThat(ceiling.maxMb()).isEqualTo(5120);
+        assertThat(ceiling.limitBytes()).isEqualTo(5120L * 1024 * 1024);
+        assertThat(cache(Map.of("max-mb", "5119")).limitBytes()).isEqualTo(5119L * MIB);
+        assertThat(cache(Map.of("max-mb", "2048")).limitBytes())
+                .as("2 GiB, one past Integer.MAX_VALUE bytes")
+                .isEqualTo(2048L * MIB)
+                .isGreaterThan(Integer.MAX_VALUE);
         assertThat(cache(Map.of("max-mb", "500")).maxMb()).isEqualTo(500);
+        assertThat(cache(Map.of("max-mb", "500")).limitBytes()).isEqualTo(500L * MIB);
         assertThat(cache(Map.of("max-mb", "5")).maxMb()).isEqualTo(5);
+        assertThat(cache(Map.of("max-mb", "1")).limitBytes()).isEqualTo(MIB);
     }
 
     @Test

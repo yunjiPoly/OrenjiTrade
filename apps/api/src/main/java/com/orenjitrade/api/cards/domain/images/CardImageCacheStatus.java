@@ -15,7 +15,8 @@ import org.jspecify.annotations.Nullable;
  * @param usedBytes bytes of the final files
  * @param reservedBytes capacity held by in-flight downloads
  * @param remainingBytes capacity still available
- * @param limitBytes configured capacity ({@code CARD_IMAGE_LOCAL_CACHE_MAX_MB}, at most 500 MB)
+ * @param limitBytes configured capacity ({@code CARD_IMAGE_LOCAL_CACHE_MAX_MB}, at most 5 GB = 5120
+ *     MiB, so byte figures are 64-bit)
  * @param usedMb used, MiB (2 decimals)
  * @param reservedMb reserved, MiB
  * @param remainingMb remaining, MiB
