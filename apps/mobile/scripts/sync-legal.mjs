@@ -6,7 +6,7 @@
  * document list (type, version, title, web path); the texts live with the clients.
  *
  * Usage: `npm run sync:legal` (writes) or `npm run sync:legal -- --check` (exit 1 when stale).
- * `__tests__/legal/legalContent.test.ts` fails as well when the copy drifts from the web file.
+ * `__tests__/screens/legal.test.tsx` fails as well when the copy drifts from the web file.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';

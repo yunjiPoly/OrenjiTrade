@@ -44,5 +44,9 @@
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.5"
+  },
+  "devDependencies": {
+    "@babel/generator": "7.29.8",
+    "@babel/traverse": "7.29.8"
   }
 }
