@@ -12,6 +12,27 @@ function jsonResponse(body: unknown, status: number, contentType = 'application/
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': contentType } });
 }
 
+/**
+ * What `fetch` resolves with on React Native (Expo SDK 57): a working response that is NOT an
+ * instance of the global `Response` class, which openapi-fetch rejects as a middleware result.
+ */
+function foreignResponse(body: unknown, status: number): Response {
+  const inner = jsonResponse(body, status);
+  const foreign = {
+    ok: inner.ok,
+    status: inner.status,
+    statusText: inner.statusText,
+    headers: inner.headers,
+    url: inner.url,
+    clone: () => foreignResponse(body, status),
+    json: () => inner.json(),
+    text: () => inner.text(),
+    arrayBuffer: () => inner.arrayBuffer(),
+    blob: () => inner.blob(),
+  };
+  return foreign as unknown as Response;
+}
+
 const META = {
   name: 'OrenjiTrade API',
   version: '0.1.0',
@@ -82,6 +103,40 @@ describe('api client', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]?.headers.get('Authorization')).toBe('Bearer fresh-token');
     expect(tokens).toHaveBeenLastCalledWith(true);
+  });
+
+  it('accepts React Native responses that are not instances of the global Response', async () => {
+    fetchMock.mockResolvedValueOnce(foreignResponse({ discoverable: false }, 200));
+
+    const { data } = await client.GET('/api/v1/me/location');
+
+    expect(data).toEqual({ discoverable: false });
+  });
+
+  it('copies a React Native response of the 401 retry into a global Response', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        foreignResponse({ status: 401, errorCode: 'UNAUTHENTICATED', message: 'expired' }, 401)
+      )
+      .mockResolvedValueOnce(foreignResponse({ discoverable: true }, 200));
+
+    const { data } = await client.GET('/api/v1/me/location');
+
+    expect(data).toEqual({ discoverable: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps a React Native error response to ApiError', async () => {
+    fetchMock.mockResolvedValueOnce(
+      foreignResponse({ status: 409, errorCode: 'HANDLE_TAKEN', message: 'taken' }, 409)
+    );
+
+    const error = (await client
+      .PUT('/api/v1/me/profile', { body: { handle: 'x', displayName: 'X' } as never })
+      .catch((caught: unknown) => caught)) as ApiError;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.errorCode).toBe('HANDLE_TAKEN');
   });
 
   it('does not retry 401 REAUTHENTICATION_REQUIRED', async () => {

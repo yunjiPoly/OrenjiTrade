@@ -43,6 +43,27 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
+/**
+ * openapi-fetch only accepts a replacement response that is `instanceof` the global `Response`.
+ * On React Native (Expo SDK 57) `fetch` resolves with a response of another class, so a response
+ * produced by a middleware (the retry after a 401) is copied into a global `Response` first.
+ */
+export async function asGlobalResponse(
+  response: Pick<Response, 'status' | 'statusText' | 'headers' | 'arrayBuffer'>
+): Promise<Response> {
+  if (response instanceof Response) {
+    return response;
+  }
+  const headers: [string, string][] = [];
+  response.headers.forEach((value, name) => headers.push([name, value]));
+  const empty = response.status === 204 || response.status === 205 || response.status === 304;
+  return new Response(empty ? null : await response.arrayBuffer(), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 /** Public routes never need the ID token (mirror of the web's `isPublicApiUrl`). */
 export function isPublicApiUrl(url: string): boolean {
   let path = url;
@@ -92,7 +113,7 @@ export function createAuthMiddleware(
         return undefined;
       }
       entry.retry.headers.set(AUTHORIZATION, `Bearer ${fresh}`);
-      return options.fetch(entry.retry);
+      return asGlobalResponse(await options.fetch(entry.retry));
     },
     onError({ id }) {
       pending.delete(id);
@@ -109,7 +130,9 @@ export function createAuthMiddleware(
 export const errorMiddleware: Middleware = {
   async onResponse({ request, response }) {
     if (response.ok) {
-      return response;
+      // Unchanged: returning it would make openapi-fetch check `instanceof Response`, which a
+      // React Native response fails.
+      return undefined;
     }
     const body = await readBody(response.clone());
     const error = ApiError.fromProblem(
