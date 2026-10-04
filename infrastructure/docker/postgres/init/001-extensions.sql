@@ -13,3 +13,12 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Database of the web E2E suite (npm run test:e2e recreates it per run and creates it itself on a
+-- volume initialised before this line existed). Never the developer database orenjitrade.
+CREATE DATABASE orenjitrade_e2e OWNER orenjitrade;
+\connect orenjitrade_e2e
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;

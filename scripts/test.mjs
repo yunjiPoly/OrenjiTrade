@@ -4,12 +4,16 @@
 //                         integration tests; Docker required)
 //   npm run test:web      apps/web-angular: lint + unit tests (Vitest)
 //   npm run test:mobile   apps/mobile: typecheck + lint + jest
-//   npm run test:e2e      Playwright suite against the real local stack: ensures the infrastructure,
-//                         builds and starts the API jar on :8080 (no on-demand card image
-//                         downloads from providers) and ng serve on :4200, runs every
-//                         spec, then stops what it started. Extra args go to Playwright, e.g.
-//                         npm run test:e2e -- e2e/map.spec.ts   (--reuse-running: use an API/web already up)
-//   npm run test:all      api + web + mobile + e2e, then a summary with timings
+//   npm run test:e2e      Playwright suite on its own isolated local stack (scripts/lib/web-e2e.mjs):
+//                         database orenjitrade_e2e (recreated per run), the API jar on :8180 and
+//                         ng serve on :4300, so it runs next to `npm run dev` without touching the
+//                         developer's database, Redis keys, files or ports; deletes the run's Auth
+//                         emulator accounts and stops what it started. Extra args go to Playwright,
+//                         e.g. npm run test:e2e -- e2e/map.spec.ts. Harness options: --keep-running,
+//                         --reuse-running (only a stack the harness started), --stack-only, --stop,
+//                         --keep-db
+//   npm run test:scripts  node --test unit tests of scripts/lib (E2E isolation guards, purge rules)
+//   npm run test:all      scripts + api + web + mobile + e2e, then a summary with timings
 //   npm run test:ml       optional: apps/ml pytest with apps/ml/.venv when present (Phase 11 is on hold)
 
 import fs from 'node:fs';
@@ -17,32 +21,20 @@ import path from 'node:path';
 import {
   API_DIR,
   IS_WINDOWS,
-  LOCAL_DEV_DIR,
-  LOG_DIR,
   ML_DIR,
-  ManagedProcess,
-  PORTS,
-  URLS,
-  WEB_DIR,
-  assertPortsFree,
+  ROOT,
   capture,
   childEnv,
   ensureDocker,
-  findJava21,
   formatDuration,
-  httpStatus,
-  infraUp,
   log,
-  ngInvocation,
   paint,
-  parseFlags,
-  playwrightInvocation,
   run,
   runGradle,
   runNpm,
   table,
-  waitForHttp,
 } from './lib/util.mjs';
+import { runWebE2e } from './lib/web-e2e.mjs';
 
 const [suite, ...argv] = process.argv.slice(2);
 
@@ -83,139 +75,18 @@ function testMobile() {
   ]);
 }
 
-async function testE2e(args) {
-  const { flags, rest } = parseFlags(args, { reuse: ['--reuse-running'] });
-  ensureDocker();
-  if ((await infraUp()) !== 0) {
-    return 1;
-  }
+/** The web Playwright suite on its own isolated stack (scripts/lib/web-e2e.mjs). */
+function testE2e(args) {
+  return runWebE2e(args);
+}
 
-  const started = [];
-  let interrupted = false;
-  const stopAll = async () => {
-    for (const child of started.reverse()) {
-      await child.stop({ graceful: !IS_WINDOWS, graceMs: 15_000 });
-    }
-  };
-  const onSignal = () => {
-    if (interrupted) {
-      return;
-    }
-    interrupted = true;
-    log.warn('Interrupted: stopping the API and the web dev server started for the E2E run.');
-    void stopAll().then(() => process.exit(130));
-  };
-  process.on('SIGINT', onSignal);
-  process.on('SIGTERM', onSignal);
-  if (IS_WINDOWS) {
-    process.on('SIGBREAK', onSignal);
-  }
-
-  try {
-    const env = childEnv({ SPRING_PROFILES_ACTIVE: 'local' });
-    const apiUp = flags.reuse && (await httpStatus(URLS.apiReadiness)) === 200;
-    const webUp = flags.reuse && (await httpStatus(`${URLS.web}/`)) === 200;
-    await assertPortsFree([
-      ...(apiUp ? [] : [['API', PORTS.api]]),
-      ...(webUp ? [] : [['Web dev server', PORTS.web]]),
-    ]);
-
-    if (apiUp) {
-      log.info(`Reusing the API already running on ${URLS.api} (--reuse-running).`);
-    } else {
-      log.step('Building the API jar (gradlew bootJar)');
-      const buildCode = await runGradle(['bootJar'], { cwd: API_DIR, env });
-      if (buildCode !== 0) {
-        return buildCode;
-      }
-      // Run a copy so later Gradle builds can overwrite build/libs/app.jar while the E2E API runs.
-      const jarDir = path.join(LOCAL_DEV_DIR, 'e2e');
-      fs.mkdirSync(jarDir, { recursive: true });
-      const jar = path.join(jarDir, 'api-e2e.jar');
-      fs.copyFileSync(path.join(API_DIR, 'build', 'libs', 'app.jar'), jar);
-      const java = findJava21();
-      if (!java) {
-        log.error(
-          'No Java 21+ runtime found (checked ORENJI_JAVA_HOME, JAVA_HOME, PATH and ~/.gradle/jdks). ' +
-            'Run `npm run api:dev` once so Gradle provisions JDK 21, or set ORENJI_JAVA_HOME.',
-        );
-        return 1;
-      }
-      log.step(`Starting the API jar on :${PORTS.api} (profile local, log .local-dev/logs/e2e-api.log)`);
-      log.info(`java: ${java}`);
-      started.push(
-        new ManagedProcess('api', { command: java, args: ['-jar', jar], shell: false }, {
-          cwd: API_DIR,
-          // No on-demand card image downloads: when the real Yu-Gi-Oh! catalog is imported locally
-          // (npm run catalog:import), pages showing uncached real cards would otherwise fetch
-          // artworks from the provider during the run; they get placeholders instead (ADR 0015).
-          env: { ...env, SERVER_PORT: String(PORTS.api), CARD_IMAGE_ON_DEMAND_ENABLED: 'false' },
-          echo: false,
-          logFile: path.join(LOG_DIR, 'e2e-api.log'),
-        }).start(),
-      );
-    }
-
-    if (webUp) {
-      log.info(`Reusing the web app already served on ${URLS.web} (--reuse-running).`);
-    } else {
-      log.step('Building design tokens and starting ng serve on :4200 (log .local-dev/logs/e2e-web.log)');
-      const tokens = await runNpm(['run', 'build:tokens'], { env });
-      if (tokens !== 0) {
-        return tokens;
-      }
-      started.push(
-        new ManagedProcess('web', ngInvocation(['serve', '--port', String(PORTS.web)]), {
-          cwd: WEB_DIR,
-          env,
-          echo: false,
-          logFile: path.join(LOG_DIR, 'e2e-web.log'),
-        }).start(),
-      );
-    }
-
-    const exitedReason = (name) => () => {
-      const child = started.find((candidate) => candidate.name === name);
-      return child && !child.running
-        ? `${name} exited (code ${child.exitInfo.code}); see ${child.logFile}`
-        : null;
-    };
-    log.step('Waiting for the API readiness and the web root');
-    const [apiWait, webWait] = await Promise.all([
-      waitForHttp(URLS.apiReadiness, { timeoutMs: 10 * 60_000, abortIf: exitedReason('api') }),
-      waitForHttp(`${URLS.web}/`, { timeoutMs: 10 * 60_000, abortIf: exitedReason('web') }),
-    ]);
-    log.ok(`API ready (${formatDuration(apiWait)}), web ready (${formatDuration(webWait)}).`);
-
-    log.step('Ensuring the Playwright Chromium browser is installed');
-    const install = await run(playwrightInvocation(['install', 'chromium']), { cwd: WEB_DIR, env });
-    if (install !== 0) {
-      return install;
-    }
-
-    // One retry, like CI (which retries twice): a spec that fails and then passes is reported as
-    // "flaky" in the summary (with a trace under apps/web-angular/test-results) instead of
-    // failing the whole local run. Pass --retries=0 to disable.
-    const playwrightArgs = rest.some((arg) => arg.startsWith('--retries')) ? rest : ['--retries=1', ...rest];
-    log.step(`Playwright: every spec under apps/web-angular/e2e (${playwrightArgs.join(' ')})`);
-    return await run(playwrightInvocation(['test', ...playwrightArgs]), {
-      cwd: WEB_DIR,
-      env: {
-        ...env,
-        E2E_BASE_URL: URLS.web,
-        E2E_API_URL: URLS.api,
-        E2E_AUTH_EMULATOR_URL: URLS.authEmulator,
-      },
-    });
-  } catch (error) {
-    log.error(error.message);
-    return 1;
-  } finally {
-    if (started.length > 0 && !interrupted) {
-      log.step('Stopping the API and the web dev server started for the E2E run');
-      await stopAll();
-    }
-  }
+/** node --test unit tests of the local scripts (isolation guards of the E2E harness and the purge). */
+function testScripts() {
+  log.step('Scripts: node --test scripts/lib');
+  return run(
+    { command: process.execPath, args: ['--test', 'scripts/lib/*.test.mjs'], shell: false },
+    { cwd: ROOT },
+  );
 }
 
 function mlPython() {
@@ -257,6 +128,7 @@ async function testMl() {
 
 async function testAll(args) {
   const suites = [
+    ['scripts', testScripts],
     ['api', testApi],
     ['web', testWeb],
     ['mobile', testMobile],
@@ -285,6 +157,7 @@ const suites = {
   api: testApi,
   web: testWeb,
   mobile: testMobile,
+  scripts: testScripts,
   e2e: () => testE2e(argv),
   all: () => testAll(argv),
   ml: testMl,

@@ -27,6 +27,7 @@
     "test:web": "node scripts/test.mjs web",
     "test:mobile": "node scripts/test.mjs mobile",
     "test:e2e": "node scripts/test.mjs e2e",
+    "test:scripts": "node scripts/test.mjs scripts",
     "test:all": "node scripts/test.mjs all",
     "test:ml": "node scripts/test.mjs ml",
     "build:tokens": "npm run build -w packages/design-tokens",
