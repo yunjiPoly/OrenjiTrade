@@ -96,13 +96,27 @@ test.describe('acceptance: map', () => {
     const markerA = mapMarker(pageB, a.displayName);
     await expect(markerA).toBeVisible({ timeout: 20_000 });
 
-    // A appears approximately: the derived public point, about a grid cell from A's centre.
+    // A appears approximately: the derived public point, about a grid cell from A's centre. The
+    // page's own answer is used when its body could be read; under load Chromium may drop a
+    // response body before it is read, so the same request (B's own area) is then made directly.
+    const includesA = (answer: NearbyAnswer | undefined) =>
+      !!answer?.collectors.some((c) => c.handle === a.handle);
+    let answer: NearbyAnswer | undefined;
     await expect
-      .poll(() => answers.find((answer) => answer.collectors.some((c) => c.handle === a.handle)))
-      .toBeTruthy();
-    const answer = answers.find((candidate) =>
-      candidate.collectors.some((c) => c.handle === a.handle),
-    )!;
+      .poll(
+        async () => {
+          answer =
+            answers.find(includesA) ??
+            (await api.ok<NearbyAnswer>('GET', '/api/v1/collectors/nearby', {
+              token: b.idToken,
+              params: { radiusKm: 10, limit: 200 },
+            }));
+          return includesA(answer);
+        },
+        { message: "B's nearby answer lists A", timeout: 20_000 },
+      )
+      .toBe(true);
+    answer = answer!;
     const shown = answer.collectors.find((collector) => collector.handle === a.handle)!;
     expect(shown.publicPoint).not.toEqual(area);
     expect(Math.abs(shown.publicPoint.lat - area.lat)).toBeLessThan(0.02);

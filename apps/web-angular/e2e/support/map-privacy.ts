@@ -24,9 +24,41 @@ export function metresToPixels(
 }
 
 /**
+ * Waits until `anchor` (a marker) sits inside the visible part of the map `container` and has
+ * stopped moving: the map may still be flying to the collectors' area (a late view request), and a
+ * wheel event aimed at a marker that is still off screen would zoom somewhere else.
+ */
+export async function waitForSettledMarker(container: Locator, anchor: Locator): Promise<void> {
+  let last = '';
+  await expect
+    .poll(
+      async () => {
+        const box = await container.boundingBox();
+        const marker = await anchor.boundingBox({ timeout: 2_000 }).catch(() => null);
+        if (!box || !marker) {
+          return 'missing';
+        }
+        const x = marker.x + marker.width / 2;
+        const y = marker.y + marker.height / 2;
+        const inside =
+          x > box.x + 40 &&
+          x < box.x + box.width - 40 &&
+          y > box.y + 40 &&
+          y < box.y + box.height - 40;
+        const here = `${Math.round(x)},${Math.round(y)}`;
+        const settled = inside && here === last;
+        last = here;
+        return settled ? 'settled' : 'moving';
+      },
+      { message: 'the marker is inside the map and still', timeout: 30_000, intervals: [500] },
+    )
+    .toBe('settled');
+}
+
+/**
  * Tries every way to zoom in past the cap on the map `container`: the scroll wheel over `anchor`
- * (a collector's marker, which therefore stays in view), then the "+" button, the keyboard ("+",
- * "=", numpad "+") and double clicks next to the anchor.
+ * (a collector's marker: zooming around it keeps it in view), then the "+" button, the keyboard
+ * ("=", "+", numpad "+") and double clicks next to the anchor.
  */
 export async function tryToZoomPastTheCap(
   page: Page,
@@ -35,6 +67,7 @@ export async function tryToZoomPastTheCap(
 ): Promise<void> {
   const settle = () => page.waitForTimeout(400); // zoom animations and Leaflet's wheel debounce
   for (let i = 0; i < 6; i++) {
+    await waitForSettledMarker(container, anchor);
     const { x, y } = await centreOf(anchor);
     await page.mouse.move(x, y);
     await page.mouse.wheel(0, -600);
@@ -59,11 +92,14 @@ export async function tryToZoomPastTheCap(
     await page.keyboard.press(key);
     await settle();
   }
+  // A double click at the cap may still pan half way towards the click: stay next to the anchor.
+  await waitForSettledMarker(container, anchor);
   const { x, y } = await centreOf(anchor);
   await page.mouse.dblclick(x + 60, y);
   await settle();
   await page.mouse.dblclick(x, y + 60);
   await settle();
+  await waitForSettledMarker(container, anchor);
 }
 
 /** Zoom levels of the map tiles currently in the DOM (`.../{z}/{x}/{y}.png`). */

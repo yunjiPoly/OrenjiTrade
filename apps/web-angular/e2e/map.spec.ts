@@ -20,7 +20,10 @@ import {
   tryToZoomPastTheCap,
 } from './support/map-privacy';
 import {
+  API_URL,
   OnboardedCollector,
+  authHeader,
+  coordinates,
   createOnboardedCollector,
   requireStack,
   signInThroughUi,
@@ -195,12 +198,33 @@ test.describe('map discovery and search', () => {
     });
     await signInThroughUi(page, viewer.email, viewer.password);
     await expect(page).toHaveURL(/\/map$/);
+    // The page's own answer when its body could be read (under load Chromium may drop a response
+    // body before it is read), else the same request (the viewer's own area) made directly.
+    const includesA = (candidate: NearbyAnswer | undefined) =>
+      !!candidate?.collectors.some((c) => c.handle === a.handle);
+    let answer: NearbyAnswer | undefined;
     await expect
-      .poll(() => answers.find((answer) => answer.collectors.some((c) => c.handle === a.handle)))
-      .toBeTruthy();
-    const answer = answers.find((candidate) =>
-      candidate.collectors.some((c) => c.handle === a.handle),
-    )!;
+      .poll(
+        async () => {
+          answer = answers.find(includesA);
+          if (!answer) {
+            const direct = await request.get(`${API_URL}/api/v1/collectors/nearby`, {
+              headers: authHeader(viewer.idToken),
+              params: { radiusKm: 10, limit: 200 },
+            });
+            answer = direct.ok() ? ((await direct.json()) as NearbyAnswer) : undefined;
+            if (answer) {
+              watcher.samples.push(
+                ...[...coordinates(answer)].map((sample) => ({ url: direct.url(), ...sample })),
+              );
+            }
+          }
+          return includesA(answer);
+        },
+        { message: "the viewer's nearby answer lists the seller", timeout: 20_000 },
+      )
+      .toBe(true);
+    answer = answer!;
     expect(answer.center).not.toEqual(seller.area);
     expect(answer.center).not.toEqual(viewerCentre(seller.area));
     const found = answer.collectors.find((collector) => collector.handle === a.handle)!;

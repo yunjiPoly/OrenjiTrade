@@ -89,8 +89,9 @@ test.describe('admin console', () => {
   test('moderators only see the moderation areas', async ({ page }) => {
     await signInThroughUi(page, 'moderator@orenjitrade.test', SEED_PASSWORD);
     await page.goto('/admin/users');
-    await expect(page).toHaveURL(/\/admin$/);
+    // The guard's 5 s snack bar first, then the (slower) redirect target.
     await expect(page.getByText('This admin area is limited to administrators.')).toBeVisible();
+    await expect(page).toHaveURL(/\/admin$/);
     const nav = page.getByRole('navigation', { name: 'Admin sections' });
     await expect(nav.getByText('Reports')).toBeVisible();
     await expect(nav.getByText('Users')).toHaveCount(0);
