@@ -12,9 +12,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Forwards the realtime envelopes of {@code rt:user:*} to the STOMP sessions of this instance
- * ({@code /user/{userId}/queue/...} through the user destination resolver: only that account's
- * sessions receive them). Unknown destinations and malformed envelopes are dropped.
+ * Forwards the realtime envelopes of {@code rt:user:*} (the configured {@link
+ * RealtimeProperties#channelPrefix()}) to the STOMP sessions of this instance ({@code
+ * /user/{userId}/queue/...} through the user destination resolver: only that account's sessions
+ * receive them). Unknown destinations and malformed envelopes are dropped.
  */
 public class RealtimeRedisListener implements MessageListener {
 
@@ -22,19 +23,22 @@ public class RealtimeRedisListener implements MessageListener {
 
     private final SimpMessagingTemplate template;
     private final JsonMapper jsonMapper;
+    private final String channelPrefix;
 
-    public RealtimeRedisListener(SimpMessagingTemplate template, JsonMapper jsonMapper) {
+    public RealtimeRedisListener(
+            SimpMessagingTemplate template, JsonMapper jsonMapper, String channelPrefix) {
         this.template = template;
         this.jsonMapper = jsonMapper;
+        this.channelPrefix = channelPrefix;
     }
 
     @Override
     public void onMessage(Message message, byte @Nullable [] pattern) {
         String channel = new String(message.getChannel(), StandardCharsets.UTF_8);
-        if (!channel.startsWith(RedisRealtimePublisher.CHANNEL_PREFIX)) {
+        if (!channel.startsWith(channelPrefix)) {
             return;
         }
-        String user = channel.substring(RedisRealtimePublisher.CHANNEL_PREFIX.length());
+        String user = channel.substring(channelPrefix.length());
         try {
             UUID.fromString(user);
             RealtimeEnvelope envelope =

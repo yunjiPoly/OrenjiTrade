@@ -28,8 +28,9 @@ import tools.jackson.databind.json.JsonMapper;
  * Realtime channel (Phase 5 contract "Realtime"): STOMP over native WebSocket at {@code /ws} (no
  * SockJS), an in-memory simple broker for {@code /queue} per instance, user destinations under
  * {@code /user}, application destinations under {@code /app}, server heartbeats every 20 s, and the
- * Redis subscription {@code rt:user:*} that forwards cross-instance publications to the local
- * sessions. Allowed origins are the CORS origins of {@code orenji.security.cors}.
+ * Redis subscription {@code rt:user:*} (prefix {@code orenji.realtime.channel-prefix}) that
+ * forwards cross-instance publications to the local sessions. Allowed origins are the CORS origins
+ * of {@code orenji.security.cors}.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableWebSocketMessageBroker
@@ -92,12 +93,14 @@ public class RealtimeConfig implements WebSocketMessageBrokerConfigurer, Disposa
     RedisMessageListenerContainer realtimeListenerContainer(
             RedisConnectionFactory connectionFactory,
             SimpMessagingTemplate brokerMessagingTemplate,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper,
+            RealtimeProperties realtime) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         container.addMessageListener(
-                new RealtimeRedisListener(brokerMessagingTemplate, jsonMapper),
-                new PatternTopic(RedisRealtimePublisher.CHANNEL_PREFIX + "*"));
+                new RealtimeRedisListener(
+                        brokerMessagingTemplate, jsonMapper, realtime.channelPrefix()),
+                new PatternTopic(realtime.pattern()));
         return container;
     }
 

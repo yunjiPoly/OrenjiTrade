@@ -15,28 +15,30 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Cross-instance realtime fan-out (Phase 5 contract): publishes {@code {destination, payload}} to
- * the Redis channel {@code rt:user:{userId}}; every instance ({@link RealtimeRedisListener})
- * forwards it to its local sessions of that account. When Redis is unavailable the payload is
- * delivered to the sessions of this instance only. Never throws.
+ * the Redis channel {@code rt:user:{userId}} (prefix {@link RealtimeProperties#channelPrefix()});
+ * every instance ({@link RealtimeRedisListener}) forwards it to its local sessions of that account.
+ * When Redis is unavailable the payload is delivered to the sessions of this instance only. Never
+ * throws.
  */
 @Component
 public class RedisRealtimePublisher implements RealtimePublisher {
-
-    public static final String CHANNEL_PREFIX = "rt:user:";
 
     private static final Logger log = LoggerFactory.getLogger(RedisRealtimePublisher.class);
 
     private final StringRedisTemplate redis;
     private final JsonMapper jsonMapper;
     private final ObjectProvider<SimpMessagingTemplate> localTemplate;
+    private final RealtimeProperties properties;
 
     public RedisRealtimePublisher(
             StringRedisTemplate redis,
             JsonMapper jsonMapper,
-            ObjectProvider<SimpMessagingTemplate> localTemplate) {
+            ObjectProvider<SimpMessagingTemplate> localTemplate,
+            RealtimeProperties properties) {
         this.redis = redis;
         this.jsonMapper = jsonMapper;
         this.localTemplate = localTemplate;
+        this.properties = properties;
     }
 
     @Override
@@ -53,7 +55,8 @@ public class RedisRealtimePublisher implements RealtimePublisher {
             return;
         }
         try {
-            redis.convertAndSend(CHANNEL_PREFIX + userId, jsonMapper.writeValueAsString(envelope));
+            redis.convertAndSend(
+                    properties.channelOf(userId), jsonMapper.writeValueAsString(envelope));
         } catch (DataAccessException e) {
             log.warn(
                     "Redis unavailable for realtime fan-out, delivering locally: {}",
