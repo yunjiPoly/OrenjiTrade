@@ -254,6 +254,35 @@ public class AccountDeletionService {
         return new DeletionJobResult(processed, skipped, failed);
     }
 
+    /**
+     * Local/dev maintenance only ({@code npm run e2e:purge}, fictional test accounts): processes
+     * one pending request right away, without waiting for the rest of its grace period, through
+     * exactly the job's steps (every participant purges, the account is anonymised, the identity is
+     * deleted, consents and audit kept). No other request is touched.
+     *
+     * @return {@code true} when the request was processed, {@code false} when it is no longer
+     *     pending (cancelled or already processed)
+     */
+    public boolean processNow(UUID requestId) {
+        Instant scheduledFor =
+                transaction.execute(
+                        status ->
+                                repository
+                                        .findById(requestId)
+                                        .filter(
+                                                request ->
+                                                        request.getStatus()
+                                                                == DeletionRequestStatus.PENDING)
+                                        .map(AccountDeletionRequest::getScheduledFor)
+                                        .orElse(null));
+        if (scheduledFor == null) {
+            return false;
+        }
+        Instant now = timeProvider.now();
+        Instant dueAt = scheduledFor.isAfter(now) ? scheduledFor : now;
+        return Boolean.TRUE.equals(transaction.execute(status -> processOne(requestId, dueAt)));
+    }
+
     private boolean processOne(UUID requestId, Instant now) {
         Optional<AccountDeletionRequest> locked = repository.lockDue(requestId, now);
         if (locked.isEmpty()) {
