@@ -10,11 +10,14 @@ import SearchScreen from '@/app/(tabs)/search';
 import WishlistScreen from '@/app/(tabs)/wishlist';
 import { TABS } from '@/src/navigation/tabs';
 
-import { TestProviders } from '../test-utils';
+import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
+import { mockApi } from '../support/mockApi';
+import { signedInRoutes } from '../support/routes';
+import { TestProviders, resetAppState } from '../test-utils';
 
 function TestRootLayout() {
   return (
-    <TestProviders>
+    <TestProviders port={new FakeAuthPort(testUser())}>
       <Slot />
     </TestProviders>
   );
@@ -32,6 +35,11 @@ const routes = {
 };
 
 describe('(tabs) layout', () => {
+  beforeEach(() => {
+    resetAppState();
+    mockApi(signedInRoutes());
+  });
+
   it('declares the six product tabs in order', () => {
     expect(TABS.map((tab) => tab.title)).toEqual([
       'Map',
@@ -60,6 +68,6 @@ describe('(tabs) layout', () => {
     fireEvent.press(screen.getByLabelText('Profile tab'));
 
     expect(await screen.findByTestId('screen-profile')).toBeOnTheScreen();
-    expect(screen.getByText('Not signed in')).toBeOnTheScreen();
+    expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
   });
 });
