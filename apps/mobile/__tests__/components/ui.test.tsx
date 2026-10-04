@@ -1,5 +1,5 @@
-import { act, fireEvent, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { KeyboardAvoidingView, ScrollView, Text } from 'react-native';
 
 import { ApiError } from '@/src/api/ApiError';
 import { Button } from '@/src/components/ui/Button';
@@ -13,6 +13,7 @@ import {
   SwitchRow,
 } from '@/src/components/ui/FormControls';
 import { QueryState } from '@/src/components/ui/QueryState';
+import { Screen } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Stepper } from '@/src/components/ui/Stepper';
 import { nextRadius } from '@/src/lib/location';
@@ -61,6 +62,31 @@ describe('CardImage', () => {
     expect(screen.getByText('YGOPRODeck')).toBeOnTheScreen();
     renderWithProviders(<CardDataCredit game="pokemon" testID="none" />);
     expect(screen.queryByTestId('none')).toBeNull();
+  });
+});
+
+describe('Screen', () => {
+  it('keeps scrolling forms above the on-screen keyboard', () => {
+    renderWithProviders(
+      <Screen scroll testID="screen-form">
+        <Text>Form</Text>
+      </Screen>
+    );
+    const avoiding = screen.UNSAFE_getByType(KeyboardAvoidingView);
+    expect(avoiding.props.behavior).toBe('padding');
+    const scroll = within(avoiding).UNSAFE_getByType(ScrollView);
+    expect(scroll.props.testID).toBe('screen-form');
+    expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+  });
+
+  it('renders a plain container without scrolling', () => {
+    renderWithProviders(
+      <Screen testID="screen-plain">
+        <Text>Plain</Text>
+      </Screen>
+    );
+    expect(screen.UNSAFE_queryByType(KeyboardAvoidingView)).toBeNull();
+    expect(screen.getByText('Plain')).toBeOnTheScreen();
   });
 });
 

@@ -26,6 +26,8 @@ export default function TabLayout() {
           options={{
             title: tab.title,
             tabBarAccessibilityLabel: `${tab.title} tab`,
+            // Stable selector for the native Maestro flows (resource-id on Android).
+            tabBarButtonTestID: `tab-${tab.name}`,
             tabBarIcon: ({ color, focused, size }) => (
               <MaterialCommunityIcons
                 name={focused ? tab.iconFocused : tab.icon}

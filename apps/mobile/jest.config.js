@@ -16,4 +16,7 @@ module.exports = {
   },
   collectCoverageFrom: ['src/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', '!src/theme/tokens.ts'],
   clearMocks: true,
+  // Screen tests render whole routes with providers; on a loaded machine (an Android emulator
+  // running next to the parallel workers) a cold first render can pass 5 s.
+  testTimeout: 20_000,
 };

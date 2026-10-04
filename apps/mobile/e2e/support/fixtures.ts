@@ -83,8 +83,15 @@ export class PrivacyScanner {
     // would write into the developer's database.
     page.on('request', (request) => {
       const url = new URL(request.url());
-      if (url.port === String(DEV_API_PORT) && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)) {
-        this.findings.push({ url: request.url(), path: '-', detail: 'request to the developer API' });
+      if (
+        url.port === String(DEV_API_PORT) &&
+        /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)
+      ) {
+        this.findings.push({
+          url: request.url(),
+          path: '-',
+          detail: 'request to the developer API',
+        });
       }
     });
     page.on('response', (response) => {

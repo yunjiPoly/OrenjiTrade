@@ -57,6 +57,8 @@ describe('(tabs) layout', () => {
     expect(await screen.findByTestId('screen-map')).toBeOnTheScreen();
     for (const tab of TABS) {
       expect(screen.getByLabelText(`${tab.title} tab`)).toBeOnTheScreen();
+      // Stable ids for the native Maestro flows.
+      expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
     expect(screen.getByText('Collectors appear here in Phase 4')).toBeOnTheScreen();
   });

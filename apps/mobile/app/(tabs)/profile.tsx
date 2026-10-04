@@ -48,15 +48,22 @@ export default function ProfileScreen() {
           icon="map-marker-radius-outline"
           label="Location and discoverability"
           onPress={() => router.push('/settings/location')}
+          testID="profile-location"
         />
         <Divider />
         <ListRow
           icon="shield-account-outline"
           label="Privacy"
           onPress={() => router.push('/settings/privacy')}
+          testID="profile-privacy"
         />
         <Divider />
-        <ListRow icon="file-document-outline" label="Legal" onPress={() => router.push('/legal')} />
+        <ListRow
+          icon="file-document-outline"
+          label="Legal"
+          onPress={() => router.push('/legal')}
+          testID="profile-legal"
+        />
         <Divider />
         <ListRow
           icon="logout"
