@@ -33,6 +33,7 @@ import {
 } from '../../../shared/catalog/card-pictures';
 import { DiscoveryCentreService } from '../../../shared/discovery/discovery-centre';
 import { CITY_PRESETS, CityPreset, zoomForRadius } from '../../../shared/location/city-presets';
+import { COLLECTOR_MAP_MAX_ZOOM } from '../../../shared/map/approximate-area';
 import {
   LatLng,
   MapBounds,
@@ -280,8 +281,8 @@ export class MapDiscoveryStore {
           this.previewState.set({ kind: 'ready', handle, preview });
           this.loadFirstBinder(handle, preview.publicBinderCount);
           if (!marker) {
-            // Chosen from the search box: bring the collector into view.
-            this.requestView({ centre: preview.publicPoint, zoom: 14 });
+            // Chosen from the search box: bring the collector into view, at most at the cap.
+            this.requestView({ centre: preview.publicPoint, zoom: COLLECTOR_MAP_MAX_ZOOM });
           }
         },
         error: (error: unknown) => {
@@ -303,8 +304,9 @@ export class MapDiscoveryStore {
   }
 
   /**
-   * Zooms into a marker cluster: to its bounds, or straight past the clustering zoom when its
-   * collectors share (almost) the same public point.
+   * Zooms into a marker cluster: to its bounds, or straight to the clustering zoom (the map's zoom
+   * cap, where every collector is drawn on their own) when its collectors share (almost) the same
+   * public point.
    */
   zoomTo(bounds: MapBounds): void {
     const spanKm = distanceKm(
@@ -314,7 +316,10 @@ export class MapDiscoveryStore {
     if (spanKm < 0.5 || this.zoomState() >= CLUSTER_MAX_ZOOM - 2) {
       this.requestView({
         centre: { lat: (bounds.north + bounds.south) / 2, lng: (bounds.east + bounds.west) / 2 },
-        zoom: Math.max(CLUSTER_MAX_ZOOM, Math.round(this.zoomState()) + 1),
+        zoom: Math.min(
+          COLLECTOR_MAP_MAX_ZOOM,
+          Math.max(CLUSTER_MAX_ZOOM, Math.round(this.zoomState()) + 1),
+        ),
       });
       return;
     }

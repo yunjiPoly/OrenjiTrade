@@ -1,4 +1,12 @@
 import {
+  APPROXIMATE_AREA_RADIUS_M,
+  APPROXIMATE_LOCATION_NOTE,
+  COLLECTOR_MAP_MAX_ZOOM,
+  approximateAreaCircle,
+} from './approximate-area';
+import {
+  circleStyle,
+  clampZoom,
   distanceKm,
   escapeHtml,
   markerIconHtml,
@@ -54,5 +62,44 @@ describe('map adapter helpers', () => {
     );
     expect(markerIconSize('avatar')).toBe(44);
     expect(markerIconSize(undefined)).toBe(32);
+  });
+});
+
+describe('zoom limits', () => {
+  it('clamps zoom requests to the limits that are set', () => {
+    expect(clampZoom(18, { maxZoom: 14 })).toBe(14);
+    expect(clampZoom(14, { maxZoom: 14 })).toBe(14);
+    expect(clampZoom(11, { maxZoom: 14 })).toBe(11);
+    expect(clampZoom(2, { minZoom: 3, maxZoom: 14 })).toBe(3);
+    expect(clampZoom(19, {})).toBe(19);
+  });
+});
+
+describe('approximate areas of collectors', () => {
+  it('caps collector maps at zoom 14 and draws 2 km wide discs', () => {
+    expect(COLLECTOR_MAP_MAX_ZOOM).toBe(14);
+    expect(APPROXIMATE_AREA_RADIUS_M).toBe(1000);
+    expect(APPROXIMATE_LOCATION_NOTE).toBe('Locations are approximate (about 2 km)');
+  });
+
+  it('builds the disc of a public point, emphasised for the selected collector', () => {
+    const point = { lat: 45.523, lng: -73.583 };
+    expect(approximateAreaCircle('area:maika', point)).toEqual({
+      id: 'area:maika',
+      center: point,
+      radiusMeters: 1000,
+      variant: 'approximate',
+    });
+    expect(approximateAreaCircle('area:maika', point, true).variant).toBe('area');
+  });
+
+  it('styles approximate discs lighter than areas and solid unlike the search radius', () => {
+    const approximate = circleStyle('approximate');
+    const area = circleStyle('area');
+    expect(circleStyle(undefined)).toEqual(area);
+    expect(approximate.fillOpacity).toBeGreaterThan(0);
+    expect(approximate.fillOpacity).toBeLessThan(area.fillOpacity);
+    expect(approximate.dashed).toBe(false);
+    expect(circleStyle('search').dashed).toBe(true);
   });
 });

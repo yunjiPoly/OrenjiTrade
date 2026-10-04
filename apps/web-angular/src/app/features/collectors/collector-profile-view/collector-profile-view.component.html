@@ -157,7 +157,8 @@
           <app-approximate-area-map [point]="location.publicPoint" [label]="location.publicLabel" />
           <p class="collector__muted collector__note">
             <mat-icon aria-hidden="true">shield_person</mat-icon>
-            Approximate area around {{ location.publicLabel }}. Exact locations are never shown.
+            Approximate area (about 2 km) around {{ location.publicLabel }}. Exact locations are
+            never shown.
           </p>
         } @else {
           <p class="collector__muted">

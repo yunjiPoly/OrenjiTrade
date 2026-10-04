@@ -1,5 +1,15 @@
 import type { CollectorMarker } from '@orenji/api-client';
-import { buildCollectorMarkers, collectorMarkerId, handleFromMarkerId } from './map-markers';
+import {
+  APPROXIMATE_AREA_RADIUS_M,
+  COLLECTOR_MAP_MAX_ZOOM,
+} from '../../../shared/map/approximate-area';
+import {
+  buildCollectorMarkers,
+  collectorAreaId,
+  collectorMarkerId,
+  handleFromMarkerId,
+} from './map-markers';
+import { CLUSTER_MAX_ZOOM } from './marker-clusters';
 import { collector } from './testing/collector-fixtures';
 
 describe('collector markers', () => {
@@ -43,5 +53,51 @@ describe('collector markers', () => {
     expect(cluster?.label).toBe('69');
     expect(cluster?.title).toBe('69 collectors here. Zoom in');
     expect(markers.find((marker) => marker.id === 'collector:c5')?.selected).toBe(true);
+  });
+
+  it('draws a 2 km approximate-area disc in metres under every collector', () => {
+    const { areas } = buildCollectorMarkers(
+      [collector('maika'), collector('noah', { publicPoint: { lat: 45.5, lng: -73.6 } })],
+      12,
+      'noah',
+      null,
+    );
+    expect(areas).toEqual([
+      {
+        id: collectorAreaId('maika'),
+        center: { lat: 45.523, lng: -73.583 },
+        radiusMeters: APPROXIMATE_AREA_RADIUS_M,
+        variant: 'approximate',
+      },
+      // The selected collector's disc is emphasised.
+      {
+        id: collectorAreaId('noah'),
+        center: { lat: 45.5, lng: -73.6 },
+        radiusMeters: APPROXIMATE_AREA_RADIUS_M,
+        variant: 'area',
+      },
+    ]);
+    expect(APPROXIMATE_AREA_RADIUS_M).toBe(1000);
+  });
+
+  it('gives clustered collectors no disc but keeps the selected one', () => {
+    const crowd = Array.from({ length: 70 }, (_, i) => collector(`c${i}`));
+    const { areas } = buildCollectorMarkers(crowd, 12, 'c5', null);
+    expect(areas.map((area) => area.id)).toEqual([collectorAreaId('c5')]);
+  });
+
+  it('draws every collector on their own, with a disc, at the zoom cap', () => {
+    const crowd = Array.from({ length: 70 }, (_, i) => collector(`c${i}`));
+    const { markers, areas, clusters } = buildCollectorMarkers(
+      crowd,
+      COLLECTOR_MAP_MAX_ZOOM,
+      null,
+      null,
+    );
+    expect(CLUSTER_MAX_ZOOM).toBeLessThanOrEqual(COLLECTOR_MAP_MAX_ZOOM);
+    expect(clusters.size).toBe(0);
+    expect(markers).toHaveLength(70);
+    expect(areas).toHaveLength(70);
+    expect(areas.every((area) => area.radiusMeters === APPROXIMATE_AREA_RADIUS_M)).toBe(true);
   });
 });

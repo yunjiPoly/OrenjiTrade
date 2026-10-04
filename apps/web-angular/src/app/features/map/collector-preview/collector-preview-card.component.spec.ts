@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ApiError } from '../../../core/http/api-error';
+import { APPROXIMATE_LOCATION_NOTE } from '../../../shared/map/approximate-area';
 import type { PreviewState } from '../data/map-discovery.store';
 import { collector, matchingItem, preview } from '../data/testing/collector-fixtures';
 import { CollectorPreviewCardComponent } from './collector-preview-card.component';
@@ -63,6 +64,18 @@ describe('CollectorPreviewCardComponent', () => {
     expect(button('Message')?.getAttribute('aria-disabled')).toBe('true');
     // Never a coordinate on screen.
     expect(element.textContent).not.toMatch(/45\.52|73\.58/);
+  });
+
+  it('says that the location is approximate (about 2 km)', async () => {
+    await render(
+      { kind: 'ready', handle: 'maika', preview: preview('maika') },
+      { signedIn: false },
+    );
+    const note = element.querySelector('[data-testid=preview-approximate]');
+    expect(note?.textContent).toContain('Locations are approximate (about 2 km)');
+    expect(note?.textContent).toContain(APPROXIMATE_LOCATION_NOTE);
+    // Decorative icon only: screen readers read the sentence.
+    expect(note?.querySelector('mat-icon')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('asks signed-out visitors to sign in for distances and disables a missing binder', async () => {

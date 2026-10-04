@@ -7,6 +7,12 @@ import { of } from 'rxjs';
 import { AppConfigService } from '../../core/config/app-config.service';
 import { GamesStore } from '../../shared/catalog/games.store';
 import { CITY_PRESETS } from '../../shared/location/city-presets';
+import {
+  APPROXIMATE_AREA_RADIUS_M,
+  APPROXIMATE_LOCATION_NOTE,
+  COLLECTOR_MAP_MAX_ZOOM,
+} from '../../shared/map/approximate-area';
+import { MapAdapterOptions } from '../../shared/map/map-adapter';
 import { LEAFLET_MAP_LOADER } from '../../shared/map/map-adapter.factory';
 import { FakeMapAdapter } from '../../shared/map/testing/fake-map-adapter';
 import { MapDiscoveryStore, MapViewRequest, PreviewState } from './data/map-discovery.store';
@@ -63,16 +69,20 @@ describe('MapPageComponent', () => {
   let fixture: ComponentFixture<MapPageComponent>;
   let store: FakeStore;
   let adapter: FakeMapAdapter;
+  let loader: ReturnType<typeof vi.fn>;
   let router: Router;
 
   beforeEach(async () => {
     store = new FakeStore();
     adapter = new FakeMapAdapter();
+    loader = vi.fn(async (_container: HTMLElement, options: MapAdapterOptions) =>
+      adapter.created(options),
+    );
     TestBed.configureTestingModule({
       imports: [MapPageComponent],
       providers: [
         provideRouter([]),
-        { provide: LEAFLET_MAP_LOADER, useValue: vi.fn(async () => adapter) },
+        { provide: LEAFLET_MAP_LOADER, useValue: loader },
         { provide: GamesStore, useValue: { load: vi.fn(), games: signal([]) } },
         { provide: ProfileService, useValue: { searchTags: vi.fn(() => of([])) } },
         { provide: MatSnackBar, useValue: { open: vi.fn() } },
@@ -101,10 +111,12 @@ describe('MapPageComponent', () => {
     expect(element.querySelector('[data-testid=map-status]')?.textContent).toContain(
       '2 collectors within 10 km',
     );
-    expect(element.textContent).toContain('Positions are approximate to protect privacy');
+    expect(element.textContent).toContain(
+      'Locations are approximate (about 2 km) to protect privacy',
+    );
   });
 
-  it('draws the collectors as avatar markers and a dashed search radius', () => {
+  it('draws the collectors as avatar markers over approximate areas and a dashed search radius', () => {
     expect(adapter.markers.map((marker) => marker.id)).toEqual([
       'collector:maika',
       'collector:noah',
@@ -112,7 +124,53 @@ describe('MapPageComponent', () => {
     expect(adapter.markers.every((marker) => marker.variant === 'avatar')).toBe(true);
     expect(adapter.circles).toEqual([
       expect.objectContaining({ radiusMeters: 10_000, variant: 'search' }),
+      {
+        id: 'area:maika',
+        center: { lat: 45.523, lng: -73.583 },
+        radiusMeters: APPROXIMATE_AREA_RADIUS_M,
+        variant: 'approximate',
+      },
+      {
+        id: 'area:noah',
+        center: { lat: 45.5, lng: -73.6 },
+        radiusMeters: APPROXIMATE_AREA_RADIUS_M,
+        variant: 'approximate',
+      },
     ]);
+  });
+
+  it('renders the approximate-area cue: legend note, emphasised disc and zoom cap', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const note = element.querySelector('[data-testid=map-approximate-note]');
+    expect(note?.textContent).toContain(APPROXIMATE_LOCATION_NOTE);
+    expect(note?.textContent).toContain('Locations are approximate (about 2 km)');
+    // The map is created with the collector zoom cap and announces the approximation.
+    const options = loader.mock.calls[0][1] as MapAdapterOptions;
+    expect(options.maxZoom).toBe(COLLECTOR_MAP_MAX_ZOOM);
+    expect(options.ariaLabel).toContain(APPROXIMATE_LOCATION_NOTE);
+
+    // Selecting a collector emphasises their disc.
+    adapter.activate('collector:noah');
+    await fixture.whenStable();
+    expect(adapter.circles.find((circle) => circle.id === 'area:noah')?.variant).toBe('area');
+    expect(adapter.circles.find((circle) => circle.id === 'area:maika')?.variant).toBe(
+      'approximate',
+    );
+
+    // A view request above the cap (e.g. a stale deep link) is clamped.
+    store.viewRequest.set({ seq: 2, centre: { lat: 45.5, lng: -73.6 }, zoom: 18 });
+    await fixture.whenStable();
+    expect(adapter.getViewport().zoom).toBe(COLLECTOR_MAP_MAX_ZOOM);
+
+    // The legend explains the discs.
+    const legendToggle = [...element.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Legend',
+    )!;
+    legendToggle.click();
+    await fixture.whenStable();
+    expect(element.querySelector('#map-legend-keys')?.textContent).toContain(
+      'Approximate area of a collector',
+    );
   });
 
   it('opens a preview from a marker and reports viewport changes', () => {

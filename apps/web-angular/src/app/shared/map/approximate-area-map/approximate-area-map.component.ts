@@ -12,15 +12,19 @@ import {
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { SkeletonComponent } from '../../ui/skeleton/skeleton.component';
+import {
+  APPROXIMATE_AREA_RADIUS_M,
+  COLLECTOR_MAP_MAX_ZOOM,
+  approximateAreaCircle,
+} from '../approximate-area';
 import { LatLng, MapAdapter, circleBounds } from '../map-adapter';
 import { MapAdapterFactory } from '../map-adapter.factory';
 
-/** Radius drawn around a public point: the grid cell size, to show it is approximate. */
-const APPROXIMATION_METERS = 1000;
-
 /**
- * Small map showing a collector's public point as a ~1 km circle (never a pin on an address).
- * Uses the MapAdapter (Leaflet/OpenStreetMap unless a Google key is configured).
+ * Small map showing a collector's public point as an approximate area about 2 km wide (the shared
+ * {@link APPROXIMATE_AREA_RADIUS_M} disc, never a pin on an address), never zoomed closer than
+ * {@link COLLECTOR_MAP_MAX_ZOOM}. Uses the MapAdapter (Leaflet/OpenStreetMap unless a Google key
+ * is configured).
  */
 @Component({
   selector: 'app-approximate-area-map',
@@ -104,6 +108,7 @@ export class ApproximateAreaMapComponent {
         zoom: 12,
         ariaLabel: `Map of the approximate area: ${this.label()}`,
         scrollWheelZoom: false,
+        maxZoom: COLLECTOR_MAP_MAX_ZOOM,
       });
       this.state.set('ready');
       this.render(this.point());
@@ -117,7 +122,7 @@ export class ApproximateAreaMapComponent {
     if (!this.adapter) {
       return;
     }
-    this.adapter.setCircles([{ id: 'approx', center: point, radiusMeters: APPROXIMATION_METERS }]);
-    this.adapter.fitBounds(circleBounds(point, APPROXIMATION_METERS * 2.5), 8);
+    this.adapter.setCircles([approximateAreaCircle('approx', point, true)]);
+    this.adapter.fitBounds(circleBounds(point, APPROXIMATE_AREA_RADIUS_M * 2.5), 8);
   }
 }

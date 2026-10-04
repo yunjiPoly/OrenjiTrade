@@ -50,7 +50,9 @@ test.describe('app shell', () => {
     await expect(
       page.locator('#map-messages-panel').getByRole('link', { name: 'Sign in to message' }),
     ).toHaveAttribute('href', '/auth/sign-in?returnUrl=%2Fmap');
-    await expect(page.getByText('Positions are approximate to protect privacy')).toBeVisible();
+    await expect(
+      page.getByText('Locations are approximate (about 2 km) to protect privacy'),
+    ).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Search the map' })).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'List', exact: true })).toBeVisible();
