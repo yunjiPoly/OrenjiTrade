@@ -80,17 +80,22 @@ test.describe('admin console', () => {
 
   test('collectors cannot open the admin console', async ({ page }) => {
     await signInThroughUi(page, 'collector3@orenjitrade.test', SEED_PASSWORD);
-    await page.goto('/admin/users');
-    // The guard's notice is a 5 s snack bar: check it before waiting for the (slower) map page.
-    await expect(page.getByText('The admin console is limited to staff accounts.')).toBeVisible();
+    // The guard's notice is a 5 s snack bar: look for it from the moment the navigation commits
+    // (waiting for the full page load can outlast the snack bar under a loaded parallel run).
+    await page.goto('/admin/users', { waitUntil: 'commit' });
+    await expect(page.getByText('The admin console is limited to staff accounts.')).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(page).toHaveURL(/\/map$/);
   });
 
   test('moderators only see the moderation areas', async ({ page }) => {
     await signInThroughUi(page, 'moderator@orenjitrade.test', SEED_PASSWORD);
-    await page.goto('/admin/users');
-    // The guard's 5 s snack bar first, then the (slower) redirect target.
-    await expect(page.getByText('This admin area is limited to administrators.')).toBeVisible();
+    // The guard's 5 s snack bar first (from the navigation commit), then the redirect target.
+    await page.goto('/admin/users', { waitUntil: 'commit' });
+    await expect(page.getByText('This admin area is limited to administrators.')).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(page).toHaveURL(/\/admin$/);
     const nav = page.getByRole('navigation', { name: 'Admin sections' });
     await expect(nav.getByText('Reports')).toBeVisible();
