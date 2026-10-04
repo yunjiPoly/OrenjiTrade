@@ -1,0 +1,100 @@
+# Location and discoverability (Phase 1, ADR 0004): a fresh collector is hidden by default,
+# picks a manual trading area from the public city presets, saves it, then opts into the map.
+# The app only shows the API's public label, never coordinates.
+appId: host.exp.exponent
+name: Trading area and discoverability
+tags:
+  - mobile-m1
+  - location
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: area
+      DISPLAY_NAME: Maestro Mapper
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- runFlow: subflows/open-profile-tab.yaml
+- scrollUntilVisible:
+    element:
+      id: 'profile-visibility'
+    direction: DOWN
+- assertVisible:
+    id: 'profile-visibility'
+    text: 'Hidden from the map.'
+- scrollUntilVisible:
+    element:
+      id: 'profile-location'
+    direction: DOWN
+- tapOn:
+    id: 'profile-location'
+- extendedWaitUntil:
+    visible:
+      id: 'area-public-label'
+      text: 'No trading area saved yet.'
+    timeout: 30000
+
+# Hidden by default.
+- scrollUntilVisible:
+    element:
+      id: 'location-visibility'
+    direction: DOWN
+- assertVisible:
+    id: 'location-visibility'
+    text: 'You have no trading area yet.*'
+- assertVisible:
+    id: 'location-discoverable'
+    checked: false
+
+# A manual trading area: a public city centre and a wider radius.
+- scrollUntilVisible:
+    element: 'Québec'
+    direction: UP
+- tapOn: 'Québec'
+- scrollUntilVisible:
+    element:
+      id: 'area-radius-increase'
+    direction: DOWN
+- tapOn:
+    id: 'area-radius-increase'
+- assertVisible:
+    id: 'area-radius-value'
+    text: '6 km'
+- scrollUntilVisible:
+    element:
+      id: 'location-save'
+    direction: DOWN
+- tapOn:
+    id: 'location-save'
+- extendedWaitUntil:
+    visible: 'Trading area saved.*'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'area-public-label'
+    direction: UP
+- assertVisible:
+    id: 'area-public-label'
+    text: '.*6 km radius'
+
+# Opt into the map.
+- scrollUntilVisible:
+    element:
+      id: 'location-discoverable'
+    direction: DOWN
+- tapOn:
+    id: 'location-discoverable'
+- extendedWaitUntil:
+    visible: 'You now appear on the map.'
+    timeout: 30000
+- assertVisible:
+    id: 'location-discoverable'
+    checked: true
+- assertVisible:
+    id: 'location-visibility'
+    text: 'Collectors see you near.*'
+- takeScreenshot: discoverability-on

@@ -1,0 +1,14 @@
+# Opens the app in Expo Go with no stored data (no Firebase session, no cached queries). Expo Go
+# then shows its developer-menu introduction once the project is loaded; it is dismissed here.
+appId: host.exp.exponent
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+- openLink: ${APP_URL}
+- extendedWaitUntil:
+    visible: 'SDK version.*'
+    timeout: 240000
+    optional: true
+- runFlow: dismiss-dev-menu.yaml
+- runFlow: wait-for-app.yaml

@@ -1,0 +1,13 @@
+# Opens the Profile tab and waits for the collector's profile.
+appId: host.exp.exponent
+---
+- extendedWaitUntil:
+    visible:
+      id: 'tab-profile'
+    timeout: 60000
+- tapOn:
+    id: 'tab-profile'
+- extendedWaitUntil:
+    visible:
+      id: 'profile-name'
+    timeout: 60000

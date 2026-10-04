@@ -281,7 +281,9 @@ export async function testMobileMaestro(argv) {
     }
 
     fs.mkdirSync(MAESTRO_OUTPUT, { recursive: true });
-    const targets = rest.length > 0 ? rest : [MAESTRO_DIR];
+    // Flow paths are relative to where npm was invoked (INIT_CWD), Maestro runs in apps/mobile.
+    const invokedFrom = process.env.INIT_CWD ?? process.cwd();
+    const targets = rest.length > 0 ? rest.map((target) => path.resolve(invokedFrom, target)) : [MAESTRO_DIR];
     const env = {
       APP_URL: `exp://${EMULATOR_HOST}:${METRO_PORT}`,
       API_URL,

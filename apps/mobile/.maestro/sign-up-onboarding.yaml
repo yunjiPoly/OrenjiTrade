@@ -1,0 +1,149 @@
+# Sign up -> verification -> onboarding -> tabs (Phase 1): a new fictional collector
+# (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) accepts the versioned legal documents, verifies
+# the email through the local Auth emulator, completes the three onboarding steps with a manual
+# trading area and stays hidden from the map (discoverability defaults to off).
+appId: host.exp.exponent
+name: Sign up and onboarding
+tags:
+  - mobile-m1
+  - auth
+  - onboarding
+---
+- runScript: scripts/new-identity.js
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- tapOn: 'Create an account'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-up'
+    timeout: 30000
+
+# Validation first (the legal documents come from the API; the button sits below them).
+- extendedWaitUntil:
+    visible: 'Accept all'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'sign-up-submit'
+    direction: DOWN
+- tapOn:
+    id: 'sign-up-submit'
+- scrollUntilVisible:
+    element: 'Please accept every document to continue.'
+    direction: UP
+- scrollUntilVisible:
+    element: 'Enter a display name.'
+    direction: UP
+
+- tapOn:
+    id: 'sign-up-display-name'
+- inputText: 'Maestro Newbie'
+- tapOn:
+    id: 'sign-up-email'
+- inputText: ${output.signup.email}
+- tapOn:
+    id: 'sign-up-password'
+- inputText: ${output.signup.password}
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'Accept all'
+    direction: DOWN
+- tapOn: 'Accept all'
+- scrollUntilVisible:
+    element:
+      id: 'sign-up-submit'
+    direction: DOWN
+- tapOn:
+    id: 'sign-up-submit'
+
+# Email verification through the emulator's out-of-band code.
+- extendedWaitUntil:
+    visible:
+      id: 'screen-verify-email'
+    timeout: 60000
+- assertVisible: 'Check your inbox'
+- runScript:
+    file: scripts/verify-email.js
+    env:
+      EMAIL: ${output.signup.email}
+- tapOn:
+    id: 'verify-check'
+
+# Onboarding step 1: profile, prefilled with the display name and the handle the API derived.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-profile'
+    timeout: 60000
+- assertVisible:
+    id: 'profile-display-name'
+    text: 'Maestro Newbie'
+- scrollUntilVisible:
+    element:
+      id: 'onboarding-profile-continue'
+    direction: DOWN
+- tapOn:
+    id: 'onboarding-profile-continue'
+
+# Step 2: interests.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-interests'
+    timeout: 30000
+- tapOn:
+    id: 'game-pokemon'
+- scrollUntilVisible:
+    element:
+      id: 'onboarding-interests-continue'
+    direction: DOWN
+- tapOn:
+    id: 'onboarding-interests-continue'
+
+# Step 3: a manual trading area (a public city centre); the map opt-in stays off.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-area'
+    timeout: 30000
+- scrollUntilVisible:
+    element: 'Québec'
+    direction: DOWN
+- tapOn: 'Québec'
+- scrollUntilVisible:
+    element:
+      id: 'onboarding-discoverable'
+    direction: DOWN
+- assertVisible:
+    id: 'onboarding-discoverable'
+    checked: false
+- scrollUntilVisible:
+    element:
+      id: 'onboarding-finish'
+    direction: DOWN
+- tapOn:
+    id: 'onboarding-finish'
+
+# The tabs, and the profile of the new collector, hidden from the map.
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Maestro Newbie'
+- assertVisible:
+    id: 'profile-handle-label'
+    text: '@.+'
+- scrollUntilVisible:
+    element:
+      id: 'profile-visibility'
+    direction: DOWN
+- assertVisible:
+    id: 'profile-area'
+    text: '.*Québec.*'
+- assertVisible:
+    id: 'profile-visibility'
+    text: 'Hidden from the map.'
+- takeScreenshot: sign-up-onboarded-profile

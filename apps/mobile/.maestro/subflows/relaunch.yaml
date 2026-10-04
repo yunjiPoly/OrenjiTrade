@@ -1,0 +1,10 @@
+# Kills and reopens the app in Expo Go, keeping its stored data (session restore on launch).
+appId: host.exp.exponent
+---
+- stopApp
+- launchApp:
+    clearState: false
+    stopApp: true
+- openLink: ${APP_URL}
+- runFlow: dismiss-dev-menu.yaml
+- runFlow: wait-for-app.yaml

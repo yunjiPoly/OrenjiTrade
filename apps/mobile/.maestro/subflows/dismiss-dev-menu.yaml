@@ -1,0 +1,18 @@
+# Closes Expo Go's developer menu (and its first-run introduction) when it covers the app.
+appId: host.exp.exponent
+---
+- runFlow:
+    when:
+      visible: 'This is the developer menu.*'
+    commands:
+      - tapOn: 'Continue'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - tapOn: 'Close'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - back
