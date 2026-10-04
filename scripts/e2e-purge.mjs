@@ -171,6 +171,29 @@ if (plan.accounts > 0) {
   }
 }
 
+const afterDb = planFromDatabase(database, container);
+console.log(
+  `
+${table([
+    ['Removed from the database', 'Count'],
+    ['accounts (deleted through the account-deletion path, rows anonymised)', removedDb.accounts],
+    ['locations', removedDb.locations],
+    ['binders', removedDb.binders],
+    ['inventory items', removedDb.items],
+  ])}
+`,
+);
+if (report) {
+  log.info(`Open trades between test accounts cancelled first: ${report.cancelledTrades}.`);
+  for (const entry of report.blocked) {
+    log.warn(`Blocked (kept, taken off the map): ${entry.email} — ${entry.reason}`);
+  }
+  for (const entry of report.failed) {
+    log.warn(`Failed: ${entry.email} — ${entry.reason}`);
+  }
+}
+log.info(`Left in ${database}: ${afterDb.accounts} @example.test account(s), ${afterDb.discoverable} discoverable.`);
+
 // The emulator is shared: never delete @example.test accounts while another E2E run (mobile, or a
 // web run when purging the developer database) may be signed in with some of them.
 const otherRuns = [
@@ -199,42 +222,26 @@ for (;;) {
   if (Date.now() - waitStarted >= waitMs) {
     fail(
       `Another E2E run still uses the shared Auth emulator (${busy.join(', ')}); the database part is done, ` +
-        'the emulator accounts were left. Re-run npm run e2e:purge when it has finished.',
+        `the ${emulatorPlan} @example.test emulator account(s) were left. Re-run npm run e2e:purge when it has finished.`,
     );
   }
   log.warn(`Another E2E run is active (${busy.join(', ')}); waiting before deleting emulator accounts (re-checking every minute).`);
   await sleep(60_000);
 }
 const emulatorRemoved = await deleteEmulatorTestAccounts(emulatorUrl);
-const after = planFromDatabase(database, container);
 const emulatorAfter = (await emulatorTestAccounts(emulatorUrl)).length;
-
 console.log(
-  `\n${table([
-    ['Removed', 'Count'],
-    ['accounts (deleted through the account-deletion path, rows anonymised)', removedDb.accounts],
-    ['locations', removedDb.locations],
-    ['binders', removedDb.binders],
-    ['inventory items', removedDb.items],
-    ['Auth emulator accounts (besides those the deletion removed)', emulatorRemoved],
-  ])}\n`,
+  `
+${table([
+    ['Removed from the Auth emulator', 'Count'],
+    ['@example.test accounts (besides those the deletion removed with their accounts)', emulatorRemoved],
+  ])}
+`,
 );
-if (report) {
-  log.info(`Open trades between test accounts cancelled first: ${report.cancelledTrades}.`);
-  for (const entry of report.blocked) {
-    log.warn(`Blocked (kept, taken off the map): ${entry.email} — ${entry.reason}`);
-  }
-  for (const entry of report.failed) {
-    log.warn(`Failed: ${entry.email} — ${entry.reason}`);
-  }
-}
-log.info(
-  `Left: ${after.accounts} @example.test account(s) in ${database} (${after.discoverable} discoverable), ` +
-    `${emulatorAfter} in the Auth emulator. Took ${formatDuration(Date.now() - started)}.`,
-);
-if (after.accounts === 0 && emulatorAfter === 0) {
+log.info(`Left in the Auth emulator: ${emulatorAfter} @example.test account(s). Took ${formatDuration(Date.now() - started)}.`);
+if (afterDb.accounts === 0 && emulatorAfter === 0) {
   log.ok(`Done: no @example.test account left in ${database} or in the Auth emulator.`);
-} else if (after.accounts === (report?.blocked.length ?? 0) && after.discoverable === 0 && emulatorAfter === 0) {
+} else if (afterDb.accounts === (report?.blocked.length ?? 0) && afterDb.discoverable === 0 && emulatorAfter === 0) {
   log.ok('Done; the blocked accounts above stay (off the map) until their open obligations end.');
 } else {
   process.exit(1);
