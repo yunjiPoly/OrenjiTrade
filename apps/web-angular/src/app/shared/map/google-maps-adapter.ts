@@ -9,6 +9,9 @@ import {
   MapMarker,
   MapViewport,
   Unsubscribe,
+  ZoomLimits,
+  circleStyle,
+  clampZoom,
   markerIconHtml,
   markerIconSize,
   tokenColor,
@@ -78,6 +81,8 @@ class GoogleMapsAdapter implements MapAdapter {
 
   private readonly markers = new Map<string, AnyMarker>();
   private readonly circles = new Map<string, google.maps.Circle>();
+  /** Last drawn variant of each circle: the style is reapplied only when it changes. */
+  private readonly circleVariants = new Map<string, MapCircle['variant']>();
   private readonly clicks = new ListenerSet<[LatLng]>();
   private readonly markerClicks = new ListenerSet<[string]>();
   private readonly markerDrags = new ListenerSet<[string, LatLng]>();
@@ -87,6 +92,7 @@ class GoogleMapsAdapter implements MapAdapter {
     private readonly map: google.maps.Map,
     private readonly advanced: boolean,
     private readonly doc: Document,
+    private readonly limits: ZoomLimits,
   ) {
     map.addListener('click', (event: google.maps.MapMouseEvent) => {
       if (event.latLng) {
@@ -94,12 +100,22 @@ class GoogleMapsAdapter implements MapAdapter {
       }
     });
     map.addListener('idle', () => this.viewports.emit(this.getViewport()));
+    if (limits.minZoom !== undefined || limits.maxZoom !== undefined) {
+      // The map's minZoom / maxZoom options already bound gestures, buttons, keyboard and
+      // fitBounds; this guard also pulls back any zoom that slips past them.
+      map.addListener('zoom_changed', () => {
+        const zoom = map.getZoom();
+        if (zoom !== undefined && clampZoom(zoom, limits) !== zoom) {
+          map.setZoom(clampZoom(zoom, limits));
+        }
+      });
+    }
   }
 
   setView(center: LatLng, zoom?: number): void {
     this.map.setCenter(center);
     if (zoom !== undefined) {
-      this.map.setZoom(zoom);
+      this.map.setZoom(clampZoom(zoom, this.limits));
     }
   }
 
@@ -200,14 +216,25 @@ class GoogleMapsAdapter implements MapAdapter {
       if (!wanted.has(id)) {
         circle.setMap(null);
         this.circles.delete(id);
+        this.circleVariants.delete(id);
       }
     }
     const color = tokenColor(this.doc, '--color-primary', '#F4761A');
     for (const spec of circles) {
       const existing = this.circles.get(spec.id);
       if (existing) {
-        existing.setCenter(spec.center);
-        existing.setRadius(spec.radiusMeters);
+        // Collector maps update up to a few hundred discs on every zoom: skip unchanged ones.
+        const center = existing.getCenter();
+        if (center?.lat() !== spec.center.lat || center?.lng() !== spec.center.lng) {
+          existing.setCenter(spec.center);
+        }
+        if (existing.getRadius() !== spec.radiusMeters) {
+          existing.setRadius(spec.radiusMeters);
+        }
+        if (this.circleVariants.get(spec.id) !== spec.variant) {
+          existing.setOptions(this.circleLook(spec, color));
+          this.circleVariants.set(spec.id, spec.variant);
+        }
         continue;
       }
       this.circles.set(
@@ -216,14 +243,24 @@ class GoogleMapsAdapter implements MapAdapter {
           map: this.map,
           center: spec.center,
           radius: spec.radiusMeters,
-          strokeColor: color,
-          strokeWeight: spec.variant === 'search' ? 1.5 : 2,
-          fillColor: color,
-          fillOpacity: spec.variant === 'search' ? 0.04 : 0.12,
           clickable: false,
+          ...this.circleLook(spec, color),
         }),
       );
+      this.circleVariants.set(spec.id, spec.variant);
     }
+  }
+
+  /** Stroke and fill of a circle variant (radius in metres, so it scales with the map). */
+  private circleLook(spec: MapCircle, color: string): google.maps.CircleOptions {
+    const style = circleStyle(spec.variant);
+    return {
+      strokeColor: color,
+      strokeWeight: style.strokeWeight,
+      strokeOpacity: style.strokeOpacity,
+      fillColor: color,
+      fillOpacity: style.fillOpacity,
+    };
   }
 
   fitBounds(bounds: MapBounds, paddingPx = 24): void {
@@ -259,6 +296,7 @@ class GoogleMapsAdapter implements MapAdapter {
     }
     this.markers.clear();
     this.circles.clear();
+    this.circleVariants.clear();
     this.clicks.clear();
     this.markerClicks.clear();
     this.markerDrags.clear();
@@ -275,16 +313,22 @@ class GoogleMapsAdapter implements MapAdapter {
   }
 }
 
-/** Loads the Maps JavaScript API and renders a Google map into `container`. */
+/**
+ * Loads the Maps JavaScript API and renders a Google map into `container`. The map's `minZoom` /
+ * `maxZoom` options bound every zoom path (gestures, buttons, keyboard, `setZoom`, `fitBounds`).
+ */
 export async function createGoogleMapsAdapter(
   container: HTMLElement,
   options: GoogleMapsAdapterOptions,
   doc: Document = container.ownerDocument,
 ): Promise<MapAdapter> {
   await loadGoogleMaps(doc, options.apiKey);
+  const limits: ZoomLimits = { minZoom: options.minZoom, maxZoom: options.maxZoom };
   const map = new google.maps.Map(container, {
     center: options.center,
-    zoom: options.zoom,
+    zoom: clampZoom(options.zoom, limits),
+    minZoom: limits.minZoom ?? null,
+    maxZoom: limits.maxZoom ?? null,
     mapId: options.mapId || undefined,
     gestureHandling: options.scrollWheelZoom === false ? 'cooperative' : 'auto',
     streetViewControl: false,
@@ -304,5 +348,5 @@ export async function createGoogleMapsAdapter(
   if (options.ariaLabel) {
     container.setAttribute('aria-label', options.ariaLabel);
   }
-  return new GoogleMapsAdapter(map, !!options.mapId, doc);
+  return new GoogleMapsAdapter(map, !!options.mapId, doc, limits);
 }

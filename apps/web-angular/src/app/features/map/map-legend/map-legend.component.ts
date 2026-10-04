@@ -1,19 +1,26 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { APPROXIMATE_LOCATION_NOTE } from '../../../shared/map/approximate-area';
 
-/** Map legend: why positions are approximate, and what the marker rings mean. */
+/**
+ * Map legend: why locations are approximate (and how approximate: the 2 km discs), and what the
+ * marker rings mean.
+ */
 @Component({
   selector: 'app-map-legend',
   imports: [MatButtonModule, MatIconModule],
   template: `
     <aside class="legend" aria-label="Map legend">
-      <p class="legend__privacy">
+      <p class="legend__privacy" data-testid="map-approximate-note">
         <mat-icon aria-hidden="true">shield_person</mat-icon>
-        Positions are approximate to protect privacy
+        {{ note }} to protect privacy
       </p>
       @if (expanded()) {
         <ul class="legend__keys" id="map-legend-keys">
+          <li>
+            <span class="legend__area" aria-hidden="true"></span>Approximate area of a collector
+          </li>
           <li>
             <span class="legend__ring legend__ring--fresh" aria-hidden="true"></span>Fresh listings
           </li>
@@ -94,6 +101,14 @@ import { MatIconModule } from '@angular/material/icon';
     .legend__ring--aging {
       box-shadow: 0 0 0 3px var(--color-status-aging);
     }
+    .legend__area {
+      box-sizing: border-box;
+      width: 20px;
+      height: 20px;
+      border: 1px solid color-mix(in srgb, var(--color-primary) 50%, transparent);
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    }
     .legend__cluster {
       display: grid;
       place-items: center;
@@ -115,5 +130,6 @@ import { MatIconModule } from '@angular/material/icon';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MapLegendComponent {
+  protected readonly note = APPROXIMATE_LOCATION_NOTE;
   protected readonly expanded = signal(false);
 }

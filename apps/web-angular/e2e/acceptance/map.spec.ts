@@ -79,7 +79,9 @@ test.describe('acceptance: map', () => {
     });
     await signIn(pageB, b);
     await expect(pageB).toHaveURL(/\/map$/);
-    await expect(pageB.getByText('Positions are approximate to protect privacy')).toBeVisible();
+    await expect(
+      pageB.getByText('Locations are approximate (about 2 km) to protect privacy'),
+    ).toBeVisible();
     const markerA = mapMarker(pageB, a.displayName);
     await expect(markerA).toBeVisible({ timeout: 20_000 });
 
