@@ -145,8 +145,13 @@ public class TestAccountPurgeCommand implements ApplicationRunner {
     }
 
     Facts facts() {
+        return factsOf(environment, context instanceof WebServerApplicationContext);
+    }
+
+    /** The facts of an environment (also read before the context starts, see the mode guard). */
+    static Facts factsOf(Environment environment, boolean webServer) {
         return new Facts(
-                context instanceof WebServerApplicationContext,
+                webServer,
                 Arrays.asList(environment.getActiveProfiles()),
                 environment.getProperty("orenji.environment", ""),
                 environment.getProperty("spring.flyway.enabled", Boolean.class, true),
