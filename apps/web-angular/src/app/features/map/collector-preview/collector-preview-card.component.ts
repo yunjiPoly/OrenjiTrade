@@ -29,6 +29,7 @@ import {
   conditionLabel,
   formatPrice,
 } from '../../../shared/inventory/inventory-labels';
+import { APPROXIMATE_LOCATION_NOTE } from '../../../shared/map/approximate-area';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
@@ -39,10 +40,11 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
 
 /**
  * Preview card of a collector chosen on the map or in the list (`GET /collectors/{handle}/preview`):
- * name, avatar, approximate distance, rating, tags, last activity, listing freshness and games,
- * with View profile / View public binder / Message (when the collector accepts messages from the
- * viewer; the map page opens the conversation in its Messages panel) and Report (signed in). Focus moves
- * into the card when it opens and returns where it was when it closes (Escape or the close button).
+ * name, avatar, approximate place (with the "about 2 km" note) and distance, rating, tags, last
+ * activity, listing freshness and games, with View profile / View public binder / Message (when
+ * the collector accepts messages from the viewer; the map page opens the conversation in its
+ * Messages panel) and Report (signed in). Focus moves into the card when it opens and returns
+ * where it was when it closes (Escape or the close button).
  */
 @Component({
   selector: 'app-collector-preview-card',
@@ -127,6 +129,9 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
               <p class="preview__handle">&#64;{{ p.handle }}</p>
               <p class="preview__place">
                 <mat-icon aria-hidden="true">location_on</mat-icon>{{ p.publicLabel }}
+              </p>
+              <p class="preview__approx" data-testid="preview-approximate">
+                <mat-icon aria-hidden="true">shield_person</mat-icon>{{ approximateNote }}
               </p>
             </div>
           </div>
@@ -294,6 +299,7 @@ export class CollectorPreviewCardComponent {
   readonly retry = output<void>();
 
   protected readonly titleId = `collector-preview-title-${Math.random().toString(36).slice(2, 8)}`;
+  protected readonly approximateNote = APPROXIMATE_LOCATION_NOTE;
 
   private readonly ready = computed(() => {
     const state = this.state();

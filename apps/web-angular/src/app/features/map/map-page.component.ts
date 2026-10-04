@@ -169,16 +169,20 @@ export class MapPageComponent {
       this.store.selfId(),
     ),
   );
-  protected readonly circle = computed<MapCircle | null>(() => {
+  /** The dashed search radius under the collectors' approximate-area discs. */
+  protected readonly circles = computed<readonly MapCircle[]>(() => {
     const result = this.store.result();
-    return result
-      ? {
-          id: 'search-radius',
-          center: result.center,
-          radiusMeters: this.store.radiusKm() * 1000,
-          variant: 'search',
-        }
-      : null;
+    const search: MapCircle[] = result
+      ? [
+          {
+            id: 'search-radius',
+            center: result.center,
+            radiusMeters: this.store.radiusKm() * 1000,
+            variant: 'search',
+          },
+        ]
+      : [];
+    return [...search, ...this.markerSet().areas];
   });
   protected readonly showAreaPrompt = computed(() => this.store.origin() === 'city');
   /** Suggestions are ranked around the shown city; own areas are known to the server. */

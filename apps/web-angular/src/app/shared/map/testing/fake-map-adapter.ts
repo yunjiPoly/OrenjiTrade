@@ -2,16 +2,24 @@ import {
   LatLng,
   ListenerSet,
   MapAdapter,
+  MapAdapterOptions,
   MapBounds,
   MapCircle,
   MapMarker,
   MapProvider,
   MapViewport,
   Unsubscribe,
+  clampZoom,
 } from '../map-adapter';
 
-/** Recording {@link MapAdapter} for unit tests; `click`/`drag` simulate user input. */
+/**
+ * Recording {@link MapAdapter} for unit tests; `click`/`drag` simulate user input. Like the real
+ * adapters it clamps zoom requests to the `minZoom` / `maxZoom` it was created with (see
+ * {@link FakeMapAdapter.created}).
+ */
 export class FakeMapAdapter implements MapAdapter {
+  /** Options the map was created with (`null` until a test loader calls `created`). */
+  options: MapAdapterOptions | null = null;
   markers: readonly MapMarker[] = [];
   circles: readonly MapCircle[] = [];
   fitted: MapBounds[] = [];
@@ -28,8 +36,19 @@ export class FakeMapAdapter implements MapAdapter {
 
   constructor(readonly provider: MapProvider = 'leaflet') {}
 
+  /** What a loader does: records the creation options and starts at their (clamped) view. */
+  created(options: MapAdapterOptions): this {
+    this.options = options;
+    this.view = { ...this.view, center: options.center, zoom: clampZoom(options.zoom, options) };
+    return this;
+  }
+
   setView(center: LatLng, zoom?: number): void {
-    this.view = { ...this.view, center, zoom: zoom ?? this.view.zoom };
+    this.view = {
+      ...this.view,
+      center,
+      zoom: clampZoom(zoom ?? this.view.zoom, this.options ?? {}),
+    };
   }
   getViewport(): MapViewport {
     return this.view;

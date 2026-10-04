@@ -1,11 +1,16 @@
+import { COLLECTOR_MAP_MAX_ZOOM } from '../../../shared/map/approximate-area';
 import type { LatLng, MapBounds } from '../../../shared/map/map-adapter';
 
 /** Clustering starts when more collectors than this are on the map (contract: "above 60"). */
 export const CLUSTER_THRESHOLD = 60;
 /** Grid cell in screen pixels: markers closer than about this are grouped. */
 export const CLUSTER_CELL_PX = 72;
-/** From this zoom on every collector gets its own marker again. */
-export const CLUSTER_MAX_ZOOM = 16;
+/**
+ * From this zoom on every collector gets its own marker again: the collector map's zoom cap, so
+ * the closest view always shows every collector on their own (a cluster above the cap could never
+ * be opened by zooming in).
+ */
+export const CLUSTER_MAX_ZOOM = COLLECTOR_MAP_MAX_ZOOM;
 
 export interface Positioned {
   publicPoint: LatLng;

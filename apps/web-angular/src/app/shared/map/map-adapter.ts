@@ -47,8 +47,12 @@ export interface MapCircle {
   id: string;
   center: LatLng;
   radiusMeters: number;
-  /** `area` (default): tinted trading area; `search`: faint dashed search radius. */
-  variant?: 'area' | 'search';
+  /**
+   * `area` (default): tinted area (a trading area, or the selected collector's approximate area);
+   * `search`: faint dashed search radius; `approximate`: light disc showing that a collector's
+   * position is only an approximate area.
+   */
+  variant?: 'area' | 'search' | 'approximate';
 }
 
 export interface MapAdapterOptions {
@@ -60,6 +64,29 @@ export interface MapAdapterOptions {
   scrollWheelZoom?: boolean;
   /** Corner of the zoom buttons (default top left). */
   zoomControlPosition?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright';
+  /**
+   * Highest zoom the map ever shows (wheel, buttons, keyboard, gestures, `setView`, `fitBounds`);
+   * requests above it are clamped. Unset: the provider's own maximum. Maps that show other
+   * collectors pass `COLLECTOR_MAP_MAX_ZOOM` (ADR 0004, "Client rendering").
+   */
+  maxZoom?: number;
+  /** Lowest zoom the map ever shows; requests below it are clamped. Unset: the provider's own. */
+  minZoom?: number;
+}
+
+/** Zoom limits of a map (the `minZoom` / `maxZoom` of its {@link MapAdapterOptions}). */
+export type ZoomLimits = Pick<MapAdapterOptions, 'minZoom' | 'maxZoom'>;
+
+/** `zoom` brought inside the map's limits (unset limits do not constrain). */
+export function clampZoom(zoom: number, limits: ZoomLimits): number {
+  let value = zoom;
+  if (limits.maxZoom !== undefined) {
+    value = Math.min(value, limits.maxZoom);
+  }
+  if (limits.minZoom !== undefined) {
+    value = Math.max(value, limits.minZoom);
+  }
+  return value;
 }
 
 export type Unsubscribe = () => void;
@@ -155,6 +182,27 @@ export function markerIconSize(variant: MapMarkerVariant | undefined): number {
       return 48;
     default:
       return 32;
+  }
+}
+
+/** Provider-neutral look of a circle variant (both adapters draw circles in the primary colour). */
+export interface CircleStyle {
+  strokeWeight: number;
+  strokeOpacity: number;
+  fillOpacity: number;
+  /** Dashed outline (Leaflet; Google circles always have a solid outline). */
+  dashed: boolean;
+}
+
+/** Look of a {@link MapCircle} variant, shared by the adapters. */
+export function circleStyle(variant: MapCircle['variant']): CircleStyle {
+  switch (variant) {
+    case 'search':
+      return { strokeWeight: 1.5, strokeOpacity: 1, fillOpacity: 0.04, dashed: true };
+    case 'approximate':
+      return { strokeWeight: 1, strokeOpacity: 0.5, fillOpacity: 0.08, dashed: false };
+    default:
+      return { strokeWeight: 2, strokeOpacity: 1, fillOpacity: 0.12, dashed: false };
   }
 }
 

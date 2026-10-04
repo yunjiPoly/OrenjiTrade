@@ -7,6 +7,13 @@
       "addedOn": "2026-10-02",
       "expires": "2026-11-30",
       "reason": "No patched node-forge release exists (vulnerable range covers every published version). It reaches the repo only through expo -> @expo/cli -> @expo/code-signing-certificates, i.e. Expo build tooling for expo-updates code signing, which OrenjiTrade does not use; the API (Java) and the web bundle do not include node-forge. npm's suggested fix downgrades Expo to SDK 44, which is not viable. Re-check when node-forge or @expo/cli publishes a fix."
+    },
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces <= 3.0.3",
+      "addedOn": "2026-10-04",
+      "expires": "2026-11-30",
+      "reason": "No patched braces release exists (3.0.3 is the latest and is affected). braces is reached only through build/test tooling glob matching (micromatch via metro, jest, chokidar/fast-glob in the Angular and Expo toolchains); patterns are written by developers, never by users, and braces is not part of the web production bundle or the Java API. The DoS needs attacker-controlled, deeply nested brace patterns. Re-check when braces or micromatch publishes a fix."
     }
   ]
 }
