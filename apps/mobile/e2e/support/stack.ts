@@ -7,16 +7,22 @@ import {
   type Page,
 } from '@playwright/test';
 
-/**
+import { API_URL, AUTH_EMULATOR_URL, EMAIL_DOMAIN, FIREBASE_PROJECT_ID } from './isolation';
+
+export { API_URL, AUTH_EMULATOR_URL, FIREBASE_PROJECT_ID };
+
+/*
  * Helpers for the mobile web E2E specs, which run against the REAL local stack started by
  * `npm run test:mobile:e2e`: the isolated API (:8090, database orenjitrade_mobile_e2e), the
  * shared Firebase Auth emulator (:9099) and the Expo web build (:19006). Every account created
- * here is fictional and lives only in the local emulator and the isolated database. Seed accounts
- * are only ever signed in to (never modified in the emulator, which the developer shares).
+ * here is fictional, named `m-<run id>-...@mobile-e2e.test`, lives only in the local emulator and
+ * the isolated database, and is deleted from the emulator at the end of the run
+ * (global-teardown.ts). Seed accounts are only ever signed in to (never modified in the emulator,
+ * which the developer shares).
  */
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8090';
-export const AUTH_EMULATOR_URL = process.env.E2E_AUTH_EMULATOR_URL ?? 'http://localhost:9099';
-export const FIREBASE_PROJECT_ID = process.env.E2E_FIREBASE_PROJECT_ID ?? 'orenjitrade-local';
+
+/** Run id of this Playwright run (set by playwright.config.ts or the harness). */
+export const RUN_ID = process.env.E2E_RUN_ID ?? 'rlocal00';
 /** The emulator accepts any API key; this is the public local value. */
 export const FIREBASE_API_KEY = 'demo-local-key';
 /** Seed password (docs/development/test-accounts.md); local emulator only. */
@@ -63,9 +69,9 @@ function suffix(): string {
     .padStart(2, '0')}`;
 }
 
-/** A unique fictional email for this run. */
+/** A unique fictional email of this run (`m-<run id>-<prefix>-<suffix>@mobile-e2e.test`). */
 export function uniqueEmail(prefix: string): string {
-  return `m-e2e-${prefix}-${suffix()}@example.test`;
+  return `m-${RUN_ID}-${prefix}-${suffix()}@${EMAIL_DOMAIN}`;
 }
 
 /** A unique handle matching `[a-z0-9_]{3,24}`. */

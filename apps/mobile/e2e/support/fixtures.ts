@@ -1,5 +1,6 @@
 import { expect, test as base, type Page } from '@playwright/test';
 
+import { DEV_API_PORT } from './isolation';
 import { API_URL } from './stack';
 
 /** Recursively yields every numeric `lat`/`lng` value in a JSON document. */
@@ -78,6 +79,14 @@ export class PrivacyScanner {
   }
 
   watch(page: Page): void {
+    // The app must only ever talk to the isolated API: a request to the developer API (:8080)
+    // would write into the developer's database.
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.port === String(DEV_API_PORT) && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)) {
+        this.findings.push({ url: request.url(), path: '-', detail: 'request to the developer API' });
+      }
+    });
     page.on('response', (response) => {
       const url = response.url();
       if (

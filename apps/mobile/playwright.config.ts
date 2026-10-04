@@ -3,6 +3,13 @@ import { defineConfig, devices } from '@playwright/test';
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:19006';
 const isCI = !!process.env.CI;
 
+// One run id per Playwright run (the harness passes its own): every account the specs create is
+// `m-<run id>-...@mobile-e2e.test`, and the global teardown deletes exactly those from the Auth
+// emulator. Set before the workers start, so they inherit it.
+process.env.E2E_RUN_ID ||= `r${Date.now().toString(36).slice(-5)}${Math.floor(Math.random() * 1296)
+  .toString(36)
+  .padStart(2, '0')}`;
+
 /**
  * Mobile web E2E: Playwright drives the Expo web export (served on :19006) against a real local
  * API (:8090, isolated database) and the Firebase Auth emulator. Start everything with
@@ -11,6 +18,10 @@ const isCI = !!process.env.CI;
  */
 export default defineConfig({
   testDir: './e2e',
+  // Refuses anything but the isolated stack (never the developer API on :8080) and cleans up the
+  // run's emulator accounts.
+  globalSetup: './e2e/support/global-setup.ts',
+  globalTeardown: './e2e/support/global-teardown.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

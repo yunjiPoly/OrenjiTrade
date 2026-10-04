@@ -18,6 +18,8 @@ on:
       - "infrastructure/docker/**"
       - "package.json"
       - "package-lock.json"
+      - "scripts/test.mjs"
+      - "scripts/lib/**"
       - ".github/workflows/e2e.yml"
   workflow_dispatch:
   schedule:
@@ -160,11 +162,12 @@ jobs:
 
   mobile-web:
     # The Expo app's web build driven by Playwright (apps/mobile/e2e) against the same real stack:
-    # `npm run test:mobile:e2e` reuses the running infrastructure, creates the isolated database
+    # `npm run test:mobile:e2e` reuses the running infrastructure, recreates the isolated database
     # orenjitrade_mobile_e2e, builds and starts the API jar on :8090 (local profile, seed data,
-    # fake/log providers, no card-image downloads), exports the web build pointed at it, serves it
-    # on :19006 and runs every spec with the privacy fixture. Native flows run with Maestro on a
-    # local Android emulator (apps/mobile/.maestro), not in CI.
+    # fake/log providers, its own media/card-image directories, mock catalog only), exports the web
+    # build pointed at it, serves it on :19006 and runs every spec with the privacy fixture; the
+    # run's @mobile-e2e.test accounts are deleted from the emulator afterwards. Native flows run
+    # with Maestro on a local Android emulator (npm run test:mobile:maestro), not in CI.
     name: Mobile web build against the local stack
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -203,6 +206,11 @@ jobs:
 
       - name: Install workspace dependencies
         run: npm ci
+
+      # The harness isolation guards (database, port, card-image/media directories, run-scoped
+      # accounts) before the harness uses them.
+      - name: Mobile E2E harness guard tests
+        run: node --test "scripts/lib/*.test.mjs"
 
       - name: Install the Playwright Chromium browser
         working-directory: apps/mobile

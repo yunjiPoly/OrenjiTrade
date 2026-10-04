@@ -27,6 +27,7 @@
     "test:web": "node scripts/test.mjs web",
     "test:mobile": "node scripts/test.mjs mobile",
     "test:mobile:e2e": "node scripts/test.mjs mobile-e2e",
+    "test:mobile:maestro": "node scripts/test.mjs mobile-maestro",
     "test:e2e": "node scripts/test.mjs e2e",
     "test:all": "node scripts/test.mjs all",
     "test:ml": "node scripts/test.mjs ml",
