@@ -1,50 +1,27 @@
 export {
   AUTH_ERROR_MESSAGES,
   AuthError,
+  GENERIC_AUTH_ERROR,
+  WRONG_PASSWORD_CODES,
+  authErrorMessage,
   describeAuthError,
   isAuthError,
   toAuthError,
 } from './authErrors';
+export { firebaseAuthPort, toAuthUser, type AuthPort, type AuthUser } from './authPort';
+export { getFirebaseApp, getFirebaseAuth, getFirebaseAuthModule } from './firebase';
 export {
-  FirebaseConfigError,
-  getFirebaseApp,
-  getFirebaseAuth,
-  getFirebaseAuthModule,
-  readAuthEmulatorHost,
-  readFirebaseConfig,
-  readFirebaseEnv,
-  type FirebaseAuthModule,
-  type FirebaseEnvConfig,
-  type FirebaseEnvInput,
-} from './firebase';
-export { RequireSession, type RequireSessionProps } from './RequireSession';
-export {
-  GOOGLE_SIGN_IN_AVAILABLE,
+  AUTH_READY_TIMEOUT_MS,
   SessionProvider,
   useSession,
   type Session,
+  type SessionProviderProps,
   type SessionStatus,
-  type SessionUser,
 } from './session';
 export {
   initialSessionState,
   sessionReducer,
-  toSessionUser,
-  type FirebaseUserLike,
   type SessionAction,
   type SessionState,
 } from './sessionReducer';
-export {
-  EMAIL_PATTERN,
-  MIN_DISPLAY_NAME_LENGTH,
-  MIN_PASSWORD_LENGTH,
-  completeRegistration,
-  hasSignUpErrors,
-  validateSignUp,
-  waitForMe,
-  type CompleteRegistrationDeps,
-  type CompleteRegistrationResult,
-  type SignUpErrors,
-  type SignUpForm,
-} from './signUp';
 export { getIdToken, setIdTokenProvider, type IdTokenProvider } from './tokenProvider';

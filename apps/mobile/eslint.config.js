@@ -16,6 +16,7 @@ module.exports = defineConfig([
       'coverage/*',
       'expo-env.d.ts',
       'src/theme/tokens.ts',
+      'src/legal/legalContent.ts',
     ],
   },
   {

@@ -1,48 +1,34 @@
 export {
   ACCOUNT_SUSPENDED_CODE,
   ApiError,
+  DELETION_PENDING_MESSAGE,
   NETWORK_ERROR_CODE,
   REAUTHENTICATION_REQUIRED_CODE,
   TERMS_ACCEPTANCE_REQUIRED_CODE,
   UNKNOWN_ERROR_CODE,
   isApiError,
+  type ProblemBody,
 } from './ApiError';
 export {
   clearAccountSignal,
   reportAccountSignal,
-  signalFromApiError,
+  signalFromError,
   useAccountSignalStore,
   type AccountSignal,
-  type AccountSignalStore,
-} from './accountState';
+} from './accountSignal';
 export {
   API_BASE_URL,
-  DEFAULT_API_BASE_URL,
   REQUEST_ID_HEADER,
+  absoluteApiUrl,
   api,
-  apiMiddleware,
   createApiClient,
-  resolveApiBaseUrl,
+  createAuthMiddleware,
+  errorMiddleware,
+  isPublicApiUrl,
+  required,
   type ApiClient,
   type CreateApiClientOptions,
 } from './client';
-export { acceptConsents, useAcceptConsents } from './mutations/useAcceptConsents';
-export { LEGAL_DOCUMENTS_QUERY_KEY, ME_QUERY_KEY, meQueryKey } from './queries/keys';
+export { friendlyError, friendlyMessage, messageOf, type FriendlyError } from './errorMessages';
 export { connectQueryManagers, createQueryClient, queryClient } from './queryClient';
-export {
-  fetchLegalDocuments,
-  requiredAtRegistration,
-  useLegalDocuments,
-  type UseLegalDocumentsOptions,
-} from './queries/useLegalDocuments';
-export {
-  deriveAccountState,
-  fetchMe,
-  useMe,
-  type AccountSnapshot,
-  type AccountState,
-  type DeriveAccountStateInput,
-  type UseMeOptions,
-  type UseMeResult,
-} from './queries/useMe';
-export { fetchMeta, metaQueryKey, useMeta } from './queries/useMeta';
+export { meKeys, publicKeys } from './queryKeys';

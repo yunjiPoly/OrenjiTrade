@@ -1,40 +1,50 @@
 /**
- * Friendly, non-leaky messages for Firebase Authentication failures. The SDK throws
- * `FirebaseError` instances whose `code` is `auth/<reason>`; screens show `AuthError.message`
- * and never the raw SDK text.
+ * Friendly, non-leaky messages for Firebase Authentication failures (same wording as the web's
+ * `core/auth/auth-errors.ts`). The SDK throws `FirebaseError`s whose `code` is `auth/<reason>`;
+ * screens show `AuthError.message`, never the raw SDK text.
  */
-
-export const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  'auth/invalid-credential': 'The email or password is incorrect.',
-  'auth/invalid-login-credentials': 'The email or password is incorrect.',
-  'auth/wrong-password': 'The email or password is incorrect.',
-  'auth/user-not-found': 'The email or password is incorrect.',
-  'auth/invalid-email': 'Enter a valid email address.',
+export const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  'auth/email-already-in-use': 'An account already exists for this email. Try signing in instead.',
+  'auth/invalid-email': 'That email address does not look right.',
   'auth/missing-email': 'Enter your email address.',
   'auth/missing-password': 'Enter your password.',
-  'auth/email-already-in-use': 'An account already exists for this email. Try signing in instead.',
   'auth/weak-password': 'Choose a stronger password (at least 8 characters).',
-  'auth/password-does-not-meet-requirements':
-    'Choose a stronger password (at least 8 characters).',
-  'auth/user-disabled': 'This account has been disabled.',
-  'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
-  'auth/network-request-failed': 'Could not reach the sign-in service. Check your connection.',
-  'auth/requires-recent-login': 'Please sign in again to confirm it is you.',
-  'auth/popup-closed-by-user': 'The Google sign-in window was closed before finishing.',
-  'auth/cancelled-popup-request': 'The Google sign-in window was closed before finishing.',
-  'auth/popup-blocked': 'Your browser blocked the Google sign-in window.',
+  'auth/password-does-not-meet-requirements': 'That password does not meet the requirements.',
+  'auth/user-not-found': 'No account matches these credentials.',
+  'auth/wrong-password': 'No account matches these credentials.',
+  'auth/invalid-credential': 'No account matches these credentials.',
+  'auth/invalid-login-credentials': 'No account matches these credentials.',
+  'auth/user-disabled':
+    'This account has been disabled. Contact support if you think this is a mistake.',
+  'auth/too-many-requests': 'Too many attempts. Wait a moment, then try again.',
+  'auth/network-request-failed':
+    'Cannot reach the sign-in service. Check your connection and retry.',
   'auth/operation-not-allowed': 'This sign-in method is not enabled.',
-  'auth/operation-not-supported-in-this-environment':
-    'Google sign-in is not available in this build yet. Use your email and password.',
+  'auth/requires-recent-login': 'For your security, sign in again before doing this.',
+  'auth/user-token-expired': 'Your session expired. Sign in again.',
+  'auth/invalid-action-code': 'This link is invalid or has already been used.',
+  'auth/expired-action-code': 'This link has expired. Request a new one.',
   'auth/no-current-user': 'You are not signed in.',
-  'auth/not-configured': 'Sign-in is not configured for this build.',
-  'auth/unknown': 'Something went wrong while signing in. Please try again.',
+  'auth/invalid-api-key': 'Sign-in is not configured for this environment.',
+  'auth/not-configured': 'Sign-in is not configured for this environment.',
+  'auth/emulator-config-failed': 'The authentication emulator is not reachable.',
 };
 
-const UNKNOWN_MESSAGE = 'Something went wrong while signing in. Please try again.';
+export const GENERIC_AUTH_ERROR = 'Something went wrong. Please try again.';
+
+/** Codes that mean "the password is not right" (re-authentication, sign-in). */
+export const WRONG_PASSWORD_CODES: ReadonlySet<string> = new Set([
+  'auth/wrong-password',
+  'auth/invalid-credential',
+  'auth/invalid-login-credentials',
+]);
+
+export function describeAuthError(code: string): string {
+  return AUTH_ERROR_MESSAGES[code] ?? GENERIC_AUTH_ERROR;
+}
 
 export class AuthError extends Error {
-  readonly name = 'AuthError';
+  override readonly name = 'AuthError';
   readonly code: string;
 
   constructor(code: string, message: string = describeAuthError(code), cause?: unknown) {
@@ -43,19 +53,15 @@ export class AuthError extends Error {
   }
 }
 
-export function describeAuthError(code: string): string {
-  return AUTH_ERROR_MESSAGES[code] ?? UNKNOWN_MESSAGE;
-}
-
 function readCode(error: unknown): string | null {
   if (error !== null && typeof error === 'object' && 'code' in error) {
     const code = (error as { code?: unknown }).code;
-    return typeof code === 'string' && code.length > 0 ? code : null;
+    return typeof code === 'string' && code.startsWith('auth/') ? code : null;
   }
   return null;
 }
 
-/** Normalises anything thrown by the Firebase SDK (or by us) into an `AuthError`. */
+/** Normalises anything thrown by the Firebase SDK (or by the app) into an `AuthError`. */
 export function toAuthError(error: unknown): AuthError {
   if (error instanceof AuthError) {
     return error;
@@ -64,12 +70,14 @@ export function toAuthError(error: unknown): AuthError {
   if (code) {
     return new AuthError(code, describeAuthError(code), error);
   }
-  if (error instanceof Error && error.name === 'FirebaseConfigError') {
-    return new AuthError('auth/not-configured', describeAuthError('auth/not-configured'), error);
-  }
-  return new AuthError('auth/unknown', UNKNOWN_MESSAGE, error);
+  return new AuthError('auth/unknown', GENERIC_AUTH_ERROR, error);
 }
 
 export function isAuthError(value: unknown): value is AuthError {
   return value instanceof AuthError;
+}
+
+/** A sentence safe to show next to a form for anything an auth call threw. */
+export function authErrorMessage(error: unknown): string {
+  return toAuthError(error).message;
 }

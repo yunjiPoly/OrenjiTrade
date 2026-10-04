@@ -1,180 +1,185 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { useMeta } from '@/src/api/queries/useMeta';
-import { useSession } from '@/src/auth/SessionProvider';
+import { useAccount } from '@/src/account/AccountProvider';
+import { useMyLocation } from '@/src/api/hooks/location';
+import { useMyProfile } from '@/src/api/hooks/profile';
+import type { MyLocationResponse, MyProfileResponse } from '@/src/api/types';
+import { useSession } from '@/src/auth/session';
+import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
-import { Chip } from '@/src/components/ui/Chip';
-import { ErrorState } from '@/src/components/ui/ErrorState';
+import { ChipList, Divider, ListRow, SectionCard } from '@/src/components/ui/Layout';
+import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
-import { Skeleton } from '@/src/components/ui/Skeleton';
-import { relativeTime } from '@/src/lib/relativeTime';
-import { useAppStore, type ThemeOverride } from '@/src/store/useAppStore';
-import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
+import { gameLabel, languageLabel } from '@/src/lib/profile';
+import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-const THEME_OPTIONS: { value: ThemeOverride; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
-
-function SectionTitle({ children }: { children: string }) {
-  const { palette } = useTheme();
-  return (
-    <Text style={[textStyle('sm'), styles.sectionTitle, { color: palette.textMuted }]}>
-      {children}
-    </Text>
-  );
-}
-
-function Card({ children, testID }: { children: React.ReactNode; testID?: string }) {
-  const { palette } = useTheme();
-  return (
-    <View
-      testID={testID}
-      style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
-    >
-      {children}
-    </View>
-  );
-}
-
-function ApiStatusCard() {
-  const { palette } = useTheme();
-  const meta = useMeta();
-
-  if (meta.isPending) {
-    return (
-      <Card testID="api-status-loading">
-        <Skeleton width="55%" height={18} />
-        <Skeleton width="35%" height={14} />
-        <Skeleton width="70%" height={14} />
-      </Card>
-    );
-  }
-
-  if (meta.isError) {
-    return (
-      <Card testID="api-status-error">
-        <ErrorState
-          compact
-          error={meta.error}
-          title="API unreachable"
-          onRetry={() => void meta.refetch()}
-          retryLabel={meta.isFetching ? 'Retrying…' : 'Retry'}
-        />
-      </Card>
-    );
-  }
-
-  const { name, version, environment, serverTime } = meta.data;
-  return (
-    <Card testID="api-status-ready">
-      <View style={styles.row}>
-        <MaterialCommunityIcons name="server-network" size={20} color={palette.accent} />
-        <Text style={[textStyle('md'), styles.cardTitle, { color: palette.ink }]}>{name}</Text>
-      </View>
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-        Version{' '}
-        <Text style={{ fontFamily: fontFamily.mono, color: palette.ink }} testID="api-version">
-          {version}
-        </Text>{' '}
-        · {environment}
-      </Text>
-      <Text style={[textStyle('xs'), { color: palette.textDisabled }]}>
-        Server time {relativeTime(serverTime)}
-        {meta.isFetching ? ' · refreshing' : ''}
-      </Text>
-    </Card>
-  );
-}
-
-/** Profile tab: session, appearance and API status. Account settings arrive in Phase 1. */
+/**
+ * Profile tab: the collector's own profile (what they set up in onboarding), its trading area and
+ * visibility, shortcuts to edit it, to preview it as others see it, and to Settings.
+ */
 export default function ProfileScreen() {
-  const { palette } = useTheme();
+  const profile = useMyProfile();
+  const location = useMyLocation();
   const router = useRouter();
   const session = useSession();
-  const themeOverride = useAppStore((state) => state.themeOverride);
-  const setThemeOverride = useAppStore((state) => state.setThemeOverride);
 
   return (
     <Screen scroll testID="screen-profile">
-      <View style={styles.section}>
-        <SectionTitle>Account</SectionTitle>
-        <Card testID="session-card">
-          <View style={styles.row}>
-            <View style={[styles.avatar, { backgroundColor: palette.primaryContainer }]}>
-              <MaterialCommunityIcons
-                name="account-outline"
-                size={28}
-                color={palette.onPrimaryContainer}
-              />
-            </View>
-            <View style={styles.grow}>
-              <Text style={[textStyle('md'), styles.cardTitle, { color: palette.ink }]}>
-                {session.user?.displayName ?? 'Not signed in'}
-              </Text>
-              <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-                {session.user?.email ?? 'Sign in to publish binders and message collectors.'}
-              </Text>
-            </View>
-          </View>
-          {session.status === 'anonymous' ? (
-            <View style={styles.actions}>
-              <Button
-                label="Sign in"
-                onPress={() => router.push('/(auth)/sign-in')}
-                style={styles.grow}
-              />
-              <Button
-                label="Create account"
-                variant="secondary"
-                onPress={() => router.push('/(auth)/sign-up')}
-                style={styles.grow}
-              />
-            </View>
-          ) : null}
-        </Card>
-      </View>
+      <QueryState
+        query={profile}
+        errorTitle="We could not load your profile"
+        loading={<ProfileSkeleton />}
+        testID="profile"
+      >
+        {(data) => <ProfileContent profile={data} location={location.data} />}
+      </QueryState>
 
-      <View style={styles.section}>
-        <SectionTitle>Appearance</SectionTitle>
-        <View style={styles.chips}>
-          {THEME_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              label={option.label}
-              selected={themeOverride === option.value}
-              onPress={() => setThemeOverride(option.value)}
-              testID={`theme-${option.value}`}
-            />
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <SectionTitle>API</SectionTitle>
-        <ApiStatusCard />
-      </View>
+      <SectionCard style={styles.section}>
+        <ListRow
+          icon="cog-outline"
+          label="Settings"
+          onPress={() => router.push('/settings')}
+          testID="profile-settings"
+        />
+        <Divider />
+        <ListRow
+          icon="map-marker-radius-outline"
+          label="Location and discoverability"
+          onPress={() => router.push('/settings/location')}
+        />
+        <Divider />
+        <ListRow
+          icon="shield-account-outline"
+          label="Privacy"
+          onPress={() => router.push('/settings/privacy')}
+        />
+        <Divider />
+        <ListRow icon="file-document-outline" label="Legal" onPress={() => router.push('/legal')} />
+        <Divider />
+        <ListRow
+          icon="logout"
+          label="Sign out"
+          kind="button"
+          onPress={() => void session.signOut()}
+          testID="profile-sign-out"
+        />
+      </SectionCard>
     </Screen>
   );
 }
 
+function ProfileSkeleton() {
+  return (
+    <View style={styles.header} accessibilityLabel="Loading your profile">
+      <Skeleton width={72} height={72} radius={36} />
+      <View style={styles.grow}>
+        <Skeleton width="60%" height={20} />
+        <Skeleton width="40%" height={14} style={styles.gap} />
+      </View>
+      <SkeletonList rows={2} rowHeight={64} style={styles.full} />
+    </View>
+  );
+}
+
+function ProfileContent({
+  profile,
+  location,
+}: {
+  profile: MyProfileResponse;
+  location: MyLocationResponse | undefined;
+}) {
+  const { palette } = useTheme();
+  const router = useRouter();
+  const account = useAccount();
+  const area = location?.tradingArea;
+  const curated = profile.tags.map((tag) => tag.label);
+
+  return (
+    <View style={styles.content}>
+      <View style={styles.header}>
+        <Avatar src={profile.avatarUrl} name={profile.displayName} size={72} />
+        <View style={styles.grow}>
+          <Text
+            accessibilityRole="header"
+            testID="profile-name"
+            style={[textStyle('2xl', 'heading'), styles.name, { color: palette.ink }]}
+          >
+            {profile.displayName || account.displayName}
+          </Text>
+          <Text
+            testID="profile-handle-label"
+            style={[textStyle('md'), { color: palette.textMuted }]}
+          >
+            @{profile.handle}
+          </Text>
+        </View>
+      </View>
+      {profile.bio ? (
+        <Text testID="profile-bio-text" style={[textStyle('md'), { color: palette.ink }]}>
+          {profile.bio}
+        </Text>
+      ) : null}
+
+      <View style={styles.actions}>
+        <Button
+          label="Edit profile"
+          icon="pencil-outline"
+          onPress={() => router.push('/settings/profile')}
+          style={styles.grow}
+          testID="profile-edit"
+        />
+        <Button
+          label="Public preview"
+          icon="eye-outline"
+          variant="secondary"
+          onPress={() =>
+            router.push({ pathname: '/collectors/[id]', params: { id: profile.handle } })
+          }
+          style={styles.grow}
+          testID="profile-preview"
+        />
+      </View>
+
+      <SectionCard title="Collects">
+        <ChipList
+          items={profile.games.map(gameLabel)}
+          emptyLabel="No games yet"
+          testID="profile-games"
+        />
+        <Text style={[textStyle('sm'), styles.subtle, { color: palette.textMuted }]}>
+          Languages
+        </Text>
+        <ChipList items={profile.languages.map(languageLabel)} emptyLabel="No languages yet" />
+        <Text style={[textStyle('sm'), styles.subtle, { color: palette.textMuted }]}>Tags</Text>
+        <ChipList items={curated} emptyLabel="No tags yet" testID="profile-tags" />
+      </SectionCard>
+
+      <SectionCard title="Trading area">
+        <Text testID="profile-area" style={[textStyle('md'), { color: palette.ink }]}>
+          {area
+            ? `${area.label ?? 'Approximate area'} · ${area.radiusKm} km radius`
+            : 'No trading area yet.'}
+        </Text>
+        <Text testID="profile-visibility" style={[textStyle('sm'), { color: palette.textMuted }]}>
+          {location?.discoverable && area
+            ? 'Visible on the map at an approximate position.'
+            : 'Hidden from the map.'}
+        </Text>
+      </SectionCard>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  section: { gap: spacing[2], marginBottom: spacing[6] },
-  sectionTitle: { fontWeight: fontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.6 },
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing[4], gap: spacing[2] },
-  cardTitle: { fontWeight: fontWeight.semibold },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  content: { gap: spacing[4] },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[4] },
+  name: { fontWeight: fontWeight.bold },
   grow: { flex: 1 },
-  actions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[2] },
-  chips: { flexDirection: 'row', gap: spacing[2] },
+  full: { width: '100%' },
+  gap: { marginTop: spacing[2] },
+  actions: { flexDirection: 'row', gap: spacing[2] },
+  subtle: { fontWeight: fontWeight.medium },
+  section: { marginTop: spacing[4] },
 });
