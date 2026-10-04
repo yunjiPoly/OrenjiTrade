@@ -5,7 +5,9 @@ name: E2E
 # API jar (Gradle bootJar, `local` profile, fake/log providers, seed data) and the Angular dev
 # server started by Playwright's webServer. Runs every spec under apps/web-angular/e2e, including
 # the acceptance suite (e2e/acceptance) whose privacy fixture scans every response for exact
-# coordinates. No cloud credentials: the only secrets are random CI-only values generated per run.
+# coordinates. A second job does the same for the Expo mobile app's web build (apps/mobile/e2e,
+# `npm run test:mobile:e2e`). No cloud credentials: the only secrets are random CI-only values
+# generated per run.
 
 on:
   pull_request:
@@ -155,3 +157,70 @@ jobs:
         if: always()
         run: |
           if [ -f "$RUNNER_TEMP/api.pid" ]; then kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true; fi
+
+  mobile-web:
+    # The Expo app's web build driven by Playwright (apps/mobile/e2e) against the same real stack:
+    # `npm run test:mobile:e2e` reuses the running infrastructure, creates the isolated database
+    # orenjitrade_mobile_e2e, builds and starts the API jar on :8090 (local profile, seed data,
+    # fake/log providers, no card-image downloads), exports the web build pointed at it, serves it
+    # on :19006 and runs every spec with the privacy fixture. Native flows run with Maestro on a
+    # local Android emulator (apps/mobile/.maestro), not in CI.
+    name: Mobile web build against the local stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate CI-only secrets
+        run: |
+          for name in SERVICE_TOKEN LOCATION_JITTER_SECRET CONSENT_IP_SALT; do
+            value="ci-$(openssl rand -hex 24)"
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Start infrastructure (PostGIS, Redis, Firebase Auth emulator)
+        timeout-minutes: 15
+        run: |
+          docker compose up -d --build --wait --wait-timeout 600 postgres redis firebase-auth
+          docker compose ps
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Install the Playwright Chromium browser
+        working-directory: apps/mobile
+        run: npx playwright install --with-deps chromium
+
+      # Builds the jar, starts the API and the web server, runs Playwright, stops what it started.
+      - name: Run the mobile web E2E suite
+        timeout-minutes: 45
+        run: npm run test:mobile:e2e
+
+      - name: Upload the Playwright report and logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-report
+          path: |
+            apps/mobile/playwright-report/**
+            apps/mobile/test-results/**
+            .local-dev/mobile-e2e/logs/**
+          retention-days: 7
+          if-no-files-found: ignore

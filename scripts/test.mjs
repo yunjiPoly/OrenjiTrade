@@ -4,12 +4,16 @@
 //                         integration tests; Docker required)
 //   npm run test:web      apps/web-angular: lint + unit tests (Vitest)
 //   npm run test:mobile   apps/mobile: typecheck + lint + jest
+//   npm run test:mobile:e2e  apps/mobile web build + Playwright against an isolated real stack: the
+//                         running infrastructure (infra:up only when it is down, never restarted),
+//                         database orenjitrade_mobile_e2e, the API jar on :8090, expo export + serve
+//                         on :19006; stops only what it started (--reuse-running, --skip-build)
 //   npm run test:e2e      Playwright suite against the real local stack: ensures the infrastructure,
 //                         builds and starts the API jar on :8080 (no on-demand card image
 //                         downloads from providers) and ng serve on :4200, runs every
 //                         spec, then stops what it started. Extra args go to Playwright, e.g.
 //                         npm run test:e2e -- e2e/map.spec.ts   (--reuse-running: use an API/web already up)
-//   npm run test:all      api + web + mobile + e2e, then a summary with timings
+//   npm run test:all      api + web + mobile + e2e + mobile:e2e, then a summary with timings
 //   npm run test:ml       optional: apps/ml pytest with apps/ml/.venv when present (Phase 11 is on hold)
 
 import fs from 'node:fs';
@@ -43,6 +47,7 @@ import {
   table,
   waitForHttp,
 } from './lib/util.mjs';
+import { testMobileE2e } from './lib/mobile-e2e.mjs';
 
 const [suite, ...argv] = process.argv.slice(2);
 
@@ -261,6 +266,7 @@ async function testAll(args) {
     ['web', testWeb],
     ['mobile', testMobile],
     ['e2e', () => testE2e(args)],
+    ['mobile:e2e', () => testMobileE2e([])],
   ];
   const results = [];
   const allStarted = Date.now();
@@ -285,6 +291,7 @@ const suites = {
   api: testApi,
   web: testWeb,
   mobile: testMobile,
+  'mobile-e2e': () => testMobileE2e(argv),
   e2e: () => testE2e(argv),
   all: () => testAll(argv),
   ml: testMl,
