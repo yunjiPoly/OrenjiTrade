@@ -208,3 +208,4 @@ fails again until someone re-reviews it. Moderate/low advisories are printed but
 | Advisory | Package | Expires | Why accepted |
 | --- | --- | --- | --- |
 | GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 (no fix published) | 2026-11-30 | Only via Expo build tooling (`@expo/cli` → `@expo/code-signing-certificates`) for expo-updates code signing, which is not used; not in the API or the web bundle. npm's "fix" would downgrade Expo to SDK 44. |
+| GHSA-vfj7-8cjw-p6xm | braces ≤ 3.0.3 (no fix published) | 2026-11-30 | Only via build/test tooling glob matching (micromatch in Metro, Jest, Angular/Expo toolchains) with developer-written patterns; not in the web bundle or the API. |
