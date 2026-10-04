@@ -317,8 +317,9 @@ token of an account with pending consents or a suspension does not block them (s
   state is known); `AdminListingItem.imageUrl` (admin listings, stale queue, restore and hide
   answers). The offers module's `OfferCard` (live item, else the offer's item snapshot) feeds the
   offer, trade, payment and dispute notifications.
-- `CardImageCache`: capped local cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 500, refused above
-  500), reservations under a lock on `card_image_cache_usage`, one 320 px JPEG per artwork
+- `CardImageCache`: capped local cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 5120 MiB = 5 GB
+  since 2026-10-04, refused above 5120; 64-bit byte accounting, `int64` in the status DTO),
+  reservations under a lock on `card_image_cache_usage`, one 320 px JPEG per artwork
   deduplicated by SHA-256, single-flight bounded downloads, expiring reservations, reconciliation at
   start-up and on demand. Serving: cached file with `immutable` caching + ETag, else a bounded
   on-demand fill, else the placeholder (5 minutes).

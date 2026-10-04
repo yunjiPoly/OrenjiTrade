@@ -33,9 +33,10 @@ branding assets are supplied.
 | Maps | PostGIS is the geographic source of truth. Google Maps in production; UI map code sits behind a `MapAdapter` (Leaflet fallback when no key) |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
-### Card images (ADR 0015, owner rule 2026-10-01)
-The local card image cache never holds more than **500 MB** (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`,
-default 500, start-up fails above it; temp files and reservations count). **Never hotlink
+### Card images (ADR 0015, owner rule 2026-10-01, cap raised 2026-10-04)
+The local card image cache never holds more than **5 GB** (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`,
+default and ceiling 5120 MiB, start-up fails above it; temp files and reservations count; byte
+accounting is 64-bit). One 320 px JPEG per artwork, no full-size or cropped copies. **Never hotlink
 YGOPRODeck images**: browsers only get `/api/v1/public/card-images/{id}` (cached file or
 placeholder); provider URLs stay server-side (`card_image.source_url`). Card metadata is always
 imported completely; images are a separate, capped cache. Real provider imports are explicit

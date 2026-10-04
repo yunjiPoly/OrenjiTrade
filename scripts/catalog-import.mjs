@@ -14,7 +14,8 @@
 // Queues POST /internal/jobs/catalog-import with the local service token, polls
 // GET /internal/jobs/catalog-import/{id} until the run finished and prints the report. The card
 // metadata is always imported completely; the images go into the local cache, which never grows
-// beyond CARD_IMAGE_LOCAL_CACHE_MAX_MB (at most 500 MB). Needs a running API (npm run api:dev).
+// beyond CARD_IMAGE_LOCAL_CACHE_MAX_MB (at most 5 GB = 5120 MiB, enough for the whole Yu-Gi-Oh!
+// catalog at 320 px). Needs a running API (npm run api:dev).
 
 import { fail, formatDuration, log, table } from './lib/util.mjs';
 import { apiBase, internal, mb, parseOptions } from './lib/internal-api.mjs';
