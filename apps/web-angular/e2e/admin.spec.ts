@@ -81,8 +81,9 @@ test.describe('admin console', () => {
   test('collectors cannot open the admin console', async ({ page }) => {
     await signInThroughUi(page, 'collector3@orenjitrade.test', SEED_PASSWORD);
     await page.goto('/admin/users');
-    await expect(page).toHaveURL(/\/map$/);
+    // The guard's notice is a 5 s snack bar: check it before waiting for the (slower) map page.
     await expect(page.getByText('The admin console is limited to staff accounts.')).toBeVisible();
+    await expect(page).toHaveURL(/\/map$/);
   });
 
   test('moderators only see the moderation areas', async ({ page }) => {

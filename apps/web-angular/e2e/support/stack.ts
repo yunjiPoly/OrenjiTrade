@@ -5,7 +5,7 @@ import {
   request as playwrightRequest,
   test,
 } from '@playwright/test';
-import { E2E_API_PORT, E2E_EMAIL_DOMAIN, runEmailPrefix } from './isolation';
+import { E2E_API_PORT, E2E_EMAIL_DOMAIN, E2E_WEB_PORT, runEmailPrefix } from './isolation';
 
 /**
  * Helpers for specs that run against the REAL local E2E stack: the API jar on :8180 (profile
@@ -15,6 +15,8 @@ import { E2E_API_PORT, E2E_EMAIL_DOMAIN, runEmailPrefix } from './isolation';
  * is deleted from the emulator at the end of the run.
  */
 export const API_URL = process.env['E2E_API_URL'] ?? `http://localhost:${E2E_API_PORT}`;
+/** The E2E web app (Playwright's baseURL, never the developer's :4200). */
+export const WEB_URL = process.env['E2E_BASE_URL'] ?? `http://localhost:${E2E_WEB_PORT}`;
 export const AUTH_EMULATOR_URL = process.env['E2E_AUTH_EMULATOR_URL'] ?? 'http://localhost:9099';
 export const FIREBASE_PROJECT_ID = process.env['E2E_FIREBASE_PROJECT_ID'] ?? 'orenjitrade-local';
 /** The emulator accepts any API key; this is the value from public/config.json. */
