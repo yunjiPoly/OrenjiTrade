@@ -1,4 +1,5 @@
-import { CLUSTER_THRESHOLD, clusterItems, worldPixel } from './marker-clusters';
+import { COLLECTOR_MAP_MAX_ZOOM } from '../../../shared/map/approximate-area';
+import { CLUSTER_MAX_ZOOM, CLUSTER_THRESHOLD, clusterItems, worldPixel } from './marker-clusters';
 
 function points(count: number, lat = 45.5, lng = -73.6, step = 0.0005) {
   return Array.from({ length: count }, (_, i) => ({
@@ -40,6 +41,21 @@ describe('marker clusters', () => {
 
   it('stops clustering from the maximum zoom', () => {
     const items = points(CLUSTER_THRESHOLD + 5);
-    expect(clusterItems(items, 16).every((group) => group.kind === 'single')).toBe(true);
+    expect(clusterItems(items, CLUSTER_MAX_ZOOM).every((group) => group.kind === 'single')).toBe(
+      true,
+    );
+  });
+
+  it('stops clustering at the collector map zoom cap, never above it', () => {
+    // A cluster above the cap could never be opened by zooming in.
+    expect(CLUSTER_MAX_ZOOM).toBe(COLLECTOR_MAP_MAX_ZOOM);
+    const items = points(CLUSTER_THRESHOLD + 5);
+    expect(
+      clusterItems(items, COLLECTOR_MAP_MAX_ZOOM).every((group) => group.kind === 'single'),
+    ).toBe(true);
+    // One level below the cap, crowds still group.
+    expect(
+      clusterItems(items, COLLECTOR_MAP_MAX_ZOOM - 1).some((group) => group.kind === 'cluster'),
+    ).toBe(true);
   });
 });

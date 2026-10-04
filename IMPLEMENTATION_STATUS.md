@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -84,7 +84,7 @@ _Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 
 - [x] `/api/v1/collectors/nearby` (PostGIS `ST_DWithin` on `public_point`), bucketed distances — new module `apps/api/.../search`: `DiscoveryController` (`GET /collectors/nearby`, `GET /collectors/{handle}/preview`), `CollectorDiscoveryService`, `GeoScopeResolver` (centre = `lat`/`lng` or the caller's own trading area via `LocationService.searchCentreOf`, snapped to 0.01° inside the `location` module; radius capped by `Limits` `map.radius.max_km` → 429 LIMIT_REACHED, FREE rule for signed-out callers via the new `Limits.checkValueForAnonymous`; default 10 km), `MarkerAssembler` (per-viewer `PrivacyPolicyService` rules incl. new `canAppearOnMap`/`canAppearInNameSearch`: distance buckets for signed-in callers only, last active, online status, blocks, rating), `MarkerRanking`, `infra/CollectorSearchRepository` (SQL on `user_location.public_point` only, reusing `PublicVisibilityRules` and `InventoryItemRepository.LISTED`; STALE/HIDDEN items never match), `NearbyCache` (Redis 60 s, key `orenji:cache:nearby:<generation>:<sha256 of the snapped request>`) + `NearbyCacheInvalidator` (generation bumped after commit on item/binder publish/unpublish, `BinderFreshnessChanged`, `TradingAreaChanged`, `LocationRemoved`, `PrivacySettingsChanged`, `UserSuspended`/`UserUnsuspended`); routes added to `SecurityConfig.PUBLIC_GET_PATTERNS` (anonymous reads with reduced detail); `DistanceBucket.upperKm()`, `location/domain/SearchCentre`; migration V030 (`ix_inventory_item_owner_discovery`, `ix_inventory_item_printing_discovery`, `ix_privacy_settings_map`, `ix_binder_name_trgm`) — tests NearbyCollectorsIT (8: radius/freshness ranking/details by sign-in state, filters, hidden collectors, plan radius 429, preview messaging state, centre required for signed-out callers and defaulting to the own trading area, limit truncation, cache invalidation), SearchCentreTest (2). Debt: blocked collectors are filtered after the page is read (so `total` may count them) until Phase 5 blocks are joined in SQL; ratings arrive with Phase 7
 - [x] `/api/v1/search` unified (cards, printings, sets, collectors, public binders) — `SearchController` (`GET /search`, `/search/suggest`), `SearchService` (resolution via new `CatalogService.resolve`/`CatalogResolution`: an exact printing code resolves the printing, a shared code / exact name / single card hit resolves the card; `collectors` then lists nearby holders with the `nearby` engine; public binders with an optional owner block via `PublicBinderService.publicBinders`; collector text matching substring-only; `suggest` mixes CARD/PRINTING/SET/COLLECTOR/BINDER/TAG), `infra/BinderSearchRepository` — tests SearchIT (4), SearchDomainTest (5)
 - [x] Card-holder search: collectors near me with printing X (filters: sale/trade/offers, price, freshness, condition) — `GET /search/card-holders` (`printingId`|`cardId`, availability, condition, min/max price, freshness, edition, language, acceptsOffers, `sort=distance|price|freshness`, paged `PageResponse<CardHolderResult>`; the caller's own items excluded), `infra/CardHolderRepository`, `PublicInventoryService.publicItems(ids)` — tests CardHoldersIT (4)
-- [x] Web `/map` page: MapAdapter (Google Maps / Leaflet fallback), markers, preview card, messages panel (collapsible), filters bar — `apps/web-angular/src/app/features/map` (stage 5): `MapPageComponent` container + `data/map-discovery.store.ts`; filters in the URL (game, availability, freshness, tags, radius, card/printing, `view=list`), never the map position; signed-in collectors with a trading area are centred by the server (first `GET /collectors/nearby` without `lat`/`lng`; the page never calls `GET /me/location`), signed-out visitors / collectors without an area get Montréal + city picker + "Sign in / Set my area" prompt (`area-prompt`, `shared/discovery/discovery-centre.ts`); viewport moves debounced 400 ms, re-query only when the view leaves the circle last answered, visible radius capped by the plan's `map.radius.max_km` (`GET /me/plan`, FREE when signed out), centre rounded to 2 decimals, 429 LIMIT_REACHED → limit-reached dialog + retry at the cap, 400 (no trading area) → Montréal; avatar markers with a freshness ring (`markerIconHtml`, HTML-escaped, both adapters), in-house screen-space clustering above 60 (selected collector never clustered, cluster click zooms), keyboard-focusable markers (Enter/Space → preview); `collector-preview` card on `GET /collectors/{handle}/preview` + first public binder (View profile / View public binder / Message disabled until web Phase 5; Escape restores focus; bottom sheet on phones); `collector-list` accessible "List" toggle; `map-canvas`, `map-filters-bar` (game, radius slider, availability, freshness, lazily loaded tags), `map-legend` ("Positions are approximate to protect privacy"), `discovery-panel` (map search box on `GET /search/suggest` grouped by type: card/printing → "Holders of X" side list with chips and prices, collector → preview, tag → filter, set/binder → their pages; Messages placeholder panel); `shared/map` gains `zoomControlPosition`, `shared/search`. `/search` (`features/search`: `?q=` tabs Cards / Collectors / Binders on `GET /search` with a nearby-holders banner when resolved; `?card=`/`?printing=` card-holders view on `GET /search/card-holders` with every filter, inline-validated price range, sort and pagination); card detail "Who has this near me" → `/map?card=<id>&view=list`. Generated `@orenji/api-client` only. Tests: Vitest (map page, store, adapter, list, preview, filters, search pages) — 247 web unit tests / 51 files; Playwright `e2e/map.spec.ts` (2, see below); `e2e/support/stack.ts` gains `stubMapTiles` (OSM tiles served from memory) and `createOnboardedCollector({area, displayName})`. Debt: the Messages panel is a placeholder until web Phase 5; admin entitlements / plan editing UI and a `/sets` index page still pending (carry-over)
+- [x] Web `/map` page: MapAdapter (Google Maps / Leaflet fallback), markers, preview card, messages panel (collapsible), filters bar — `apps/web-angular/src/app/features/map` (stage 5): `MapPageComponent` container + `data/map-discovery.store.ts`; filters in the URL (game, availability, freshness, tags, radius, card/printing, `view=list`), never the map position; signed-in collectors with a trading area are centred by the server (first `GET /collectors/nearby` without `lat`/`lng`; the page never calls `GET /me/location`), signed-out visitors / collectors without an area get Montréal + city picker + "Sign in / Set my area" prompt (`area-prompt`, `shared/discovery/discovery-centre.ts`); viewport moves debounced 400 ms, re-query only when the view leaves the circle last answered, visible radius capped by the plan's `map.radius.max_km` (`GET /me/plan`, FREE when signed out), centre rounded to 2 decimals, 429 LIMIT_REACHED → limit-reached dialog + retry at the cap, 400 (no trading area) → Montréal; avatar markers with a freshness ring (`markerIconHtml`, HTML-escaped, both adapters), in-house screen-space clustering above 60 (selected collector never clustered, cluster click zooms), keyboard-focusable markers (Enter/Space → preview); `collector-preview` card on `GET /collectors/{handle}/preview` + first public binder (View profile / View public binder / Message disabled until web Phase 5; Escape restores focus; bottom sheet on phones); `collector-list` accessible "List" toggle; `map-canvas`, `map-filters-bar` (game, radius slider, availability, freshness, lazily loaded tags), `map-legend` ("Positions are approximate to protect privacy"; since 2026-10-03 "Locations are approximate (about 2 km) to protect privacy", see "Map location privacy rendering"), `discovery-panel` (map search box on `GET /search/suggest` grouped by type: card/printing → "Holders of X" side list with chips and prices, collector → preview, tag → filter, set/binder → their pages; Messages placeholder panel); `shared/map` gains `zoomControlPosition`, `shared/search`. `/search` (`features/search`: `?q=` tabs Cards / Collectors / Binders on `GET /search` with a nearby-holders banner when resolved; `?card=`/`?printing=` card-holders view on `GET /search/card-holders` with every filter, inline-validated price range, sort and pagination); card detail "Who has this near me" → `/map?card=<id>&view=list`. Generated `@orenji/api-client` only. Tests: Vitest (map page, store, adapter, list, preview, filters, search pages) — 247 web unit tests / 51 files; Playwright `e2e/map.spec.ts` (2, see below); `e2e/support/stack.ts` gains `stubMapTiles` (OSM tiles served from memory) and `createOnboardedCollector({area, displayName})`. Debt: the Messages panel is a placeholder until web Phase 5; admin entitlements / plan editing UI and a `/sets` index page still pending (carry-over)
 - [x] Collector preview → full profile → public binder → message — API: `GET /collectors/{handle}/preview` (marker + `canMessage`/`isBlocked`, 404 for collectors not on the map; NearbyCollectorsIT; `canMessage`/`isBlocked` real since Phase 5); web: marker → preview → full profile → public binder proven by Playwright `map.spec.ts`; "Message" from the preview opens (or creates, `POST /conversations`) the conversation in the map's Messages panel and the collector page's Message opens `/messages/:id` (stage 6, Playwright `messaging.spec.ts`)
 - [ ] Mobile map tab with bottom-sheet preview — deferred by owner decision
 - [x] Tests: geo search, no exact coordinates in any response (contract test), ranking fresh > stale — NearbyCollectorsIT, SearchIT, CardHoldersIT, SearchDomainTest (`rankingIsFreshnessThenDistanceBucketThenRatingThenDistance`, canonical cache keys never holding the raw centre), GeoPrivacyContractTest `mapAndSearchResponsesOnlyEverCarryPublicPoints` (nearby, preview, unified search, binder search, card holders, suggest; anonymous and signed in: every point is the stored public point or the snapped centre, ≤ 3 decimals, no private location keys or notes, non-discoverable collectors 404/absent, no distance buckets for signed-out callers, logs free of coordinates), PrivacyPolicyServiceTest (extended); web Playwright `map.spec.ts` (collector A publishes a card, collector B opens `/map`, finds A's avatar marker, opens the preview, uses the List toggle by keyboard, opens A's profile and public binder; card search in the map box → "Holders of" list with price and chips → card-holders view with an inverted price-range message and URL-kept max price/availability → `/search?q=AZR-EN011` banner + Collectors tab; both scenarios assert every JSON lat/lng has ≤ 3 decimals and never equals A's or B's stored trading-area centre; random rural areas per run so earlier data never crowds the map)
@@ -360,6 +360,73 @@ seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 A
   + rarity pairs claimed by two cards (skipped, reported as warnings); production legal review of
   the YGOPRODeck terms, card image rights and attribution is required before any public launch.
 
+## Map location privacy rendering (ADR 0004 "Client rendering", 2026-10-03)
+
+_Workflow task "build" on branch `feature/map-privacy-zoom` (web + docs only; no backend, API,
+database or grid change). Owner task: collector markers looked like exact home locations when
+zooming in (Leaflet up to zoom 19, Google uncapped, 44 px avatars centred on the public point,
+clustering off from zoom 16). Rule now: no map that shows other collectors suggests a position more
+precise than an area about 2 km wide, at any zoom, with either adapter. Builder verification:
+`npm run lint`, `npm run format:check`, `npm test` (129 files / 629 tests, previously 126 / 603)
+and `npm run build` (initial 887.66 kB, no warnings) in `apps/web-angular`; `./gradlew test` of the
+`location` and `search` packages: 56 tests / 10 classes incl. `GeoPrivacyContractTest`,
+`LocationIT`, `ApproximateLocationServiceTest`, `NearbyCollectorsIT`, `SearchIT`, `CardHoldersIT`,
+0 failures (no backend change). Playwright
+not run by the builder (the owner's servers hold 4200/8080).
+Independent verification (2026-10-03, verifier attempt 1): lint, format:check, `npm test`
+(129 / 629) and `npm run build` (no warnings) re-run green; `./gradlew test` for
+`*GeoPrivacyContractTest*`, `*location*`, `*search*`, `*Nearby*` patterns: 79 tests / 17 classes,
+0 failures; no diff under `apps/api` or `packages/`. Isolated stack (API jar on :8081 against
+database `orenjitrade_e2e` and Redis db 2, `ng serve` on :4201 with a temporary config): Playwright
+`e2e/map.spec.ts`, `e2e/acceptance/map.spec.ts`, `e2e/acceptance/search.spec.ts`,
+`e2e/acceptance/privacy.spec.ts`, `e2e/smoke.spec.ts` 11/11 green. Walkthrough as `collector1`:
+zoom button, scroll wheel and keyboard "+" all stop at 14 (Leaflet `maxZoom` 14, "+" disabled);
+search-box preview focus from zoom 8 lands on 14; every collector has a 1000 m disc measured at
+150 px radius at zoom 14 / 45.5° N (expected 149.4 px); profile map: no pin, one 1000 m disc,
+capped at 14; notes visible on the legend, preview and profile; no JSON lat/lng finer than 3
+decimals (search centres 2), no DOM attribute, page state or console message with a finer
+coordinate. Mutation check: removing the cap from both adapters fails 8 adapter tests._
+
+- [x] Inspection: the only surfaces that draw another collector's public point are `/map`
+  (`features/map/map-canvas` via `map-page`, markers from `data/map-markers.ts`) and the profile
+  map `shared/map/approximate-area-map` (in `collector-profile-view`, used by `/collectors/:handle`
+  for others and for the own public profile). The collector preview, list, search, card holders,
+  binder headers, offers and wishlist matches show labels and distance buckets only, never a map.
+  `shared/location/trading-area-picker` (onboarding, settings) only draws the user's own centre
+  and radius to themselves; unchanged and not capped.
+- [x] Zoom cap — `shared/map/approximate-area.ts` `COLLECTOR_MAP_MAX_ZOOM = 14`;
+  `MapAdapterOptions.minZoom`/`maxZoom` + `clampZoom` (ADR 0010 amendment): Leaflet map
+  `maxZoom` option (wheel, buttons with "+" disabled at 14, keyboard, touch, box zoom) plus clamped
+  initial zoom / `setView` / `fitBounds` limit; Google `MapOptions.maxZoom`, clamped `setZoom` and a
+  `zoom_changed` guard; `map-canvas` and `approximate-area-map` pass the cap; the store's preview
+  focus and cluster zoom never ask for more. `FakeMapAdapter.created(options)` clamps like the real
+  adapters.
+- [x] Approximate areas — `APPROXIMATE_AREA_RADIUS_M = 1000` (2 km wide, metres) shared by `/map`
+  and the profile map: `buildCollectorMarkers` returns `areas` (one `approximate` disc per collector
+  drawn on their own, the selected one in the stronger `area` look; none for clustered collectors);
+  `map-canvas` takes `circles` (search radius + discs); `circleStyle` shared by both adapters,
+  circles restyled in place when their variant changes, unchanged discs not redrawn. Discs for every
+  collector (≤ 200 per answer) rather than the selected-only fallback: cheap in both providers and
+  hidden behind the avatar until zoom 12.
+- [x] Clustering — `CLUSTER_MAX_ZOOM = COLLECTOR_MAP_MAX_ZOOM` (was 16); threshold and cell size
+  unchanged.
+- [x] Wording — legend "Locations are approximate (about 2 km) to protect privacy" + a legend key
+  for the disc; preview note "Locations are approximate (about 2 km)" (`data-testid=
+  preview-approximate`); map accessible name ends with the note; profile "Approximate area (about
+  2 km) around …"; Privacy Policy "Public point" definition adds "Maps show it as an area about 2 km
+  wide, never as an exact spot." (privacy `lastUpdated` 2026-10-03). The ~1 km grid wording
+  (privacy settings, trading-area picker, legal grid sentence, admin grid-cell hint) is unchanged.
+- [x] Tests — new `leaflet-map-adapter.spec.ts` (real Leaflet in jsdom: initial zoom, `setView`,
+  `fitBounds`, zoom button, keyboard and wheel stop at 14; no cap keeps 18 / fitBounds 15; disc
+  restyling), `google-maps-adapter.spec.ts` (fake `google.maps`), `approximate-area-map.component.spec.ts`;
+  extended `map-adapter`, `map-markers`, `marker-clusters`, `map-discovery.store`, `map-page`
+  (approximate-area cue, cap, emphasised disc, legend key) and `collector-preview-card` specs;
+  Playwright `e2e/map.spec.ts` gains the preview note, discs and "zoom-in disabled at the cap"
+  checks; legend text updated in `e2e/map.spec.ts`, `e2e/acceptance/map.spec.ts`,
+  `e2e/smoke.spec.ts`. Mutation check: removing the cap from either adapter fails 9 adapter tests.
+- Open question for the owner (ADR 0004): sparse rural grid cells may hold very few homes; grid
+  left unchanged pending a decision.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -458,7 +525,7 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 - **ML (on hold):** Phase 11 card recognition and scanning.
 - **Legal:** counsel review of the 8 draft legal pages (criterion 38).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
-- **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 887.59 kB close to the 900 kB warning budget (877.57 kB before the card pictures); the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
+- **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 887.66 kB close to the 900 kB warning budget (887.59 kB before the map privacy rendering, 877.57 kB before the card pictures); the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
 - **Hardening (Phase 13):** dedicated security review and header audit, rate-limit tuning (rapid full reloads reach the 120/min per-user and 60/min anonymous per-IP limits, see stage 12 debt), accessibility pass, load test script, DB index review, backup/restore docs, failure testing; first GitHub run of the E2E workflow.
 
 ---
@@ -482,6 +549,13 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 > in notification payloads, `OfferLink` and admin listing rows. Independently verified and committed
 > on `feature/card-images` (not pushed); next: PR and merge to `main`. The shared local database is
 > at V102 (V102 keeps the `main` checkout's API able to start against it).
+
+> **Map location privacy rendering (2026-10-03, branch `feature/map-privacy-zoom`):** web + docs
+> done by the builder (see "Map location privacy rendering"): collector maps capped at zoom 14 in
+> both adapters, 2 km approximate-area discs under every collector, clustering stops at the cap,
+> "about 2 km" wording. Independently verified and committed on the branch (not pushed).
+> **Next:** push `feature/map-privacy-zoom`, open the PR and merge to `main` when CI is green; then
+> ask the owner about the open rural-cell question in ADR 0004 ("Open questions for the owner").
 
 **Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
 everything runs locally, web application first (**done**), then mobile. Phase 11 (ML card

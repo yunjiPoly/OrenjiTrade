@@ -22,7 +22,7 @@
         <app-map-canvas
           class="stage__map"
           [markers]="markerSet().markers"
-          [circle]="circle()"
+          [circles]="circles()"
           [view]="store.viewRequest()"
           [fallbackCentre]="fallbackCentre"
           (viewportChange)="onViewport($event)"

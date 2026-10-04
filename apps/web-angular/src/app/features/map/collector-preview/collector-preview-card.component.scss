@@ -81,22 +81,29 @@
 
 .preview__handle,
 .preview__place,
+.preview__approx,
 .preview__muted {
   margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
-.preview__place {
+.preview__place,
+.preview__approx {
   display: flex;
   align-items: center;
   gap: 2px;
 
   mat-icon {
+    flex: 0 0 auto;
     width: 16px;
     height: 16px;
     font-size: 16px;
   }
+}
+
+.preview__approx {
+  font-size: var(--font-size-xs);
 }
 
 .preview__facts {

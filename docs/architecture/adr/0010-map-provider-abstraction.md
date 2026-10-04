@@ -17,3 +17,21 @@ comes exclusively from `/api/v1/collectors/nearby` (public points, ADR 0004). Mo
 ## Consequences
 - The map key never gates development or tests; production styling still uses Google.
 - No business logic in adapter code; clustering thresholds and filters live in the feature.
+
+## Amendment 2026-10-03: zoom limits and approximate-area circles
+
+The contract (`apps/web-angular/src/app/shared/map/map-adapter.ts`) gains, for the location
+privacy rendering of ADR 0004 ("Client rendering"):
+
+- `MapAdapterOptions.minZoom` / `maxZoom` (optional; unset keeps the provider's own limits). Both
+  adapters must bound *every* zoom path with them: Leaflet through the map's `minZoom`/`maxZoom`
+  options (wheel, buttons, keyboard, touch, box zoom, `setView`, `fitBounds`) plus explicit clamps
+  of the initial zoom, `setView` and the `fitBounds` limit; Google Maps through
+  `MapOptions.minZoom`/`maxZoom` plus a clamped `setZoom` and a `zoom_changed` guard. The shared
+  `clampZoom` helper and the test `FakeMapAdapter` apply the same rule.
+- `MapCircle.variant` `approximate`: a light disc sized in metres (a collector's approximate
+  area), next to `area` and `search`; the look of each variant is shared by the adapters
+  (`circleStyle`), and a circle whose variant changes is restyled in place.
+
+The values (zoom cap 14, 1000 m disc radius) are privacy rules, not adapter logic: they live in
+`shared/map/approximate-area.ts` and are passed in by the feature code.

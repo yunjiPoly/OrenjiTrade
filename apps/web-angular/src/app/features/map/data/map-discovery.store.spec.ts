@@ -14,10 +14,12 @@ import { SessionService } from '../../../core/auth/session.service';
 import { toApiError } from '../../../core/http/api-error';
 import { DiscoveryCentreService } from '../../../shared/discovery/discovery-centre';
 import { CITY_PRESETS } from '../../../shared/location/city-presets';
+import { COLLECTOR_MAP_MAX_ZOOM } from '../../../shared/map/approximate-area';
 import { PlansStore } from '../../../shared/plans/plans.store';
 import { MapDiscoveryStore } from './map-discovery.store';
 import { DEFAULT_MAP_PARAMS, parseMapParams } from './map-params';
 import { VIEWPORT_DEBOUNCE_MS } from './map-query';
+import { CLUSTER_MAX_ZOOM } from './marker-clusters';
 import { collector, preview } from './testing/collector-fixtures';
 
 const CARD = '69c8ee73-9bf6-42e2-9178-a00582a544e5';
@@ -242,5 +244,48 @@ describe('MapDiscoveryStore', () => {
 
     store.select(null);
     expect(store.preview()).toEqual({ kind: 'idle' });
+  });
+
+  it('brings a collector chosen in the search box into view, never above the zoom cap', async () => {
+    setup({ signedIn: true, ownArea: true });
+    await store.init();
+    await flush();
+    previewApi.mockReturnValueOnce(
+      of(preview('faraway', { publicPoint: { lat: 46.812, lng: -71.205 } })),
+    );
+    store.select('faraway');
+    expect(store.viewRequest()).toEqual(
+      expect.objectContaining({
+        centre: { lat: 46.812, lng: -71.205 },
+        zoom: COLLECTOR_MAP_MAX_ZOOM,
+      }),
+    );
+  });
+
+  it('zooms into clusters without ever asking for more than the zoom cap', async () => {
+    setup({ signedIn: false, ownArea: false });
+    await store.init();
+    await flush();
+    const tight = { north: 45.5231, south: 45.523, east: -73.5829, west: -73.583 };
+    for (const zoom of [9, 12, 13, CLUSTER_MAX_ZOOM]) {
+      store.viewportChanged({
+        center: { lat: 45.523, lng: -73.583 },
+        zoom,
+        bounds: { north: 45.6, south: 45.4, east: -73.4, west: -73.7 },
+      });
+      store.zoomTo(tight);
+      const request = store.viewRequest();
+      expect(request?.zoom).toBeLessThanOrEqual(COLLECTOR_MAP_MAX_ZOOM);
+      expect(request?.zoom).toBeGreaterThanOrEqual(CLUSTER_MAX_ZOOM);
+    }
+    // A wide cluster at a low zoom: its bounds (the adapters clamp fitBounds to the cap).
+    store.viewportChanged({
+      center: { lat: 45.5, lng: -73.6 },
+      zoom: 9,
+      bounds: { north: 45.8, south: 45.2, east: -73.2, west: -74 },
+    });
+    const wide = { north: 45.6, south: 45.45, east: -73.5, west: -73.7 };
+    store.zoomTo(wide);
+    expect(store.viewRequest()).toEqual(expect.objectContaining({ bounds: wide }));
   });
 });

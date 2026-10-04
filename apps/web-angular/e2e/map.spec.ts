@@ -199,7 +199,9 @@ test.describe('map discovery and search', () => {
 
     // The map page: status, legend, filters, and the seller's avatar marker.
     await expect(page.getByTestId('map-status')).toContainText(/collectors? within/);
-    await expect(page.getByText('Positions are approximate to protect privacy')).toBeVisible();
+    await expect(
+      page.getByText('Locations are approximate (about 2 km) to protect privacy'),
+    ).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();
     const sellerMarker = marker(page, a.displayName);
     await expect(sellerMarker).toBeVisible();
@@ -226,10 +228,29 @@ test.describe('map discovery and search', () => {
       `/binders/${seller.binder.id}`,
     );
     await expect(sellerMarker).toHaveAttribute('aria-current', 'true');
+    // ADR 0004 client rendering: the preview says how approximate the place is, and the map draws
+    // approximate-area discs (with the search radius) instead of exact pins only.
+    await expect(preview.getByTestId('preview-approximate')).toHaveText(
+      /Locations are approximate \(about 2 km\)/,
+    );
+    await expect
+      .poll(() => page.getByTestId('discovery-map').locator('.leaflet-overlay-pane path').count())
+      .toBeGreaterThanOrEqual(2);
 
-    // Escape closes the preview; the list toggle is the keyboard alternative to the markers.
+    // Escape closes the preview.
     await page.keyboard.press('Escape');
     await expect(preview).toBeHidden();
+
+    // The map never zooms closer than the privacy cap (zoom 14): the zoom-in button switches off.
+    const zoomIn = page.getByTestId('discovery-map').getByRole('button', { name: 'Zoom in' });
+    await expect(async () => {
+      if ((await zoomIn.getAttribute('aria-disabled')) !== 'true') {
+        await zoomIn.click();
+      }
+      await expect(zoomIn).toHaveAttribute('aria-disabled', 'true', { timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
+
+    // The list toggle is the keyboard alternative to the markers.
     const listToggle = page.getByRole('button', { name: 'List', exact: true });
     await listToggle.focus();
     await page.keyboard.press('Enter');

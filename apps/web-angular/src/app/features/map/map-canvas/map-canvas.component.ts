@@ -15,6 +15,10 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import {
+  APPROXIMATE_LOCATION_NOTE,
+  COLLECTOR_MAP_MAX_ZOOM,
+} from '../../../shared/map/approximate-area';
+import {
   LatLng,
   MapAdapter,
   MapCircle,
@@ -27,8 +31,9 @@ import type { MapViewRequest } from '../data/map-discovery.store';
 
 /**
  * The discovery map itself: a MapAdapter (Leaflet/OpenStreetMap unless a Google key is
- * configured) that draws the given markers and circle, follows view requests and reports
- * viewport changes and marker activations (click, Enter or Space on a focused marker).
+ * configured) that draws the given markers and circles, follows view requests and reports
+ * viewport changes and marker activations (click, Enter or Space on a focused marker). It shows
+ * other collectors, so it never zooms closer than {@link COLLECTOR_MAP_MAX_ZOOM} (ADR 0004).
  */
 @Component({
   selector: 'app-map-canvas',
@@ -93,13 +98,14 @@ export class MapCanvasComponent {
   private readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
 
   readonly markers = input<readonly MapMarker[]>([]);
-  readonly circle = input<MapCircle | null>(null);
+  /** Search radius and the collectors' approximate-area discs. */
+  readonly circles = input<readonly MapCircle[]>([]);
   /** Where to move (a new `seq` moves again). */
   readonly view = input<MapViewRequest | null>(null);
   /** Initial centre until a view request arrives. */
   readonly fallbackCentre = input.required<LatLng>();
   readonly fallbackZoom = input(11);
-  readonly label = input('Map of collectors near you');
+  readonly label = input(`Map of collectors near you. ${APPROXIMATE_LOCATION_NOTE}`);
 
   readonly viewportChange = output<MapViewport>();
   readonly markerActivate = output<string>();
@@ -116,8 +122,8 @@ export class MapCanvasComponent {
       untracked(() => this.adapter?.setMarkers(markers));
     });
     effect(() => {
-      const circle = this.circle();
-      untracked(() => this.adapter?.setCircles(circle ? [circle] : []));
+      const circles = this.circles();
+      untracked(() => this.adapter?.setCircles(circles));
     });
     effect(() => {
       const view = this.view();
@@ -146,6 +152,7 @@ export class MapCanvasComponent {
         ariaLabel: this.label(),
         scrollWheelZoom: true,
         zoomControlPosition: 'bottomright',
+        maxZoom: COLLECTOR_MAP_MAX_ZOOM,
       });
     } catch (error) {
       console.warn('[OrenjiTrade] Map failed to load.', error);
@@ -158,8 +165,7 @@ export class MapCanvasComponent {
     adapter.onViewportChange((viewport) => this.viewportChange.emit(viewport));
     adapter.onMarkerClick((id) => this.markerActivate.emit(id));
     adapter.setMarkers(this.markers());
-    const circle = this.circle();
-    adapter.setCircles(circle ? [circle] : []);
+    adapter.setCircles(this.circles());
     this.apply(this.view());
     this.viewportChange.emit(adapter.getViewport());
     if (typeof ResizeObserver !== 'undefined') {
