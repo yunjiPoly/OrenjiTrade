@@ -535,6 +535,8 @@ export async function runWebE2e(argv) {
         E2E_API_URL: s.apiUrl,
         E2E_AUTH_EMULATOR_URL: s.emulatorUrl,
         E2E_DB_NAME: E2E_DB,
+        // The internal job endpoints accept the API's own SERVICE_TOKEN (.env, else the local default).
+        E2E_SERVICE_TOKEN: env.SERVICE_TOKEN || 'local-service-token',
         E2E_RUN_ID: runId,
         E2E_HARNESS: '1',
         // A stack that went down mid-run fails the run instead of skipping specs.
