@@ -6,7 +6,7 @@ httpx==0.28.1
 respx==0.23.1
 # Starlette 1.x's TestClient prefers httpx2 (falls back to httpx with a deprecation warning).
 httpx2==2.13.1
-ruff==0.16.9
-mypy==2.3.1
+ruff==0.16.10
+mypy==2.4.0
 # Pillow, numpy, pydantic, httpx and python-json-logger ship their own type hints (py.typed),
 # so no separate stub packages are required.
