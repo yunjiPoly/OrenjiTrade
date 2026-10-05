@@ -1,5 +1,5 @@
-// Unit tests of the mobile E2E isolation guards: `node --test scripts/lib/` (also part of
-// `npm run test:mobile` and of the mobile E2E CI job).
+// Unit tests of the mobile E2E isolation guards: `node --test scripts/lib/mobile-e2e-guard.test.mjs`
+// (part of `npm run test:mobile`, `npm run test:scripts` and the mobile E2E CI job).
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -11,7 +11,10 @@ import {
   DEV_API_PORT,
   INFO_KEY,
   MOBILE_E2E_DB,
+  MOBILE_E2E_REALTIME_CHANNEL_PREFIX,
+  MOBILE_E2E_REDIS_DB,
   assertIsolated,
+  assertRecreatable,
   databaseOf,
   deleteRunAccounts,
   developerDirs,
@@ -19,6 +22,7 @@ import {
   isInside,
   isRunAccount,
   isolationProblems,
+  mobileE2eApiEnv,
   newRunId,
   reuseRefusal,
   runEmailPrefix,
@@ -38,16 +42,16 @@ fs.mkdirSync(workDir, { recursive: true });
 
 const devDirs = developerDirs([apiDir, ownerApiDir], {});
 
+/** The environment the harness builds (on top of a developer `.env`), with overrides. */
 function isolatedEnv(overrides = {}) {
-  return {
-    DATABASE_URL: `jdbc:postgresql://localhost:5432/${MOBILE_E2E_DB}`,
-    SERVER_PORT: '8090',
-    STORAGE_LOCAL_ROOT: path.join(workDir, 'storage'),
-    CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
-    CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    ...overrides,
+  const developer = {
+    DATABASE_URL: 'jdbc:postgresql://localhost:5432/orenjitrade',
+    REDIS_URL: 'redis://localhost:6379',
+    STORAGE_LOCAL_ROOT: './.local-storage',
+    STORAGE_PUBLIC_BASE_URL: 'http://localhost:8080',
+    YGOPRODECK_ENABLED: 'true',
   };
+  return { ...mobileE2eApiEnv(developer, { workDir }), ...overrides };
 }
 
 describe('storage directories of an API', () => {
@@ -73,9 +77,58 @@ describe('storage directories of an API', () => {
 });
 
 describe('isolation of the mobile E2E API environment', () => {
-  it('accepts the harness environment', () => {
+  it('accepts the harness environment, whatever the developer .env says', () => {
     assert.deepEqual(isolationProblems(isolatedEnv(), { workDir, devDirs }), []);
     assert.doesNotThrow(() => assertIsolated(isolatedEnv(), { workDir, devDirs }));
+    const env = isolatedEnv();
+    assert.equal(env.DATABASE_URL, `jdbc:postgresql://localhost:5432/${MOBILE_E2E_DB}`);
+    assert.equal(env.REDIS_URL, `redis://localhost:6379/${MOBILE_E2E_REDIS_DB}`);
+    assert.equal(env.REALTIME_CHANNEL_PREFIX, MOBILE_E2E_REALTIME_CHANNEL_PREFIX);
+    assert.equal(env.STORAGE_LOCAL_ROOT, path.join(workDir, 'storage'));
+    assert.equal(env.CARD_IMAGE_CACHE_DIR, path.join(workDir, 'card-images'));
+    assert.equal(env.STORAGE_PUBLIC_BASE_URL, '');
+    assert.equal(env.YGOPRODECK_ENABLED, 'false');
+  });
+
+  it("FAILS when the mobile card image cache directory equals the developer one", () => {
+    const developerCache = storageDirsOf(apiDir, {}).cardImages;
+    const env = isolatedEnv({ CARD_IMAGE_CACHE_DIR: developerCache });
+    assert.throws(() => assertIsolated(env, { workDir, devDirs }), /resolves to the developer/);
+  });
+
+  it("refuses the developer's Redis database, the web E2E one and a remote Redis", () => {
+    for (const [url, pattern] of [
+      ['redis://localhost:6379', /REDIS_URL must select the mobile E2E Redis database 1/],
+      ['redis://localhost:6379/0', /REDIS_URL must select/],
+      ['redis://localhost:6379/2', /REDIS_URL must select/],
+      ['not a url', /REDIS_URL must select/],
+      ['redis://cache.example.com:6379/1', /local Redis/],
+    ]) {
+      const problems = isolationProblems(isolatedEnv({ REDIS_URL: url }), { workDir, devDirs });
+      assert.ok(problems.some((problem) => pattern.test(problem)), `${url}: ${problems.join('\n')}`);
+    }
+  });
+
+  it("refuses the developer's and the web E2E suite's realtime channels", () => {
+    for (const prefix of [undefined, '', 'rt:user:', 'e2e-web:rt:user:']) {
+      const problems = isolationProblems(isolatedEnv({ REALTIME_CHANNEL_PREFIX: prefix }), { workDir, devDirs });
+      assert.ok(problems.some((problem) => problem.startsWith('REALTIME_CHANNEL_PREFIX')), String(prefix));
+    }
+  });
+
+  it('refuses a database that is not on this machine', () => {
+    const problems = isolationProblems(
+      isolatedEnv({ DATABASE_URL: `jdbc:postgresql://db.example.com:5432/${MOBILE_E2E_DB}` }),
+      { workDir, devDirs },
+    );
+    assert.ok(problems.some((problem) => problem.includes('local PostgreSQL')));
+  });
+
+  it('only ever recreates the mobile E2E database', () => {
+    assert.doesNotThrow(() => assertRecreatable(MOBILE_E2E_DB));
+    for (const database of ['orenjitrade', 'orenjitrade_e2e', 'orenjitrade_test', 'postgres']) {
+      assert.throws(() => assertRecreatable(database), /Refusing to drop database/, database);
+    }
   });
 
   it("refuses the developer's card image cache", () => {
@@ -139,6 +192,19 @@ describe('isolation of the mobile E2E API environment', () => {
     });
     assert.ok(problems.some((problem) => problem.startsWith('YGOPRODECK_ENABLED')));
     assert.ok(problems.some((problem) => problem.startsWith('CARD_IMAGE_ON_DEMAND_ENABLED')));
+    const remote = isolationProblems(isolatedEnv({ YGOPRODECK_IMAGE_BASE_URL: 'https://images.ygoprodeck.com/images/cards/' }), {
+      workDir,
+      devDirs,
+    });
+    assert.ok(remote.some((problem) => problem.startsWith('YGOPRODECK_IMAGE_BASE_URL')));
+  });
+
+  it('keeps provider snapshots inside the work directory', () => {
+    const problems = isolationProblems(isolatedEnv({ PROVIDER_DATA_DIR: path.join(apiDir, '.local-dev', 'provider-data') }), {
+      workDir,
+      devDirs,
+    });
+    assert.ok(problems.some((problem) => problem.startsWith('PROVIDER_DATA_DIR')));
   });
 
   it('parses the database of a JDBC URL', () => {
@@ -163,6 +229,10 @@ describe('reuse of a running API (--reuse-running)', () => {
 
   it('refuses the developer API on 8080 with a clear message', () => {
     assert.match(reuseRefusal('http://localhost:8080', identity, 'abc'), /developer API \(port 8080, database orenjitrade\)/);
+  });
+
+  it('refuses an API that is not on this machine', () => {
+    assert.match(reuseRefusal('http://192.0.2.10:8090', identity, 'abc'), /not on this machine/);
   });
 
   it('refuses an API without the identity block or on another database', () => {
@@ -224,5 +294,22 @@ describe('run-scoped test accounts', () => {
     const remove = calls.find((call) => call.url.endsWith('accounts:batchDelete'));
     assert.deepEqual(JSON.parse(remove.init.body), { localIds: ['a', 'f'], force: true });
     assert.equal(remove.init.headers.Authorization, 'Bearer owner');
+  });
+
+  it('never calls an emulator that is not on this machine', async () => {
+    let called = false;
+    await assert.rejects(
+      deleteRunAccounts({
+        emulatorUrl: 'https://identitytoolkit.example.com',
+        projectId: 'orenjitrade-local',
+        runId: 'rabc1234',
+        fetchImpl: async () => {
+          called = true;
+          return Response.json({});
+        },
+      }),
+      /only the local Auth emulator/,
+    );
+    assert.equal(called, false);
   });
 });

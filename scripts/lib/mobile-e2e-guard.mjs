@@ -7,16 +7,55 @@
 // downloaded card images (ADR 0015). Everything here is pure (paths, env maps, JSON) so it is
 // unit-tested in mobile-e2e-guard.test.mjs; the harness calls it before starting anything.
 
-import fs from 'node:fs';
 import path from 'node:path';
+
+import { deleteEmulatorAccountsWhere } from './auth-emulator.mjs';
+import {
+  DEV_API_PORT,
+  DEV_DB,
+  E2E_REALTIME_CHANNEL_PREFIX as WEB_E2E_REALTIME_CHANNEL_PREFIX,
+  E2E_REDIS_DB as WEB_E2E_REDIS_DB,
+  databaseHostOf,
+  databaseOf,
+  developerDirs,
+  isInside,
+  isLocalHost,
+  isLocalUrl,
+  newRunId,
+  overlaps,
+  portOf,
+  realPath,
+  redisDatabaseOf,
+  samePath,
+  storageDirsOf,
+  withDatabase,
+  withRedisDatabase,
+} from './web-e2e-guard.mjs';
+
+// Path, storage, URL and run-id rules are shared with the web E2E harness (web-e2e-guard.mjs, one
+// implementation for both); this module adds the mobile harness's own database, port, Redis
+// database, realtime channels, email domain and identity block.
+export { DEV_API_PORT, DEV_DB, databaseOf, developerDirs, isInside, newRunId, overlaps, realPath, storageDirsOf };
 
 /** The only database the mobile E2E API may use (created by the harness, never the dev one). */
 export const MOBILE_E2E_DB = 'orenjitrade_mobile_e2e';
-/** The developer's database (docker compose default): never touched by the harness. */
-export const DEV_DB = 'orenjitrade';
 /** Port of the isolated API; the developer API listens on DEV_API_PORT. */
 export const MOBILE_E2E_API_PORT = 8090;
-export const DEV_API_PORT = 8080;
+/** Port of the Expo web build served for the Playwright specs. */
+export const MOBILE_E2E_WEB_PORT = 19006;
+/**
+ * Redis logical database of the mobile E2E API: 0 is the developer's (rate limits, nearby cache,
+ * presence), 2 the web E2E harness's.
+ */
+export const MOBILE_E2E_REDIS_DB = 1;
+/**
+ * Prefix of the mobile E2E API's realtime fan-out channels. Redis pub/sub ignores the logical
+ * database, so without it a push for a seed account (same id in every database) would reach the
+ * developer's sessions, or the web E2E run's, and the other way round.
+ */
+export const MOBILE_E2E_REALTIME_CHANNEL_PREFIX = 'e2e-mobile:rt:user:';
+/** The developer API's realtime prefix (application.yml default). */
+const DEV_REALTIME_CHANNEL_PREFIX = 'rt:user:';
 /**
  * Email domain of every account the mobile suites create. Not `example.test` (owned by the web
  * suite's purge tool) and not `orenjitrade.test` (seed accounts).
@@ -25,85 +64,60 @@ export const MOBILE_E2E_EMAIL_DOMAIN = 'mobile-e2e.test';
 /** Key of the identity block the isolated API publishes under /actuator/info. */
 export const INFO_KEY = 'orenjiMobileE2e';
 
-const SAME_CASE = process.platform !== 'win32';
-
-/** Absolute, symlink/junction-resolved form of a path that may not exist yet. */
-export function realPath(candidate) {
-  let current = path.resolve(candidate);
-  const missing = [];
-  for (;;) {
-    try {
-      const resolved = fs.realpathSync.native(current);
-      return path.join(resolved, ...missing.reverse());
-    } catch {
-      const parent = path.dirname(current);
-      if (parent === current) {
-        return path.resolve(candidate);
-      }
-      missing.push(path.basename(current));
-      current = parent;
-    }
-  }
-}
-
-function comparable(candidate) {
-  const resolved = realPath(candidate).replace(/[\\/]+$/, '');
-  return SAME_CASE ? resolved : resolved.toLowerCase();
-}
-
-/** True when `child` is `parent` or lies inside it (after resolving links). */
-export function isInside(child, parent) {
-  const relative = path.relative(comparable(parent), comparable(child));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-}
-
-/** True when one directory is, contains, or lies inside the other. */
-export function overlaps(a, b) {
-  return isInside(a, b) || isInside(b, a);
+function valueOf(env, name) {
+  const value = env?.[name];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 /**
- * The media root and card image cache an API started from `apiDir` uses with `env` (same rules
- * as application.yml: STORAGE_LOCAL_ROOT defaults to ./.local-storage, CARD_IMAGE_CACHE_DIR to
- * <STORAGE_LOCAL_ROOT>/card-images, both relative to the API's working directory).
+ * The environment of the isolated API jar on top of `base` (the developer's `.env` + shell): every
+ * isolation-relevant variable is set explicitly so nothing from the developer's environment leaks
+ * in (only the host and port of PostgreSQL and Redis are taken from it, for moved compose ports;
+ * the guard then insists on this machine). Files live under `workDir` (.local-dev/mobile-e2e).
  */
-export function storageDirsOf(apiDir, env = {}) {
-  const value = (name) => (typeof env[name] === 'string' && env[name].trim() ? env[name].trim() : undefined);
-  const mediaRoot = path.resolve(apiDir, value('STORAGE_LOCAL_ROOT') ?? './.local-storage');
-  const cardImages = value('CARD_IMAGE_CACHE_DIR')
-    ? path.resolve(apiDir, value('CARD_IMAGE_CACHE_DIR'))
-    : path.join(mediaRoot, 'card-images');
-  return { mediaRoot, cardImages };
+export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }) {
+  return {
+    ...base,
+    SPRING_PROFILES_ACTIVE: 'local',
+    ORENJI_ENV: 'local',
+    SERVER_PORT: String(MOBILE_E2E_API_PORT),
+    DATABASE_URL: withDatabase(valueOf(base, 'DATABASE_URL'), MOBILE_E2E_DB),
+    DATABASE_USERNAME: 'orenjitrade',
+    DATABASE_PASSWORD: valueOf(base, 'DATABASE_PASSWORD') ?? 'orenjitrade_local',
+    // Redis database 1 and its own realtime channels: rate-limit counters, caches and pushes never
+    // mix with the developer's API (db 0) or the web E2E API (db 2).
+    REDIS_URL: withRedisDatabase(valueOf(base, 'REDIS_URL'), MOBILE_E2E_REDIS_DB),
+    REALTIME_CHANNEL_PREFIX: MOBILE_E2E_REALTIME_CHANNEL_PREFIX,
+    FIREBASE_PROJECT_ID: 'orenjitrade-local',
+    FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',
+    STORAGE_PROVIDER: 'local',
+    STORAGE_LOCAL_ROOT: path.join(workDir, 'storage'),
+    // Media URLs are built from the request origin (this API), never from a developer setting.
+    STORAGE_PUBLIC_BASE_URL: '',
+    CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
+    PROVIDER_DATA_DIR: path.join(workDir, 'provider-data'),
+    // Mock catalog only (ADR 0015): no YGOPRODeck provider, no image downloads; the provider URLs
+    // point at a closed local port so even an unexpected call never leaves the machine.
+    CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
+    YGOPRODECK_ENABLED: 'false',
+    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
+    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    CORS_ALLOWED_ORIGINS: `http://localhost:${webPort},http://127.0.0.1:${webPort}`,
+    ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
+    EVENTS_TRANSPORT: 'local',
+    PAYMENT_PROVIDER: 'fake',
+    BILLING_PROVIDER: 'fake',
+    DONATION_PROVIDER: 'fake',
+    PUSH_PROVIDER: 'log',
+    EMAIL_PROVIDER: 'log',
+  };
 }
 
 /**
- * Every directory a developer API of this repository may use: the defaults of each checkout
- * (`apiDirs`: this one and the other git worktrees) and the values of the developer's environment
- * (`.env` + shell), resolved against each checkout.
- */
-export function developerDirs(apiDirs, devEnv = {}) {
-  const dirs = new Set();
-  for (const apiDir of apiDirs) {
-    for (const dir of Object.values(storageDirsOf(apiDir, {}))) {
-      dirs.add(dir);
-    }
-    for (const dir of Object.values(storageDirsOf(apiDir, devEnv))) {
-      dirs.add(dir);
-    }
-  }
-  return [...dirs];
-}
-
-/** Database name of a `jdbc:postgresql://host:port/<db>?...` URL (null when unparsable). */
-export function databaseOf(jdbcUrl) {
-  const match = /^jdbc:postgresql:\/\/[^/]+\/([^?;/]+)/i.exec(String(jdbcUrl ?? '').trim());
-  return match ? match[1] : null;
-}
-
-/**
- * Problems that make the isolated API environment unsafe (empty when it is safe):
- * the database must be orenjitrade_mobile_e2e, the port 8090, the media root and card image
- * cache inside `workDir` (.local-dev/mobile-e2e) and apart from every developer directory, and
+ * Problems that make the isolated API environment unsafe (empty when it is safe): the database
+ * must be orenjitrade_mobile_e2e on this machine, the port 8090, Redis the mobile logical database
+ * 1 on this machine with its own realtime channels, the media root, card image cache and provider
+ * snapshots inside `workDir` (.local-dev/mobile-e2e) and apart from every developer directory, and
  * no card provider may be called (mock catalog only, ADR 0015).
  */
 export function isolationProblems(env, { workDir, devDirs }) {
@@ -114,19 +128,41 @@ export function isolationProblems(env, { workDir, devDirs }) {
       `DATABASE_URL must point at the isolated database ${MOBILE_E2E_DB}, not ${database ?? `"${env.DATABASE_URL}"`}.`,
     );
   }
+  const databaseHost = databaseHostOf(env.DATABASE_URL);
+  if (database && !isLocalHost(databaseHost)) {
+    problems.push(`DATABASE_URL must point at the local PostgreSQL (localhost), not ${databaseHost}.`);
+  }
   if (String(env.SERVER_PORT) !== String(MOBILE_E2E_API_PORT)) {
     problems.push(`SERVER_PORT must be ${MOBILE_E2E_API_PORT} (the developer API owns ${DEV_API_PORT}), not ${env.SERVER_PORT}.`);
+  }
+  const redisDb = redisDatabaseOf(env.REDIS_URL);
+  if (redisDb !== MOBILE_E2E_REDIS_DB) {
+    problems.push(
+      `REDIS_URL must select the mobile E2E Redis database ${MOBILE_E2E_REDIS_DB} (0 is the developer's, ` +
+        `${WEB_E2E_REDIS_DB} the web E2E suite's), not "${env.REDIS_URL ?? ''}".`,
+    );
+  } else if (!isLocalHost(new URL(env.REDIS_URL).hostname)) {
+    problems.push(`REDIS_URL must point at the local Redis (localhost), not ${new URL(env.REDIS_URL).hostname}.`);
+  }
+  const prefix = typeof env.REALTIME_CHANNEL_PREFIX === 'string' ? env.REALTIME_CHANNEL_PREFIX.trim() : '';
+  if (!prefix || prefix === DEV_REALTIME_CHANNEL_PREFIX || prefix === WEB_E2E_REALTIME_CHANNEL_PREFIX) {
+    problems.push(
+      `REALTIME_CHANNEL_PREFIX must be the mobile E2E prefix (e.g. "${MOBILE_E2E_REALTIME_CHANNEL_PREFIX}"), not ` +
+        `"${prefix}": Redis pub/sub is shared by every database, the developer API uses "${DEV_REALTIME_CHANNEL_PREFIX}" ` +
+        `and the web E2E API "${WEB_E2E_REALTIME_CHANNEL_PREFIX}".`,
+    );
   }
   for (const [name, label] of [
     ['STORAGE_LOCAL_ROOT', 'media storage directory'],
     ['CARD_IMAGE_CACHE_DIR', 'card image cache directory'],
+    ['PROVIDER_DATA_DIR', 'provider snapshot directory'],
   ]) {
     const value = env[name];
     if (!value || !path.isAbsolute(value)) {
       problems.push(`${name} (${label}) must be an absolute path under ${workDir}, not "${value ?? ''}".`);
       continue;
     }
-    if (!isInside(value, workDir) || comparable(value) === comparable(workDir)) {
+    if (!isInside(value, workDir) || samePath(value, workDir)) {
       problems.push(`${name} (${label}) ${realPath(value)} is not inside ${workDir}.`);
     }
     const clash = devDirs.find((dir) => overlaps(value, dir));
@@ -137,7 +173,7 @@ export function isolationProblems(env, { workDir, devDirs }) {
       );
     }
   }
-  if (env.STORAGE_LOCAL_ROOT && env.CARD_IMAGE_CACHE_DIR && comparable(env.STORAGE_LOCAL_ROOT) === comparable(env.CARD_IMAGE_CACHE_DIR)) {
+  if (env.STORAGE_LOCAL_ROOT && env.CARD_IMAGE_CACHE_DIR && samePath(env.STORAGE_LOCAL_ROOT, env.CARD_IMAGE_CACHE_DIR)) {
     problems.push('STORAGE_LOCAL_ROOT and CARD_IMAGE_CACHE_DIR must be different directories.');
   }
   if (String(env.CARD_IMAGE_ON_DEMAND_ENABLED) !== 'false') {
@@ -145,6 +181,11 @@ export function isolationProblems(env, { workDir, devDirs }) {
   }
   if (String(env.YGOPRODECK_ENABLED) !== 'false') {
     problems.push('YGOPRODECK_ENABLED must be false (tests never call YGOPRODeck; mock catalog only).');
+  }
+  for (const name of ['YGOPRODECK_API_BASE_URL', 'YGOPRODECK_IMAGE_BASE_URL']) {
+    if (!isLocalUrl(env[name])) {
+      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
+    }
   }
   return problems;
 }
@@ -157,6 +198,13 @@ export function assertIsolated(env, options) {
       `Refusing to start the mobile E2E API: it would not be isolated from the developer's stack.\n` +
         problems.map((problem) => `  - ${problem}`).join('\n'),
     );
+  }
+}
+
+/** The only database the mobile harness may drop and recreate: orenjitrade_mobile_e2e. */
+export function assertRecreatable(database) {
+  if (database !== MOBILE_E2E_DB || database === DEV_DB) {
+    throw new Error(`Refusing to drop database "${database}": only ${MOBILE_E2E_DB} is recreated by the mobile E2E harness.`);
   }
 }
 
@@ -175,11 +223,12 @@ export function identityArgs(instance) {
  * database. Returns null when it may, else the reason.
  */
 export function reuseRefusal(url, info, expectedInstance) {
-  let port = null;
-  try {
-    port = Number(new URL(url).port || 80);
-  } catch {
+  const port = portOf(url);
+  if (port === null) {
     return `${url} is not a valid URL.`;
+  }
+  if (!isLocalUrl(url)) {
+    return `${url} is not on this machine; the mobile suites only run against a local stack.`;
   }
   if (port === DEV_API_PORT) {
     return (
@@ -206,15 +255,6 @@ export function reuseRefusal(url, info, expectedInstance) {
   return null;
 }
 
-/** A run id usable in email local parts and handles: `r` + 7 base-36 characters. */
-export function newRunId(now = Date.now(), random = Math.random) {
-  const time = (now % 36 ** 5).toString(36).padStart(5, '0');
-  const noise = Math.floor(random() * 36 ** 2)
-    .toString(36)
-    .padStart(2, '0');
-  return `r${time}${noise}`;
-}
-
 /** Prefix of the local part of every account email of one run. */
 export function runEmailPrefix(runId) {
   if (!/^[a-z0-9]{3,16}$/.test(runId)) {
@@ -231,37 +271,16 @@ export function isRunAccount(email, runId) {
 
 /**
  * Deletes, best effort, the Firebase Auth emulator accounts created by the run `runId`
- * (`m-<runId>-...@mobile-e2e.test`), and nothing else. Uses the emulator's owner credential
- * (local emulator only). Returns the number of deleted accounts.
+ * (`m-<runId>-...@mobile-e2e.test`), and nothing else. Uses the emulator's owner credential through
+ * the shared helper (local emulator URLs only). Returns the number of deleted accounts.
  */
 export async function deleteRunAccounts({ emulatorUrl, projectId, runId, fetchImpl = fetch }) {
-  const base = `${emulatorUrl.replace(/\/+$/, '')}/identitytoolkit.googleapis.com/v1/projects/${projectId}`;
-  const headers = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
-  const ids = [];
-  let pageToken;
-  do {
-    const query = new URLSearchParams({ maxResults: '1000', ...(pageToken ? { nextPageToken: pageToken } : {}) });
-    const response = await fetchImpl(`${base}/accounts:batchGet?${query}`, { headers });
-    if (!response.ok) {
-      throw new Error(`listing emulator accounts failed: HTTP ${response.status}`);
-    }
-    const body = await response.json();
-    for (const user of body.users ?? []) {
-      if (isRunAccount(user.email, runId)) {
-        ids.push(user.localId);
-      }
-    }
-    pageToken = body.nextPageToken;
-  } while (pageToken);
-  for (let i = 0; i < ids.length; i += 500) {
-    const response = await fetchImpl(`${base}/accounts:batchDelete`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ localIds: ids.slice(i, i + 500), force: true }),
-    });
-    if (!response.ok) {
-      throw new Error(`deleting emulator accounts failed: HTTP ${response.status}`);
-    }
-  }
-  return ids.length;
+  runEmailPrefix(runId);
+  const deleted = await deleteEmulatorAccountsWhere({
+    emulatorUrl,
+    projectId,
+    predicate: (email) => isRunAccount(email, runId),
+    fetchImpl,
+  });
+  return deleted.length;
 }

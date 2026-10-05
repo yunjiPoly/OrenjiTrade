@@ -7,11 +7,12 @@
 //   * database: the isolated database `orenjitrade_mobile_e2e` on the shared PostgreSQL, dropped
 //     and recreated each time this harness starts its API (Flyway migrates it, SeedDataRunner
 //     seeds it). The developer's database `orenjitrade` is never touched.
-//   * API: the API jar on :8090 (profile local) against that database, Redis database 1, its own
-//     media and card-image cache directories under .local-dev/mobile-e2e (guarded: start-up
-//     refuses directories that resolve to a developer's, see mobile-e2e-guard.mjs), no card
-//     provider calls (mock catalog only, no image downloads). It publishes an identity block under
-//     /actuator/info so --reuse-running can recognise it.
+//   * API: the API jar on :8090 (profile local) against that database, Redis database 1 with its
+//     own realtime channels (e2e-mobile:rt:user:*), its own media, card-image cache and provider
+//     directories under .local-dev/mobile-e2e (guarded: start-up refuses directories that resolve
+//     to a developer's, see mobile-e2e-guard.mjs), no card provider calls (mock catalog only, no
+//     image downloads). It publishes an identity block under /actuator/info so --reuse-running can
+//     recognise it.
 //   * app: `expo export --platform web` pointed at that API and the Auth emulator, served on
 //     :19006 by `expo serve` (CORS allows localhost:19006).
 //
@@ -60,12 +61,15 @@ import {
   settlesWithin,
   waitForHttp,
 } from './util.mjs';
+import { containerHealth, ensureDatabase, psql } from './local-db.mjs';
 import {
   MOBILE_E2E_DB,
   assertIsolated,
+  assertRecreatable,
   deleteRunAccounts,
   developerDirs,
   identityArgs,
+  mobileE2eApiEnv as isolatedApiEnv,
   newRunId,
   reuseRefusal,
 } from './mobile-e2e-guard.mjs';
@@ -113,17 +117,14 @@ function recordedRunning(entry) {
 
 // ------------------------------------------------------------------------- infrastructure
 
-/** `running`/`healthy` state of each infrastructure container (docker inspect). */
+/** `running`/`healthy` state of each infrastructure container (shared docker inspect helper). */
 function containerStates() {
   return CONTAINERS.map((name) => {
-    const result = capture('docker', [
-      'inspect',
-      '-f',
-      '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}',
-      name,
-    ]);
-    const [status = 'missing', health = 'none'] = result.status === 0 ? result.stdout.trim().split(' ') : [];
-    return { name, status, health };
+    const health = containerHealth(name);
+    if (health === 'missing' || health === 'stopped') {
+      return { name, status: health, health: 'none' };
+    }
+    return { name, status: 'running', health };
   });
 }
 
@@ -151,35 +152,18 @@ export async function ensureInfrastructure() {
   return infraUp();
 }
 
-function psql(sql, database = 'postgres') {
-  return capture('docker', [
-    'exec',
-    'orenjitrade-postgres',
-    'psql',
-    '-U',
-    'orenjitrade',
-    '-d',
-    database,
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-tAc',
-    sql,
-  ]);
-}
-
 /**
  * Drops and recreates the isolated database (a clean, freshly seeded state per run; Flyway
- * migrates it when the API starts). Only ever the mobile E2E database.
+ * migrates it when the API starts), with the extensions the API expects. Only ever the mobile E2E
+ * database (assertRecreatable); uses the shared local-db helpers of the web E2E harness.
  */
 function recreateDatabase() {
-  const dropped = psql(`DROP DATABASE IF EXISTS ${MOBILE_E2E_DB} WITH (FORCE)`);
-  if (dropped.status !== 0) {
-    log.error(`DROP DATABASE ${MOBILE_E2E_DB} failed: ${dropped.stderr.trim()}`);
-    return false;
-  }
-  const created = psql(`CREATE DATABASE ${MOBILE_E2E_DB} OWNER orenjitrade`);
-  if (created.status !== 0) {
-    log.error(`CREATE DATABASE ${MOBILE_E2E_DB} failed: ${created.stderr.trim()}`);
+  try {
+    assertRecreatable(MOBILE_E2E_DB);
+    psql('postgres', [`DROP DATABASE IF EXISTS ${MOBILE_E2E_DB} WITH (FORCE)`]);
+    ensureDatabase(MOBILE_E2E_DB);
+  } catch (error) {
+    log.error(`Recreating ${MOBILE_E2E_DB} failed: ${error.message}`);
     return false;
   }
   log.ok(`Recreated the isolated database ${MOBILE_E2E_DB} (the developer database is untouched).`);
@@ -190,35 +174,7 @@ function recreateDatabase() {
 
 /** Environment of the isolated API (local profile; never the developer's database, port or files). */
 export function mobileE2eApiEnv(base) {
-  return {
-    ...base,
-    SPRING_PROFILES_ACTIVE: 'local',
-    SERVER_PORT: String(PORTS.mobileE2eApi),
-    DATABASE_URL: `jdbc:postgresql://localhost:${PORTS.postgres}/${MOBILE_E2E_DB}`,
-    DATABASE_USERNAME: 'orenjitrade',
-    DATABASE_PASSWORD: base.DATABASE_PASSWORD ?? 'orenjitrade_local',
-    // Redis database 1: rate-limit counters and caches never mix with the developer's API (db 0).
-    REDIS_URL: `redis://localhost:${PORTS.redis}/1`,
-    FIREBASE_AUTH_EMULATOR_HOST: `localhost:${PORTS.authEmulator}`,
-    FIREBASE_PROJECT_ID: FIREBASE_PROJECT_ID,
-    STORAGE_PROVIDER: 'local',
-    STORAGE_LOCAL_ROOT: path.join(WORK_DIR, 'storage'),
-    CARD_IMAGE_CACHE_DIR: path.join(WORK_DIR, 'card-images'),
-    // Mock catalog only (ADR 0015): no YGOPRODeck provider, no image downloads; the provider URLs
-    // point at a closed local port so even an unexpected call never leaves the machine.
-    CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/',
-    PROVIDER_DATA_DIR: path.join(WORK_DIR, 'provider-data'),
-    CORS_ALLOWED_ORIGINS: `${WEB_URL},http://127.0.0.1:${PORTS.mobileE2eWeb}`,
-    EVENTS_TRANSPORT: 'local',
-    PAYMENT_PROVIDER: 'fake',
-    BILLING_PROVIDER: 'fake',
-    DONATION_PROVIDER: 'fake',
-    PUSH_PROVIDER: 'log',
-    EMAIL_PROVIDER: 'log',
-  };
+  return isolatedApiEnv(base, { workDir: WORK_DIR, webPort: PORTS.mobileE2eWeb });
 }
 
 /** API directories of every checkout of this repository (this one and the other worktrees). */
