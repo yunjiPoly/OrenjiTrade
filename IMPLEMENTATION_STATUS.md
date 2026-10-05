@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -179,7 +179,7 @@ offers, trades, community, premium, credits, support, collector profile, setting
 dashboard, users, reports, listings, audit log, subscriptions, disputes, system health; no API 5xx,
 no coordinate with more than 3 decimals)._
 
-- [x] One-command local stack — root `package.json` scripts backed by dependency-free Node scripts in `scripts/` (`scripts/lib/util.mjs` shared helpers, Windows/macOS/Linux): `npm run dev` (`docker compose up -d --build --wait` → `gradlew bootRun` with the `local` profile → readiness wait → `ng serve` → URL table; Ctrl+C stops the API and web, infrastructure keeps running; `--no-web`, `--skip-infra`; logs in `.local-dev/logs/`), `npm run api:dev`, `npm run web:dev`, `npm run infra:up` / `infra:down` (volumes kept), `npm run infra:reset` (confirmation or `-- --yes`; deletes only the `orenjitrade_*` volumes and `apps/api/.local-storage`, then brings the infrastructure back; the seed is re-applied at the next API start), `npm run infra:validate` (Terraform `fmt -check` + `init -backend=false` + `validate`, never plan/apply), `npm run test:api|web|mobile|e2e|all` (+ optional `test:ml` for the on-hold skeleton). `test:e2e` builds and runs a copy of the API jar on :8080 and `ng serve` on :4200, runs every Playwright spec with one retry and stops what it started (`--reuse-running` to use a running stack)
+- [x] One-command local stack — root `package.json` scripts backed by dependency-free Node scripts in `scripts/` (`scripts/lib/util.mjs` shared helpers, Windows/macOS/Linux): `npm run dev` (`docker compose up -d --build --wait` → `gradlew bootRun` with the `local` profile → readiness wait → `ng serve` → URL table; Ctrl+C stops the API and web, infrastructure keeps running; `--no-web`, `--skip-infra`; logs in `.local-dev/logs/`), `npm run api:dev`, `npm run web:dev`, `npm run infra:up` / `infra:down` (volumes kept), `npm run infra:reset` (confirmation or `-- --yes`; deletes only the `orenjitrade_*` volumes and `apps/api/.local-storage`, then brings the infrastructure back; the seed is re-applied at the next API start), `npm run infra:validate` (Terraform `fmt -check` + `init -backend=false` + `validate`, never plan/apply), `npm run test:api|web|mobile|e2e|all` (+ optional `test:ml` for the on-hold skeleton). `test:e2e` builds and runs a copy of the API jar on :8080 and `ng serve` on :4200, runs every Playwright spec with one retry and stops what it started (`--reuse-running` to use a running stack) — since 2026-10-04 on its own isolated stack (database `orenjitrade_e2e`, API :8180, web :4300; see "E2E isolation, test-data purge and 3 km zones")
 - [x] Optional all-in-Docker stack — `docker compose --profile app up -d --build --wait` (API and web images on the same ports, `api-media` volume, fake/log providers, same database and emulator); Firebase emulator image pins `firebase-tools@14.27.0` and bakes the Emulator UI (offline resets); web `docker-entrypoint.sh` exports `AUTH_EMULATOR_ORIGIN` for the CSP; `.dockerignore` excludes `.local-dev`
 - [x] Docs — `docs/development/local-setup.md` (prerequisites, first-time setup, everyday commands, URLs/ports, where data lives, reset and reseed, fake/log providers and where their output appears, troubleshooting, Windows notes), README quick start, `.env.example` (compose ports, fake provider secrets documented as local-only), `docs/deployment/DEFERRED.md` "Local replacement"
 - [x] Web acceptance E2E suite — `apps/web-angular/e2e/acceptance/` (16 tests / 15 specs, README): registration, inventory, map, search, wishlist, messaging, offers, rating, reporting, freemium, privacy (the scanner catches planted leaks over HTTP and STOMP + a sweep of every geo surface), account deletion (grace period fast-forwarded, `/internal/jobs/account-deletion` with the service token, anonymised account, consents/audit kept), payment protection, community and (final verification) `stale-listings.spec.ts` (a listing's last confirmation backdated 44 days → `/internal/jobs/freshness` → STALE, never deleted → admin "Needs review" queue → Restore → ACTIVE → `listing.restore` in the audit log). Shared `support/` fixtures: the automatic ADR 0004 privacy scanner on every browser context and API shortcut (fails on lat/lng > 3 decimals, a stored trading-area centre or a raw numeric distance), `AcceptanceApi` seeding shortcuts with fresh fictional emulator accounts, staff demoted and binders unpublished afterwards, one latitude band per spec (`places.ts`). `E2E_REQUIRE_STACK=1` turns an unreachable stack into a failure; `.github/workflows/e2e.yml` runs the whole suite on pull requests touching apps/packages/compose, nightly and on demand, with random per-run CI secrets
@@ -506,6 +506,121 @@ catalog at 320 px (14,764 artworks ≈ 650 MB) fits locally with room for other 
   `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500` and keeps the old cap until that line is removed or set to
   5120.
 
+## E2E isolation, test-data purge and 3 km zones (2026-10-04)
+
+_Workflow task on branch `fix/e2e-isolation-3km-zones` (worktree, not pushed). Owner request: the
+E2E/acceptance suite had filled the developer database with 583 `@example.test` collectors
+(`accmapa_*`, `privacy_*`, `paused_*`, `picowner_*`, `wisha_*`, "E2E <prefix> collector"), about 170
+of them discoverable at the default Place des Arts trading area, all stacked on one map cell.
+Root cause confirmed: `scripts/test.mjs` started the E2E API jar with the `local` profile against
+the developer database `orenjitrade`, the same Auth emulator and the same `apps/api/.local-storage`
+(`--reuse-running` reused the developer API itself); `AcceptanceApi.cleanUp()` only demoted staff
+and unpublished binders, and never ran on interrupted runs. The 583 accounts were already gone
+(owner's `infra:reset` the same morning): the developer database held 0 `@example.test` accounts,
+12 seed accounts and 12 `user_location` rows; the emulator held 28 `m-e2e-…@example.test`
+accounts left by earlier mobile E2E runs._
+
+- [x] **Part 1 — isolated web E2E stack** (`scripts/lib/web-e2e.mjs`, guards in
+  `scripts/lib/web-e2e-guard.mjs`): database `orenjitrade_e2e` dropped and recreated per run
+  (Flyway + local seed, mock catalog only; created by the postgres init script on fresh volumes and
+  by the harness otherwise; `--keep-db`), Redis db 2 (flushed with the database), realtime channels
+  `e2e-web:rt:user:*` (new `orenji.realtime.channel-prefix`, Redis pub/sub ignores the logical
+  database; `RealtimeChannelPrefixTest` (4)), API jar on :8180 with media, card image cache and provider snapshots under
+  `.local-dev/e2e/` (its working directory), on-demand downloads off, YGOPRODeck disabled and pointed
+  at a closed port, the `orenjiWebE2e` identity block under `/actuator/info`;
+  `ng serve --configuration e2e` on :4300 serving `e2e/.runtime/config.json` (API :8180, written per
+  run, Angular persistent cache off). Healthy infrastructure containers are never touched
+  (`docker compose up` from a worktree would recreate the developer's PostgreSQL: its bind-mounted
+  init directory is part of the compose config hash). Emails `e2e-<run id>-…@example.test`; the
+  run's emulator accounts are deleted at the end (harness + Playwright global teardown, best effort
+  on Ctrl+C). `--keep-running` / `--stack-only` / `--stop`; `--reuse-running` only reuses that kept
+  stack (same instance id, web config pointing at it) and refuses the developer API with a clear
+  message; Playwright's global setup refuses any API without the identity block. Guards (unit
+  tests in `scripts/lib/web-e2e-guard.test.mjs`, `npm run test:scripts`, run before every
+  `test:e2e` and in CI): wrong database, Redis db 0, developer realtime prefix, developer/mobile
+  ports (8080, 4200, 8081, 8082, 8090, 19006), media or card image cache directory resolving
+  (links, case, `..`) to a developer directory of any checkout/worktree or of `.env` — one test
+  fails when the E2E cache dir equals the developer one. CI (`e2e.yml`) uses the same layout.
+- [x] **Part 2 — teardown**: `AcceptanceApi` tracks every collector it creates; `cleanUp()`
+  (bounded to 20 s, never failing a test, never touching `@orenjitrade.test`) requests their
+  deletion through `POST /me/deletion-requests` (off the map at once), sets `discoverable: false`
+  when an open trade blocks it, and deletes their emulator accounts.
+- [x] **Part 3 — `npm run e2e:purge`** (`scripts/e2e-purge.mjs`): the database part runs in the API
+  jar's one-shot maintenance mode (`TestAccountPurgeCommand`, `orenji.maintenance.purge-test-accounts`;
+  no web server, Flyway off, seed off, scheduled jobs off via the new `orenji.scheduling.enabled`,
+  no republication of other instances' events, no card image reconciliation; refuses otherwise, and
+  unless the profile is local/dev, PostgreSQL is local and identities live in the local emulator).
+  `TestAccountPurgeService` (admin module) cancels open trades between two test accounts, creates a
+  deletion request (`AccountDeletionService.request`) and processes exactly that request at once
+  (new `AccountDeletionService.processNow`: the job's steps); blocked accounts stay, off the map.
+  The CLI shows the plan, asks (`--yes`), deletes the remaining `@example.test` emulator accounts
+  (waiting up to `--wait-minutes` while a mobile or web E2E run is active) and prints the removed
+  accounts, locations, binders, items and emulator accounts. No endpoint added; a running API is
+  not needed. The mode is refused before the context starts when a switch is missing
+  (`TestAccountPurgeModeGuard`, an `EnvironmentPostProcessor`). Tests: `TestAccountPurgeIT` (3),
+  `TestAccountPurgeCommandTest` (5), `TestAccountPurgeModeGuardTest` (3),
+  `scripts/lib/e2e-purge.test.mjs` (6).
+- [x] **Part 4 — 3 km zones on the web** (ADR 0004 amendment 2026-10-04):
+  `APPROXIMATE_AREA_RADIUS_M = 1500`, zoom cap 14 and clustering tied to it unchanged, "about
+  3 km" on the legend, preview, map accessible name, profile and the Privacy Policy definition
+  (text lives in `legal-content.ts`, not in a migration; consent version unchanged, no re-consent:
+  a clarification of how the existing public point is displayed, no new data, purpose or sharing).
+  New unit specs (radius, wording, zoom clamping, Leaflet pixel size at 14) and E2E checks
+  (`e2e/map.spec.ts`, `e2e/acceptance/map.spec.ts`: wheel, "+" button, keyboard and double click
+  never pass 14, no tile beyond 14, the zone measures 1500 m with the avatar on its centre, no DOM
+  attribute with a coordinate finer than 3 decimals via the new `PrivacyScanner.scanDom`).
+- [ ] **Part 4 — mobile** (Map tab collector zones, preview bottom sheet, collector profile):
+  owned by the parallel mobile workflow (stage M3); `apps/mobile` is not touched here. ADR 0004's
+  2026-10-04 note already states the mobile rule.
+- Verification (builder, 2026-10-04): `npm run test:scripts` 26/26 (20 isolation-guard tests incl.
+  "FAILS when the E2E card image cache directory equals the developer one", 6 purge-rule tests);
+  `npm run test:web` lint + 129 files / 632 Vitest tests (was 629); `npm run test:mobile` typecheck +
+  lint + 6 suites / 29 jest tests (no `apps/mobile` change); `npm run test:api` (`gradlew test
+  --rerun check`, Spotless included) 781 tests / 159 classes, 0 failures, 0 skipped; OpenAPI
+  re-exported (`./gradlew exportOpenApi`) without any change (no endpoint added). **Two consecutive
+  full `npm run test:e2e` runs from the worktree: 69/69 passed, 0 flaky, 0 skipped (311 s and
+  342 s), each deleting its 66 emulator accounts (0 left).** Developer state before the first and
+  after each run identical: `user_account` 12 (all `@orenjitrade.test`,
+  0 `@example.test`), `user_location` 12 (8 discoverable), `binder` 10, `card` 14,675, `card_image`
+  14,927, developer card image cache 14,731 files / 695,442,661 bytes with the same sorted
+  name+size+mtime list hash, 0 other media files, emulator `@example.test` 28 (the mobile leftovers)
+  and 12 seeds unchanged. `--reuse-running` refused `E2E_API_PORT=8080` ("belongs to the developer
+  API") and a stand-in API without the identity block, and reused a kept stack (8/8 map + smoke
+  specs); Playwright's global setup refused the stand-in too. The new map checks (no zoom past 14,
+  1500 m zone at zoom 14, avatar centred, no DOM coordinate finer than 3 decimals) passed in every
+  run; the map/admin specs were hardened after a loaded `--repeat-each` run (28/28 and 24/24 after).
+- Purge proof on test data (E2E database, `npm run e2e:purge -- --e2e --yes`): three
+  `@example.test` collectors at Place des Arts (two discoverable, each with a public binder and an
+  item, a conversation with 2 messages, an accepted offer = open trade AGREED between them, one with
+  a pending deletion request) → maintenance mode started without Flyway or seed, cancelled 1 trade,
+  3 found / 3 deleted / 0 blocked / 0 failed / 0 remaining, locations 3 → 0, binders 3 → 0, items
+  3 → 0, rows anonymised (`deleted+<id>@anonymized.invalid`, "Deleted collector"), text messages
+  erased, 3 `account.deletion.complete` audit entries, consents kept, 12 seeds with their 12
+  locations and 10 binders and the 80 cards / 160 printings / 160 card images untouched, 0 pending
+  event publications. A jar started with only `--orenji.maintenance.purge-test-accounts=true`
+  stopped before start-up (no Flyway, no seed) listing the six missing switches.
+- Developer database purge: after `pg_dump -Fc orenjitrade` (scratch, outside the repo) and
+  the before-counts above, `npm run e2e:purge -- --yes` found 0 `@example.test` accounts in
+  `orenjitrade` (the 583 had gone with the owner's reset), so no jar was started and the database
+  was left as it was (removed 0 accounts / 0 locations / 0 binders / 0 items); it waited 4 minutes
+  while the mobile E2E stack (:8090, :8082) was up, then deleted the 28 `m-e2e-…@example.test`
+  emulator accounts of earlier mobile runs (0 left). Afterwards the discoverable collectors are the 8
+  seed ones only (collector1–6, collector8 "exoking", premium_user), every count and the card image
+  cache list hash are unchanged, the cache accounting row reads 695,442,661 bytes / 14,731 files
+  (its `reconciled_at` moved to 22:52:03Z because the owner restarted the developer API at 22:51Z,
+  not because of this work), and Redis db 0's nearby generation stayed at 13 (nothing was deleted,
+  so no cached page could hold a removed collector).
+- Incident during verification: at 22:59:01Z someone else ran `docker compose down` on the shared
+  infrastructure (containers and network destroyed, volumes kept) while an E2E run was in progress;
+  the next `npm run test:e2e` found the containers missing and, as designed, brought them back with
+  `docker compose up -d --build --wait` (from this worktree; same images, volumes and data: the
+  developer database and card image cache were verified unchanged). The owner's developer API
+  (`gradlew bootRun` from `C:\dev\OrenjiTrade`) was stopped at 22:04:36Z and again at about
+  22:57Z (Gradle: "client disconnection detected"); it was not restarted by this work, so
+  `npm run card-images:status` and the discovery check as a seed user could not be run against it
+  (the cache was checked file by file and through its accounting row instead). If the owner meant
+  the infrastructure to stay down, `npm run infra:down` stops it again.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -644,6 +759,20 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 > --provider ygoprodeck --images all` caches the whole Yu-Gi-Oh! catalog (an explicit real provider
 > import: ≈ 14,800 image downloads paced at 5/s ≈ 50 minutes, ≈ 650 MB). A local `.env` that still
 > sets `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500` must be updated first.
+
+> **E2E isolation, test-data purge and 3 km zones (2026-10-04, branch `fix/e2e-isolation-3km-zones`):**
+> done and verified by the builder (see the section of the same name): `npm run test:e2e` runs on its
+> own stack (database `orenjitrade_e2e`, API :8180, web :4300, Redis db 2, files under
+> `.local-dev/e2e/`) next to `npm run dev` and deletes its emulator accounts; `npm run e2e:purge`
+> removes `@example.test` accounts through the deletion path; web collector maps show 3 km zones
+> (radius 1500 m), zoom capped at 14. Committed on the branch (not pushed). **Next:** push the
+> branch, open the PR and merge to `main` when CI is green (the E2E CI job now uses :8180 / :4300 /
+> `orenjitrade_e2e`; it is the first CI run of that layout). The mobile half of the 3 km rule (Map
+> tab zones, preview bottom sheet, collector profile) is the parallel mobile workflow's stage M3.
+> Merge note: the mobile workflow also edits `scripts/test.mjs`, `scripts/lib/util.mjs`,
+> `package.json`, `.github/workflows/e2e.yml` and keeps its own guard module
+> (`scripts/lib/mobile-e2e-guard.mjs`); the shared path/storage helpers of the two guard modules
+> can be merged into one module afterwards.
 
 **Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
 everything runs locally, web application first (**done**), then mobile. Phase 11 (ML card
