@@ -62,19 +62,24 @@ export function useCollectorPreview(handle: string | null, centre: LatLng | null
   });
 }
 
-/**
- * The caller's radius cap (`map.radius.max_km` of `GET /me/plan`, with overrides); the FREE value
- * of `GET /plans` when the plan cannot be read. `null` while unknown.
- */
-export function useMapRadiusCap(): number | null {
+/** `GET /api/v1/me/plan`: the caller's plan, its limits with usage and overrides. */
+export function useMyPlan() {
   const uid = useUid();
   const authenticated = useIsAuthenticated();
-  const plan = useQuery<MyPlan, ApiError>({
+  return useQuery<MyPlan, ApiError>({
     queryKey: meKeys.plan(uid),
     queryFn: async () => required((await api.GET('/api/v1/me/plan')).data),
     enabled: authenticated,
     staleTime: 10 * 60_000,
   });
+}
+
+/**
+ * The caller's radius cap (`map.radius.max_km` of `GET /me/plan`, with overrides); the FREE value
+ * of `GET /plans` when the plan cannot be read. `null` while unknown.
+ */
+export function useMapRadiusCap(): number | null {
+  const plan = useMyPlan();
   const plans = useQuery({
     queryKey: publicKeys.plans,
     queryFn: async () => required((await api.GET('/api/v1/plans')).data),

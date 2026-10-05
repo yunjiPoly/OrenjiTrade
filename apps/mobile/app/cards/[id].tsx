@@ -27,8 +27,8 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 /**
  * Card detail (web: `/cards/:id`, `?printing=` selects a printing): the picture with the
  * provider credit, game-specific attributes from the game schema, the selected printing with its
- * market price, every printing, "Add to inventory" and "Who has this near me". Deep-link target:
- * https://www.orenjitrade.com/cards/<id> and orenjitrade://cards/<id>.
+ * market price, every printing, "Add to inventory", "Who has this near me" and "Add to wishlist".
+ * Deep-link target: https://www.orenjitrade.com/cards/<id> and orenjitrade://cards/<id>.
  */
 export default function CardScreen() {
   const { id, printing } = useLocalSearchParams<{ id: string; printing?: string }>();
@@ -180,6 +180,20 @@ function CardContent({ card, printingId }: { card: CardDetail; printingId: strin
           accessibilityHint="Opens the map"
           onPress={() => router.navigate({ pathname: '/', params: { card: card.id ?? '' } })}
           testID="card-who-has-it"
+        />
+        <Button
+          label="Add to wishlist"
+          icon="heart-plus-outline"
+          variant="secondary"
+          accessibilityHint="We tell you when a collector nearby lists it"
+          onPress={() =>
+            router.push({
+              pathname: '/wishlist/new',
+              // The printing picked in the link (`?printing=`), else any printing (like the web).
+              params: { cardId: card.id ?? '', printingId: printingId ?? '' },
+            })
+          }
+          testID="card-add-to-wishlist"
         />
       </View>
 
