@@ -64,7 +64,7 @@ export function SelectSheet<T extends string>({
           disabled && styles.disabled,
         ]}
       >
-        <View style={styles.grow}>
+        <View style={compact ? styles.shrink : styles.grow}>
           {compact ? null : (
             <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{label}</Text>
           )}
@@ -154,6 +154,8 @@ const styles = StyleSheet.create({
     maxWidth: 260,
   },
   grow: { flexShrink: 1, flexGrow: 1 },
+  // Compact pills size to their text (filter bars scroll sideways).
+  shrink: { flexShrink: 1 },
   value: { fontWeight: fontWeight.medium },
   list: { flexGrow: 0 },
   option: {
