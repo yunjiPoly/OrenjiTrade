@@ -149,6 +149,8 @@ test.describe('mobile offers and trades', () => {
       timeout: 30_000,
     });
     await expect(trade.getByTestId('trade-received')).toContainText(card);
+    // The notice of Ada's own confirmation described the trade before Ben's answer: gone.
+    await expect(trade.getByTestId('trade-notice')).toHaveCount(0);
 
     // --- Ada rates Ben from the trade ----------------------------------------------------------
     await trade.getByRole('button', { name: `Rate ${ben.displayName}` }).click({ timeout: 30_000 });

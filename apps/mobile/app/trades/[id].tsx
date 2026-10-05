@@ -90,7 +90,9 @@ export default function TradeScreen() {
   const trade = useTrade(id);
   const step = useTradeStep();
   const { message, startingId } = useMessageCollector();
-  const [notice, setNotice] = useState<DealNoticeValue | null>(null);
+  // A success notice describes the trade as it was answered: it goes once the other collector
+  // moved the trade on (live); refusals stay until dismissed.
+  const [notice, setNotice] = useState<{ value: DealNoticeValue; status: string } | null>(null);
   const [dialog, setDialog] = useState<'complete' | 'cancel' | null>(null);
   const data = trade.data ?? null;
   const completed = data?.status === 'COMPLETED';
@@ -166,14 +168,20 @@ export default function TradeScreen() {
     setNotice(null);
     try {
       const updated = await step.mutateAsync({ id: current.id, step: kind, reason });
-      setNotice({ tone: 'success', message: successMessage(kind, updated) });
+      setNotice({
+        value: { tone: 'success', message: successMessage(kind, updated) },
+        status: updated.status,
+      });
     } catch (error) {
       if (!isApiError(error)) {
-        setNotice({ tone: 'warning', message: 'This could not be done. Please try again.' });
+        setNotice({
+          value: { tone: 'warning', message: 'This could not be done. Please try again.' },
+          status: current.status,
+        });
         return;
       }
       const problem = offerProblem(error, other.displayName, 'trade');
-      setNotice({ tone: 'warning', message: problem.message });
+      setNotice({ value: { tone: 'warning', message: problem.message }, status: current.status });
       if (problem.reload) {
         void trade.refetch();
       }
@@ -207,8 +215,12 @@ export default function TradeScreen() {
           ) : null}
         </View>
 
-        {notice ? (
-          <DealNotice notice={notice} onDismiss={() => setNotice(null)} testID="trade-notice" />
+        {notice && (notice.value.tone === 'warning' || notice.status === current.status) ? (
+          <DealNotice
+            notice={notice.value}
+            onDismiss={() => setNotice(null)}
+            testID="trade-notice"
+          />
         ) : null}
 
         <NextActionCard view={view}>

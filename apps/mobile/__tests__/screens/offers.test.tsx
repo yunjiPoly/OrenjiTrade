@@ -400,7 +400,7 @@ describe('Counter-offer', () => {
     const api = mockApi(
       routes({
         'GET /api/v1/offers/{id}': ok(sellerView),
-        'POST /api/v1/offers/{id}/counter': ok(counter, 201),
+        'POST /api/v1/offers/{id}/counter': ok(counter),
       })
     );
     renderWithProviders(<CounterOfferScreen />, { port: port() });
