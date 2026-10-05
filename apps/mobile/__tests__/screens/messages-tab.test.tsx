@@ -161,7 +161,9 @@ describe('Messages tab: inbox', () => {
         readAt: new Date().toISOString(),
       })
     );
-    await waitFor(() => expect(screen.queryByTestId('unread-badge-collector3')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByTestId('unread-badge-collector3')).not.toBeOnTheScreen()
+    );
   });
 });
 

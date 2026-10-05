@@ -523,7 +523,9 @@ describe('Conversation', () => {
     expect(screen.getByLabelText('Message').props.editable).toBe(false);
 
     fireEvent.press(screen.getByTestId('conversation-banner-unblock'));
-    await waitFor(() => expect(screen.queryByTestId('conversation-blocked-banner')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByTestId('conversation-blocked-banner')).not.toBeOnTheScreen()
+    );
     expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1);
     // The snackbar of the block is replaced by the one of the unblock.
     await waitFor(() =>

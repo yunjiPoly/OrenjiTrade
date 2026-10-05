@@ -259,7 +259,9 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
 
     mockMapFails = false;
     fireEvent.press(within(failure).getByRole('button', { name: 'Reload map' }));
-    await waitFor(() => expect(screen.queryByTestId('trading-area-map-error')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByTestId('trading-area-map-error')).not.toBeOnTheScreen()
+    );
     expect(mapView()).toBeOnTheScreen();
     expect(screen.getByTestId('trading-area-pin').props.coordinate).toEqual({
       latitude: 45.606,
@@ -297,7 +299,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
       source: 'DEVICE',
     });
     // The device position is never drawn.
-    await waitFor(() => expect(screen.queryByTestId('trading-area-pin')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('trading-area-pin')).not.toBeOnTheScreen());
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(/your device location/);
     expect(screen.queryByText(/near Approximate area/)).toBeNull();
   });

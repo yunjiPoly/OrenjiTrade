@@ -152,7 +152,7 @@ describe('Wishlist tab', () => {
     const dialog = await screen.findByTestId('wish-remove-dialog');
     expect(dialog).toHaveTextContent(/Remove Azure-Eyes Sky Dragon\?/);
     fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
-    await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).not.toBeOnTheScreen());
     expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1);
   });
 
@@ -360,7 +360,7 @@ describe('Matches of a wish', () => {
     });
 
     fireEvent.press(screen.getByTestId(`match-dismiss-${match.id}`));
-    await waitFor(() => expect(screen.queryByTestId(`match-${match.id}`)).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId(`match-${match.id}`)).not.toBeOnTheScreen());
     expect(api.callsTo('POST /api/v1/wishlist/matches/{id}/dismiss')).toHaveLength(1);
     expect(await screen.findByTestId('wish-matches-empty')).toBeOnTheScreen();
   });

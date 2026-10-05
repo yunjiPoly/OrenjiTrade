@@ -65,7 +65,7 @@ describe('Notification centre', () => {
     expect(screen.getAllByTestId('notification-unread-dot')).toHaveLength(2);
     expect(await screen.findByText('Unread (2)')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('notifications-view-unread'));
-    await waitFor(() => expect(screen.queryByText(message.title)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(message.title)).not.toBeOnTheScreen());
     expect(api.callsTo('GET /api/v1/notifications').at(-1)?.query.get('unreadOnly')).toBe('true');
   });
 
@@ -173,6 +173,6 @@ describe('Notification bell', () => {
   it('is hidden while signed out', async () => {
     mockApi({});
     renderWithProviders(<NotificationBell />, { port: new FakeAuthPort(null) });
-    await waitFor(() => expect(screen.queryByTestId('notification-bell')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('notification-bell')).not.toBeOnTheScreen());
   });
 });

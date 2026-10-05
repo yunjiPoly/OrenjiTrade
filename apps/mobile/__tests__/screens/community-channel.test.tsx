@@ -121,7 +121,7 @@ describe('Community channel', () => {
     const dialog = await screen.findByTestId('post-delete-dialog');
     expect(dialog).toHaveTextContent(/Delete this post\?/);
     fireEvent.press(within(dialog).getByTestId('post-delete-dialog-confirm'));
-    await waitFor(() => expect(screen.queryByText('Edited text')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Edited text')).not.toBeOnTheScreen());
     expect(api.callsTo('DELETE /api/v1/community/posts/{id}')).toHaveLength(1);
   });
 
@@ -145,7 +145,7 @@ describe('Community channel', () => {
     });
     expect(screen.getByTestId(`post-replies-toggle-${post.id}`)).toHaveTextContent(/1 reply$/);
     fireEvent.press(screen.getByTestId('reply-delete-r-new'));
-    await waitFor(() => expect(screen.queryByTestId('reply-r-new')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('reply-r-new')).not.toBeOnTheScreen());
     expect(screen.getByTestId(`post-replies-toggle-${post.id}`)).toHaveTextContent(/Reply$/);
   });
 
@@ -174,7 +174,7 @@ describe('Community channel', () => {
     fireEvent.press(await screen.findByTestId('post-block-author'));
     fireEvent.press(await screen.findByTestId('block-dialog-confirm'));
     await waitFor(() =>
-      expect(screen.queryByText('Anyone trading Lantern Fox this weekend?')).toBeNull()
+      expect(screen.queryByText('Anyone trading Lantern Fox this weekend?')).not.toBeOnTheScreen()
     );
     expect(api.callsTo('POST /api/v1/users/{id}/block')[0]?.path).toBe(
       `/api/v1/users/${post.author.id}/block`

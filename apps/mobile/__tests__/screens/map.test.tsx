@@ -272,7 +272,7 @@ describe('Map tab: who has this card near me', () => {
 
     fireEvent.press(screen.getByTestId('map-holders-clear'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ card: '', printing: '' });
-    await waitFor(() => expect(screen.queryByTestId('map-holders')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('map-holders')).not.toBeOnTheScreen());
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.get('hasCardId')).toBeNull()
     );

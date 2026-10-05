@@ -129,7 +129,7 @@ describe('auth gate (RootNavigator)', () => {
     const port = new FakeAuthPort(testUser());
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
     const first = renderWithProviders(<RootNavigator />, { port });
-    await waitFor(() => expect(screen.queryByTestId('boot-screen')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
     await act(async () => {
       await port.signOut();
     });
@@ -143,7 +143,7 @@ describe('auth gate (RootNavigator)', () => {
     mockParams.current = { id: 'c1', printing: 'p2' };
     const second = new FakeAuthPort(testUser());
     renderWithProviders(<RootNavigator />, { port: second });
-    await waitFor(() => expect(screen.queryByTestId('boot-screen')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
     act(() => useSessionNotice.getState().reportEnded());
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
     expect(second.signOut).toHaveBeenCalled();
