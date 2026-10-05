@@ -93,10 +93,43 @@ export type ReferencePage = Schemas['CursorPageReferenceResponse'];
 export type MyPlan = Schemas['MyPlan'];
 export type LimitStatus = Schemas['LimitStatus'];
 
-// --- Messaging (Phase 5, the minimal thread opened from a collector) ----------------------------
+// --- Messaging (Phase 5) -----------------------------------------------------------------------
 export type ConversationSummary = Schemas['ConversationSummary'];
 export type ConversationParticipant = Schemas['ConversationParticipant'];
 export type ConversationPage = Schemas['CursorPageConversationSummary'];
 export type MessageResponse = Schemas['MessageResponse'];
 export type MessagePage = Schemas['CursorPageMessageResponse'];
 export type SendMessageRequest = Schemas['SendMessageRequest'];
+export type LastMessage = Schemas['LastMessage'];
+export type UpdateConversationRequest = Schemas['UpdateConversationRequest'];
+export type MessageKind = MessageResponse['kind'];
+export type CardLink = Schemas['CardLink'];
+export type BinderLink = Schemas['BinderLink'];
+export type OfferLink = Schemas['OfferLink'];
+export type MessageImage = Schemas['MessageImage'];
+export type ImageUploadResponse = Schemas['ImageUploadResponse'];
+export type BlockedUser = Schemas['BlockedUser'];
+
+// --- Community (Phase 5) ------------------------------------------------------------------------
+export type CommunityChannel = Schemas['CommunityChannel'];
+export type ChannelKind = CommunityChannel['kind'];
+export type CommunityAuthor = Schemas['CommunityAuthor'];
+export type PostResponse = Schemas['PostResponse'];
+export type PostPage = Schemas['CursorPagePostResponse'];
+export type ReplyResponse = Schemas['ReplyResponse'];
+export type ReplyPage = Schemas['CursorPageReplyResponse'];
+export type CreatePostRequest = Schemas['CreatePostRequest'];
+
+// --- Wishlist + notifications (Phase 6) ---------------------------------------------------------
+export type WishlistItemResponse = Schemas['WishlistItemResponse'];
+export type WishlistCardRef = Schemas['WishlistCardRef'];
+export type CreateWishlistItemRequest = Schemas['CreateWishlistItemRequest'];
+export type UpdateWishlistItemRequest = Schemas['UpdateWishlistItemRequest'];
+export type TradePreference = WishlistItemResponse['tradePreference'];
+export type WishlistMatchResponse = Schemas['WishlistMatchResponse'];
+export type WishlistMatchPage = Schemas['CursorPageWishlistMatchResponse'];
+export type NotificationResponse = Schemas['NotificationResponse'];
+export type NotificationType = NotificationResponse['type'];
+export type NotificationPage = Schemas['CursorPageNotificationResponse'];
+export type UnreadNotificationCount = Schemas['UnreadNotificationCount'];
+export type ReadAllNotificationsResponse = Schemas['ReadAllNotificationsResponse'];

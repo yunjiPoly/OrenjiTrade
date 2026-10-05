@@ -1,4 +1,9 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+  type QueryClient,
+} from '@tanstack/react-query';
 
 import { CARD_PAGE_SIZE, SUGGEST_MIN_CHARS, uniqueSuggestions } from '@/src/lib/catalog';
 
@@ -87,13 +92,25 @@ export function useCardSuggestions(q: string, limit = 10) {
   });
 }
 
+async function getCard(id: string): Promise<CardDetail> {
+  return required((await api.GET('/api/v1/cards/{id}', { params: { path: { id } } })).data);
+}
+
 /** `GET /api/v1/cards/{id}`: a card with its metadata and every printing. */
 export function useCard(id: string | null | undefined) {
   return useQuery<CardDetail, ApiError>({
     queryKey: catalogKeys.card(id ?? ''),
-    queryFn: async () =>
-      required((await api.GET('/api/v1/cards/{id}', { params: { path: { id: id ?? '' } } })).data),
+    queryFn: () => getCard(id ?? ''),
     enabled: !!id,
+    staleTime: 10 * 60_000,
+  });
+}
+
+/** The same card outside a component (cached like `useCard`). */
+export function fetchCard(queryClient: QueryClient, id: string): Promise<CardDetail> {
+  return queryClient.fetchQuery({
+    queryKey: catalogKeys.card(id),
+    queryFn: () => getCard(id),
     staleTime: 10 * 60_000,
   });
 }
