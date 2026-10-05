@@ -208,6 +208,23 @@ export function assertRecreatable(database) {
   }
 }
 
+/**
+ * The Redis logical database the mobile harness may FLUSHDB when it recreates its database: only
+ * the mobile E2E one (1) on the local Redis. Cached rows of the dropped database (games are cached
+ * for 60 s with their ids) would otherwise reach the new API: a run started right after another
+ * one failed its catalog seed on a game id the new database does not have. Returns the database.
+ */
+export function assertFlushableRedis(redisUrl) {
+  const db = redisDatabaseOf(redisUrl);
+  if (db !== MOBILE_E2E_REDIS_DB) {
+    throw new Error(`Refusing to flush Redis db ${db}: only the mobile E2E db ${MOBILE_E2E_REDIS_DB} is flushed.`);
+  }
+  if (!isLocalHost(new URL(redisUrl).hostname)) {
+    throw new Error(`Refusing to flush a Redis that is not local (${new URL(redisUrl).hostname}).`);
+  }
+  return db;
+}
+
 /** Spring command-line arguments publishing the identity block under /actuator/info. */
 export function identityArgs(instance) {
   return [

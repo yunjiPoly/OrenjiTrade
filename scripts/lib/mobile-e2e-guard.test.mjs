@@ -13,6 +13,7 @@ import {
   MOBILE_E2E_DB,
   MOBILE_E2E_REALTIME_CHANNEL_PREFIX,
   MOBILE_E2E_REDIS_DB,
+  assertFlushableRedis,
   assertIsolated,
   assertRecreatable,
   databaseOf,
@@ -129,6 +130,15 @@ describe('isolation of the mobile E2E API environment', () => {
     for (const database of ['orenjitrade', 'orenjitrade_e2e', 'orenjitrade_test', 'postgres']) {
       assert.throws(() => assertRecreatable(database), /Refusing to drop database/, database);
     }
+  });
+
+  it('only ever flushes the mobile E2E Redis database on the local Redis', () => {
+    assert.equal(assertFlushableRedis('redis://localhost:6379/1'), 1);
+    assert.equal(assertFlushableRedis('redis://127.0.0.1:6379/1'), 1);
+    for (const url of ['redis://localhost:6379', 'redis://localhost:6379/0', 'redis://localhost:6379/2']) {
+      assert.throws(() => assertFlushableRedis(url), /Refusing to flush Redis db/, url);
+    }
+    assert.throws(() => assertFlushableRedis('redis://cache.example.com:6379/1'), /not local/);
   });
 
   it("refuses the developer's card image cache", () => {
