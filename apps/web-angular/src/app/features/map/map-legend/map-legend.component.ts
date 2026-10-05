@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { APPROXIMATE_LOCATION_NOTE } from '../../../shared/map/approximate-area';
 
 /**
- * Map legend: why locations are approximate (and how approximate: the 2 km discs), and what the
+ * Map legend: why locations are approximate (and how approximate: the 3 km zones), and what the
  * marker rings mean.
  */
 @Component({

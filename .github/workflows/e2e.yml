@@ -1,12 +1,16 @@
 name: E2E
 
-# End-to-end run of the web app against the real local stack, exactly as a developer runs it:
-# PostGIS + Redis + Firebase Auth emulator (docker compose; the emulator image is built here), the
-# API jar (Gradle bootJar, `local` profile, fake/log providers, seed data) and the Angular dev
-# server started by Playwright's webServer. Runs every spec under apps/web-angular/e2e, including
-# the acceptance suite (e2e/acceptance) whose privacy fixture scans every response for exact
-# coordinates. A second job does the same for the Expo mobile app's web build (apps/mobile/e2e,
-# `npm run test:mobile:e2e`). No cloud credentials: the only secrets are random CI-only values
+# End-to-end run of the web app against the real local stack, laid out exactly as `npm run test:e2e`
+# runs it on a developer machine: PostGIS + Redis + Firebase Auth emulator (docker compose; the
+# emulator image is built here), the API jar (Gradle bootJar, `local` profile, fake/log providers,
+# seed data) on :8180 against the E2E database orenjitrade_e2e (Redis db 2, own realtime channels,
+# media and card image cache in the runner's temp directory, mock catalog only) with the E2E
+# identity block the suite's global setup requires, and the Angular dev server
+# (`ng serve --configuration e2e` on :4300) started by Playwright's webServer. Runs every spec under
+# apps/web-angular/e2e, including the acceptance suite (e2e/acceptance) whose privacy fixture scans
+# every response for exact coordinates. A second job does the same for the Expo mobile app's web
+# build (apps/mobile/e2e, `npm run test:mobile:e2e`: database orenjitrade_mobile_e2e, API on :8090,
+# web export served on :19006). No cloud credentials: the only secrets are random CI-only values
 # generated per run.
 
 on:
@@ -61,6 +65,14 @@ jobs:
           docker compose up -d --build --wait --wait-timeout 600 postgres redis firebase-auth
           docker compose ps
 
+      # The init script creates orenjitrade_e2e on a fresh volume; this keeps the step explicit.
+      - name: Ensure the E2E database
+        run: |
+          exists="$(docker exec orenjitrade-postgres psql -U orenjitrade -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = 'orenjitrade_e2e'")"
+          if [ "$exists" != "1" ]; then
+            docker exec orenjitrade-postgres psql -U orenjitrade -d postgres -c "CREATE DATABASE orenjitrade_e2e OWNER orenjitrade"
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -79,23 +91,38 @@ jobs:
         env:
           SPRING_PROFILES_ACTIVE: local
           ORENJI_ENV: local
-          DATABASE_URL: jdbc:postgresql://localhost:5432/orenjitrade
+          SERVER_PORT: "8180"
+          DATABASE_URL: jdbc:postgresql://localhost:5432/orenjitrade_e2e
           DATABASE_USERNAME: orenjitrade
           DATABASE_PASSWORD: orenjitrade_local
-          REDIS_URL: redis://localhost:6379
+          REDIS_URL: redis://localhost:6379/2
+          REALTIME_CHANNEL_PREFIX: "e2e-web:rt:user:"
           FIREBASE_PROJECT_ID: orenjitrade-local
           FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
           EVENTS_TRANSPORT: local
           STORAGE_PROVIDER: local
+          CARD_IMAGE_ON_DEMAND_ENABLED: "false"
+          YGOPRODECK_ENABLED: "false"
+          YGOPRODECK_API_BASE_URL: http://127.0.0.1:9/api/v7/
+          YGOPRODECK_IMAGE_BASE_URL: http://127.0.0.1:9/images/cards/
           PAYMENT_PROVIDER: fake
           BILLING_PROVIDER: fake
           DONATION_PROVIDER: fake
           PUSH_PROVIDER: log
           EMAIL_PROVIDER: log
-          CORS_ALLOWED_ORIGINS: http://localhost:4200
-        # SERVICE_TOKEN, LOCATION_JITTER_SECRET and CONSENT_IP_SALT come from $GITHUB_ENV.
+          CORS_ALLOWED_ORIGINS: http://localhost:4300
+          ADS_WEB_BASE_URL: http://localhost:4300
+        # SERVICE_TOKEN, LOCATION_JITTER_SECRET and CONSENT_IP_SALT come from $GITHUB_ENV. The
+        # identity block under /actuator/info is what the suite's global setup checks.
         run: |
-          nohup java -jar build/libs/app.jar > "$RUNNER_TEMP/api.log" 2>&1 &
+          export STORAGE_LOCAL_ROOT="$RUNNER_TEMP/e2e/media"
+          export CARD_IMAGE_CACHE_DIR="$RUNNER_TEMP/e2e/card-images"
+          export PROVIDER_DATA_DIR="$RUNNER_TEMP/e2e/provider-data"
+          nohup java -jar build/libs/app.jar \
+            --management.info.env.enabled=true \
+            --info.orenjiWebE2e.database=orenjitrade_e2e \
+            --info.orenjiWebE2e.instance="ci-$GITHUB_RUN_ID" \
+            > "$RUNNER_TEMP/api.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/api.pid"
 
       - uses: actions/setup-node@v4
@@ -111,6 +138,10 @@ jobs:
       - name: Build design tokens
         run: npm run build:tokens
 
+      # Isolation guards of the local E2E harness and the purge rules (also run by npm run test:e2e).
+      - name: Script guard tests (scripts/lib)
+        run: npm run test:scripts
+
       - name: Install the Playwright Chromium browser
         working-directory: apps/web-angular
         run: npx playwright install --with-deps chromium
@@ -119,7 +150,7 @@ jobs:
         timeout-minutes: 10
         run: |
           for _ in $(seq 1 120); do
-            if curl -fsS http://localhost:8080/actuator/health/readiness >/dev/null 2>&1; then
+            if curl -fsS http://localhost:8180/actuator/health/readiness >/dev/null 2>&1; then
               echo "API ready"; exit 0
             fi
             if ! kill -0 "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null; then
@@ -129,18 +160,21 @@ jobs:
           done
           echo "::error::The API did not become ready"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
 
-      # Playwright's webServer starts `npm start` (ng serve on :4200); retries and workers come
-      # from playwright.config.ts (CI: 2 retries, 2 workers, list + HTML reporters).
-      # E2E_REQUIRE_STACK=1 turns an unreachable stack into a failure instead of skipped specs.
+      # Playwright's webServer writes e2e/.runtime/config.json (API :8180) and starts
+      # `ng serve --configuration e2e` on :4300; retries and workers come from playwright.config.ts
+      # (CI: 2 retries, 2 workers, list + HTML reporters). The global setup refuses an API without
+      # the E2E identity block. E2E_REQUIRE_STACK=1 turns an unreachable stack into a failure
+      # instead of skipped specs.
       - name: Run Playwright (every spec, acceptance suite included)
         timeout-minutes: 45
         working-directory: apps/web-angular
         env:
-          E2E_BASE_URL: http://localhost:4200
-          E2E_API_URL: http://localhost:8080
+          E2E_BASE_URL: http://localhost:4300
+          E2E_API_URL: http://localhost:8180
           E2E_AUTH_EMULATOR_URL: http://localhost:9099
           E2E_REQUIRE_STACK: "1"
           E2E_DB_CONTAINER: orenjitrade-postgres
+          E2E_DB_NAME: orenjitrade_e2e
         run: E2E_SERVICE_TOKEN="$SERVICE_TOKEN" npx playwright test
 
       - name: Upload the Playwright report and logs
@@ -207,10 +241,10 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      # The harness isolation guards (database, port, card-image/media directories, run-scoped
-      # accounts) before the harness uses them.
-      - name: Mobile E2E harness guard tests
-        run: node --test "scripts/lib/*.test.mjs"
+      # The harness isolation guards (database, port, Redis db, card-image/media directories,
+      # run-scoped accounts) before the harness uses them.
+      - name: Script guard tests (scripts/lib)
+        run: npm run test:scripts
 
       - name: Install the Playwright Chromium browser
         working-directory: apps/mobile

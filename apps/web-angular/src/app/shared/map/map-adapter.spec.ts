@@ -5,6 +5,7 @@ import {
   approximateAreaCircle,
 } from './approximate-area';
 import {
+  circleBounds,
   circleStyle,
   clampZoom,
   distanceKm,
@@ -76,10 +77,28 @@ describe('zoom limits', () => {
 });
 
 describe('approximate areas of collectors', () => {
-  it('caps collector maps at zoom 14 and draws 2 km wide discs', () => {
+  it('caps collector maps at zoom 14 and draws 3 km wide zones (radius 1500 m)', () => {
     expect(COLLECTOR_MAP_MAX_ZOOM).toBe(14);
-    expect(APPROXIMATE_AREA_RADIUS_M).toBe(1000);
-    expect(APPROXIMATE_LOCATION_NOTE).toBe('Locations are approximate (about 2 km)');
+    expect(APPROXIMATE_AREA_RADIUS_M).toBe(1500);
+    expect(APPROXIMATE_LOCATION_NOTE).toBe('Locations are approximate (about 3 km)');
+  });
+
+  it('clamps every zoom request above 14 for collector maps', () => {
+    for (const requested of [14.5, 15, 16, 18, 21]) {
+      expect(clampZoom(requested, { maxZoom: COLLECTOR_MAP_MAX_ZOOM })).toBe(14);
+    }
+    expect(clampZoom(13, { maxZoom: COLLECTOR_MAP_MAX_ZOOM })).toBe(13);
+  });
+
+  it('a zone spans about 3 km of ground (bounding box of the 1500 m radius)', () => {
+    const point = { lat: 45.523, lng: -73.583 };
+    const box = circleBounds(point, APPROXIMATE_AREA_RADIUS_M);
+    expect(
+      distanceKm({ lat: box.south, lng: point.lng }, { lat: box.north, lng: point.lng }),
+    ).toBeCloseTo(3, 1);
+    expect(
+      distanceKm({ lat: point.lat, lng: box.west }, { lat: point.lat, lng: box.east }),
+    ).toBeCloseTo(3, 1);
   });
 
   it('builds the disc of a public point, emphasised for the selected collector', () => {
@@ -87,7 +106,7 @@ describe('approximate areas of collectors', () => {
     expect(approximateAreaCircle('area:maika', point)).toEqual({
       id: 'area:maika',
       center: point,
-      radiusMeters: 1000,
+      radiusMeters: 1500,
       variant: 'approximate',
     });
     expect(approximateAreaCircle('area:maika', point, true).variant).toBe('area');

@@ -170,6 +170,10 @@ orenji:
     core-size: 4
     max-size: 16
     queue-capacity: 500
+  realtime:
+    # Redis pub/sub channel prefix of the realtime fan-out (<prefix><userId>). Pub/sub ignores the
+    # logical database, so the local E2E API (Redis db 2) sets its own prefix next to npm run dev.
+    channel-prefix: "${REALTIME_CHANNEL_PREFIX:rt:user:}"
   firebase:
     project-id: ${FIREBASE_PROJECT_ID:orenjitrade-local}
     # Empty => Application Default Credentials against the real project.

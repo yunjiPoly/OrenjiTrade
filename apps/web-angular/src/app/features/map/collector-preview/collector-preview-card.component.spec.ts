@@ -66,13 +66,13 @@ describe('CollectorPreviewCardComponent', () => {
     expect(element.textContent).not.toMatch(/45\.52|73\.58/);
   });
 
-  it('says that the location is approximate (about 2 km)', async () => {
+  it('says that the location is approximate (about 3 km)', async () => {
     await render(
       { kind: 'ready', handle: 'maika', preview: preview('maika') },
       { signedIn: false },
     );
     const note = element.querySelector('[data-testid=preview-approximate]');
-    expect(note?.textContent).toContain('Locations are approximate (about 2 km)');
+    expect(note?.textContent).toContain('Locations are approximate (about 3 km)');
     expect(note?.textContent).toContain(APPROXIMATE_LOCATION_NOTE);
     // Decorative icon only: screen readers read the sentence.
     expect(note?.querySelector('mat-icon')?.getAttribute('aria-hidden')).toBe('true');

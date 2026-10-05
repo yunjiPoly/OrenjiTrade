@@ -10,6 +10,7 @@ import {
   signInThroughUi,
   stubCardImages,
   stubMapTiles,
+  WEB_URL,
 } from './support/stack';
 
 /**
@@ -179,7 +180,11 @@ test.describe('credits, ads and donations', () => {
     await expect(link).toHaveAttribute('rel', /sponsored/);
     const [landing] = await Promise.all([page.context().waitForEvent('page'), link.click()]);
     await landing.waitForLoadState('domcontentloaded');
-    expect(landing.url()).toMatch(/^(http:\/\/localhost:4200\/premium|https:\/\/[^/]+\.example\/)/);
+    // House ads land on the web app the API was configured for (ADS_WEB_BASE_URL: the E2E web app).
+    expect(
+      landing.url() === `${WEB_URL}/premium` || /^https:\/\/[^/]+\.example\//.test(landing.url()),
+      `landing ${landing.url()}`,
+    ).toBe(true);
     await landing.close();
 
     // A FREE collector (interested in Pokémon) sees a sponsored search result.

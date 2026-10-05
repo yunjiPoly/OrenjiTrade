@@ -29,6 +29,8 @@
     "test:mobile:e2e": "node scripts/test.mjs mobile-e2e",
     "test:mobile:maestro": "node scripts/test.mjs mobile-maestro",
     "test:e2e": "node scripts/test.mjs e2e",
+    "test:scripts": "node scripts/test.mjs scripts",
+    "e2e:purge": "node scripts/e2e-purge.mjs",
     "test:all": "node scripts/test.mjs all",
     "test:ml": "node scripts/test.mjs ml",
     "build:tokens": "npm run build -w packages/design-tokens",

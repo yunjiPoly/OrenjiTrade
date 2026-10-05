@@ -29,6 +29,9 @@ yarn-error.log
 !.vscode/mcp.json
 .history/*
 
+# config.json of the E2E dev server (ng serve --configuration e2e), written per run
+/e2e/.runtime/
+
 # Miscellaneous
 /.angular/cache
 .sass-cache/

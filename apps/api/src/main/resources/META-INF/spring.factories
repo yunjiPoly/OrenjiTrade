@@ -1,0 +1,4 @@
+# Refuses the one-shot test-data purge mode (npm run e2e:purge) before the context starts when it
+# is not safe (admin/infra/TestAccountPurgeModeGuard).
+org.springframework.boot.EnvironmentPostProcessor=\
+com.orenjitrade.api.admin.infra.TestAccountPurgeModeGuard
