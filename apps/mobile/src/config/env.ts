@@ -24,6 +24,8 @@ export interface RawEnv {
   firebaseAppId?: string;
   /** `host:port`, or `off` to talk to the real Firebase project. */
   authEmulatorHost?: string;
+  /** The project's own Google Maps Android key (public, app-restricted), baked into a build. */
+  googleMapsApiKey?: string;
 }
 
 export interface FirebaseWebConfig {
@@ -39,6 +41,11 @@ export interface AppConfig {
   firebase: FirebaseWebConfig;
   /** `host:port` of the Firebase Auth emulator, or `null` for the real Firebase project. */
   authEmulatorHost: string | null;
+  /**
+   * Whether the build carries the project's own Google Maps Android key (app.config.ts). Without
+   * it, Android maps use the Leaflet + OpenStreetMap fallback (src/components/map/mapEngine.ts).
+   */
+  googleMapsKeyConfigured: boolean;
 }
 
 /** Public values of the local Firebase project used with the Auth emulator. */
@@ -71,6 +78,7 @@ export function readRawEnv(): RawEnv {
     firebaseProjectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
     firebaseAppId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     authEmulatorHost: process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST,
+    googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
   };
 }
 
@@ -100,7 +108,12 @@ export function resolveConfig(raw: RawEnv, platform: RuntimePlatform): AppConfig
     authEmulatorHost = emulatorRaw.replace(/^https?:\/\//, '').replace(/\/+$/, '');
   }
 
-  return { apiBaseUrl, firebase, authEmulatorHost };
+  return {
+    apiBaseUrl,
+    firebase,
+    authEmulatorHost,
+    googleMapsKeyConfigured: clean(raw.googleMapsApiKey) !== undefined,
+  };
 }
 
 /** The configuration of this build. */

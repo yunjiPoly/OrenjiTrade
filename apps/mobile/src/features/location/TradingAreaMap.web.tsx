@@ -4,6 +4,7 @@ import type * as Leaflet from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { OSM_ATTRIBUTION, OSM_TILE_URL, pinHtml } from '@/src/components/map/leaflet/leafletShared';
 import { zoomForRadius } from '@/src/lib/location';
 import { useTheme } from '@/src/theme';
 
@@ -13,11 +14,6 @@ import {
   type TradingAreaMapProps,
 } from './TradingAreaMap.types';
 import { TradingAreaMapFrame, type MapLoadState } from './TradingAreaMapFrame';
-
-/** OpenStreetMap standard tiles, as on the web app (usage policy: attribution, no bulk loads). */
-export const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 type LeafletModule = typeof Leaflet;
 
@@ -31,16 +27,6 @@ interface LeafletState {
 async function loadLeaflet(): Promise<LeafletModule> {
   const mod = (await import('leaflet')) as unknown as LeafletModule & { default?: LeafletModule };
   return mod.default ?? mod;
-}
-
-/** The web app's pin (`.orenji-map-pin__dot`), inline because the markup lives outside React. */
-function pinHtml(color: string): string {
-  return (
-    '<span style="display:flex;width:32px;height:32px;align-items:center;justify-content:center">' +
-    '<span style="display:block;width:22px;height:22px;border-radius:50% 50% 50% 0;' +
-    `transform:rotate(-45deg);background:${color};border:3px solid #fff;` +
-    'box-shadow:0 4px 10px rgb(0 0 0 / 0.35);box-sizing:border-box"></span></span>'
-  );
 }
 
 /**

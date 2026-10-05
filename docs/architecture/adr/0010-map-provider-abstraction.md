@@ -35,3 +35,24 @@ privacy rendering of ADR 0004 ("Client rendering"):
 
 The values (zoom cap 14, 1000 m disc radius) are privacy rules, not adapter logic: they live in
 `shared/map/approximate-area.ts` and are passed in by the feature code.
+
+## Amendment 2026-10-05: the mobile app gets the same Leaflet fallback
+
+Running the Expo app in Expo Go on an Android emulator (the owner's free, local runtime) showed
+that Google Maps cannot draw there: the Maps SDK refuses the key bundled with Expo Go
+("Authorization failure"), so `react-native-maps` with the Google provider renders an empty grey
+surface (no tiles, pins or circles), and a project key can only be used by a development or store
+build. The mobile app therefore follows the web rule "Google with a key, Leaflet otherwise":
+
+- `apps/mobile/src/components/map/mapEngine.ts` chooses the engine once per map:
+  `native` (`react-native-maps`: Apple Maps on iOS, which needs no key; Google Maps on Android only
+  in a build carrying `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and not in Expo Go) or `leaflet`.
+- `leaflet` is Leaflet + OpenStreetMap in a `react-native-webview` page
+  (`src/components/map/leaflet/tradingAreaPage.ts`): Leaflet 1.9.4 from a pinned CDN URL with
+  Subresource Integrity equal to the npm package's bytes (a jest test compares them), OSM tiles
+  with their credit, no geolocation, no storage, navigation limited to the page (links open in the
+  system browser). The page and the app talk through validated JSON messages (`ready`, `error`,
+  `pick`, `viewport`) and injected `apply` / `focus` calls.
+- Users: the trading-area picker (the web picker's mechanism: tap the map or drag the pin) and the
+  Map tab (browse only, zoom capped at 14 as ADR 0004 requires for maps of other collectors). The
+  web build of the Expo app keeps using Leaflet directly (`*.web.tsx`).

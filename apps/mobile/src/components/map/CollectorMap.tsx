@@ -6,7 +6,9 @@ import { useAppStore } from '@/src/store/useAppStore';
 import { useTheme } from '@/src/theme';
 
 import { MONTREAL_REGION } from './constants';
+import { LeafletBrowseMap } from './LeafletBrowseMap';
 import { MapErrorBoundary } from './MapErrorBoundary';
+import { currentMapEngine } from './mapEngine';
 import { MapOverlay } from './MapOverlay';
 import { MapPlaceholder } from './MapPlaceholder';
 
@@ -40,18 +42,36 @@ function NativeMap() {
       showsMyLocationButton={false}
       showsPointsOfInterests={false}
       toolbarEnabled={false}
-      accessibilityLabel="Map of approximate collector locations"
+      accessibilityLabel={MAP_LABEL}
     />
   );
 }
 
-/** Map tab body: native map centred on Montréal with the Phase 4 overlay. */
+const MAP_LABEL = 'Map of approximate collector locations';
+
+/**
+ * Map tab body centred on the last viewport (Montréal at first) with the Phase 4 overlay: Apple or
+ * Google Maps (react-native-maps), or Leaflet + OpenStreetMap in a WebView where Google Maps cannot
+ * draw (Expo Go on Android, no project key; see `mapEngine`).
+ */
 export function CollectorMap() {
+  const [engine] = useState(currentMapEngine);
+  const [unavailable, setUnavailable] = useState(false);
+  const markUnavailable = useCallback(() => setUnavailable(true), []);
+  const placeholder = <MapPlaceholder reason="unavailable" />;
   return (
     <View style={styles.container} testID="collector-map-container">
-      <MapErrorBoundary name="CollectorMap" fallback={<MapPlaceholder reason="unavailable" />}>
-        <NativeMap />
-      </MapErrorBoundary>
+      {unavailable ? (
+        placeholder
+      ) : (
+        <MapErrorBoundary name="CollectorMap" fallback={placeholder}>
+          {engine === 'native' ? (
+            <NativeMap />
+          ) : (
+            <LeafletBrowseMap onUnavailable={markUnavailable} accessibilityLabel={MAP_LABEL} />
+          )}
+        </MapErrorBoundary>
+      )}
       <MapOverlay />
     </View>
   );

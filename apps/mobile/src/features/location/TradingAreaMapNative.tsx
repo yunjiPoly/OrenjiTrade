@@ -22,11 +22,12 @@ import {
 import { TradingAreaMapFrame, type MapLoadState } from './TradingAreaMapFrame';
 
 /**
- * Trading-area map on iOS/Android (react-native-maps: Google Maps on Android, Apple Maps on iOS):
- * tap the map or long-press and drag the pin to move the centre. The device's own position is
- * never shown (`showsUserLocation` stays off, ADR 0004).
+ * Trading-area map with react-native-maps (`mapEngine` "native": Apple Maps on iOS, Google Maps on
+ * Android in a build with the project's own key): tap the map or long-press and drag the pin to
+ * move the centre. The device's own position is never shown (`showsUserLocation` stays off,
+ * ADR 0004).
  */
-export function TradingAreaMap(props: TradingAreaMapProps) {
+export function TradingAreaMapNative(props: TradingAreaMapProps) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<MapLoadState>('loading');
   return (

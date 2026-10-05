@@ -169,7 +169,7 @@ export function TradingAreaPicker({ value, onChange, location, disabled }: Tradi
       <View style={styles.hint}>
         <MaterialCommunityIcons name="gesture-tap" size={18} color={palette.textMuted} />
         <Text style={[textStyle('sm'), styles.grow, { color: palette.textMuted }]}>
-          Tap the map or long-press and drag the pin to move your area.
+          Tap the map or drag the pin to move your area.
         </Text>
       </View>
       <Text

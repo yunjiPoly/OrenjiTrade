@@ -40,6 +40,20 @@ jest.mock('react-native-maps', () => {
   };
 });
 
+// The WebView renders a View carrying its props; `injectJavaScript` is a jest mock shared by every
+// instance (`require('react-native-webview').mockInjectJavaScript`), reset before each test.
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const mockInjectJavaScript = jest.fn();
+  const WebView = React.forwardRef((props: Record<string, unknown>, ref: React.Ref<unknown>) => {
+    React.useImperativeHandle(ref, () => ({ injectJavaScript: mockInjectJavaScript }));
+    return React.createElement(View, props);
+  });
+  WebView.displayName = 'MockWebView';
+  return { __esModule: true, default: WebView, WebView, mockInjectJavaScript };
+});
+
 // `react-native-safe-area-context` provides a jest mock (default export) with zero insets.
 jest.mock(
   'react-native-safe-area-context',

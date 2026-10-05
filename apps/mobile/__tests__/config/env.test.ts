@@ -61,4 +61,14 @@ describe('resolveConfig', () => {
     expect(config.firebase.apiKey).toBe(LOCAL_FIREBASE.apiKey);
     expect(config.authEmulatorHost).toBe('localhost:9099');
   });
+
+  it('only reports a Google Maps key that is really set (never its value)', () => {
+    expect(resolveConfig({}, 'android').googleMapsKeyConfigured).toBe(false);
+    expect(resolveConfig({ googleMapsApiKey: '  ' }, 'android').googleMapsKeyConfigured).toBe(
+      false
+    );
+    const config = resolveConfig({ googleMapsApiKey: 'AIza-public-test-key' }, 'android');
+    expect(config.googleMapsKeyConfigured).toBe(true);
+    expect(JSON.stringify(config)).not.toContain('AIza-public-test-key');
+  });
 });

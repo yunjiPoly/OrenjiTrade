@@ -166,6 +166,10 @@ tags:
 - assertVisible:
     id: 'location-discoverable'
     checked: true
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'location-visibility'
 - assertVisible:
     id: 'location-visibility'
     text: 'Collectors see you near.*'
