@@ -250,17 +250,22 @@ function RatingForm({
           text={`${interactionKindLabel(rating.interactionKind)} · editable until ${formatLongDate(rating.editableUntil)}`}
         />
       ) : interactions.length > 1 ? (
-        <RadioGroup
-          label="Which interaction are you rating?"
-          options={interactions.map((candidate) => ({
-            value: candidate.id,
-            label: `${interactionKindLabel(candidate.kind)} · ${formatLongDate(candidate.occurredAt)}`,
-          }))}
-          value={interactionId}
-          onChange={setInteractionId}
-          disabled={saving}
-          testID="rate-interaction"
-        />
+        <View style={styles.block}>
+          <Text style={[textStyle('md'), styles.strong, { color: palette.ink }]}>
+            Which interaction are you rating?
+          </Text>
+          <RadioGroup
+            label="Which interaction are you rating?"
+            options={interactions.map((candidate) => ({
+              value: candidate.id,
+              label: `${interactionKindLabel(candidate.kind)} · ${formatLongDate(candidate.occurredAt)}`,
+            }))}
+            value={interactionId}
+            onChange={setInteractionId}
+            disabled={saving}
+            testID="rate-interaction"
+          />
+        </View>
       ) : interaction ? (
         <InteractionLine
           kind={interaction.kind}

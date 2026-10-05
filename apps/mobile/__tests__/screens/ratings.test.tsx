@@ -125,6 +125,7 @@ describe('Rate a collector', () => {
     );
     renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rate-interaction')).toBeOnTheScreen();
+    expect(screen.getByText('Which interaction are you rating?')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('rate-interaction-i-chat'));
     fireEvent.press(screen.getByTestId('rate-overall-3'));
     fireEvent.press(screen.getByTestId('rate-submit'));
