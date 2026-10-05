@@ -9,8 +9,9 @@
 //   * Metro on :8082 (`expo start --port 8082 --android --clear`) with the app pointed at the
 //     host as the emulator sees it: EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8090 and the Auth
 //     emulator at 10.0.2.2:9099. Expo CLI installs the free Expo Go app on the emulator when it is
-//     missing. A Metro this script did not start is never reused (it could point the app at the
-//     developer API); the Android bundle is checked for the isolated API URL before any flow runs;
+//     missing, and the harness waits for that install. A Metro this script did not start is never
+//     reused (it could point the app at the developer API); the Android bundle is checked for the
+//     isolated API URL before any flow runs;
 //   * an Android device: start an emulator first, for example
 //     `%LOCALAPPDATA%/Android/Sdk/emulator/emulator -avd Pixel_6_API_34 -no-snapshot-save`;
 //   * Maestro CLI: MAESTRO_BIN, or `maestro` on PATH, or ~/.maestro/bin.
@@ -189,6 +190,46 @@ function startMetro() {
   return handle;
 }
 
+const EXPO_GO_INSTALL_TIMEOUT_MS = 6 * 60_000;
+
+function expoGoInstalled(adb, device) {
+  const installed = capture(adb, ['-s', device, 'shell', 'pm', 'list', 'packages', EXPO_GO]);
+  return installed.status === 0 && installed.stdout.includes(EXPO_GO);
+}
+
+/**
+ * Waits until Expo Go is on the device. `expo start --android` (the Metro this script started)
+ * downloads and installs the free Expo Go app by itself when it is missing, which can take a few
+ * minutes after the bundle is ready; checking once right away used to fail the run and stop Metro
+ * in the middle of that install. A reused Metro does not install anything, so it is checked once.
+ */
+async function waitForExpoGo(adb, device, metro) {
+  if (expoGoInstalled(adb, device)) {
+    return true;
+  }
+  const hint =
+    'Install it once with `cd apps/mobile && npx expo start --android --port 8082` (Expo CLI downloads the free Expo Go app), then rerun.';
+  if (!metro) {
+    log.error(`Expo Go is not installed on the device and the reused Metro does not install it. ${hint}`);
+    return false;
+  }
+  log.info(`Expo Go is not installed yet; waiting for Expo CLI to install it (up to ${formatDuration(EXPO_GO_INSTALL_TIMEOUT_MS)}).`);
+  const started = Date.now();
+  while (Date.now() - started < EXPO_GO_INSTALL_TIMEOUT_MS) {
+    if (metro.exitInfo) {
+      log.error(`Metro exited (code ${metro.exitInfo.code}) before Expo Go was installed; see ${metro.logFile}. ${hint}`);
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    if (expoGoInstalled(adb, device)) {
+      log.ok(`Expo Go installed (${formatDuration(Date.now() - started)}).`);
+      return true;
+    }
+  }
+  log.error(`Expo Go was still not installed after ${formatDuration(EXPO_GO_INSTALL_TIMEOUT_MS)}; see ${metro.logFile}. ${hint}`);
+  return false;
+}
+
 function maestroInvocation(maestro, args) {
   if (IS_WINDOWS && /\.(bat|cmd)$/i.test(maestro)) {
     const quote = (arg) => (/^[\w.,:=/\\@+-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '""')}"`);
@@ -227,6 +268,8 @@ export async function testMobileMaestro(argv) {
   }
 
   const started = [];
+  // The Metro handle itself (not a copy): its `exitInfo` is filled in when Metro exits.
+  let startedMetro = null;
   const runId = process.env.E2E_RUN_ID || newRunId();
   let ready = false;
   try {
@@ -253,6 +296,7 @@ export async function testMobileMaestro(argv) {
       }
       log.step(`Starting Metro for Expo Go on :${METRO_PORT} (API ${APP_API_URL}, log .local-dev/mobile-e2e/logs/metro.log)`);
       const metro = startMetro();
+      startedMetro = metro;
       started.push({ kind: 'metro', ...metro });
       const waited = await waitForHttp(`${METRO_URL}/status`, {
         timeoutMs: 5 * 60_000,
@@ -262,12 +306,7 @@ export async function testMobileMaestro(argv) {
     }
     await verifyAndroidBundle();
 
-    const installed = capture(adb, ['-s', device, 'shell', 'pm', 'list', 'packages', EXPO_GO]);
-    if (!installed.stdout.includes(EXPO_GO)) {
-      log.error(
-        'Expo Go is not installed on the device. Install it once with `cd apps/mobile && npx expo start --android --port 8082` ' +
-          '(Expo CLI downloads the free Expo Go app), then rerun.',
-      );
+    if (!(await waitForExpoGo(adb, device, startedMetro))) {
       return 1;
     }
     ready = true;
