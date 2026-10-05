@@ -105,11 +105,13 @@ const PAGE_SCRIPT = `
   // A map that only shows (a profile's area) keeps still inside its scrolling screen.
   var moves = CONFIG.interactive;
   var map = L.map('map', {
-    zoomControl: moves, attributionControl: true,
+    zoomControl: false, attributionControl: true,
     minZoom: CONFIG.minZoom, maxZoom: CONFIG.maxZoom,
     dragging: moves, touchZoom: moves, doubleClickZoom: moves, scrollWheelZoom: moves,
     boxZoom: moves, keyboard: moves, tap: moves
   });
+  // Zoom buttons bottom right, above the credit: the screen's toolbar covers the top of the map.
+  if (moves) { L.control.zoom({ position: 'bottomright' }).addTo(map); }
   L.tileLayer(CONFIG.tileUrl, {
     attribution: CONFIG.attribution, minZoom: CONFIG.minZoom, maxZoom: CONFIG.maxZoom
   }).addTo(map);

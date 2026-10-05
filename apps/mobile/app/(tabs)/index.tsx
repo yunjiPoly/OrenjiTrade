@@ -216,6 +216,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: spacing[3],
+    // The map's zoom buttons and credit sit bottom right.
+    paddingRight: spacing[16],
     gap: spacing[2],
   },
   listTop: { padding: spacing[3], paddingBottom: 0 },

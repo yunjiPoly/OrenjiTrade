@@ -164,7 +164,7 @@ export function CollectorProfileView({
         />
       </SectionCard>
 
-      <SectionCard title="Trading area" testID="collector-area">
+      <SectionCard title="Trading area" testID="collector-area-section">
         {profile.location ? (
           <>
             <ApproximateAreaMap

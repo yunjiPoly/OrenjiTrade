@@ -102,7 +102,8 @@ export function CollectorMap({
           minZoom: COLLECTOR_MAP_MIN_ZOOM,
           maxZoom: COLLECTOR_MAP_MAX_ZOOM,
           // A map that only shows (a profile's area) keeps still inside its scrolling screen.
-          zoomControl: moves,
+          // Zoom buttons go bottom right (below): the screen's toolbar covers the top.
+          zoomControl: false,
           dragging: moves,
           touchZoom: moves,
           doubleClickZoom: moves,
@@ -110,6 +111,9 @@ export function CollectorMap({
           boxZoom: moves,
           keyboard: moves,
         });
+        if (moves) {
+          L.control.zoom({ position: 'bottomright' }).addTo(map);
+        }
         L.tileLayer(OSM_TILE_URL, {
           attribution: OSM_ATTRIBUTION,
           minZoom: COLLECTOR_MAP_MIN_ZOOM,
