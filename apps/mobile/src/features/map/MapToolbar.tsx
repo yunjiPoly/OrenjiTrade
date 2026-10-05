@@ -34,9 +34,10 @@ export interface MapToolbarProps {
 }
 
 /**
- * The Map tab's top bar: the status line ("8 collectors within 10 km"), the "who has this near
- * me" banner, and the filters as compact selects (game, intent, distance bounded by the plan) next
- * to the Map / List switch. Filters never carry a position.
+ * The Map tab's top bar: the status line ("8 collectors within 10 km"), the Map / List switch and
+ * the filters as compact selects (game, intent, distance bounded by the plan), then the "who has
+ * this near me" banner. Controls stay off the top-right corner, where a development build (Expo
+ * Go) floats its tools button. Filters never carry a position.
  */
 export function MapToolbar({
   status,
@@ -66,38 +67,6 @@ export function MapToolbar({
         { backgroundColor: palette.surface, borderColor: palette.border },
       ]}
     >
-      {holdersTitle !== undefined ? (
-        <View
-          testID="map-holders"
-          style={[styles.holders, { backgroundColor: palette.primaryContainer }]}
-        >
-          <MaterialCommunityIcons
-            name="cards-outline"
-            size={18}
-            color={palette.onPrimaryContainer}
-          />
-          <Text
-            numberOfLines={2}
-            style={[
-              textStyle('sm'),
-              styles.grow,
-              styles.strong,
-              { color: palette.onPrimaryContainer },
-            ]}
-          >
-            Who has {holdersTitle ?? 'this card'} near you
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Show every collector"
-            onPress={onClearHolders}
-            hitSlop={8}
-            testID="map-holders-clear"
-          >
-            <MaterialCommunityIcons name="close" size={20} color={palette.onPrimaryContainer} />
-          </Pressable>
-        </View>
-      ) : null}
       <View style={styles.statusRow}>
         <Text
           testID="map-status"
@@ -115,6 +84,13 @@ export function MapToolbar({
             testID="map-loading"
           />
         ) : null}
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+        accessibilityLabel="Map filters"
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={view === 'map' ? 'List' : 'Map'}
@@ -138,13 +114,6 @@ export function MapToolbar({
             {view === 'map' ? 'List' : 'Map'}
           </Text>
         </Pressable>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filters}
-        accessibilityLabel="Map filters"
-      >
         <SelectSheet
           compact
           label="Game"
@@ -189,6 +158,38 @@ export function MapToolbar({
           </Pressable>
         ) : null}
       </ScrollView>
+      {holdersTitle !== undefined ? (
+        <View
+          testID="map-holders"
+          style={[styles.holders, { backgroundColor: palette.primaryContainer }]}
+        >
+          <MaterialCommunityIcons
+            name="cards-outline"
+            size={18}
+            color={palette.onPrimaryContainer}
+          />
+          <Text
+            numberOfLines={2}
+            style={[
+              textStyle('sm'),
+              styles.grow,
+              styles.strong,
+              { color: palette.onPrimaryContainer },
+            ]}
+          >
+            Who has {holdersTitle ?? 'this card'} near you
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Show every collector"
+            onPress={onClearHolders}
+            hitSlop={8}
+            testID="map-holders-clear"
+          >
+            <MaterialCommunityIcons name="close" size={20} color={palette.onPrimaryContainer} />
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
