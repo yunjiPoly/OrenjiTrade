@@ -58,6 +58,11 @@ export function RootNavigator() {
         <Stack.Screen name="collectors/[id]" options={{ title: 'Collector' }} />
         <Stack.Screen name="cards/[id]" options={{ title: 'Card' }} />
         <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
+        <Stack.Screen name="binders/new" options={{ title: 'New binder' }} />
+        <Stack.Screen name="binders/edit" options={{ title: 'Edit binder' }} />
+        {/* Inventory items (web: the add dialog and the edit panel of /inventory). */}
+        <Stack.Screen name="items/new" options={{ title: 'Add a card' }} />
+        <Stack.Screen name="items/[id]" options={{ title: 'Card' }} />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}

@@ -20,6 +20,7 @@ export {
   type CardImageSize,
 } from './CardImage';
 export { Chip, type ChipProps, type ChipTone } from './Chip';
+export { ChoiceChips, type ChoiceChipsProps, type ChoiceOption } from './ChoiceChips';
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';
 export { EmptyState, type EmptyStateProps, type IconName } from './EmptyState';
 export { ErrorState, type ErrorStateProps } from './ErrorState';
@@ -47,7 +48,9 @@ export {
   type SectionCardProps,
 } from './Layout';
 export { QueryState, type QueryLike, type QueryStateProps } from './QueryState';
+export { ListFooter, type ListFooterProps } from './ListFooter';
 export { Screen, type ScreenProps } from './Screen';
+export { SelectSheet, type SelectOption, type SelectSheetProps } from './SelectSheet';
 export { Skeleton, SkeletonList, type SkeletonListProps, type SkeletonProps } from './Skeleton';
 export { SnackbarProvider, useSnackbar, type Snackbar, type SnackbarOptions } from './Snackbar';
 export { Stepper, type StepperProps } from './Stepper';

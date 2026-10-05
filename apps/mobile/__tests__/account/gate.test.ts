@@ -49,7 +49,13 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['(tabs)', 'profile'])).toBeNull();
     expect(redirectFor('app', ['settings', 'location'])).toBeNull();
     expect(redirectFor('app', ['collectors', '[id]'])).toBeNull();
+    expect(redirectFor('app', ['cards', '[id]'])).toBeNull();
+    expect(redirectFor('app', ['items', 'new'])).toBeNull();
+    expect(redirectFor('app', ['items', '[id]'])).toBeNull();
+    expect(redirectFor('app', ['binders', 'edit'])).toBeNull();
     expect(redirectFor('app', ['onboarding'])).toBeNull();
+    // Signed out: the inventory screens send the visitor to sign in.
+    expect(redirectFor('guest', ['items', 'new'])).toBe('/sign-in');
   });
 
   it('never moves while booting or while a multi-step flow holds the lock', () => {
