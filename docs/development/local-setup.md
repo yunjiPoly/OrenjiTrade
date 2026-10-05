@@ -171,9 +171,9 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
 `test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-05,
-stage M2): `test:mobile` about 1.5–2 min (329 jest tests in 44 suites + 28 harness guard tests),
-`test:mobile:e2e` about 2 min (19 specs, including the API jar and the web export),
-`test:mobile:maestro` about 20 min (8 flows on the `Pixel_6_API_34` emulator, including the API
+stage M3): `test:mobile` about 1–2 min (416 jest tests in 51 suites + 28 harness guard tests),
+`test:mobile:e2e` about 2 min (28 specs, including the API jar and the web export),
+`test:mobile:maestro` about 22 min (10 flows on the `Pixel_6_API_34` emulator, including the API
 and Metro start; add a few minutes the first time, while Expo CLI installs Expo Go).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
@@ -248,8 +248,10 @@ deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
 The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobile/README.md)) runs
 against the same local stack. Phase 1 (accounts, onboarding, profile, settings) and Phases 2–3
 (the Search tab and card detail; the Inventory tab with adding, editing and deleting cards;
-binders, their publication and the public binder view) are implemented on the same API as the
-web; later phases follow. Locally the catalog is the fictional mock catalog of the seed (the real
+binders, their publication and the public binder view) and Phase 4 (the Map tab with collectors
+as zones about 3 km wide, never pins, zoom capped at 14; filters, "Who has this near me", the
+preview bottom sheet, the collector profile and a minimal conversation opened by "Message") are
+implemented on the same API as the web; later phases follow. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
@@ -258,7 +260,8 @@ API, never drawn). Maps follow ADR 0010: in Expo Go on Android (and in any Andro
 `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) they are Leaflet + OpenStreetMap in a WebView, because the Maps
 SDK refuses Expo Go's bundled Google key and would draw an empty grey map; iOS uses Apple Maps and
 the web build Leaflet. The emulator needs internet access for the OpenStreetMap tiles and the
-pinned Leaflet script.
+pinned Leaflet script. Sign in with `collector1@orenjitrade.test` to see the seed neighbours on
+the Map tab (the seed collectors are at public neighbourhood centroids around Montréal).
 
 ```bash
 npm run infra:up && npm run api:dev     # the developer stack (API on :8080)

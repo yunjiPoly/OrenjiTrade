@@ -56,3 +56,41 @@ build. The mobile app therefore follows the web rule "Google with a key, Leaflet
 - Users: the trading-area picker (the web picker's mechanism: tap the map or drag the pin) and the
   Map tab (browse only, zoom capped at 14 as ADR 0004 requires for maps of other collectors). The
   web build of the Expo app keeps using Leaflet directly (`*.web.tsx`).
+
+## Amendment 2026-10-05 (mobile stage M3): collector maps on the three mobile engines
+
+The Map tab and the collector profile of the Expo app draw other collectors (ADR 0004 and its
+owner rule of 2026-10-04: zones 3 km wide, never points, zoom capped at 14). One component,
+`apps/mobile/src/components/map/CollectorMap` (props in `CollectorMap.types.ts`), hides the engine
+chosen by `mapEngine.ts`:
+
+- `CollectorMapNative` (react-native-maps: Apple Maps on iOS, Google Maps on Android builds with
+  the project's key): each collector is a `Circle` of radius 1500 m around the public point; there
+  is no `Marker` at any collector's point (count bubbles of clusters are the only markers, at the
+  3-decimal average of several points); `maxZoomLevel` 14 bounds gestures, every requested camera
+  goes through `regionForTarget` (centre + zoom or bounds, clamped to 14), and a guard animates
+  the camera back to 14 when a settled region is past the cap. Taps are matched to the nearest
+  zone in JS (`zoneAt`, with a minimum touch target), so the platforms' circle tap support does not
+  matter.
+- `CollectorMapLeaflet` (Leaflet + OpenStreetMap in a WebView: Expo Go and Android without a key,
+  the free local runtime): a second page, `leaflet/collectorMapPage.ts` (same pinned Leaflet with
+  Subresource Integrity, no geolocation, no storage), with `maxZoom` 14 on the map and the tile
+  layer, a `zoomend` guard, zones as `L.circle` (radius 1500 m, not interactive) and count bubbles
+  as `L.marker` + `divIcon`. Messages: `ready`, `error`, `tap` (raw tap, matched to a zone by the
+  app and not kept), `cluster`, `viewport`; the app calls `layer({zones, clusters})` and
+  `view(target)` with the zoom clamped first.
+- `CollectorMap.web.tsx` (the web build of the app): Leaflet directly, the same rules
+  (`path.orenji-zone`, `maxZoom` 14, guard).
+
+Shared rules live outside the engines: `src/lib/approximateArea.ts` (`APPROXIMATE_AREA_RADIUS_M =
+1500`, `COLLECTOR_MAP_MAX_ZOOM = 14`, the "about 3 km" wording, `clampZoom`, 3-decimal rounding),
+`src/lib/mapGeometry.ts` (zoom <-> region, bounds fitting, the guard, hit testing) and
+`src/features/map/collectorLayer.ts` (zones, clustering above 60 that stops at 14, cluster
+expansion that never passes 14). No coordinate handed to an engine has more than 3 decimals; the
+viewport the engines report is only used to size the next `GET /collectors/nearby` (centre rounded
+to 2 decimals) and is never persisted (the app store dropped its stored viewport, version 3). A
+map that only shows (the profile's approximate area at zoom 13) has no gestures and reports no
+taps. Tested by jest (`collectorMap.test.tsx` on both native engines, `mapGeometry`,
+`collectorLayer`, the privacy scan `mapPrivacy.test.tsx`), Playwright (`collector-map-page.spec.ts`
+runs the WebView page in Chromium: 1500 m at zoom 14, the "+" button, wheel and requests stop at
+14, no tile beyond 14; `map.spec.ts` on the web build) and Maestro on the Android emulator.

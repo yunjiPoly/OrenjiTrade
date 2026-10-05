@@ -20,14 +20,21 @@ jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(() => '00000000-0000-4000-8000-000000000000'),
 }));
 
+// The map renders Views carrying their props; the camera calls are jest mocks shared by every
+// instance (`require('react-native-maps').mockAnimateToRegion`), cleared before each test.
 jest.mock('react-native-maps', () => {
   const React = require('react');
   const { View } = require('react-native');
-  const MockMapView = React.forwardRef((props: Record<string, unknown>, ref: React.Ref<unknown>) =>
-    React.createElement(View, { ...props, ref, testID: props.testID ?? 'mock-map-view' })
+  const mockAnimateToRegion = jest.fn();
+  const MockMapView = React.forwardRef(
+    (props: Record<string, unknown>, ref: React.Ref<unknown>) => {
+      React.useImperativeHandle(ref, () => ({ animateToRegion: mockAnimateToRegion }));
+      return React.createElement(View, { ...props, testID: props.testID ?? 'mock-map-view' });
+    }
   );
   MockMapView.displayName = 'MockMapView';
-  const MockMarker = (props: Record<string, unknown>) => React.createElement(View, props);
+  const MockMarker = (props: Record<string, unknown>) =>
+    React.createElement(View, { ...props, testID: props.testID ?? 'mock-map-marker' });
   const MockCircle = (props: Record<string, unknown>) =>
     React.createElement(View, { ...props, testID: props.testID ?? 'mock-map-circle' });
   return {
@@ -37,6 +44,7 @@ jest.mock('react-native-maps', () => {
     Circle: MockCircle,
     PROVIDER_DEFAULT: undefined,
     PROVIDER_GOOGLE: 'google',
+    mockAnimateToRegion,
   };
 });
 

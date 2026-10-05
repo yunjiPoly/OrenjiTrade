@@ -33,3 +33,20 @@ export function pinHtml(color: string): string {
     'box-shadow:0 4px 10px rgb(0 0 0 / 0.35);box-sizing:border-box"></span></span>'
   );
 }
+
+const LINE_SEPARATOR = new RegExp(String.fromCharCode(0x2028), 'g');
+const PARAGRAPH_SEPARATOR = new RegExp(String.fromCharCode(0x2029), 'g');
+
+/** JSON safe to embed in an inline <script> (no `</script>` or `<!--` can close it). */
+export function scriptJson(value: unknown): string {
+  const backslash = String.fromCharCode(92);
+  return JSON.stringify(value)
+    .replace(/</g, `${backslash}u003c`)
+    .replace(/>/g, `${backslash}u003e`)
+    .replace(LINE_SEPARATOR, `${backslash}u2028`)
+    .replace(PARAGRAPH_SEPARATOR, `${backslash}u2029`);
+}
+
+export function attribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}

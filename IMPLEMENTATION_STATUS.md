@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -79,14 +79,14 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 
 ## Phase 4 — Map + Geographic Search (flagship)
 
-_Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 463 API tests / 77 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (86 paths, previously 81; every contract route present; no path or schema lost, only `PublicBinderSummary` gains an optional `owner`); clients regenerated; live check on `.local-dev/api-snapshots/api-phase4.jar` with an emulator token). Migration V030 only (range V030–V039). Web `/map` and `/search` complete (workflow `web-mvp-local` stage 5, independently re-verified: 247 web unit tests / 51 files, lint + format clean, production build 841.71 kB initial with no warnings, 32/32 Playwright specs against `.local-dev/api-snapshots/api-phase5.jar`, 0 skipped); mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 4 contract"; the contract document itself is not edited): the caller's own marker stays in `nearby`; collectors without public listings appear (`binderFreshness: null`, ranked after AGING), all-STALE collectors never do; ranking freshness → distance bucket → rating → distance; `center` snapped to 2 decimals; additive `MatchingItem`/`suggest` fields; `card-holders` needs a centre (400 for signed-out callers without `lat`/`lng`); the plan cap key is `map.radius.max_km` (V011) where the contract says `map.radius.max`; `nearby` is a reserved handle. Since Phase 5 blocks are real (`BlockRelationProvider.blockedAmong`, one lookup per page) but still applied after the cached page is read, so `total` may count blocked collectors beyond the limit (debt: join blocks into the discovery SQL)._
+_Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 463 API tests / 77 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (86 paths, previously 81; every contract route present; no path or schema lost, only `PublicBinderSummary` gains an optional `owner`); clients regenerated; live check on `.local-dev/api-snapshots/api-phase4.jar` with an emulator token). Migration V030 only (range V030–V039). Web `/map` and `/search` complete (workflow `web-mvp-local` stage 5, independently re-verified: 247 web unit tests / 51 files, lint + format clean, production build 841.71 kB initial with no warnings, 32/32 Playwright specs against `.local-dev/api-snapshots/api-phase5.jar`, 0 skipped); mobile: stage M3 (2026-10-05, see "Mobile app (stage M3)"). Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 4 contract"; the contract document itself is not edited): the caller's own marker stays in `nearby`; collectors without public listings appear (`binderFreshness: null`, ranked after AGING), all-STALE collectors never do; ranking freshness → distance bucket → rating → distance; `center` snapped to 2 decimals; additive `MatchingItem`/`suggest` fields; `card-holders` needs a centre (400 for signed-out callers without `lat`/`lng`); the plan cap key is `map.radius.max_km` (V011) where the contract says `map.radius.max`; `nearby` is a reserved handle. Since Phase 5 blocks are real (`BlockRelationProvider.blockedAmong`, one lookup per page) but still applied after the cached page is read, so `total` may count blocked collectors beyond the limit (debt: join blocks into the discovery SQL)._
 
 - [x] `/api/v1/collectors/nearby` (PostGIS `ST_DWithin` on `public_point`), bucketed distances — new module `apps/api/.../search`: `DiscoveryController` (`GET /collectors/nearby`, `GET /collectors/{handle}/preview`), `CollectorDiscoveryService`, `GeoScopeResolver` (centre = `lat`/`lng` or the caller's own trading area via `LocationService.searchCentreOf`, snapped to 0.01° inside the `location` module; radius capped by `Limits` `map.radius.max_km` → 429 LIMIT_REACHED, FREE rule for signed-out callers via the new `Limits.checkValueForAnonymous`; default 10 km), `MarkerAssembler` (per-viewer `PrivacyPolicyService` rules incl. new `canAppearOnMap`/`canAppearInNameSearch`: distance buckets for signed-in callers only, last active, online status, blocks, rating), `MarkerRanking`, `infra/CollectorSearchRepository` (SQL on `user_location.public_point` only, reusing `PublicVisibilityRules` and `InventoryItemRepository.LISTED`; STALE/HIDDEN items never match), `NearbyCache` (Redis 60 s, key `orenji:cache:nearby:<generation>:<sha256 of the snapped request>`) + `NearbyCacheInvalidator` (generation bumped after commit on item/binder publish/unpublish, `BinderFreshnessChanged`, `TradingAreaChanged`, `LocationRemoved`, `PrivacySettingsChanged`, `UserSuspended`/`UserUnsuspended`); routes added to `SecurityConfig.PUBLIC_GET_PATTERNS` (anonymous reads with reduced detail); `DistanceBucket.upperKm()`, `location/domain/SearchCentre`; migration V030 (`ix_inventory_item_owner_discovery`, `ix_inventory_item_printing_discovery`, `ix_privacy_settings_map`, `ix_binder_name_trgm`) — tests NearbyCollectorsIT (8: radius/freshness ranking/details by sign-in state, filters, hidden collectors, plan radius 429, preview messaging state, centre required for signed-out callers and defaulting to the own trading area, limit truncation, cache invalidation), SearchCentreTest (2). Debt: blocked collectors are filtered after the page is read (so `total` may count them) until Phase 5 blocks are joined in SQL; ratings arrive with Phase 7
 - [x] `/api/v1/search` unified (cards, printings, sets, collectors, public binders) — `SearchController` (`GET /search`, `/search/suggest`), `SearchService` (resolution via new `CatalogService.resolve`/`CatalogResolution`: an exact printing code resolves the printing, a shared code / exact name / single card hit resolves the card; `collectors` then lists nearby holders with the `nearby` engine; public binders with an optional owner block via `PublicBinderService.publicBinders`; collector text matching substring-only; `suggest` mixes CARD/PRINTING/SET/COLLECTOR/BINDER/TAG), `infra/BinderSearchRepository` — tests SearchIT (4), SearchDomainTest (5)
 - [x] Card-holder search: collectors near me with printing X (filters: sale/trade/offers, price, freshness, condition) — `GET /search/card-holders` (`printingId`|`cardId`, availability, condition, min/max price, freshness, edition, language, acceptsOffers, `sort=distance|price|freshness`, paged `PageResponse<CardHolderResult>`; the caller's own items excluded), `infra/CardHolderRepository`, `PublicInventoryService.publicItems(ids)` — tests CardHoldersIT (4)
 - [x] Web `/map` page: MapAdapter (Google Maps / Leaflet fallback), markers, preview card, messages panel (collapsible), filters bar — `apps/web-angular/src/app/features/map` (stage 5): `MapPageComponent` container + `data/map-discovery.store.ts`; filters in the URL (game, availability, freshness, tags, radius, card/printing, `view=list`), never the map position; signed-in collectors with a trading area are centred by the server (first `GET /collectors/nearby` without `lat`/`lng`; the page never calls `GET /me/location`), signed-out visitors / collectors without an area get Montréal + city picker + "Sign in / Set my area" prompt (`area-prompt`, `shared/discovery/discovery-centre.ts`); viewport moves debounced 400 ms, re-query only when the view leaves the circle last answered, visible radius capped by the plan's `map.radius.max_km` (`GET /me/plan`, FREE when signed out), centre rounded to 2 decimals, 429 LIMIT_REACHED → limit-reached dialog + retry at the cap, 400 (no trading area) → Montréal; avatar markers with a freshness ring (`markerIconHtml`, HTML-escaped, both adapters), in-house screen-space clustering above 60 (selected collector never clustered, cluster click zooms), keyboard-focusable markers (Enter/Space → preview); `collector-preview` card on `GET /collectors/{handle}/preview` + first public binder (View profile / View public binder / Message disabled until web Phase 5; Escape restores focus; bottom sheet on phones); `collector-list` accessible "List" toggle; `map-canvas`, `map-filters-bar` (game, radius slider, availability, freshness, lazily loaded tags), `map-legend` ("Positions are approximate to protect privacy"; since 2026-10-03 "Locations are approximate (about 2 km) to protect privacy", see "Map location privacy rendering"), `discovery-panel` (map search box on `GET /search/suggest` grouped by type: card/printing → "Holders of X" side list with chips and prices, collector → preview, tag → filter, set/binder → their pages; Messages placeholder panel); `shared/map` gains `zoomControlPosition`, `shared/search`. `/search` (`features/search`: `?q=` tabs Cards / Collectors / Binders on `GET /search` with a nearby-holders banner when resolved; `?card=`/`?printing=` card-holders view on `GET /search/card-holders` with every filter, inline-validated price range, sort and pagination); card detail "Who has this near me" → `/map?card=<id>&view=list`. Generated `@orenji/api-client` only. Tests: Vitest (map page, store, adapter, list, preview, filters, search pages) — 247 web unit tests / 51 files; Playwright `e2e/map.spec.ts` (2, see below); `e2e/support/stack.ts` gains `stubMapTiles` (OSM tiles served from memory) and `createOnboardedCollector({area, displayName})`. Debt: the Messages panel is a placeholder until web Phase 5; admin entitlements / plan editing UI and a `/sets` index page still pending (carry-over)
 - [x] Collector preview → full profile → public binder → message — API: `GET /collectors/{handle}/preview` (marker + `canMessage`/`isBlocked`, 404 for collectors not on the map; NearbyCollectorsIT; `canMessage`/`isBlocked` real since Phase 5); web: marker → preview → full profile → public binder proven by Playwright `map.spec.ts`; "Message" from the preview opens (or creates, `POST /conversations`) the conversation in the map's Messages panel and the collector page's Message opens `/messages/:id` (stage 6, Playwright `messaging.spec.ts`)
-- [ ] Mobile map tab with bottom-sheet preview — deferred by owner decision
+- [x] Mobile map tab with bottom-sheet preview — stage M3 (2026-10-05, branch `feature/mobile-m3`, builder done, verification pending): collectors as zones 3 km wide (radius 1500 m, never pins) on react-native-maps / Leaflet in a WebView (Expo Go, no key) / Leaflet on web, zoom capped at 14 for gestures and every camera request, game / intent / distance filters, "Who has this near me" (`hasCardId`), list view, preview bottom sheet (View profile, public binder, Message when allowed, Show on map), the collector profile with its approximate area, ratings, references and binders; jest, Playwright (`map.spec.ts`, `collector-map-page.spec.ts`) and Maestro (`map-preview-profile.yaml`, `card-who-near-me.yaml`). See "Mobile app (stage M3)"
 - [x] Tests: geo search, no exact coordinates in any response (contract test), ranking fresh > stale — NearbyCollectorsIT, SearchIT, CardHoldersIT, SearchDomainTest (`rankingIsFreshnessThenDistanceBucketThenRatingThenDistance`, canonical cache keys never holding the raw centre), GeoPrivacyContractTest `mapAndSearchResponsesOnlyEverCarryPublicPoints` (nearby, preview, unified search, binder search, card holders, suggest; anonymous and signed in: every point is the stored public point or the snapped centre, ≤ 3 decimals, no private location keys or notes, non-discoverable collectors 404/absent, no distance buckets for signed-out callers, logs free of coordinates), PrivacyPolicyServiceTest (extended); web Playwright `map.spec.ts` (collector A publishes a card, collector B opens `/map`, finds A's avatar marker, opens the preview, uses the List toggle by keyboard, opens A's profile and public binder; card search in the map box → "Holders of" list with price and chips → card-holders view with an inverted price-range message and URL-kept max price/availability → `/search?q=AZR-EN011` banner + Collectors tab; both scenarios assert every JSON lat/lng has ≤ 3 decimals and never equals A's or B's stored trading-area centre; random rural areas per run so earlier data never crowds the map)
 
 ## Phase 5 — Chat
@@ -98,7 +98,7 @@ _Backend complete (workflow `web-mvp-local` stage 5, independently re-verified: 
 - [x] Block user, report entry points, moderation hooks, rate limits — blocks: `BlockService`, `POST/DELETE /users/{id}/block`, `GET /me/blocks` (idempotent, private reason), messaging implements the profiles `BlockRelationProvider` (new batch `blockedAmong`, used by `MarkerAssembler`) so profiles, map markers, previews, public binders, binder links and community feeds honour blocks both ways; moderation: `ModerationService.check(scope, text, authorId)` (Redis per-author `RATE_LIMIT` rules, accent-insensitive `BANNED_TERM` regexes via `TextModerationService.matches`, `THRESHOLD` repeated-content detection on SHA-256 of normalised text; BLOCK → 422 `MESSAGE_BLOCKED`/`POST_BLOCKED` or 429, FLAG → `moderation_flag`), `AdminModerationController` (`GET /admin/moderation/flags`, `POST /admin/moderation/flags/{id}/resolve`, MODERATOR+ via the `AdminAuthorizationManager(requireMfa, allowModerators)` overload, audited); migration V042 (`moderation_flag`, rate-pattern check, seed rules: placeholder banned terms, 30 messages/min, 60 posts+replies/hour, repeated-content thresholds) — tests MessagingAuthorizationIT (4: non-participants 404, anonymous 401, blocks hide conversations both ways and forbid new ones, recipient messaging permission, suspended recipients), ModerationIT (4), ModerationRulesTest (11), ConversationIT `theRateRuleAllowsThirtyMessagesPerMinute`. Web (stage 6): block/unblock with confirmation from the thread menu and the community post menu (`shared/messaging/block-actions.service.ts`), Settings → Blocked users (`GET /me/blocks`, Unblock), 403 `MESSAGING_BLOCKED` / 422 `MESSAGE_BLOCKED` / `POST_BLOCKED` / 429 shown inline — Playwright `messaging.spec.ts`, `community.spec.ts`. "Report collector" entry points enabled in stage 8 (profile, map preview, thread menu, community post menu, public binder owner card → Phase 7 report dialog; Playwright `reporting.spec.ts`). Debt: blocks are not yet joined into the discovery SQL (Phase 4 debt)
 - [x] Public community channels (game / region / looking-for / new listings / trades / general) — `apps/api/.../community`: `CommunityService` (channels with `postCount24h`, posts/replies with author cards, edit/delete, per-channel `post_rate_limit_per_hour`, 409 `DUPLICATE_POST` within 24 h, moderation), `AdminCommunityController` (channels list/create/update, post/reply removal resolving open flags; audited), `RegionChannelListener` (a REGION channel per public-label city as collectors appear), `CommunitySeedContributor` (five posts, three replies), export + deletion participant, gated by the `publicChat` flag; migration V041 (`community_channel` with the eight launch channels, `community_post` with `body_hash`, `community_reply`) — tests CommunityIT (8), RegionChannelsTest (2)
 - [x] Web messaging panel + `/messages` + `/community` + Admin → Community — `apps/web-angular/src/app` (stage 6): `core/realtime` (`RealtimeService` started by `provideRealtime()` while a ready account is signed in; hand-written STOMP 1.2 client over a native WebSocket in a lazy chunk (`stomp-frames.ts`, `stomp-connection.ts`, no new dependency), `ws://<api>/ws?access_token=<ID token>`, subscribes only to `/user/queue/messages|receipts|typing|presence`, sends only `/app/typing`, heartbeats, exponential backoff 1 s → 30 s with jitter, fresh token after a refused handshake, `resync$` → REST re-read after every (re)connection); `features/messages` (`MessengerComponent` + `ConversationsStore` (cursor inbox, live previews/order/unread counts, presence, mute/archive `PATCH`, pages older conversations until a linked one is found) → `ConversationListComponent` (keyboard navigation) and `ThreadViewComponent` + `ThreadStore` (newest page first, older pages on scroll, read marker only while visible, typing notices throttled, "Sent" → "Seen" receipts, inline 403 `MESSAGING_BLOCKED` / 422 `MESSAGE_BLOCKED` / 429) with header (profile, mute, archive, block/unblock, "Report collector" disabled until Phase 7), message list/bubbles (text, card, binder, photo, offer, removed) and composer (Enter sends, card link via `/cards/suggest`, own public binder, JPEG/PNG/WebP ≤ 8 MB photo via `POST /uploads/images` kind MESSAGE), realtime status "Live"/"Reconnecting…"); map right-hand Messages panel with unread badge on its toggle and the preview's Message button; full-page `/messages`, `/messages/:id`; `shared/links` (card/binder link pickers, link card), `shared/messaging` (`ConversationStarterService`, `BlockActionsService`), `shared/pipes/media-url.pipe.ts` (API-relative media paths of pushed payloads); Settings → Blocked users; `features/community` (`/community`, `/community/:slug` behind `featureGuard('publicChat')`: `CommunityStore`, channel sidebar with game filter folding behind a button on narrow screens, post composer with card/binder links and inline 409 `DUPLICATE_POST` / 422 `POST_BLOCKED` / 429, post edit/delete, inline replies, author block, moderator removal with a required reason); `features/admin/community` (moderators and admins: channels create/edit/archive/restore, moderation flags by state with resolve + optional note, `?tab=flags`; community audit labels). Generated `@orenji/api-client` only. Tests: Vitest units (STOMP frames/connection, realtime service, message text, drafts, thread items, conversations/thread stores, composer, conversation list, community helpers/store, link choices, blocked-users settings, conversation starter, admin community labels, media URL pipe) — 333 web unit tests / 68 files; Playwright `e2e/messaging.spec.ts` (2: A finds B on the map → Message → text + card via autocomplete; B on `/messages` gets it live with unread badge 2, A sees "Seen", B's typing, reply and photo reach A live; A blocks B from the thread menu, B's next message is refused inline and `POST /conversations` answers 403 `MESSAGING_BLOCKED`; A unblocks in Settings; a conversation started from a collector profile full page: text file rejected, photo sent, 422 banned-term refusal inline, reopened from the list by keyboard; every JSON lat/lng ≤ 3 decimals) and `e2e/community.spec.ts` (2: post with a card link in Montréal / Pokémon, duplicate 409 and banned-term 422 inline, edit, reply from a second collector, delete; moderator removal with a reason and resolving the raised flag in Admin → Community). Existing specs adjusted (`map.spec.ts`/`settings.spec.ts` Message enabled, `smoke.spec.ts` exact "Sign in", `support/inventory.ts` bounded coordinate settle). Debt: no single-conversation REST endpoint (deep links page back through the inbox); STOMP payloads other than `MessageResponse` are typed by hand in `core/realtime/realtime-events.ts` (not in the OpenAPI document); "Report collector" enabled in stage 8; the composer cannot send OFFER_LINK messages yet (API ready since Phase 8; web offer UI is stage 9)
-- [ ] Mobile Messages tab — deferred by owner decision
+- [ ] Mobile Messages tab — the inbox, realtime, photos and links wait for the mobile Messages stage; since stage M3, "Message" on the map preview or a profile opens (`POST /conversations`) a minimal thread (`apps/mobile/app/messages/[id].tsx`: messages, text send, read marker)
 - [x] Tests: participant authorization, blocking, rate limit, realtime delivery — ConversationIT, MessagingAuthorizationIT, RealtimeIT, CommunityIT, ModerationIT + unit TimeCursorTest, MessagePreviewsTest, ModerationRulesTest, RegionChannelsTest; extended GeoPrivacyContractTest `messagingAndCommunityResponsesNeverCarryCoordinates` (conversations, messages with card/binder links, channels, posts, replies, blocks; logs clean), AnalyticsIT (`message_sent`, `community_post_created` without text or raw ids), SeedDataRunnerIT, AdminAuthorizationManagerTest, OpenApiExportTest; web flow tests: Playwright `messaging.spec.ts` (2, two browser contexts over real STOMP) and `community.spec.ts` (2) against `api-phase6.jar`; mobile deferred
 
 ## Phase 6 — Wishlist + Notifications
@@ -713,6 +713,129 @@ same endpoints. No API, web or package change (scripts: the mobile E2E harness f
   editing repository files while flows ran made Expo Go lose the packager (restart Metro after
   edits, `npm run test:mobile:maestro -- --stop`, and edit nothing during a run); iOS not run (no macOS).
 
+## Mobile app (stage M3: Phase 4 — map discovery, 2026-10-05)
+
+_Owner decisions 2026-10-04 (mobile resumes, local and free only; collectors only as zones 3 km
+wide, radius 1500 m, never points or pins, every collector map capped at zoom 14). Branch
+`feature/mobile-m3` (worktree, created from `feature/mobile-m2`), builder done; independent
+verification pending; not pushed. Mirrors `apps/web-angular/src/app/features/{map,collectors}` on
+the same endpoints. No API, web or package change; ADR 0004 is not edited here (the web PR owns
+it), the mobile map details are an ADR 0010 amendment (2026-10-05, stage M3)._
+
+- [x] Privacy rules and geometry — `src/lib/approximateArea.ts` (`APPROXIMATE_AREA_RADIUS_M =
+  1500`, `COLLECTOR_MAP_MAX_ZOOM = 14`, "Locations are approximate (about 3 km)", `clampZoom`,
+  3-decimal rounding), `src/lib/mapGeometry.ts` (zoom <-> react-native-maps region, bounds
+  fitting capped at 14, the "past the cap" guard, `zoneAt` hit testing with a minimum touch
+  target), `src/features/map/collectorLayer.ts` (a 1500 m zone per collector, clusters above 60
+  that stop at 14 with 3-decimal centres, cluster expansion never past 14).
+- [x] `CollectorMap` on three engines behind `mapEngine` (ADR 0010): `CollectorMapNative`
+  (react-native-maps, Apple Maps / Google Maps with a key: `Circle`s, no `Marker` at any
+  collector's point, `maxZoomLevel` 14, every camera request clamped, a guard animates back to 14),
+  `CollectorMapLeaflet` (the Android WebView page `leaflet/collectorMapPage.ts`: Leaflet 1.9.4 with
+  SRI, OSM tiles and credit, `maxZoom` 14 on map and tiles, `zoomend` guard, `L.circle` zones, count
+  bubbles, validated messages `ready` / `error` / `tap` / `cluster` / `viewport`; the start view is
+  applied again once the WebView has a size), `CollectorMap.web.tsx` (Leaflet directly). Loading
+  skeleton and "The map could not load" + "Reload map"; zoom buttons bottom right (the toolbar
+  covers the top). The Map tab's viewport is no longer persisted (app store version 3 drops it).
+- [x] Map tab (`app/(tabs)/index.tsx`, `src/features/map/`): `GET /collectors/nearby` through
+  `useNearbyCollectors` (react-query, previous answer kept while a pan loads); collectors with a
+  trading area start on the server's answer (no centre leaves the device), others on a city
+  (Montréal, city picker, "Set my area"), 400 falls back to the city; debounced viewport queries
+  (centre 2 decimals, visible radius, only when leaving the covered circle); filters game /
+  intent (the API's availability filter) / distance bounded by the plan's `map.radius.max_km`
+  (`GET /me/plan`, else the FREE plan of `GET /plans`), 429 `LIMIT_REACHED` continues at the cap
+  with a notice; "Who has this near me" (`?card=` from the card detail → `hasCardId`, banner with
+  the card name, "Show every collector"); List view (rows with place, bucketed distance, rating,
+  listings, the card's listings and lowest price); states: skeleton, "N collectors within 10 km",
+  empty ("No collectors within 10 km yet", "Clear filters"), "You are hidden from the map" (not
+  discoverable, "Location settings" / "Not now"), error with retry, offline (the last answer stays
+  with "Collectors could not refresh"). No device location is read on the map (like the web map:
+  the own area is the server's).
+- [x] Preview bottom sheet (`CollectorPreviewSheet`, `GET /collectors/{handle}/preview`, a city
+  centre only when the map shows a city): name, avatar, online dot, place, "Locations are
+  approximate (about 3 km)", distance bucket ("Your public position" for oneself), rating, last
+  active, listings with freshness, games, tags, the card's listings with API pictures; View profile,
+  View public binder (first of `GET /collectors/{handle}/binders`), Message (only when
+  `canMessage`; otherwise disabled with the web's reason: a block, or the collector's messaging
+  permission), Show on map (the zone at zoom 13, never past 14); loading, "Collector unavailable"
+  (404) and error with retry.
+- [x] Message → `POST /conversations` (200 existing / 201 new; 403 `MESSAGING_BLOCKED` explained in
+  a snackbar) → a minimal thread `app/messages/[id].tsx` (newest messages at the bottom, older
+  pages on scroll, text composer with 403 / 422 / 429 explained, read marker, links to cards and
+  binders, the other collector's profile); the mobile Messages stage adds the inbox, realtime,
+  photos and links. Gate: `messages` is an app root.
+- [x] Collector profile (`app/collectors/[id].tsx`, `src/features/collectors/`): header (place
+  label, distance bucket, member since, last active, online), own profile ("Public preview",
+  Edit profile, Privacy) or View public binder + Message (same rule as the preview), about / games /
+  tags, the approximate area (`ApproximateAreaMap`: the same 1500 m zone at zoom 13, no gestures, no
+  taps, "Approximate area (about 3 km) around …"), ratings and references (summary with breakdown,
+  "Show more ratings" / "Show more references", read only until the mobile Phase 7 stage), public
+  binders and cards. Visibility exactly like the web: signed out or 401 → "Collector profiles are
+  for members" (sign in / create account); 404 (unknown, PRIVATE, suspended, deleted) → "This
+  collector is not available"; other errors → retry. Deep links unchanged
+  (`orenjitrade://collectors/<handle>`, `https://www.orenjitrade.com/collectors/<handle>`; signed
+  out they lead to sign-in through the gate).
+- [x] Card detail "Who has this near me" (M2) now opens the Map tab filtered by that card.
+- [x] Found on the device and fixed: Expo Go's floating tools button covered the List toggle and
+  the card banner's close button (top right): the switch now leads the filter row and the banner
+  sits under it; the profile's WebView map drew its zone in a corner (start view set at 0 x 0);
+  the conversation composer jumped to the top of the screen with the keyboard (Expo Go resizes
+  the window, so padding by the keyboard height counted it twice: it now pads by the measured
+  overlap); Leaflet's zoom buttons were under the toolbar (found by Playwright).
+- [x] Tests — jest/RNTL: 87 new tests (416 in 51 suites, was 329 in 44): `mapGeometry`,
+  `collectorLayer`, `mapDiscovery`, `collectorMap.test.tsx` (both native engines: 1500 m circles,
+  no pin markers, maxZoomLevel 14, clamping of centre / bounds / cluster requests, the guard, taps,
+  clusters, loading, error + retry, page config and injected layer), `screens/map.test.tsx`
+  (own area without centre, city fallback, 400 fallback, hidden notice, empty, error + retry,
+  offline refresh, filters, plan cap / 429, who has this near me, list, preview states, Message,
+  refusals, messaging permission and blocks, own preview, Show on map), `screens/collector.test.tsx`
+  (loading, ready with the area map, binders empty / error + retry, ratings and references, more
+  pages, Message, permission and blocks, own profile, not on the map, PRIVATE / 404, MEMBERS signed
+  out, 401, error + retry, offline), `screens/conversation.test.tsx`, `privacy/mapPrivacy.test.tsx`
+  (every map / collector fixture, every prop handed to react-native-maps, the Leaflet page config and
+  injected scripts, the profile map: no coordinate with more than 3 decimals, no private location
+  field; nearby query centres with 2 decimals at most), store v3 migration, gate. Playwright:
+  `map.spec.ts` (3) and `collector-map-page.spec.ts` (6). Maestro: `map-preview-profile.yaml`,
+  `card-who-near-me.yaml` (+ `scripts/public-card.js`).
+- Checks (2026-10-05, Windows 11, Pixel_6_API_34 emulator): `npm run test:mobile` green (typecheck
+  with regenerated typed routes, lint, 416 jest tests / 51 suites, 28 harness guard tests);
+  `npx expo-doctor` 21/21; `npx expo export --platform android` (4.5 MB Hermes bundle) and
+  `--platform web` (47 static routes, `messages/[id]` new) OK; `npm run test:mobile:e2e` 28/28
+  passed (19 earlier + 9 new), 0 skipped, 0 flaky in the final full run (an earlier full run found
+  the zoom buttons under the toolbar and two spec mistakes, all fixed); `npm run audit:gate` OK
+  (no dependency change; the two allow-listed advisories only). Native (Expo Go 57 on
+  `Pixel_6_API_34`, installed by the harness's Metro on the cold-booted emulator, harness-started
+  API :8090 and Metro :8082): `npm run test:mobile:maestro` 10/10 flows passed (20 min 35 s) on the
+  final code, after a 10/10 run before the conversation keyboard fix. On the way: the new flows
+  first failed because Expo Go's tools button covered the List toggle and the card banner's close
+  button (fixed, see above); one full run lost the M2 inventory flow to Expo Go staying on
+  "Loading from 10.0.2.2:8082… New update available, downloading..." for four minutes although
+  Metro had served the bundle (`subflows/launch-fresh.yaml` now opens the project once more when
+  no screen appears); another lost its last two flows when the session's 2-hour limit stopped the
+  emulator mid-run (restarted, then the 10/10 run above). The map renders OpenStreetMap tiles and
+  the orange 3 km zones without any Google key (screenshots `map-zones`, `map-zone-focus`,
+  `map-who-has-card` in the session scratchpad). A walk by hand (seed sign-in as collector2 and
+  collector1, the Map tab, a tap on a zone opening Ethan's preview, Message starting a new
+  conversation and sending, the List view, Devon's preview and the seed thread with the keyboard
+  open, his profile with the centred approximate area, ratings and binders, deep links
+  `exp://10.0.2.2:8082/--/collectors/collector5`, `/collectors/nobody_here` ("not available") and
+  `/collectors/collector7` ("Not on the map")) showed no red box or crash: logcat without FATAL or
+  ReactNativeJS errors and without any coordinate, Metro log clean. No API, web or package change,
+  so no Gradle, web or client regeneration run was needed; every process started for the checks
+  (API, web server, Metro, emulator) was stopped afterwards.
+- Gaps / debt: the native react-native-maps engine (Apple Maps, Google Maps with a key) is covered
+  by jest only: iOS cannot run here (no macOS) and no Android development build with a project
+  key exists (no cloud resources), so `maxZoomLevel` / the guard on a real Google or Apple map are
+  unproven on a device; iOS also deprecates `maxZoomLevel` in favour of `cameraZoomRange`, which
+  is not set (the JS guard pulls the camera back). The Map tab leaves out the web map's tag and
+  freshness filters, the map search box and its Messages side panel; "Report" (Phase 7) and rating
+  a collector are not on mobile yet; the conversation screen is minimal (no inbox, realtime,
+  photos, card or binder links to send, mute / archive / block); the map reads no device location
+  (the own trading area is the server's, like the web). The Leaflet WebView needs internet (unpkg
+  and OpenStreetMap). At zoom 13 the profile's 3 km zone (about 225 dp) is slightly taller than its
+  200 dp map. Signed-out deep links to a profile lead to sign-in (the app has no signed-out
+  screens) and the link is not resumed after signing in.
+
 ## E2E isolation, test-data purge and 3 km zones (2026-10-04)
 
 _Workflow task on branch `fix/e2e-isolation-3km-zones` (worktree, not pushed). Owner request: the
@@ -991,13 +1114,23 @@ EAS, Expo publish or Maestro Cloud). Phase 11 (ML card recognition) is on hold.
 > Committed, not pushed. **Next:** independent verification of stage M2 (after or together with
 > M1's), then push, PR and merge in order (M1 first) when CI is green; then stage M3.
 
+> **Mobile stage M3 (2026-10-05, branch `feature/mobile-m3` on top of `feature/mobile-m2`):**
+> Phase 4 on the Expo app (see "Mobile app (stage M3)"): the Map tab with collectors only as zones
+> 3 km wide (radius 1500 m) and every collector map capped at zoom 14 on all three map engines,
+> filters, "Who has this near me" from a card, the list view, the preview bottom sheet, the
+> collector profile (approximate area, ratings, references, binders, PRIVATE / MEMBERS like the
+> web) and a minimal conversation opened by "Message"; 87 new jest tests (416 in all), 9 new
+> Playwright specs (28 in all), 2 new Maestro flows (10 in all); ADR 0010 amendment (stage M3).
+> No API change. Committed, not pushed. **Next:** independent verification of stage M3 (after or
+> together with M1's and M2's), then push, PR and merge in order (M1, M2, M3) when CI is green.
+
 > **E2E isolation, test-data purge and 3 km zones (2026-10-04, branch `fix/e2e-isolation-3km-zones`):**
 > merged into `main` as #39 (see the section of the same name): `npm run test:e2e` runs on its
 > own stack (database `orenjitrade_e2e`, API :8180, web :4300, Redis db 2, files under
 > `.local-dev/e2e/`) next to `npm run dev` and deletes its emulator accounts; `npm run e2e:purge`
 > removes `@example.test` accounts through the deletion path; web collector maps show 3 km zones
 > (radius 1500 m), zoom capped at 14. The mobile half of the 3 km rule (Map
-> tab zones, preview bottom sheet, collector profile) is the parallel mobile workflow's stage M3.
+> tab zones, preview bottom sheet, collector profile) is done in mobile stage M3 (above).
 
 History (one vertical slice per phase, backend N+1 overlapping web N; migration ranges P1
 V004–V009, P2 V010–V019, …, P10 V090–V099): stage 1 Phase 1 API · stage 2 Phase 2 API + web
@@ -1007,16 +1140,16 @@ Phase 8 API + web Phase 7 · stage 9 Phase 9 API + web Phase 8 · stage 10 Phase
 · stage 11 web Phase 10 · stage 12 local environment tooling + web acceptance suite + final
 verification.
 
-**Exact next task — mobile stage M3 after M1 and M2 are verified and merged:**
-1. Verify stages M1 and M2 independently (`npm run test:mobile`, `npx expo-doctor`, `expo export`
-   for android and web, `npm run test:mobile:e2e` (19 specs), the native check with
-   `npm run test:mobile:maestro` (8 flows) on `Pixel_6_API_34`), then push `feature/mobile-m1` and
-   `feature/mobile-m2`, open the PRs and merge them in order when CI is green.
-2. Mobile Phase 4 (stage M3): the Map tab with collectors as 3 km zones (zoom capped at 14 on every
-   engine), the preview bottom sheet, the collector profile with public binders, "Who has this near
-   me" filtering the map by card (`GET /search/card-holders`), on the same conventions; then the
-   mobile items of Phases 5–10 in order (the wishlist stage adds "Add to wishlist" on the card
-   detail).
+**Exact next task — independent verification of mobile stage M3, then the Messages stage:**
+1. Verify stages M1, M2 and M3 independently (`npm run test:mobile`, `npx expo-doctor`, `expo
+   export` for android and web, `npm run test:mobile:e2e` (28 specs), the native check with
+   `npm run test:mobile:maestro` (10 flows) on `Pixel_6_API_34`, plus a look at the Map tab's
+   zones on the emulator), then push `feature/mobile-m1`, `feature/mobile-m2` and
+   `feature/mobile-m3`, open the PRs and merge them in order when CI is green.
+2. Mobile Phase 5 (next stage): the Messages tab (inbox with unread counts, the thread of stage M3
+   extended with realtime STOMP, card / binder links, photos, mute / archive / block), then the
+   mobile items of Phases 6–10 in order (the wishlist stage adds "Add to wishlist" on the card
+   detail; the Phase 7 stage adds rating a collector and "Report" on the preview and profile).
 3. In parallel when useful (no owner decision needed): the backend and web debt listed above and
    Phase 13 hardening. Cloud deployment (Phase 14) and ML (Phase 11) stay deferred / on hold until
    the owner lifts them.

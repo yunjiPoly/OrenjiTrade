@@ -1,5 +1,7 @@
 # Opens the app in Expo Go with no stored data (no Firebase session, no cached queries). Expo Go
 # then shows its developer-menu introduction once the project is loaded; it is dismissed here.
+# Expo Go sometimes stays on "Loading from 10.0.2.2:8082…" ("New update available,
+# downloading...") although Metro served the bundle: the project is opened once more then.
 appId: host.exp.exponent
 ---
 - launchApp:
@@ -11,4 +13,24 @@ appId: host.exp.exponent
     timeout: 240000
     optional: true
 - runFlow: dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-.*'
+    timeout: 60000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: 'screen-.*'
+    commands:
+      - stopApp
+      - launchApp:
+          clearState: true
+          stopApp: true
+      - openLink: ${APP_URL}
+      - extendedWaitUntil:
+          visible: 'SDK version.*'
+          timeout: 240000
+          optional: true
+      - runFlow: dismiss-dev-menu.yaml
 - runFlow: wait-for-app.yaml

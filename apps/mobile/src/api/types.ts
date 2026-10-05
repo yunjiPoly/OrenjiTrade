@@ -76,3 +76,27 @@ export type PublicBinderResponse = Schemas['PublicBinderResponse'];
 export type PublicInventoryItem = Schemas['PublicInventoryItem'];
 export type PublicInventoryPage = Schemas['PageResponsePublicInventoryItem'];
 export type ListingStatus = Schemas['ListingStatus'];
+
+// --- Map discovery + collectors (Phase 4) -------------------------------------------------------
+export type NearbyCollectorsResponse = Schemas['NearbyCollectorsResponse'];
+export type CollectorMarker = Schemas['CollectorMarker'];
+export type MatchingItem = Schemas['MatchingItem'];
+export type CollectorPreview = Schemas['CollectorPreview'];
+export type CollectorRating = Schemas['CollectorRating'];
+export type PublicPoint = Schemas['PublicPoint'];
+export type PublicBinderSummary = Schemas['PublicBinderSummary'];
+export type RatingResponse = Schemas['RatingResponse'];
+export type RatingSummaryResponse = Schemas['RatingSummaryResponse'];
+export type CollectorRatingsPage = Schemas['CollectorRatingsPage'];
+export type ReferenceResponse = Schemas['ReferenceResponse'];
+export type ReferencePage = Schemas['CursorPageReferenceResponse'];
+export type MyPlan = Schemas['MyPlan'];
+export type LimitStatus = Schemas['LimitStatus'];
+
+// --- Messaging (Phase 5, the minimal thread opened from a collector) ----------------------------
+export type ConversationSummary = Schemas['ConversationSummary'];
+export type ConversationParticipant = Schemas['ConversationParticipant'];
+export type ConversationPage = Schemas['CursorPageConversationSummary'];
+export type MessageResponse = Schemas['MessageResponse'];
+export type MessagePage = Schemas['CursorPageMessageResponse'];
+export type SendMessageRequest = Schemas['SendMessageRequest'];
