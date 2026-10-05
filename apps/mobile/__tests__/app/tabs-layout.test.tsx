@@ -60,7 +60,8 @@ describe('(tabs) layout', () => {
       // Stable ids for the native Maestro flows.
       expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
-    expect(screen.getByText('Collectors appear here in Phase 4')).toBeOnTheScreen();
+    // The Map tab: the approximate-location note is always on the map.
+    expect(screen.getByTestId('map-approximate-note')).toBeOnTheScreen();
   });
 
   it('navigates to the Profile tab', async () => {

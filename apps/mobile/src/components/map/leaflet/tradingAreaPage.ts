@@ -1,4 +1,12 @@
-import { LEAFLET_CSS, LEAFLET_JS, OSM_ATTRIBUTION, OSM_TILE_URL, pinHtml } from './leafletShared';
+import {
+  LEAFLET_CSS,
+  LEAFLET_JS,
+  OSM_ATTRIBUTION,
+  OSM_TILE_URL,
+  attribute,
+  pinHtml,
+  scriptJson,
+} from './leafletShared';
 
 /**
  * The page the Android WebView fallback loads (Leaflet + OpenStreetMap, the web app's fallback
@@ -35,23 +43,6 @@ export interface TradingAreaPageOptions {
   pickable?: boolean;
   /** Highest zoom level (default 19; 14 on maps of other collectors, ADR 0004). */
   maxZoom?: number;
-}
-
-const LINE_SEPARATOR = new RegExp(String.fromCharCode(0x2028), 'g');
-const PARAGRAPH_SEPARATOR = new RegExp(String.fromCharCode(0x2029), 'g');
-
-/** JSON safe to embed in an inline <script> (no `</script>` or `<!--` can close it). */
-function scriptJson(value: unknown): string {
-  const backslash = String.fromCharCode(92);
-  return JSON.stringify(value)
-    .replace(/</g, `${backslash}u003c`)
-    .replace(/>/g, `${backslash}u003e`)
-    .replace(LINE_SEPARATOR, `${backslash}u2028`)
-    .replace(PARAGRAPH_SEPARATOR, `${backslash}u2029`);
-}
-
-function attribute(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 const PAGE_SCRIPT = `

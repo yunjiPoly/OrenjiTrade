@@ -10,11 +10,10 @@ describe('useAppStore', () => {
     await AsyncStorage.clear();
   });
 
-  it('starts with system theme, default prefs and no map region', () => {
+  it('starts with system theme and default prefs', () => {
     const state = useAppStore.getState();
     expect(state.themeOverride).toBe('system');
     expect(state.prefs).toEqual(DEFAULT_PREFS);
-    expect(state.lastMapRegion).toBeNull();
   });
 
   it('updates the theme override', () => {
@@ -29,14 +28,6 @@ describe('useAppStore', () => {
       distanceUnit: 'mi',
       lastSignedInEmail: 'ayumi@example.test',
     });
-  });
-
-  it('remembers the last map region and can clear it', () => {
-    const region = { latitude: 45.5, longitude: -73.57, latitudeDelta: 0.1, longitudeDelta: 0.1 };
-    useAppStore.getState().setLastMapRegion(region);
-    expect(useAppStore.getState().lastMapRegion).toEqual(region);
-    useAppStore.getState().setLastMapRegion(null);
-    expect(useAppStore.getState().lastMapRegion).toBeNull();
   });
 
   it('resets to the initial state', () => {
@@ -56,12 +47,8 @@ describe('useAppStore', () => {
       state: Record<string, unknown>;
       version: number;
     };
-    expect(persisted.version).toBe(2);
-    expect(persisted.state).toEqual({
-      themeOverride: 'dark',
-      prefs: DEFAULT_PREFS,
-      lastMapRegion: null,
-    });
+    expect(persisted.version).toBe(3);
+    expect(persisted.state).toEqual({ themeOverride: 'dark', prefs: DEFAULT_PREFS });
   });
 
   it('migrates version 1 (which stored the onboarding flag on the device)', async () => {
@@ -86,5 +73,33 @@ describe('useAppStore', () => {
       distanceUnit: 'km',
       lastSignedInEmail: 'old@example.test',
     });
+  });
+
+  it('drops the map viewport versions 1 and 2 kept on the device', async () => {
+    await AsyncStorage.setItem(
+      APP_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        state: {
+          themeOverride: 'dark',
+          prefs: DEFAULT_PREFS,
+          lastMapRegion: {
+            latitude: 45.5,
+            longitude: -73.57,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          },
+        },
+      })
+    );
+    await useAppStore.persist.rehydrate();
+    expect(useAppStore.getState()).not.toHaveProperty('lastMapRegion');
+    await flush();
+    useAppStore.getState().setThemeOverride('light');
+    await flush();
+    const persisted = JSON.parse((await AsyncStorage.getItem(APP_STORE_STORAGE_KEY)) as string) as {
+      state: Record<string, unknown>;
+    };
+    expect(persisted.state).not.toHaveProperty('lastMapRegion');
   });
 });

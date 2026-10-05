@@ -52,6 +52,7 @@ const APP_ROOTS = new Set([
   'cards',
   'binders',
   'items',
+  'messages',
 ]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {

@@ -1,6 +1,18 @@
 import type {
   BinderResponse,
   CardDetail,
+  CollectorMarker,
+  CollectorPreview,
+  CollectorRatingsPage,
+  ConversationSummary,
+  MatchingItem,
+  MessagePage,
+  MessageResponse,
+  MyPlan,
+  NearbyCollectorsResponse,
+  PublicBinderSummary,
+  PublicInventoryPage,
+  ReferencePage,
   CardPage,
   CardSummary,
   CollectorProfileResponse,
@@ -472,4 +484,228 @@ export function listingStatusFixture(overrides: Partial<ListingStatus> = {}): Li
     evaluatedAt: null,
     ...overrides,
   };
+}
+
+// --- Map discovery, collectors and messages (Phase 4, fictional) ---------------------------------
+
+/** The signed-in collector of `meFixture()`. */
+export const SELF_ID = '00000000-0000-4000-8000-0000000000a1';
+
+export function markerFixture(overrides: Partial<CollectorMarker> = {}): CollectorMarker {
+  return {
+    id: '00000000-0000-4000-8000-0000000000b1',
+    handle: 'collector2',
+    displayName: 'Noé Verdun',
+    avatarUrl: null,
+    publicPoint: { lat: 45.458, lng: -73.571 },
+    publicLabel: 'Verdun, Montréal',
+    distanceBucket: 'KM_1_5',
+    rating: { average: 4.8, count: 12 },
+    tags: ['local-pickup'],
+    games: ['mtg'],
+    lastActiveBucket: 'THIS_WEEK',
+    onlineStatus: 'HIDDEN',
+    binderFreshness: 'ACTIVE',
+    publicBinderCount: 1,
+    publicItemCount: 14,
+    matchingItems: [],
+    ...overrides,
+  };
+}
+
+/** The viewer's own entry (the API keeps it in `nearby`). */
+export function selfMarkerFixture(overrides: Partial<CollectorMarker> = {}): CollectorMarker {
+  return markerFixture({
+    id: SELF_ID,
+    handle: 'maika',
+    displayName: 'Maïka Test',
+    publicPoint: { lat: 45.503, lng: -73.569 },
+    publicLabel: 'Ville-Marie, Montréal',
+    distanceBucket: undefined,
+    ...overrides,
+  });
+}
+
+export function nearbyFixture(
+  collectors: CollectorMarker[] = [selfMarkerFixture(), markerFixture()],
+  overrides: Partial<NearbyCollectorsResponse> = {}
+): NearbyCollectorsResponse {
+  return {
+    center: { lat: 45.5, lng: -73.57 },
+    radiusKm: 10,
+    collectors,
+    total: collectors.length,
+    truncated: false,
+    ...overrides,
+  };
+}
+
+export function matchingItemFixture(overrides: Partial<MatchingItem> = {}): MatchingItem {
+  return {
+    itemId: '00000000-0000-4000-8c00-0000000000f1',
+    printingId: '00000000-0000-4000-8a10-00000000000a',
+    printingCode: 'LOB-001',
+    cardId: '00000000-0000-4000-8a00-000000000001',
+    cardName: 'Lantern Fox Spirit',
+    game: 'yugioh',
+    availability: 'TRADE_OR_SALE',
+    askingPrice: 12.5,
+    currency: 'CAD',
+    condition: 'NEAR_MINT',
+    language: 'en',
+    edition: 'UNLIMITED',
+    acceptsOffers: true,
+    freshness: 'ACTIVE',
+    ...overrides,
+  };
+}
+
+export function previewFixture(overrides: Partial<CollectorPreview> = {}): CollectorPreview {
+  const marker = markerFixture();
+  return {
+    id: marker.id,
+    handle: marker.handle,
+    displayName: marker.displayName,
+    avatarUrl: null,
+    publicPoint: marker.publicPoint,
+    publicLabel: marker.publicLabel,
+    distanceBucket: 'KM_1_5',
+    rating: marker.rating,
+    tags: marker.tags,
+    games: marker.games,
+    lastActiveBucket: 'THIS_WEEK',
+    onlineStatus: 'ONLINE',
+    binderFreshness: 'ACTIVE',
+    publicBinderCount: 1,
+    publicItemCount: 14,
+    canMessage: true,
+    isBlocked: false,
+    ...overrides,
+  };
+}
+
+export const PUBLIC_BINDER_ID = '00000000-0000-4000-8b00-0000000000c1';
+
+export function publicBinderSummaryFixture(
+  overrides: Partial<PublicBinderSummary> = {}
+): PublicBinderSummary {
+  return {
+    id: PUBLIC_BINDER_ID,
+    name: 'Magic trades',
+    description: 'Doubles for trade.',
+    kind: 'TRADE',
+    publicUntil: null,
+    itemCount: 14,
+    games: ['mtg'],
+    coverImageUrl: null,
+    freshness: {
+      state: 'ACTIVE',
+      confirmedAt: '2026-10-01T12:00:00Z',
+      updatedAt: '2026-10-01T12:00:00Z',
+      label: 'Updated yesterday',
+    },
+    ...overrides,
+  };
+}
+
+export function publicItemsPage(items: PublicInventoryItem[] = []): PublicInventoryPage {
+  return { items, page: 0, size: 8, totalItems: items.length, totalPages: items.length ? 1 : 0 };
+}
+
+export function ratingsPageFixture(
+  overrides: Partial<CollectorRatingsPage> = {}
+): CollectorRatingsPage {
+  return {
+    items: [
+      {
+        id: '00000000-0000-4000-8d00-000000000001',
+        rater: { handle: 'collector5', displayName: 'Léa Mile End', avatarUrl: null },
+        overall: 5,
+        breakdown: { communication: 5 },
+        comment: 'Smooth trade at the café.',
+        createdAt: '2026-09-20T12:00:00Z',
+        updatedAt: '2026-09-20T12:00:00Z',
+        interactionKind: 'TRADE',
+        editableUntil: '2026-10-04T12:00:00Z',
+      },
+    ],
+    nextCursor: null,
+    hasMore: false,
+    summary: { average: 4.8, count: 12, communication: 4.9, conditionAccuracy: 4.7 },
+    ...overrides,
+  };
+}
+
+export function referencesPageFixture(overrides: Partial<ReferencePage> = {}): ReferencePage {
+  return {
+    items: [
+      {
+        id: '00000000-0000-4000-8d10-000000000001',
+        author: { handle: 'collector1', displayName: 'Ayumi Plateau', avatarUrl: null },
+        body: 'Fair and friendly trader.',
+        createdAt: '2026-09-25T12:00:00Z',
+      },
+    ],
+    nextCursor: null,
+    hasMore: false,
+    ...overrides,
+  };
+}
+
+export function planFixture(radiusKm: number | null = 25): MyPlan {
+  return {
+    plan: { code: 'FREE', name: 'Free' },
+    limits: [
+      {
+        key: 'map.radius.max_km',
+        allowed: true,
+        kind: 'CAP',
+        window: 'TOTAL',
+        limit: radiusKm ?? undefined,
+        planCode: 'FREE',
+      },
+    ],
+  };
+}
+
+export const CONVERSATION_ID = '00000000-0000-4000-8e00-000000000001';
+
+export function conversationFixture(
+  overrides: Partial<ConversationSummary> = {}
+): ConversationSummary {
+  return {
+    id: CONVERSATION_ID,
+    other: {
+      id: '00000000-0000-4000-8000-0000000000b1',
+      handle: 'collector2',
+      displayName: 'Noé Verdun',
+      avatarUrl: null,
+      onlineStatus: 'HIDDEN',
+    },
+    unreadCount: 0,
+    muted: false,
+    archived: false,
+    createdAt: '2026-10-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function messageFixture(overrides: Partial<MessageResponse> = {}): MessageResponse {
+  return {
+    id: '00000000-0000-4000-8e10-000000000001',
+    conversationId: CONVERSATION_ID,
+    senderId: '00000000-0000-4000-8000-0000000000b1',
+    kind: 'TEXT',
+    body: 'Hi! Still have the Lantern Fox?',
+    payload: {},
+    createdAt: '2026-10-04T12:00:00Z',
+    editedAt: null,
+    readByOther: false,
+    moderationState: 'OK',
+    ...overrides,
+  };
+}
+
+export function messagePage(items: MessageResponse[] = [messageFixture()]): MessagePage {
+  return { items, nextCursor: null, hasMore: false };
 }

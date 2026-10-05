@@ -3,7 +3,6 @@ export {
   DEFAULT_PREFS,
   useAppStore,
   type AppState,
-  type MapRegion,
   type SessionPrefs,
   type ThemeOverride,
 } from './useAppStore';

@@ -1,80 +1,72 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import MapView, { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 
-import { useAppStore } from '@/src/store/useAppStore';
-import { useTheme } from '@/src/theme';
-
-import { MONTREAL_REGION } from './constants';
-import { LeafletBrowseMap } from './LeafletBrowseMap';
+import type { CollectorMapComponentProps } from './CollectorMap.types';
+import { CollectorMapFrame, type CollectorMapState } from './CollectorMapFrame';
+import { CollectorMapLeaflet } from './CollectorMapLeaflet';
+import { CollectorMapNative } from './CollectorMapNative';
 import { MapErrorBoundary } from './MapErrorBoundary';
 import { currentMapEngine } from './mapEngine';
-import { MapOverlay } from './MapOverlay';
-import { MapPlaceholder } from './MapPlaceholder';
 
-function NativeMap() {
-  const { scheme } = useTheme();
-  const lastMapRegion = useAppStore((state) => state.lastMapRegion);
-  const setLastMapRegion = useAppStore((state) => state.setLastMapRegion);
-  const [initialRegion] = useState<Region>(() => lastMapRegion ?? MONTREAL_REGION);
-
-  const onRegionChangeComplete = useCallback(
-    (region: Region) => {
-      setLastMapRegion({
-        latitude: region.latitude,
-        longitude: region.longitude,
-        latitudeDelta: region.latitudeDelta,
-        longitudeDelta: region.longitudeDelta,
-      });
-    },
-    [setLastMapRegion]
-  );
+/**
+ * The collector map on iOS and Android, behind the app's map adapter choice (`mapEngine`,
+ * ADR 0010): react-native-maps with Apple Maps on iOS and Google Maps on Android builds with the
+ * project's key, otherwise Leaflet + OpenStreetMap in a WebView (Expo Go, no key). Loading
+ * skeleton and "Reload map" error state around it; the web build uses `CollectorMap.web.tsx`.
+ */
+export function CollectorMap({
+  errorMessage,
+  interactive = true,
+  testID = 'collector-map',
+  ...props
+}: CollectorMapComponentProps) {
+  const [engine] = useState(currentMapEngine);
+  const [state, setState] = useState<CollectorMapState>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const onReady = useCallback(() => setState('ready'), []);
+  const onFailed = useCallback(() => setState('error'), []);
 
   return (
-    <MapView
-      testID="collector-map"
-      style={StyleSheet.absoluteFill}
-      provider={PROVIDER_DEFAULT}
-      initialRegion={initialRegion}
-      onRegionChangeComplete={onRegionChangeComplete}
-      userInterfaceStyle={scheme}
-      showsUserLocation={false}
-      showsMyLocationButton={false}
-      showsPointsOfInterests={false}
-      toolbarEnabled={false}
-      accessibilityLabel={MAP_LABEL}
-    />
+    <View style={styles.container} testID={`${testID}-container`}>
+      <CollectorMapFrame
+        state={state}
+        errorMessage={errorMessage}
+        onRetry={() => {
+          setState('loading');
+          setAttempt((value) => value + 1);
+        }}
+      >
+        <MapErrorBoundary
+          key={attempt}
+          name="CollectorMap"
+          fallback={<Failed onFailed={onFailed} />}
+        >
+          {engine === 'native' ? (
+            <CollectorMapNative
+              {...props}
+              testID={testID}
+              interactive={interactive}
+              onReady={onReady}
+              onFailed={onFailed}
+            />
+          ) : (
+            <CollectorMapLeaflet
+              {...props}
+              testID={testID}
+              interactive={interactive}
+              onReady={onReady}
+              onFailed={onFailed}
+            />
+          )}
+        </MapErrorBoundary>
+      </CollectorMapFrame>
+    </View>
   );
 }
 
-const MAP_LABEL = 'Map of approximate collector locations';
-
-/**
- * Map tab body centred on the last viewport (Montréal at first) with the Phase 4 overlay: Apple or
- * Google Maps (react-native-maps), or Leaflet + OpenStreetMap in a WebView where Google Maps cannot
- * draw (Expo Go on Android, no project key; see `mapEngine`).
- */
-export function CollectorMap() {
-  const [engine] = useState(currentMapEngine);
-  const [unavailable, setUnavailable] = useState(false);
-  const markUnavailable = useCallback(() => setUnavailable(true), []);
-  const placeholder = <MapPlaceholder reason="unavailable" />;
-  return (
-    <View style={styles.container} testID="collector-map-container">
-      {unavailable ? (
-        placeholder
-      ) : (
-        <MapErrorBoundary name="CollectorMap" fallback={placeholder}>
-          {engine === 'native' ? (
-            <NativeMap />
-          ) : (
-            <LeafletBrowseMap onUnavailable={markUnavailable} accessibilityLabel={MAP_LABEL} />
-          )}
-        </MapErrorBoundary>
-      )}
-      <MapOverlay />
-    </View>
-  );
+function Failed({ onFailed }: { onFailed: () => void }) {
+  useEffect(() => onFailed(), [onFailed]);
+  return null;
 }
 
 const styles = StyleSheet.create({

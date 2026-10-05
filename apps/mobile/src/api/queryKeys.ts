@@ -38,6 +38,28 @@ export const meKeys = {
   binderItems: (uid: Uid, id: string, filters: object) =>
     [...ME_ROOT, uidKey(uid), 'binders', 'items', id, filters] as const,
   listingStatus: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'listing-status'] as const,
+  /** The caller's plan (`GET /me/plan`: limits such as `map.radius.max_km`). */
+  plan: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'plan'] as const,
+  /**
+   * Map discovery as this viewer sees it (distance buckets, blocks and visibility depend on who
+   * asks): `GET /collectors/nearby` answers and previews.
+   */
+  discovery: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'discovery'] as const,
+  nearby: (uid: Uid, params: object) =>
+    [...ME_ROOT, uidKey(uid), 'discovery', 'nearby', params] as const,
+  preview: (uid: Uid, handle: string, centre: object | null) =>
+    [...ME_ROOT, uidKey(uid), 'discovery', 'preview', handle, centre] as const,
+  /** Another collector as this viewer sees them: profile, binders, cards, ratings, references. */
+  collector: (uid: Uid, handle: string) =>
+    [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase()] as const,
+  collectorPart: (uid: Uid, handle: string, part: 'binders' | 'items' | 'ratings' | 'references') =>
+    [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), part] as const,
+  /** Conversations (Phase 5): the list, one conversation, its messages. */
+  conversations: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations'] as const,
+  conversation: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'conversations', 'one', id] as const,
+  messages: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'conversations', 'messages', id] as const,
 };
 
 export const publicKeys = {
@@ -45,7 +67,8 @@ export const publicKeys = {
   legalDocuments: ['public', 'legal-documents'] as const,
   games: ['public', 'games'] as const,
   tags: (query: string) => ['tags', query] as const,
-  collector: (handle: string) => ['collectors', handle] as const,
+  /** The plans and their limits (`GET /plans`). */
+  plans: ['public', 'plans'] as const,
   /** A public binder as one viewer sees it (the owner block's distance bucket depends on them). */
   publicBinder: (id: string, uid: Uid) => ['public', 'binders', id, uidKey(uid)] as const,
   publicBinderItems: (id: string, uid: Uid, filters: object) =>
