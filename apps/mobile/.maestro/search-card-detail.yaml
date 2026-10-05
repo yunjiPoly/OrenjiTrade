@@ -1,0 +1,89 @@
+# Search tab and card detail (mobile Phase 2): a fresh collector searches the catalog (the mock
+# catalog of the isolated database), narrows it with a language from the game schema, opens a
+# card, reads its printings and switches to the French printing, which has no market price.
+appId: host.exp.exponent
+name: Search the catalog and open a card
+tags:
+  - mobile-m2
+  - catalog
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: search
+      DISPLAY_NAME: Maestro Searcher
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-search'
+    timeout: 60000
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-count'
+    timeout: 60000
+
+# Live, typo-tolerant search.
+- tapOn:
+    id: 'search-input'
+- inputText: 'emberfang'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'card-result-emberfang-fox'
+    timeout: 30000
+- assertVisible:
+    id: 'card-result-emberfang-fox-vmax'
+
+# The Pokémon pill, then a language from its schema: only the card with a French printing stays.
+- tapOn:
+    id: 'search-game-pokemon'
+- tapOn:
+    id: 'search-filters'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-language-fr'
+    timeout: 30000
+- tapOn:
+    id: 'filter-language-fr'
+- tapOn:
+    id: 'filters-done'
+- extendedWaitUntil:
+    notVisible:
+      id: 'card-result-emberfang-fox'
+    timeout: 30000
+- assertVisible:
+    id: 'card-result-emberfang-fox-vmax'
+- takeScreenshot: search-results
+
+# The card detail: name, printings, the market price of the selected printing.
+- tapOn:
+    id: 'card-result-emberfang-fox-vmax'
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: 'Emberfang Fox VMAX'
+    timeout: 60000
+- assertVisible:
+    id: 'card-add-to-inventory'
+- takeScreenshot: card-detail
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'SVX-001, Stellar Vortex, .*French.*'
+- tapOn:
+    text: 'SVX-001, Stellar Vortex, .*French.*'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'card-price'
+- extendedWaitUntil:
+    visible: 'No market price for this printing yet.'
+    timeout: 30000
+- takeScreenshot: card-printing-fr

@@ -23,8 +23,9 @@ export interface CardFiltersSheetProps {
 }
 
 /**
- * Set, rarity, language and edition filters of the Search tab (the web's `app-card-filters`):
- * sets of the chosen game (`GET /sets`), the other values from the game schema.
+ * Set, language, edition and rarity filters of the Search tab (the web's `app-card-filters`):
+ * sets of the chosen game (`GET /sets`), the other values from the game schema. Rarity comes last:
+ * without a game it lists every game's rarities (dozens of chips).
  */
 export function CardFiltersSheet({
   visible,
@@ -69,19 +70,6 @@ export function CardFiltersSheet({
           </View>
         )}
         <ChoiceChips
-          label="Rarity"
-          options={[
-            { value: ANY, label: 'Any rarity' },
-            ...filterOptions(games, query.game, 'rarities').map((value) => ({
-              value,
-              label: value,
-            })),
-          ]}
-          value={query.rarity ?? ANY}
-          onChange={choice('rarity')}
-          testID="filter-rarity"
-        />
-        <ChoiceChips
           label="Language"
           options={[
             { value: ANY, label: 'Any language' },
@@ -106,6 +94,19 @@ export function CardFiltersSheet({
           value={query.edition ?? ANY}
           onChange={choice('edition')}
           testID="filter-edition"
+        />
+        <ChoiceChips
+          label="Rarity"
+          options={[
+            { value: ANY, label: 'Any rarity' },
+            ...filterOptions(games, query.game, 'rarities').map((value) => ({
+              value,
+              label: value,
+            })),
+          ]}
+          value={query.rarity ?? ANY}
+          onChange={choice('rarity')}
+          testID="filter-rarity"
         />
       </ScrollView>
       <View style={styles.actions}>
