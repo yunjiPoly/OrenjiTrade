@@ -26,9 +26,19 @@ card (`items/new`: catalog search → printing → details), editing and deletin
 and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
 24 h / until disabled, make private, confirm, delete, add or remove cards; the public view of
 anyone's public binder). Freemium limits (`binders.max`, binder views per day) are explained where
-they happen. The Map, Messages and Wishlist tabs are still placeholders until their stages ("Add
-to wishlist" waits for the wishlist stage: the web adds wishes through the wishlist dialog). Card
-recognition (Phase 11) is on hold: no scan flow, the `mlScanning` flag stays off.
+they happen.
+
+Phase 4 (stage M3) is implemented on the discovery API the web map uses: the **Map** tab shows
+collectors near the viewer only as zones about 3 km wide (radius 1500 m) around their public
+points, never pins, with every map capped at zoom 14 (ADR 0004, owner rule 2026-10-04); game /
+intent / distance filters, "Who has this near me" from a card, a list view, the **preview bottom
+sheet** (View profile, View public binder, Message, Show on map), and the **collector profile**
+(`collectors/[id]`: place, distance bucket, approximate-area map, ratings and references, public
+binders and cards). "Message" opens or starts the conversation (`POST /conversations`) in a
+minimal thread (`messages/[id]`); the Messages and Wishlist tabs are still placeholders until
+their stages ("Add to wishlist" waits for the wishlist stage: the web adds wishes through the
+wishlist dialog). Card recognition (Phase 11) is on hold: no scan flow, the `mlScanning` flag
+stays off.
 
 ## Prerequisites
 
@@ -94,7 +104,10 @@ app/                       expo-router routes
   settings/                profile, location, privacy, notifications, account, delete-account,
                            appearance (screens of the root stack, no nested stack)
   legal/                   index + [key] (versioned documents read in-app)
+  (tabs)/index.tsx         the Map tab (collector zones, filters, list, preview sheet)
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
+  messages/[id].tsx        a conversation (minimal thread opened by "Message"; the Messages stage
+                           adds the inbox)
   cards/[id].tsx           card detail (`?printing=` selects a printing)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
@@ -109,8 +122,11 @@ src/
   components/ui/           Screen, TextField + form controls, Button, QueryState (skeleton / empty /
                            error with retry), Snackbar, ConfirmDialog, Stepper, CardImage, ...
   features/                screen parts per feature (legal, location, onboarding, profile,
-                           catalog, inventory, binders, limits, ...)
-  lib/                     pure helpers (3-decimal coordinates, distance buckets, card picture URLs)
+                           catalog, inventory, binders, limits, map, collectors, messages, ...)
+  components/map/          CollectorMap on three engines (react-native-maps, Leaflet in a
+                           WebView, Leaflet on web), the WebView pages, the engine choice
+  lib/                     pure helpers (3-decimal coordinates, distance buckets, card picture URLs,
+                           approximate-area rules, map geometry)
   theme/                   tokens.ts (generated from packages/design-tokens), palette, ThemeProvider
 ```
 
@@ -148,8 +164,26 @@ Conventions later stages reuse:
   (`src/components/map/leaflet/`, Leaflet from a pinned CDN URL with Subresource Integrity, no
   geolocation, links open in the browser) on Android without that key and always in Expo Go, whose
   bundled Google key the Maps SDK refuses ("Authorization failure": an empty grey map). The web
-  build uses Leaflet directly (`*.web.tsx`). The Map tab (Phase 0 placeholder until the collector
-  zones of a later stage) browses with the same engine, zoom capped at 14 (ADR 0004).
+  build uses Leaflet directly (`*.web.tsx`).
+- **Collector maps** (`src/components/map/CollectorMap`, Map tab and profile; ADR 0004 owner rule
+  2026-10-04, ADR 0010 amendment of stage M3): other collectors are only ever soft zones of radius
+  1500 m around their public point (`src/lib/approximateArea.ts`: `APPROXIMATE_AREA_RADIUS_M`,
+  `COLLECTOR_MAP_MAX_ZOOM = 14`, "Locations are approximate (about 3 km)"), never a `Marker` or pin
+  at the point; count bubbles (above 60 collectors, at the 3-decimal average of a group) are the
+  only markers and clustering stops at 14. Every engine stops at 14: `maxZoomLevel` / Leaflet
+  `maxZoom`, every camera request clamped (`src/lib/mapGeometry.ts`, cluster expansion and "Show on
+  map" included) and a guard that pulls back anything past the cap. Taps are matched to the
+  nearest zone in JS (`zoneAt`); no coordinate handed to a map has more than 3 decimals, the
+  viewport only sizes the next query (its centre sent with 2 decimals) and is never stored. The
+  own trading area is the server's: the Map tab sends no centre for it, and no device location is
+  read on the map (like the web map).
+- **Discovery** (`src/features/map/`): `useCollectorDiscovery` mirrors the web's
+  `MapDiscoveryStore` (own area or a city, debounced viewport queries only when leaving the covered
+  circle, the plan's `map.radius.max_km`, 429 -> the cap, 400 -> the city, the last answer kept
+  offline); `collectorLayer.ts` builds zones and clusters; `discovery.ts` holds the query rules
+  and the wording. The preview sheet and the profile offer "Message" only when the API's
+  `canMessage` allows it (otherwise the web's reason: a block, or the collector's messaging
+  permission).
 - **Trading area** (`src/features/location/TradingAreaPicker.tsx`, onboarding step 3 and Settings →
   Location): the web picker's mechanism. A map (`TradingAreaMap`, engine as above) where a tap or
   a dragged pin (a long-press first on Google/Apple maps) moves the centre, "Use map centre" after
@@ -165,7 +199,9 @@ Conventions later stages reuse:
   rendered, stored, persisted or logged, and a saved device-derived centre is never drawn as a pin
   or circle (the map only looks at its neighbourhood, rounded to 2 decimals). Discoverability
   defaults to off.
-- **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`.
+- **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`. Keep
+  controls off the top-right corner just below the header: Expo Go floats its tools button there
+  and a Maestro tap would open the developer menu instead.
 
 ## Scripts
 
@@ -230,7 +266,13 @@ search -> printing -> details, edit it (only the changed fields are sent), delet
 confirmation; add from a card detail, intent / game filters and sorting), `binders.spec.ts`
 (create a binder -> add a card -> publish for 24 hours -> make private -> remove the card -> rename
 -> delete; the `binders.max` limit; another collector's public binder: public cards and notes
-only). The static web export served by `expo serve` has no rewrites for dynamic routes
+only), `map.spec.ts` (a seed collector sees the neighbours as 1500 m zones without markers, the
+"+" button and the wheel stop at 14 and no tile beyond 14 loads, list -> preview -> "Show on map"
+-> a tap in the zone -> the profile with its area; "Message" opens the seed conversation and
+sends; "Who has this near me" from a card filters the map), `collector-map-page.spec.ts` (the
+Android WebView collector page in Chromium: zone size at 14, zoom cap, taps, clusters, a static
+profile map, a 0 x 0 first layout, Leaflet failure). The static web export served by `expo serve`
+has no rewrites for dynamic routes
 (`/cards/<id>` answers 404 on a full page load), so specs open them inside the running app
 (`openInApp` in `e2e/support/stack.ts`). A privacy fixture scans every API response for coordinates with more than 3 decimals,
 and OpenStreetMap tiles are served from memory (no tile requests leave the machine).
@@ -263,7 +305,12 @@ relaunch, then sign-out), `search-card-detail.yaml` (search, a schema language f
 detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
 details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
 `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
-"Add cards", publish for 24 hours, checked on the API). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+"Add cards", publish for 24 hours, checked on the API), `map-preview-profile.yaml` (a seed
+collector sees the neighbours' 3 km zones on OpenStreetMap without a Google key, list -> preview ->
+"Show on map" -> a tap inside the zone -> the profile's area; screenshots of the zones),
+`card-who-near-me.yaml` (a card collector1 lists, read on the host by `scripts/public-card.js`,
+opened by deep link -> "Who has this near me" -> the filtered map, list and preview -> every
+collector again). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
@@ -282,8 +329,10 @@ Metro after source changes (`npm run test:mobile:maestro -- --stop`).
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The mobile UIs of Phases 4-10 (collectors on the map as 3 km zones and "who has this near me"
-  filtered by card, chat, wishlist and "Add to wishlist", offers, payments, ...).
+- The mobile UIs of Phases 5-10 (the Messages tab with the inbox, realtime, photos and links;
+  wishlist and "Add to wishlist", rating collectors and reports, offers, payments, ...). The Map
+  tab leaves out the web map's tag and freshness filters and its search box (the Search tab finds
+  cards; "Who has this near me" starts from a card).
 - Inventory extras of the web not on mobile yet: owner photos of an item, the multi-select bulk bar
   (visibility, availability, delete; moving cards into a binder is there), binder reordering, set
   pages (`/sets/:id`); a set opens the Search tab filtered by that set instead.
