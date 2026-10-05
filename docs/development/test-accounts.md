@@ -27,3 +27,9 @@ Handles must match `[a-z0-9_]{3,24}`, hence `premium_user`.
 
 All seed locations are public landmarks or neighbourhood centroids, never residential
 addresses. All names, emails and content are fictional.
+
+Accounts created by the test suites (never seeds, all fictional, local emulator only): the web
+Playwright suite uses `@example.test` addresses; the mobile suites (`npm run test:mobile:e2e`,
+`npm run test:mobile:maestro`) use `m-<run id>-...@mobile-e2e.test` and delete the emulator
+accounts of their run at the end; they only sign in to seed accounts, never modify them in the
+emulator.
