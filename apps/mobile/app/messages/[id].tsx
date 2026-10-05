@@ -22,7 +22,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
-import { useKeyboardHeight } from '@/src/hooks/useKeyboardHeight';
+import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -38,7 +38,7 @@ export default function ConversationScreen() {
   const { palette } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const keyboard = useKeyboardHeight();
+  const { ref: rootRef, overlap: keyboardOverlap, onLayout: onRootLayout } = useKeyboardOverlap();
   const selfId = useAccount().me?.id ?? null;
   const conversation = useConversation(id);
   const messages = useMessages(id);
@@ -146,6 +146,8 @@ export default function ConversationScreen() {
 
   return (
     <View
+      ref={rootRef}
+      onLayout={onRootLayout}
       testID="screen-conversation"
       style={[styles.fill, { backgroundColor: palette.background }]}
     >
@@ -178,7 +180,7 @@ export default function ConversationScreen() {
           {
             borderTopColor: palette.border,
             backgroundColor: palette.surface,
-            paddingBottom: (keyboard > 0 ? keyboard : insets.bottom) + spacing[2],
+            paddingBottom: (keyboardOverlap > 0 ? keyboardOverlap : insets.bottom) + spacing[2],
           },
         ]}
       >
