@@ -108,9 +108,28 @@ test.describe('mobile accounts', () => {
     await onboarding.getByRole('button', { name: 'Continue' }).click();
 
     await expect(onboarding.getByRole('heading', { name: 'Where do you trade?' })).toBeVisible();
+    // The trading area: the launch city by default, moved by a tap on the map (Leaflet on web).
+    const summary = onboarding.getByTestId('area-centre-summary');
+    await expect(summary).toHaveText('Centre: Montréal city centre.');
+    const map = onboarding.getByTestId('trading-area-map');
+    await expect(map.locator('.leaflet-pane').first()).toBeAttached({ timeout: 30_000 });
+    await map.scrollIntoViewIfNeeded();
+    const box = await map.boundingBox();
+    if (!box) {
+      throw new Error('The trading-area map has no box.');
+    }
+    await map.click({ position: { x: box.width / 2 - 40, y: box.height / 2 - 40 } });
+    await expect(summary).toHaveText('Centre: the point you chose on the map.');
     const discoverable = onboarding.getByRole('switch', { name: 'Show me on the map' });
     await expect(discoverable).toHaveAttribute('aria-checked', 'false');
+    const put = page.waitForRequest(
+      (request) =>
+        request.method() === 'PUT' && request.url().endsWith('/api/v1/me/location/trading-area')
+    );
     await onboarding.getByRole('button', { name: 'Finish' }).click();
+    const sent = (await put).postDataJSON() as { lat: number; lng: number; source: string };
+    expect(sent.source).toBe('MANUAL');
+    expect([sent.lat, sent.lng]).not.toEqual([45.502, -73.567]);
 
     // The tabs; the profile shows the new identity and the default (hidden) visibility.
     await expect(snackbar(page)).toHaveText('Welcome to OrenjiTrade! Your profile is ready.', {
@@ -120,7 +139,7 @@ test.describe('mobile accounts', () => {
     const profile = screen(page, 'profile');
     await expect(profile.getByTestId('profile-name')).toHaveText('Mobile Newbie');
     await expect(profile.getByTestId('profile-handle-label')).toHaveText(`@${handle}`);
-    await expect(profile.getByTestId('profile-area')).toContainText('Montréal');
+    await expect(profile.getByTestId('profile-area')).toContainText('5 km radius');
     await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
 
     await profile.getByRole('button', { name: 'Sign out' }).click();

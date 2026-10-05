@@ -6,13 +6,33 @@ import { messageOf } from '@/src/api/errorMessages';
 import { useSaveTradingArea } from '@/src/api/hooks/location';
 import type { MyLocationResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
-import { FormMessage, RadioGroup, type RadioOption } from '@/src/components/ui/FormControls';
+import { Chip } from '@/src/components/ui/Chip';
+import { FormMessage } from '@/src/components/ui/FormControls';
 import { Stepper } from '@/src/components/ui/Stepper';
-import { CITY_PRESETS, MAX_RADIUS_KM, MIN_RADIUS_KM, nextRadius } from '@/src/lib/location';
+import {
+  CITY_PRESETS,
+  MAX_RADIUS_KM,
+  MIN_RADIUS_KM,
+  nextRadius,
+  placeLabel,
+  presetAt,
+  type CityPreset,
+  type LatLng,
+} from '@/src/lib/location';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { readApproximatePosition } from './deviceLocation';
-import type { AreaDraft } from './tradingArea';
+import {
+  describeCentre,
+  draftFromLocation,
+  draftPin,
+  draftViewport,
+  pointDraft,
+  presetDraft,
+  type AreaDraft,
+} from './tradingArea';
+import { TradingAreaMap } from './TradingAreaMap';
+import type { MapFocus } from './TradingAreaMap.types';
 
 export interface TradingAreaPickerProps {
   value: AreaDraft;
@@ -24,34 +44,65 @@ export interface TradingAreaPickerProps {
 
 type DeviceMessage = { tone: 'error' | 'success'; text: string } | null;
 
+function savedKey(location: MyLocationResponse | undefined): string {
+  const area = location?.tradingArea;
+  return area ? `${area.source}:${area.lat}:${area.lng}:${area.radiusKm}` : 'none';
+}
+
 /**
- * Trading-area picker (same mechanism as the web: a public city centre and a radius of 1–50 km,
- * saved with `PUT /me/location/trading-area`). "Use my current location" reads the device ONCE at
- * reduced accuracy and sends it straight to the API, which snaps it; the app only shows the
- * server's public label, never coordinates (ADR 0004).
+ * Trading-area picker, the same mechanism as the web's (`trading-area-picker.component.ts`): tap
+ * the map or drag the pin to move the centre, "Use map centre", a 1–50 km radius, city quick
+ * picks, and the device location. Hand-picked centres are rounded to 3 decimals and saved with
+ * source MANUAL (`PUT /me/location/trading-area`); the server snaps them further.
+ *
+ * "Use my current location" reads the device ONCE at reduced accuracy and sends it straight to the
+ * API (source DEVICE), which snaps it; the device position is never drawn, shown, stored or logged
+ * (ADR 0004). Collectors only ever see the server's approximate area and label.
  */
 export function TradingAreaPicker({ value, onChange, location, disabled }: TradingAreaPickerProps) {
   const { palette } = useTheme();
   const save = useSaveTradingArea();
   const [locating, setLocating] = useState(false);
   const [deviceMessage, setDeviceMessage] = useState<DeviceMessage>(null);
+  const [focus, setFocus] = useState<MapFocus>(() => ({
+    ...draftViewport(value, location),
+    radiusKm: value.radiusKm,
+    seq: 0,
+  }));
+  const [viewportCentre, setViewportCentre] = useState<LatLng>(() =>
+    draftViewport(value, location)
+  );
   const saved = location?.tradingArea;
+  const selectedPreset = value.kind === 'point' ? presetAt(value.lat, value.lng) : null;
 
-  const options: RadioOption<string>[] = [
-    ...(saved && (value.center === 'saved' || saved.source === 'DEVICE')
-      ? [
-          {
-            value: 'saved',
-            label: saved.label ? `Saved area · ${saved.label}` : 'Saved area',
-            help:
-              saved.source === 'DEVICE'
-                ? 'From your device location, snapped by OrenjiTrade.'
-                : undefined,
-          },
-        ]
-      : []),
-    ...CITY_PRESETS.map((preset) => ({ value: preset.id, label: preset.label })),
-  ];
+  const lookAt = (target: LatLng, radiusKm: number) => {
+    setViewportCentre(target);
+    setFocus((current) => ({ ...target, radiusKm, seq: current.seq + 1 }));
+  };
+
+  // When the saved area changes (device location saved, area removed), the map shows it
+  // (React's "adjust state when a prop changes" pattern, no effect needed).
+  const savedAreaKey = savedKey(location);
+  const [seenSavedKey, setSeenSavedKey] = useState(savedAreaKey);
+  if (seenSavedKey !== savedAreaKey) {
+    setSeenSavedKey(savedAreaKey);
+    const draft = draftFromLocation(location);
+    lookAt(draftViewport(draft, location), draft.radiusKm);
+  }
+
+  const pick = (point: LatLng) => {
+    if (!disabled) {
+      setDeviceMessage(null);
+      onChange(pointDraft(point, value.radiusKm));
+    }
+  };
+
+  const choosePreset = (preset: CityPreset) => {
+    const draft = presetDraft(preset);
+    setDeviceMessage(null);
+    onChange(draft);
+    lookAt({ lat: preset.lat, lng: preset.lng }, draft.radiusKm);
+  };
 
   const locateDevice = async () => {
     setLocating(true);
@@ -61,14 +112,14 @@ export function TradingAreaPicker({ value, onChange, location, disabled }: Tradi
       if (position.status === 'denied') {
         setDeviceMessage({
           tone: 'error',
-          text: 'Location permission was denied. Choose a city instead, or allow location in your device settings.',
+          text: 'Location permission was denied. Tap the map or pick a city instead, or allow location in your device settings.',
         });
         return;
       }
       if (position.status === 'unavailable') {
         setDeviceMessage({
           tone: 'error',
-          text: 'Your location is not available right now. Choose a city instead.',
+          text: 'Your location is not available right now. Tap the map or pick a city instead.',
         });
         return;
       }
@@ -78,11 +129,12 @@ export function TradingAreaPicker({ value, onChange, location, disabled }: Tradi
         radiusKm: value.radiusKm,
         source: 'DEVICE',
       });
-      onChange({ center: 'saved', radiusKm: value.radiusKm });
+      onChange({ kind: 'saved', radiusKm: value.radiusKm });
+      const near = placeLabel(result.tradingArea?.label);
       setDeviceMessage({
         tone: 'success',
-        text: result.tradingArea?.label
-          ? `Trading area set near ${result.tradingArea.label}.`
+        text: near
+          ? `Trading area set near ${near}.`
           : 'Trading area set from your approximate location.',
       });
     } catch (caught) {
@@ -106,14 +158,27 @@ export function TradingAreaPicker({ value, onChange, location, disabled }: Tradi
         </Text>
       </View>
 
-      <RadioGroup
-        label="Centre of your trading area"
-        options={options}
-        value={value.center}
-        onChange={(center) => onChange({ ...value, center })}
+      <TradingAreaMap
+        centre={draftPin(value)}
+        radiusKm={value.radiusKm}
+        focus={focus}
+        onPick={pick}
+        onViewportChange={setViewportCentre}
         disabled={disabled}
-        testID="area-centre"
       />
+      <View style={styles.hint}>
+        <MaterialCommunityIcons name="gesture-tap" size={18} color={palette.textMuted} />
+        <Text style={[textStyle('sm'), styles.grow, { color: palette.textMuted }]}>
+          Tap the map or long-press and drag the pin to move your area.
+        </Text>
+      </View>
+      <Text
+        testID="area-centre-summary"
+        accessibilityLiveRegion="polite"
+        style={[textStyle('sm'), styles.summary, { color: palette.ink }]}
+      >
+        {describeCentre(value, location)}
+      </Text>
 
       <Stepper
         label="Trading radius"
@@ -127,26 +192,60 @@ export function TradingAreaPicker({ value, onChange, location, disabled }: Tradi
         testID="area-radius"
       />
 
-      <Button
-        label="Use my current location"
-        variant="secondary"
-        icon="crosshairs-gps"
-        loading={locating}
-        loadingLabel="Locating…"
-        disabled={disabled}
-        onPress={() => void locateDevice()}
-        testID="area-use-device"
-      />
+      <View style={styles.buttons}>
+        <Button
+          label="Use my current location"
+          variant="secondary"
+          icon="crosshairs-gps"
+          loading={locating}
+          loadingLabel="Locating…"
+          disabled={disabled}
+          onPress={() => void locateDevice()}
+          testID="area-use-device"
+        />
+        <Button
+          label="Use map centre"
+          variant="ghost"
+          icon="image-filter-center-focus"
+          disabled={disabled || locating}
+          onPress={() => pick(viewportCentre)}
+          testID="area-use-map-centre"
+        />
+      </View>
       <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-        Your device’s approximate position is sent once to OrenjiTrade, which snaps it to a ~1 km
-        grid. It is never stored on this device or shown to anyone; collectors only ever see an
-        approximate area.
+        Using your location is optional: your device’s approximate position is sent once to
+        OrenjiTrade, which snaps it to a ~1 km grid. It is never stored on this device or shown to
+        anyone; collectors only ever see an approximate area.
       </Text>
       {deviceMessage ? (
         <FormMessage tone={deviceMessage.tone} testID="area-device-message">
           {deviceMessage.text}
         </FormMessage>
       ) : null}
+
+      <View
+        style={styles.presets}
+        accessibilityRole="toolbar"
+        accessibilityLabel="Jump to a city"
+        testID="area-cities"
+      >
+        <Text style={[textStyle('sm'), styles.presetsLabel, { color: palette.ink }]}>
+          Jump to a city
+        </Text>
+        <View style={styles.presetList}>
+          {CITY_PRESETS.map((preset) => (
+            <Chip
+              key={preset.id}
+              label={preset.label}
+              tone="outline"
+              selected={selectedPreset?.id === preset.id}
+              disabled={disabled}
+              onPress={() => choosePreset(preset)}
+              testID={`area-city-${preset.id}`}
+            />
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
@@ -161,4 +260,11 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   statusText: { flex: 1, fontWeight: fontWeight.medium },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: -spacing[2] },
+  summary: { fontWeight: fontWeight.medium },
+  grow: { flex: 1 },
+  buttons: { gap: spacing[2] },
+  presets: { gap: spacing[2] },
+  presetsLabel: { fontWeight: fontWeight.semibold },
+  presetList: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
 });

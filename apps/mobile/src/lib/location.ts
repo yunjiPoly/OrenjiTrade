@@ -32,9 +32,74 @@ export const CITY_PRESETS: readonly CityPreset[] = [
   { id: 'vancouver', label: 'Vancouver', lat: 49.283, lng: -123.121, radiusKm: 20 },
 ];
 
+/** A point on the map (degrees). */
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+/** Default centre when the collector has no trading area yet (Montréal, the launch city). */
+export const DEFAULT_TRADING_CENTER: LatLng = { lat: 45.502, lng: -73.567 };
 export const DEFAULT_RADIUS_KM = 5;
 export const MIN_RADIUS_KM = 1;
 export const MAX_RADIUS_KM = 50;
+
+const KM_PER_DEGREE_LAT = 111.32;
+
+/** A map viewport (react-native-maps `Region`): centre plus the spans in degrees. */
+export interface AreaRegion {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
+/**
+ * The viewport that shows a whole trading area (the circle plus a margin), the mobile equivalent
+ * of the web's `fitBounds(circleBounds(area))`.
+ */
+export function regionForArea(centre: LatLng, radiusKm: number): AreaRegion {
+  const latitudeDelta = (radiusKm * 2 * 1.3) / KM_PER_DEGREE_LAT;
+  const cos = Math.max(Math.cos((centre.lat * Math.PI) / 180), 0.01);
+  return {
+    latitude: centre.lat,
+    longitude: centre.lng,
+    latitudeDelta,
+    longitudeDelta: latitudeDelta / cos,
+  };
+}
+
+/** Leaflet zoom that roughly fits a radius on a phone-sized map (web's `zoomForRadius`). */
+export function zoomForRadius(radiusKm: number): number {
+  if (radiusKm <= 2) return 13;
+  if (radiusKm <= 5) return 12;
+  if (radiusKm <= 10) return 11;
+  if (radiusKm <= 25) return 10;
+  return 9;
+}
+
+/**
+ * Where the map looks when the saved centre came from the device (ADR 0004): 2 decimals (~1 km,
+ * the server's grid), so the map shows the neighbourhood without pointing at the device position.
+ */
+export function coarseCentre(point: LatLng): LatLng {
+  return { lat: Math.round(point.lat * 100) / 100, lng: Math.round(point.lng * 100) / 100 };
+}
+
+/** The API's generic label when no region matched (`StaticRegionGeocoder.FALLBACK_LABEL`). */
+export const GENERIC_AREA_LABEL = 'Approximate area';
+
+/**
+ * The server's public label when it names a place, or null for a missing or generic label (so
+ * sentences like "near Approximate area" never appear).
+ */
+export function placeLabel(label: string | null | undefined): string | null {
+  const trimmed = label?.trim();
+  if (!trimmed || trimmed.toLowerCase() === GENERIC_AREA_LABEL.toLowerCase()) {
+    return null;
+  }
+  return trimmed;
+}
 
 /** Radius steps of the stepper (fine near home, coarse further out). */
 export function nextRadius(current: number, direction: 1 | -1): number {

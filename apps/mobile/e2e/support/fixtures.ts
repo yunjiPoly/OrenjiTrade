@@ -110,7 +110,27 @@ export class PrivacyScanner {
   }
 }
 
-export const test = base.extend<{ privacy: PrivacyScanner }>({
+/** A transparent 1×1 PNG standing in for map tiles (same stub as the web suite). */
+const STUB_TILE_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+export const test = base.extend<{ privacy: PrivacyScanner; mapTiles: void }>({
+  // OpenStreetMap tiles of the trading-area map (Leaflet on web) are served from memory: the OSM
+  // tile policy discourages automated loads, and the specs never assert on imagery (the pin, the
+  // circle and the map's click handling are DOM drawn by Leaflet regardless of the tiles).
+  mapTiles: [
+    async ({ page }, use) => {
+      await page.route('https://tile.openstreetmap.org/**', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'image/png',
+          body: Buffer.from(STUB_TILE_PNG, 'base64'),
+        })
+      );
+      await use();
+    },
+    { auto: true },
+  ],
   privacy: [
     async ({ page }, use) => {
       const scanner = new PrivacyScanner();

@@ -103,26 +103,40 @@ tags:
 - tapOn:
     id: 'onboarding-interests-continue'
 
-# Step 3: a manual trading area (a public city centre); the map opt-in stays off.
+# Step 3: a manual trading area on the map (the Québec quick pick: its public centre and suggested
+# radius); the map opt-in stays off. Edge swipes only: a swipe over the map would pan it.
 - extendedWaitUntil:
     visible:
       id: 'onboarding-area'
     timeout: 30000
-- scrollUntilVisible:
-    element: 'Québec'
-    direction: DOWN
-- tapOn: 'Québec'
-- scrollUntilVisible:
-    element:
-      id: 'onboarding-discoverable'
-    direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: 'trading-area-map'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'area-city-quebec'
+- tapOn:
+    id: 'area-city-quebec'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-centre-summary'
+- assertVisible:
+    id: 'area-centre-summary'
+    text: 'Centre: Québec city centre.'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-discoverable'
 - assertVisible:
     id: 'onboarding-discoverable'
     checked: false
-- scrollUntilVisible:
-    element:
-      id: 'onboarding-finish'
-    direction: DOWN
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-finish'
 - tapOn:
     id: 'onboarding-finish'
 
@@ -138,13 +152,13 @@ tags:
 - assertVisible:
     id: 'profile-handle-label'
     text: '@.+'
-- scrollUntilVisible:
-    element:
-      id: 'profile-visibility'
-    direction: DOWN
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-visibility'
 - assertVisible:
     id: 'profile-area'
-    text: '.*Québec.*'
+    text: '.*Québec.*15 km radius'
 - assertVisible:
     id: 'profile-visibility'
     text: 'Hidden from the map.'

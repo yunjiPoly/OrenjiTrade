@@ -154,7 +154,7 @@ describe('Settings → Location and discoverability', () => {
     const save = screen.getByRole('button', { name: 'Save trading area' });
     expect(save).toBeDisabled();
 
-    fireEvent.press(screen.getByRole('radio', { name: 'Québec' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
     fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Trading area saved · Vieux-Québec, Québec.'
@@ -162,7 +162,7 @@ describe('Settings → Location and discoverability', () => {
     expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
       lat: 46.813,
       lng: -71.208,
-      radiusKm: 10,
+      radiusKm: 15,
       source: 'MANUAL',
     });
     expect(screen.getByTestId('area-public-label')).toHaveTextContent(

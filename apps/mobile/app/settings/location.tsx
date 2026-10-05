@@ -26,6 +26,7 @@ import {
   isAreaDirty,
   type AreaDraft,
 } from '@/src/features/location/tradingArea';
+import { placeLabel } from '@/src/lib/location';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
@@ -173,8 +174,8 @@ function LocationForm({
             {!hasArea
               ? 'You have no trading area yet, so you never appear on the map.'
               : !privacy.discoverable
-                ? `You are hidden from the map. Turn on “Show me on the map” to appear near ${location.tradingArea?.label ?? 'your area'}.`
-                : `Collectors see you near ${location.tradingArea?.label ?? 'your area'}.`}
+                ? `You are hidden from the map. Turn on “Show me on the map” to appear near ${placeLabel(location.tradingArea?.label) ?? 'your area'}.`
+                : `Collectors see you near ${placeLabel(location.tradingArea?.label) ?? 'your area'}.`}
           </Text>
         </View>
       </SectionCard>

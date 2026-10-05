@@ -121,7 +121,11 @@ describe('Onboarding', () => {
     const optIn = screen.getByRole('switch', { name: 'Show me on the map' });
     expect(optIn).not.toBeChecked();
 
-    fireEvent.press(screen.getByRole('radio', { name: 'Laval' }));
+    // A city quick pick sets its public centre and suggested radius (10 km), like the web.
+    fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
+    expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
+      'Centre: Laval city centre.'
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
     fireEvent.press(optIn);
     fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
@@ -130,7 +134,7 @@ describe('Onboarding', () => {
     expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
       lat: 45.606,
       lng: -73.712,
-      radiusKm: 6,
+      radiusKm: 15,
       source: 'MANUAL',
     });
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')[0]?.body).toEqual({
@@ -200,8 +204,10 @@ describe('Onboarding', () => {
       radiusKm: 5,
       source: 'DEVICE',
     });
-    // Never rendered as numbers.
+    // Never rendered as numbers, never drawn as a point.
     expect(screen.queryByText(/45\.519|73\.586/)).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId('trading-area-pin')).toBeNull());
+    expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(/your device location/);
   });
 
   it('explains a denied location permission', async () => {

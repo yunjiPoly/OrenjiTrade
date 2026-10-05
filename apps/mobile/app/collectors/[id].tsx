@@ -12,6 +12,7 @@ import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { formatLongDate } from '@/src/lib/dates';
 import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
+import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
 import { LAST_ACTIVE_LABELS, gameLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -20,6 +21,12 @@ import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
  * it is the "public preview". Deep link: https://www.orenjitrade.com/collectors/<handle>.
  * Location: the public label and a distance bucket only, never coordinates (ADR 0004).
  */
+/** "Near Plateau-Mont-Royal, Montréal", or the generic wording when no place matched. */
+function nearLabel(publicLabel: string | null | undefined): string {
+  const place = placeLabel(publicLabel);
+  return place ? `Near ${place}` : GENERIC_AREA_LABEL;
+}
+
 export default function CollectorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const profile = useCollectorProfile(id);
@@ -87,7 +94,7 @@ function PublicProfile({ profile }: { profile: CollectorProfileResponse }) {
 
       <SectionCard title="Where">
         <Text testID="collector-location" style={[textStyle('md'), { color: palette.ink }]}>
-          {profile.location ? `Near ${profile.location.publicLabel}` : 'Not on the map'}
+          {profile.location ? nearLabel(profile.location.publicLabel) : 'Not on the map'}
         </Text>
         {distance ? (
           <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{distance}</Text>
