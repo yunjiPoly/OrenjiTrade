@@ -38,8 +38,22 @@ export function RootNavigator() {
         <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="(account)" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ title: 'Welcome', animation: 'fade' }} />
-        <Stack.Screen name="settings" options={{ headerShown: false }} />
-        <Stack.Screen name="legal" options={{ headerShown: false }} />
+        {/*
+          Settings (web: /settings/*) and the legal pages live in this stack rather than in nested
+          stacks: a nested native stack under a headerless screen drew its header below a second
+          status-bar inset on Android (edge-to-edge). Later phases add offers, payouts, ...
+        */}
+        <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
+        <Stack.Screen name="settings/profile" options={{ title: 'Edit profile' }} />
+        <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
+        <Stack.Screen name="settings/privacy" options={{ title: 'Privacy' }} />
+        <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
+        <Stack.Screen name="settings/delete-account" options={{ title: 'Delete account' }} />
+        <Stack.Screen name="settings/appearance" options={{ title: 'Appearance' }} />
+        {/* Legal pages: readable from every gate (signed out, consent, suspended, app). */}
+        <Stack.Screen name="legal/index" options={{ title: 'Legal' }} />
+        <Stack.Screen name="legal/[key]" options={{ title: 'Legal' }} />
         <Stack.Screen name="collectors/[id]" options={{ title: 'Collector' }} />
         <Stack.Screen name="cards/[id]" options={{ title: 'Card' }} />
         <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
