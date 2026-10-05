@@ -14,9 +14,21 @@ Phase 1 (accounts) is implemented and verified on the web build (Playwright) and
 verification, sign-in, password reset, session restore, sign-out, consent and account-state
 screens (suspended, deletion pending with cancel and export), the three-step onboarding, the
 Profile tab with a public preview, and Settings (profile, location and discoverability, privacy,
-notifications, account with data export and deletion, appearance, legal). The Map, Inventory,
-Search, Messages and Wishlist tabs are placeholders until their phases. Card recognition
-(Phase 11) is on hold: no scan flow, the `mlScanning` flag stays off.
+notifications, account with data export and deletion, appearance, legal).
+
+Phases 2 and 3 (stage M2) are implemented on the same API as the web: the **Search** tab (card
+catalog across games, live typo-tolerant search, game / set / rarity / language / edition filters,
+infinite results, recent searches), the **card detail** (`cards/[id]`: picture with the provider
+credit, attributes, printings and market prices, "Add to inventory", "Who has this near me" opens
+the Map tab), the **Inventory** tab (cards with search, binder / game / intent filters and sorting,
+totals, stale or hidden cards with "Confirm all", paused listings with "Resume"; binders), adding a
+card (`items/new`: catalog search → printing → details), editing and deleting one (`items/[id]`),
+and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
+24 h / until disabled, make private, confirm, delete, add or remove cards; the public view of
+anyone's public binder). Freemium limits (`binders.max`, binder views per day) are explained where
+they happen. The Map, Messages and Wishlist tabs are still placeholders until their stages ("Add
+to wishlist" waits for the wishlist stage: the web adds wishes through the wishlist dialog). Card
+recognition (Phase 11) is on hold: no scan flow, the `mlScanning` flag stays off.
 
 ## Prerequisites
 
@@ -83,6 +95,9 @@ app/                       expo-router routes
                            appearance (screens of the root stack, no nested stack)
   legal/                   index + [key] (versioned documents read in-app)
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
+  cards/[id].tsx           card detail (`?printing=` selects a printing)
+  items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
+  binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
 src/
   config/env.ts            the typed configuration (platform defaults)
   auth/                    AuthPort (Firebase), session provider + reducer, friendly auth errors,
@@ -93,7 +108,8 @@ src/
                            query keys, hooks per area
   components/ui/           Screen, TextField + form controls, Button, QueryState (skeleton / empty /
                            error with retry), Snackbar, ConfirmDialog, Stepper, CardImage, ...
-  features/                screen parts per feature (legal, location, onboarding, profile, ...)
+  features/                screen parts per feature (legal, location, onboarding, profile,
+                           catalog, inventory, binders, limits, ...)
   lib/                     pure helpers (3-decimal coordinates, distance buckets, card picture URLs)
   theme/                   tokens.ts (generated from packages/design-tokens), palette, ThemeProvider
 ```
@@ -107,8 +123,21 @@ Conventions later stages reuse:
   `['me', uid, ...]`, dropped on sign-out); `networkMode: 'offlineFirst'`, cached data kept a day,
   4xx never retried; mutations invalidate the narrowest key they change. Screens render
   `QueryState` (skeleton, empty, error with retry) and the root `OfflineBanner` covers offline use.
-- **Forms**: `TextField`, `PasswordField`, `Checkbox`, `SwitchRow`, `RadioGroup`, `Stepper` with
-  inline errors and accessibility state; server field errors map through `src/api/errorMessages.ts`.
+- **Lists**: paged endpoints use `useInfiniteQuery` (`nextPage`) in a `FlatList` with
+  `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change.
+  Writes refresh the narrowest keys: every inventory or binder write invalidates
+  `['me', uid, 'inventory']` and `['me', uid, 'binders']` (counts and freshness change everywhere),
+  never refetching what was just deleted.
+- **Forms**: `TextField`, `PasswordField`, `Checkbox`, `SwitchRow`, `RadioGroup`, `Stepper`,
+  `ChoiceChips` (a few values as radio chips) and `SelectSheet` (a field opening a bottom sheet of
+  options) with inline errors and accessibility state; server field errors map through
+  `src/api/errorMessages.ts`; `429 LIMIT_REACHED` is explained in place (`LimitReachedNotice`,
+  `src/lib/limits.ts`: what is counted, used / allowed on the plan, when it resets).
+- **Inventory vocabulary** (`src/lib/inventory.ts`, the web's `inventory-labels`): the trade / sell
+  intents are the API's `availability` (trade or sale, trade, sale, collection only, not available)
+  plus the separate "accepts offers" flag; wanting a card is a wishlist entry. Visibility is
+  private / public / temporarily public (1 h to 30 days); `visibilityStatus.ts` explains why
+  something set to public is not visible yet (binder private, hidden until confirmed, owner hidden).
 - **Card pictures**: `CardImage` (expo-image) renders only API picture URLs
   (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of the web;
   anything else (for example a YGOPRODeck URL) shows the placeholder.
@@ -143,7 +172,8 @@ Conventions later stages reuse:
 | Script                                  | What it does                                                |
 | --------------------------------------- | ----------------------------------------------------------- |
 | `npm start` / `android` / `ios` / `web` | `expo start` (+ platform)                                   |
-| `npm run typecheck`                     | `tsc --noEmit`                                              |
+| `npm run typecheck`                     | regenerate the typed routes, then `tsc --noEmit`            |
+| `npm run typegen`                       | regenerate `.expo/types/router.d.ts` (no Metro needed)      |
 | `npm run lint`                          | `expo lint` (eslint-config-expo + prettier compatibility)   |
 | `npm run format` / `format:check`       | Prettier                                                    |
 | `npm test`                              | Jest (`jest-expo`, `@testing-library/react-native`)         |
@@ -163,7 +193,7 @@ Conventions later stages reuse:
 
 Both end-to-end suites use their own stack and never touch a developer's: the database
 `orenjitrade_mobile_e2e` (dropped and recreated per run, migrated and seeded by the API), an API
-jar on **:8090** (profile `local`, Redis database 1 with its own realtime channels
+jar on **:8090** (profile `local`, Redis database 1 (flushed with the database) with its own realtime channels
 `e2e-mobile:rt:user:*`, media, card-image cache and provider snapshots under
 `.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck disabled and pointed at a closed local port,
 no image downloads), the shared Auth emulator, and the web build on **:19006** (Playwright) or
@@ -194,7 +224,15 @@ on the map, a dragged pin, the `PUT` body checked for `MANUAL` and 3 decimals; m
 precise coordinates), `account.spec.ts` (export, deletion request and cancel, privacy and notification
 settings), `leaflet-page.spec.ts` (the Android WebView map page in
 Chromium: taps, pin drag, apply, focus, a 0 x 0 first layout, Leaflet load failure; no stack
-needed). A privacy fixture scans every API response for coordinates with more than 3 decimals,
+needed), `catalog.spec.ts` (search -> game and language filters -> card detail -> printings, every
+picture an API URL; printing-code match, an unknown card), `inventory.spec.ts` (add a card through
+search -> printing -> details, edit it (only the changed fields are sent), delete it with a
+confirmation; add from a card detail, intent / game filters and sorting), `binders.spec.ts`
+(create a binder -> add a card -> publish for 24 hours -> make private -> remove the card -> rename
+-> delete; the `binders.max` limit; another collector's public binder: public cards and notes
+only). The static web export served by `expo serve` has no rewrites for dynamic routes
+(`/cards/<id>` answers 404 on a full page load), so specs open them inside the running app
+(`openInApp` in `e2e/support/stack.ts`). A privacy fixture scans every API response for coordinates with more than 3 decimals,
 and OpenStreetMap tiles are served from memory (no tile requests leave the machine).
 Logs: `.local-dev/mobile-e2e/logs/`.
 
@@ -221,13 +259,20 @@ checks that the Android bundle targets the isolated API, then runs the flows wit
 `sign-up-onboarding.yaml`, `profile-edit.yaml`, `discoverability.yaml` (city quick pick, a tap on
 the map, save, `scripts/check-area.js` checks on the host that the API holds a `MANUAL` centre with
 3 decimals; pan + "Use map centre"; map opt-in), `sign-out.yaml` (session restore after a
-relaunch, then sign-out). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+relaunch, then sign-out), `search-card-detail.yaml` (search, a schema language filter, card
+detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
+details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
+`binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
+"Add cards", publish for 24 hours, checked on the API). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
 text field, which Android turns into a text-selection long press) and host-side helpers in
 `.maestro/scripts/` (create a fictional collector through the emulator and the API, verify an
-email with the emulator's code, check a saved trading area). Screenshots and reports: `.local-dev/mobile-e2e/maestro/`.
+email with the emulator's code, check a saved trading area, add a card, check an inventory).
+Screenshots and reports: `.local-dev/mobile-e2e/maestro/`. Edit nothing in the repository while
+flows run (Metro re-crawls the workspace and Expo Go may lose the packager) and restart a kept
+Metro after source changes (`npm run test:mobile:maestro -- --stop`).
 
 ## Deep links
 
@@ -237,8 +282,11 @@ email with the emulator's code, check a saved trading area). Screenshots and rep
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The mobile UIs of Phases 2-10 (catalog, binders, collectors on the map as 3 km zones, chat,
-  wishlist, offers, payments, ...).
+- The mobile UIs of Phases 4-10 (collectors on the map as 3 km zones and "who has this near me"
+  filtered by card, chat, wishlist and "Add to wishlist", offers, payments, ...).
+- Inventory extras of the web not on mobile yet: owner photos of an item, the multi-select bulk bar
+  (visibility, availability, delete; moving cards into a binder is there), binder reordering, set
+  pages (`/sets/:id`); a set opens the Search tab filtered by that set instead.
 - Device push notifications (preferences are saved; delivery arrives with a later phase).
 - Sora / Inter fonts (system font until `expo-font` loading is added).
 - EAS: `extra.eas.projectId` stays a placeholder; no EAS build is used (local and free only).

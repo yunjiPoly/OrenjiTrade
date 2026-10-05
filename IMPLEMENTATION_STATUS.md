@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -51,7 +51,7 @@ _Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1
 
 ## Phase 2 — Card Catalog
 
-_Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 354 API tests / 55 classes green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI re-exported (59 paths, no Phase 1 path/schema lost), clients regenerated, live smoke on `api-phase2.jar`). Web Phase 2 complete (stage 3, independently re-verified: 153 web unit tests / 31 files, 26/26 Playwright specs against `api-phase3.jar`, 0 skipped). Mobile deferred by owner decision._
+_Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 354 API tests / 55 classes green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI re-exported (59 paths, no Phase 1 path/schema lost), clients regenerated, live smoke on `api-phase2.jar`). Web Phase 2 complete (stage 3, independently re-verified: 153 web unit tests / 31 files, 26/26 Playwright specs against `api-phase3.jar`, 0 skipped). Mobile: stage M2 (2026-10-05, see "Mobile app (stage M2)")._
 
 - [x] `game`, `card`, `card_set`, `card_printing`, `card_image` with JSONB metadata — migrations V012 (`game` with a `GameSchema` jsonb per game) and V013 (`card_set`, `card`, `card_printing`, `card_image`, `catalog_sync_run`; generated tsvector columns, trigram, jsonb GIN and printing-code indexes). `games` module: `GameService` implements `GameCatalog` from the DB (ACTIVE games only), replacing `ConfiguredGameCatalog`/`GamesProperties`/`orenji.games.slugs`. Tests GamesIT (3)
 - [x] `CardProvider` interface + `MockCardProvider` + import/sync pipeline — `apps/api/.../cards`: `CardProvider` (contract shape), `MockCardProvider` (profiles local/dev/test), idempotent `CatalogImportService` (keyed by `external_ref`, per-game advisory lock, only changed rows rewritten, stable slugs), `POST /admin/catalog/sync` → 202 + `CatalogSyncRequestedEvent` handled by an `@ApplicationModuleListener`, `GET /admin/catalog/sync-runs[/{id}]`, `GET /admin/catalog/providers`. Tests CatalogImportIT (3). Real provider since 2026-10-01: `YgoProDeckCardProvider` (see "Card images + real Yu-Gi-Oh! catalog")
@@ -59,14 +59,14 @@ _Backend complete (workflow `web-mvp-local` stage 2, independently re-verified: 
 - [x] Catalog search: FTS + trigram, filters (game, set, rarity, language, edition) — `CatalogQueryRepository`: `ts_rank_cd` FTS, trigram fallback under 5 hits, accent-insensitive, printing-code short-circuit, set/rarity/language/edition filters and typed `metadata.<key>` filters (jsonb containment, validated against the `GameSchema`), `GET /cards/suggest` — tests CatalogSearchIT (9), CatalogTextTest (4)
 - [x] `/api/v1/games`, `/api/v1/cards`, `/api/v1/cards/{id}/printings`, `/api/v1/sets` — plus `/games/{slug}`, `/cards/{id}`, `/printings/{id}`, `/sets/{id}`; public GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`, also exempt from the account-state and 428 terms checks); admin writes `POST/PUT /admin/games`, `/admin/sets`, `/admin/cards`, `POST /admin/cards/{id}/printings`, `PUT /admin/printings/{id}` (audited, schema-validated) — tests AdminCatalogIT (3), CatalogSearchIT. Deviation: OpenAPI path is `/public/placeholder-images/{game}/{file}` (file = `<slug>.svg`)
 - [x] Web card search UI (autocomplete) and card detail — `apps/web-angular/src/app`: `shared/catalog` (top-bar `CardSearchBoxComponent` on `GET /cards/suggest`: 250 ms debounce, keyboard navigation, printing suggestions open the card with `?printing=`, Enter without a highlight searches `/cards?q=`, deferred chunk; `GamesStore` on `GET /games`, card image/tile/grid, catalog labels), `features/catalog` (`/cards` with query, game pills and set/rarity/language/edition filters from the `GameSchema`, all state in the URL, paginated grid, printing-code badge; `/cards/:id` with schema-driven attributes, selected printing and printings table with market prices; `/sets/:id` with a paginated checklist), `/search` previews matching cards, profile game picker now from `GET /games`. Skeleton/empty/error-with-retry states. Tests: Vitest units (card search params, card metadata, catalog labels, search box), Playwright `e2e/catalog.spec.ts` (4: keyboard autocomplete → card detail → printings → set page; filters kept in the URL across reload; printing-code search from the page and the autocomplete; not-found state). Deviations/debt: `metadata.<key>` filters not exposed (the generator emits no dynamic query parameters); no `/sets` index page yet; "Who has this near me" / "Add to wishlist" disabled until Phases 4/6; E2E specs serve placeholder card images from memory (`stubCardImages`) because the API counts each image against the anonymous 60/min per-IP rate limit shared by the parallel suite
-- [ ] Mobile card search UI and card detail — deferred by owner decision
+- [x] Mobile card search UI and card detail — stage M2 (builder, 2026-10-05): Search tab (`app/(tabs)/search.tsx`: live typo-tolerant `GET /cards` search across games, 350 ms debounce, game pills, set (`GET /sets?game=`) / rarity / language / edition filters from the game schema with the web's `withFilter` rules, infinite pages, printing-code match badge, recent searches per account on the device, empty / error-with-retry / offline states, links into the tab apply a set) and card detail (`app/cards/[id].tsx`, `?printing=`: `CardImage` (API picture URLs only) with the YGOPRODeck credit line, schema-ordered attributes, the selected printing with market price, every printing (`PrintingList`), the set opens the Search tab filtered by it, "Add to inventory" (the add flow with card and printing preselected), "Who has this near me" opens the Map tab with `?card=` until the card filter of stage M3; not-found / error states). "Add to wishlist" is left out: the web adds wishes through the wishlist dialog (criteria, radius), the mobile wishlist stage brings it. Tests: jest (`search.test.tsx`, `card-detail.test.tsx`, `cardSearch.test.ts`, `catalog.test.ts`, catalog hooks), Playwright `catalog.spec.ts` (2), Maestro `search-card-detail.yaml`
 - [x] Tests: provider contract, search ranking, JSONB metadata per game — CatalogImportIT, CatalogSearchIT, CatalogMetadataIT, AdminCatalogIT, PlaceholderImageIT, GamesIT, CatalogTextTest
 - [x] Platform rules (ADR 0014, plan item 2): feature flags — `featureflags` module, migration V010 (7 default flags), `FeatureFlags.isEnabled/require/evaluateAll` (60 s Redis cache evicted after commit, deterministic CRC32 rollout bucket per account), `GET /public/feature-flags`, `GET /admin/feature-flags`, `PUT /admin/feature-flags/{key}` (SUPER_ADMIN, audited); local/dev seed enables `protectedPayments`, `advertising`, `donations` (fake providers), `mlScanning` stays off; `FEATURE_DISABLED` now renders 404 with a `feature` extension — tests FeatureFlagsIT (4). Plans/limits/entitlements: see Phase 10. `common/cache/RedisJsonCache` fail-open read-through cache. Debt: no contract document covers the feature-flag endpoints (the exported `openapi.json` is the field-level truth)
 - [x] Web platform rules + catalog admin (stage 3) — `core/feature-flags` (`FeatureFlagsService` on `GET /public/feature-flags`, sends the ID token when signed in via the new `ATTACH_ID_TOKEN` context so rollouts are per account, flags off until known, reload on sign-in/out; `featureGuard(key, label)` guards `/community` (`publicChat`)), `core/limits` (429 `LIMIT_REACHED` interceptor + lazy dialog: limit label/key, used/limit, reset time, plan, Premium value from `GET /plans`, "See Premium" while `premiumPlans` is on; snackbar fallback; opt out with `SKIP_LIMIT_DIALOG`), `features/premium` (`/premium`: plans + `GET /me/plan` usage; upgrade disabled until Phase 10), `features/admin/games` (list incl. hidden, schema JSON editor with live validation, format and preview), `features/admin/cards` (search, `/admin/cards/:id` editor with schema-driven attributes and printing dialog, mock catalog sync panel polling runs), `features/admin/feature-flags` (switch with confirmation, SUPER_ADMIN; read-only for ADMIN), `features/admin/usage-limits` (plans × limits matrix, inline edit, Enter/Escape, SUPER_ADMIN), audit labels for Phase 2 actions. Fixes: `SearchFieldComponent` now handles the native submit event (it used `(ngSubmit)` without a form directive); footer `/meta` probe sends the token when signed in and loads lazily. Tests: Vitest units (feature flags, feature guard, limit-reached parsing/interceptor/dialog, schema validation, limit matrix, cell editor, plan labels), Playwright `e2e/admin-rules.spec.ts` (4: SUPER_ADMIN flag switch with cancel + confirm persisting after reload, inline PREMIUM limit edit persisting and shown on `/premium`, ADMIN read-only, game schema validation + mock sync; state restored through the API). Verifier fix: `packages/api-client/package.json` now declares `"sideEffects": false` so unused generated services are tree-shaken (initial bundle 927.77 kB → 835.50 kB after the Phase 3 regeneration; 900 kB warning budget). Debt: set/printing creation has no admin UI yet (the user entitlements panel and the plan editor landed with web Phase 10, stage 11); the limit-reached dialog is covered end to end since stage 4 (`inventory.spec.ts`) and stage 11 (`freemium.spec.ts`)
 
 ## Phase 3 — Inventory + Binders
 
-_Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 413 API tests / 67 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (81 paths, previously 59, no path or schema lost; every contract route present); clients regenerated; live check on `.local-dev/api-snapshots/api-phase3.jar` (seeds 10 binders / 36 items)). Web `/inventory` and public binder pages complete (workflow `web-mvp-local` stage 4, independently re-verified: 185 web unit tests / 38 files, 30/30 Playwright specs against `api-phase4.jar`, 0 skipped); mobile deferred by owner decision. Module order `delisting` ← `binders` ← `inventory` (inventory implements the `binders` `BinderContents` extension point, no cycle)._
+_Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 413 API tests / 67 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (81 paths, previously 59, no path or schema lost; every contract route present); clients regenerated; live check on `.local-dev/api-snapshots/api-phase3.jar` (seeds 10 binders / 36 items)). Web `/inventory` and public binder pages complete (workflow `web-mvp-local` stage 4, independently re-verified: 185 web unit tests / 38 files, 30/30 Playwright specs against `api-phase4.jar`, 0 skipped); mobile: stage M2 (2026-10-05, see "Mobile app (stage M2)"). Module order `delisting` ← `binders` ← `inventory` (inventory implements the `binders` `BinderContents` extension point, no cycle)._
 
 - [x] `binder`, `inventory_item` (quantity, condition, language, printing, edition, price, availability, visibility, notes) — migrations V021 (`binder`, generated `search_vector` + GIN) and V022 (`inventory_item` with the contract indexes and the `trg_inventory_item_binder_count` trigger maintaining `binder.item_count`, `inventory_item_image`, `inventory_freshness_event`); `binders` (`BinderService`: CRUD, publish PUBLIC/ONE_HOUR/ONE_DAY/UNTIL_DISABLED, unpublish, confirm, reorder, delete that unfiles or `?deleteItems=true`; `binders.max` via `Limits.consume` + a `LimitUsageSource`) and `inventory` (`InventoryService`: CRUD, PATCH with absent-vs-null semantics through `common/PartialUpdate`, soft delete, confirm, ≤ 4 photos re-encoded to JPEG ≤ 1600 px through `ObjectStorage` (rate-limited 60/hour), summary); export contributors and deletion participants for both; seed `db/seed/inventory.json` (`InventorySeedContributor`, order 500) — tests InventoryIT (9), BinderIT (8, incl. `binders.max` → 429), ItemImageProcessorTest (4), PartialUpdateTest (4), DeletionIT (extended), SeedDataRunnerIT (extended)
 - [x] Visibility: PRIVATE / PUBLIC / TEMPORARILY_PUBLIC (until timestamp); binder-level too — `binders/domain/PublicVisibilityRules` (SQL fragments + pure Java twin evaluated live on every public read; `publicUntil` ≤ 30 days ahead), `ListingReconciler` keeps a materialised `publicly_listed` flag so `InventoryItemPublished`/`Unpublished` and `BinderPublished`/`Unpublished` fire once per transition (Modulith outbox), re-run on suspend/unsuspend/`PrivacySettingsChangedEvent` (new, published by `PrivacySettingsService.update`) — tests VisibilityIT (4), VisibilityRulesTest (5), EventsIT (3)
@@ -74,8 +74,8 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 - [x] Bulk operations: select, change visibility, move binder — `POST /inventory/items/bulk` (`SET_VISIBILITY`, `MOVE_TO_BINDER`, `SET_AVAILABILITY`, `CONFIRM`, `DELETE`; one transaction; per-id ownership, `skipped[].reason` NOT_FOUND/UNCHANGED) — tests BulkOperationsIT (4)
 - [x] Public binder views + collector public profile endpoint — `GET /collectors/{handle}/binders`, `GET /public/binders/{id}` (owner block with region label + distance bucket only; `binder.views.per_day` consumed once per binder and UTC day for signed-in non-owners), `GET /public/binders/{id}/items`, `GET /collectors/{handle}/inventory` (`PublicInventoryItem`, never `notes`); routes added to `SecurityConfig.PUBLIC_GET_PATTERNS` — tests PublicBinderIT (3), GeoPrivacyContractTest `publicListingsNeverCarryCoordinatesOrPrivateNotes` (every public listing route of the seeded collectors, anonymous and signed in: no coordinates, ≤ 3 decimals, no private notes, logs clean). Contract deviations (documented in `apps/api/README.md`, contract docs not yet edited): PRIVATE profiles never publish; additive columns (`binder.freshness_state`/`warned_at`/`publicly_listed`/`listing_changed_at`, `inventory_item.warned_at`/`publicly_listed`/`listing_changed_at`, `inventory_freshness_event.owner_id`, `delist_policy.max_strikes`/`created_at`) and response fields (`BinderResponse.sortOrder`/`effectivePublic`/`games`/`coverPrintingId`, `PublicInventoryItem.binder`, `PublicBinderResponse.kind`/`publicUntil`/`coverImageUrl`, summary `agingCount`/`effectivePublicCount`, list params `unfiled`/`direction`); photo upload answers 201 with the item. Debt: photos JPEG not WebP; binder names/descriptions and public notes not yet run through `TextModerationService` (Phase 7); web must send the token on `GET /public/binders/{id}` for `binder.views.per_day` to count
 - [x] Web `/inventory` page (filters, table/grid, edit drawer, bulk bar, binder manager) — `apps/web-angular/src/app/features/inventory` (stage 4): container page with all state in the URL (`?binder=<id>|unfiled&q&game&visibility&availability&condition&freshness&sort&view&page&size`), `InventoryStore` + `BinderActionsService` shared with the dialogs; binder list (All cards / Unfiled / binders with visibility icon and counts, horizontal strip < 960 px); summary strip (cards/copies, public, private, temporarily public with next end, stale + hidden "needs confirmation" with "Confirm all"); privacy notice when public content cannot be seen (not discoverable / profile not PUBLIC) and per-item/binder visibility explanations; toolbar (search, All/Private/Public/Temporarily public segmented control, game, availability, condition, freshness, sort, grid/table); selected-binder header (publish 1 h / 24 h / until disabled, make private, public page, edit, confirm, delete); grid cards + table rows with quantity stepper (PATCH in place), visibility and server-labelled freshness badges; bulk bar (visibility incl. temporary 1 h / 24 h / 3 / 7 / 30 days, move to binder/unfiled, availability, confirm, delete; skipped cards and reasons listed); "Add card" dialog (`/cards/suggest` → printing picker → details, Private by default); edit side panel (changed fields only as PATCH, ≤ 4 photos, confirm, delete); binder form dialog (`binders.max` → limit-reached dialog + inline message); binder manager (drag and drop, keyboard move buttons keeping focus, inline rename, publish/private, delete, create). Public binder page `features/binders` (`/binders/:id`, ID token attached when signed in so `binder.views.per_day` counts; owner card = region label + distance bucket only; game pills/search/availability in the URL; never private notes; 404 / 429 / error-with-retry states). Collector page: "View public binder" wired, public binders + 8-card inventory preview; card detail "Add to inventory"; signed-out `/inventory` shows a sign-in invitation. Shared `shared/inventory`, `shared/ui/visibility-badge`, `FreshnessBadge` `label`/`compact` inputs. Generated `@orenji/api-client` only. Tests: Vitest units (inventory-params, item-form, bulk-actions, visibility-status, inventory.store, quantity-stepper, inventory-labels, freshness-badge) — 185 web unit tests / 38 files; Playwright `e2e/inventory.spec.ts` (4: add card → binder → move → public → edit + photo + publish until disabled + reload; bulk temporary publication / availability with skipped reason / move / private / delete; a second collector opens the published binder from the owner's profile with every JSON lat/lng ≤ 3 decimals; `binders.max` limit-reached dialog + keyboard reorder persisted + delete) — 30/30 Playwright specs green against `api-phase4.jar`. Debt: a `/sets` index page still pending (stage 3 carry-over; admin user entitlements and plan editing landed in stage 11)
-- [ ] Mobile inventory tab optimised for card management — deferred by owner decision
-- [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT, BinderViewLimitIT (3, stage 4: FREE visitors consume one view per binder and day, owner/signed-out views never count, PREMIUM and entitled visitors unlimited) + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web flow tests: Playwright `inventory.spec.ts` (4); mobile deferred
+- [x] Mobile inventory tab optimised for card management — stage M2 (builder, 2026-10-05): Inventory tab (`app/(tabs)/inventory.tsx`, Cards | Binders): cards with search, binder (all / unfiled / one) / game / intent (`availability`) filters and sorting (recently updated, name, price both ways) in bottom-sheet selects, infinite list rows (picture, printing code, condition, copies, price, intent, offers, visibility, freshness), totals (`GET /inventory/summary`), stale or hidden cards with "Confirm all" (bulk `CONFIRM`), listing health (`GET /me/listings/status`: paused banner with "Resume listings" after a confirmation, or moderation review; strikes reminder); add a card (`app/items/new.tsx`: `GET /cards/suggest` → `GET /cards/{id}` printing → details (copies, condition / language / edition / finish from the game schema, intent + accepts offers exactly as the API models them, price and currency, private / public / temporarily public 1 h–30 days, binder, public and private notes; the web's validation) → `POST /inventory/items`); edit (`app/items/[id].tsx`: `PATCH` of the changed fields only, visibility explained, "Still available" → `POST .../confirm` for stale / hidden cards, delete with a confirmation); binders (`app/binders/[id].tsx` own view: status and freshness, publish 1 h / 24 h / until disabled, make private, confirm, rename (`binders/edit`), delete (cards become unfiled), "Add cards" (bulk `MOVE_TO_BINDER`), remove a card (`binderId: null`), public page; public view for any other binder: owner area label + distance bucket, public cards and notes only, availability filter, 404 and binder-views limit states; `binders/new` with the `binders.max` limit explained in place). Public binder reads carry the ID token when signed in (the web's `ATTACH_ID_TOKEN`). Not on mobile yet: item photos, the multi-select bulk bar, binder reordering, set pages
+- [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT, BinderViewLimitIT (3, stage 4: FREE visitors consume one view per binder and day, owner/signed-out views never count, PREMIUM and entitled visitors unlimited) + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web flow tests: Playwright `inventory.spec.ts` (4); mobile (stage M2): jest (`inventory.test.tsx`, `items.test.tsx`, `binders.test.tsx`, `itemForm.test.ts`, inventory / binder hooks), Playwright `inventory.spec.ts` (2) and `binders.spec.ts` (3), Maestro `inventory-add-edit-delete.yaml` and `binder-create-add-item.yaml`
 
 ## Phase 4 — Map + Geographic Search (flagship)
 
@@ -628,6 +628,91 @@ re-verification pending; not pushed._
   development build is introduced); iOS not run (no macOS); device push delivery, fonts and the EAS
   project id unchanged; Maestro runs take about 12 minutes and are local only (not in CI).
 
+## Mobile app (stage M2: Phases 2 and 3 — catalog, inventory, binders, 2026-10-05)
+
+_Owner decision 2026-10-04 (mobile resumes, local and free only). Branch `feature/mobile-m2`
+(worktree, created from `feature/mobile-m1`), builder done; independent verification pending; not
+pushed. Mirrors `apps/web-angular/src/app/features/{catalog,search,inventory,binders}` on the
+same endpoints. No API, web or package change (scripts: the mobile E2E harness fix below)._
+
+- [x] API layer — `src/api/hooks/{catalog,inventory,binders}.ts` on `@orenji/shared-types` +
+  openapi-fetch (no hand-written DTOs; aliases in `src/api/types.ts`): `GET /cards` (infinite
+  pages), `/cards/suggest`, `/cards/{id}`, `/sets`; inventory items (filters, infinite), one item
+  (shown at once from a cached list), summary, `POST` / `PATCH` (changed fields only) / `DELETE`,
+  `confirm`, bulk `MOVE_TO_BINDER` and `CONFIRM` ("Confirm all": stale + hidden ids, ≤ 500);
+  `GET /me/listings/status` + `resume`; binders list / one / items, create, `PATCH`, publish,
+  unpublish, confirm, delete (`deleteItems=false`); `GET /public/binders/{id}` and its items.
+  Query keys under `['me', uid, 'inventory' | 'binders' | 'listing-status']`, `catalogKeys`,
+  `publicKeys.publicBinder(id, uid)`; every inventory / binder write refreshes inventory + binders
+  and never refetches what was just deleted. Public binder reads carry the ID token when signed in
+  (`sendsIdToken`, the web's `ATTACH_ID_TOKEN`: `binder.views.per_day`, distance bucket).
+- [x] Search tab + card detail — see the Phase 2 mobile row. Recent searches: per account (uid)
+  on the device (zustand + AsyncStorage), card search texts only, never a location.
+- [x] Inventory tab, add / edit / delete, binders, public binder view — see the Phase 3 mobile
+  row. Intents exactly as the API models them: `availability` (trade or sale, trade, sale,
+  collection only, not available) + `acceptsOffers`; "want" is a wishlist entry (later stage).
+  Freemium limits explained in place (`src/lib/limits.ts`, `LimitReachedNotice`): `binders.max`
+  on "New binder" ("You have used 5 of 5 binders on the Free plan…"), `binder.views.per_day` on a
+  public binder, any other `LIMIT_REACHED` on the item forms.
+- [x] Building blocks — `ChoiceChips` (radio chips), `SelectSheet` (field + bottom sheet of
+  options), `Segmented` (tabs inside a tab), `ListFooter` (infinite-list spinner / retry);
+  `npm run typecheck` regenerates the expo-router typed routes first (`scripts/typed-routes.mjs`:
+  Expo CLI only rewrites `.expo/types/router.d.ts` while a dev server runs).
+- [x] Fix found on the way (M1 code): onboarding picked its first step before `/me` answered when
+  the other loads were faster (flaky `onboarding.test.tsx` once more suites ran in parallel); the
+  screen now waits for `/me` too.
+- [x] Harness fix (`scripts/lib/mobile-e2e.mjs`): a run started within a minute of another one
+  recreated `orenjitrade_mobile_e2e` but kept Redis db 1, where the API caches games (60 s) with
+  their ids, so the new API's catalog seed failed (FK violation on `catalog_sync_run`) and did not
+  start. The harness now flushes db 1 whenever it recreates its database, like the web harness
+  does for db 2; `assertFlushableRedis` (unit tested) refuses any other database or a non-local
+  Redis.
+- [x] Found on the device and fixed: the Search filter sheet listed every game's rarities before
+  the short filters (now last); the inventory filter bar's first pill stretched and hid Intent and
+  Sort (compact pills now size to their text).
+- [x] Tests — jest/RNTL: 98 new tests (329 in 44 suites, was 231 in 33): `catalog.test.ts`,
+  `inventory.test.ts` (labels, filters, limits), `itemForm.test.ts` (defaults, validation, POST
+  body, PATCH of changed fields, temporary publication end, visibility status), `cardSearch.test.ts`
+  (schema filters, recent searches), `catalogInventoryHooks.test.tsx` (paging, params, refresh,
+  no refetch after delete, public binder token), `choice.test.tsx`, screens `search`,
+  `card-detail`, `inventory`, `items`, `binders` (loading, empty, error-with-retry, offline,
+  validation, limits, confirmations). Playwright (`apps/mobile/e2e`): `catalog.spec.ts` (2),
+  `inventory.spec.ts` (2), `binders.spec.ts` (3); `openInApp` opens dynamic routes inside the
+  running app (the static export served by `expo serve` has no rewrites for `/cards/<id>`,
+  `/binders/<id>`: a full page load answers 404). Maestro: `search-card-detail.yaml`,
+  `inventory-add-edit-delete.yaml`, `binder-create-add-item.yaml` with host scripts
+  `scripts/add-card.js` and `scripts/check-inventory.js` (API checks after each step; refuse :8080,
+  only `@mobile-e2e.test` accounts), `subflows/scroll-down-to-text.yaml`.
+- Checks (2026-10-05, Windows 11, Pixel_6_API_34 emulator): `npm run test:mobile` green (typecheck with
+  regenerated typed routes, lint, 329 jest tests / 44 suites, 28 harness guard tests), with the
+  emulator running next to it (jest alone also green 3 times in a row after the onboarding fix); `npm run test:scripts` 54/54; `npx expo-doctor`
+  21/21; `npx expo export --platform android` (4.4 MB Hermes bundle) and `--platform web` (46
+  static routes) OK; `npm run test:mobile:e2e` 19/19 passed (12 earlier + 7 new), 0 skipped, 0
+  flaky, twice (before and after the harness fix); `npm run audit:gate` OK (no dependency change). Native (Expo Go 57 on `Pixel_6_API_34`,
+  harness-started API :8090 and Metro :8082): `npm run test:mobile:maestro` 8/8 flows passed
+  (18 min) twice in a row, the second time started within a minute of an E2E run (the Redis flush
+  at work); an earlier full run lost 2 Phase 1 flows to "Packager is not running at
+  10.0.2.2:8082" / a stuck sign-in while files of the repository were being edited during the run
+  (Metro re-crawls), and passed 8/8 once nothing was edited. A walk by hand (seed sign-in, Search
+  with a filter sheet, card detail with the French printing, "Who has this near me" to the Map
+  tab, Inventory with the binder and intent selects, the item editor, Binders, an own binder, its
+  public page, the add flow, a binder deep link `exp://10.0.2.2:8082/--/binders/<id>`) showed no
+  red box or crash: logcat without FATAL or ReactNativeJS errors (only Expo Go's own
+  `ReactNoCrashSoftException` of its KeyboardControllerModule at start-up), no coordinates;
+  Metro log clean; screenshots in the session scratchpad. No API, web or package
+  change, so no Gradle, web or client regeneration run was needed; every process started for
+  the checks (API, web server, Metro, emulator, the Gradle daemon) was stopped afterwards.
+- Gaps / debt: "Add to wishlist" left out (the web adds wishes through the wishlist dialog with
+  criteria and radius; the mobile wishlist stage brings it); "Who has this near me" opens the Map
+  tab with `?card=` but the Map tab ignores it until the card filter of stage M3; not on mobile
+  yet: item owner photos, the multi-select bulk bar (visibility / availability / delete; moving
+  cards into a binder is there), binder reordering, set pages (a set opens the Search tab filtered
+  by it); the web build of the app mixes the static HTML's light colours with dark components when the
+  browser prefers dark (pre-existing since M1: hydration keeps the server-rendered light styles;
+  the E2E suite runs light; native follows the system); a Metro kept by `--keep-running` did not serve a later source change on Windows, and
+  editing repository files while flows ran made Expo Go lose the packager (restart Metro after
+  edits, `npm run test:mobile:maestro -- --stop`, and edit nothing during a run); iOS not run (no macOS).
+
 ## E2E isolation, test-data purge and 3 km zones (2026-10-04)
 
 _Workflow task on branch `fix/e2e-isolation-3km-zones` (worktree, not pushed). Owner request: the
@@ -785,7 +870,7 @@ Final independent verification, 2026-09-30, from a clean local state (`npm run i
 no cloud deployment) · **DEFERRED-MOBILE** (owner decision: web first) · **ON-HOLD-ML** · **FAIL**.
 "Acceptance" = `apps/web-angular/e2e/acceptance/*.spec.ts`; "walkthrough" = the manual `npm run dev`
 walkthrough above. No criterion is FAIL; none is ON-HOLD-ML (card scanning is not one of the 44).
-The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
+The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven). Since 2026-10-05 the Expo app implements the mobile halves of criteria 1–5 (stage M1) and 6–11, 17 and 18 (stage M2: inventory, binders, visibility, publication, public binder, card search), proven by the mobile jest, Playwright and Maestro suites listed in those sections; the statuses below remain those of the final web verification.
 
 | # | Criterion | Status | Evidence |
 | --- | --- | --- | --- |
@@ -897,6 +982,15 @@ EAS, Expo publish or Maestro Cloud). Phase 11 (ML card recognition) is on hold.
 > list in that section, including the native check), then push, PR and merge to `main` when CI is
 > green; then the next mobile stage.
 
+> **Mobile stage M2 (2026-10-05, branch `feature/mobile-m2` on top of `feature/mobile-m1`):**
+> Phases 2 and 3 on the Expo app (see "Mobile app (stage M2)"): the Search tab and card detail,
+> the Inventory tab with adding, editing and deleting cards, binders (create, rename, publish,
+> make private, confirm, delete, add / remove cards) and the public binder view, freemium limits
+> explained in place; 98 new jest tests, 7 new Playwright specs (19 in all), 3 new Maestro flows
+> (8 in all); the mobile harness now flushes its Redis db with its database. No API change.
+> Committed, not pushed. **Next:** independent verification of stage M2 (after or together with
+> M1's), then push, PR and merge in order (M1 first) when CI is green; then stage M3.
+
 > **E2E isolation, test-data purge and 3 km zones (2026-10-04, branch `fix/e2e-isolation-3km-zones`):**
 > merged into `main` as #39 (see the section of the same name): `npm run test:e2e` runs on its
 > own stack (database `orenjitrade_e2e`, API :8180, web :4300, Redis db 2, files under
@@ -913,14 +1007,16 @@ Phase 8 API + web Phase 7 · stage 9 Phase 9 API + web Phase 8 · stage 10 Phase
 · stage 11 web Phase 10 · stage 12 local environment tooling + web acceptance suite + final
 verification.
 
-**Exact next task — mobile stage M2 after M1 is verified and merged:**
-1. Verify stage M1 independently (`npm run test:mobile`, `npx expo-doctor`, `expo export` for
-   android and web, `npm run test:mobile:e2e`, the native check with `npm run test:mobile:maestro`
-   on `Pixel_6_API_34`), then push `feature/mobile-m1`, open the PR and merge when CI is green.
-2. Mobile Phase 2 (card catalog: Search tab with autocomplete, card detail with `CardImage`, sets)
-   on the same conventions (`@orenji/shared-types` + openapi-fetch, react-query keys, `QueryState`,
-   API picture URLs only, mock catalog in tests), with Playwright specs and Maestro flows; then the
-   mobile items of Phases 3–10 in order.
+**Exact next task — mobile stage M3 after M1 and M2 are verified and merged:**
+1. Verify stages M1 and M2 independently (`npm run test:mobile`, `npx expo-doctor`, `expo export`
+   for android and web, `npm run test:mobile:e2e` (19 specs), the native check with
+   `npm run test:mobile:maestro` (8 flows) on `Pixel_6_API_34`), then push `feature/mobile-m1` and
+   `feature/mobile-m2`, open the PRs and merge them in order when CI is green.
+2. Mobile Phase 4 (stage M3): the Map tab with collectors as 3 km zones (zoom capped at 14 on every
+   engine), the preview bottom sheet, the collector profile with public binders, "Who has this near
+   me" filtering the map by card (`GET /search/card-holders`), on the same conventions; then the
+   mobile items of Phases 5–10 in order (the wishlist stage adds "Add to wishlist" on the card
+   detail).
 3. In parallel when useful (no owner decision needed): the backend and web debt listed above and
    Phase 13 hardening. Cloud deployment (Phase 14) and ML (Phase 11) stay deferred / on hold until
    the owner lifts them.
