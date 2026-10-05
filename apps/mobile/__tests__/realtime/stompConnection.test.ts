@@ -16,7 +16,7 @@ class FakeSocket implements WebSocketLike {
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onclose: ((event: { code: number; reason: string }) => void) | null = null;
   onerror: ((event: unknown) => void) | null = null;
-  readonly sent: string[] = [];
+  readonly sent: (string | ArrayBuffer)[] = [];
   closedWith: number | null = null;
 
   constructor(
@@ -25,7 +25,7 @@ class FakeSocket implements WebSocketLike {
     readonly headers: Readonly<Record<string, string>> | undefined
   ) {}
 
-  send(data: string): void {
+  send(data: string | ArrayBuffer): void {
     this.sent.push(data);
   }
 
@@ -56,12 +56,13 @@ describe('StompConnection', () => {
   let closes: StompCloseInfo[];
 
   function open(
-    extra: { heartbeatMs?: number; headers?: Record<string, string> } = {}
+    extra: { heartbeatMs?: number; headers?: Record<string, string>; nulSafe?: boolean } = {}
   ): Promise<StompConnection> {
     closes = [];
     return StompConnection.open({
       url: 'ws://10.0.2.2:8090/ws',
       handshakeHeaders: extra.headers,
+      nulSafeFrames: extra.nulSafe,
       heartbeatMs: extra.heartbeatMs ?? 10_000,
       connectTimeoutMs: 5_000,
       onClose: (info) => closes.push(info),
@@ -165,6 +166,31 @@ describe('StompConnection', () => {
     socket.drop(1001);
     socket.drop(1001);
     expect(closes).toEqual([{ code: 1001, reason: 'closed', connected: true }]);
+  });
+
+  it('survives React Native dropping the NUL of text frames (binary out, NUL restored in)', async () => {
+    const pending = open({ nulSafe: true });
+    socket.open();
+    const connect = socket.sent[0];
+    expect(connect).toBeInstanceOf(ArrayBuffer);
+    expect(new TextDecoder().decode(connect as ArrayBuffer)).toBe(
+      'CONNECT\naccept-version:1.2\nhost:10.0.2.2:8090\nheart-beat:10000,10000\n\n\u0000'
+    );
+    // The server's CONNECTED without its NUL (no content-length either).
+    socket.receive('CONNECTED\nversion:1.2\nheart-beat:20000,20000\n\n');
+    const connection = await pending;
+    const received: string[] = [];
+    connection.subscribe('/user/queue/messages', (frame) => received.push(frame.body));
+    socket.receive('MESSAGE\nsubscription:sub-0\n\n{"a":"é"}');
+    socket.receive('\n'); // heartbeats stay as they are
+    expect(received).toEqual(['{"a":"é"}']);
+    await jest.advanceTimersByTimeAsync(20_000);
+    expect(socket.sent).toContain('\n');
+    connection.send('/app/typing', '{"conversationId":"c1"}');
+    const sent = new TextDecoder().decode(socket.sent.at(-1) as ArrayBuffer);
+    expect(sent.startsWith('SEND\ndestination:/app/typing\n')).toBe(true);
+    expect(sent.endsWith('\u0000')).toBe(true);
+    connection.close();
   });
 
   it('reads binary frames (React Native delivers ArrayBuffers when asked to)', async () => {

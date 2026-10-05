@@ -36,6 +36,8 @@ function defaultOptions(): RealtimeClientOptions {
   return {
     tokenSource: (forceRefresh) => getIdToken(forceRefresh),
     endpointFor: (token) => realtimeEndpoint(appConfig.apiBaseUrl, token, Platform.OS),
+    // React Native's WebSocket drops the NUL that ends STOMP frames; browsers keep it.
+    nulSafeFrames: Platform.OS !== 'web',
   };
 }
 

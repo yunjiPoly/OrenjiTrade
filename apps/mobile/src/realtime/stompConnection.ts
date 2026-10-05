@@ -3,6 +3,7 @@ import {
   StompFrameReader,
   encodeFrame,
   negotiateHeartbeat,
+  utf8Encode,
   type StompFrame,
 } from './stompFrames';
 
@@ -14,7 +15,7 @@ export interface WebSocketLike {
   onmessage: ((event: { data: unknown }) => void) | null;
   onclose: ((event: { code: number; reason: string }) => void) | null;
   onerror: ((event: unknown) => void) | null;
-  send(data: string): void;
+  send(data: string | ArrayBuffer): void;
   close(code?: number, reason?: string): void;
 }
 
@@ -48,6 +49,13 @@ export interface StompConnectOptions {
   /** Called once when the connection ends after it was established, or fails before. */
   onClose: (info: StompCloseInfo) => void;
   webSocketFactory?: WebSocketFactory;
+  /**
+   * React Native drops the NUL that ends every STOMP frame from text WebSocket messages, in both
+   * directions (its bridge passes strings as C strings). With this flag, frames are sent as binary
+   * messages (UTF-8 bytes, NUL included; the server accepts both) and a received text message
+   * that lost its NUL gets it back (the server sends one frame per message, heartbeats aside).
+   */
+  nulSafeFrames?: boolean;
 }
 
 /** A connected STOMP session, as seen by the realtime client. */
@@ -174,10 +182,18 @@ export class StompConnection implements StompSession {
 
   private onData(data: unknown): void {
     this.lastReceived = Date.now();
-    const chunk =
+    let chunk =
       typeof data === 'string' || data instanceof ArrayBuffer || data instanceof Uint8Array
         ? data
         : String(data);
+    if (
+      this.options.nulSafeFrames &&
+      typeof chunk === 'string' &&
+      chunk.trim().length > 0 &&
+      !chunk.endsWith('\0')
+    ) {
+      chunk = `${chunk}\0`;
+    }
     for (const frame of this.reader.push(chunk)) {
       this.onFrame(frame);
     }
@@ -264,7 +280,14 @@ export class StompConnection implements StompSession {
       return;
     }
     try {
-      this.socket.send(data);
+      if (this.options.nulSafeFrames && data !== HEARTBEAT) {
+        const bytes = utf8Encode(data);
+        const copy = new Uint8Array(bytes.byteLength);
+        copy.set(bytes);
+        this.socket.send(copy.buffer);
+      } else {
+        this.socket.send(data);
+      }
     } catch {
       // the close handler reports the failure
     }

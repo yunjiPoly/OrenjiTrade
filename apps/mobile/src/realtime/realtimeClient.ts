@@ -94,6 +94,8 @@ export interface RealtimeClientOptions {
   endpointFor: (token: string) => RealtimeEndpoint;
   connector?: StompConnector;
   random?: () => number;
+  /** React Native: frames that survive its NUL handling (see `StompConnectOptions`). */
+  nulSafeFrames?: boolean;
 }
 
 function parseJson(body: string): unknown {
@@ -253,6 +255,7 @@ export class RealtimeClient {
         url: endpoint.url,
         handshakeHeaders: endpoint.headers,
         heartbeatMs: REALTIME_HEARTBEAT_MS,
+        nulSafeFrames: this.options.nulSafeFrames,
         onClose: (info) => {
           if (info.connected) {
             this.onConnectionLost(generation);
