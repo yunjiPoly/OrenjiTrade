@@ -1,12 +1,15 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useFlowLock } from '@/src/account/flowLock';
 import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
 import { useTheme } from '@/src/theme/useTheme';
+
+import { nativeHeaderInsetOptions } from './headerInsets';
 
 /**
  * The root stack with the auth gate (signed out → sign-in, account states, onboarding, tabs).
@@ -16,6 +19,7 @@ export function RootNavigator() {
   const gate = useAuthGate();
   const flowLocked = useFlowLock((store) => store.lockedBy !== null);
   const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (gate !== 'boot') {
@@ -32,17 +36,14 @@ export function RootNavigator() {
           headerShadowVisible: false,
           headerTitleAlign: 'center',
           contentStyle: { backgroundColor: palette.background },
+          ...nativeHeaderInsetOptions(Platform.OS, insets.top),
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="(account)" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ title: 'Welcome', animation: 'fade' }} />
-        {/*
-          Settings (web: /settings/*) and the legal pages live in this stack rather than in nested
-          stacks: a nested native stack under a headerless screen drew its header below a second
-          status-bar inset on Android (edge-to-edge). Later phases add offers, payouts, ...
-        */}
+        {/* Settings (web: /settings/*). Later phases add offers, payouts, blocked users, ... */}
         <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
