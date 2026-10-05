@@ -19,10 +19,45 @@ export type FirebaseAuthModule = typeof import('firebase/auth') & {
  * the first time `getFirebaseAuth()` is awaited, which keeps start-up fast, keeps the static web
  * render free of browser APIs and keeps unit tests free of Firebase (they use a fake port).
  *
- * Persistence: AsyncStorage on iOS/Android (`initializeAuth` + `getReactNativePersistence`),
- * IndexedDB (fallback localStorage) on web. With `authEmulatorHost` set, every call goes to the
+ * Persistence: see `authPersistence` (AsyncStorage on iOS/Android, IndexedDB then localStorage on
+ * web). With `authEmulatorHost` set, every call goes to the
  * local Firebase Auth emulator (`docker compose`), never to Google.
  */
+
+type PersistenceSdk = Pick<
+  FirebaseAuthModule,
+  | 'indexedDBLocalPersistence'
+  | 'browserLocalPersistence'
+  | 'inMemoryPersistence'
+  | 'getReactNativePersistence'
+>;
+
+/**
+ * The persistence `initializeAuth` gets on a platform:
+ * - web: IndexedDB, then localStorage, WITHOUT a popup/redirect resolver (the app only signs in
+ *   with email and password, and `getAuth()` would load Google's gapi iframe on every start, even
+ *   against the local emulator);
+ * - iOS/Android: AsyncStorage through `getReactNativePersistence`, so the session survives a
+ *   restart. Browser storage does not exist there: if the React Native build of `@firebase/auth`
+ *   was not resolved (a bundler misconfiguration), the session is kept in memory (signed out on
+ *   the next launch) instead of crashing on IndexedDB.
+ */
+export function authPersistence(
+  platform: string,
+  sdk: PersistenceSdk,
+  storage: unknown
+): Persistence | Persistence[] {
+  if (platform === 'web') {
+    return [sdk.indexedDBLocalPersistence, sdk.browserLocalPersistence];
+  }
+  if (sdk.getReactNativePersistence && storage) {
+    return sdk.getReactNativePersistence(storage);
+  }
+  console.warn(
+    '[OrenjiTrade] Firebase Auth has no React Native persistence in this build; the session is kept in memory only.'
+  );
+  return sdk.inMemoryPersistence;
+}
 
 let appPromise: Promise<FirebaseApp> | null = null;
 let authModulePromise: Promise<FirebaseAuthModule> | null = null;
@@ -60,20 +95,13 @@ export function getFirebaseAuth(config: AppConfig = appConfig): Promise<Auth> {
       const app = await getFirebaseApp(config);
       const sdk = await getFirebaseAuthModule();
 
-      let auth: Auth;
-      if (Platform.OS === 'web' || !sdk.getReactNativePersistence) {
-        // Browser persistence (IndexedDB, then localStorage) WITHOUT a popup/redirect resolver:
-        // the app only signs in with email and password, and `getAuth()` would load Google's
-        // gapi iframe (apis.google.com) on every start, even against the local emulator.
-        auth = sdk.initializeAuth(app, {
-          persistence: [sdk.indexedDBLocalPersistence, sdk.browserLocalPersistence],
-        });
-      } else {
-        const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
-        auth = sdk.initializeAuth(app, {
-          persistence: sdk.getReactNativePersistence(AsyncStorage),
-        });
-      }
+      const storage =
+        Platform.OS === 'web'
+          ? null
+          : (await import('@react-native-async-storage/async-storage')).default;
+      const auth: Auth = sdk.initializeAuth(app, {
+        persistence: authPersistence(Platform.OS, sdk, storage),
+      });
 
       if (config.authEmulatorHost) {
         sdk.connectAuthEmulator(auth, `http://${config.authEmulatorHost}`, {

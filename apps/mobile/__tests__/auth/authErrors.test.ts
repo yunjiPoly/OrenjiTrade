@@ -16,6 +16,10 @@ describe('auth errors', () => {
       'An account already exists for this email. Try signing in instead.'
     );
     expect(describeAuthError('auth/network-request-failed')).toContain('Check your connection');
+    expect(describeAuthError('auth/timeout')).toBe(
+      'The sign-in service took too long to answer. Check your connection and retry.'
+    );
+    expect(describeAuthError('auth/internal-error')).not.toBe(GENERIC_AUTH_ERROR);
     expect(describeAuthError('auth/something-new')).toBe(GENERIC_AUTH_ERROR);
   });
 

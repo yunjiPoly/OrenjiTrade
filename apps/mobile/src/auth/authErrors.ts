@@ -19,6 +19,9 @@ export const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   'auth/too-many-requests': 'Too many attempts. Wait a moment, then try again.',
   'auth/network-request-failed':
     'Cannot reach the sign-in service. Check your connection and retry.',
+  // The SDK's own timeout (a slow network or a busy emulator), not a wrong password.
+  'auth/timeout': 'The sign-in service took too long to answer. Check your connection and retry.',
+  'auth/internal-error': 'The sign-in service had a problem. Wait a moment, then try again.',
   'auth/operation-not-allowed': 'This sign-in method is not enabled.',
   'auth/requires-recent-login': 'For your security, sign in again before doing this.',
   'auth/user-token-expired': 'Your session expired. Sign in again.',
