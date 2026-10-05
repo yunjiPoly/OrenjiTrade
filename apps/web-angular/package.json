@@ -30,14 +30,14 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@angular/cdk": "^22.2.0",
-    "@angular/common": "^22.2.0",
+    "@angular/cdk": "^22.2.1",
+    "@angular/common": "^22.2.1",
     "@angular/compiler": "^22.2.0",
     "@angular/core": "^22.2.0",
-    "@angular/forms": "^22.2.0",
-    "@angular/material": "^22.2.0",
+    "@angular/forms": "^22.2.1",
+    "@angular/material": "^22.2.1",
     "@angular/platform-browser": "^22.2.0",
-    "@angular/router": "^22.2.0",
+    "@angular/router": "^22.2.1",
     "@orenji/api-client": "*",
     "@orenji/design-tokens": "*",
     "firebase": "^12.19.0",
@@ -46,9 +46,9 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@angular/build": "^22.2.0",
-    "@angular/cli": "^22.2.0",
-    "@angular/compiler-cli": "^22.2.0",
+    "@angular/build": "^22.2.1",
+    "@angular/cli": "^22.2.1",
+    "@angular/compiler-cli": "^22.2.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@types/google.maps": "^3.66.4",
@@ -58,7 +58,7 @@
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
-    "typescript-eslint": "8.69.0",
-    "vitest": "^5.0.0"
+    "typescript-eslint": "8.71.0",
+    "vitest": "^5.0.3"
   }
 }
