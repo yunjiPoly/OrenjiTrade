@@ -3,6 +3,7 @@ import { Dimensions } from 'react-native';
 
 import CollectorScreen from '@/app/collectors/[id]';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 import { zoomOfRegion } from '@/src/lib/mapGeometry';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -111,6 +112,43 @@ describe('Collector profile', () => {
     expect(mockRouter.push).toHaveBeenCalledTimes(2);
   });
 
+  it('reports the collector and makes an offer on a public card', async () => {
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId('collector-report'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: OTHER.id,
+        name: 'Noé Verdun',
+        handle: 'collector2',
+        source: 'PROFILE',
+      },
+    });
+    const item = publicItemFixture();
+    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/offers/new',
+      params: { item: item.id },
+    });
+    expect(offerTargetFor(item.id)).toMatchObject({
+      cardName: 'Azure-Eyes Sky Dragon',
+      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Verdun, Montréal' },
+    });
+  });
+
+  it('offers no offer on cards that refuse them', async () => {
+    const item = publicItemFixture({ acceptsOffers: false });
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
+    expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
+  });
+
   it('shows empty binders, and a retry when they fail', async () => {
     const api = mockApi(
       routes({
@@ -216,6 +254,7 @@ describe('Collector profile', () => {
     render();
     expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-message')).toBeNull();
+    expect(screen.queryByTestId('collector-report')).toBeNull();
     fireEvent.press(screen.getByTestId('collector-edit-profile'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
   });

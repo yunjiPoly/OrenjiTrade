@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-
 import { Dimensions } from 'react-native';
 
 import MapScreen from '@/app/(tabs)/index';
+import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 import { regionForCamera, zoomOfRegion } from '@/src/lib/mapGeometry';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -268,6 +269,20 @@ describe('Map tab: who has this card near me', () => {
     );
     fireEvent.press(screen.getByTestId('collector-row-collector2'));
     expect(await screen.findByTestId('preview-matching-items')).toBeOnTheScreen();
+    // A listing that accepts offers: "Make an offer" closes the sheet and opens the offer form.
+    const listing = matchingItemFixture();
+    fireEvent.press(await screen.findByTestId(`preview-offer-${listing.itemId}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/offers/new',
+      params: { item: listing.itemId },
+    });
+    expect(offerTargetFor(listing.itemId)).toMatchObject({
+      cardName: 'Lantern Fox Spirit',
+      askingPrice: 12.5,
+      seller: { handle: 'collector2', placeLabel: 'Verdun, Montréal' },
+    });
+    fireEvent.press(screen.getByTestId('collector-row-collector2'));
+    await screen.findByTestId('preview-matching-items');
     fireEvent.press(screen.getByTestId('collector-preview-backdrop'));
 
     fireEvent.press(screen.getByTestId('map-holders-clear'));
@@ -332,6 +347,22 @@ describe('Map tab: collector preview', () => {
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: PUBLIC_BINDER_ID },
+    });
+  });
+
+  it('reports the collector from the preview', async () => {
+    mockApi(routes());
+    render();
+    await openFromList();
+    fireEvent.press(await screen.findByTestId('preview-report'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: previewFixture().id,
+        name: 'Noé Verdun',
+        handle: 'collector2',
+        source: 'PROFILE',
+      },
     });
   });
 
@@ -409,6 +440,7 @@ describe('Map tab: collector preview', () => {
     await openFromList('maika');
     expect(await screen.findByTestId('preview-distance')).toHaveTextContent('Your public position');
     expect(screen.queryByTestId('preview-message')).toBeNull();
+    expect(screen.queryByTestId('preview-report')).toBeNull();
   });
 
   it('shows "not available" for a collector who left the map, and an error with retry', async () => {

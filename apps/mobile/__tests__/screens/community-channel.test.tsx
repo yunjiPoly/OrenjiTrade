@@ -182,6 +182,25 @@ describe('Community channel', () => {
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Noé Verdun is blocked.');
   });
 
+  it('reports a post author from the post options', async () => {
+    const post = postFixture();
+    mockApi(routes());
+    render();
+    await screen.findByText('Anyone trading Lantern Fox this weekend?');
+    fireEvent.press(screen.getByTestId(`post-menu-${post.id}`));
+    fireEvent.press(await screen.findByTestId('post-report-author'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: post.author.id,
+        name: post.author.displayName,
+        handle: post.author.handle,
+        source: 'POST',
+        postId: post.id,
+      },
+    });
+  });
+
   it('shows not found, closed, and error-with-retry states', async () => {
     mockApi(
       routes({

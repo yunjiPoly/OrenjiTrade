@@ -400,9 +400,12 @@ describe('Conversation', () => {
       pathname: '/binders/[id]',
       params: { id: BINDER_ID },
     });
-    // Offers open in a later stage: a tap explains it.
+    // An offer link opens the offer.
     fireEvent.press(screen.getByTestId('offer-link-card'));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/later version of the app/);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/offers/[id]',
+      params: { id: 'o1' },
+    });
   });
 
   it('is live: pushed messages, typing, receipts and the read marker', async () => {
@@ -487,6 +490,117 @@ describe('Conversation', () => {
     fireEvent.press(await screen.findByTestId('conversation-archive'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('PATCH /api/v1/conversations/{id}')[1]?.body).toEqual({ archived: true });
+  });
+
+  it('rates and reports the other collector from the options', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/ratings/eligibility': ok({
+          eligible: true,
+          interactions: [
+            {
+              id: 'i-chat',
+              kind: 'CONVERSATION_QUALIFIED',
+              occurredAt: '2026-10-04T12:00:00Z',
+              alreadyRated: false,
+            },
+          ],
+        }),
+      })
+    );
+    render();
+    await screen.findByText('Hi! Still have the Lantern Fox?');
+    fireEvent.press(screen.getByTestId('conversation-menu'));
+    fireEvent.press(await screen.findByTestId('conversation-rate'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/ratings/rate',
+      params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun' },
+    });
+    fireEvent.press(screen.getByTestId('conversation-menu'));
+    fireEvent.press(await screen.findByTestId('conversation-report'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: OTHER_ID,
+        name: 'Noé Verdun',
+        handle: 'collector2',
+        source: 'CONVERSATION',
+        conversationId: CONVERSATION_ID,
+      },
+    });
+  });
+
+  it('offers no rating without an eligible interaction (silently)', async () => {
+    mockApi(routes({ 'GET /api/v1/ratings/eligibility': problem(500, 'INTERNAL_ERROR', 'Boom') }));
+    render();
+    await screen.findByText('Hi! Still have the Lantern Fox?');
+    fireEvent.press(screen.getByTestId('conversation-menu'));
+    expect(await screen.findByTestId('conversation-report')).toBeOnTheScreen();
+    expect(screen.queryByTestId('conversation-rate')).not.toBeOnTheScreen();
+  });
+
+  it('shares an offer with the other collector, and explains when there is none', async () => {
+    const offer = {
+      id: 'o-shared',
+      rootOfferId: 'o-shared',
+      item: null,
+      counterparty: {
+        id: OTHER_ID,
+        handle: 'collector2',
+        displayName: 'Noé Verdun',
+        rating: { count: 0 },
+      },
+      viewerRole: 'BUYER',
+      kind: 'CASH',
+      cashAmount: 40,
+      currency: 'CAD',
+      tradeItemCount: 0,
+      status: 'OPEN',
+      currentTurn: 'SELLER',
+      yourTurn: false,
+      allowedActions: ['CANCEL'],
+      expiresAt: '2099-01-01T00:00:00Z',
+      version: 0,
+      createdAt: '2026-10-05T10:00:00Z',
+      updatedAt: '2026-10-05T10:00:00Z',
+    };
+    const other = { ...offer, id: 'o-other', counterparty: { ...offer.counterparty, id: 'x' } };
+    const api = mockApi(
+      routes({
+        'GET /api/v1/offers': [
+          ok({ items: [other], hasMore: false }),
+          ok({ items: [offer, other], hasMore: false }),
+        ],
+        'POST /api/v1/conversations/{id}/messages': ok(
+          sentMessage({
+            kind: 'OFFER_LINK',
+            body: '',
+            payload: { offer: { id: 'o-shared', status: 'OPEN', summary: '40.00 CAD for A card' } },
+          }),
+          201
+        ),
+      })
+    );
+    render();
+    await screen.findByText('Hi! Still have the Lantern Fox?');
+    fireEvent.press(screen.getByTestId('composer-attach'));
+    fireEvent.press(await screen.findByTestId('composer-share-offer'));
+    expect(await screen.findByTestId('offer-link-picker-empty')).toHaveTextContent(
+      /No offer with Noé Verdun yet/
+    );
+    fireEvent.press(screen.getByTestId('link-picker-cancel'));
+    fireEvent.press(screen.getByTestId('composer-attach'));
+    fireEvent.press(await screen.findByTestId('composer-share-offer'));
+    fireEvent.press(await screen.findByTestId('offer-option-o-shared'));
+    expect(screen.getByTestId('composer-attachment')).toHaveTextContent(/Offer.*\$40\.00/);
+    fireEvent.press(screen.getByTestId('conversation-send'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
+        kind: 'OFFER_LINK',
+        offerId: 'o-shared',
+      })
+    );
+    expect(api.callsTo('GET /api/v1/offers')[0]?.query.get('limit')).toBe('50');
   });
 
   it('blocks the other collector after a confirmation, then unblocks', async () => {
