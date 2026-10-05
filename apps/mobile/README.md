@@ -51,20 +51,21 @@ One typed module, `src/config/env.ts`, reads every value. All variables are `EXP
 inlined into the JS bundle: **public values only, never secrets**. Copy `.env.example` to `.env`
 only to override a default.
 
-| Variable                                  | Purpose                                                       | Default                                            |
-| ----------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
-| `EXPO_PUBLIC_API_BASE_URL`                | API origin                                                    | `http://10.0.2.2:8080` (Android), else `localhost` |
-| `EXPO_PUBLIC_FIREBASE_API_KEY`            | Firebase web API key                                          | `demo-local-key`                                   |
-| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`        | Firebase auth domain                                          | `<project>.firebaseapp.com`                        |
-| `EXPO_PUBLIC_FIREBASE_PROJECT_ID`         | Firebase project id                                           | `orenjitrade-local`                                |
-| `EXPO_PUBLIC_FIREBASE_APP_ID`             | Firebase app id                                               | empty                                              |
-| `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | Auth emulator `host:port`; `off` for a real project           | `10.0.2.2:9099` (Android), else `localhost:9099`   |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`         | Android Google Maps key (app-restricted); iOS uses Apple Maps | empty                                              |
+| Variable                                  | Purpose                                                                                                                                                                   | Default                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `EXPO_PUBLIC_API_BASE_URL`                | API origin                                                                                                                                                                | `http://10.0.2.2:8080` (Android), else `localhost` |
+| `EXPO_PUBLIC_FIREBASE_API_KEY`            | Firebase web API key                                                                                                                                                      | `demo-local-key`                                   |
+| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`        | Firebase auth domain                                                                                                                                                      | `<project>.firebaseapp.com`                        |
+| `EXPO_PUBLIC_FIREBASE_PROJECT_ID`         | Firebase project id                                                                                                                                                       | `orenjitrade-local`                                |
+| `EXPO_PUBLIC_FIREBASE_APP_ID`             | Firebase app id                                                                                                                                                           | empty                                              |
+| `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | Auth emulator `host:port`; `off` for a real project                                                                                                                       | `10.0.2.2:9099` (Android), else `localhost:9099`   |
+| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`         | Android Google Maps key (app-restricted, development/store builds only); without it, and always in Expo Go, Android maps use Leaflet + OpenStreetMap; iOS uses Apple Maps | empty                                              |
 
 The Android emulator reaches the development machine at `10.0.2.2`; the iOS simulator and the web
 build use `localhost`; a physical phone needs the machine's LAN address. Firebase Auth is created
 lazily (`src/auth/firebase.ts`): React Native persistence on AsyncStorage on iOS/Android, IndexedDB
-(then localStorage) on web, connected to the emulator whenever one is configured.
+(then localStorage) on web, connected to the emulator whenever one is configured. A native build
+without the React Native persistence keeps the session in memory (never browser storage).
 
 ## Architecture
 
@@ -79,7 +80,7 @@ app/                       expo-router routes
   onboarding.tsx           profile -> interests -> trading area (+ map opt-in, off by default)
   (tabs)/                  Map | Inventory | Search | Messages | Wishlist | Profile
   settings/                profile, location, privacy, notifications, account, delete-account,
-                           appearance
+                           appearance (screens of the root stack, no nested stack)
   legal/                   index + [key] (versioned documents read in-app)
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
 src/
@@ -111,12 +112,30 @@ Conventions later stages reuse:
 - **Card pictures**: `CardImage` (expo-image) renders only API picture URLs
   (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of the web;
   anything else (for example a YGOPRODeck URL) shows the placeholder.
-- **Privacy**: the app never shows coordinates, only the API's public labels and distance
-  buckets. "Use my current location" reads the device once at reduced accuracy
+- **Maps** (`src/components/map/mapEngine.ts`, ADR 0010 amendment 2026-10-05): the web rule
+  "Google with a key, Leaflet otherwise". `native` = react-native-maps (Apple Maps on iOS; Google
+  Maps on Android only in a development/store build with `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`);
+  `leaflet` = Leaflet 1.9.4 + OpenStreetMap in a `react-native-webview` page
+  (`src/components/map/leaflet/`, Leaflet from a pinned CDN URL with Subresource Integrity, no
+  geolocation, links open in the browser) on Android without that key and always in Expo Go, whose
+  bundled Google key the Maps SDK refuses ("Authorization failure": an empty grey map). The web
+  build uses Leaflet directly (`*.web.tsx`). The Map tab (Phase 0 placeholder until the collector
+  zones of a later stage) browses with the same engine, zoom capped at 14 (ADR 0004).
+- **Trading area** (`src/features/location/TradingAreaPicker.tsx`, onboarding step 3 and Settings →
+  Location): the web picker's mechanism. A map (`TradingAreaMap`, engine as above) where a tap or
+  a dragged pin (a long-press first on Google/Apple maps) moves the centre, "Use map centre" after
+  panning, a 1–50 km radius drawn as a circle, "Jump to a city" quick picks (public centre +
+  suggested radius) and "Use my current location". Hand-picked centres are rounded to 3 decimals
+  and saved with source `MANUAL`; the map shows the loading skeleton and an error state with
+  "Reload map" while the quick picks keep working.
+- **Privacy**: the app never shows coordinates as text, only the API's public labels and distance
+  buckets; generic labels ("Approximate area") never end up in "near …" sentences. "Use my current location" reads the device once at reduced accuracy
   (`expo-location`, `Accuracy.Low`; a last-known fix up to 10 min old, at most 10 s to get one,
   like the web's `maximumAge` / `timeout`), rounds it to 3 decimals exactly like the web
   (`roundCoordinate`) and sends it straight to `PUT /me/location/trading-area`; it is never
-  rendered, stored, persisted or logged. Discoverability defaults to off.
+  rendered, stored, persisted or logged, and a saved device-derived centre is never drawn as a pin
+  or circle (the map only looks at its neighbourhood, rounded to 2 decimals). Discoverability
+  defaults to off.
 - **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`.
 
 ## Scripts
@@ -134,23 +153,28 @@ Conventions later stages reuse:
 
 ## Tests
 
-| Command (repository root)     | What runs                                                                                                                                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:mobile`         | typecheck, lint, Jest (unit + screen tests in `__tests__/`, every screen with loading / empty / error / validation states) and the E2E harness guard tests (`node --test scripts/lib/*.test.mjs`) |
-| `npm run test:mobile:e2e`     | Playwright (`apps/mobile/e2e`) driving the Expo **web** build against a real, isolated stack                                                                                                      |
-| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator                                                                                                                   |
+| Command (repository root)     | What runs                                                                                                                                                                                                                                                              |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:mobile`         | typecheck, lint, Jest (unit + screen tests in `__tests__/`, every screen with loading / empty / error / validation states) and the E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`; `npm run test:scripts` runs every `scripts/lib` test) |
+| `npm run test:mobile:e2e`     | Playwright (`apps/mobile/e2e`) driving the Expo **web** build against a real, isolated stack                                                                                                                                                                           |
+| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator                                                                                                                                                                                        |
 
 ### Isolation of the end-to-end suites
 
 Both end-to-end suites use their own stack and never touch a developer's: the database
 `orenjitrade_mobile_e2e` (dropped and recreated per run, migrated and seeded by the API), an API
-jar on **:8090** (profile `local`, Redis database 1, media and card-image cache under
-`.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck disabled, no image downloads), the shared
-Auth emulator, and the web build on **:19006** (Playwright) or Metro on **:8082** (Maestro).
-`scripts/lib/mobile-e2e-guard.mjs` refuses to start the API when its database, port or
-directories are not the isolated ones (a directory that resolves to any checkout's
-`apps/api/.local-storage` would let start-up reconciliation delete the developer's cached card
-images). `--reuse-running` only reuses an API the harness started itself (identity block in
+jar on **:8090** (profile `local`, Redis database 1 with its own realtime channels
+`e2e-mobile:rt:user:*`, media, card-image cache and provider snapshots under
+`.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck disabled and pointed at a closed local port,
+no image downloads), the shared Auth emulator, and the web build on **:19006** (Playwright) or
+Metro on **:8082** (Maestro). `scripts/lib/mobile-e2e-guard.mjs` (built on the web E2E harness's
+shared helpers in `web-e2e-guard.mjs`, `local-db.mjs` and `auth-emulator.mjs`) refuses to start the
+API when its database (or its host), port, Redis database, realtime prefix or directories are not
+the isolated ones (a directory that resolves to any checkout's `apps/api/.local-storage` would let
+start-up reconciliation delete the developer's cached card images), and only ever drops
+`orenjitrade_mobile_e2e`. The web E2E suite (`npm run test:e2e`: :8180 / :4300, database
+`orenjitrade_e2e`, Redis db 2) and the developer stack (:8080 / :4200, Redis db 0) can run at the
+same time. `--reuse-running` only reuses an API the harness started itself (identity block in
 `/actuator/info`, instance id in `.local-dev/mobile-e2e/state.json`) and refuses the developer
 API on :8080. Accounts created by a run are `m-<run id>-...@mobile-e2e.test` and are deleted from
 the emulator at the end of the run; seed accounts (`@orenjitrade.test`) are only signed in to.
@@ -165,9 +189,13 @@ npm run test:mobile:e2e -- --reuse-running --skip-build e2e/profile.spec.ts
 
 Specs: `auth.spec.ts` (sign-up -> verification -> onboarding -> tabs -> sign-out, seed sign-in with
 session restore, friendly errors, consent screen, password reset), `profile.spec.ts` (edit,
-validation, tags, public preview), `location.spec.ts` (manual trading area, map opt-in, no precise
-coordinates), `account.spec.ts` (export, deletion request and cancel, privacy and notification
-settings). A privacy fixture scans every API response for coordinates with more than 3 decimals.
+validation, tags, public preview), `location.spec.ts` (manual trading area: city quick pick, a tap
+on the map, a dragged pin, the `PUT` body checked for `MANUAL` and 3 decimals; map opt-in; no
+precise coordinates), `account.spec.ts` (export, deletion request and cancel, privacy and notification
+settings), `leaflet-page.spec.ts` (the Android WebView map page in
+Chromium: taps, pin drag, apply, focus, a 0 x 0 first layout, Leaflet load failure; no stack
+needed). A privacy fixture scans every API response for coordinates with more than 3 decimals,
+and OpenStreetMap tiles are served from memory (no tile requests leave the machine).
 Logs: `.local-dev/mobile-e2e/logs/`.
 
 ### Native flows (Maestro on the Android emulator)
@@ -187,15 +215,19 @@ npm run test:mobile:maestro -- --keep-running                            # keep 
 
 The harness starts (or reuses) the isolated API, starts Metro on :8082 with
 `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8090` and `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099`
-(installing Expo Go when missing), checks that the Android bundle targets the isolated API, then
-runs the flows with `APP_URL=exp://10.0.2.2:8082`. Flows: `sign-in.yaml`,
-`sign-up-onboarding.yaml`, `profile-edit.yaml`, `discoverability.yaml`, `sign-out.yaml` (session
-restore after a relaunch, then sign-out). Shared steps are in `.maestro/subflows/` (cleared
+(Expo CLI installs Expo Go when it is missing; the harness waits up to 6 minutes for that install),
+checks that the Android bundle targets the isolated API, then runs the flows with
+`APP_URL=exp://10.0.2.2:8082`. Flows: `sign-in.yaml`,
+`sign-up-onboarding.yaml`, `profile-edit.yaml`, `discoverability.yaml` (city quick pick, a tap on
+the map, save, `scripts/check-area.js` checks on the host that the API holds a `MANUAL` centre with
+3 decimals; pan + "Use map centre"; map opt-in), `sign-out.yaml` (session restore after a
+relaunch, then sign-out). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
 text field, which Android turns into a text-selection long press) and host-side helpers in
 `.maestro/scripts/` (create a fictional collector through the emulator and the API, verify an
-email with the emulator's code). Screenshots and reports: `.local-dev/mobile-e2e/maestro/`.
+email with the emulator's code, check a saved trading area). Screenshots and reports: `.local-dev/mobile-e2e/maestro/`.
 
 ## Deep links
 
@@ -205,7 +237,8 @@ email with the emulator's code). Screenshots and reports: `.local-dev/mobile-e2e
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The mobile UIs of Phases 2-10 (catalog, binders, map, chat, wishlist, offers, payments, ...).
+- The mobile UIs of Phases 2-10 (catalog, binders, collectors on the map as 3 km zones, chat,
+  wishlist, offers, payments, ...).
 - Device push notifications (preferences are saved; delivery arrives with a later phase).
 - Sora / Inter fonts (system font until `expo-font` loading is added).
 - EAS: `extra.eas.projectId` stays a placeholder; no EAS build is used (local and free only).
