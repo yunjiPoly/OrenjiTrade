@@ -52,13 +52,21 @@ expectEqual(items.length, EXPECT_COUNT, 'item count');
 
 if (items.length === 1) {
   var item = items[0];
-  expectEqual(item.quantity, typeof EXPECT_QUANTITY !== 'undefined' ? EXPECT_QUANTITY : undefined, 'quantity');
+  expectEqual(
+    item.quantity,
+    typeof EXPECT_QUANTITY !== 'undefined' ? EXPECT_QUANTITY : undefined,
+    'quantity'
+  );
   expectEqual(
     item.availability,
     typeof EXPECT_AVAILABILITY !== 'undefined' ? EXPECT_AVAILABILITY : undefined,
     'availability'
   );
-  expectEqual(item.finish, typeof EXPECT_FINISH !== 'undefined' ? EXPECT_FINISH : undefined, 'finish');
+  expectEqual(
+    item.finish,
+    typeof EXPECT_FINISH !== 'undefined' ? EXPECT_FINISH : undefined,
+    'finish'
+  );
   if (typeof EXPECT_BINDER !== 'undefined') {
     expectEqual(item.binder ? item.binder.name : '(none)', EXPECT_BINDER, 'binder');
     var binders = check(http.get(api + '/api/v1/binders', { headers: auth }), 'GET /binders');

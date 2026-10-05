@@ -43,7 +43,10 @@ var cards = check(
 if (!cards.items || cards.items.length === 0) {
   throw new Error('No card matches ' + QUERY + ' in the catalog.');
 }
-var card = check(http.get(api + '/api/v1/cards/' + cards.items[0].id, { headers: auth }), 'GET /cards/{id}');
+var card = check(
+  http.get(api + '/api/v1/cards/' + cards.items[0].id, { headers: auth }),
+  'GET /cards/{id}'
+);
 var item = check(
   http.post(api + '/api/v1/inventory/items', {
     headers: auth,
