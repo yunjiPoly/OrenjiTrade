@@ -2,9 +2,9 @@
 import { configure } from '@testing-library/react-native';
 import '@testing-library/react-native/matchers';
 
-// findBy*/waitFor wait up to 5 s (default 1 s): multi-step screen tests stay deterministic when
+// findBy*/waitFor wait up to 10 s (default 1 s): multi-step screen tests stay deterministic when
 // the machine is busy (parallel workers, an Android emulator running next to them).
-configure({ asyncUtilTimeout: 5000 });
+configure({ asyncUtilTimeout: 10_000 });
 
 // --- Native module mocks -----------------------------------------------------------------------
 

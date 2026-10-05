@@ -2,13 +2,18 @@ import * as Location from 'expo-location';
 import * as Sharing from 'expo-sharing';
 
 import { exportMyData } from '@/src/features/account/exportData';
-import { readApproximatePosition } from '@/src/features/location/deviceLocation';
+import {
+  LOCATION_MAX_AGE_MS,
+  LOCATION_TIMEOUT_MS,
+  readApproximatePosition,
+} from '@/src/features/location/deviceLocation';
 
 import { mockApi, ok } from '../support/mockApi';
 
 jest.mock('expo-location', () => ({
   Accuracy: { Low: 2 },
   requestForegroundPermissionsAsync: jest.fn(),
+  getLastKnownPositionAsync: jest.fn(async () => null),
   getCurrentPositionAsync: jest.fn(),
 }));
 
@@ -49,6 +54,35 @@ describe('readApproximatePosition (ADR 0004)', () => {
     expect(location.getCurrentPositionAsync).toHaveBeenCalledWith({
       accuracy: Location.Accuracy.Low,
     });
+  });
+
+  it('reuses a fix of the last 10 minutes, like the web (maximumAge)', async () => {
+    location.requestForegroundPermissionsAsync.mockResolvedValueOnce({ granted: true } as never);
+    location.getLastKnownPositionAsync.mockResolvedValueOnce({
+      coords: { latitude: 46.8131873, longitude: -71.2075251 },
+    } as never);
+    await expect(readApproximatePosition()).resolves.toEqual({
+      status: 'ok',
+      lat: 46.813,
+      lng: -71.208,
+    });
+    expect(location.getLastKnownPositionAsync).toHaveBeenCalledWith({
+      maxAge: LOCATION_MAX_AGE_MS,
+    });
+    expect(location.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
+  it('gives up after 10 s without a fix instead of spinning forever', async () => {
+    jest.useFakeTimers();
+    try {
+      location.requestForegroundPermissionsAsync.mockResolvedValueOnce({ granted: true } as never);
+      location.getCurrentPositionAsync.mockReturnValueOnce(new Promise(() => undefined));
+      const result = readApproximatePosition();
+      await jest.advanceTimersByTimeAsync(LOCATION_TIMEOUT_MS);
+      await expect(result).resolves.toEqual({ status: 'unavailable' });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('reports a refusal or an unavailable position', async () => {
