@@ -488,7 +488,8 @@ export function listeningPids(port) {
   return pids;
 }
 
-function processName(pid) {
+/** Image name of a running process (best effort; 'unknown' when it cannot be read). */
+export function processName(pid) {
   if (IS_WINDOWS) {
     const { stdout } = capture('tasklist', ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH']);
     const match = /^"([^"]+)"/.exec(stdout.trim());

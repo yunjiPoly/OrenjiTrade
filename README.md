@@ -160,8 +160,10 @@ in Secret Manager and Cloud Run configuration, never in Git.
 | `npm run test:api` | `gradlew check` in `apps/api`: Spotless, unit and integration tests (Testcontainers; Docker required) |
 | `npm run test:web` | web lint + unit tests (Vitest) |
 | `npm run test:mobile` | mobile typecheck + lint + jest |
-| `npm run test:e2e` | whole Playwright suite: ensures the infrastructure, builds and starts the API jar (:8080) and `ng serve` (:4200), runs every spec (one retry; flaky specs are listed), stops what it started (ports must be free, or `-- --reuse-running`) |
-| `npm run test:all` | api + web + mobile + e2e with a timing summary |
+| `npm run test:e2e` | whole Playwright suite on its own isolated stack next to `npm run dev`: recreates the database `orenjitrade_e2e`, builds and starts the API jar (:8180, Redis db 2, files under `.local-dev/e2e/`) and `ng serve --configuration e2e` (:4300), runs every spec (one retry; flaky specs are listed), deletes the run's emulator accounts, stops what it started (`-- --keep-running`, `-- --reuse-running` for a kept E2E stack only, `-- --stop`) |
+| `npm run test:scripts` | unit tests of the E2E isolation guards and the purge rules (`node --test`) |
+| `npm run e2e:purge` | removes every `@example.test` test account from the developer database and the Auth emulator through the account-deletion path (local only, asks first, no running API needed) |
+| `npm run test:all` | scripts + api + web + mobile + e2e with a timing summary |
 | `npm run test:ml` | optional ML skeleton tests (on hold) |
 | `npm run infra:validate` | Terraform format + validate for every environment |
 

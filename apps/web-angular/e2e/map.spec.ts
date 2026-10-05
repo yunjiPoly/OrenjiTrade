@@ -10,7 +10,20 @@ import {
   watchCoordinates,
 } from './support/inventory';
 import {
+  APPROXIMATE_AREA_RADIUS_M,
+  COLLECTOR_MAP_MAX_ZOOM,
+  centreOf,
+  domCoordinateFindings,
+  drawnCircles,
+  metresToPixels,
+  tileZooms,
+  tryToZoomPastTheCap,
+} from './support/map-privacy';
+import {
+  API_URL,
   OnboardedCollector,
+  authHeader,
+  coordinates,
   createOnboardedCollector,
   requireStack,
   signInThroughUi,
@@ -185,12 +198,33 @@ test.describe('map discovery and search', () => {
     });
     await signInThroughUi(page, viewer.email, viewer.password);
     await expect(page).toHaveURL(/\/map$/);
+    // The page's own answer when its body could be read (under load Chromium may drop a response
+    // body before it is read), else the same request (the viewer's own area) made directly.
+    const includesA = (candidate: NearbyAnswer | undefined) =>
+      !!candidate?.collectors.some((c) => c.handle === a.handle);
+    let answer: NearbyAnswer | undefined;
     await expect
-      .poll(() => answers.find((answer) => answer.collectors.some((c) => c.handle === a.handle)))
-      .toBeTruthy();
-    const answer = answers.find((candidate) =>
-      candidate.collectors.some((c) => c.handle === a.handle),
-    )!;
+      .poll(
+        async () => {
+          answer = answers.find(includesA);
+          if (!answer) {
+            const direct = await request.get(`${API_URL}/api/v1/collectors/nearby`, {
+              headers: authHeader(viewer.idToken),
+              params: { radiusKm: 10, limit: 200 },
+            });
+            answer = direct.ok() ? ((await direct.json()) as NearbyAnswer) : undefined;
+            if (answer) {
+              watcher.samples.push(
+                ...[...coordinates(answer)].map((sample) => ({ url: direct.url(), ...sample })),
+              );
+            }
+          }
+          return includesA(answer);
+        },
+        { message: "the viewer's nearby answer lists the seller", timeout: 20_000 },
+      )
+      .toBe(true);
+    answer = answer!;
     expect(answer.center).not.toEqual(seller.area);
     expect(answer.center).not.toEqual(viewerCentre(seller.area));
     const found = answer.collectors.find((collector) => collector.handle === a.handle)!;
@@ -200,7 +234,7 @@ test.describe('map discovery and search', () => {
     // The map page: status, legend, filters, and the seller's avatar marker.
     await expect(page.getByTestId('map-status')).toContainText(/collectors? within/);
     await expect(
-      page.getByText('Locations are approximate (about 2 km) to protect privacy'),
+      page.getByText('Locations are approximate (about 3 km) to protect privacy'),
     ).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();
     const sellerMarker = marker(page, a.displayName);
@@ -231,7 +265,7 @@ test.describe('map discovery and search', () => {
     // ADR 0004 client rendering: the preview says how approximate the place is, and the map draws
     // approximate-area discs (with the search radius) instead of exact pins only.
     await expect(preview.getByTestId('preview-approximate')).toHaveText(
-      /Locations are approximate \(about 2 km\)/,
+      /Locations are approximate \(about 3 km\)/,
     );
     await expect
       .poll(() => page.getByTestId('discovery-map').locator('.leaflet-overlay-pane path').count())
@@ -241,14 +275,33 @@ test.describe('map discovery and search', () => {
     await page.keyboard.press('Escape');
     await expect(preview).toBeHidden();
 
-    // The map never zooms closer than the privacy cap (zoom 14): the zoom-in button switches off.
-    const zoomIn = page.getByTestId('discovery-map').getByRole('button', { name: 'Zoom in' });
-    await expect(async () => {
-      if ((await zoomIn.getAttribute('aria-disabled')) !== 'true') {
-        await zoomIn.click();
-      }
-      await expect(zoomIn).toHaveAttribute('aria-disabled', 'true', { timeout: 1_000 });
-    }).toPass({ timeout: 20_000 });
+    // The map never zooms closer than the privacy cap (zoom 14), whatever the input (wheel, "+"
+    // button, keyboard, double click): the zoom-in button switches off, no tile beyond 14 loads,
+    // and the seller stays a 3 km zone (radius 1500 m) with the avatar on its centre.
+    const map = page.getByTestId('discovery-map');
+    await tryToZoomPastTheCap(page, map, sellerMarker);
+    await expect(map.getByRole('button', { name: 'Zoom in' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(Math.max(...(await tileZooms(map))), 'no tile beyond the zoom cap').toBe(
+      COLLECTOR_MAP_MAX_ZOOM,
+    );
+    const expectedRadius = metresToPixels(APPROXIMATE_AREA_RADIUS_M, found.publicPoint.lat);
+    const circles = await drawnCircles(map);
+    const zone = circles.find(
+      (circle) => Math.abs(circle.radiusPx - expectedRadius) <= expectedRadius * 0.03,
+    );
+    expect(
+      zone,
+      `a ${expectedRadius.toFixed(0)} px zone in ${JSON.stringify(circles)}`,
+    ).toBeTruthy();
+    const avatar = await centreOf(sellerMarker);
+    expect(Math.hypot(avatar.x - zone!.cx, avatar.y - zone!.cy)).toBeLessThan(3);
+    // No DOM attribute (aria labels, titles, data attributes, links...) holds a finer coordinate.
+    const dom = await domCoordinateFindings(page);
+    expect(dom.scanned).toBeGreaterThan(100);
+    expect(dom.findings, 'DOM attributes with coordinates finer than 3 decimals').toEqual([]);
 
     // The list toggle is the keyboard alternative to the markers.
     const listToggle = page.getByRole('button', { name: 'List', exact: true });

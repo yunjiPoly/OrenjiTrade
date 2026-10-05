@@ -1016,13 +1016,16 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     `img` src or JSON answer points at `images.ygoprodeck.com` (provider hosts are blocked).
     Offline: the seed catalog's placeholder pictures are not stubbed in this spec.
     They skip with a clear message only when the API (`E2E_API_URL`, default
-    `http://localhost:8080`) or the Auth emulator (`E2E_AUTH_EMULATOR_URL`, default
+    `http://localhost:8180`) or the Auth emulator (`E2E_AUTH_EMULATOR_URL`, default
     `http://localhost:9099`) is unreachable.
 
-  Start the stack first: `docker compose up -d` at the repository root, then the API with the
-  `local` profile (`cd apps/api && ./gradlew bootRun`, or a snapshot jar:
-  `java -jar <api>.jar --spring.profiles.active=local` from `apps/api`), wait for
-  `http://localhost:8080/actuator/health/readiness`, then `npm run e2e`.
+  The suite runs on its own stack, never against `npm run dev`: run `npm run test:e2e` at the
+  repository root (database `orenjitrade_e2e`, API :8180, `ng serve --configuration e2e` on
+  :4300, see docs/development/local-setup.md, "E2E test data and the purge"). To iterate on a
+  spec, keep that stack running (`npm run test:e2e -- --stack-only`), then
+  `npm run test:e2e -- --reuse-running e2e/map.spec.ts` or `npm run e2e` here. The global setup
+  refuses any API without the E2E identity block (`e2e/support/isolation.ts`), so the developer
+  API on :8080 is never used.
 
 ## Docker (Cloud Run)
 

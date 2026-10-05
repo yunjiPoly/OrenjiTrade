@@ -1,4 +1,4 @@
-import { requireStack } from '../support/stack';
+import { WEB_URL, requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { expect, mapMarker, test } from './support/fixtures';
 import { besides, randomCentre } from './support/places';
@@ -28,7 +28,7 @@ test.describe('acceptance: privacy', () => {
   }) => {
     const centre = randomCentre('privacy');
     privacy.registerCentre('@probe', centre);
-    const probe = 'http://localhost:4200/__acceptance-privacy-probe.json';
+    const probe = `${WEB_URL}/__acceptance-privacy-probe.json`;
     await page.route(probe, (route) =>
       route.fulfill({
         status: 200,

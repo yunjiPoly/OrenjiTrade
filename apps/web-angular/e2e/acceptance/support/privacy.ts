@@ -1,4 +1,5 @@
 import { BrowserContext, Page, Response, WebSocket } from '@playwright/test';
+import { domCoordinateFindings } from '../../support/map-privacy';
 import { coordinates, decimalsOf } from '../../support/stack';
 
 /**
@@ -12,7 +13,9 @@ import { coordinates, decimalsOf } from '../../support/stack';
  *   centre a collector chose). The only exemption is the owner's own `/api/v1/me/location`
  *   answers, which by design return the owner's chosen area to the owner;
  * - any raw numeric distance (`distance`, `distanceKm`, `distanceMeters`, …): distances reach
- *   clients as buckets (`distanceBucket`) only.
+ *   clients as buckets (`distanceBucket`) only;
+ * - on request ({@link PrivacyScanner.scanDom}), any DOM attribute of a page holding a number in
+ *   coordinate range with more than 3 decimals (aria labels, titles, data attributes, links, ...).
  *
  * The fixture fails the test in its teardown when a violation was recorded.
  */
@@ -105,6 +108,7 @@ export class PrivacyScanner {
   private coordinateCount = 0;
   private documentCount = 0;
   private frameCount = 0;
+  private domAttributeCount = 0;
 
   /**
    * Registers a stored (private) trading-area centre that must never reach a client. Checked
@@ -127,6 +131,30 @@ export class PrivacyScanner {
   /** Number of realtime (STOMP over WebSocket) JSON bodies checked so far. */
   get checkedFrames(): number {
     return this.frameCount;
+  }
+
+  /** Number of DOM attributes checked by {@link scanDom} so far. */
+  get checkedDomAttributes(): number {
+    return this.domAttributeCount;
+  }
+
+  /**
+   * Checks every DOM attribute of `page` (except purely geometric ones: inline styles and SVG
+   * path data, which hold screen pixels) for a coordinate with more than 3 decimals; returns the
+   * number of attributes checked.
+   */
+  async scanDom(page: Page): Promise<number> {
+    const source = `DOM of ${page.url()}`;
+    const { findings, scanned } = await domCoordinateFindings(page);
+    this.domAttributeCount += scanned;
+    for (const finding of findings) {
+      this.precision.push({
+        source,
+        path: `<${finding.element} ${finding.attribute}>`,
+        reason: `"${finding.value}" holds a coordinate with more than 3 decimals`,
+      });
+    }
+    return scanned;
   }
 
   /** Every violation recorded so far (precision, then stored centres). */

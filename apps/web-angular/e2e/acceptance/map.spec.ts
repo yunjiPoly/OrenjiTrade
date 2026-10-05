@@ -1,3 +1,12 @@
+import {
+  APPROXIMATE_AREA_RADIUS_M,
+  COLLECTOR_MAP_MAX_ZOOM,
+  centreOf,
+  drawnCircles,
+  metresToPixels,
+  tileZooms,
+  tryToZoomPastTheCap,
+} from '../support/map-privacy';
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { escapeRegExp, expect, mapMarker, signIn, test } from './support/fixtures';
@@ -8,7 +17,9 @@ import { Point } from './support/privacy';
  * Acceptance — map (spec § 50): collector A publishes (turns on "Show me on the map" and publishes
  * a binder from the inventory page); collector B opens the map in another browser, where A appears
  * at an approximate position (the derived public point, never A's stored centre); B clicks A's
- * marker, reads the preview, opens A's full profile and A's public binder.
+ * marker, reads the preview, opens A's full profile and A's public binder. On the way, ADR 0004
+ * "Client rendering": no input zooms B's map past 14, A is a 3 km zone (radius 1500 m) with the
+ * avatar on its centre, and no DOM attribute carries a coordinate finer than 3 decimals.
  */
 
 interface NearbyAnswer {
@@ -80,28 +91,72 @@ test.describe('acceptance: map', () => {
     await signIn(pageB, b);
     await expect(pageB).toHaveURL(/\/map$/);
     await expect(
-      pageB.getByText('Locations are approximate (about 2 km) to protect privacy'),
+      pageB.getByText('Locations are approximate (about 3 km) to protect privacy'),
     ).toBeVisible();
     const markerA = mapMarker(pageB, a.displayName);
     await expect(markerA).toBeVisible({ timeout: 20_000 });
 
-    // A appears approximately: the derived public point, about a grid cell from A's centre.
+    // A appears approximately: the derived public point, about a grid cell from A's centre. The
+    // page's own answer is used when its body could be read; under load Chromium may drop a
+    // response body before it is read, so the same request (B's own area) is then made directly.
+    const includesA = (answer: NearbyAnswer | undefined) =>
+      !!answer?.collectors.some((c) => c.handle === a.handle);
+    let answer: NearbyAnswer | undefined;
     await expect
-      .poll(() => answers.find((answer) => answer.collectors.some((c) => c.handle === a.handle)))
-      .toBeTruthy();
-    const answer = answers.find((candidate) =>
-      candidate.collectors.some((c) => c.handle === a.handle),
-    )!;
+      .poll(
+        async () => {
+          answer =
+            answers.find(includesA) ??
+            (await api.ok<NearbyAnswer>('GET', '/api/v1/collectors/nearby', {
+              token: b.idToken,
+              params: { radiusKm: 10, limit: 200 },
+            }));
+          return includesA(answer);
+        },
+        { message: "B's nearby answer lists A", timeout: 20_000 },
+      )
+      .toBe(true);
+    answer = answer!;
     const shown = answer.collectors.find((collector) => collector.handle === a.handle)!;
     expect(shown.publicPoint).not.toEqual(area);
     expect(Math.abs(shown.publicPoint.lat - area.lat)).toBeLessThan(0.02);
     expect(Math.abs(shown.publicPoint.lng - area.lng)).toBeLessThan(0.03);
     expect(answer.center).not.toEqual(b.area);
 
-    // Marker click → preview.
+    // --- Zoom cap and the 3 km zone -----------------------------------------------------------------
+    const mapB = pageB.getByTestId('discovery-map');
+    await tryToZoomPastTheCap(pageB, mapB, markerA);
+    await expect(mapB.getByRole('button', { name: 'Zoom in' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    const zooms = await tileZooms(mapB);
+    expect(zooms.length, 'map tiles in the DOM').toBeGreaterThan(0);
+    expect(Math.max(...zooms), 'no tile beyond the zoom cap').toBe(COLLECTOR_MAP_MAX_ZOOM);
+    const expectedRadius = metresToPixels(APPROXIMATE_AREA_RADIUS_M, shown.publicPoint.lat);
+    const circles = await drawnCircles(mapB);
+    const zone = circles.find(
+      (circle) => Math.abs(circle.radiusPx - expectedRadius) <= expectedRadius * 0.03,
+    );
+    expect(
+      zone,
+      `a ${expectedRadius.toFixed(0)} px (1500 m) zone at zoom 14 among ${JSON.stringify(circles)}`,
+    ).toBeTruthy();
+    const avatar = await centreOf(markerA);
+    expect(
+      Math.hypot(avatar.x - zone!.cx, avatar.y - zone!.cy),
+      'the avatar sits on the centre of the zone',
+    ).toBeLessThan(3);
+    expect(await privacy.scanDom(pageB), 'DOM attributes checked').toBeGreaterThan(100);
+
+    // Marker click → preview (the selected zone stays a zone).
     await markerA.click();
     const preview = pageB.getByRole('dialog', { name: a.displayName });
     await expect(preview).toBeVisible();
+    await expect(preview.getByTestId('preview-approximate')).toHaveText(
+      /Locations are approximate \(about 3 km\)/,
+    );
+    await privacy.scanDom(pageB);
     await expect(preview).toContainText(`@${a.handle}`);
     await expect(preview.getByTestId('preview-distance')).toContainText(/km away/);
     await expect(preview.getByTestId('preview-freshness')).toContainText(
@@ -117,6 +172,8 @@ test.describe('acceptance: map', () => {
     await expect(pageB).toHaveURL(new RegExp(`/collectors/${escapeRegExp(a.handle)}$`));
     await expect(pageB.getByRole('heading', { level: 1, name: a.displayName })).toBeVisible();
     await expect(pageB.getByTestId('collector-public-label')).toContainText(a.areaLabel ?? '');
+    await expect(pageB.getByText(/Approximate area \(about 3 km\) around/)).toBeVisible();
+    await privacy.scanDom(pageB);
     await pageB.getByRole('link', { name: 'View public binder' }).click();
     await expect(pageB).toHaveURL(new RegExp(`/binders/${binder.id}$`));
     await expect(pageB.getByRole('heading', { level: 1, name: binder.name })).toBeVisible();
