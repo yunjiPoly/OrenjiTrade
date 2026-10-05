@@ -16,7 +16,7 @@ export function bellLabel(count: number): string {
  * The notification bell in the tab headers (the web's top-bar bell): a live unread badge
  * ("99+"), opening the notification centre.
  */
-export function NotificationBell() {
+export function NotificationBell({ testID = 'notification-bell' }: { testID?: string }) {
   const { palette } = useTheme();
   const router = useRouter();
   const ready = useAccount().status === 'ready';
@@ -31,7 +31,7 @@ export function NotificationBell() {
       accessibilityLabel={bellLabel(count)}
       onPress={() => router.push('/notifications')}
       hitSlop={8}
-      testID="notification-bell"
+      testID={testID}
       style={({ pressed }) => [styles.bell, pressed && styles.pressed]}
     >
       <MaterialCommunityIcons
@@ -41,7 +41,7 @@ export function NotificationBell() {
       />
       {count > 0 ? (
         <View
-          testID="notification-badge"
+          testID={`${testID}-badge`}
           style={[styles.badge, { backgroundColor: palette.danger }]}
         >
           <Text style={styles.badgeText}>{badgeCount(count)}</Text>

@@ -165,18 +165,29 @@ export async function apiAcceptConsents(api: APIRequestContext, token: string): 
 }
 
 export interface OnboardedCollector extends EmulatorUser {
+  /** Account id (`GET /me`), e.g. a recipient of `POST /conversations`. */
+  id: string;
   handle: string;
   displayName: string;
 }
 
+/** A trading-area centre (3 decimals, like every manual centre). */
+export interface AreaPoint {
+  lat: number;
+  lng: number;
+  radiusKm?: number;
+}
+
 /**
  * A fresh collector created through the emulator + API: accepted terms, a saved profile with a
- * game (onboarding complete), no trading area, not discoverable.
+ * game (onboarding complete); without `area` no trading area and not discoverable, with `area` a
+ * MANUAL trading area there and, with `discoverable`, on the map.
  */
 export async function createOnboardedCollector(
   api: APIRequestContext,
   prefix: string,
-  displayName = `Mobile ${prefix} collector`
+  displayName = `Mobile ${prefix} collector`,
+  options: { area?: AreaPoint; discoverable?: boolean } = {}
 ): Promise<OnboardedCollector> {
   const user = await emulatorSignUp(api, uniqueEmail(prefix));
   await apiAcceptConsents(api, user.idToken);
@@ -192,7 +203,194 @@ export async function createOnboardedCollector(
     },
   });
   expect(profile.ok(), 'PUT /me/profile').toBeTruthy();
-  return { ...user, handle, displayName };
+  if (options.area) {
+    const area = await api.put(`${API_URL}/api/v1/me/location/trading-area`, {
+      headers: authHeader(user.idToken),
+      data: {
+        lat: options.area.lat,
+        lng: options.area.lng,
+        radiusKm: options.area.radiusKm ?? 5,
+        source: 'MANUAL',
+      },
+    });
+    expect(area.ok(), 'PUT /me/location/trading-area').toBeTruthy();
+  }
+  if (options.discoverable) {
+    await apiUpdatePrivacy(api, user.idToken, { discoverable: true });
+  }
+  const me = await api.get(`${API_URL}/api/v1/me`, { headers: authHeader(user.idToken) });
+  expect(me.ok(), 'GET /me').toBeTruthy();
+  const id = ((await me.json()) as { id: string }).id;
+  return { ...user, id, handle, displayName };
+}
+
+/** Merges `changes` into the collector's privacy settings. */
+export async function apiUpdatePrivacy(
+  api: APIRequestContext,
+  token: string,
+  changes: Record<string, unknown>
+): Promise<void> {
+  const current = await api.get(`${API_URL}/api/v1/me/settings/privacy`, {
+    headers: authHeader(token),
+  });
+  expect(current.ok(), 'GET privacy settings').toBeTruthy();
+  const response = await api.put(`${API_URL}/api/v1/me/settings/privacy`, {
+    headers: authHeader(token),
+    data: { ...((await current.json()) as Record<string, unknown>), ...changes },
+  });
+  expect(response.ok(), 'PUT privacy settings').toBeTruthy();
+}
+
+/** `POST /conversations` as `from`: the conversation id (200 existing, 201 new). */
+export async function apiStartConversation(
+  api: APIRequestContext,
+  from: EmulatorUser,
+  recipientId: string
+): Promise<string> {
+  const response = await api.post(`${API_URL}/api/v1/conversations`, {
+    headers: authHeader(from.idToken),
+    data: { recipientId },
+  });
+  expect([200, 201], 'POST /conversations').toContain(response.status());
+  return ((await response.json()) as { id: string }).id;
+}
+
+/** A text message as `from` (the second user of two-user specs). Returns the HTTP status. */
+export async function apiSendText(
+  api: APIRequestContext,
+  from: EmulatorUser,
+  conversationId: string,
+  body: string
+): Promise<number> {
+  const response = await api.post(`${API_URL}/api/v1/conversations/${conversationId}/messages`, {
+    headers: authHeader(from.idToken),
+    data: { kind: 'TEXT', body },
+  });
+  return response.status();
+}
+
+export interface ApiMessage {
+  id: string;
+  kind: string;
+  body: string;
+  senderId: string | null;
+  readByOther: boolean;
+  payload?: { card?: { name: string }; binder?: { name: string }; image?: { url: string } };
+}
+
+/** The newest messages of a conversation as `as` sees them. */
+export async function apiMessages(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  conversationId: string
+): Promise<ApiMessage[]> {
+  const response = await api.get(
+    `${API_URL}/api/v1/conversations/${conversationId}/messages?limit=30`,
+    { headers: authHeader(as.idToken) }
+  );
+  expect(response.ok(), 'GET messages').toBeTruthy();
+  return ((await response.json()) as { items: ApiMessage[] }).items;
+}
+
+/** `as` read the conversation up to `messageId` (a read receipt for the other participant). */
+export async function apiMarkRead(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  conversationId: string,
+  messageId: string
+): Promise<void> {
+  const response = await api.post(`${API_URL}/api/v1/conversations/${conversationId}/read`, {
+    headers: authHeader(as.idToken),
+    data: { lastReadMessageId: messageId },
+  });
+  expect(response.status(), 'POST read').toBe(204);
+}
+
+/** Printing id of a seed catalog printing code (`PFT-002`), via `GET /cards/suggest`. */
+export async function printingIdOf(
+  api: APIRequestContext,
+  token: string,
+  code: string
+): Promise<string> {
+  const response = await api.get(`${API_URL}/api/v1/cards/suggest`, {
+    headers: authHeader(token),
+    params: { q: code, limit: 10 },
+  });
+  expect(response.ok(), `suggest ${code}`).toBeTruthy();
+  const suggestions = (await response.json()) as {
+    kind: string;
+    printingId?: string;
+    printingCode?: string;
+  }[];
+  const match = suggestions.find(
+    (suggestion) => suggestion.kind === 'PRINTING' && suggestion.printingCode === code
+  );
+  expect(match?.printingId, `printing ${code} in the seed catalog`).toBeTruthy();
+  return match!.printingId!;
+}
+
+/** A public binder of `holder` (published until disabled). */
+export async function apiPublicBinder(
+  api: APIRequestContext,
+  holder: EmulatorUser,
+  name: string
+): Promise<string> {
+  const created = await api.post(`${API_URL}/api/v1/binders`, {
+    headers: authHeader(holder.idToken),
+    data: { name, kind: 'TRADE', description: 'Fictional binder of the mobile E2E suite.' },
+  });
+  expect(created.ok(), 'POST /binders').toBeTruthy();
+  const id = ((await created.json()) as { id: string }).id;
+  const published = await api.post(`${API_URL}/api/v1/binders/${id}/publish`, {
+    headers: authHeader(holder.idToken),
+    data: { mode: 'UNTIL_DISABLED' },
+  });
+  expect(published.ok(), 'publish binder').toBeTruthy();
+  return id;
+}
+
+/** One public copy of a printing in a public binder (publication → wishlist matching). */
+export async function apiListCopy(
+  api: APIRequestContext,
+  holder: EmulatorUser,
+  binderId: string,
+  printingId: string,
+  askingPrice: number
+): Promise<void> {
+  const response = await api.post(`${API_URL}/api/v1/inventory/items`, {
+    headers: authHeader(holder.idToken),
+    data: {
+      printingId,
+      binderId,
+      condition: 'NEAR_MINT',
+      availability: 'TRADE_OR_SALE',
+      askingPrice,
+      currency: 'CAD',
+      acceptsOffers: false,
+      publicNotes: 'Fictional listing of the mobile E2E suite.',
+    },
+  });
+  expect(response.status(), 'POST /inventory/items').toBe(201);
+}
+
+/**
+ * A random public point of rural Québec with 3 decimals (a region no other spec uses), so
+ * parallel specs and earlier runs never match each other's listings.
+ */
+export function randomRuralArea(): AreaPoint {
+  const pick = (min: number, span: number) => {
+    const value = Math.round((min + Math.random() * span) * 1000);
+    return (value % 10 === 0 ? value + 3 : value) / 1000;
+  };
+  return { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) };
+}
+
+/** A point about 1.5 km from `area`. */
+export function nearArea(area: AreaPoint): AreaPoint {
+  return {
+    lat: Math.round((area.lat + 0.011) * 1000) / 1000,
+    lng: Math.round((area.lng - 0.014) * 1000) / 1000,
+  };
 }
 
 /** Signs in through the app's sign-in screen and waits until the app left it. */

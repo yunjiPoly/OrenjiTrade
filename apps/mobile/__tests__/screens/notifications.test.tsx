@@ -162,7 +162,7 @@ describe('Notification bell', () => {
   it('shows the live unread badge and opens the centre', async () => {
     mockApi(routes({ 'GET /api/v1/notifications/unread-count': ok({ count: 120 }) }));
     renderWithProviders(<NotificationBell />, { port: port() });
-    expect(await screen.findByTestId('notification-badge')).toHaveTextContent('99+');
+    expect(await screen.findByTestId('notification-bell-badge')).toHaveTextContent('99+');
     expect(screen.getByTestId('notification-bell').props.accessibilityLabel).toBe(
       'Notifications, 120 unread'
     );

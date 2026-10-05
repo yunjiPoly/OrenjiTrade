@@ -31,8 +31,6 @@ export default function TabLayout() {
         headerTintColor: palette.ink,
         headerShadowVisible: false,
         headerTitleAlign: 'center',
-        // The notification centre is one tap away from every tab (the web's top-bar bell).
-        headerRight: () => <NotificationBell />,
       }}
     >
       {TABS.map((tab) => {
@@ -50,6 +48,8 @@ export default function TabLayout() {
               // Stable selector for the native Maestro flows (resource-id on Android).
               tabBarButtonTestID: `tab-${tab.name}`,
               tabBarBadge: badge,
+              // The notification centre is one tap away from every tab (the web's top-bar bell).
+              headerRight: () => <NotificationBell testID={`notification-bell-${tab.name}`} />,
               tabBarBadgeStyle: { backgroundColor: palette.primary, color: palette.onPrimary },
               tabBarIcon: ({ color, focused, size }) => (
                 <MaterialCommunityIcons

@@ -81,7 +81,7 @@ describe('(tabs) layout', () => {
     await screen.findByTestId('screen-map');
     expect(await screen.findByLabelText('Messages tab, 3 unread')).toBeOnTheScreen();
     expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
-    expect(screen.getByTestId('notification-badge')).toHaveTextContent('5');
+    expect(screen.getByTestId('notification-bell-index-badge')).toHaveTextContent('5');
   });
 
   it('navigates to the Profile tab', async () => {
