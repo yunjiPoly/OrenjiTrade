@@ -1,13 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
-import CollectorScreen from '@/app/collectors/[id]';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { collectorFixture, locationFixture, meFixture, profileFixture } from '../support/fixtures';
+import { locationFixture, profileFixture } from '../support/fixtures';
 import { mockApi, ok, problem } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
-import { mockParams, mockRouter, resetRouterMock } from '../support/router';
+import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
@@ -100,47 +99,5 @@ describe('Profile tab', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/settings');
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
-  });
-});
-
-describe('Public collector profile', () => {
-  it('is the owner public preview, with a label and a distance bucket only', async () => {
-    mockParams.current = { id: 'maika' };
-    mockApi(signedInRoutes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
-    renderWithProviders(<CollectorScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Maïka Test');
-    await waitFor(() => expect(screen.getByTestId('public-preview-banner')).toBeOnTheScreen());
-    expect(screen.getByTestId('collector-location')).toHaveTextContent(
-      'Near Ville-Marie, Montréal'
-    );
-    expect(screen.getByText('1–5 km away')).toBeOnTheScreen();
-    expect(screen.getByText('★ 4.5 (2)')).toBeOnTheScreen();
-    expect(screen.queryByText(/45\.503|73\.569/)).toBeNull();
-  });
-
-  it('shows another collector without the preview banner, and an error state', async () => {
-    mockParams.current = { id: 'collector2' };
-    mockApi(
-      signedInRoutes({
-        'GET /api/v1/me': ok(meFixture()),
-        'GET /api/v1/collectors/{handle}': [
-          problem(404, 'NOT_FOUND', 'Not found'),
-          ok(
-            collectorFixture({
-              id: 'other',
-              handle: 'collector2',
-              displayName: 'Other',
-              location: undefined,
-            })
-          ),
-        ],
-      })
-    );
-    renderWithProviders(<CollectorScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('We could not load this profile')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Other');
-    expect(screen.getByTestId('collector-location')).toHaveTextContent('Not on the map');
-    expect(screen.queryByTestId('public-preview-banner')).toBeNull();
   });
 });

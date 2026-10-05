@@ -1,121 +1,118 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
-import type { CollectorProfileResponse } from '@/src/api/types';
-import { Avatar } from '@/src/components/ui/Avatar';
-import { FormMessage } from '@/src/components/ui/FormControls';
-import { ChipList, SectionCard } from '@/src/components/ui/Layout';
-import { QueryState } from '@/src/components/ui/QueryState';
+import { Button } from '@/src/components/ui/Button';
+import { EmptyState } from '@/src/components/ui/EmptyState';
+import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Screen } from '@/src/components/ui/Screen';
-import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { formatLongDate } from '@/src/lib/dates';
-import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
-import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
-import { LAST_ACTIVE_LABELS, gameLabel } from '@/src/lib/profile';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
+import { CollectorProfileView } from '@/src/features/collectors/CollectorProfileView';
+import { spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * A collector's public profile as the caller sees it (`GET /collectors/{handle}`); for the owner
- * it is the "public preview". Deep link: https://www.orenjitrade.com/collectors/<handle>.
- * Location: the public label and a distance bucket only, never coordinates (ADR 0004).
+ * A collector's public profile (`GET /collectors/{handle}`, the web's `/collectors/:handle`); for
+ * the owner it is the "public preview". Deep links: orenjitrade://collectors/<handle> and
+ * https://www.orenjitrade.com/collectors/<handle>.
+ *
+ * Like the web: members only (signed out, or a 401: "Collector profiles are for members");
+ * 404 covers unknown, PRIVATE, suspended and deleted collectors alike ("not available"), so
+ * nothing leaks about why. Location: a label, a distance bucket and a 3 km zone, never a point.
  */
-/** "Near Plateau-Mont-Royal, Montréal", or the generic wording when no place matched. */
-function nearLabel(publicLabel: string | null | undefined): string {
-  const place = placeLabel(publicLabel);
-  return place ? `Near ${place}` : GENERIC_AREA_LABEL;
-}
-
 export default function CollectorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const profile = useCollectorProfile(id);
+  const account = useAccount();
+  const signedOut = account.status === 'anonymous';
+  const profile = useCollectorProfile(signedOut ? null : id);
+  const isOwn = !!profile.data && account.me?.id === profile.data.id;
+
+  let content;
+  if (signedOut || profile.error?.status === 401) {
+    content = <MembersOnly />;
+  } else if (profile.data) {
+    content = <CollectorProfileView profile={profile.data} isOwn={isOwn} />;
+  } else if (profile.error?.status === 404) {
+    content = <NotAvailable />;
+  } else if (profile.error) {
+    content = (
+      <ErrorState
+        testID="collector-error"
+        error={profile.error}
+        title="We could not load this profile"
+        onRetry={() => void profile.refetch()}
+        retryLabel={profile.isFetching ? 'Retrying…' : 'Try again'}
+      />
+    );
+  } else {
+    content = (
+      <View testID="collector-loading" accessibilityLabel="Loading the collector profile" aria-busy>
+        <View style={styles.loadingHead}>
+          <Skeleton width={72} height={72} radius={36} />
+          <View style={styles.grow}>
+            <Skeleton width="70%" height={24} />
+            <Skeleton width="40%" height={16} />
+          </View>
+        </View>
+        <SkeletonList rows={3} rowHeight={96} />
+      </View>
+    );
+  }
+
   return (
     <Screen scroll safeBottom testID="screen-collector">
-      <Stack.Screen options={{ title: id ? `@${id}` : 'Collector' }} />
-      <QueryState
-        query={profile}
-        errorTitle="We could not load this profile"
-        loading={<SkeletonList rows={3} rowHeight={64} />}
-        testID="collector"
-      >
-        {(data) => <PublicProfile profile={data} />}
-      </QueryState>
+      <Stack.Screen
+        options={{ title: profile.data?.displayName ?? (id ? `@${id}` : 'Collector') }}
+      />
+      {content}
     </Screen>
   );
 }
 
-function PublicProfile({ profile }: { profile: CollectorProfileResponse }) {
+function MembersOnly() {
   const { palette } = useTheme();
-  const account = useAccount();
-  const isMe = account.me?.id === profile.id;
-  const distance = distanceBucketLabel(profile.location?.distanceBucket);
-  const rating =
-    profile.rating.count > 0 && profile.rating.average != null
-      ? `★ ${profile.rating.average.toFixed(1)} (${profile.rating.count})`
-      : 'No ratings yet';
-
+  const router = useRouter();
   return (
-    <View style={styles.root}>
-      {isMe ? (
-        <FormMessage tone="info" testID="public-preview-banner">
-          Public preview: this is how other collectors see your profile.
-        </FormMessage>
-      ) : null}
-      <View style={styles.header}>
-        <Avatar src={profile.avatarUrl} name={profile.displayName} size={72} decorative={false} />
-        <View style={styles.grow}>
-          <Text
-            accessibilityRole="header"
-            testID="collector-name"
-            style={[textStyle('2xl', 'heading'), styles.name, { color: palette.ink }]}
-          >
-            {profile.displayName}
-          </Text>
-          <Text style={[textStyle('md'), { color: palette.textMuted }]}>@{profile.handle}</Text>
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {LAST_ACTIVE_LABELS[profile.lastActiveBucket] ?? ''} · Member since{' '}
-            {formatLongDate(profile.memberSince)}
-          </Text>
-        </View>
-      </View>
-      {profile.bio ? (
-        <Text style={[textStyle('md'), { color: palette.ink }]}>{profile.bio}</Text>
-      ) : null}
-
-      <SectionCard title="Collects">
-        <ChipList items={profile.games.map(gameLabel)} emptyLabel="No games listed" />
-        <ChipList
-          items={profile.tags.map((tag) => tag.label)}
-          emptyLabel="No tags"
-          testID="collector-tags"
-        />
-      </SectionCard>
-
-      <SectionCard title="Where">
-        <Text testID="collector-location" style={[textStyle('md'), { color: palette.ink }]}>
-          {profile.location ? nearLabel(profile.location.publicLabel) : 'Not on the map'}
-        </Text>
-        {distance ? (
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{distance}</Text>
-        ) : null}
-      </SectionCard>
-
-      <SectionCard title="Reputation">
-        <Text style={[textStyle('md'), { color: palette.ink }]}>{rating}</Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {profile.publicBinderCount === 1
-            ? '1 public binder'
-            : `${profile.publicBinderCount} public binders`}
-        </Text>
-      </SectionCard>
+    <View testID="collector-members-only" accessibilityRole="summary" style={styles.centered}>
+      <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>
+        Collector profiles are for members
+      </Text>
+      <Text style={[textStyle('md'), styles.title, { color: palette.textMuted }]}>
+        Sign in or create a free account to see who trades near you.
+      </Text>
+      <Button label="Sign in" onPress={() => router.push('/sign-in')} testID="collector-sign-in" />
+      <Button
+        label="Create account"
+        variant="secondary"
+        onPress={() => router.push('/sign-up')}
+        testID="collector-sign-up"
+      />
     </View>
   );
 }
 
+function NotAvailable() {
+  const router = useRouter();
+  return (
+    <EmptyState
+      testID="collector-not-found"
+      icon="account-off-outline"
+      title="This collector is not available"
+      description="The profile does not exist, is private, or is no longer active."
+      actionLabel="Back to the map"
+      onAction={() => router.navigate('/')}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing[4] },
-  grow: { flex: 1, gap: 2 },
-  name: { fontWeight: fontWeight.bold },
+  grow: { flex: 1, gap: spacing[2] },
+  loadingHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[4],
+    marginBottom: spacing[4],
+  },
+  centered: { gap: spacing[3], paddingVertical: spacing[8], alignItems: 'stretch' },
+  title: { textAlign: 'center' },
 });
