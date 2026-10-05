@@ -38,15 +38,17 @@ export default function OnboardingScreen() {
   const profile = useMyProfile();
   const location = useMyLocation();
   const privacy = usePrivacySettings();
+  const account = useAccount();
 
-  // One query state for the three loads the screen needs.
+  // One query state for the loads the screen needs. `/me` too: its onboarding flags pick the
+  // first step, which is decided once when the flow mounts.
   const combined = {
     data:
-      profile.data && location.data && privacy.data
+      profile.data && location.data && privacy.data && account.me
         ? { profile: profile.data, location: location.data, privacy: privacy.data }
         : undefined,
     error: profile.error ?? location.error ?? privacy.error,
-    isPending: profile.isPending || location.isPending || privacy.isPending,
+    isPending: profile.isPending || location.isPending || privacy.isPending || !account.me,
     isFetching: profile.isFetching || location.isFetching || privacy.isFetching,
     refetch: () => Promise.all([profile.refetch(), location.refetch(), privacy.refetch()]),
   };

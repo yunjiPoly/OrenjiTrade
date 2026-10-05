@@ -1,0 +1,13 @@
+# Scrolls down until an element whose text or accessibility label matches the regex TEXT is on
+# screen (same right-edge swipe as scroll-down-to.yaml, for rows without a stable id).
+appId: host.exp.exponent
+---
+- repeat:
+    while:
+      notVisible: ${TEXT}
+    times: 10
+    commands:
+      - swipe:
+          start: 98%, 75%
+          end: 98%, 35%
+          duration: 500

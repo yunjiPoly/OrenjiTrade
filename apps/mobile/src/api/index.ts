@@ -26,9 +26,10 @@ export {
   errorMiddleware,
   isPublicApiUrl,
   required,
+  sendsIdToken,
   type ApiClient,
   type CreateApiClientOptions,
 } from './client';
 export { friendlyError, friendlyMessage, messageOf, type FriendlyError } from './errorMessages';
 export { connectQueryManagers, createQueryClient, queryClient } from './queryClient';
-export { meKeys, publicKeys } from './queryKeys';
+export { catalogKeys, meKeys, publicKeys } from './queryKeys';

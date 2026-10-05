@@ -63,12 +63,13 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/typed-routes.mjs && tsc --noEmit",
     "test": "jest --ci",
     "test:watch": "jest --watch",
     "sync:tokens": "node scripts/sync-tokens.mjs",
     "doctor": "expo-doctor",
-    "sync:legal": "node scripts/sync-legal.mjs"
+    "sync:legal": "node scripts/sync-legal.mjs",
+    "typegen": "node scripts/typed-routes.mjs"
   },
   "private": true,
   "description": "OrenjiTrade mobile app (Expo SDK 57 + expo-router)",

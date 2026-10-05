@@ -170,10 +170,10 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 5 min (704 tests), `test:web` about 40 s (lint + 578 unit tests), `test:mobile` 40–50 s (29
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
-`test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-05):
-`test:mobile` about 1–2 min (231 jest tests in 33 suites + 27 harness guard tests),
-`test:mobile:e2e` about 1.5–3 min (12 specs, including the API jar and the web export),
-`test:mobile:maestro` about 10–15 min (5 flows on the `Pixel_6_API_34` emulator, including the API
+`test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-05,
+stage M2): `test:mobile` about 1.5–2 min (329 jest tests in 44 suites + 28 harness guard tests),
+`test:mobile:e2e` about 2 min (19 specs, including the API jar and the web export),
+`test:mobile:maestro` about 20 min (8 flows on the `Pixel_6_API_34` emulator, including the API
 and Metro start; add a few minutes the first time, while Expo CLI installs Expo Go).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
@@ -246,8 +246,13 @@ deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
 ## Mobile app (Expo)
 
 The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobile/README.md)) runs
-against the same local stack. Phase 1 (accounts, onboarding, profile, settings) is implemented;
-later phases follow. The trading area is picked like on the web: a tap on the map or a dragged pin,
+against the same local stack. Phase 1 (accounts, onboarding, profile, settings) and Phases 2–3
+(the Search tab and card detail; the Inventory tab with adding, editing and deleting cards;
+binders, their publication and the public binder view) are implemented on the same API as the
+web; later phases follow. Locally the catalog is the fictional mock catalog of the seed (the real
+Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
+picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
+provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
 "Use map centre", city quick picks, a 1–50 km radius, or the device location (sent once to the
 API, never drawn). Maps follow ADR 0010: in Expo Go on Android (and in any Android build without
 `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) they are Leaflet + OpenStreetMap in a WebView, because the Maps
@@ -277,7 +282,7 @@ database or files and leave a running `npm run dev` alone:
 | --- | --- |
 | Infrastructure | the shared containers; `npm run infra:up` only when one is not running, never restarted or reset |
 | Database | `orenjitrade_mobile_e2e` on the shared PostgreSQL, dropped and recreated per run (Flyway + seed); `orenjitrade` is never touched |
-| API | the API jar on **:8090** (profile `local`, Redis database 1 and realtime channels `e2e-mobile:rt:user:*`, fake/log providers, mock catalog only: YGOPRODeck disabled and pointed at a closed local port, no card image downloads), log `.local-dev/mobile-e2e/logs/api.log` |
+| API | the API jar on **:8090** (profile `local`, Redis database 1 (flushed whenever the database is recreated, so no cached row of the dropped database reaches the new API) and realtime channels `e2e-mobile:rt:user:*`, fake/log providers, mock catalog only: YGOPRODeck disabled and pointed at a closed local port, no card image downloads), log `.local-dev/mobile-e2e/logs/api.log` |
 | Files | media `.local-dev/mobile-e2e/storage`, card-image cache `.local-dev/mobile-e2e/card-images`, provider snapshots `.local-dev/mobile-e2e/provider-data`; the harness refuses to start when any resolves to a developer directory (start-up reconciliation deletes cache files its own database does not reference) |
 | App | Playwright: `expo export --platform web` served on **:19006**; Maestro: Metro on **:8082** for Expo Go (`exp://10.0.2.2:8082`) |
 | Accounts | created as `m-<run id>-...@mobile-e2e.test` and deleted from the Auth emulator at the end of the run; seed accounts are only signed in to |
@@ -295,7 +300,17 @@ on :8080; `--keep-running` keeps the isolated API and web server (or Metro) for 
 (`%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd Pixel_6_API_34 -no-snapshot-save`), then
 `MAESTRO_BIN=<path to maestro(.bat)> npm run test:mobile:maestro`. On an emulator without Expo Go,
 the Metro started by the harness (`expo start --android`) installs it and the harness waits for
-that install (up to 6 minutes) before running the flows.
+that install (up to 6 minutes) before running the flows. Flows that need data create it on the
+host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`) and check
+the result there (`check-area.js`, `check-inventory.js`); they refuse the developer API on :8080
+and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
+run (Metro re-crawls the workspace and Expo Go may report "Packager is not running"), and restart
+Metro after source changes (`npm run test:mobile:maestro -- --stop`): on Windows a kept Metro did
+not always serve them.
+
+The Playwright specs open dynamic routes (`/cards/<id>`, `/binders/<id>`) inside the running app:
+the static export served by `expo serve` has no rewrites for them, so a full page load of such a
+URL answers 404 (deep links work in the native app).
 
 ## Card images and the real Yu-Gi-Oh! catalog
 

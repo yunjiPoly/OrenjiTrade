@@ -64,6 +64,7 @@ import {
 import { containerHealth, ensureDatabase, psql } from './local-db.mjs';
 import {
   MOBILE_E2E_DB,
+  assertFlushableRedis,
   assertIsolated,
   assertRecreatable,
   deleteRunAccounts,
@@ -157,7 +158,7 @@ export async function ensureInfrastructure() {
  * migrates it when the API starts), with the extensions the API expects. Only ever the mobile E2E
  * database (assertRecreatable); uses the shared local-db helpers of the web E2E harness.
  */
-function recreateDatabase() {
+function recreateDatabase(redisUrl) {
   try {
     assertRecreatable(MOBILE_E2E_DB);
     psql('postgres', [`DROP DATABASE IF EXISTS ${MOBILE_E2E_DB} WITH (FORCE)`]);
@@ -167,6 +168,28 @@ function recreateDatabase() {
     return false;
   }
   log.ok(`Recreated the isolated database ${MOBILE_E2E_DB} (the developer database is untouched).`);
+  return flushMobileRedis(redisUrl);
+}
+
+/**
+ * FLUSHDB of the mobile E2E Redis database (1) after its database was recreated: cached rows of
+ * the dropped database (games for 60 s, with their ids) must not reach the new API. Refuses any
+ * other database (0 is the developer's, 2 the web E2E suite's).
+ */
+function flushMobileRedis(redisUrl) {
+  let db;
+  try {
+    db = assertFlushableRedis(redisUrl);
+  } catch (error) {
+    log.error(error.message);
+    return false;
+  }
+  const result = capture('docker', ['exec', 'orenjitrade-redis', 'redis-cli', '-n', String(db), 'FLUSHDB']);
+  if (result.status !== 0 || !/OK/.test(result.stdout)) {
+    log.warn(`Could not flush the mobile E2E Redis db ${db}; cached rows expire within a minute.`);
+  } else {
+    log.ok(`Flushed the mobile E2E Redis db ${db} (the developer's db 0 is untouched).`);
+  }
   return true;
 }
 
@@ -315,7 +338,7 @@ export async function startIsolatedApi({ skipBuild }) {
     log.error('No Java 21+ runtime found (ORENJI_JAVA_HOME, JAVA_HOME, PATH, ~/.gradle/jdks).');
     return null;
   }
-  if (!recreateDatabase()) {
+  if (!recreateDatabase(apiEnv.REDIS_URL)) {
     return null;
   }
   const instance = randomUUID();

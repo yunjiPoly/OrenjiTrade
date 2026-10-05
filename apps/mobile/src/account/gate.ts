@@ -44,7 +44,15 @@ export const GATE_HOME = {
 export type GateHome = (typeof GATE_HOME)[keyof typeof GATE_HOME];
 
 const ALWAYS_ALLOWED = new Set(['legal', '+not-found', '_sitemap']);
-const APP_ROOTS = new Set(['(tabs)', 'settings', 'profile', 'collectors', 'cards', 'binders']);
+const APP_ROOTS = new Set([
+  '(tabs)',
+  'settings',
+  'profile',
+  'collectors',
+  'cards',
+  'binders',
+  'items',
+]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {
   switch (gate) {

@@ -1,5 +1,10 @@
 import {
+  binderFixture,
   GAMES,
+  inventoryPage,
+  itemFixture,
+  listingStatusFixture,
+  summaryFixture,
   LEGAL_DOCUMENTS,
   TAGS,
   locationFixture,
@@ -22,6 +27,10 @@ export function signedInRoutes(overrides: MockRoutes = {}): MockRoutes {
     'GET /api/v1/games': ok(GAMES),
     'GET /api/v1/tags': ok(TAGS),
     'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
+    'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture()])),
+    'GET /api/v1/inventory/summary': ok(summaryFixture()),
+    'GET /api/v1/binders': ok([binderFixture()]),
+    'GET /api/v1/me/listings/status': ok(listingStatusFixture()),
     ...overrides,
   };
 }

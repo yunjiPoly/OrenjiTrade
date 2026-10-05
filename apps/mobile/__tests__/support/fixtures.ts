@@ -1,5 +1,17 @@
 import type {
+  BinderResponse,
+  CardDetail,
+  CardPage,
+  CardSummary,
   CollectorProfileResponse,
+  InventoryItemResponse,
+  InventoryPage,
+  InventorySummaryResponse,
+  ListingStatus,
+  PrintingSummary,
+  PublicBinderResponse,
+  PublicInventoryItem,
+  SetSummary,
   DeletionRequestResponse,
   GameResponse,
   LegalDocument,
@@ -75,6 +87,29 @@ export const TAGS: TagResponse[] = [
   },
 ];
 
+export const POKEMON_SCHEMA: NonNullable<GameResponse['schema']> = {
+  conditions: ['NEAR_MINT', 'LIGHTLY_PLAYED', 'DAMAGED'],
+  editions: ['UNLIMITED', 'FIRST_EDITION'],
+  finishes: ['NORMAL', 'HOLO', 'REVERSE_HOLO'],
+  languages: ['en', 'fr'],
+  rarities: ['Common', 'Ultra Rare'],
+  metadataFields: [
+    { key: 'hp', label: 'HP', type: 'number' },
+    { key: 'types', label: 'Types', type: 'string_list' },
+  ],
+  summaryFields: ['hp'],
+};
+
+export const YUGIOH_SCHEMA: NonNullable<GameResponse['schema']> = {
+  conditions: ['NEAR_MINT', 'LIGHTLY_PLAYED'],
+  editions: ['FIRST_EDITION', 'UNLIMITED'],
+  finishes: ['NORMAL'],
+  languages: ['en', 'fr', 'ja'],
+  rarities: ['Common', 'Secret Rare'],
+  metadataFields: [{ key: 'attribute', label: 'Attribute', type: 'string' }],
+  summaryFields: [],
+};
+
 export const GAMES: GameResponse[] = [
   {
     id: 'g1',
@@ -83,6 +118,7 @@ export const GAMES: GameResponse[] = [
     shortName: 'Pokémon',
     status: 'ACTIVE',
     sortOrder: 1,
+    schema: POKEMON_SCHEMA,
   },
   {
     id: 'g2',
@@ -91,6 +127,7 @@ export const GAMES: GameResponse[] = [
     shortName: 'Yu-Gi-Oh!',
     status: 'ACTIVE',
     sortOrder: 2,
+    schema: YUGIOH_SCHEMA,
   },
 ];
 
@@ -192,6 +229,247 @@ export function collectorFixture(
     publicBinderCount: 1,
     canMessage: true,
     isBlocked: false,
+    ...overrides,
+  };
+}
+
+// --- Catalog, inventory and binders (fictional seed-like data) ----------------------------------
+
+export const CARD_ID = '00000000-0000-4000-8a00-000000000001';
+export const PRINTING_A = '00000000-0000-4000-8a10-00000000000a';
+export const PRINTING_B = '00000000-0000-4000-8a10-00000000000b';
+export const ITEM_ID = '00000000-0000-4000-8c00-000000000001';
+export const BINDER_ID = '00000000-0000-4000-8b00-000000000001';
+
+export function printingFixture(overrides: Partial<PrintingSummary> = {}): PrintingSummary {
+  return {
+    id: PRINTING_A,
+    cardId: CARD_ID,
+    setId: '00000000-0000-4000-8a20-000000000001',
+    setCode: 'SVX',
+    setName: 'Stellar Vortex',
+    collectorNumber: '001',
+    printingCode: 'SVX-001',
+    rarity: 'Ultra Rare',
+    edition: 'UNLIMITED',
+    language: 'en',
+    finish: 'HOLO',
+    images: [{ kind: 'FRONT', url: '/api/v1/public/card-images/pa', width: 320, height: 446 }],
+    marketPrice: { amount: 38, currency: 'CAD', updatedAt: '2026-09-30T00:00:00Z' },
+    ...overrides,
+  };
+}
+
+export function cardSummaryFixture(overrides: Partial<CardSummary> = {}): CardSummary {
+  return {
+    id: CARD_ID,
+    game: 'pokemon',
+    name: 'Emberfang Fox VMAX',
+    slug: 'emberfang-fox-vmax',
+    cardType: 'Pokémon',
+    subtype: 'VMAX',
+    primaryImageUrl: '/api/v1/public/card-images/pa',
+    printingCount: 2,
+    metadata: { hp: 320 },
+    ...overrides,
+  };
+}
+
+export function cardPage(
+  items: CardSummary[],
+  page = 0,
+  totalPages = 1,
+  totalItems?: number
+): CardPage {
+  return { items, page, size: 24, totalItems: totalItems ?? items.length, totalPages };
+}
+
+export function cardDetailFixture(overrides: Partial<CardDetail> = {}): CardDetail {
+  return {
+    id: CARD_ID,
+    game: 'pokemon',
+    name: 'Emberfang Fox VMAX',
+    slug: 'emberfang-fox-vmax',
+    cardType: 'Pokémon',
+    subtype: 'VMAX',
+    text: 'A fictional Fire creature.',
+    metadata: { hp: 320, types: ['Fire'], weakness: 'Water' },
+    primaryImageUrl: '/api/v1/public/card-images/pa',
+    printings: [
+      printingFixture(),
+      printingFixture({
+        id: PRINTING_B,
+        language: 'fr',
+        finish: 'REVERSE_HOLO',
+        images: [{ kind: 'FRONT', url: '/api/v1/public/card-images/pb', width: 320, height: 446 }],
+        marketPrice: undefined,
+      }),
+    ],
+    ...overrides,
+  };
+}
+
+export const SETS: SetSummary[] = [
+  { id: 's1', game: 'pokemon', code: 'SVX', name: 'Stellar Vortex' },
+  { id: 's2', game: 'pokemon', code: 'PFT', name: 'Prismatic Frontier' },
+];
+
+export function itemFixture(overrides: Partial<InventoryItemResponse> = {}): InventoryItemResponse {
+  return {
+    id: ITEM_ID,
+    printing: printingFixture(),
+    card: { id: CARD_ID, name: 'Emberfang Fox VMAX', game: 'pokemon' },
+    binder: undefined,
+    quantity: 2,
+    condition: 'NEAR_MINT',
+    language: 'en',
+    edition: 'UNLIMITED',
+    finish: 'HOLO',
+    askingPrice: 40,
+    currency: 'CAD',
+    availability: 'TRADE_OR_SALE',
+    acceptsOffers: true,
+    notes: 'Pulled at locals.',
+    publicNotes: 'Sleeved.',
+    visibility: 'PRIVATE',
+    publicUntil: null,
+    effectivePublic: false,
+    freshness: {
+      state: 'ACTIVE',
+      confirmedAt: '2026-10-01T12:00:00Z',
+      updatedAt: '2026-10-01T12:00:00Z',
+      label: 'Updated 3 days ago',
+    },
+    images: [],
+    createdAt: '2026-10-01T12:00:00Z',
+    updatedAt: '2026-10-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function inventoryPage(
+  items: InventoryItemResponse[],
+  page = 0,
+  totalPages = 1,
+  totalItems?: number
+): InventoryPage {
+  return { items, page, size: 24, totalItems: totalItems ?? items.length, totalPages };
+}
+
+export function summaryFixture(
+  overrides: Partial<InventorySummaryResponse> = {}
+): InventorySummaryResponse {
+  return {
+    totalItems: 1,
+    totalQuantity: 2,
+    byVisibility: { PRIVATE: 1, PUBLIC: 0, TEMPORARILY_PUBLIC: 0 },
+    byGame: { pokemon: 1 },
+    agingCount: 0,
+    staleCount: 0,
+    hiddenCount: 0,
+    effectivePublicCount: 0,
+    nextExpiry: null,
+    ...overrides,
+  };
+}
+
+export function binderFixture(overrides: Partial<BinderResponse> = {}): BinderResponse {
+  return {
+    id: BINDER_ID,
+    name: 'Trade binder',
+    description: 'Duplicates for trade.',
+    kind: 'TRADE',
+    visibility: 'PRIVATE',
+    publicUntil: null,
+    sortOrder: 0,
+    itemCount: 1,
+    publicItemCount: 0,
+    effectivePublic: false,
+    games: ['pokemon'],
+    coverImageUrl: null,
+    coverPrintingId: null,
+    freshness: {
+      state: 'ACTIVE',
+      confirmedAt: '2026-10-01T12:00:00Z',
+      updatedAt: '2026-10-01T12:00:00Z',
+      label: 'Updated 3 days ago',
+    },
+    createdAt: '2026-10-01T12:00:00Z',
+    updatedAt: '2026-10-01T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function publicBinderFixture(
+  overrides: Partial<PublicBinderResponse> = {}
+): PublicBinderResponse {
+  return {
+    id: BINDER_ID,
+    name: 'Yu-Gi-Oh! trade binder',
+    description: 'Trade bait.',
+    kind: 'TRADE',
+    publicUntil: null,
+    owner: {
+      id: '00000000-0000-4000-8000-000000000001',
+      handle: 'collector1',
+      displayName: 'Collector One',
+      avatarUrl: null,
+      location: { publicLabel: 'Plateau-Mont-Royal, Montréal', distanceBucket: 'KM_1_5' },
+    },
+    freshness: {
+      state: 'ACTIVE',
+      confirmedAt: '2026-10-01T12:00:00Z',
+      updatedAt: '2026-10-01T12:00:00Z',
+      label: 'Updated yesterday',
+    },
+    itemCount: 1,
+    games: ['yugioh'],
+    coverImageUrl: null,
+    ...overrides,
+  };
+}
+
+export function publicItemFixture(
+  overrides: Partial<PublicInventoryItem> = {}
+): PublicInventoryItem {
+  return {
+    id: '00000000-0000-4000-8c00-000000010101',
+    printing: printingFixture({ printingCode: 'AZR-EN001', setName: 'Azure Dawn', setCode: 'AZR' }),
+    card: { id: CARD_ID, name: 'Azure-Eyes Sky Dragon', game: 'yugioh' },
+    binder: { id: BINDER_ID, name: 'Yu-Gi-Oh! trade binder' },
+    quantity: 1,
+    condition: 'NEAR_MINT',
+    language: 'en',
+    edition: 'FIRST_EDITION',
+    finish: 'NORMAL',
+    askingPrice: 45,
+    currency: 'CAD',
+    availability: 'TRADE_OR_SALE',
+    acceptsOffers: true,
+    publicNotes: 'Pack fresh.',
+    images: [],
+    freshness: {
+      state: 'ACTIVE',
+      confirmedAt: '2026-10-01T12:00:00Z',
+      updatedAt: '2026-10-01T12:00:00Z',
+      label: 'Updated yesterday',
+    },
+    ...overrides,
+  };
+}
+
+export function listingStatusFixture(overrides: Partial<ListingStatus> = {}): ListingStatus {
+  return {
+    paused: false,
+    source: null,
+    reason: null,
+    pausedAt: null,
+    pausedUntil: null,
+    canResume: false,
+    strikes: 0,
+    maxStrikes: 3,
+    unansweredConversations30d: 0,
+    evaluatedAt: null,
     ...overrides,
   };
 }

@@ -6,6 +6,7 @@ import {
   createApiClient,
   isPublicApiUrl,
   required,
+  sendsIdToken,
 } from '@/src/api/client';
 
 function jsonResponse(body: unknown, status: number, contentType = 'application/json'): Response {
@@ -67,6 +68,19 @@ describe('api client', () => {
     expect(request?.headers.get(REQUEST_ID_HEADER)).toBe('00000000-0000-4000-8000-000000000000');
     expect(request?.headers.get('Authorization')).toBeNull();
     expect(tokens).not.toHaveBeenCalled();
+  });
+
+  it('sends the token to public binders when signed in (views and distance buckets)', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'b1' }, 200));
+
+    await client.GET('/api/v1/public/binders/{id}', { params: { path: { id: 'b1' } } });
+
+    expect(fetchMock.mock.calls[0]?.[0]?.headers.get('Authorization')).toBe('Bearer cached-token');
+
+    tokens.mockResolvedValue(null);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'b1' }, 200));
+    await client.GET('/api/v1/public/binders/{id}', { params: { path: { id: 'b1' } } });
+    expect(fetchMock.mock.calls[1]?.[0]?.headers.get('Authorization')).toBeNull();
   });
 
   it('adds the Firebase ID token to every other route', async () => {
@@ -252,6 +266,15 @@ describe('client helpers', () => {
     expect(isPublicApiUrl('http://api.test/api/v1/public/legal/documents')).toBe(true);
     expect(isPublicApiUrl('/api/v1/meta')).toBe(true);
     expect(isPublicApiUrl('http://api.test/api/v1/me')).toBe(false);
+  });
+
+  it('knows which requests carry the ID token', () => {
+    expect(sendsIdToken('http://api.test/api/v1/inventory/items?page=0')).toBe(true);
+    expect(sendsIdToken('http://api.test/api/v1/public/binders/b1/items')).toBe(true);
+    expect(sendsIdToken('/api/v1/public/binders/b1')).toBe(true);
+    expect(sendsIdToken('http://api.test/api/v1/public/card-images/1')).toBe(false);
+    expect(sendsIdToken('http://api.test/api/v1/public/legal/documents')).toBe(false);
+    expect(sendsIdToken('/api/v1/meta')).toBe(false);
   });
 
   it('resolves API-relative paths against the API origin', () => {

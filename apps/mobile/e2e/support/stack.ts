@@ -226,3 +226,19 @@ export async function openTab(page: Page, title: string): Promise<void> {
 export function snackbar(page: Page): Locator {
   return page.getByTestId('snackbar');
 }
+
+/**
+ * Opens an app path inside the running app (client-side, like a tapped link). The static web
+ * export served by `expo serve` has no rewrites for dynamic routes (`/cards/<id>`,
+ * `/binders/<id>` answer 404 on a full page load), so specs reach them the way the app does:
+ * a history entry that expo-router's linking picks up.
+ */
+export async function openInApp(page: Page, path: string): Promise<void> {
+  // Any rendered screen means expo-router is mounted and listening to the history.
+  await expect(page.locator('[data-testid^="screen-"]').first()).toBeVisible({ timeout: 30_000 });
+  await page.evaluate((target) => {
+    window.history.pushState(null, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+  }, path);
+  await expect(page).toHaveURL(new RegExp(`${path.replace(/[?]/g, '\?')}$`));
+}
