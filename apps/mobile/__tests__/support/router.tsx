@@ -72,8 +72,13 @@ function Link({
   );
 }
 
-function Screen() {
-  return null;
+/** Renders a screen's `headerRight` (its header buttons are part of what screen tests press). */
+function Screen({ options }: { options?: unknown }) {
+  const headerRight =
+    options && typeof options === 'object'
+      ? (options as { headerRight?: (props: object) => ReactNode }).headerRight
+      : undefined;
+  return headerRight ? <>{headerRight({})}</> : null;
 }
 
 function Navigator({ children }: { children?: ReactNode }) {

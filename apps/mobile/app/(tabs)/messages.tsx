@@ -71,5 +71,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
     paddingBottom: spacing[2],
   },
-  segmented: { flex: 1 },
+  // Narrow enough that the status pill never reaches the top-right corner, where Expo Go floats
+  // its tools button.
+  segmented: { flex: 1, maxWidth: 232 },
 });

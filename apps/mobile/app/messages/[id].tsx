@@ -33,7 +33,11 @@ import {
   sendErrorMessage,
   type MessageDraft,
 } from '@/src/features/messages/messageDraft';
-import { ThreadHeader, type ThreadMenuAction } from '@/src/features/messages/ThreadHeader';
+import {
+  ThreadHeader,
+  ThreadMenuButton,
+  type ThreadMenuAction,
+} from '@/src/features/messages/ThreadHeader';
 import {
   useOtherTyping,
   useSendTyping,
@@ -287,14 +291,20 @@ export default function ConversationScreen() {
       testID="screen-conversation"
       style={[styles.fill, { backgroundColor: palette.background }]}
     >
-      <Stack.Screen options={{ title: other?.displayName ?? 'Conversation' }} />
+      <Stack.Screen
+        options={{
+          title: other?.displayName ?? 'Conversation',
+          headerRight: other
+            ? () => <ThreadMenuButton name={other.displayName} onPress={() => setMenuOpen(true)} />
+            : undefined,
+        }}
+      />
       {summary ? (
         <ThreadHeader
           conversation={summary}
           typing={typing}
           blocked={blockedByMe}
           menuOpen={menuOpen}
-          onOpenMenu={() => setMenuOpen(true)}
           onCloseMenu={() => setMenuOpen(false)}
           onProfile={() =>
             router.push({ pathname: '/collectors/[id]', params: { id: summary.other.handle } })

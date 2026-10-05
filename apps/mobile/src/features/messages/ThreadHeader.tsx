@@ -27,16 +27,36 @@ export function threadStatus(
 }
 
 /**
+ * The conversation options button, shown in the navigation header (`headerRight`): the top-right
+ * corner under the header is where Expo Go floats its tools button, so no control goes there.
+ */
+export function ThreadMenuButton({ name, onPress }: { name: string; onPress: () => void }) {
+  const { palette } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Conversation options for ${name}`}
+      onPress={onPress}
+      hitSlop={8}
+      testID="conversation-menu"
+      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+    >
+      <MaterialCommunityIcons name="dots-vertical" size={24} color={palette.ink} />
+    </Pressable>
+  );
+}
+
+/**
  * Thread header (the web's `app-thread-header`): the other collector (avatar, online dot,
- * "typing…", link to their profile) and the conversation options in a bottom sheet: mute,
- * archive, block / unblock. Reporting a collector arrives with the mobile Phase 7 stage.
+ * "typing…", link to their profile) and the conversation options in a bottom sheet (opened by
+ * {@link ThreadMenuButton}): mute, archive, block / unblock. Reporting a collector arrives with
+ * the mobile Phase 7 stage.
  */
 export function ThreadHeader({
   conversation,
   typing,
   blocked,
   menuOpen,
-  onOpenMenu,
   onCloseMenu,
   onProfile,
   onAction,
@@ -45,7 +65,6 @@ export function ThreadHeader({
   typing: boolean;
   blocked: boolean;
   menuOpen: boolean;
-  onOpenMenu: () => void;
   onCloseMenu: () => void;
   onProfile: () => void;
   onAction: (action: ThreadMenuAction) => void;
@@ -87,16 +106,6 @@ export function ThreadHeader({
             {conversation.muted ? ' · Muted' : ''}
           </Text>
         </View>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Conversation options for ${other.displayName}`}
-        onPress={onOpenMenu}
-        hitSlop={8}
-        testID="conversation-menu"
-        style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-      >
-        <MaterialCommunityIcons name="dots-vertical" size={24} color={palette.ink} />
       </Pressable>
       <BottomSheet
         visible={menuOpen}
@@ -174,6 +183,6 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1 },
   strong: { fontWeight: fontWeight.semibold },
-  menuButton: { padding: spacing[1] },
+  menuButton: { paddingHorizontal: spacing[2], paddingVertical: spacing[1] },
   pressed: { opacity: 0.8 },
 });

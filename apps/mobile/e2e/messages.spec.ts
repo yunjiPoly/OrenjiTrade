@@ -150,13 +150,13 @@ test.describe('mobile messages', () => {
       .toContain('Emberfang Fox VMAX');
 
     // Mute.
-    await thread.getByTestId('conversation-menu').click();
+    await page.getByTestId('conversation-menu').click(); // in the navigation header
     await page.getByTestId('conversation-mute').click();
     await expect(snackbar(page)).toHaveText('Conversation muted.');
     await expect(thread.getByTestId('conversation-status')).toContainText('Muted');
 
     // Block, after a confirmation: the composer closes, Ben cannot write any more.
-    await thread.getByTestId('conversation-menu').click();
+    await page.getByTestId('conversation-menu').click(); // in the navigation header
     await page.getByTestId('conversation-block').click();
     const dialog = page.getByTestId('block-dialog');
     await expect(dialog).toContainText(`Block ${ben.displayName}?`);
