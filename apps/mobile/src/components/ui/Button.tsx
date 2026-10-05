@@ -27,6 +27,8 @@ export interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   testID?: string;
   accessibilityHint?: string;
+  /** Read instead of the visible label (e.g. "Make an offer on Lantern Fox"). */
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -40,6 +42,7 @@ export function Button({
   style,
   testID,
   accessibilityHint,
+  accessibilityLabel,
 }: ButtonProps) {
   const { palette } = useTheme();
   const inactive = disabled || loading;
@@ -66,7 +69,7 @@ export function Button({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={text}
+      accessibilityLabel={loading && loadingLabel ? text : (accessibilityLabel ?? text)}
       accessibilityHint={accessibilityHint}
       aria-disabled={inactive}
       aria-busy={loading}

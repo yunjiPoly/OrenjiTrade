@@ -2,10 +2,12 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { useAccount } from '@/src/account/AccountProvider';
 import { usePublicBinder, usePublicBinderItems } from '@/src/api/hooks/binders';
 import type { InventoryAvailability, PublicBinderResponse } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge } from '@/src/components/ui/Badge';
+import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
@@ -13,6 +15,9 @@ import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
+import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
+import { offerTargetFromItem, type OfferSeller } from '@/src/features/offers/offerTarget';
+import { reportParams } from '@/src/features/reports/reportLabels';
 import { boundedQuery, QUERY_MAX_LENGTH, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
 import {
@@ -36,8 +41,9 @@ export interface PublicBinderViewProps {
 /**
  * A public binder (web: `/binders/:id`, `GET /public/binders/{id}` + its public cards): only what
  * the owner made public, never private notes, never coordinates (the owner block carries a region
- * label and a distance bucket). Search and availability filters; 404 when it is not public, and
- * the plan's daily binder views explained when they run out.
+ * label and a distance bucket). Search and availability filters, "Make an offer" on the cards
+ * that accept one, "Report" the owner (BINDER context); 404 when it is not public, and the plan's
+ * daily binder views explained when they run out.
  */
 export function PublicBinderView({ id }: PublicBinderViewProps) {
   const { palette } = useTheme();
@@ -96,6 +102,13 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
   }
 
   const current = binder.data;
+  const seller: OfferSeller = {
+    id: current.owner.id,
+    displayName: current.owner.displayName,
+    handle: current.owner.handle,
+    avatarUrl: current.owner.avatarUrl ?? null,
+    placeLabel: current.owner.location?.publicLabel ?? null,
+  };
   return (
     <>
       <Stack.Screen options={{ title: current.name }} />
@@ -103,7 +116,12 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
         testID="public-binder-items"
         data={list}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ItemRow item={item} />}
+        renderItem={({ item }) => (
+          <ItemRow
+            item={item}
+            footer={<MakeOfferButton inCard target={offerTargetFromItem(item, seller)} />}
+          />
+        )}
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -200,6 +218,7 @@ function nearLabel(publicLabel: string | null | undefined): string {
 function PublicBinderHeader({ binder }: { binder: PublicBinderResponse }) {
   const { palette } = useTheme();
   const router = useRouter();
+  const selfId = useAccount().me?.id ?? null;
   const owner = binder.owner;
   const distance = distanceBucketLabel(owner.location?.distanceBucket);
   const ends = endsLabel(binder.publicUntil);
@@ -255,6 +274,21 @@ function PublicBinderHeader({ binder }: { binder: PublicBinderResponse }) {
           ) : null}
         </View>
       </Pressable>
+      {owner.id !== selfId ? (
+        <Button
+          label="Report"
+          icon="flag-outline"
+          variant="ghost"
+          accessibilityLabel={`Report ${owner.displayName}`}
+          onPress={() =>
+            router.push({
+              pathname: '/report',
+              params: reportParams(owner, { source: 'BINDER', binderId: binder.id }),
+            })
+          }
+          testID="public-binder-report"
+        />
+      ) : null}
     </View>
   );
 }

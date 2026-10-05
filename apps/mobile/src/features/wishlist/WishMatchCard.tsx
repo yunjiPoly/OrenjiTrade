@@ -8,6 +8,8 @@ import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Chip } from '@/src/components/ui/Chip';
 import { collectorDistanceLabel, ratingLabel } from '@/src/features/map/discovery';
+import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
+import { offerTargetFromItem, sellerFromMarker } from '@/src/features/offers/offerTarget';
 import {
   editionLabel,
   formatMoney,
@@ -38,8 +40,8 @@ export function mapParamsFor(match: Pick<WishlistMatchResponse, 'item'>): Record
 /**
  * One match of a wish (the web's `app-wish-match-card`): the collector (name, approximate place,
  * the API's distance bucket, rating, activity) and the matching public item (picture, printing,
- * condition / availability / offers, price, freshness, public note), with Message, View profile,
- * View binder, On the map and Dismiss. Never a coordinate: places and distances are the server's
+ * condition / availability / offers, price, freshness, public note), with Message, Make an offer
+ * (when the card accepts one), View profile, View binder, On the map and Dismiss. Never a coordinate: places and distances are the server's
  * approximations.
  */
 export function WishMatchCard({
@@ -157,6 +159,10 @@ export function WishMatchCard({
           onPress={onMessage}
           loading={messaging}
           testID={`match-message-${match.id}`}
+        />
+        <MakeOfferButton
+          target={offerTargetFromItem(item, sellerFromMarker(collector))}
+          testID={`match-offer-${match.id}`}
         />
         <Button
           label="View profile"

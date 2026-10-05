@@ -141,8 +141,8 @@ export function notificationLink(
 /** Where a notification leads in the app, or why it cannot yet (a screen of a later stage). */
 export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'later'; note: string };
 
-const OFFERS_LATER =
-  'Offers and trades open in a later version of the app. Use orenjitrade.com to follow this one for now.';
+const DISPUTES_LATER =
+  'Disputes open in a later version of the app. Use orenjitrade.com to follow this one for now.';
 const PLANS_LATER =
   'Plans and Premium open in a later version of the app. Use orenjitrade.com for now.';
 const SETTINGS_LATER =
@@ -157,6 +157,8 @@ const SETTINGS_PAGES: Record<string, string> = {
   notifications: 'notifications',
   account: 'account',
   appearance: 'appearance',
+  reports: 'reports',
+  offers: 'offers',
 };
 
 function route(href: string): NotificationTarget {
@@ -165,9 +167,10 @@ function route(href: string): NotificationTarget {
 
 /**
  * The mobile screen of a web path (the API's deep links are web paths): wishlist matches,
- * conversations, community channels, binders (`/inventory?binder=`), cards, collector profiles,
- * legal pages and settings map to their app screens; offers, trades, disputes, Premium, credits
- * and the settings of later stages explain where to go instead. Ids are validated again.
+ * conversations, community channels, binders (`/inventory?binder=`), cards, collector profiles
+ * (`?tab=ratings` scrolls to the ratings), offers, trades, legal pages and settings (My reports,
+ * offer settings) map to their app screens; disputes, Premium, credits and the settings of later
+ * stages explain where to go instead. Ids are validated again.
  */
 export function mobileTarget(webPath: string): NotificationTarget {
   const [pathname = '', query = ''] = webPath.split('?');
@@ -190,7 +193,9 @@ export function mobileTarget(webPath: string): NotificationTarget {
     case 'cards':
       return route(id ? `/cards/${id}` : '/search');
     case 'collectors':
-      return route(id ? `/collectors/${id}` : '/');
+      return route(
+        id ? `/collectors/${id}${params.get('tab') === 'ratings' ? '?tab=ratings' : ''}` : '/'
+      );
     case 'map':
       return route('/');
     case 'search':
@@ -207,9 +212,11 @@ export function mobileTarget(webPath: string): NotificationTarget {
       return page ? route(`/settings/${page}`) : { kind: 'later', note: SETTINGS_LATER };
     }
     case 'offers':
+      return route(id ? `/offers/${id}` : '/offers');
     case 'trades':
+      return route(id ? `/trades/${id}` : '/trades');
     case 'disputes':
-      return { kind: 'later', note: OFFERS_LATER };
+      return { kind: 'later', note: DISPUTES_LATER };
     case 'premium':
     case 'credits':
     case 'support':

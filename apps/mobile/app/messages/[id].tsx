@@ -9,6 +9,7 @@ import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
+import { useRatingEligibility } from '@/src/api/hooks/ratings';
 import {
   removeFromInbox,
   restoreToInbox,
@@ -26,6 +27,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { rateableInteractions } from '@/src/features/collectors/ratingLabels';
 import { threadMessages } from '@/src/features/messages/conversationCache';
 import { MessageComposer } from '@/src/features/messages/MessageComposer';
 import {
@@ -44,6 +46,8 @@ import {
   useThreadVisible,
 } from '@/src/features/messages/threadHooks';
 import { ThreadMessageList } from '@/src/features/messages/ThreadMessageList';
+import { ratingParams } from '@/src/features/ratings/ratingRoutes';
+import { reportParams } from '@/src/features/reports/reportLabels';
 import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -57,9 +61,10 @@ const UNKNOWN_PARTICIPANT: ConversationParticipant = {
 
 /**
  * One conversation (the web's `/messages/:id` thread view): the header with the conversation
- * options (mute, archive, block / unblock with confirmation), the history (day separators, links
- * to cards and binders, photos, offers, "Sent" / "Seen", "… is typing", older pages on scroll)
- * and the composer (text, card or binder link, photo). Live over realtime; the newest message is
+ * options (mute, archive, rate the collector when an interaction can still be rated, block /
+ * unblock with confirmation, report the collector), the history (day separators, links to cards,
+ * binders and offers, photos, "Sent" / "Seen", "… is typing", older pages on scroll) and the
+ * composer (text, card, binder or offer link, photo). Live over realtime; the newest message is
  * marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
  * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer.
  */
@@ -91,6 +96,9 @@ export default function ConversationScreen() {
   const [confirmBlock, setConfirmBlock] = useState(false);
   const summary = conversation.data ?? null;
   const other = summary?.other ?? null;
+  // "Rate …" is offered silently: nothing without an answer (the API refuses anyway).
+  const eligibility = useRatingEligibility(other?.id);
+  const canRate = rateableInteractions(eligibility.data).length > 0;
   const all = useMemo(() => threadMessages(messages.data), [messages.data]);
   const unavailable =
     !messages.data && (messages.error?.status === 404 || messages.error?.status === 403);
@@ -186,6 +194,18 @@ export default function ConversationScreen() {
         break;
       case 'block':
         setConfirmBlock(true);
+        break;
+      case 'report':
+        router.push({
+          pathname: '/report',
+          params: reportParams(summary.other, {
+            source: 'CONVERSATION',
+            conversationId: summary.id,
+          }),
+        });
+        break;
+      case 'rate':
+        router.push({ pathname: '/ratings/rate', params: ratingParams(summary.other) });
         break;
       case 'unblock':
         try {
@@ -304,6 +324,7 @@ export default function ConversationScreen() {
           conversation={summary}
           typing={typing}
           blocked={blockedByMe}
+          canRate={canRate}
           menuOpen={menuOpen}
           onCloseMenu={() => setMenuOpen(false)}
           onProfile={() =>
@@ -362,6 +383,8 @@ export default function ConversationScreen() {
           onSend={onSend}
           onTyping={sendTyping}
           onDismissError={() => setSendError(null)}
+          otherId={other?.id ?? null}
+          otherName={name}
         />
       </View>
       <ConfirmDialog

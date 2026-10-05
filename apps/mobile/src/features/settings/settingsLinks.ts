@@ -36,6 +36,18 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     icon: 'bell-outline',
   },
   {
+    href: '/settings/offers',
+    label: 'Offers',
+    detail: 'Which offers collectors can make on your cards',
+    icon: 'tag-outline',
+  },
+  {
+    href: '/settings/reports',
+    label: 'My reports',
+    detail: 'Collectors you reported and where each review stands',
+    icon: 'flag-outline',
+  },
+  {
     href: '/settings/account',
     label: 'Account',
     detail: 'Email, your data, delete account',
