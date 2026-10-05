@@ -177,8 +177,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     summary: 'What we collect, why, how long we keep it, and the choices you have.',
     version: '0.1-draft',
     effectiveDate: null,
-    // Public point definition: maps show an area about 2 km wide (ADR 0004, "Client rendering").
-    lastUpdated: '2026-10-03',
+    // Public point definition: maps show an area about 3 km wide (ADR 0004, "Client rendering",
+    // owner decision 2026-10-04; it said 2 km from 2026-10-03).
+    lastUpdated: '2026-10-04',
     definitions: [
       ...COMMON_DEFINITIONS,
       {
@@ -188,7 +189,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
       {
         term: 'Public point',
         definition:
-          'The approximate map position derived from your Trading area: snapped to a grid of roughly one kilometre and offset by a fixed, per-account jitter. Maps show it as an area about 2 km wide, never as an exact spot.',
+          'The approximate map position derived from your Trading area: snapped to a grid of roughly one kilometre and offset by a fixed, per-account jitter. Maps show it as an area about 3 km wide, never as an exact spot.',
       },
     ],
     contact: CONTACT_PRIVACY,
