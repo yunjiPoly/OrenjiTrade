@@ -173,7 +173,7 @@ export function ChannelList({ onOpenInbox }: { onOpenInbox: () => void }) {
 
 const styles = StyleSheet.create({
   padded: { padding: spacing[4] },
-  content: { padding: spacing[4], gap: spacing[4] },
+  content: { padding: spacing[4], gap: spacing[4], flexGrow: 1 },
   group: { gap: spacing[2] },
   groupTitle: { fontWeight: fontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
   row: {

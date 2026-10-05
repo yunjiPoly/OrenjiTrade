@@ -118,7 +118,7 @@ export default function NotificationsScreen() {
         testID="notifications-list"
         sections={sections}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, styles.grow]}
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={header}
         refreshControl={
@@ -224,6 +224,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   padded: { padding: spacing[4], gap: spacing[4] },
   list: { padding: spacing[4] },
+  // Empty states fill (and centre in) the rest of the screen instead of collapsing.
+  grow: { flexGrow: 1 },
   header: { gap: spacing[3], marginBottom: spacing[2] },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   day: { fontWeight: fontWeight.semibold, marginTop: spacing[3], marginBottom: spacing[1] },

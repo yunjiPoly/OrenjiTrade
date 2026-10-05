@@ -209,7 +209,8 @@ export default function WishMatchesScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  list: { padding: spacing[4], gap: spacing[3] },
+  // flexGrow: the empty state fills (and centres in) the rest of the screen.
+  list: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
   header: { gap: spacing[3] },
   wish: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   grow: { flex: 1, gap: 2 },

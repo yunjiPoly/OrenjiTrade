@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -99,7 +99,7 @@ export default function WishlistScreen() {
     );
   } else if (items.length === 0) {
     content = (
-      <View style={styles.padded}>
+      <ScrollView contentContainerStyle={[styles.padded, styles.grow]}>
         <MatchReadinessNotice readiness={matchReadiness(location.data)} />
         <EmptyState
           testID="wishlist-empty"
@@ -115,7 +115,7 @@ export default function WishlistScreen() {
           onPress={() => router.navigate('/search')}
           testID="wishlist-browse"
         />
-      </View>
+      </ScrollView>
     );
   } else {
     content = (
@@ -124,7 +124,7 @@ export default function WishlistScreen() {
         accessibilityLabel="Your wishlist"
         data={visible}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, styles.grow]}
         refreshControl={
           <RefreshControl
             refreshing={wishlist.isRefetching}
@@ -209,5 +209,7 @@ export default function WishlistScreen() {
 const styles = StyleSheet.create({
   padded: { padding: spacing[4], gap: spacing[4] },
   list: { padding: spacing[4], gap: spacing[3] },
+  // Empty states fill (and centre in) the rest of the screen instead of collapsing.
+  grow: { flexGrow: 1 },
   header: { gap: spacing[3], marginBottom: spacing[1] },
 });

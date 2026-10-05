@@ -298,7 +298,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   grow: { flex: 1, gap: 2 },
   strong: { fontWeight: fontWeight.semibold },
-  feed: { padding: spacing[4], gap: spacing[3] },
+  // flexGrow: the empty state fills (and centres in) the rest of the screen.
+  feed: { padding: spacing[4], gap: spacing[3], flexGrow: 1 },
   header: { gap: spacing[4], marginBottom: spacing[1] },
   channelHead: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
   channelIcon: {
