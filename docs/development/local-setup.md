@@ -171,9 +171,9 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
 `test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-05,
-stage M3): `test:mobile` about 1–2 min (416 jest tests in 51 suites + 28 harness guard tests),
-`test:mobile:e2e` about 2 min (28 specs, including the API jar and the web export),
-`test:mobile:maestro` about 22 min (10 flows on the `Pixel_6_API_34` emulator, including the API
+stage M5): `test:mobile` about 0.5–2 min (604 jest tests in 71 suites + 28 harness guard tests),
+`test:mobile:e2e` about 2 min (38 specs, including the API jar and the web export),
+`test:mobile:maestro` about 31 min (15 flows on the `Pixel_6_API_34` emulator, including the API
 and Metro start; add a few minutes the first time, while Expo CLI installs Expo Go).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
@@ -252,8 +252,12 @@ binders, their publication and the public binder view) and Phase 4 (the Map tab 
 as zones about 3 km wide, never pins, zoom capped at 14; filters, "Who has this near me", the
 preview bottom sheet and the collector profile) and Phases 5–6 (the Messages tab with the inbox,
 conversations and the community channels, live over the realtime channel; the Wishlist tab with
-matches nearby; the notification centre with a live bell) are implemented on the same API as the
-web; later phases follow. Locally the catalog is the fictional mock catalog of the seed (the real
+matches nearby; the notification centre with a live bell) and Phases 7–8 (reporting a
+collector and My reports; rating a collector and writing a reference after an interaction;
+"Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
+with the meetup, confirming the exchange, cancelling, and rating once completed) are implemented
+on the same API as the web; later phases (payment protection, Premium, credits) follow and the
+admin consoles stay on the web. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
@@ -275,7 +279,9 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 `localhost`. A physical phone needs the machine's LAN address in `apps/mobile/.env`
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
-(collector1 and collector2 share a seed conversation; collector2 has a seed wish with a match).
+(collector1 and collector2 share a seed conversation; collector2 has a seed wish with a match;
+collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
+Offers / Trades).
 The realtime channel is the API's `/ws` (STOMP over a plain WebSocket): the app connects while a
 collector is signed in and shows "Live" on the Messages tab; on Android it reaches
 `ws://10.0.2.2:8080/ws` with the ID token in the handshake's `Authorization` header (the web build
@@ -313,7 +319,9 @@ on :8080; `--keep-running` keeps the isolated API and web server (or Metro) for 
 the Metro started by the harness (`expo start --android`) installs it and the harness waits for
 that install (up to 6 minutes) before running the flows. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
-second collector of the messaging and wishlist flows comes from `messaging.js` and `wishlist.js`)
+second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
+`wishlist.js` and `offers.js`; `offers.js` posts `{}` to body-less endpoints because Maestro's
+`http.post` needs a body)
 and check the result there (`check-area.js`, `check-inventory.js`, `community.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
 run (Metro re-crawls the workspace and Expo Go may report "Packager is not running"), and restart
