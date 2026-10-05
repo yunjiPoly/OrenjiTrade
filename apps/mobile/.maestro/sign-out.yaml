@@ -1,0 +1,48 @@
+# Session restore and sign out (Phase 1): a signed-in collector stays signed in after the app is
+# killed and relaunched (Firebase Auth React Native persistence on AsyncStorage), signs out from
+# the Profile tab, and stays signed out after another relaunch.
+appId: host.exp.exponent
+name: Session restore and sign out
+tags:
+  - mobile-m1
+  - auth
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: out
+      DISPLAY_NAME: Maestro Leaver
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- runFlow: subflows/open-profile-tab.yaml
+
+# Session restore on launch.
+- runFlow: subflows/relaunch.yaml
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Maestro Leaver'
+
+# Sign out.
+- scrollUntilVisible:
+    element:
+      id: 'profile-sign-out'
+    direction: DOWN
+- tapOn:
+    id: 'profile-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 30000
+
+# Still signed out after a relaunch.
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- takeScreenshot: signed-out

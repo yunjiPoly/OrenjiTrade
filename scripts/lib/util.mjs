@@ -33,6 +33,10 @@ export const PORTS = Object.freeze({
   redis: 6379,
   authEmulator: 9099,
   emulatorUi: 4000,
+  // Mobile web E2E (npm run test:mobile:e2e): an isolated API and the Expo web build, so a
+  // developer's own API (8080) and web app (4200) keep running untouched.
+  mobileE2eApi: 8090,
+  mobileE2eWeb: 19006,
 });
 
 export const URLS = Object.freeze({

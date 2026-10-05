@@ -26,6 +26,8 @@
     "test:api": "node scripts/test.mjs api",
     "test:web": "node scripts/test.mjs web",
     "test:mobile": "node scripts/test.mjs mobile",
+    "test:mobile:e2e": "node scripts/test.mjs mobile-e2e",
+    "test:mobile:maestro": "node scripts/test.mjs mobile-maestro",
     "test:e2e": "node scripts/test.mjs e2e",
     "test:scripts": "node scripts/test.mjs scripts",
     "e2e:purge": "node scripts/e2e-purge.mjs",
@@ -44,5 +46,9 @@
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.5"
+  },
+  "devDependencies": {
+    "@babel/generator": "7.29.8",
+    "@babel/traverse": "7.29.8"
   }
 }

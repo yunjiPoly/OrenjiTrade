@@ -1,0 +1,17 @@
+# Maestro workspace of the OrenjiTrade mobile app (native proof, local and free: Expo Go on a
+# local Android emulator; never Maestro Cloud, never EAS). Run every flow with
+#   npm run test:mobile:maestro
+# which starts (or reuses) the isolated API on :8090 and Metro on :8082 and passes the env below.
+#
+# Env (set by the harness; defaults in each script/flow are for a manual run):
+#   APP_URL            Metro URL as seen from the emulator (exp://10.0.2.2:8082)
+#   API_URL            isolated API as seen from the host (http://localhost:8090), used by scripts
+#   AUTH_EMULATOR_URL  Firebase Auth emulator as seen from the host (http://localhost:9099)
+#   RUN_ID             run id: created accounts are m-<RUN_ID>-maestro-...@mobile-e2e.test and
+#                      are deleted from the emulator at the end of the run
+#   SEED_EMAIL / SEED_PASSWORD  a seed account (docs/development/test-accounts.md), signed in only
+# Every top-level flow is independent (each starts from a cleared Expo Go and signs in to a seed
+# or creates its own fictional collector); shared steps live in subflows/, host-side helpers in
+# scripts/.
+flows:
+  - '*.yaml'

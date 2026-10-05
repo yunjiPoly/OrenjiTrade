@@ -75,7 +75,8 @@ export function Chip({
     <Pressable
       testID={testID}
       accessibilityRole={onPress ? 'button' : 'text'}
-      accessibilityState={{ selected, disabled }}
+      aria-selected={selected}
+      aria-disabled={disabled}
       accessibilityLabel={label}
       disabled={disabled || !onPress}
       onPress={onPress}

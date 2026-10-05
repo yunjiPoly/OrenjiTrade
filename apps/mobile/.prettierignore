@@ -9,3 +9,6 @@ package-lock.json
 expo-env.d.ts
 src/theme/tokens.ts
 assets
+src/legal/legalContent.ts
+test-results
+playwright-report

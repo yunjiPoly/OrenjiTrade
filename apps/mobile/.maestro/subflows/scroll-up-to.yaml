@@ -1,0 +1,13 @@
+# Scrolls up until the element with id ID is on screen (same right-edge swipe as scroll-down-to).
+appId: host.exp.exponent
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+    times: 10
+    commands:
+      - swipe:
+          start: 98%, 35%
+          end: 98%, 75%
+          duration: 500

@@ -69,6 +69,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    'expo-image',
+    // Only configures the optional "share into the app" extension, which stays disabled.
+    'expo-sharing',
     [
       'expo-splash-screen',
       {

@@ -157,10 +157,12 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | --- | --- | --- |
 | `npm run test:api` | `gradlew test --rerun check` in `apps/api`: Spotless format check, unit tests, integration tests (always executed, never reported UP-TO-DATE) | Testcontainers starts its own PostGIS and Redis (Docker must run); independent of the dev stack |
 | `npm run test:web` | `ng lint` + `ng test` (Vitest) for `apps/web-angular` | |
-| `npm run test:mobile` | `tsc --noEmit`, `expo lint`, `jest` for `apps/mobile` | mobile feature work is deferred; the suite must stay green |
+| `npm run test:mobile` | `tsc --noEmit`, `expo lint`, `jest` for `apps/mobile`, plus the mobile E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`) | |
+| `npm run test:mobile:e2e` | Playwright (`apps/mobile/e2e`) against the Expo **web** build and an isolated stack | see [Mobile app](#mobile-app-expo); never touches the developer database, files or ports 8080/4200 |
+| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator, same isolated stack | needs an emulator and the Maestro CLI (`MAESTRO_BIN`); not part of `test:all` or CI |
 | `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0` |
 | `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards and the purge rules (also run at the start of every `test:e2e`) |
-| `npm run test:all` | api, web, mobile, e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
+| `npm run test:all` | scripts, api, web, mobile, e2e, mobile:e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
 | `npm run test:ml` | `pytest` in `apps/ml` with `apps/ml/.venv` when present | optional; Phase 11 is on hold, this only runs the existing skeleton tests |
 | `npm run infra:validate` | Terraform format + validate | optional; needs Terraform |
 
@@ -168,7 +170,11 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 5 min (704 tests), `test:web` about 40 s (lint + 578 unit tests), `test:mobile` 40–50 s (29
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
-`test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s.
+`test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-05):
+`test:mobile` about 1–2 min (231 jest tests in 33 suites + 27 harness guard tests),
+`test:mobile:e2e` about 1.5–3 min (12 specs, including the API jar and the web export),
+`test:mobile:maestro` about 10–15 min (5 flows on the `Pixel_6_API_34` emulator, including the API
+and Metro start; add a few minutes the first time, while Expo CLI installs Expo Go).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -236,6 +242,60 @@ the deletion path's own events invalidate the developer API's nearby cache
 (`TradingAreaChangedEvent`, `LocationRemovedEvent`); run it from the checkout whose `npm run dev`
 you use, as its `apps/api/.local-storage` holds the uploaded media (avatars, item photos) the
 deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
+
+## Mobile app (Expo)
+
+The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobile/README.md)) runs
+against the same local stack. Phase 1 (accounts, onboarding, profile, settings) is implemented;
+later phases follow. The trading area is picked like on the web: a tap on the map or a dragged pin,
+"Use map centre", city quick picks, a 1–50 km radius, or the device location (sent once to the
+API, never drawn). Maps follow ADR 0010: in Expo Go on Android (and in any Android build without
+`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) they are Leaflet + OpenStreetMap in a WebView, because the Maps
+SDK refuses Expo Go's bundled Google key and would draw an empty grey map; iOS uses Apple Maps and
+the web build Leaflet. The emulator needs internet access for the OpenStreetMap tiles and the
+pinned Leaflet script.
+
+```bash
+npm run infra:up && npm run api:dev     # the developer stack (API on :8080)
+cd apps/mobile && npx expo start        # a = Android emulator (Expo Go), w = web, or scan the QR code
+```
+
+Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (API
+`http://10.0.2.2:8080`, Auth emulator `10.0.2.2:9099`), the iOS simulator and the web build use
+`localhost`. A physical phone needs the machine's LAN address in `apps/mobile/.env`
+(`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
+values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`.
+Everything is free and local: Expo Go (installed on an emulator by Expo CLI), a local Android
+emulator, Metro; no EAS, no Expo account, no Maestro Cloud.
+
+### Mobile end-to-end suites (isolated stack)
+
+`npm run test:mobile:e2e` and `npm run test:mobile:maestro` never write into the developer's
+database or files and leave a running `npm run dev` alone:
+
+| Piece | Mobile E2E stack |
+| --- | --- |
+| Infrastructure | the shared containers; `npm run infra:up` only when one is not running, never restarted or reset |
+| Database | `orenjitrade_mobile_e2e` on the shared PostgreSQL, dropped and recreated per run (Flyway + seed); `orenjitrade` is never touched |
+| API | the API jar on **:8090** (profile `local`, Redis database 1 and realtime channels `e2e-mobile:rt:user:*`, fake/log providers, mock catalog only: YGOPRODeck disabled and pointed at a closed local port, no card image downloads), log `.local-dev/mobile-e2e/logs/api.log` |
+| Files | media `.local-dev/mobile-e2e/storage`, card-image cache `.local-dev/mobile-e2e/card-images`, provider snapshots `.local-dev/mobile-e2e/provider-data`; the harness refuses to start when any resolves to a developer directory (start-up reconciliation deletes cache files its own database does not reference) |
+| App | Playwright: `expo export --platform web` served on **:19006**; Maestro: Metro on **:8082** for Expo Go (`exp://10.0.2.2:8082`) |
+| Accounts | created as `m-<run id>-...@mobile-e2e.test` and deleted from the Auth emulator at the end of the run; seed accounts are only signed in to |
+
+The guards (`scripts/lib/mobile-e2e-guard.mjs`, unit tested in `mobile-e2e-guard.test.mjs`) reuse
+the web E2E harness's helpers (`web-e2e-guard.mjs`, `local-db.mjs`, `auth-emulator.mjs`) and also
+refuse Redis db 0 (developer) or 2 (web E2E), the developer's or the web E2E realtime prefix, a
+non-local database, and dropping any database but `orenjitrade_mobile_e2e`; the mobile and web E2E
+stacks and `npm run dev` can run side by side.
+
+`--reuse-running` only reuses an API the harness itself started (identity block in
+`/actuator/info`, instance id in `.local-dev/mobile-e2e/state.json`) and refuses the developer API
+on :8080; `--keep-running` keeps the isolated API and web server (or Metro) for the next run and
+`-- --stop` stops them. The native check: start an emulator
+(`%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd Pixel_6_API_34 -no-snapshot-save`), then
+`MAESTRO_BIN=<path to maestro(.bat)> npm run test:mobile:maestro`. On an emulator without Expo Go,
+the Metro started by the harness (`expo start --android`) installs it and the harness waits for
+that install (up to 6 minutes) before running the flows.
 
 ## Card images and the real Yu-Gi-Oh! catalog
 

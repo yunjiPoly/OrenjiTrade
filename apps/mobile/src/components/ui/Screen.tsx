@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, useTheme } from '@/src/theme';
@@ -39,16 +47,23 @@ export function Screen({
       };
 
   if (scroll) {
+    // Forms scroll above the on-screen keyboard: the app is edge-to-edge on Android (SDK 57), so
+    // the window no longer resizes for the keyboard and the padding comes from here instead.
     return (
-      <ScrollView
-        testID={testID}
-        style={[styles.fill, { backgroundColor: palette.background }, style]}
-        contentContainerStyle={[padding, contentContainerStyle]}
-        keyboardShouldPersistTaps="handled"
-        contentInsetAdjustmentBehavior="automatic"
+      <KeyboardAvoidingView
+        style={[styles.fill, { backgroundColor: palette.background }]}
+        behavior={Platform.OS === 'web' ? undefined : 'padding'}
       >
-        {children}
-      </ScrollView>
+        <ScrollView
+          testID={testID}
+          style={[styles.fill, { backgroundColor: palette.background }, style]}
+          contentContainerStyle={[padding, contentContainerStyle]}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 

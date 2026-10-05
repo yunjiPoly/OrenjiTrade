@@ -2,43 +2,60 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { validateEmail } from '@/src/account/registration';
+import { authErrorMessage } from '@/src/auth/authErrors';
+import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
+import { FormMessage, PasswordField } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { TextField } from '@/src/components/ui/TextField';
 import { useAppStore } from '@/src/store/useAppStore';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Sign-in placeholder: validates the form locally; Firebase sign-in is wired in Phase 1. */
+/**
+ * Sign in with email and password (Firebase; the Auth emulator locally). On success the auth gate
+ * takes over: consent, account status, onboarding or the tabs (web: `/auth/sign-in`).
+ */
 export default function SignInScreen() {
   const { palette } = useTheme();
+  const session = useSession();
   const lastSignedInEmail = useAppStore((state) => state.prefs.lastSignedInEmail);
   const updatePrefs = useAppStore((state) => state.updatePrefs);
 
   const [email, setEmail] = useState(lastSignedInEmail ?? '');
   const [password, setPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const emailError =
-    submitted && !EMAIL_PATTERN.test(email) ? 'Enter a valid email address.' : null;
-  const passwordError =
-    submitted && password.length < 8 ? 'Password must be at least 8 characters.' : null;
+  const emailError = submitted ? validateEmail(email) : null;
+  const passwordError = submitted && !password ? 'Enter your password.' : null;
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     setSubmitted(true);
-    if (!EMAIL_PATTERN.test(email) || password.length < 8) {
+    if (validateEmail(email) || !password) {
       return;
     }
-    updatePrefs({ lastSignedInEmail: email.trim() });
-    setNotice('Sign-in is not connected yet. Firebase Authentication arrives in Phase 1.');
+    setError(null);
+    setBusy(true);
+    try {
+      await session.signIn(email, password);
+      updatePrefs({ lastSignedInEmail: email.trim() });
+    } catch (caught) {
+      setError(authErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <Screen scroll safeBottom testID="screen-sign-in">
       <View style={styles.header}>
-        <Text style={[textStyle('3xl', 'heading'), styles.wordmark]}>
+        <Text
+          accessibilityRole="header"
+          style={[textStyle('3xl', 'heading'), styles.wordmark]}
+          accessibilityLabel="OrenjiTrade"
+        >
           <Text style={{ color: palette.primary }}>Orenji</Text>
           <Text style={{ color: palette.ink }}>Trade</Text>
         </Text>
@@ -48,46 +65,62 @@ export default function SignInScreen() {
       </View>
 
       <View style={styles.form}>
+        <Text
+          accessibilityRole="header"
+          style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}
+        >
+          Sign in
+        </Text>
+        {session.initError ? (
+          <FormMessage tone="info">Sign-in is not configured for this environment.</FormMessage>
+        ) : null}
+        {error ? <FormMessage testID="sign-in-error">{error}</FormMessage> : null}
         <TextField
           label="Email"
           value={email}
           onChangeText={setEmail}
           error={emailError}
           autoCapitalize="none"
+          autoCorrect={false}
           autoComplete="email"
           keyboardType="email-address"
           textContentType="emailAddress"
           testID="sign-in-email"
         />
-        <TextField
+        <PasswordField
           label="Password"
           value={password}
           onChangeText={setPassword}
           error={passwordError}
-          secureTextEntry
-          autoComplete="password"
+          autoComplete="current-password"
           textContentType="password"
+          onSubmitEditing={() => void onSubmit()}
           testID="sign-in-password"
         />
-        <Button label="Sign in" onPress={onSubmit} testID="sign-in-submit" />
-        {notice ? (
-          <Text
-            accessibilityRole="alert"
-            style={[textStyle('sm'), styles.notice, { color: palette.info }]}
-          >
-            {notice}
-          </Text>
-        ) : null}
+        <Link
+          href="/reset-password"
+          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+        >
+          Forgot your password?
+        </Link>
+        <Button
+          label="Sign in"
+          loadingLabel="Signing in…"
+          loading={busy}
+          onPress={() => void onSubmit()}
+          testID="sign-in-submit"
+        />
       </View>
 
       <View style={styles.footer}>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>New to OrenjiTrade?</Text>
-        <Link
-          href="/(auth)/sign-up"
-          replace
-          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
-        >
+        <Link href="/sign-up" style={[textStyle('sm'), styles.link, { color: palette.accent }]}>
           Create an account
+        </Link>
+      </View>
+      <View style={styles.footer}>
+        <Link href="/legal" style={[textStyle('xs'), { color: palette.textMuted }]}>
+          Terms, privacy and community guidelines
         </Link>
       </View>
     </Screen>
@@ -95,15 +128,16 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { gap: spacing[2], marginBottom: spacing[8] },
+  header: { gap: spacing[2], marginBottom: spacing[6], marginTop: spacing[6] },
   wordmark: { fontWeight: fontWeight.bold },
+  title: { fontWeight: fontWeight.semibold },
   form: { gap: spacing[4] },
-  notice: { textAlign: 'center' },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: spacing[1],
-    marginTop: spacing[8],
+    marginTop: spacing[6],
   },
   link: { fontWeight: fontWeight.semibold },
 });

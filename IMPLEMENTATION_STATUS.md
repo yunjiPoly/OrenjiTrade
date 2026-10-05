@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -20,7 +20,7 @@ documentation is updated. Each completed item lists location, tests, migrations,
 - [x] Local infra: `docker-compose.yml` (PostGIS 17, Redis 7, Firebase Auth emulator), `.env.example` — verified healthy locally
 - [x] Spring Boot API skeleton (`apps/api`) — Boot 4.1.1 / Java 21 toolchain; Problem Details handler, request-id filter, SecurityConfig, springdoc (non-prod), Flyway V001+V002, Testcontainers base (`postgis/postgis:17-3.5` + Redis), Spotless, layered Dockerfile. Tests: 30 unit + 20 integration, all green; independently verified. `./gradlew exportOpenApi` writes `docs/api/openapi.json`. Debt: google-java-format pinned 1.28 until Gradle runs on JDK 21; OpenAPI `info.license` lacks `identifier`/`url` (client generator needs `--skip-validate-spec`).
 - [x] Angular web skeleton (`apps/web-angular`) — Angular 22 + Material 3 theme from tokens, app shell (top bar, bottom nav <960px, footer), lazy routes incl. map/inventory placeholders, admin shell, 8 legal draft pages, shared UI (empty/error/skeleton/badges/chips), `config.json` loader, interceptors (base URL, request id, ProblemDetail→ApiError), theme service, Playwright smoke (5 pass), 38 unit tests, Dockerfile + nginx + entrypoint. Builder verified; independent verifier was interrupted by the pause (re-run `npm run lint && npm run format:check && npm test && npm run build`). Root npm workspace added (Phase 1, `d85a93f`); the link script is gone.
-- [x] Mobile skeleton (`apps/mobile`) — Expo 57 + expo-router six tabs, typed openapi-fetch client, tokens sync, offline banner, 29 jest tests, Maestro smoke flow, deep links; expo-doctor 21/21. Independently verified. Debt: RNTL pinned 13.3.3; fonts not bundled; EAS project id placeholder. shared-types is now a real workspace dependency (`d85a93f`).
+- [x] Mobile skeleton (`apps/mobile`) — Expo 57 + expo-router six tabs, typed openapi-fetch client, tokens sync, offline banner, 29 jest tests, Maestro smoke flow (replaced by the M1 flows in `apps/mobile/.maestro`), deep links; expo-doctor 21/21. Independently verified. Debt: RNTL pinned 13.3.3; fonts not bundled; EAS project id placeholder. shared-types is now a real workspace dependency (`d85a93f`).
 - [x] ML skeleton (`apps/ml`) — FastAPI factory, `/health`, `/ready`, `/v1/identify` (stub identifier + perceptual hashing), `/v1/duplicates`, Pub/Sub push handler with SSRF guards, problem-details errors, pytest ≥85 % coverage, Dockerfile (3.12 image smoke-tested). Independently verified.
 - [x] Shared packages: `packages/design-tokens` (JSON → CSS/TS), `packages/api-client` (typescript-angular generated; generator CLI isolated in `tools/`), `packages/shared-types` (openapi-typescript + fetch helper)
 - [x] Dockerfiles for api, web (repo-root context), ml
@@ -30,7 +30,7 @@ documentation is updated. Each completed item lists location, tests, migrations,
 
 ## Phase 1 — Auth + Users
 
-_Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1, independently re-verified: 310 API tests green, OpenAPI re-exported, clients regenerated). Web Phase 1 complete (workflow `web-mvp-local` stage 2, independently re-verified: 99 web unit tests + 18 Playwright specs against the real local stack, 0 skipped). Mobile is deferred by owner decision._
+_Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1, independently re-verified: 310 API tests green, OpenAPI re-exported, clients regenerated). Web Phase 1 complete (workflow `web-mvp-local` stage 2, independently re-verified: 99 web unit tests + 18 Playwright specs against the real local stack, 0 skipped). Mobile Phase 1 done in stage M1 (2026-10-04, verifier fixes 2026-10-05, branch `feature/mobile-m1`, builder; see "Mobile app (stage M1)")._
 
 - [x] Identity provider abstraction (`IdentityTokenVerifier`), Firebase adapter (emulator via static owner token, ADC in cloud), `StaticIdentityTokenVerifier` for tests, `IdentityAdminClient` — `apps/api/.../auth`; tests AuthenticationIT (13), unit verifier tests
 - [x] Bearer token filter → `AuthenticatedUser` principal; provisioning on first login with derived handle; last-active throttled via Redis — `auth` + `users`
@@ -43,7 +43,7 @@ _Backend complete (stage A `8531fd4` + stage B, workflow `web-mvp-local` stage 1
 - [x] Account deletion + export: `POST/GET /me/deletion-requests`, `DELETE /me/deletion-requests/{id}` (5-min re-auth window, 7-day grace, `DeletionParticipant.blockers()` → 409 DELETION_BLOCKED, sessions revoked, off the map), `POST /internal/jobs/account-deletion` + hourly `@Scheduled` under `local` (anonymise, purge participants, delete emulator/Firebase user, keep consents/audit, `job_run`), `GET /me/export` via `ExportContributor`s (attachment, 10/hour) — `users`, admin detail shows pending request; migration V007; tests DeletionIT (5), ExportIT (2). Deviations: sessions are revoked instead of disabling the Firebase user (keeps the cancel endpoint reachable); extra `GET /me/deletion-requests`; export limit follows the contract table (10/hour)
 - [x] Terms acceptance: `legal_document` (8 seeded, v2026-09-01) + `user_consent` (version, timestamp, hashed IP, UA), 428 TERMS_ACCEPTANCE_REQUIRED enforcement, `GET /public/legal/documents`, `POST /me/consents` — tests TermsIT, ConsentIT
 - [x] Web: register/login/verify/reset, onboarding (games, tags, trading area), settings pages — `apps/web-angular/src/app`: `core/auth` (Firebase JS SDK lazily loaded behind `FirebaseAuthPort`, Auth emulator locally; `AuthService`, `SessionService` (`GET /me`, states anonymous/loading/ready/consent-required/suspended/deletion-pending/error with retry banner), auth interceptor (Bearer except `/public/**` and `/meta`, one forced-refresh retry on 401), session interceptor (428 → `/auth/consent`, 403 ACCOUNT_SUSPENDED → `/auth/suspended`), guards auth/account/onboarding/accountState/admin/guest + `safeReturnUrl`), `features/auth` (sign-in, sign-up with legal consents, verify-email, reset-password, consent, suspended/deletion-pending with cancel + export), `features/onboarding` (3-step wizard: profile with handle 409 field error, games/languages/tags, trading area on Leaflet), `features/settings` (profile + avatar, privacy, notifications, trading area, account: export, deletion with re-auth and cancel, appearance), `features/collectors` (`/collectors/:handle`, 404 and members-only states), `features/admin` (dashboard counts, users list/detail with roles editor, suspend/unsuspend, audit logs), `shared/map` (`MapAdapter`, lazy Leaflet/OSM default, Google only with a key), `shared/location` (`TradingAreaPicker`, 3-decimal rounding), `shared/profile`, `shared/ui` (avatar, card-art, confirm-dialog, game-chip, section-card). Generated `@orenji/api-client` only. Tests: 99 Vitest unit tests (19 files); Playwright `e2e/auth.spec.ts` (5), `e2e/settings.spec.ts` (4, incl. every JSON response ≤ 3 decimals for lat/lng), `e2e/admin.spec.ts` (4), `e2e/smoke.spec.ts` (5) — 18/18 pass against `api-phase2.jar` + docker compose + Auth emulator. Deviations/debt: `core/http/accept-header.interceptor.ts` widens `Accept` because the generated client sends `application/problem+json` on 204 operations and the API answers 406 (fix in the API or generator config later); generator types `uniqueItems` role lists as `Set` → `roleList()`/`rolePayload()` helpers; route is `/collectors/:handle` (not `/c/:handle`); onboarding guard requires only profile + interests (trading area skippable); Binder/Message/Report buttons disabled "Coming soon" until Phases 3/5/7; game list is still hard-coded in `shared/domain/games.ts` (switch to `GET /games` with web Phase 2); initial bundle 884 kB after the Phase 2 client regeneration (900 kB warning budget)
-- [ ] Mobile: login/register, profile tab, settings — deferred by owner decision (partial work parked on `wip/mobile-auth-partial`)
+- [x] Mobile: login/register, profile tab, settings — stage M1 (builder, 2026-10-04): the parked `wip/mobile-auth-partial` work reconciled with today's API and the web flows. `apps/mobile`: `src/config/env.ts` (one typed config, Android `10.0.2.2` / iOS + web `localhost` defaults, `.env.example` public values only); `src/auth` (Firebase behind an `AuthPort`, React Native persistence on AsyncStorage / browser persistence on web, Auth emulator, sign-up with display name, sign-in, reset, re-auth, sign-out, friendly errors); `src/api` (openapi-fetch on `@orenji/shared-types`, ID token + one forced-refresh retry after 401, RFC 9457 → `ApiError`, 428/403 account signals, React Native response class handled); `src/account` (`/me`, consent / suspended / banned / deletion-pending / onboarding gate); screens sign-in, sign-up with versioned legal documents read in-app, verify email, reset password, consent, account status (cancel deletion, export), onboarding (profile, interests, trading area picked like on the web: a tap on the map or a dragged pin, "Use map centre", city quick picks with their suggested radius, a 1–50 km radius, or the device at reduced accuracy rounded to 3 decimals and sent only to the API, never drawn; map opt-in off by default), Profile tab + public preview, Settings (profile + avatar, location and discoverability, privacy, notifications, account with export and deletion, appearance, legal); building blocks `CardImage` (API picture URLs only + provider credit), form controls, `QueryState`, snackbar, confirm dialog, query keys. Maps follow ADR 0010 (amended 2026-10-05): Apple Maps on iOS, Google Maps on Android only in a build with the project's key, otherwise (Expo Go, whose bundled Google key the Maps SDK refuses) Leaflet + OpenStreetMap in a WebView. Tests: 231 jest tests (33 suites), 12 Playwright specs on the Expo web build (`npm run test:mobile:e2e`, 3 of them run the Android WebView map page in Chromium), 5 Maestro flows on Android in Expo Go (`npm run test:mobile:maestro`). First independent verification failed on the trading-area picker (city presets only, no map); fixed (see "Mobile app (stage M1)", verifier fixes); re-verification pending
 - [x] Tests (API): auth filter, RBAC, audit, rate limit, consent, seed, profiles, tags, location, geo privacy contract, settings, deletion job, export — 310 API tests (45 classes, unit + Testcontainers ITs), 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; web/mobile flow tests come with their UI stages
 - [x] Audit log (`audit_log`, `AuditService`, `GET /admin/audit-logs`) and admin user endpoints (list/get/suspend/unsuspend/roles), every write audited — tests AuditIT
 - [x] Rate limiting (Redis Lua token bucket, property-driven policies, X-RateLimit headers, fail-open) — tests RateLimitIT
@@ -356,8 +356,10 @@ seeds/tests/CI stay offline. Verification: `./gradlew spotlessApply build` 756 A
   Dragon and Dark Magician, `/cards?q=forbidden one` and `/search?q=forbidden one` render real
   pictures from `/api/v1/public/card-images/` (320×466, natural size > 0); no request to any
   `ygoprodeck.com` host and no provider URL in the DOM.
-- [ ] Mobile — deferred by owner decision (no card image component exists in `apps/mobile` yet;
-  the web `app-card-image` contract — API URLs only, 5:7 frame, placeholder fallback — applies).
+- [x] Mobile — `CardImage` (`apps/mobile/src/components/ui/CardImage.tsx`, stage M1): expo-image,
+  API picture URLs only (`/api/v1/public/card-images/{id}`, placeholders, media; anything else →
+  placeholder art), 5:7 frame, skeleton, provider credit line of the web; unit-tested. Card
+  surfaces that use it arrive with the mobile Phase 2+ stages.
 - Debt: the cache is local-disk only (cloud would need GCS + shared accounting, deferred with Phase
   14); on-demand fills are per instance; the real catalog has 13 invalid printing codes and 9 code
   + rarity pairs claimed by two cards (skipped, reported as warnings); production legal review of
@@ -505,6 +507,126 @@ catalog at 320 px (14,764 artworks ≈ 650 MB) fits locally with room for other 
 - Note for the owner: a local `.env` copied from the old `.env.example` still sets
   `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500` and keeps the old cap until that line is removed or set to
   5120.
+
+## Mobile app (stage M1: foundation + Phase 1 accounts, 2026-10-04)
+
+_Owner decision 2026-10-04: mobile development resumes (web MVP done); everything stays local and
+free (Expo Go on a local Android emulator, Maestro CLI; no EAS, no Expo account, no Maestro Cloud,
+no cloud resources). Branch `feature/mobile-m1` (worktree), builder done; the first independent
+verification failed on one item (manual trading area without the web's map mechanism) and listed
+cheap non-blocking fixes; all fixed below (2026-10-05) and `origin/main` (#39, #40) merged in;
+re-verification pending; not pushed._
+
+- [x] Parked work resumed — `wip/mobile-auth-partial` (`1fb776a`) cherry-picked (`969cac7`) and
+  reconciled with today's API (`docs/api/openapi.json`, `@orenji/shared-types`) and the web flows
+  (`features/{auth,onboarding,settings,legal}`, `core`): stale pieces (`SessionProvider`,
+  `accountState`, `queries/*`, `signUp.ts`, `links.ts`) replaced, sound ones kept (`0b790fe`).
+- [x] Configuration — `src/config/env.ts` (API base URL, public Firebase config of
+  `orenjitrade-local`, Auth emulator host; Android `10.0.2.2`, iOS simulator / web `localhost`),
+  `apps/mobile/.env.example` (public values only). Firebase Auth: React Native persistence on
+  AsyncStorage (session restore verified on Android after the app is killed), browser persistence on
+  web, emulator when configured.
+- [x] Auth, onboarding, Profile tab, Settings, building blocks — see the Phase 1 mobile row.
+- [x] Device location — read once at reduced accuracy (`expo-location`, `Accuracy.Low`), last-known
+  fix up to 10 min, 10 s timeout (the web's `maximumAge` / `timeout`), rounded to 3 decimals like
+  the web and sent only to `PUT /me/location/trading-area`; never rendered, stored, persisted or
+  logged. Discoverability defaults to off.
+- [x] Mobile web E2E — `npm run test:mobile:e2e` (`scripts/lib/mobile-e2e.mjs`): Playwright
+  (`apps/mobile/e2e`, 12 specs: `auth` 5, `profile` 1, `location` 1, `account` 2, `leaflet-page` 3) against the Expo web
+  build on :19006 and an isolated API on :8090; CI job `mobile-web` in `.github/workflows/e2e.yml`
+  (plus the guard tests). Isolation (owner rule 2026-10-04): database `orenjitrade_mobile_e2e`
+  recreated per run; media and card-image cache under `.local-dev/mobile-e2e/` with a guard
+  (`scripts/lib/mobile-e2e-guard.mjs`, 27 `node --test` tests since 2026-10-05) that refuses directories resolving to
+  any checkout's developer directories, the developer database or port, or any card provider call;
+  `--reuse-running` only reuses the API the harness started (identity block in `/actuator/info` +
+  state file) and refuses the developer API on :8080; accounts `m-<run id>-...@mobile-e2e.test`
+  deleted from the Auth emulator after the run; mock catalog only (YGOPRODeck disabled).
+- [x] Native (Android, Expo Go) — `npm run test:mobile:maestro` (`scripts/lib/mobile-maestro.mjs`):
+  isolated API on :8090, Metro on :8082 with `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8090`, bundle
+  checked for that URL, Expo Go installed by Expo CLI when missing; 5 flows in `apps/mobile/.maestro`
+  (`sign-in`, `sign-up-onboarding`, `profile-edit`, `discoverability`, `sign-out` with session
+  restore). Defects found and fixed on the device: native bundles failed to transform
+  (react-native-worklets Babel plugin resolved the web toolchain's hoisted Babel 8: root
+  devDependencies pin `@babel/generator` / `@babel/traverse` 7.29.8, guarded by a jest test and an
+  `expo export --platform android` CI step); every authenticated call failed after sign-in
+  (openapi-fetch rejects React Native's Response class as a middleware result); forms hidden behind
+  the keyboard (edge-to-edge, `KeyboardAvoidingView` in `Screen`); "Use my current location" spun
+  forever without a fix (10 s timeout). Flow robustness: subflows dismiss the Expo Go developer menu
+  and an "isn't responding" dialog, and scroll with edge swipes (a slow swipe starting on a filled
+  TextInput becomes a text-selection long press on a slow emulator).
+- [x] Verifier fixes (2026-10-05, after the first independent verification) — blocking: the manual
+  trading area now uses the web picker's mechanism (`src/features/location/TradingAreaPicker.tsx` +
+  `TradingAreaMap`): a tap on the map or a dragged pin moves the centre, "Use map centre" after
+  panning, "Jump to a city" quick picks with their suggested radius (the web's `choosePreset`), the
+  1–50 km radius drawn as a circle, loading skeleton and "Reload map" error state (quick picks keep
+  working); hand-picked centres are rounded to 3 decimals and saved with source MANUAL; a
+  device-derived centre is never drawn (no pin or circle, the camera looks at its 2-decimal
+  neighbourhood); the centre is described in words only (`area-centre-summary`).
+  **Map engine (ADR 0010 amendment 2026-10-05):** on the emulator the react-native-maps Google map
+  stayed an empty grey surface: the Maps SDK refuses the key bundled with Expo Go ("Authorization
+  failure"; the Map tab was just as grey, which the first verification mistook for a loaded map),
+  so the camera never moved and "Use map centre" failed. `src/components/map/mapEngine.ts` now
+  picks react-native-maps only for Apple Maps (iOS) or Google Maps in an Android build carrying
+  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` outside Expo Go, else Leaflet 1.9.4 + OpenStreetMap in a
+  `react-native-webview` page (`src/components/map/leaflet/`: Leaflet from a pinned unpkg URL with
+  Subresource Integrity equal to the npm bytes, no geolocation or storage, validated JSON messages,
+  fit deferred until the WebView has a size, links open in the browser). The Map tab uses the same
+  engine (browse only, zoom capped at 14). Tests: jest (`tradingAreaPicker.test.tsx` on the native
+  map, `tradingAreaMapLeaflet.test.tsx` on the WebView: tap, drag, city focus, map centre, device
+  area, disabled, malformed messages, error + retry, timeout; `maps.test.ts`: engine choice, SRI vs
+  `node_modules`, escaping, messages; `collectorMap.test.tsx`), Playwright (`location.spec.ts`:
+  city, map tap, pin drag, `PUT` body MANUAL with 3 decimals; `auth.spec.ts`: a map tap during
+  onboarding; `leaflet-page.spec.ts`: the WebView page in Chromium, taps, pin drag, apply, focus,
+  0 x 0 layout, Leaflet load failure) and Maestro (`discoverability.yaml`: city, tap on the map,
+  save, `scripts/check-area.js` checks the API holds a MANUAL 3-decimal centre, pan + "Use map
+  centre"; `sign-up-onboarding.yaml`: city on the onboarding map). Non-blocking: the Maestro
+  harness waits (up to 6 min) for Expo CLI to install Expo Go instead of failing and stopping Metro
+  mid-install (it was installed from scratch in this run); the blank band above stack headers on
+  Android is gone (`src/navigation/headerInsets.ts`: in Expo Go the window starts below the status
+  bar, so react-native-screens' native header must not add the status-bar height again; moving
+  settings and legal into the root stack alone did not fix it); "Approximate area" (the API's
+  generic label) never appears in "near …" sentences; friendly `auth/timeout` and
+  `auth/internal-error` messages; a native build without React Native auth persistence keeps the
+  session in memory instead of falling back to browser storage (unit tested); the Privacy Policy
+  copy re-synced with the web's "about 3 km" wording after the merge. Merge of `origin/main`
+  (#39 web E2E isolation, #40 Gradle on JDK 21): `scripts/test.mjs`, `e2e.yml`, docs merged with
+  both sides kept; the mobile harness now reuses #39's helpers (`web-e2e-guard.mjs` path/storage/URL
+  rules, `local-db.mjs`, `auth-emulator.mjs`) and gained their rules: its own realtime channels
+  (`REALTIME_CHANNEL_PREFIX=e2e-mobile:rt:user:`, Redis pub/sub ignores the logical database),
+  Redis db 1 enforced (not 0, not the web's 2), local database host, provider snapshots under
+  `.local-dev/mobile-e2e/`, closed-port provider URLs, `STORAGE_PUBLIC_BASE_URL` empty, only
+  `orenjitrade_mobile_e2e` droppable (27 guard tests).
+- Checks (2026-10-05, Windows 11, Pixel_6_API_34 emulator, after the fixes and the merge):
+  `npm run test:mobile` green (typecheck, lint, 231 jest tests / 33 suites, 27 harness guard
+  tests); `npx expo-doctor` 21/21; `npx expo export --platform android` (4.2 MB Hermes bundle) and
+  `--platform web` (42 static routes) OK; `npm run test:mobile:e2e` 12/12 passed, 0 skipped, 0 flaky
+  (developer database `orenjitrade`, its 14,731 cached card images and the 12 seed emulator accounts
+  unchanged before/after; the run's 6 accounts deleted); `npm run test:scripts` 53/53;
+  `npm run test:e2e` (web, isolated stack after the merge) 69/69 passed; `npm run test:web` lint +
+  632 unit tests; `npm run audit:gate` OK (react-native-webview added with `npx expo install`).
+  Native: Expo Go 57.0.9 installed by the harness's Metro on a fresh emulator, then
+  `npm run test:mobile:maestro` 5/5 flows passed (11 min 36 s) twice in a row, the second time with a
+  freshly started Metro; a walk by hand (seed sign-in, Map tab on OpenStreetMap, Profile, Settings,
+  Location with a dragged pin, Privacy, Notifications, Account, Legal, a deep link opening Location
+  a second time) showed no red box, crash or coordinate in logcat or the Metro log. No API change.
+- Checks of the first builder pass (2026-10-04, Windows 11, Pixel_6_API_34 emulator): `npm run test:mobile` green (192 jest
+  tests / 27 suites + 19 guard tests); `npx expo-doctor` 21/21; `npx expo export --platform android`
+  and `--platform web` OK; `npm run test:mobile:e2e` 9/9 passed, 0 skipped; `npm run test:mobile:maestro`
+  5/5 flows passed; `npm run test:web` green after the lockfile change (lint + 629 unit tests) and
+  `ng build` OK; `npm run audit:gate` OK. A by-hand walk of every Phase 1 screen on the emulator
+  (sign-in, reset password, legal index and a document, the six tabs, profile and public preview,
+  settings: privacy, notifications, appearance, legal, account, export share sheet, deletion request
+  with export first, deletion-pending screen, cancel) showed no red box or crash. No API change.
+- Gaps / debt: collectors on the Map tab (3 km zones, preview bottom sheet, zoom-14 cap on the
+  native engine too) arrive with mobile stage M3; the Leaflet WebView loads Leaflet from unpkg and
+  tiles from OpenStreetMap, so the map needs internet (the picker's quick picks and device location
+  work without it); the Google Maps path on Android is unit-tested but not run on a device (it needs
+  a development build with the project's own key; none exists, no cloud resources); the
+  device-location success path is unit-tested but the emulator never produced a low-accuracy fix
+  (the timeout path was verified on the device); standalone Android builds would declare
+  `ACCESS_FINE_LOCATION` through expo-location (consider `android.blockedPermissions` when a
+  development build is introduced); iOS not run (no macOS); device push delivery, fonts and the EAS
+  project id unchanged; Maestro runs take about 12 minutes and are local only (not in CI).
 
 ## E2E isolation, test-data purge and 3 km zones (2026-10-04)
 
@@ -715,7 +837,7 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 ### Remaining gaps (after the final verification)
 
 - **Cloud (deferred by owner):** Phase 14 deployment (GCP projects, Terraform apply, Cloud Run, Cloud SQL, Memorystore, Secret Manager incl. `LOCATION_JITTER_SECRET` / `ANALYTICS_ACTOR_SALT` / `SERVICE_TOKEN`, Artifact Registry, Cloudflare records); real Firebase project, Stripe (Connect + Billing), FCM and e-mail providers; Pub/Sub transport and BigQuery (Phase 12); `/internal/*` Google OIDC in the cloud; Memorystore TLS.
-- **Mobile (deferred by owner):** every mobile UI of Phases 1–10 (partial auth work on `wip/mobile-auth-partial`), device push, Maestro E2E flows, EAS project id.
+- **Mobile (resumed 2026-10-04, local and free only):** Phase 1 done in stage M1 (see "Mobile app (stage M1)"); the mobile UIs of Phases 2–10 (collectors on the map as 3 km zones in M3), device push delivery, fonts; EAS stays unused (project id placeholder).
 - **ML (on hold):** Phase 11 card recognition and scanning.
 - **Legal:** counsel review of the 8 draft legal pages (criterion 38).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
@@ -760,23 +882,28 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven).
 > import: ≈ 14,800 image downloads paced at 5/s ≈ 50 minutes, ≈ 650 MB). A local `.env` that still
 > sets `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500` must be updated first.
 
+**Owner priorities (2026-09-29, updated 2026-10-04):** cloud deployment deferred (see
+docs/deployment/DEFERRED.md), everything runs locally, web application first (**done**), mobile
+resumed on 2026-10-04 (local and free only: Expo Go, local Android emulator, Maestro CLI; never
+EAS, Expo publish or Maestro Cloud). Phase 11 (ML card recognition) is on hold.
+
+> **Mobile stage M1 (2026-10-04, fixes 2026-10-05, branch `feature/mobile-m1`):** foundation +
+> Phase 1 accounts on the Expo app (see "Mobile app (stage M1)"): auth, onboarding, Profile tab,
+> Settings, shared building blocks, the trading-area picker on a map like the web's (Leaflet +
+> OpenStreetMap in a WebView where Google Maps cannot draw, ADR 0010 amendment), the isolated
+> mobile web E2E harness (`npm run test:mobile:e2e`, 12 specs, CI job) and the native Maestro flows
+> on the Android emulator (`npm run test:mobile:maestro`, 5 flows); `origin/main` (#39, #40) merged
+> in. Committed, not pushed. **Next:** independent re-verification of stage M1 (re-run the check
+> list in that section, including the native check), then push, PR and merge to `main` when CI is
+> green; then the next mobile stage.
+
 > **E2E isolation, test-data purge and 3 km zones (2026-10-04, branch `fix/e2e-isolation-3km-zones`):**
-> done and verified by the builder (see the section of the same name): `npm run test:e2e` runs on its
+> merged into `main` as #39 (see the section of the same name): `npm run test:e2e` runs on its
 > own stack (database `orenjitrade_e2e`, API :8180, web :4300, Redis db 2, files under
 > `.local-dev/e2e/`) next to `npm run dev` and deletes its emulator accounts; `npm run e2e:purge`
 > removes `@example.test` accounts through the deletion path; web collector maps show 3 km zones
-> (radius 1500 m), zoom capped at 14. Committed on the branch (not pushed). **Next:** push the
-> branch, open the PR and merge to `main` when CI is green (the E2E CI job now uses :8180 / :4300 /
-> `orenjitrade_e2e`; it is the first CI run of that layout). The mobile half of the 3 km rule (Map
+> (radius 1500 m), zoom capped at 14. The mobile half of the 3 km rule (Map
 > tab zones, preview bottom sheet, collector profile) is the parallel mobile workflow's stage M3.
-> Merge note: the mobile workflow also edits `scripts/test.mjs`, `scripts/lib/util.mjs`,
-> `package.json`, `.github/workflows/e2e.yml` and keeps its own guard module
-> (`scripts/lib/mobile-e2e-guard.mjs`); the shared path/storage helpers of the two guard modules
-> can be merged into one module afterwards.
-
-**Owner priorities (2026-09-29):** cloud deployment deferred (see docs/deployment/DEFERRED.md),
-everything runs locally, web application first (**done**), then mobile. Phase 11 (ML card
-recognition) is on hold. Mobile partial auth work is parked on branch `wip/mobile-auth-partial`.
 
 History (one vertical slice per phase, backend N+1 overlapping web N; migration ranges P1
 V004–V009, P2 V010–V019, …, P10 V090–V099): stage 1 Phase 1 API · stage 2 Phase 2 API + web
@@ -786,16 +913,14 @@ Phase 8 API + web Phase 7 · stage 9 Phase 9 API + web Phase 8 · stage 10 Phase
 · stage 11 web Phase 10 · stage 12 local environment tooling + web acceptance suite + final
 verification.
 
-**Exact next task — start mobile development after owner confirmation:**
-1. Ask the owner to confirm that mobile work may start (and whether the owner's pending
-   `app.json` / `eas.json` / `react-native-worklets` changes should be committed first). Do not
-   touch `apps/mobile` before that confirmation.
-2. Then resume from branch `wip/mobile-auth-partial`: Phase 1 mobile (login/register with the
-   Auth emulator, onboarding, profile tab, settings) on `packages/shared-types` + `openapi-fetch`,
-   expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile`, offline-tolerant
-   `@tanstack/react-query`, the same fake/log providers and the same ADR 0004 privacy rules
-   (3-decimal public points, bucketed distances), then the mobile items of Phases 2–10 in order
-   with Maestro flows per phase and `npm run test:mobile` green.
+**Exact next task — mobile stage M2 after M1 is verified and merged:**
+1. Verify stage M1 independently (`npm run test:mobile`, `npx expo-doctor`, `expo export` for
+   android and web, `npm run test:mobile:e2e`, the native check with `npm run test:mobile:maestro`
+   on `Pixel_6_API_34`), then push `feature/mobile-m1`, open the PR and merge when CI is green.
+2. Mobile Phase 2 (card catalog: Search tab with autocomplete, card detail with `CardImage`, sets)
+   on the same conventions (`@orenji/shared-types` + openapi-fetch, react-query keys, `QueryState`,
+   API picture URLs only, mock catalog in tests), with Playwright specs and Maestro flows; then the
+   mobile items of Phases 3–10 in order.
 3. In parallel when useful (no owner decision needed): the backend and web debt listed above and
    Phase 13 hardening. Cloud deployment (Phase 14) and ML (Phase 11) stay deferred / on hold until
    the owner lifts them.

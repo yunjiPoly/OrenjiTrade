@@ -1,71 +1,73 @@
 import { Platform } from 'react-native';
 
-import type { FirebaseApp, FirebaseOptions } from 'firebase/app';
+import type { FirebaseApp } from 'firebase/app';
 import type { Auth, Persistence } from 'firebase/auth';
+
+import { appConfig, type AppConfig } from '@/src/config/env';
 
 /**
  * `getReactNativePersistence` ships in the React Native build of `@firebase/auth` (selected by
  * Metro through the `react-native` export condition) but the package's `types` condition wins in
  * TypeScript, so the public typings omit it. This narrow type documents the runtime contract.
  */
-type ReactNativeAuthModule = typeof import('firebase/auth') & {
-  getReactNativePersistence: (storage: unknown) => Persistence;
+export type FirebaseAuthModule = typeof import('firebase/auth') & {
+  getReactNativePersistence?: (storage: unknown) => Persistence;
 };
 
 /**
- * Lazy Firebase bootstrap. Nothing here runs at import time: the SDK is loaded with dynamic
- * imports the first time `getFirebaseAuth()` is awaited, which keeps startup fast and keeps
- * unit tests free of Firebase.
+ * Lazy Firebase bootstrap. Nothing runs at import time: the SDK is loaded with dynamic imports
+ * the first time `getFirebaseAuth()` is awaited, which keeps start-up fast, keeps the static web
+ * render free of browser APIs and keeps unit tests free of Firebase (they use a fake port).
+ *
+ * Persistence: see `authPersistence` (AsyncStorage on iOS/Android, IndexedDB then localStorage on
+ * web). With `authEmulatorHost` set, every call goes to the
+ * local Firebase Auth emulator (`docker compose`), never to Google.
  */
 
-export interface FirebaseEnvConfig extends FirebaseOptions {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  appId?: string;
-}
+type PersistenceSdk = Pick<
+  FirebaseAuthModule,
+  | 'indexedDBLocalPersistence'
+  | 'browserLocalPersistence'
+  | 'inMemoryPersistence'
+  | 'getReactNativePersistence'
+>;
 
-export class FirebaseConfigError extends Error {
-  readonly name = 'FirebaseConfigError';
-}
-
-export function readFirebaseConfig(env: NodeJS.ProcessEnv = process.env): FirebaseEnvConfig {
-  const apiKey = env.EXPO_PUBLIC_FIREBASE_API_KEY?.trim();
-  const authDomain = env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim();
-  const projectId = env.EXPO_PUBLIC_FIREBASE_PROJECT_ID?.trim();
-  const appId = env.EXPO_PUBLIC_FIREBASE_APP_ID?.trim();
-
-  const missing = [
-    ['EXPO_PUBLIC_FIREBASE_API_KEY', apiKey],
-    ['EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', authDomain],
-    ['EXPO_PUBLIC_FIREBASE_PROJECT_ID', projectId],
-  ]
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-
-  if (missing.length > 0 || !apiKey || !authDomain || !projectId) {
-    throw new FirebaseConfigError(
-      `Firebase is not configured. Missing: ${missing.join(', ')}. Copy .env.example to .env.`
-    );
+/**
+ * The persistence `initializeAuth` gets on a platform:
+ * - web: IndexedDB, then localStorage, WITHOUT a popup/redirect resolver (the app only signs in
+ *   with email and password, and `getAuth()` would load Google's gapi iframe on every start, even
+ *   against the local emulator);
+ * - iOS/Android: AsyncStorage through `getReactNativePersistence`, so the session survives a
+ *   restart. Browser storage does not exist there: if the React Native build of `@firebase/auth`
+ *   was not resolved (a bundler misconfiguration), the session is kept in memory (signed out on
+ *   the next launch) instead of crashing on IndexedDB.
+ */
+export function authPersistence(
+  platform: string,
+  sdk: PersistenceSdk,
+  storage: unknown
+): Persistence | Persistence[] {
+  if (platform === 'web') {
+    return [sdk.indexedDBLocalPersistence, sdk.browserLocalPersistence];
   }
-
-  return { apiKey, authDomain, projectId, ...(appId ? { appId } : {}) };
-}
-
-/** `host:port` of the Auth emulator when `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` is set. */
-export function readAuthEmulatorHost(env: NodeJS.ProcessEnv = process.env): string | null {
-  const value = env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST?.trim();
-  return value ? value : null;
+  if (sdk.getReactNativePersistence && storage) {
+    return sdk.getReactNativePersistence(storage);
+  }
+  console.warn(
+    '[OrenjiTrade] Firebase Auth has no React Native persistence in this build; the session is kept in memory only.'
+  );
+  return sdk.inMemoryPersistence;
 }
 
 let appPromise: Promise<FirebaseApp> | null = null;
+let authModulePromise: Promise<FirebaseAuthModule> | null = null;
 let authPromise: Promise<Auth> | null = null;
 
-export function getFirebaseApp(): Promise<FirebaseApp> {
+export function getFirebaseApp(config: AppConfig = appConfig): Promise<FirebaseApp> {
   if (appPromise === null) {
     appPromise = (async () => {
       const { getApps, getApp, initializeApp } = await import('firebase/app');
-      return getApps().length > 0 ? getApp() : initializeApp(readFirebaseConfig());
+      return getApps().length > 0 ? getApp() : initializeApp(config.firebase);
     })().catch((error: unknown) => {
       appPromise = null;
       throw error;
@@ -74,26 +76,37 @@ export function getFirebaseApp(): Promise<FirebaseApp> {
   return appPromise;
 }
 
-export function getFirebaseAuth(): Promise<Auth> {
+/** The `firebase/auth` module (loaded once). */
+export function getFirebaseAuthModule(): Promise<FirebaseAuthModule> {
+  if (authModulePromise === null) {
+    authModulePromise = import('firebase/auth')
+      .then((module) => module as FirebaseAuthModule)
+      .catch((error: unknown) => {
+        authModulePromise = null;
+        throw error;
+      });
+  }
+  return authModulePromise;
+}
+
+export function getFirebaseAuth(config: AppConfig = appConfig): Promise<Auth> {
   if (authPromise === null) {
     authPromise = (async () => {
-      const app = await getFirebaseApp();
-      const authModule = (await import('firebase/auth')) as unknown as ReactNativeAuthModule;
+      const app = await getFirebaseApp(config);
+      const sdk = await getFirebaseAuthModule();
 
-      let auth: Auth;
-      if (Platform.OS === 'web') {
-        // Browser persistence (IndexedDB/localStorage) is the SDK default on web.
-        auth = authModule.getAuth(app);
-      } else {
-        const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
-        auth = authModule.initializeAuth(app, {
-          persistence: authModule.getReactNativePersistence(AsyncStorage),
+      const storage =
+        Platform.OS === 'web'
+          ? null
+          : (await import('@react-native-async-storage/async-storage')).default;
+      const auth: Auth = sdk.initializeAuth(app, {
+        persistence: authPersistence(Platform.OS, sdk, storage),
+      });
+
+      if (config.authEmulatorHost) {
+        sdk.connectAuthEmulator(auth, `http://${config.authEmulatorHost}`, {
+          disableWarnings: true,
         });
-      }
-
-      const emulatorHost = readAuthEmulatorHost();
-      if (emulatorHost) {
-        authModule.connectAuthEmulator(auth, `http://${emulatorHost}`, { disableWarnings: true });
       }
       return auth;
     })().catch((error: unknown) => {
@@ -102,10 +115,4 @@ export function getFirebaseAuth(): Promise<Auth> {
     });
   }
   return authPromise;
-}
-
-/** Test-only: forget the cached instances. */
-export function __resetFirebaseForTests(): void {
-  appPromise = null;
-  authPromise = null;
 }

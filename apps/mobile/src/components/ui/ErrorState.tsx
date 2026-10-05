@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
+import { friendlyMessage } from '@/src/api/errorMessages';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';
@@ -20,10 +21,7 @@ export interface ErrorStateProps {
 
 function describe(error: unknown, fallback: string): string {
   if (isApiError(error)) {
-    return error.message;
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
+    return friendlyMessage(error);
   }
   return fallback;
 }

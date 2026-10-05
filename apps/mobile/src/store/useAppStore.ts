@@ -17,7 +17,6 @@ export interface MapRegion {
 /** Preferences that survive sign-out and app restarts. */
 export interface SessionPrefs {
   distanceUnit: DistanceUnit;
-  hasCompletedOnboarding: boolean;
   /** Pre-fills the sign-in form; never a password. */
   lastSignedInEmail: string | null;
 }
@@ -35,7 +34,6 @@ export interface AppState {
 
 export const DEFAULT_PREFS: SessionPrefs = {
   distanceUnit: 'km',
-  hasCompletedOnboarding: false,
   lastSignedInEmail: null,
 };
 
@@ -58,7 +56,14 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: APP_STORE_STORAGE_KEY,
-      version: 1,
+      version: 2,
+      // v1 also stored `prefs.hasCompletedOnboarding`; onboarding now comes from `GET /me`.
+      migrate: (persisted) => {
+        const state = persisted as Partial<AppState> | undefined;
+        const prefs: Record<string, unknown> = { ...state?.prefs };
+        delete prefs.hasCompletedOnboarding;
+        return { ...state, prefs: { ...DEFAULT_PREFS, ...prefs } } as AppState;
+      },
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         themeOverride: state.themeOverride,

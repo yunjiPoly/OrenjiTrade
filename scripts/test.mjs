@@ -3,7 +3,17 @@
 //   npm run test:api      apps/api: gradlew check, tests always re-executed (Spotless + unit + Testcontainers
 //                         integration tests; Docker required)
 //   npm run test:web      apps/web-angular: lint + unit tests (Vitest)
-//   npm run test:mobile   apps/mobile: typecheck + lint + jest
+//   npm run test:mobile   apps/mobile: typecheck + lint + jest, plus the mobile E2E harness guard
+//                         tests (node --test scripts/lib/mobile-e2e-guard.test.mjs)
+//   npm run test:mobile:e2e  apps/mobile web build + Playwright against an isolated real stack: the
+//                         running infrastructure (infra:up only when it is down, never restarted),
+//                         database orenjitrade_mobile_e2e (recreated), the API jar on :8090 with its
+//                         own media/card-image directories, Redis db 1 and realtime channels, expo
+//                         export + serve on :19006; run-scoped @mobile-e2e.test accounts deleted
+//                         afterwards; stops only what it started
+//                         (--reuse-running, --keep-running, --stack-only, --stop, --skip-build)
+//   npm run test:mobile:maestro  native flows (apps/mobile/.maestro) in Expo Go on a running Android
+//                         emulator, Metro on :8082 and the same isolated API (--keep-running, --stop)
 //   npm run test:e2e      Playwright suite on its own isolated local stack (scripts/lib/web-e2e.mjs):
 //                         database orenjitrade_e2e (recreated per run), the API jar on :8180 and
 //                         ng serve on :4300, so it runs next to `npm run dev` without touching the
@@ -13,7 +23,7 @@
 //                         --reuse-running (only a stack the harness started), --stack-only, --stop,
 //                         --keep-db
 //   npm run test:scripts  node --test unit tests of scripts/lib (E2E isolation guards, purge rules)
-//   npm run test:all      scripts + api + web + mobile + e2e, then a summary with timings
+//   npm run test:all      scripts + api + web + mobile + e2e + mobile:e2e, then a summary with timings
 //   npm run test:ml       optional: apps/ml pytest with apps/ml/.venv when present (Phase 11 is on hold)
 
 import fs from 'node:fs';
@@ -34,6 +44,8 @@ import {
   runNpm,
   table,
 } from './lib/util.mjs';
+import { testMobileE2e } from './lib/mobile-e2e.mjs';
+import { testMobileMaestro } from './lib/mobile-maestro.mjs';
 import { runWebE2e } from './lib/web-e2e.mjs';
 
 const [suite, ...argv] = process.argv.slice(2);
@@ -72,6 +84,14 @@ function testMobile() {
     ['Mobile: typecheck (tsc --noEmit)', () => runNpm(['run', 'typecheck', '-w', 'apps/mobile'])],
     ['Mobile: lint (expo lint)', () => runNpm(['run', 'lint', '-w', 'apps/mobile'])],
     ['Mobile: unit tests (jest)', () => runNpm(['run', 'test', '-w', 'apps/mobile'])],
+    [
+      'Mobile: E2E harness guard tests (node --test)',
+      () =>
+        run(
+          { command: process.execPath, args: ['--test', 'scripts/lib/mobile-e2e-guard.test.mjs'], shell: false },
+          { cwd: ROOT },
+        ),
+    ],
   ]);
 }
 
@@ -133,6 +153,7 @@ async function testAll(args) {
     ['web', testWeb],
     ['mobile', testMobile],
     ['e2e', () => testE2e(args)],
+    ['mobile:e2e', () => testMobileE2e([])],
   ];
   const results = [];
   const allStarted = Date.now();
@@ -158,6 +179,8 @@ const suites = {
   web: testWeb,
   mobile: testMobile,
   scripts: testScripts,
+  'mobile-e2e': () => testMobileE2e(argv),
+  'mobile-maestro': () => testMobileMaestro(argv),
   e2e: () => testE2e(argv),
   all: () => testAll(argv),
   ml: testMl,
