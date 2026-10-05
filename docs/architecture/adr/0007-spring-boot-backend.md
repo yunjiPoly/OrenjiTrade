@@ -8,8 +8,8 @@ supported line and brings Spring Framework 7, Security 7, Hibernate 7, Jackson 3
 starters, and native Testcontainers 2 integration.
 
 ## Decision
-Java 21 (toolchain auto-provisioned by Gradle's foojay resolver, so contributors with JDK 17
-still build), Spring Boot 4.1.x, Gradle 9 Kotlin DSL. Starters: `webmvc`, `data-jpa`,
+Java 21 (toolchain auto-provisioned by Gradle's foojay resolver; since 2026-10-04 Gradle itself
+must also run on JDK 21+, because Spotless uses google-java-format 1.30), Spring Boot 4.1.x, Gradle 9 Kotlin DSL. Starters: `webmvc`, `data-jpa`,
 `security`, `validation`, `actuator`, `data-redis`, `websocket`, `flyway`; `springdoc-openapi`
 3.x for the spec (enabled outside production only); Spring Modulith for events; Firebase Admin
 SDK; Google Cloud client libraries (ADR 0013); `hibernate-spatial` + JTS for PostGIS types.
