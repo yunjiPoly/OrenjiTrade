@@ -5,6 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccountProvider } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
+import { usePendingLink } from '@/src/account/pendingLink';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { clearAccountSignal } from '@/src/api/accountSignal';
 import type { AuthPort } from '@/src/auth/authPort';
 import { SessionProvider } from '@/src/auth/session';
@@ -71,8 +73,10 @@ export function renderWithProviders(
   return { ...result, queryClient: client };
 }
 
-/** Resets module-level state shared between tests (account signal, flow lock). */
+/** Resets module-level state shared between tests (signals, locks, pending link, notices). */
 export function resetAppState(): void {
   clearAccountSignal();
   useFlowLock.getState().unlock();
+  usePendingLink.getState().clear();
+  useSessionNotice.getState().clear();
 }

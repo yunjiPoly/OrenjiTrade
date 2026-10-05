@@ -56,3 +56,21 @@ export function clampZoom(zoom: number, max: number = COLLECTOR_MAP_MAX_ZOOM): n
 export function round3(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
+
+/** Web Mercator metres per screen point at zoom 0 on the equator (256-point tiles). */
+const METRES_PER_PX_Z0 = 156_543.033_92;
+
+/**
+ * The closest whole zoom (never past {@link COLLECTOR_FOCUS_ZOOM} nor the cap) at which a whole
+ * zone of radius 1500 m fits a box whose shorter side is `sidePx`, with a margin: the profile's
+ * approximate-area map shows the whole 3 km zone at every latitude instead of clipping it.
+ */
+export function zoneFitZoom(lat: number, sidePx: number, margin = 1.15): number {
+  const metresPerPxZ0 = METRES_PER_PX_Z0 * Math.cos((lat * Math.PI) / 180);
+  const diameter = 2 * APPROXIMATE_AREA_RADIUS_M * margin;
+  if (!Number.isFinite(metresPerPxZ0) || sidePx <= 0) {
+    return clampZoom(COLLECTOR_FOCUS_ZOOM);
+  }
+  const zoom = Math.floor(Math.log2((metresPerPxZ0 * sidePx) / diameter));
+  return clampZoom(Math.min(COLLECTOR_FOCUS_ZOOM, zoom));
+}

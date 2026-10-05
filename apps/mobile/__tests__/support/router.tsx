@@ -25,6 +25,8 @@ export const mockRouter = {
 export const mockParams: { current: Record<string, string> } = { current: {} };
 /** Segments returned by `useSegments()`. */
 export const mockSegments: { current: string[] } = { current: ['(tabs)'] };
+/** Path returned by `usePathname()` (derived from the segments when null). */
+export const mockPathname: { current: string | null } = { current: null };
 
 export function resetRouterMock(): void {
   for (const fn of Object.values(mockRouter)) {
@@ -32,6 +34,7 @@ export function resetRouterMock(): void {
   }
   mockParams.current = {};
   mockSegments.current = ['(tabs)'];
+  mockPathname.current = null;
 }
 
 function hrefText(href: unknown): string {
@@ -97,7 +100,9 @@ export function expoRouterMock() {
     useGlobalSearchParams: () => mockParams.current,
     useSegments: () => mockSegments.current,
     useRootNavigationState: () => ({ key: 'root' }),
-    usePathname: () => `/${mockSegments.current.filter((s) => !s.startsWith('(')).join('/')}`,
+    usePathname: () =>
+      mockPathname.current ??
+      `/${mockSegments.current.filter((s) => !s.startsWith('(')).join('/')}`,
     useFocusEffect: () => undefined,
     Link,
     Stack: Navigator,

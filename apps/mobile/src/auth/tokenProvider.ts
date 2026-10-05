@@ -6,6 +6,17 @@
 export type IdTokenProvider = (forceRefresh: boolean) => Promise<string | null>;
 
 let provider: IdTokenProvider | null = null;
+let signedIn = false;
+
+/** The session has a Firebase user (set by `SessionProvider`). */
+export function setSignedIn(value: boolean): void {
+  signedIn = value;
+}
+
+/** True while a Firebase user is signed in: a 401 then means the session itself ended. */
+export function isSignedIn(): boolean {
+  return signedIn;
+}
 
 export function setIdTokenProvider(next: IdTokenProvider | null): void {
   provider = next;
