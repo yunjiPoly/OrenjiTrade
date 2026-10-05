@@ -1,0 +1,15 @@
+# Scrolls down until the element with id ID is on screen. The swipe runs along the right edge of
+# the screen (the screens' horizontal padding), never over a text field: on a slow emulator a slow
+# swipe that starts on a filled TextInput turns into a text-selection long press instead of a scroll.
+appId: host.exp.exponent
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+    times: 10
+    commands:
+      - swipe:
+          start: 98%, 75%
+          end: 98%, 35%
+          duration: 500

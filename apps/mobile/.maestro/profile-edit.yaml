@@ -35,24 +35,27 @@ tags:
 - eraseText: 40
 - inputText: 'collector2'
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: 'profile-display-name'
-    direction: DOWN
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-display-name'
 - tapOn:
     id: 'profile-display-name'
 - eraseText: 40
 - inputText: 'Maestro Editor Renamed'
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: 'profile-save-details'
-    direction: DOWN
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-save-details'
 - tapOn:
     id: 'profile-save-details'
-- scrollUntilVisible:
-    element: 'That handle is already taken. Try another one.'
-    direction: UP
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'profile-handle'
+- extendedWaitUntil:
+    visible: 'That handle is already taken. Try another one.'
     timeout: 30000
 
 # Back to the own handle, a new bio, save.
@@ -61,19 +64,19 @@ tags:
 - eraseText: 40
 - inputText: ${output.collector.handle}
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: 'profile-bio'
-    direction: DOWN
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-bio'
 - tapOn:
     id: 'profile-bio'
 - eraseText: 40
 - inputText: 'Updated from the Android app.'
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: 'profile-save-details'
-    direction: DOWN
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-save-details'
 - tapOn:
     id: 'profile-save-details'
 - extendedWaitUntil:
