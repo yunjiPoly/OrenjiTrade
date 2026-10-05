@@ -1,0 +1,96 @@
+# Community (mobile Phase 5): a fresh fictional collector opens the public channels from the
+# Messages tab (Inbox | Community), posts in "General", then replies to the post. The channel keeps
+# the posts of earlier runs, so the texts carry the run's unique handle. The host script
+# scripts/community.js finds the post in the isolated API and checks its reply count.
+appId: host.exp.exponent
+name: Community channel post and reply
+tags:
+  - mobile-m4
+  - community
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: comm
+      DISPLAY_NAME: Maestro Community
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'messages-view-community'
+    timeout: 60000
+- tapOn:
+    id: 'messages-view-community'
+- extendedWaitUntil:
+    visible:
+      id: 'community-channels'
+    timeout: 60000
+- takeScreenshot: community-channels
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'channel-general'
+- tapOn:
+    id: 'channel-general'
+- extendedWaitUntil:
+    visible:
+      id: 'channel-head'
+    timeout: 60000
+- assertVisible:
+    id: 'channel-activity'
+    text: '.*posts? today'
+
+# Post.
+- tapOn:
+    id: 'post-text'
+- inputText: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
+- hideKeyboard
+- tapOn:
+    id: 'post-submit'
+- extendedWaitUntil:
+    visible: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
+    timeout: 60000
+- runScript:
+    file: scripts/community.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      SLUG: general
+      BODY: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
+- takeScreenshot: community-post
+
+# Reply to it.
+- tapOn:
+    id: 'post-replies-toggle-${output.post.id}'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'reply-text-${output.post.id}'
+- tapOn:
+    id: 'reply-text-${output.post.id}'
+- inputText: 'Any condition works for ${output.collector.handle}'
+- hideKeyboard
+- tapOn:
+    id: 'reply-submit-${output.post.id}'
+- extendedWaitUntil:
+    visible: 'Any condition works for ${output.collector.handle}'
+    timeout: 60000
+- runScript:
+    file: scripts/community.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      SLUG: general
+      BODY: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
+      EXPECT_REPLIES: '1'
+- takeScreenshot: community-reply
