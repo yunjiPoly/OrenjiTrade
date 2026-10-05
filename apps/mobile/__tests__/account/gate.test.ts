@@ -55,6 +55,16 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['binders', 'edit'])).toBeNull();
     expect(redirectFor('app', ['messages', '[id]'])).toBeNull();
     expect(redirectFor('app', ['onboarding'])).toBeNull();
+    // Phases 7 and 8: reports, ratings, offers and trades.
+    expect(redirectFor('app', ['report'])).toBeNull();
+    expect(redirectFor('app', ['ratings', 'rate'])).toBeNull();
+    expect(redirectFor('app', ['ratings', 'reference'])).toBeNull();
+    expect(redirectFor('app', ['offers'])).toBeNull();
+    expect(redirectFor('app', ['offers', '[id]'])).toBeNull();
+    expect(redirectFor('app', ['offers', 'new'])).toBeNull();
+    expect(redirectFor('app', ['trades', '[id]'])).toBeNull();
+    expect(redirectFor('guest', ['offers', '[id]'])).toBe('/sign-in');
+    expect(redirectFor('guest', ['report'])).toBe('/sign-in');
     // Signed out: the inventory screens, profiles and conversations send the visitor to sign in.
     expect(redirectFor('guest', ['items', 'new'])).toBe('/sign-in');
     expect(redirectFor('guest', ['collectors', '[id]'])).toBe('/sign-in');
