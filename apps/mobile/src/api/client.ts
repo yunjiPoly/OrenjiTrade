@@ -64,19 +64,37 @@ export async function asGlobalResponse(
   });
 }
 
-/** Public routes never need the ID token (mirror of the web's `isPublicApiUrl`). */
-export function isPublicApiUrl(url: string): boolean {
-  let path = url;
+function pathOf(url: string): string {
   try {
-    path = new URL(url).pathname;
+    return new URL(url).pathname;
   } catch {
     // Already a path.
+    return url.split(/[?#]/)[0] ?? url;
   }
+}
+
+/** Public routes never need the ID token (mirror of the web's `isPublicApiUrl`). */
+export function isPublicApiUrl(url: string): boolean {
+  const path = pathOf(url);
   return path.startsWith('/api/v1/public/') || path === '/api/v1/meta';
 }
 
 /**
- * Adds `Authorization: Bearer <Firebase ID token>` to every non-public request. The SDK refreshes
+ * Public routes that still carry the ID token when the collector is signed in (the web's
+ * `ATTACH_ID_TOKEN`): a public binder read by a signed-in collector counts against their
+ * `binder.views.per_day` and gets the owner's distance bucket.
+ */
+const PUBLIC_ROUTES_WITH_TOKEN = ['/api/v1/public/binders/'];
+
+/** Whether a request to `url` carries the session's ID token (when there is one). */
+export function sendsIdToken(url: string): boolean {
+  const path = pathOf(url);
+  return !isPublicApiUrl(url) || PUBLIC_ROUTES_WITH_TOKEN.some((prefix) => path.startsWith(prefix));
+}
+
+/**
+ * Adds `Authorization: Bearer <Firebase ID token>` to every non-public request (and to the public
+ * routes of {@link sendsIdToken}). The SDK refreshes
  * an expiring token itself; when the API still answers 401 (token revoked, clock skew, emulator
  * restarted) the request is retried once with a force-refreshed token, except for
  * `401 REAUTHENTICATION_REQUIRED`, which asks the user to sign in again.
@@ -87,7 +105,7 @@ export function createAuthMiddleware(
   const pending = new Map<string, { retry: Request; token: string }>();
   return {
     async onRequest({ request, id }) {
-      if (isPublicApiUrl(request.url) || request.headers.has(AUTHORIZATION)) {
+      if (!sendsIdToken(request.url) || request.headers.has(AUTHORIZATION)) {
         return undefined;
       }
       const token = await tokenSource(false);
