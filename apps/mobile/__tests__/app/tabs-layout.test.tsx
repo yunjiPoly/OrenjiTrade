@@ -11,7 +11,8 @@ import WishlistScreen from '@/app/(tabs)/wishlist';
 import { TABS } from '@/src/navigation/tabs';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { mockApi } from '../support/mockApi';
+import { conversationFixture, conversationPage } from '../support/fixtures';
+import { mockApi, ok } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { TestProviders, resetAppState } from '../test-utils';
 
@@ -62,6 +63,25 @@ describe('(tabs) layout', () => {
     }
     // The Map tab: the approximate-location note is always on the map.
     expect(screen.getByTestId('map-approximate-note')).toBeOnTheScreen();
+  });
+
+  it('shows the notification bell and the unread messages on the Messages tab', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/conversations': ok(
+          conversationPage([
+            conversationFixture({ unreadCount: 3 }),
+            conversationFixture({ id: 'muted', unreadCount: 7, muted: true }),
+          ])
+        ),
+        'GET /api/v1/notifications/unread-count': ok({ count: 5 }),
+      })
+    );
+    renderRouter(routes, { initialUrl: '/' });
+    await screen.findByTestId('screen-map');
+    expect(await screen.findByLabelText('Messages tab, 3 unread')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
+    expect(screen.getByTestId('notification-badge')).toHaveTextContent('5');
   });
 
   it('navigates to the Profile tab', async () => {
