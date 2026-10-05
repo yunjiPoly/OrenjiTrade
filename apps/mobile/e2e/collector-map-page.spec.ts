@@ -45,7 +45,11 @@ const LAYER: PageLayer = {
   ],
 };
 
-async function openPage(page: Page, options: Partial<CollectorMapPageOptions> = {}) {
+async function openPage(
+  page: Page,
+  options: Partial<CollectorMapPageOptions> = {},
+  zeroSizeFirst = false
+) {
   for (const [asset, file, type] of [
     [LEAFLET_JS, 'leaflet.js', 'application/javascript'],
     [LEAFLET_CSS, 'leaflet.css', 'text/css'],
@@ -59,7 +63,7 @@ async function openPage(page: Page, options: Partial<CollectorMapPageOptions> = 
       })
     );
   }
-  const html = collectorMapPageHtml({
+  let html = collectorMapPageHtml({
     start: { center: MONTREAL, zoom: 12 },
     colors: {
       zone: '#F4761A',
@@ -72,6 +76,10 @@ async function openPage(page: Page, options: Partial<CollectorMapPageOptions> = 
     label: 'Map of collectors near you.',
     ...options,
   });
+  if (zeroSizeFirst) {
+    // Like a WebView measured inside a scrolling screen before its first layout.
+    html = html.replace('</head>', '<style id="zero">#map{height:0 !important}</style></head>');
+  }
   await page.addInitScript(() => {
     const messages: unknown[] = [];
     Object.assign(window, {
@@ -196,6 +204,27 @@ test.describe('collector map WebView page (Android map fallback)', () => {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await page.waitForTimeout(300);
     expect((await messages(page)).filter((message) => message.type === 'tap')).toEqual([]);
+  });
+
+  test('a map laid out at 0 x 0 first still centres its zone (the profile map)', async ({
+    page,
+  }) => {
+    const zone = LAYER.zones[1]!;
+    await openPage(
+      page,
+      { interactive: false, start: { center: { lat: zone.lat, lng: zone.lng }, zoom: 13 } },
+      true
+    );
+    await call(page, 'layer', { zones: [zone], clusters: [] });
+    await page.evaluate(() => document.getElementById('zero')?.remove());
+    await page.waitForTimeout(400);
+    const map = await page.locator('#map').boundingBox();
+    const area = await page.locator('path.orenji-zone').boundingBox();
+    if (!map || !area) {
+      throw new Error('The map or the zone has no box.');
+    }
+    expect(Math.abs(area.x + area.width / 2 - (map.x + map.width / 2))).toBeLessThan(4);
+    expect(Math.abs(area.y + area.height / 2 - (map.y + map.height / 2))).toBeLessThan(4);
   });
 
   test('reports an error when Leaflet cannot load', async ({ page }) => {

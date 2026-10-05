@@ -131,11 +131,21 @@ const PAGE_SCRIPT = `
       map.setView([target.center.lat, target.center.lng], clamp(target.zoom), { animate: animate });
     }
   }
+  // The starting view is applied again once the map has a size: a view set at 0 x 0 would leave
+  // the start (a profile's zone) off centre after the first layout.
+  var startTarget = { kind: 'center', center: CONFIG.start.center, zoom: CONFIG.start.zoom };
+  var startedSized = false;
   function onResize() {
-    map.invalidateSize({ pan: false });
+    // Keeps the centre (pan) when the map is resized.
+    map.invalidateSize({ pan: true, animate: false });
+    if (!startedSized && sized()) {
+      startedSized = true;
+      map.setView([startTarget.center.lat, startTarget.center.lng], clamp(startTarget.zoom), { animate: false });
+    }
     if (pending && sized()) { move(pending, false); }
   }
   map.setView([CONFIG.start.center.lat, CONFIG.start.center.lng], clamp(CONFIG.start.zoom), { animate: false });
+  startedSized = sized();
   window.addEventListener('resize', onResize);
   if (window.ResizeObserver) { new window.ResizeObserver(onResize).observe(document.getElementById('map')); }
   // Guard: nothing may leave the map past the cap (ADR 0004).
