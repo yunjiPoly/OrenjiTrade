@@ -315,15 +315,17 @@ export default function PremiumScreen() {
             testID="premium-credits"
             style={[styles.teaser, { backgroundColor: palette.accentContainer }]}
           >
-            <MaterialCommunityIcons
-              name="hand-coin-outline"
-              size={22}
-              color={palette.onAccentContainer}
-            />
-            <Text style={[textStyle('sm'), styles.grow, { color: palette.onAccentContainer }]}>
-              Only need it for a day? Unlock advanced filters, unlimited binder views or a wider map
-              for 24 hours with your OrenjiTrade credits.
-            </Text>
+            <View style={styles.teaserText}>
+              <MaterialCommunityIcons
+                name="hand-coin-outline"
+                size={22}
+                color={palette.onAccentContainer}
+              />
+              <Text style={[textStyle('sm'), styles.grow, { color: palette.onAccentContainer }]}>
+                Only need it for a day? Unlock advanced filters, unlimited binder views or a wider
+                map for 24 hours with your OrenjiTrade credits.
+              </Text>
+            </View>
             <Button
               label="Use credits"
               variant="secondary"
@@ -362,12 +364,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing[3],
   },
-  teaser: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing[2],
-    borderRadius: radius.md,
-    padding: spacing[3],
-  },
+  teaser: { gap: spacing[3], borderRadius: radius.md, padding: spacing[3] },
+  teaserText: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
 });
