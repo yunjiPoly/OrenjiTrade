@@ -217,9 +217,13 @@ class CardImageObjectStorageIT extends AbstractCardImageIT {
         assertThat(objects.exists(key)).isTrue();
         assertThat(usedBytes()).isEqualTo(size).isEqualTo(storedBytes());
 
-        // Gone again and the provider no longer has it: placeholder, consistent accounting.
+        // Gone again and the provider no longer has it: the download path repairs the row first
+        // (the object is checked before any request), then the endpoint serves the placeholder
+        // with consistent accounting.
         assertThat(objects.delete(key)).isTrue();
         STUB.behave("900000003", YgoProDeckStub.Behaviour.NOT_FOUND);
+        assertThat(cache.ensureCached(id).outcome()).isEqualTo(Outcome.MISSING_AT_SOURCE);
+        assertThat(imageRow("900000003").get("cache_status")).isEqualTo("MISSING_AT_SOURCE");
         EntityExchangeResult<byte[]> placeholder = get(id);
         assertThat(placeholder.getStatus().value()).isEqualTo(200);
         assertThat(placeholder.getResponseHeaders().getContentType().toString())
@@ -227,7 +231,6 @@ class CardImageObjectStorageIT extends AbstractCardImageIT {
         assertNoProviderUrl(
                 new String(placeholder.getResponseBody(), java.nio.charset.StandardCharsets.UTF_8));
         cache.awaitIdle(Duration.ofSeconds(10));
-        assertThat(imageRow("900000003").get("cache_status")).isEqualTo("MISSING_AT_SOURCE");
         assertThat(usedBytes()).isZero().isEqualTo(storedBytes());
     }
 
