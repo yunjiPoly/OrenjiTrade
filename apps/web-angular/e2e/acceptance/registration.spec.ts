@@ -40,6 +40,11 @@ test.describe('acceptance: registration', () => {
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByText('Please accept every document to continue.')).toBeVisible();
     await page.getByRole('checkbox', { name: 'Accept all' }).check();
+    // The 18+ confirmation is a separate, explicit statement that "Accept all" never ticks.
+    await expect(
+      page.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.'),
+    ).toBeVisible();
+    await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
     await page.getByRole('button', { name: 'Create account' }).click();
 
     // --- Verify the email ------------------------------------------------------------------------

@@ -1108,7 +1108,8 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   → first conversation from a profile shows the notice (link, Report and Block dialogs, keyboard
   dismiss, hidden after reload, messaging never blocked) → Block / Unblock from the profile;
   legal pages French by default for a `fr-CA` browser, EN/FR switch remembered, `?lang=fr`, index
-  and the new page in both languages, footer link.
+  and the new page in both languages, footer link. Full `npm run test:e2e`: 71 passed after fixing
+  the acceptance registration spec, which part 1 had left without the 18+ checkbox step.
 - **Docs:** `docs/database/schema.md` (V104, `user_consent.language`),
   `docs/api/contracts/phase1-auth-users.md`, `docs/product/product-overview.md`,
   `docs/security/README.md` (privacy officer named in the policy, consents evidence).
