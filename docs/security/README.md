@@ -173,7 +173,12 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
   `AnalyticsEvent`.
 - Data subject requests (Quebec Law 25 / PIPEDA): export and deletion are admin actions with
   audit entries; deletion completes within 30 days and cascades to media, messages (anonymised
-  for the counterpart), analytics (hash unlinkable).
+  for the counterpart), analytics (hash unlinkable). Collectors can also export and delete
+  themselves (Settings → Account), as the Privacy Policy explains in English and in French.
+- Consent evidence: `user_consent` keeps, per collector, the document type, the version, the
+  language the text was shown in (`en` / `fr`, V104), the timestamp, a salted hash of the IP and
+  the user agent, plus an audit row; the 18+ attestation is one of these consents. Rows survive
+  account deletion (the account is anonymised instead).
 
 ## 10. Incident contact
 
@@ -182,7 +187,7 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
 | Security owner | `security@orenjitrade.com` (placeholder, to be created) | Receives vulnerability reports; publish in `/.well-known/security.txt` on `www` with `Expires` and PGP key |
 | On-call engineer | Cloud Monitoring email channel (`alert_email` Terraform variable) | Phase 14: PagerDuty/Opsgenie integration |
 | Cloudflare / Google Cloud support | Dashboard support tickets | Enterprise support not yet purchased |
-| Privacy officer (Law 25) | `privacy@orenjitrade.com` (placeholder) | Named in the privacy policy; handles data subject requests |
+| Privacy officer (Law 25) | `privacy@orenjitrade.com` (placeholder) | Named in the Privacy Policy as "Privacy Officer / Responsable de la protection des renseignements personnels" (name, title and postal address are `[to confirm]` placeholders in both languages); handles data subject requests within 30 days and complaints, and the confidentiality-incident notifications to the Commission d'accès à l'information |
 
 Report handling: acknowledge within 2 business days, triage within 5, fix per the SLA above,
 credit the reporter if they wish. Follow `docs/deployment/runbooks.md` section 8 for the

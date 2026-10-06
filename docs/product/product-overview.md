@@ -42,6 +42,21 @@ Account deletion → public traces removed.
   cannot become discoverable on the map, message, post in the community or make offers
   (`403 AGE_CONFIRMATION_REQUIRED`). Self-declaration only, no identity verification; accounts
   found to belong to minors are closed (Terms of Service, Privacy Policy).
+- **Trading safety.** OrenjiTrade is a discovery and messaging venue, not a party to trades:
+  collectors meet and trade on their own. A "Trading safely" page (`/legal/trading-safely`, English
+  and French) explains how: busy public places in daylight (police safe exchange zones), bring
+  someone along for valuable cards, never share a home address, check the cards before paying,
+  warning signs, how to report and block. A short, dismissible safety notice with that link and the
+  Report / Block actions appears in every conversation and on the offer and trade pages; it never
+  blocks messaging. Report and Block are available from the profile, the conversation menu and
+  Settings.
+- **Legal pages in French and English (Bill 96).** Every legal page (Terms, Privacy, Community
+  Guidelines, Marketplace, Payment Protection, Refunds, Cookies, Acceptable Use, Trading safely)
+  exists in French and in English with an EN/FR switch, French by default for a French browser; the
+  consent record stores the version and the language shown. The texts are drafts pending lawyer
+  review (banner on both languages); the Privacy Policy names the person in charge of the
+  protection of personal information (Law 25), how to exercise access, correction and deletion
+  rights, the incident notification rule and the providers that may store data outside Quebec.
 - Approximate locations only; users control discoverability, distance display, online/last-active
   visibility, messaging permissions. Defaults favour safety.
 - Freshness is first-class: stale inventory ranks lower, is warned about, then hidden until the

@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -1028,6 +1028,129 @@ configuration and the Law 25 operating docs are the following parts of the same 
   the gate until it also posts `AGE_CONFIRMATION`; `searchDiscoverable` (name search, on by
   default) is deliberately not gated — revisit if the owner wants search hidden too.
 
+## Launch readiness, parts 2 and 3 — trading safety and French legal pages (2026-10-05)
+
+_Branch `feature/launch-readiness`, builder done. Owner request "Prepare OrenjiTrade for its first
+real users", sections 2 ("Trading safety") and 3 ("French versions of the legal pages"). The legal
+texts stay drafts (banner kept on both languages); nothing here claims legal compliance._
+
+- [x] **"Trading safely" page** (`/legal/trading-safely`, key `trading-safely` in
+  `apps/web-angular/src/app/features/legal/legal-content.ts` and `legal-content.fr.ts`; route,
+  index card, "See also" links and footer link follow automatically): meet in busy public places
+  in daylight (some police stations offer safe exchange zones), bring someone along for valuable
+  cards, never share your home address, check the cards before handing over money, warning signs
+  (pressure, too-good deals, payment outside the agreed method), what OrenjiTrade shows (3 km
+  zones, discoverability off by default), how to report and block, no payments at launch.
+- [x] **Safety notice** `shared/safety/trading-safety-notice.component.ts` (`role="note"`, design
+  tokens, keyboard / screen-reader accessible, link to the page, Report and Block buttons, Dismiss)
+  in every conversation (`thread-view`, hidden once the thread is blocked; the composer is never
+  blocked) and at the top of `/offers/:id` and `/trades/:id`. `SafetyNoticeService` stores the
+  dismissal **per collector and per context (conversation / trade) in local storage**
+  (`orenji.safety-notice.v1`): there is no generic server-side preferences mechanism (only typed
+  privacy, notification and offer settings), and a new table for one hint was not worth a
+  migration; signing in on another device shows the reminder again. Report from the notice opens
+  the existing Report collector modal (`PROFILE` context on offer / trade pages), Block the
+  existing confirmation dialog.
+- [x] **Report and Block verified end to end.** Report already worked from the profile, the map
+  preview, the conversation menu, community posts and public binders (`reporting.spec.ts`,
+  ReportFlowIT). Block worked from the conversation menu and Settings → Blocked users
+  (`messaging.spec.ts`, MessagingAuthorizationIT) but was **missing from the collector profile**:
+  the profile now offers Block / Unblock next to Report (`collector-profile-view` outputs,
+  `collector-page` + `BlockActionsService`, profile reloaded afterwards). No other redesign.
+- [x] **French legal pages (Bill 96).** `legal-content.fr.ts` holds a careful Quebec-French
+  translation of every English draft (vous form; « renseignements personnels », « Commission
+  d'accès à l'information du Québec », « responsable de la protection des renseignements
+  personnels », « cartable », « zone d'échange »), with the same keys, versions, section ids and
+  clause counts (`legal-content.fr.spec.ts` enforces the parity and the `[à confirmer]`
+  placeholders), its own draft banner and a "translation to be validated by a lawyer" notice.
+  `LegalLanguageService`: French when the browser prefers it (`navigator.languages[0]` starts with
+  `fr`), an explicit choice remembered per browser (`orenji.legal.language`), `?lang=en|fr` deep
+  links; `LegalLanguageSwitchComponent` (EN / FR toggle) on every legal page and the index; pages
+  carry `lang="fr"` / `"en"`. The app UI around the pages stays English (see the assessment below).
+- [x] **Consent references the version and the language shown.** V104 adds
+  `user_consent.language` (`en` / `fr`, default `en`); `POST /me/consents` accepts an optional
+  `language` (older clients unchanged), the admin detail, the export and the audit row expose it.
+  One `legal_document (document_type, version)` row covers both languages on purpose: the French
+  text is a translation of the same draft, not separate legal content, so the version identifies
+  the content and the consent records which rendering was read (per-language rows would collide
+  with `uq_legal_document_current` and double `requiredConsents`). The web sends the active legal
+  language with every consent, and the sign-up / consent checkboxes show the document titles in
+  that language (the linked pages open in it). The mobile app keeps sending English consents until
+  it ships the French texts (see NEXT TASK).
+- [x] **Privacy Policy additions (EN + FR, placeholders where the repository does not say):** the
+  Privacy Officer / Responsable de la protection des renseignements personnels (`[name to
+  confirm]`, `[title to confirm]`, `privacy@orenjitrade.com`, `[postal address to confirm]`); how
+  to exercise access, correction and deletion (Settings, Export my data, Delete my account with
+  the 7-day grace and 30-day deletion, `privacy@` answered within 30 days, complaint to the CAI);
+  confidentiality incidents (register kept; CAI and affected people notified when there is a risk
+  of serious injury); where data is stored and which providers may store it outside Quebec:
+  Google Cloud Montréal region `northamerica-northeast1` (Terraform default, `[to confirm at
+  launch]`), Firebase Authentication, Firebase Cloud Messaging, Cloudflare (`[to confirm]` each)
+  and Stripe only when payment / premium features are enabled (`United States [to confirm]`).
+  **Terms additions:** OrenjiTrade is a discovery and messaging venue, not a party to trades, sales
+  or meetings; collectors are responsible for their own trades and meetings (pointer to "Trading
+  safely"); the limitation of liability stays qualified by "to the extent permitted by law" and
+  never limits what consumer protection law forbids; no arbitration clause, class-action waiver or
+  bodily-injury exclusion. Community Guidelines "Meet and trade safely" aligned. `LAST_UPDATED`
+  2026-10-05; `legal_document` versions stay `2026-09-01` (pre-launch drafts, zero users).
+- [x] **Tests.** API: `ConsentIT` (+2: language recorded / English by default / idempotent across
+  languages / admin detail, 400 for an unsupported code), `ConsentServiceTest` (+1), re-export of
+  the OpenAPI and regeneration of the clients (`language?:` optional), `npm run test:mobile` green
+  against them (416 tests). Web: `legal-language.service.spec.ts` (5), `legal-content.fr.spec.ts`
+  (3), `legal-page.component.spec.ts` (9 keys, French rendering, EN/FR toggle persisted, `?lang`),
+  `trading-safety-notice.component.spec.ts` (4), `session.service.spec.ts` (language on consents);
+  `npm run test:web` 662 green + lint + Prettier. E2E `launch-safety.spec.ts`: sign up with the
+  checkbox → discoverable from onboarding (API confirms, consents exported with `language: en`)
+  → first conversation from a profile shows the notice (link, Report and Block dialogs, keyboard
+  dismiss, hidden after reload, messaging never blocked) → Block / Unblock from the profile;
+  legal pages French by default for a `fr-CA` browser, EN/FR switch remembered, `?lang=fr`, index
+  and the new page in both languages, footer link.
+- **Docs:** `docs/database/schema.md` (V104, `user_consent.language`),
+  `docs/api/contracts/phase1-auth-users.md`, `docs/product/product-overview.md`,
+  `docs/security/README.md` (privacy officer named in the policy, consents evidence).
+- **Follow-ups:** mobile app (French legal texts, the "Trading safely" page, the safety notice,
+  `language` on its consents, Block on its profile — NEXT TASK); the `[to confirm]` placeholders
+  for the owner / lawyer (privacy officer name, title and postal address; data locations of
+  Firebase Authentication, FCM, Cloudflare and Stripe; Google Cloud region at launch; log
+  retention; governing law and venue; cookie consent requirement; effective dates); the French
+  translation itself awaits the lawyer's validation.
+
+### Full UI translation (French) — assessment, not implemented
+
+- **Today:** no i18n scaffolding in either client. Web: no `@angular/localize`, `$localize`,
+  `i18n` attributes, Transloco or ngx-translate; `angular.json` has no i18n block; `index.html` is
+  `lang="en"`; `LOCALE_ID` is only read by `relative-time.pipe.ts`; ~20 `Intl` / `toLocale*` calls
+  hard-code `en-CA`. Mobile: no i18next / expo-localization; 8 `Intl` calls with `en-CA`. The legal
+  texts are the only translated surface (runtime switch, this stage).
+- **User-facing strings (heuristic count of template text nodes, static attributes and TS string
+  literals, ± 20 %):** web `features/` ≈ 4,000 across 300 files — admin 1,650 (100 files), inventory
+  330, settings 290, legal 190 (the texts), trades 185, auth 140, map 120, messages 120, search 110,
+  wishlist 105, collectors 105, catalog 95, community 95, premium 90, offers 85, checkout 65, credits
+  60, support 45, binders 40, disputes 40, onboarding 30, notifications 30; `shared/` ≈ 810 (116
+  files); `core/` ≈ 210 (mostly `api-error-messages.ts`). Total ≈ 5,000, of which ≈ 3,200 are
+  consumer-facing (excluding the admin console and the legal texts). Mobile ≈ 1,400 (≈ 1,100 without
+  the legal texts): `app/` routes 400, `src/features` 475, `src/api` error / status messages 130.
+- **Recommendation: a runtime translation library (Transloco on the web, i18next +
+  expo-localization on mobile) with shared JSON catalogs in `packages/i18n`**, rather than the
+  built-in `@angular/localize`. Built-in i18n gives compile-time extraction and zero runtime cost
+  but produces one build per locale (two deployables or a locale-prefixed nginx layout), switches
+  language only by reload, needs `$localize` for every TS string (error messages, snack bars,
+  dialogs — ≈ 1,000 literals here), and shares nothing with the React Native app. A runtime library
+  keeps one bundle, switches instantly (the legal pages already do), lazy-loads a JSON scope per
+  feature, and lets the mobile app load the same `common`, `errors`, `inventory`, … namespaces,
+  which halves the translation and review work. Costs: a small runtime (~15 kB), keys instead of
+  inline English (a typed key helper mitigates typos), and `Intl` locale plumbing (`fr-CA` dates,
+  numbers, currency). Either way Angular Material's own strings (`MatPaginatorIntl`, datepicker)
+  need a French provider, and the server-sent `message` / `errorCode` wording stays English on the
+  API (clients already map `errorCode` → local text, so translating `api-error-messages.ts` covers
+  it).
+- **Effort (one developer, rough):** web scaffolding + extraction tooling 1 week; consumer-facing
+  web strings ≈ 3,200 → 3–4 weeks of keying and French copy (legal pages excluded, already done);
+  admin console ≈ 1,650 → 2 weeks (can lag: staff-only); mobile ≈ 1,100 → 2 weeks after the web
+  catalogs exist; professional French review of the whole catalog ≈ 1 week; QA (both languages,
+  pseudo-locale pass, screenshots) 1 week. About 9–11 weeks web + mobile, 6–7 weeks for the
+  consumer-facing web only. Recorded as a follow-up in NEXT TASK; not started.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -1111,7 +1234,7 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven). 
 | 35 | Freemium limits work | PASS | acceptance `freemium.spec.ts`, `freemium.spec.ts`, `inventory.spec.ts`, `admin-rules.spec.ts`; LimitsIT, BinderIT, BinderViewLimitIT |
 | 36 | Premium entitlements override | PASS | acceptance `freemium.spec.ts` (fake billing checkout → Premium lifts `binders.max`), `freemium.spec.ts`, `credits-ads.spec.ts`; LimitsIT, SubscriptionFlowIT, CreditLedgerIT; walkthrough (FREE → PREMIUM → no ads → FREE) |
 | 37 | Account deletion works | PASS | acceptance `account-deletion.spec.ts` (hidden at once; deletion job anonymises, identity deleted, consents/audit kept), `settings.spec.ts`; DeletionIT, ExportIT |
-| 38 | Legal pages exist | PARTIAL | 8 pages served under `/legal/*` with versioned consent (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); texts are drafts until counsel review (owner action) |
+| 38 | Legal pages exist | PARTIAL | 9 pages served under `/legal/*` in English and French (EN/FR switch, French by default for a French browser, `launch-safety.spec.ts`) with versioned consent recording the language shown (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); texts are drafts until counsel review and the French translation awaits the lawyer's validation (owner action) |
 | 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally |
 | 40 | E2E covers critical workflows | PASS (web) · DEFERRED-MOBILE (Maestro) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped |
 | 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials |
@@ -1124,7 +1247,7 @@ The mobile half of every user-facing criterion is DEFERRED-MOBILE (web proven). 
 - **Cloud (deferred by owner):** Phase 14 deployment (GCP projects, Terraform apply, Cloud Run, Cloud SQL, Memorystore, Secret Manager incl. `LOCATION_JITTER_SECRET` / `ANALYTICS_ACTOR_SALT` / `SERVICE_TOKEN`, Artifact Registry, Cloudflare records); real Firebase project, Stripe (Connect + Billing), FCM and e-mail providers; Pub/Sub transport and BigQuery (Phase 12); `/internal/*` Google OIDC in the cloud; Memorystore TLS.
 - **Mobile (resumed 2026-10-04, local and free only):** Phase 1 done in stage M1 (see "Mobile app (stage M1)"); the mobile UIs of Phases 2–10 (collectors on the map as 3 km zones in M3), device push delivery, fonts; EAS stays unused (project id placeholder).
 - **ML (on hold):** Phase 11 card recognition and scanning.
-- **Legal:** counsel review of the 8 draft legal pages (criterion 38).
+- **Legal:** counsel review of the 9 draft legal pages and validation of their French translation (criterion 38); the `[to confirm]` placeholders of the Privacy Policy (privacy officer, data locations).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
 - **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 887.66 kB close to the 900 kB warning budget (887.59 kB before the map privacy rendering, 877.57 kB before the card pictures); the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
 - **Hardening (Phase 13):** dedicated security review and header audit, rate-limit tuning (rapid full reloads reach the 120/min per-user and 60/min anonymous per-IP limits, see stage 12 debt), accessibility pass, load test script, DB index review, backup/restore docs, failure testing; first GitHub run of the E2E workflow.
@@ -1247,3 +1370,17 @@ verification.
 > post the `AGE_CONFIRMATION` consent for the collectors it creates (otherwise its discoverability
 > and messaging flows get the 403). Until then, a mobile user who never confirmed cannot turn
 > "Show me on the map" on, message, post or make offers (generic error message).
+
+> **Launch readiness, parts 2 and 3 — trading safety and French legal pages (2026-10-05, same
+> branch):** done (see "Launch readiness, parts 2 and 3"). **Next mobile task (after the mobile
+> stages above are merged):** ship the French legal texts (copy `legal-content.fr.ts` next to the
+> synced English file, a language switch on `app/legal/index.tsx` and `app/legal/[key].tsx`,
+> French by default when `expo-localization` reports `fr`), send `language` with every consent in
+> `src/account/AccountProvider.tsx` (`acceptConsents`) so the API records which translation was
+> read, list the new `trading-safely` key (already in the synced English file), show the
+> dismissible safety notice in the conversation screen of stage M3 (and on the offer / trade
+> screens when they exist; dismissal in AsyncStorage per user), and add Block / Unblock on the
+> mobile collector profile next to Report. **Follow-up for the owner / lawyer:** the `[to confirm]`
+> placeholders listed in that section. **Follow-up product task — full French UI:** see the
+> assessment "Full UI translation (French)" in that section (runtime library with shared JSON
+> catalogs, ≈ 9–11 weeks web + mobile); not started.
