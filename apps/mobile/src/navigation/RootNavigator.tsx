@@ -86,6 +86,21 @@ export function RootNavigator() {
         <Stack.Screen name="trades/index" options={{ title: 'Trades' }} />
         <Stack.Screen name="trades/[id]" options={{ title: 'Trade' }} />
         <Stack.Screen name="settings/offers" options={{ title: 'Offer settings' }} />
+        {/* Payment protection (Phase 9; web: the trade page steps, /checkout/fake/:ref,
+            /disputes/:id, /settings/payouts). */}
+        <Stack.Screen name="checkout/fake/[ref]" options={{ title: 'Checkout' }} />
+        <Stack.Screen name="disputes/[id]" options={{ title: 'Dispute' }} />
+        <Stack.Screen name="settings/payouts" options={{ title: 'Payouts' }} />
+        {/* Premium, credits and donations (Phase 10; web: /premium, /credits, /support and the
+            fake billing / donation checkouts). */}
+        <Stack.Screen name="premium" options={{ title: 'Premium' }} />
+        <Stack.Screen name="checkout/fake-billing/[ref]" options={{ title: 'Premium checkout' }} />
+        <Stack.Screen name="credits" options={{ title: 'Credits' }} />
+        <Stack.Screen name="support" options={{ title: 'Support OrenjiTrade' }} />
+        <Stack.Screen
+          name="checkout/fake-donation/[ref]"
+          options={{ title: 'Donation checkout' }}
+        />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}

@@ -174,3 +174,41 @@ export type TradeEvent = Schemas['TradeEvent'];
 export type TradeNextAction = Schemas['TradeNextAction'];
 export type TradeStatus = TradeResponse['status'];
 export type TradeOperation = TradeResponse['allowedOperations'][number];
+
+// --- Payment protection and disputes (Phase 9) --------------------------------------------------
+export type PaymentSummary = Schemas['PaymentSummary'];
+export type ShipmentSummary = Schemas['ShipmentSummary'];
+export type DisputeSummary = Schemas['DisputeSummary'];
+export type ProtectedPayment = Schemas['ProtectedPayment'];
+export type ShipTradeRequest = Schemas['ShipTradeRequest'];
+export type OpenDisputeRequest = Schemas['OpenDisputeRequest'];
+export type Dispute = Schemas['Dispute'];
+export type DisputeEvidence = Schemas['DisputeEvidence'];
+export type DisputeMessage = Schemas['DisputeMessage'];
+export type DisputeEvent = Schemas['DisputeEvent'];
+export type SellerAccount = Schemas['SellerAccount'];
+export type SellerOnboarding = Schemas['SellerOnboarding'];
+export type FakeCheckout = Schemas['FakeCheckout'];
+
+// --- Premium, credits, ads and donations (Phase 10) ---------------------------------------------
+export type Plan = Schemas['Plan'];
+export type PlanLimit = Schemas['PlanLimit'];
+export type PlanFeature = Schemas['PlanFeature'];
+export type MySubscription = Schemas['MySubscription'];
+export type MyEntitlement = Schemas['MyEntitlement'];
+export type SubscriptionCheckout = Schemas['SubscriptionCheckout'];
+export type FakeBillingCheckout = Schemas['FakeBillingCheckout'];
+export type MyCredits = Schemas['MyCredits'];
+export type CreditEntry = Schemas['CreditEntry'];
+export type CreditProduct = Schemas['CreditProduct'];
+export type CreditSpend = Schemas['CreditSpend'];
+export type MyReferral = Schemas['MyReferral'];
+export type ReferralRedemption = Schemas['ReferralRedemption'];
+export type Ad = Schemas['Ad'];
+export type AdPlacement = NonNullable<Ad['placement']>;
+export type DonationCheckoutRequest = Schemas['DonationCheckoutRequest'];
+export type DonationCheckout = Schemas['DonationCheckout'];
+export type Donation = Schemas['Donation'];
+export type FakeDonationCheckout = Schemas['FakeDonationCheckout'];
+export type Supporters = Schemas['Supporters'];
+export type Supporter = Schemas['Supporter'];

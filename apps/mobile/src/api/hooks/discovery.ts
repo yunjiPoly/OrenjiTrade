@@ -10,8 +10,9 @@ import type { LatLng } from '@/src/lib/location';
 
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
-import { meKeys, publicKeys } from '../queryKeys';
+import { meKeys } from '../queryKeys';
 import type { CollectorPreview, MyPlan, NearbyCollectorsResponse } from '../types';
+import { usePlans } from './billing';
 import { useIsAuthenticated, useUid } from './useUid';
 
 /**
@@ -62,15 +63,21 @@ export function useCollectorPreview(handle: string | null, centre: LatLng | null
   });
 }
 
-/** `GET /api/v1/me/plan`: the caller's plan, its limits with usage and overrides. */
-export function useMyPlan() {
+/**
+ * `GET /api/v1/me/plan`: the caller's plan, its limits with usage and overrides, entitlements and
+ * the live subscription. `fresh` re-reads it when a screen opens (Premium, credits).
+ */
+export function useMyPlan({
+  fresh = false,
+  enabled = true,
+}: { fresh?: boolean; enabled?: boolean } = {}) {
   const uid = useUid();
   const authenticated = useIsAuthenticated();
   return useQuery<MyPlan, ApiError>({
     queryKey: meKeys.plan(uid),
     queryFn: async () => required((await api.GET('/api/v1/me/plan')).data),
-    enabled: authenticated,
-    staleTime: 10 * 60_000,
+    enabled: authenticated && enabled,
+    staleTime: fresh ? 0 : 10 * 60_000,
   });
 }
 
@@ -80,12 +87,7 @@ export function useMyPlan() {
  */
 export function useMapRadiusCap(): number | null {
   const plan = useMyPlan();
-  const plans = useQuery({
-    queryKey: publicKeys.plans,
-    queryFn: async () => required((await api.GET('/api/v1/plans')).data),
-    enabled: !!plan.error,
-    staleTime: 60 * 60_000,
-  });
+  const plans = usePlans(!!plan.error);
   const status = plan.data?.limits?.find((entry) => entry.key === MAP_RADIUS_LIMIT_KEY);
   if (status) {
     return radiusCapKm(status.limit);

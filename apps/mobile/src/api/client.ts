@@ -87,9 +87,10 @@ export function isPublicApiUrl(url: string): boolean {
 /**
  * Public routes that still carry the ID token when the collector is signed in (the web's
  * `ATTACH_ID_TOKEN`): a public binder read by a signed-in collector counts against their
- * `binder.views.per_day` and gets the owner's distance bucket.
+ * `binder.views.per_day` and gets the owner's distance bucket; the feature flags are evaluated
+ * for the account (partial rollouts).
  */
-const PUBLIC_ROUTES_WITH_TOKEN = ['/api/v1/public/binders/'];
+const PUBLIC_ROUTES_WITH_TOKEN = ['/api/v1/public/binders/', '/api/v1/public/feature-flags'];
 
 /** Whether a request to `url` carries the session's ID token (when there is one). */
 export function sendsIdToken(url: string): boolean {

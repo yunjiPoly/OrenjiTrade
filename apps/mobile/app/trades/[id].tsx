@@ -1,8 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
+import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
+import { useProtectedStep, type ProtectedVariables } from '@/src/api/hooks/payments';
 import { useRatingEligibility } from '@/src/api/hooks/ratings';
 import { useTrade, useTradeStep, type TradeStep } from '@/src/api/hooks/trades';
 import type { TradeResponse } from '@/src/api/types';
@@ -23,15 +25,35 @@ import { OfferPartyCard } from '@/src/features/offers/OfferPartyCard';
 import { offerProblem } from '@/src/features/offers/offerProblems';
 import { ReasonDialog } from '@/src/features/offers/ReasonDialog';
 import { StatusChip } from '@/src/features/offers/StatusChip';
+import { payTarget } from '@/src/features/payments/checkoutTargets';
+import { money } from '@/src/features/payments/paymentLabels';
+import { paymentProblem } from '@/src/features/payments/paymentProblems';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
+import { OpenDisputeDialog, ShipDialog } from '@/src/features/trades/ProtectedDialogs';
+import {
+  DisputeCard,
+  PaymentCard,
+  PayoutSetupReminder,
+  ShipmentCard,
+} from '@/src/features/trades/TradeProtectionCards';
 import { nextActionView, tradeStatusInfo } from '@/src/features/trades/tradeLabels';
 import { NextActionCard, TradeSteps, TradeTimeline } from '@/src/features/trades/TradeProgress';
 import { printingImageUrl } from '@/src/lib/catalog';
 import { formatDateTime } from '@/src/lib/dates';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-/** The Phase 9 steps a protected trade may need: done on orenjitrade.com for now. */
+/** The payment-protection steps of a trade (Phase 9, flag `protectedPayments`). */
 const PROTECTED_OPERATIONS = ['PAY', 'SHIP', 'CONFIRM_RECEIPT', 'OPEN_DISPUTE'];
+
+function protectedSuccess(step: 'ship' | 'confirm-receipt', trade: TradeResponse): string {
+  const other = trade.counterparty.displayName;
+  if (step === 'ship') {
+    return `Marked as shipped. ${other} was notified and can follow the tracking.`;
+  }
+  return trade.status === 'COMPLETED'
+    ? `Receipt confirmed: the payout was released to ${other}. You can now rate them.`
+    : 'Receipt confirmed. The payout is on its way to the seller.';
+}
 
 function successMessage(step: TradeStep, trade: TradeResponse): string {
   const other = trade.counterparty.displayName;
@@ -81,22 +103,53 @@ function receivedCards(trade: TradeResponse) {
  * a confirmation, cancel with a required reason), rate the other collector once it is completed,
  * message them; the progress with both parties' marks, the cards received, the deal with a link
  * to the offer's negotiation, the other collector (place label and distance bucket only), the
- * timeline. Payment protection steps (Phase 9) are explained and stay on orenjitrade.com.
+ * timeline. With payment protection (Phase 9, flag `protectedPayments`): pay through the
+ * provider's checkout (the local fake checkout screen), ship with tracking, confirm receipt,
+ * open a dispute within the window, the payment / shipment / dispute cards and a seller's
+ * reminder to set up payouts. `?payment=secured|failed` is the checkout screen's answer.
  */
 export default function TradeScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, payment } = useLocalSearchParams<{ id: string; payment?: string }>();
   const { palette } = useTheme();
   const router = useRouter();
   const trade = useTrade(id);
   const step = useTradeStep();
+  const protectedStep = useProtectedStep();
+  const payments = useFeature(FEATURE.protectedPayments);
   const { message, startingId } = useMessageCollector();
   // A success notice describes the trade as it was answered: it goes once the other collector
   // moved the trade on (live); refusals stay until dismissed.
   const [notice, setNotice] = useState<{ value: DealNoticeValue; status: string } | null>(null);
-  const [dialog, setDialog] = useState<'complete' | 'cancel' | null>(null);
+  const [dialog, setDialog] = useState<
+    'complete' | 'cancel' | 'ship' | 'receipt' | 'dispute' | null
+  >(null);
+  // The checkout screen's answer is told once (state adjusted while rendering).
+  const [checkoutTold, setCheckoutTold] = useState<string | null>(null);
   const data = trade.data ?? null;
   const completed = data?.status === 'COMPLETED';
   const eligibility = useRatingEligibility(data?.counterparty.id, completed);
+
+  const checkoutKey = payment === 'secured' || payment === 'failed' ? `${id}:${payment}` : null;
+  if (data && checkoutKey && checkoutKey !== checkoutTold) {
+    setCheckoutTold(checkoutKey);
+    setNotice(
+      payment === 'failed'
+        ? {
+            value: {
+              tone: 'warning',
+              message: 'The payment did not go through. Nothing was charged: you can try again.',
+            },
+            status: data.status,
+          }
+        : {
+            value: {
+              tone: 'success',
+              message: `Payment secured. The payment provider holds it until you confirm receipt; ${data.counterparty.displayName} was asked to ship.`,
+            },
+            status: 'PAID',
+          }
+    );
+  }
 
   if (!data) {
     let content;
@@ -144,13 +197,24 @@ export default function TradeScreen() {
   const current = data;
   const other = current.counterparty;
   const allowed = new Set<string>(current.allowedOperations);
-  const busy = step.isPending ? (step.variables?.step ?? null) : null;
+  const busy = step.isPending
+    ? (step.variables?.step ?? null)
+    : protectedStep.isPending
+      ? (protectedStep.variables?.step ?? null)
+      : null;
   // The trade screen rates the completed trade (an accepted offer is rated from the profile).
   const rateable = rateableInteractions(eligibility.data).filter(
     (interaction) => interaction.kind === 'TRADE'
   );
   const protectedOps = current.allowedOperations.filter((op) => PROTECTED_OPERATIONS.includes(op));
+  // Hidden like every payment entry point while the flag is known to be off (the API refuses
+  // these steps with 404 FEATURE_DISABLED anyway).
+  const protectionPaused = payments.known && !payments.enabled;
+  const canProtect = (op: string) => allowed.has(op) && !protectionPaused;
   const received = receivedCards(current);
+  const windowEndsAt = current.payment?.disputeWindowEndsAt
+    ? formatDateTime(current.payment.disputeWindowEndsAt)
+    : null;
   const view = nextActionView({
     status: current.status,
     nextAction: current.nextAction,
@@ -159,10 +223,28 @@ export default function TradeScreen() {
     cancelReason: current.cancelReason,
     protectionEnabled: current.protectionEnabled && !current.meetup,
     paymentStatus: current.payment?.status ?? null,
-    windowEndsAt: current.payment?.disputeWindowEndsAt
-      ? formatDateTime(current.payment.disputeWindowEndsAt)
-      : null,
+    windowEndsAt,
   });
+  const cardName = current.offer.item?.card.name ?? 'the card';
+  const amount = money(current.payment?.amount ?? current.cashAmount, current.currency);
+
+  const refused = (error: unknown, wording: 'offer' | 'payment') => {
+    if (!isApiError(error)) {
+      setNotice({
+        value: { tone: 'warning', message: 'This could not be done. Please try again.' },
+        status: current.status,
+      });
+      return;
+    }
+    const problem =
+      wording === 'payment'
+        ? paymentProblem(error, other.displayName)
+        : offerProblem(error, other.displayName, 'trade');
+    setNotice({ value: { tone: 'warning', message: problem.message }, status: current.status });
+    if (problem.reload) {
+      void trade.refetch();
+    }
+  };
 
   const run = async (kind: TradeStep, reason?: string) => {
     setNotice(null);
@@ -173,20 +255,48 @@ export default function TradeScreen() {
         status: updated.status,
       });
     } catch (error) {
-      if (!isApiError(error)) {
-        setNotice({
-          value: { tone: 'warning', message: 'This could not be done. Please try again.' },
-          status: current.status,
-        });
-        return;
-      }
-      const problem = offerProblem(error, other.displayName, 'trade');
-      setNotice({ value: { tone: 'warning', message: problem.message }, status: current.status });
-      if (problem.reload) {
-        void trade.refetch();
-      }
+      refused(error, 'offer');
     } finally {
       setDialog(null);
+    }
+  };
+
+  /** A payment-protection step (Phase 9): refusals are worded by `paymentProblem`. */
+  const runProtected = async (variables: ProtectedVariables) => {
+    setNotice(null);
+    try {
+      const answer = await protectedStep.mutateAsync(variables);
+      setDialog(null);
+      if (answer.step === 'pay') {
+        const target = payTarget(answer.payment);
+        if (target?.kind === 'app') {
+          router.push({ pathname: '/checkout/fake/[ref]', params: { ref: target.ref } });
+        } else if (target?.kind === 'external') {
+          await Linking.openURL(target.url);
+        } else {
+          setNotice({
+            value: {
+              tone: 'warning',
+              message:
+                'This payment provider’s checkout cannot open here yet. Your payment was not started.',
+            },
+            status: current.status,
+          });
+        }
+      } else if (answer.step === 'dispute') {
+        router.push({
+          pathname: '/disputes/[id]',
+          params: { id: answer.dispute.id, opened: '1' },
+        });
+      } else {
+        setNotice({
+          value: { tone: 'success', message: protectedSuccess(answer.step, answer.trade) },
+          status: answer.trade.status,
+        });
+      }
+    } catch (error) {
+      setDialog(null);
+      refused(error, 'payment');
     }
   };
 
@@ -223,7 +333,72 @@ export default function TradeScreen() {
           />
         ) : null}
 
+        {current.protectionEnabled &&
+        current.viewerRole === 'SELLER' &&
+        current.status === 'AWAITING_PAYMENT' ? (
+          <PayoutSetupReminder tradeId={current.id} buyerName={other.displayName} />
+        ) : null}
+
         <NextActionCard view={view}>
+          {canProtect('PAY') ? (
+            <Button
+              label={`Pay ${amount}`}
+              icon="lock-outline"
+              loading={busy === 'pay'}
+              loadingLabel="Opening the checkout…"
+              disabled={!!busy}
+              onPress={() => void runProtected({ id: current.id, step: 'pay' })}
+              testID="trade-pay"
+            />
+          ) : null}
+          {canProtect('SHIP') ? (
+            <Button
+              label="Mark as shipped"
+              icon="truck-outline"
+              loading={busy === 'ship'}
+              loadingLabel="Saving…"
+              disabled={!!busy}
+              onPress={() => setDialog('ship')}
+              testID="trade-ship"
+            />
+          ) : null}
+          {canProtect('CONFIRM_RECEIPT') ? (
+            <Button
+              label="Confirm receipt"
+              icon="package-variant-closed"
+              loading={busy === 'confirm-receipt'}
+              loadingLabel="Confirming…"
+              disabled={!!busy}
+              onPress={() => setDialog('receipt')}
+              testID="trade-confirm-receipt"
+            />
+          ) : null}
+          {canProtect('OPEN_DISPUTE') ? (
+            <Button
+              label="Open a dispute"
+              icon="alert-octagon-outline"
+              variant="secondary"
+              loading={busy === 'dispute'}
+              loadingLabel="Opening…"
+              disabled={!!busy}
+              onPress={() => setDialog('dispute')}
+              testID="trade-open-dispute"
+            />
+          ) : null}
+          {current.dispute ? (
+            <Button
+              label="View the dispute"
+              icon="gavel"
+              variant="secondary"
+              onPress={() =>
+                router.push({
+                  pathname: '/disputes/[id]',
+                  params: { id: current.dispute?.id ?? '' },
+                })
+              }
+              testID="trade-view-dispute"
+            />
+          ) : null}
           {allowed.has('CONFIRM_COMPLETION') ? (
             <Button
               label="Confirm the exchange"
@@ -271,16 +446,24 @@ export default function TradeScreen() {
           />
         </NextActionCard>
 
-        {protectedOps.length > 0 || current.dispute ? (
-          <FormMessage tone="info" testID="trade-protected-web">
-            Paying, shipping, confirming receipt and disputes of protected trades are done on
-            orenjitrade.com for now. You will get a notification here at every step.
+        {protectionPaused && protectedOps.length > 0 ? (
+          <FormMessage tone="info" testID="trade-protection-paused">
+            Payment protection is not available right now, so paying, shipping and disputes are
+            paused. You can still message {other.displayName} or agree to meet in person.
           </FormMessage>
         ) : null}
 
         <Section title="Progress">
           <TradeSteps trade={current} />
         </Section>
+
+        {current.dispute ? (
+          <DisputeCard dispute={current.dispute} currency={current.currency} />
+        ) : null}
+        {current.payment ? (
+          <PaymentCard payment={current.payment} viewerRole={current.viewerRole} />
+        ) : null}
+        {current.shipment ? <ShipmentCard shipment={current.shipment} /> : null}
 
         {received.length > 0 ? (
           <Section title="Cards you received" testID="trade-received">
@@ -394,6 +577,36 @@ export default function TradeScreen() {
         onConfirm={(reason) => void run('cancel', reason)}
         onCancel={() => setDialog(null)}
         testID="cancel-trade-dialog"
+      />
+      <ConfirmDialog
+        visible={dialog === 'receipt'}
+        title="Confirm you received the card?"
+        message={`Confirm only once the card arrived and matches the listing. The payout (${money(
+          current.payment?.sellerAmount,
+          current.payment?.currency
+        )}) is released to ${other.displayName} and the trade completes; this cannot be undone. If something is wrong, open a dispute instead.`}
+        confirmLabel="Confirm receipt"
+        busy={busy === 'confirm-receipt'}
+        onConfirm={() => void runProtected({ id: current.id, step: 'confirm-receipt' })}
+        onCancel={() => setDialog(null)}
+        testID="receipt-dialog"
+      />
+      <ShipDialog
+        visible={dialog === 'ship'}
+        buyerName={other.displayName}
+        cardName={cardName}
+        busy={busy === 'ship'}
+        onConfirm={(request) => void runProtected({ id: current.id, step: 'ship', request })}
+        onCancel={() => setDialog(null)}
+      />
+      <OpenDisputeDialog
+        visible={dialog === 'dispute'}
+        sellerName={other.displayName}
+        cardName={cardName}
+        windowEndsAt={windowEndsAt}
+        busy={busy === 'dispute'}
+        onConfirm={(request) => void runProtected({ id: current.id, step: 'dispute', request })}
+        onCancel={() => setDialog(null)}
       />
     </View>
   );

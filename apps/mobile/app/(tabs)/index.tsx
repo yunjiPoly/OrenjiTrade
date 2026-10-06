@@ -140,6 +140,7 @@ export default function MapScreen() {
           onSelect={setSelected}
           emptyTitle={status}
           onClearFilters={filtersActive ? discovery.clearFilters : undefined}
+          game={discovery.filters.game ?? null}
         />
       </View>
     );
