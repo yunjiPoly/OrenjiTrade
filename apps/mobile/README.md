@@ -62,8 +62,28 @@ inbox `offers` with Received / Sent and status filters, one offer `offers/[id]` 
 counter / decline / withdraw and the history; offer settings; offer links in chat open the offer
 and can be shared); **trades** (`trades`, `trades/[id]`: the next move, meetup, confirming the
 exchange, cancelling with a reason, the timeline, rating once completed). Admin and moderator
-consoles stay on the web; the payment-protection steps of Phase 9 are explained on the trade and
-done on the website for now.
+consoles stay on the web.
+
+Phases 9 and 10 (stage M6) are implemented on the same API and the same local **fake providers**
+as the web (no card, no money; each checkout is a screen of the app with a "Local test payment"
+banner): **payment protection** on the trade screen ("Use payment protection" on a new cash offer,
+Pay through `checkout/fake/[ref]`, Mark as shipped with a carrier and tracking, Confirm receipt,
+which releases the payout, Open a dispute within the window; the payment, shipment and dispute
+cards; a seller's reminder to set up payouts), **disputes** (`disputes/[id]`: the decision or the
+hold, evidence (statements and photos from the library; photos are fetched with the ID token),
+the thread with the other collector and OrenjiTrade, the timeline), **Settings → Payouts**
+(`settings/payouts`), **Premium** (`premium`: plans, the live subscription, subscribe / continue /
+close / cancel through `checkout/fake-billing/[ref]`, usage and boosts; every reached plan limit
+offers "See Premium"), **Credits** (`credits`: balance, unlocks for a day with one idempotency key
+per dialog, referral code with "Share" and redemption, the append-only ledger), **Support
+OrenjiTrade** (`support`: voluntary donations through `checkout/fake-donation/[ref]`, supporters,
+own donations) and **"Sponsored" placements** (search results, the map list, the inventory and other
+collectors' profiles: the impression recorded once, a tap opens the API's click route in the
+browser). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
+`donations`, `advertising`), evaluated for the signed-in collector, like the web. The wording is
+"payment protection", never "escrow". Selling Premium or donations in a store build raises the
+app-store in-app purchase rules: an open owner question recorded in ADR 0011 (no IAP and no real
+provider are added).
 
 ## Prerequisites
 
@@ -142,7 +162,12 @@ app/                       expo-router routes
   offers/                  index (Received / Sent, `?tab=&status=`), [id] (one proposal), new
                            (`?item=`, the card handed over by "Make an offer"), counter (`?id=`)
   trades/                  index (`?status=`), [id] (one trade: next move, steps, timeline)
-  settings/reports.tsx     My reports; settings/offers.tsx: mixed offers
+  settings/reports.tsx     My reports; settings/offers.tsx: mixed offers; settings/payouts.tsx
+  checkout/                fake/[ref] (protected payment), fake-billing/[ref] (Premium),
+                           fake-donation/[ref] (donation): the local fake provider checkouts
+  disputes/[id].tsx        a dispute (`?opened=1` after opening it from the trade)
+  premium.tsx, credits.tsx, support.tsx   Premium (`?checkout=success`), Credits, Support
+                           (`?donation=thanks`)
   cards/[id].tsx           card detail (`?printing=` selects a printing)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
@@ -164,6 +189,12 @@ src/
                            offerTarget + the in-memory target store), the editor, the deal, the
                            history, the action bar; features/trades/: trade labels, steps,
                            timeline; features/reports/, features/ratings/: their rules and routes
+  features/payments/       payment-protection vocabulary (paymentLabels, paymentProblems,
+                           protectedForms, checkoutTargets), the explainer; features/disputes/:
+                           overview, evidence list and composer, thread, timeline;
+                           features/checkout/: useProviderCheckout + the fake checkout card;
+                           features/billing/: plans, subscription, usage, credits, donations;
+                           features/ads/: SponsoredSlot (label, impression, click route)
   realtime/                STOMP 1.2 codec + connection, RealtimeClient, RealtimeProvider
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
   lib/                     pure helpers (3-decimal coordinates, distance buckets, card picture URLs,
@@ -269,8 +300,27 @@ Conventions later stages reuse:
   always send the version on screen; `STALE_OFFER` moves to `latestOfferId`, other conflicts
   re-read. Screens only offer the API's `allowedActions` / `allowedOperations`. A counter-offer
   that arrives while its offer is open replaces it on screen (`router.setParams`). Pushed OFFER_* and
-  trade notifications invalidate `['me', uid, 'offers' | 'trades']`. Payment protection (Phase 9)
-  is explained on the trade and stays on the website.
+  trade notifications invalidate `['me', uid, 'offers' | 'trades']`.
+- **Payment protection and disputes** (`src/features/payments/`, `src/features/disputes/`,
+  `src/api/hooks/payments.ts`, the web's `shared/payments`, `features/{trades,checkout,disputes}`
+  and `settings/payouts`): the trade screen offers only the API's `allowedOperations` (Pay, Mark as
+  shipped, Confirm receipt, Open a dispute; hidden while `protectedPayments` is known to be off);
+  refusals are worded by `paymentProblem` (SELLER_NOT_ONBOARDED, DISPUTE_WINDOW_CLOSED with the
+  date, EVIDENCE_LIMIT_REACHED, FEATURE_DISABLED). Pay follows only the app's fake checkout path
+  or an https provider page (`checkoutTargets.ts`); the checkout polls until the synthetic webhook
+  lands (`useProviderCheckout`, about 45 s at most) and goes back to the trade with
+  `?payment=secured|failed` (`router.dismissTo`). Evidence photos are checked (JPEG / PNG / WebP,
+  8 MB) before the multipart upload and shown from the authenticated file route as `data:` URIs
+  (never a public URL, never a disk cache). DISPUTE_UPDATE notifications refresh the dispute.
+- **Premium, credits, donations and ads** (`src/features/billing/`, `src/features/ads/`,
+  `src/api/hooks/billing.ts`, the web's `features/{premium,credits,support,checkout}` and
+  `shared/{billing,ads}`): a plan change (checkout, cancel) re-reads `/me`, the plan, the ads and
+  discovery; a credit spend keeps one idempotency key per dialog; donations validate the amount
+  (two decimals) and show the API's range on the field; a sponsored slot serves nothing while
+  `advertising` is off or for Premium (`[]`), always says "Sponsored", records one impression per
+  serve token once laid out and only opens the API's click route or an https page.
+  `LimitReachedNotice` and the other limit messages offer "See Premium" while premium plans are
+  sold.
 - **Ratings and reports** (`src/features/collectors/ratingLabels.ts`, `src/features/ratings/`,
   `src/features/reports/`): the rate, reference and report screens take the collector (and the
   report's context or the rating to edit) in their route params (`ratingParams`,
@@ -280,8 +330,8 @@ Conventions later stages reuse:
 - **Notifications** (`src/features/notifications/notificationKinds.ts`, the web's
   `notification-kinds.ts`): an icon / tone / label per type, and the web path of a notification
   (`data.deepLink` when it is a safe same-app path, else rebuilt from its ids) mapped to an app
-  screen (`mobileTarget`: offers, trades, My reports and `?tab=ratings` included), or a "later
-  version" note for screens of later stages (disputes, Premium, credits, payouts).
+  screen (`mobileTarget`: offers, trades, disputes, Premium, credits, support, My reports, payouts
+  and `?tab=ratings` included), or a note for the settings that stay on the web (blocked users).
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
@@ -368,6 +418,17 @@ the API's reasons -> "Report sent" -> My reports with the status; a second open 
 binder -> the seller's counter-offer (API) followed live -> accept -> the trade -> both confirm
 (the seller through the API, the completion arrives live) -> rate from the trade and a reference
 (a banned term refused); a received offer countered from the app and declined with a reason),
+`payments.spec.ts` (with the fake payment provider: a buyer's protected offer -> the seller
+accepts (API) -> Pay on the app's fake checkout -> shipped (API, followed live) -> Confirm receipt
+-> the payout released; a seller sets up payouts, accepts a protected offer, sees the payment
+arrive live, marks the card as shipped with tracking and sees the payout; a dispute opened from
+the trade with a reason, a statement, a photo from the library (shown through the authenticated
+route) and messages both ways, a stranger gets 404), `billing.spec.ts` (`binders.max` -> "See
+Premium" -> the fake billing checkout declines then succeeds -> the sixth binder, no ads ->
+"Cancel now"; a referral code redeemed, a feature unlocked for a day with credits, both in the
+ledger; a voluntary donation through the fake donation checkout and the supporters; a FREE
+collector's "Sponsored" search result: one impression (204), the click route's 302 to the landing
+page),
 `collector-map-page.spec.ts` (the
 Android WebView collector page in Chromium: zone size at 14, zoom cap, taps, clusters, a static
 profile map, a 0 x 0 first layout, Leaflet failure). The static web export served by `expo serve`
@@ -422,7 +483,12 @@ the matches, then a conversation), `offer-trade-rating.yaml` (a cash offer on a 
 opened by deep link, the seller's counter-offer from the host (`scripts/offers.js`) followed live,
 accept, the trade, both confirmations and the live completion, a rating checked on the API),
 `report-collector.yaml` (report a collector from the profile, the confirmation, My reports,
-checked on the API). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+checked on the API), `payment-protection.yaml` (a cash offer with "Use payment protection" on a
+public card opened by deep link, the seller (payouts set up, `scripts/payments.js`) accepts from
+the host, Pay on the app's fake checkout, the shipment from the host followed live, Confirm
+receipt, the payout checked on the API), `premium.yaml` (the binder limit -> "See Premium" ->
+"Upgrade to Premium" -> the fake billing checkout declines, then succeeds -> the welcome and the
+plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
@@ -438,16 +504,20 @@ Metro after source changes (`npm run test:mobile:maestro -- --stop`).
 - Custom scheme: `orenjitrade://collectors/<handle>`, `orenjitrade://cards/<id>`,
   `orenjitrade://binders/<id>`, and every other app route (`orenjitrade://messages/<id>`,
   `orenjitrade://wishlist/<id>`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
-  `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`).
+  `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`,
+  `orenjitrade://disputes/<id>`, `orenjitrade://premium`, `orenjitrade://credits`,
+  `orenjitrade://support`, `orenjitrade://settings/payouts`).
   Signed out, a link leads to sign-in and opens after signing in.
 - Universal/App Links: `https://www.orenjitrade.com/(collectors|cards|binders)/<id>` via
   `ios.associatedDomains` and Android `intentFilters` (`autoVerify`) in `app.config.ts`.
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The mobile UIs of Phases 9 and 10 (payment protection: pay, ship, confirm receipt,
-  disputes, payouts; Premium, credits, ads, donations) and the admin / moderator consoles (web
-  only). "Make an offer" is not on the Map tab's list rows (the preview sheet has it). The Map tab leaves out the web map's tag and freshness filters and its
+- The admin / moderator consoles (web only, including dispute resolution, refunds, plans,
+  campaigns and donation refunds). PDF evidence of a dispute is listed by name and size and opened
+  on the website (the app adds statements and photos). Store builds: real payment providers and
+  in-app purchase are not wired (open owner question, ADR 0011); the fake providers are local
+  only. "Make an offer" is not on the Map tab's list rows (the preview sheet has it). The Map tab leaves out the web map's tag and freshness filters and its
   search box (the Search tab finds cards; "Who has this near me" starts from a card). Moderators
   remove community posts on the web only; message photos come from the library (no camera).
 - Inventory extras of the web not on mobile yet: owner photos of an item, the multi-select bulk bar

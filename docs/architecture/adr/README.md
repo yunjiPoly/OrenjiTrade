@@ -15,7 +15,7 @@ major decision silently: add a superseding ADR and link both ways.
 | [0008](0008-firebase-identity-platform.md) | Firebase Authentication / Identity Platform as identity provider |
 | [0009](0009-domain-events-outbox-pubsub.md) | Domain events via transactional outbox with a Pub/Sub adapter |
 | [0010](0010-map-provider-abstraction.md) | Google Maps behind a map adapter with Leaflet fallback |
-| [0011](0011-payments-stripe-connect-abstraction.md) | Payments through a provider abstraction (Stripe Connect), feature-flagged |
+| [0011](0011-payments-stripe-connect-abstraction.md) | Payments through a provider abstraction (Stripe Connect), feature-flagged (open owner question 2026-10-05: app-store purchase rules for the mobile app) |
 | [0012](0012-postgres-search-before-elasticsearch.md) | PostgreSQL full-text + trigram search before any search engine |
 | [0013](0013-google-client-libraries-not-spring-cloud-gcp.md) | Google Cloud client libraries instead of Spring Cloud GCP |
 | [0014](0014-configurable-business-rules.md) | Business rules (limits, delisting, flags) are data, not code |
