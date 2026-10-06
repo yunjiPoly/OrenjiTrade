@@ -211,7 +211,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       await account.acceptConsents([ageConsentFor(ageConfirmation)]);
       setAgeDone(true);
       if (ageOnly) {
-        snackbar.show('Thanks for confirming. Welcome back!');
+        snackbar.show('Thanks for confirming. Welcome back!', { duration: 8000 });
         leave(pending, true);
         return;
       }

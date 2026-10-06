@@ -78,13 +78,14 @@ tags:
       ID: 'onboarding-age-continue'
 - tapOn:
     id: 'onboarding-age-continue'
+# The welcome-back snackbar shows as soon as the consent is recorded, then the tabs.
+- extendedWaitUntil:
+    visible: 'Thanks for confirming\. Welcome back!'
+    timeout: 30000
 - extendedWaitUntil:
     visible:
       id: 'screen-map'
     timeout: 60000
-- extendedWaitUntil:
-    visible: 'Thanks for confirming\. Welcome back!'
-    timeout: 15000
 - runScript:
     file: scripts/check-age.js
     env:
