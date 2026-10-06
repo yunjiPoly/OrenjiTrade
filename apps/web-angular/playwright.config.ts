@@ -39,6 +39,16 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /launch-config\.spec\.ts$/,
+    },
+    {
+      // Switches the real feature flags of the E2E stack off (the launch configuration) and
+      // restores them: it must run alone, after every other spec. `--no-deps` runs it by itself.
+      name: 'launch-config',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /launch-config\.spec\.ts$/,
+      dependencies: ['chromium'],
+      fullyParallel: false,
     },
   ],
   webServer: {
