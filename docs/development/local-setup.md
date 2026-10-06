@@ -354,7 +354,12 @@ npm run catalog:import -- --game yugioh --provider ygoprodeck --images reference
   still says `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500`: delete the line or set 5120 to get the new
   default.
 - **Location:** `CARD_IMAGE_CACHE_DIR`, default `apps/api/.local-storage/card-images/` (one
-  directory per database; a start-up reconciliation deletes files no row references).
+  directory per database; a start-up reconciliation deletes files no row references, except
+  files younger than 10 minutes, which it only counts). In the cloud the same cache keeps its
+  renditions as objects under `card-images/` of the media bucket (`STORAGE_PROVIDER=gcs`,
+  ADR 0015 amendment 2026-10-05) and uses the directory only for in-flight downloads;
+  `CARD_IMAGE_STORAGE_PROVIDER`, `CARD_IMAGE_GCS_BUCKET` and `CARD_IMAGE_OBJECT_PREFIX` are
+  cloud-only settings that stay empty locally.
 
 The command polls the run and prints its report:
 

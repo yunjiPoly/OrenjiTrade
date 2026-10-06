@@ -317,12 +317,18 @@ token of an account with pending consents or a suspension does not block them (s
   state is known); `AdminListingItem.imageUrl` (admin listings, stale queue, restore and hide
   answers). The offers module's `OfferCard` (live item, else the offer's item snapshot) feeds the
   offer, trade, payment and dispute notifications.
-- `CardImageCache`: capped local cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 5120 MiB = 5 GB
+- `CardImageCache`: capped cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`, default 5120 MiB = 5 GB
   since 2026-10-04, refused above 5120; 64-bit byte accounting, `int64` in the status DTO),
   reservations under a lock on `card_image_cache_usage`, one 320 px JPEG per artwork
   deduplicated by SHA-256, single-flight bounded downloads, expiring reservations, reconciliation at
-  start-up and on demand. Serving: cached file with `immutable` caching + ETag, else a bounded
-  on-demand fill, else the placeholder (5 minutes).
+  start-up and on demand. Renditions live behind the `cardImageStorage` `ObjectStorage`
+  (`CardImageStorageConfig`): local files under `CARD_IMAGE_CACHE_DIR` by default, objects under
+  `card-images/` of the media bucket with `STORAGE_PROVIDER=gcs` (Cloud Run has no persistent
+  disk); downloads always stage in the local `.tmp/`. Reconciliation lists the storage, never
+  deletes an unreferenced object younger than the reservation TTL (a commit may be in flight in
+  another process) and counts it instead. Serving: cached rendition with `immutable` caching +
+  ETag (304 without a storage read), else a bounded on-demand fill, else the placeholder
+  (5 minutes).
 - Imports: `POST /admin/catalog/sync` and `POST /internal/jobs/catalog-import` take `imageMode`
   (`NONE`, `REFERENCED` default for `ygoprodeck`, `ALL`, `LIMIT` + `imageLimit`); 409 while another
   import of the game runs; `catalog_sync_run.report` holds the `CatalogImportReport`

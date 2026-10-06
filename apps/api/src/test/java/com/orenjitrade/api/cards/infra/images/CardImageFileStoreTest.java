@@ -9,7 +9,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Deterministic, traversal-proof cache paths and temporary files named after reservations. */
+/**
+ * Deterministic, traversal-proof cache keys, the storage key policy and temporary files named after
+ * reservations.
+ */
 class CardImageFileStoreTest {
 
     @TempDir Path root;
@@ -20,6 +23,7 @@ class CardImageFileStoreTest {
         assertThat(key).matches("^yugioh/ygoprodeck/[0-9a-f]{2}/89631139\\.jpg$");
         assertThat(CardImageFileStore.keyOf("yugioh", "ygoprodeck", "89631139")).isEqualTo(key);
         assertThat(CardImageFileStore.isValidKey(key)).isTrue();
+        assertThat(CardImageFileStore.isSafeKey(key)).isTrue();
     }
 
     @Test
@@ -28,33 +32,52 @@ class CardImageFileStoreTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> CardImageFileStore.keyOf("yugioh", "ygoprodeck", "../../etc"))
                 .isInstanceOf(IllegalArgumentException.class);
-        CardImageFileStore store = new CardImageFileStore(root);
-        assertThatThrownBy(() -> store.pathOf("../outside.jpg"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> store.pathOf(".tmp/x/ab/1.jpg"))
-                .isInstanceOf(IllegalArgumentException.class);
         assertThat(CardImageFileStore.isValidKey("yugioh/ygoprodeck/zz/1.jpg")).isFalse();
+        assertThat(CardImageFileStore.isValidKey("../outside.jpg")).isFalse();
+        assertThat(CardImageFileStore.isValidKey(".tmp/x/ab/1.jpg")).isFalse();
+    }
+
+    @Test
+    void theStoragePolicyAllowsStrayNamesButNeverTraversalOrWorkingFiles() {
+        // Stray objects with names the cache would never produce can still be listed and deleted…
+        assertThat(CardImageFileStore.isSafeKey("YUGIOH/ygoprodeck/ab/Stray.File-1.jpg")).isTrue();
+        assertThat(CardImageFileStore.isSafeKey("leftover.bin")).isTrue();
+        // …but nothing outside the root and nothing in the staging directory.
+        assertThat(CardImageFileStore.isSafeKey("../x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("a/../x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("a/./x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("/a/x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("a//x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("a\\x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey(".tmp/abc.part")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("a/.hidden/x.jpg")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("")).isFalse();
+        assertThat(CardImageFileStore.isSafeKey("a".repeat(301))).isFalse();
     }
 
     @Test
     void temporaryFilesBelongToTheirReservation() throws Exception {
         CardImageFileStore store = new CardImageFileStore(root);
         store.init();
+        assertThat(Files.isDirectory(root.resolve(CardImageFileStore.TEMP_DIR))).isTrue();
         UUID reservation = UUID.randomUUID();
         Files.write(store.rawTemp(reservation), new byte[10]);
-        store.writeRenditionTemp(reservation, new byte[5]);
+        Path rendition = store.writeRenditionTemp(reservation, new byte[5]);
+        assertThat(rendition.getParent()).isEqualTo(root.resolve(CardImageFileStore.TEMP_DIR));
         Files.write(root.resolve(".tmp").resolve("foreign.bin"), new byte[1]);
         assertThat(store.tempFiles())
                 .extracting(CardImageFileStore.TempFile::reservationId)
                 .containsExactlyInAnyOrder(reservation, reservation, null);
+        assertThat(store.tempFiles())
+                .filteredOn(temp -> reservation.equals(temp.reservationId()))
+                .extracting(CardImageFileStore.TempFile::size)
+                .containsExactlyInAnyOrder(10L, 5L);
         store.deleteTemps(reservation);
         assertThat(store.tempFiles()).hasSize(1);
 
-        String key = CardImageFileStore.keyOf("pokemon", "pokemontcg", "sv1-1");
-        Path temp = store.writeRenditionTemp(reservation, new byte[7]);
-        store.moveIntoPlace(temp, key);
-        assertThat(store.finalFiles()).containsEntry(key, 7L).hasSize(1);
-        assertThat(store.delete(key)).isTrue();
-        assertThat(store.finalFiles()).isEmpty();
+        Files.createDirectories(root.resolve("yugioh/ygoprodeck/ab"));
+        store.pruneEmptyDirectories();
+        assertThat(Files.exists(root.resolve("yugioh"))).isFalse();
+        assertThat(Files.isDirectory(root.resolve(".tmp"))).as("staging kept").isTrue();
     }
 }

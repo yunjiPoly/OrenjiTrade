@@ -211,12 +211,19 @@ orenji:
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
     gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
   card-images:
-    # Local card image cache (ADR 0015). Card metadata lives in PostgreSQL; only the image files are
-    # cached here, never more than max-mb MiB (default and hard ceiling 5120 = 5 GB, owner decision
-    # 2026-10-04: larger values stop the start-up, smaller values are allowed).
+    # Capped card image cache (ADR 0015). Card metadata lives in PostgreSQL; only the image
+    # renditions are cached, never more than max-mb MiB (default and hard ceiling 5120 = 5 GB,
+    # owner decision 2026-10-04: larger values stop the start-up, smaller values are allowed).
     cache:
       max-mb: ${CARD_IMAGE_LOCAL_CACHE_MAX_MB:5120}
-      # One directory per database (reconciliation deletes files no row references).
+      # Where the renditions live. Empty: the media provider (STORAGE_PROVIDER). local: files under
+      # `dir` (one directory per database; reconciliation deletes files no row references). gcs:
+      # objects under `object-prefix` of the media bucket (GCS_BUCKET_MEDIA) or of `gcs-bucket`,
+      # because Cloud Run wipes its local disk on every restart. Temporary download files always
+      # stay under `dir`.
+      provider: ${CARD_IMAGE_STORAGE_PROVIDER:}
+      gcs-bucket: ${CARD_IMAGE_GCS_BUCKET:}
+      object-prefix: ${CARD_IMAGE_OBJECT_PREFIX:card-images/}
       dir: ${CARD_IMAGE_CACHE_DIR:${orenji.storage.local-root}/card-images}
       # One rendition per artwork: JPEG (the JVM has no WebP encoder), 320 px wide, never upscaled.
       target-width: 320
