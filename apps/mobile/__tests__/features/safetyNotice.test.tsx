@@ -7,6 +7,7 @@ import TradeScreen from '@/app/trades/[id]';
 import {
   SAFETY_NOTICE_STORAGE_KEY,
   isSafetyNoticeDismissed,
+  useSafetyNoticeHydration,
   useSafetyNoticeStore,
 } from '@/src/features/safety/safetyNoticeStore';
 
@@ -52,7 +53,7 @@ function routes(extra: MockRoutes = {}): MockRoutes {
  * back from AsyncStorage is what the test asserts on.
  */
 async function rehydrate(): Promise<void> {
-  useSafetyNoticeStore.setState({ hydrated: false });
+  useSafetyNoticeHydration.setState({ hydrated: false });
   await act(async () => {
     await useSafetyNoticeStore.persist.rehydrate();
   });
@@ -61,7 +62,8 @@ async function rehydrate(): Promise<void> {
 beforeEach(async () => {
   resetRouterMock();
   resetAppState();
-  useSafetyNoticeStore.setState({ dismissals: {}, hydrated: false });
+  useSafetyNoticeStore.setState({ dismissals: {} });
+  useSafetyNoticeHydration.setState({ hydrated: false });
   await AsyncStorage.clear();
   await rehydrate();
 });
@@ -86,7 +88,7 @@ describe('safety notice store', () => {
   it('reads the dismissals stored on the device when the app starts', async () => {
     // What an earlier run of the app left in AsyncStorage: written after the in-memory reset
     // (a persisted store writes on every `setState`), then read back by the hydration.
-    useSafetyNoticeStore.setState({ hydrated: false });
+    useSafetyNoticeHydration.setState({ hydrated: false });
     await new Promise((resolve) => setTimeout(resolve, 0));
     await AsyncStorage.setItem(
       SAFETY_NOTICE_STORAGE_KEY,
@@ -99,7 +101,7 @@ describe('safety notice store', () => {
       await useSafetyNoticeStore.persist.rehydrate();
     });
     const state = useSafetyNoticeStore.getState();
-    expect(state.hydrated).toBe(true);
+    expect(useSafetyNoticeHydration.getState().hydrated).toBe(true);
     expect(isSafetyNoticeDismissed(state.dismissals, SELF_ID, 'trade')).toBe(true);
     expect(isSafetyNoticeDismissed(state.dismissals, SELF_ID, 'conversation')).toBe(false);
   });

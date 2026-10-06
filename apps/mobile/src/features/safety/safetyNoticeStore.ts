@@ -12,11 +12,19 @@ type DismissalMap = Record<string, Partial<Record<SafetyNoticeContext, string>>>
 
 interface SafetyNoticeState {
   dismissals: DismissalMap;
-  /** True once the stored dismissals were read (nothing is shown before, so no notice flashes). */
-  hydrated: boolean;
   dismiss: (userId: string, context: SafetyNoticeContext, at?: string) => void;
   reset: () => void;
 }
+
+/**
+ * Whether the stored dismissals were read (nothing is shown before, so no notice flashes). Kept
+ * out of the persisted store on purpose: a persisted store writes to the device storage on every
+ * `setState`, and the hydration callback runs during the web build's static rendering too, where
+ * there is no `window` to write to.
+ */
+export const useSafetyNoticeHydration = create<{ hydrated: boolean }>()(() => ({
+  hydrated: false,
+}));
 
 /**
  * Remembers which trading safety notices a collector dismissed (mirror of the web's
@@ -29,7 +37,6 @@ export const useSafetyNoticeStore = create<SafetyNoticeState>()(
   persist(
     (set) => ({
       dismissals: {},
-      hydrated: false,
       dismiss: (userId, context, at = new Date().toISOString()) =>
         set((state) => ({
           dismissals: {
@@ -45,7 +52,7 @@ export const useSafetyNoticeStore = create<SafetyNoticeState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ dismissals: state.dismissals }),
       onRehydrateStorage: () => () => {
-        useSafetyNoticeStore.setState({ hydrated: true });
+        useSafetyNoticeHydration.setState({ hydrated: true });
       },
     }
   )
@@ -68,7 +75,7 @@ export function useSafetyNoticeVisible(
   userId: string | null,
   context: SafetyNoticeContext
 ): boolean | null {
-  const hydrated = useSafetyNoticeStore((state) => state.hydrated);
+  const hydrated = useSafetyNoticeHydration((state) => state.hydrated);
   const dismissed = useSafetyNoticeStore((state) =>
     isSafetyNoticeDismissed(state.dismissals, userId, context)
   );
