@@ -5,6 +5,7 @@ import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.com
 import { LegalDraftBannerComponent } from './legal-draft-banner.component';
 import { LegalLanguageSwitchComponent } from './legal-language-switch.component';
 import { LegalLanguageService } from './legal-language.service';
+import { LegalTextsService } from './legal-texts.service';
 
 @Component({
   selector: 'app-legal-index',
@@ -26,7 +27,7 @@ import { LegalLanguageService } from './legal-language.service';
         [subtitle]="language.labels().indexSubtitle"
       />
       <ul class="legal-index">
-        @for (doc of language.documentList(); track doc.key) {
+        @for (doc of texts.documentList(); track doc.key) {
           <li>
             <a class="legal-index__card" [routerLink]="['/legal', doc.key]">
               <mat-icon aria-hidden="true">description</mat-icon>
@@ -104,4 +105,5 @@ import { LegalLanguageService } from './legal-language.service';
 })
 export class LegalIndexComponent {
   protected readonly language = inject(LegalLanguageService);
+  protected readonly texts = inject(LegalTextsService);
 }

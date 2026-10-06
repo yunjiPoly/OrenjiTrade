@@ -1,21 +1,5 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import {
-  LEGAL_DOCUMENTS,
-  LEGAL_DOCUMENT_LIST,
-  LEGAL_DRAFT_BANNER,
-  LEGAL_EFFECTIVE_DATE_PLACEHOLDER,
-  LegalDocument,
-  LegalKey,
-  isLegalKey,
-} from './legal-content';
-import {
-  LEGAL_DOCUMENTS_FR,
-  LEGAL_DOCUMENT_LIST_FR,
-  LEGAL_DRAFT_BANNER_FR,
-  LEGAL_EFFECTIVE_DATE_PLACEHOLDER_FR,
-  LEGAL_TRANSLATION_NOTICE_FR,
-} from './legal-content.fr';
 
 /** The languages the legal texts are published in (the API's `ConsentRequest.language`). */
 export type LegalLanguage = 'en' | 'fr';
@@ -87,18 +71,15 @@ export const LEGAL_PAGE_LABELS: Record<LegalLanguage, LegalPageLabels> = {
   },
 };
 
-/** `/legal/terms` → `terms`; `null` for anything else (the age confirmation anchor, external). */
-export function legalKeyOfUrl(url: string | null | undefined): LegalKey | null {
-  const match = /^\/legal\/([a-z-]+)(?:[/?#].*)?$/.exec(url ?? '');
-  const key = match?.[1];
-  return isLegalKey(key) ? key : null;
-}
-
 /**
  * The language the legal texts are shown in: an explicit choice (EN/FR switch or `?lang=`),
  * remembered in local storage per browser, otherwise French when the browser prefers French
  * (Bill 96), English otherwise. Consents record this language next to the document version
  * (`POST /me/consents`), so the API knows which translation the collector read.
+ *
+ * Deliberately light (no legal texts): the session service, in the initial bundle, reads it;
+ * the texts themselves live in {@link LegalTextsService}, loaded with the lazy chunks that
+ * render them.
  */
 @Injectable({ providedIn: 'root' })
 export class LegalLanguageService {
@@ -110,35 +91,6 @@ export class LegalLanguageService {
   readonly language = this.languageState.asReadonly();
   readonly isFrench = computed(() => this.languageState() === 'fr');
   readonly labels = computed(() => LEGAL_PAGE_LABELS[this.languageState()]);
-  readonly documents = computed(() =>
-    this.languageState() === 'fr' ? LEGAL_DOCUMENTS_FR : LEGAL_DOCUMENTS,
-  );
-  readonly documentList = computed<readonly LegalDocument[]>(() =>
-    this.languageState() === 'fr' ? LEGAL_DOCUMENT_LIST_FR : LEGAL_DOCUMENT_LIST,
-  );
-  readonly draftBanner = computed(() =>
-    this.languageState() === 'fr' ? LEGAL_DRAFT_BANNER_FR : LEGAL_DRAFT_BANNER,
-  );
-  /** The "translation pending validation" line (French only). */
-  readonly translationNotice = computed(() =>
-    this.languageState() === 'fr' ? LEGAL_TRANSLATION_NOTICE_FR : null,
-  );
-  readonly effectiveDatePlaceholder = computed(() =>
-    this.languageState() === 'fr'
-      ? LEGAL_EFFECTIVE_DATE_PLACEHOLDER_FR
-      : LEGAL_EFFECTIVE_DATE_PLACEHOLDER,
-  );
-
-  /** The document `key` in the active language (`null` for an unknown key). */
-  documentFor(key: string): LegalDocument | null {
-    return isLegalKey(key) ? this.documents()[key] : null;
-  }
-
-  /** The title of the legal page behind `url` in the active language, else `fallback`. */
-  titleOf(url: string | null | undefined, fallback: string): string {
-    const key = legalKeyOfUrl(url);
-    return key ? this.documents()[key].title : fallback;
-  }
 
   /** Switches the language and remembers the choice for this browser. */
   set(language: LegalLanguage): void {

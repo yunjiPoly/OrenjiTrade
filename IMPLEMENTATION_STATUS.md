@@ -1066,7 +1066,11 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   `LegalLanguageService`: French when the browser prefers it (`navigator.languages[0]` starts with
   `fr`), an explicit choice remembered per browser (`orenji.legal.language`), `?lang=en|fr` deep
   links; `LegalLanguageSwitchComponent` (EN / FR toggle) on every legal page and the index; pages
-  carry `lang="fr"` / `"en"`. The app UI around the pages stays English (see the assessment below).
+  carry `lang="fr"` / `"en"`. `LegalTextsService` holds the texts of the active language and is
+  only imported by the lazy legal and auth chunks (the session service reads the light
+  `LegalLanguageService`), so the initial bundle stays at 897 kB (900 kB warning budget) instead of
+  the 933 kB a single service produced. The app UI around the pages stays English (see the
+  assessment below).
 - [x] **Consent references the version and the language shown.** V104 adds
   `user_consent.language` (`en` / `fr`, default `en`); `POST /me/consents` accepts an optional
   `language` (older clients unchanged), the admin detail, the export and the audit row expose it.

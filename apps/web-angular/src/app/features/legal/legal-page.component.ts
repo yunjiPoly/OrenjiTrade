@@ -13,6 +13,7 @@ import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.com
 import { LegalDraftBannerComponent } from './legal-draft-banner.component';
 import { LegalLanguageSwitchComponent } from './legal-language-switch.component';
 import { LegalLanguageService, isLegalLanguage } from './legal-language.service';
+import { LegalTextsService } from './legal-texts.service';
 
 /**
  * Renders one legal document from the content map in the active legal language (EN/FR switch,
@@ -35,18 +36,19 @@ import { LegalLanguageService, isLegalLanguage } from './legal-language.service'
 export class LegalPageComponent {
   private readonly router = inject(Router);
   protected readonly language = inject(LegalLanguageService);
+  private readonly texts = inject(LegalTextsService);
 
   readonly key = input.required<string>();
   /** `?lang=fr` (query parameter, bound by the router). */
   readonly lang = input<string | undefined>();
 
-  protected readonly document = computed(() => this.language.documentFor(this.key()));
+  protected readonly document = computed(() => this.texts.documentFor(this.key()));
   protected readonly labels = this.language.labels;
   protected readonly effectiveDate = computed(
-    () => this.document()?.effectiveDate ?? this.language.effectiveDatePlaceholder(),
+    () => this.document()?.effectiveDate ?? this.texts.effectiveDatePlaceholder(),
   );
   protected readonly otherDocuments = computed(() =>
-    this.language.documentList().filter((doc) => doc.key !== this.key()),
+    this.texts.documentList().filter((doc) => doc.key !== this.key()),
   );
 
   constructor() {

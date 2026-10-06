@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { LegalLanguageService } from './legal-language.service';
+import { LegalTextsService } from './legal-texts.service';
 
 /**
  * Prominent notice that legal copy has not yet been reviewed by counsel, in the active legal
@@ -13,8 +14,8 @@ import { LegalLanguageService } from './legal-language.service';
     <div class="banner" role="status" [attr.lang]="language.language()">
       <mat-icon aria-hidden="true">gavel</mat-icon>
       <div class="banner__body">
-        <p class="banner__text">{{ language.draftBanner() }}</p>
-        @if (language.translationNotice(); as notice) {
+        <p class="banner__text">{{ texts.draftBanner() }}</p>
+        @if (texts.translationNotice(); as notice) {
           <p class="banner__notice" data-testid="legal-translation-notice">{{ notice }}</p>
         }
       </div>
@@ -56,4 +57,5 @@ import { LegalLanguageService } from './legal-language.service';
 })
 export class LegalDraftBannerComponent {
   protected readonly language = inject(LegalLanguageService);
+  protected readonly texts = inject(LegalTextsService);
 }

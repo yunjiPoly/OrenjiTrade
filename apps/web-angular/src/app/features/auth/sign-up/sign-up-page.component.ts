@@ -33,7 +33,7 @@ import {
 } from '../../../shared/legal/age-confirmation-checkbox.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { LegalLanguageService } from '../../legal/legal-language.service';
+import { LegalTextsService } from '../../legal/legal-texts.service';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 import { routeAfterSignIn } from '../auth-navigation';
 import { LegalDocumentsStore } from '../data/legal-documents.store';
@@ -77,7 +77,7 @@ export class SignUpPageComponent {
   private readonly session = inject(SessionService);
   protected readonly auth = inject(AuthService);
   protected readonly legal = inject(LegalDocumentsStore);
-  private readonly legalLanguage = inject(LegalLanguageService);
+  private readonly legalTexts = inject(LegalTextsService);
 
   readonly returnUrl = input<string | undefined>();
 
@@ -96,7 +96,7 @@ export class SignUpPageComponent {
   protected readonly consentItems = computed<ConsentItem[]>(() =>
     this.legal.requiredAtRegistration().map((doc) => ({
       documentType: doc.documentType,
-      title: this.legalLanguage.titleOf(doc.url, doc.title),
+      title: this.legalTexts.titleOf(doc.url, doc.title),
       url: doc.url,
     })),
   );
