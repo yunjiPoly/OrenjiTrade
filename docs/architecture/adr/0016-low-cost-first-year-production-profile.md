@@ -62,8 +62,9 @@ SLA-covered step.
 
 ### 2. Redis without Memorystore — a Valkey sidecar in the API instance
 
-Cloud Run services may run up to 10 sidecar containers that share the instance's network
-namespace and talk over `localhost`; only the ingress container exposes a port
+A Cloud Run instance may run up to 10 containers including the ingress one (so up to nine
+sidecars); they share the instance's network namespace and talk over `localhost`, and only
+the ingress container exposes a port
 ([deploying#sidecars](https://docs.cloud.google.com/run/docs/deploying#sidecars),
 [containers](https://docs.cloud.google.com/run/docs/configuring/services/containers)). The api
 service therefore carries a second container:
@@ -116,8 +117,8 @@ concurrency 80, request timeout 3600 s (WebSockets), Direct VPC egress (below).
 
 Sizing: **1 vCPU / 1 GiB** for the api container (plus the sidecar's 0.1 vCPU / 512 MiB), with
 the JVM heap capped at 50 % (`JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=50 -XX:+UseG1GC`). Measured
-on 2026-10-05 on the production image in a 1 vCPU / 1 GiB cgroup with the `prod` profile: JVM
-started in 33.1 s, readiness after 35.7 s; 513 MiB RSS idle; 595 MiB RSS (588 MiB cgroup peak)
+locally on 2026-10-05 (Docker `--cpus=1 --memory=1g`, the production image with the `prod`
+profile; nothing was deployed, this is not a cloud measurement): JVM started in 33.1 s, readiness after 35.7 s; 513 MiB RSS idle; 595 MiB RSS (588 MiB cgroup peak)
 under about 36 requests/s of mixed public and authenticated load (8,700 requests, all 200); live
 heap after GC ≤ 108 MiB, committed heap ≤ 209 MiB, so about 390 MiB is non-heap (metaspace, code
 cache, threads, Netty/gRPC buffers). A 75 % heap cap (768 MiB) plus 390 MiB non-heap could exceed
@@ -297,18 +298,20 @@ has two containers), Cloud Armor, HSTS, the admin MFA rule.
 | Cloud Run api (instance-based) | 1 vCPU + 0.1 vCPU sidecar, 1 GiB + 512 MiB, min = max = 1 | **≈ 67** | Tier 2 region: $0.0000216/vCPU-s × 1.1 vCPU × 2,628,000 s = 62.44; $0.0000024/GiB-s × 1.5 GiB × 2,628,000 s = 9.46; minus the free tier (240,000 vCPU-s + 450,000 GiB-s at Tier 1 rates ≈ 5.2) — [run/pricing](https://cloud.google.com/run/pricing) |
 | Cloud Run web (request-based) | min 0 / max 2, 1 vCPU / 512 MiB | **≈ 1** | $0.0000336/vCPU-s active, $0.0000035/GiB-s, $0.40 per million requests; Cloudflare serves the hashed assets; 2 M requests + 180,000 vCPU-s free — [run/pricing](https://cloud.google.com/run/pricing) |
 | Cloud SQL `db-g1-small` ZONAL (Enterprise) | PostgreSQL 17, 10 GB SSD, 7 backups, PITR 7 d | **≈ 31** | $0.0385/h = 28.11; SSD $0.187/GiB-month × 10 = 1.87; backups $0.088/GiB-month × a few incremental GiB ≈ 0.5; PITR logs ≤ 1 (safety margin) — [sql/pricing](https://cloud.google.com/sql/pricing) |
-| Global external Application LB | 2 forwarding rules (443, 80; the first 5 are one flat charge), ≈ 50 GiB processed | **≈ 19** | $0.025/h = 18.25 + $0.009/GiB in and out ≈ 0.9 — [load-balancing/pricing](https://cloud.google.com/load-balancing/pricing), Montreal table in [vpc/network-pricing](https://cloud.google.com/vpc/network-pricing) |
-| Cloud Armor Standard | 1 policy, 3 rules (Cloudflare IPv4 ×2, IPv6) + requests | **≈ 8–10** | policy $0.006849315/h ≈ 5.00; rule $0.001369863/h ≈ 1.00 each; $0.75 per million requests — [armor/pricing](https://cloud.google.com/armor/pricing) |
+| Global external Application LB | 2 forwarding rules (443, 80; the first 5 are one flat charge), ≈ 50 GiB processed | **≈ 19** | $0.025/h = 18.25 + $0.009/GiB in and out ≈ 0.9 (Montreal selected in the region picker; the page's default view shows $0.008/GiB) — [load-balancing/pricing](https://cloud.google.com/load-balancing/pricing), Montreal table in [vpc/network-pricing](https://cloud.google.com/vpc/network-pricing) |
+| Cloud Armor Standard | 1 policy, 4 rules (Cloudflare IPv4 ×2, IPv6, default deny) + requests | **≈ 8–10** | policy $0.006849315/h ≈ 5.00; rule $0.001369863/h ≈ 1.00 each (the page does not say whether the default rule is billed); $0.75 per million requests — [armor/pricing](https://cloud.google.com/armor/pricing) |
 | Internet egress (LB → Cloudflare) | 30–100 GiB (JSON; images and assets are cached at the edge) | **≈ 4–12** | $0.12/GiB (Premium tier, 0–1 TiB, North America); Cloud Run's 1 GiB free — [vpc/network-pricing](https://cloud.google.com/vpc/network-pricing) |
 | Cloud Storage (media + card images ≤ 5 GB) | 5–8 GiB Standard, ≈ 1 M Class B ops | **≈ 1** | $0.023/GiB-month; Class A $0.005/1k, Class B $0.0004/1k; no Always Free in Montreal — [storage/pricing](https://cloud.google.com/storage/pricing) |
 | Artifact Registry | ≈ 2–4 GB after cleanup (+ the cached Valkey image) | **≈ 0.3** | 0.5 GB free, then $0.10/GiB-month — [artifact-registry/pricing](https://cloud.google.com/artifact-registry/pricing) |
 | Secret Manager | 6 generated + up to 3 Stripe versions; reads at instance start only | **≈ 0.2** | 6 active versions and 10,000 accesses free, then $0.06/version-month — [secret-manager/pricing](https://cloud.google.com/secret-manager/pricing) |
 | Cloud Scheduler | 10 jobs | **0.70** | 3 free, then $0.10/job-month — [scheduler/pricing](https://cloud.google.com/scheduler/pricing) |
-| Pub/Sub + BigQuery (analytics) | well under 10 GiB/month | **≈ 0–0.5** | 10 GiB of messages, 10 GiB of storage and 1 TiB of queries free; BigQuery subscription $50/TiB — [pubsub/pricing](https://cloud.google.com/pubsub/pricing), [bigquery/pricing](https://cloud.google.com/bigquery/pricing) |
+| Pub/Sub + BigQuery (analytics) | well under 10 GiB/month | **≈ 0–0.5** | the 10 GiB/month free tier covers basic message delivery only, not BigQuery-subscription throughput ($50/TiB, so 10 GiB ≈ 0.49); BigQuery's 10 GiB of storage and 1 TiB of queries are free — [pubsub/pricing](https://cloud.google.com/pubsub/pricing), [bigquery/pricing](https://cloud.google.com/bigquery/pricing) |
 | Certificate Manager, Direct VPC egress, LB addresses, Cloud Logging (< 50 GiB), Monitoring, uptime checks, Firebase Auth (< 50k MAU), Cloudflare Free | | **0** | 100 certificates/month free; no compute for Direct VPC egress; [free-cloud-features](https://docs.cloud.google.com/free/docs/free-cloud-features) |
-| **Total** | | **≈ 128–140** (≈ 125 at minimal traffic) | |
+| **Total** | | **≈ 131–142** (≈ 125 at minimal traffic) | |
 
-The US$115–130 target is met only at low egress: Montreal is a Cloud Run **Tier 2** region
+The total is the sum of the lines (66.7 + 1 + 31 + 19 + 8–10 + 3.6–12 + 1 + 0.3 + 0.2 + 0.7 +
+0–0.5 = 131.5–142.4); the minimal-traffic figure drops the web, egress and analytics lines to
+≈ 0.5 in all and keeps Cloud Armor at 8. The US$115–130 target is met only at low egress: Montreal is a Cloud Run **Tier 2** region
 (20 % above Tier 1) and has no Cloud Storage Always Free allowance. The remaining levers, in
 order of what they cost in reliability: Cloud Armor (≈ 8–10, the owner chose to keep it),
 Cloud SQL `db-f1-micro` for a very quiet soft launch (0.6 GB, `max_connections` 25, ≈ 8.47
@@ -317,8 +320,9 @@ The first 90 days are covered by the US$300 trial credit.
 
 Removed from the previous design (list prices, for comparison): Cloud SQL REGIONAL
 `db-custom-2-7680` (2 HA vCPU ≈ 132.71 + 7.5 GiB HA memory ≈ 84.32 + 20 GB HA SSD ≈ 7.48),
-Memorystore STANDARD_HA 5 GB with a replica (several hundred dollars; Basic M1 is $0.049/GB-hour
-at the default price, [memorystore pricing](https://cloud.google.com/memorystore/docs/redis/pricing)),
+Memorystore STANDARD_HA 5 GB with a replica (several hundred dollars; Basic M1 is $0.052/GiB-hour
+in Montreal, ≈ US$38/month for 1 GiB, [memorystore pricing](https://cloud.google.com/memorystore/docs/redis/pricing)
+with `northamerica-northeast1` selected),
 two `e2-micro` connector VMs (≈ 15, from memory), Cloud NAT ($0.0014/h per VM + $0.005/h per
 address + $0.045/GiB processed, [nat/pricing](https://cloud.google.com/nat/pricing)), the API at
 2 vCPU / 2 GiB, the web service always on.
@@ -342,7 +346,8 @@ Watch the alert policies of the monitoring module (`[prod] ...` in Cloud Monitor
    `redis_tier = "BASIC"`, `redis_memory_size_gb = 1`, `api_max_instances = 3` (lower
    `api_db_pool_size` so instances × pool stays under `max_connections`). Terraform recreates
    the `redis-url` secret and the API reads it; the realtime pub/sub and rate limits become
-   shared. Roughly US$36/month at the default price (Montreal not verified on the pricing page).
+   shared. About US$38/month in Montreal (Basic M1 $0.052/GiB-hour × 730 h, read on the pricing
+   page with the region selected).
 2. **An SLA-covered database, then HA:** `sql_tier = "db-custom-1-3840"`
    (`sql_connection_alert_threshold = 80`), later `sql_availability_type = "REGIONAL"` (twice
    the instance and storage price).
@@ -364,10 +369,17 @@ Watch the alert policies of the monitoring module (`[prod] ...` in Cloud Monitor
   Valkey against Cloud Run's TCP startup probe (fallback `redis_sidecar_bind_address =
   "0.0.0.0"`; only the api container's port is reachable from outside), a fractional sidecar CPU
   next to a 1 vCPU main container, the Certificate Manager authorization on a Cloudflare zone.
+  The sidecar CPU is the one cost-relevant unknown: the
+  [CPU page](https://docs.cloud.google.com/run/docs/configuring/services/cpu) ties "less than
+  1 vCPU" to request-based billing, the first-generation environment and concurrency 1 without
+  saying whether that is judged per container or per instance. If the apply rejects 0.1 vCPU,
+  do **not** give the sidecar a full vCPU (≈ US$51/month more, outside the budget): switch to
+  `redis_mode = "memorystore"` (Basic 1 GiB ≈ US$38) or run Valkey inside the api container
+  under a supervisor.
 - The Cloudflare edge rate limit is coarser than before; the API's own limits are the real ones.
 - CLAUDE.md's "Redis (Memorystore in cloud)" became "Valkey sidecar in year one, Memorystore on
   the scale-up path"; the non-negotiable part — never primary storage — is unchanged.
-- Rejected: Memorystore Basic from day one (≈ US$36–45/month for a cache that holds nothing
+- Rejected: Memorystore Basic from day one (≈ US$38–45/month for a cache that holds nothing
   durable); dropping the load balancer and Cloud Armor for Cloudflare → Cloud Run directly
   (saves ≈ US$27 but exposes the `run.app` URL to anyone who finds it and loses the Cloudflare-only
   origin); Cloud SQL Enterprise Plus (no shared-core tier, `max_connections` and price far above

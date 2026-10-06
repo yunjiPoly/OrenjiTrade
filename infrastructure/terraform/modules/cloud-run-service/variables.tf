@@ -246,7 +246,9 @@ variable "sidecars" {
     Every sidecar should declare a startup probe (`tcp_port`, or `http_path` + `http_port`);
     without one Cloud Run does not wait for it to be healthy. Images should be pinned by digest
     and pulled through Artifact Registry (a remote repository for Docker Hub), never `:latest`.
-    `cpu` may be fractional (0.08-0.99) as long as the instance total stays >= 1 vCPU.
+    `cpu` may be fractional (0.08-0.99); Cloud Run does not document whether its "less than
+    1 vCPU needs request-based billing and concurrency 1" rule is judged per container or per
+    instance, so confirm a fractional sidecar next to a 1 vCPU main container at the first apply.
   EOT
   type = list(object({
     name    = string

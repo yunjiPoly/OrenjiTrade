@@ -462,7 +462,7 @@ variable "redis_sidecar_image_digest" {
 }
 
 variable "redis_sidecar_cpu" {
-  description = "CPU limit of the Valkey sidecar (fractional; the instance total with the api container must stay >= 1 vCPU). 0.1 vCPU is ample for a cache of a few thousand users."
+  description = "CPU limit of the Valkey sidecar (fractional). 0.1 vCPU is ample for a cache of a few thousand users. To confirm at the first apply: Cloud Run documents that less than 1 vCPU requires request-based billing and concurrency 1 without saying whether that is judged per container or per instance; if 0.1 is rejected next to the 1 vCPU api container, prefer redis_mode = memorystore (Basic 1 GiB ~ US$38/month) over a full-vCPU sidecar (~ US$51/month more)."
   type        = string
   default     = "0.1"
 }
@@ -524,7 +524,7 @@ variable "api_cpu" {
 }
 
 variable "api_memory" {
-  description = "api container memory limit (the Valkey sidecar has its own). Measured 2026-10-05 on the production image at 1 vCPU / 1 GiB with the prod profile: 513 MiB RSS idle after start-up, 595 MiB RSS (588 MiB cgroup peak) under ~36 req/s of mixed public + authenticated load, live heap after GC <= 108 MiB, committed heap <= 209 MiB, i.e. ~390 MiB is non-heap (metaspace, code cache, threads, Netty/gRPC buffers). 1 GiB leaves ~40% headroom with the heap capped at 50% (api_java_tool_options); raise to 1.5Gi/2Gi when the memory utilisation alert (85%) fires."
+  description = "api container memory limit (the Valkey sidecar has its own). Measured locally (Docker, 1 vCPU / 1 GiB, not in the cloud) on 2026-10-05 on the production image with the prod profile: 513 MiB RSS idle after start-up, 595 MiB RSS (588 MiB cgroup peak) under ~36 req/s of mixed public + authenticated load, live heap after GC <= 108 MiB, committed heap <= 209 MiB, i.e. ~390 MiB is non-heap (metaspace, code cache, threads, Netty/gRPC buffers). 1 GiB leaves ~40% headroom with the heap capped at 50% (api_java_tool_options); raise to 1.5Gi/2Gi when the memory utilisation alert (85%) fires."
   type        = string
   default     = "1Gi"
 }

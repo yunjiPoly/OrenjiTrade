@@ -38,7 +38,7 @@ e-mail and analytics. `npm run infra:validate` keeps the Terraform code formatte
 The production configuration for a low-cost first year was prepared on branch
 `feature/prod-low-cost` ([ADR 0016](../architecture/adr/0016-low-cost-first-year-production-profile.md),
 `README.md`): the known go-live blockers are fixed in Terraform and the API, the cost is about
-US$128–140/month at list prices, and `README.md` documents the first-deploy order. Nothing has
+US$131–142/month at list prices, and `README.md` documents the first-deploy order. Nothing has
 been planned or applied; items 1–8 below are now a matter of the owner running the documented
 steps, not of missing code.
 

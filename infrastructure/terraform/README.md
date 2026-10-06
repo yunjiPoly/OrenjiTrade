@@ -58,7 +58,7 @@ Provider versions: `hashicorp/google` and `hashicorp/google-beta` `~> 7.46`,
 | ML | not instantiated (on hold) | `ml_enabled` |
 | Guardrails | billing budget US$150 (owner applies it), Artifact Registry keeps ~10 images per service, api CPU/memory and Cloud SQL disk alerts | `billing_account_id`, `monthly_budget_usd`, `artifact_registry_keep_versions` |
 
-The per-line monthly cost (≈ US$128–140 at Montreal list prices) and its sources are in
+The per-line monthly cost (≈ US$131–142 at Montreal list prices) and its sources are in
 ADR 0016 and `docs/deployment/README.md` section 13; the first-deploy order including the
 Cloudflare DNS and certificate steps is `docs/deployment/README.md` sections 1–11.
 
@@ -130,9 +130,11 @@ keep versioning on, never download state to a shared machine.
 1. Create the project, link billing, create the state bucket (above).
 2. `terraform apply -target=module.project_services -target=module.service_accounts -target=module.github_wif -target=module.artifact_registry`
    so GitHub Actions can authenticate and push the first images.
-3. Full `terraform apply`. Cloud Run starts with a placeholder image; the api revision only
-   becomes ready once the Valkey sidecar's TCP probe passes and the api's readiness probe
-   (db + redis) is green, which needs the real image and the secrets.
+3. Full `terraform apply`. Cloud Run starts with the placeholder image
+   `us-docker.pkg.dev/cloudrun/container/hello`, which answers 200 on every path, so the
+   placeholder revisions pass their probes and the apply completes. The real api revision
+   (step 5) only becomes ready once the Valkey sidecar's TCP probe passes and the api's
+   readiness probe (db + redis) is green, which needs the real image and the secrets.
 4. `terraform output certificate_dns_authorizations` and `load_balancer_ipv4`, then apply
    `infrastructure/cloudflare/terraform` (DNS-only `_acme-challenge` CNAMEs + proxied A
    records). The certificate moves to `ACTIVE` within minutes of the CNAMEs resolving.

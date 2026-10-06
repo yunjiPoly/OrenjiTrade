@@ -22,9 +22,10 @@ this document is applied by CI: an operator runs `terraform apply` by hand, neve
 - Access to the Cloudflare account owning `orenjitrade.com` (Free plan is enough, ADR 0016).
 - A Stripe account (test mode is enough until payments are switched on) and the Firebase console.
 
-**Which environments to create.** Year one runs **prod only** (about US$128–140/month at list
-prices, table below). `dev` is optional (≈ US$35–45/month idle: `db-f1-micro`, scale-to-zero,
-the load balancer's flat charge) and `staging` is created on demand and destroyed afterwards
+**Which environments to create.** Year one runs **prod only** (about US$131–142/month at list
+prices, table below). `dev` is optional (≈ US$30/month idle at the Montreal rates of ADR 0016:
+`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, seven billed
+scheduler jobs 0.70, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
 (section 12). Without a dev project the images are built into the **prod** registry: point the
 repository-level GitHub variables at prod in step 3.
 
@@ -133,9 +134,10 @@ Artifact Registry Docker Hub remote repository), the `web` service (scale-to-zer
 HTTPS load balancer with Cloud Armor and a Certificate Manager certificate in state
 `AUTHORIZING`, the ten Cloud Scheduler jobs, uptime checks and alert policies. No ML service.
 
-Cloud Run services start with `us-docker.pkg.dev/cloudrun/container/hello`; Terraform ignores
-the main container image afterwards so CI deploys are never reverted (the sidecar image stays
-Terraform-managed and pinned by digest).
+Cloud Run services start with `us-docker.pkg.dev/cloudrun/container/hello`, which answers 200
+on every path, so the placeholder revisions pass their probes and the apply completes; Terraform
+ignores the main container image afterwards so CI deploys are never reverted (the sidecar image
+stays Terraform-managed and pinned by digest).
 
 ```bash
 terraform output load_balancer_ipv4
@@ -326,7 +328,7 @@ month. New accounts get US$300 of credit for 90 days.
 | Cloud Run `web` (request-based) | min 0 / max 2, 1 vCPU / 512 MiB | ≈ 1 |
 | Cloud SQL `db-g1-small` ZONAL, Enterprise | PostgreSQL 17, 10 GB SSD, 7 backups, PITR 7 d | ≈ 31 |
 | Global external Application LB | 2 forwarding rules + ≈ 50 GiB processed | ≈ 19 |
-| Cloud Armor Standard | 1 policy, 3 rules, per-request fee | ≈ 8–10 |
+| Cloud Armor Standard | 1 policy, 4 rules (Cloudflare IPv4 ×2, IPv6, default deny), per-request fee | ≈ 8–10 |
 | Internet egress LB → Cloudflare | 30–100 GiB (images and assets cached at the edge) | ≈ 4–12 |
 | Cloud Storage | media + card images ≤ 5 GB, ≈ 1 M reads | ≈ 1 |
 | Artifact Registry | ≈ 10 versions × 2 images + the cached sidecar image | ≈ 0.3 |
@@ -334,7 +336,7 @@ month. New accounts get US$300 of credit for 90 days.
 | Cloud Scheduler | 10 jobs (3 free) | 0.70 |
 | Pub/Sub + BigQuery analytics | < 10 GiB/month | ≈ 0–0.5 |
 | Certificate Manager, Direct VPC egress, LB addresses, Logging < 50 GiB, Monitoring, uptime checks, Firebase Auth < 50k MAU, Cloudflare Free | | 0 |
-| **Total** | | **≈ 128–140** (≈ 125 at minimal traffic) |
+| **Total** | | **≈ 131–142** (≈ 125 at minimal traffic) |
 
 Not included: the domain registration (Cloudflare Registrar, at cost), Stripe fees, SMS for MFA,
 Google Maps loads beyond the free 10,000 per month, taxes. The previous scale-sized topology was
