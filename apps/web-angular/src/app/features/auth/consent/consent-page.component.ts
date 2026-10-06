@@ -17,6 +17,10 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { isApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import {
+  AGE_CONFIRMATION_TYPE,
+  AgeConfirmationCheckboxComponent,
+} from '../../../shared/legal/age-confirmation-checkbox.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
@@ -29,7 +33,8 @@ import {
 
 /**
  * `/auth/consent`: shown when the API answers 428 `TERMS_ACCEPTANCE_REQUIRED` (new documents,
- * new versions, or a Google sign-up). Records each acceptance, then continues.
+ * new versions, or a Google sign-up). Records each acceptance, plus the 18+ confirmation when the
+ * account has none yet (Google sign-ups never saw the sign-up checkbox), then continues.
  */
 @Component({
   selector: 'app-consent-page',
@@ -39,6 +44,7 @@ import {
     MatProgressSpinnerModule,
     AuthLayoutComponent,
     LegalConsentListComponent,
+    AgeConfirmationCheckboxComponent,
     ErrorStateComponent,
     SkeletonComponent,
   ],
@@ -80,6 +86,12 @@ import {
             [formArray]="consents"
             [showError]="submitted() && consents.invalid"
           />
+          @if (ageConfirmationPending()) {
+            <app-age-confirmation-checkbox
+              [control]="ageConfirmed"
+              [showError]="submitted() && ageConfirmed.invalid"
+            />
+          }
           <button
             matButton="filled"
             type="button"
@@ -112,6 +124,9 @@ export class ConsentPageComponent {
   readonly returnUrl = input<string | undefined>();
 
   protected readonly consents = new FormArray<FormControl<boolean>>([]);
+  protected readonly ageConfirmed = this.fb.control(false, {
+    validators: Validators.requiredTrue,
+  });
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly submitted = signal(false);
@@ -124,6 +139,10 @@ export class ConsentPageComponent {
       ...this.legal.describe(consent),
     }));
   });
+  /** The account never confirmed being 18+ and the API publishes the attestation to record. */
+  protected readonly ageConfirmationPending = computed(
+    () => this.session.me()?.onboarding?.ageConfirmed === false && !!this.legal.ageConfirmation(),
+  );
 
   constructor() {
     void this.reload();
@@ -148,14 +167,24 @@ export class ConsentPageComponent {
 
   protected async accept(): Promise<void> {
     this.submitted.set(true);
-    if (this.consents.invalid) {
+    const agePending = this.ageConfirmationPending();
+    if (this.consents.invalid || (agePending && this.ageConfirmed.invalid)) {
       this.consents.markAllAsTouched();
+      this.ageConfirmed.markAsTouched();
       return;
     }
     this.error.set(null);
     this.saving.set(true);
     try {
-      await this.session.acceptConsents(this.session.requiredConsents());
+      const consents = [...this.session.requiredConsents()].map((consent) => ({
+        documentType: consent.documentType as string,
+        version: consent.version,
+      }));
+      const age = this.legal.ageConfirmation();
+      if (agePending && age) {
+        consents.push({ documentType: AGE_CONFIRMATION_TYPE, version: age.version });
+      }
+      await this.session.acceptConsents(consents);
       await this.continue();
     } catch (error) {
       this.error.set(isApiError(error) ? friendlyMessage(error) : 'Please try again.');

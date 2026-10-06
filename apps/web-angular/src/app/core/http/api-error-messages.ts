@@ -97,6 +97,12 @@ export function friendlyError(error: ApiError): FriendlyError {
         title: 'Updated terms',
         message: 'Please review and accept the current terms to continue.',
       };
+    case 'AGE_CONFIRMATION_REQUIRED':
+      return {
+        title: 'Age confirmation needed',
+        message:
+          'OrenjiTrade is for people 18 years of age or older. Confirm your age to become discoverable, message collectors, post or make offers.',
+      };
     default:
       if (error.isServerError || error.status === 0) {
         return {

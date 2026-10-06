@@ -20,6 +20,9 @@ import { Role, hasAdminRole, roleList } from './roles';
  * - `loading`: `GET /me` has not answered yet for the current user;
  * - `ready`: active account, terms accepted;
  * - `consent-required`: `requiredConsents` is not empty (428 everywhere else);
+ *   (a missing 18+ confirmation is not a session state: it is an onboarding step, see
+ *   {@link needsOnboarding}, and the API answers 403 `AGE_CONFIRMATION_REQUIRED` on the gated
+ *   actions);
  * - `suspended`: 403 `ACCOUNT_SUSPENDED` (or a deleted account);
  * - `deletion-pending`: the owner asked for deletion; only /me, export and cancel work;
  * - `error`: the API could not be reached or failed; retryable.
@@ -104,11 +107,21 @@ export class SessionService {
     const fromMe = this.meState()?.requiredConsents ?? [];
     return fromMe.length > 0 ? fromMe : this.pendingConsentsState();
   });
-  /** Profile saved at least once and at least one game or tag chosen. */
+  /**
+   * Profile saved at least once, at least one game or tag chosen, and the 18+ confirmation
+   * recorded (`ageConfirmed === false`; an API that does not report the flag never asks for it).
+   */
   readonly needsOnboarding = computed(() => {
     const onboarding = this.meState()?.onboarding;
-    return !!onboarding && (!onboarding.profileComplete || !onboarding.interestsSet);
+    return (
+      !!onboarding &&
+      (!onboarding.profileComplete || !onboarding.interestsSet || onboarding.ageConfirmed === false)
+    );
   });
+  /** The account exists but never confirmed being 18 years of age or older. */
+  readonly needsAgeConfirmation = computed(
+    () => this.meState()?.onboarding?.ageConfirmed === false,
+  );
 
   constructor() {
     this.auth.changes$.pipe(takeUntilDestroyed()).subscribe((change) => {
@@ -225,6 +238,9 @@ export class SessionService {
       if (this.statusState() === 'deletion-pending') {
         void this.load();
       }
+    } else if (error.errorCode === 'AGE_CONFIRMATION_REQUIRED') {
+      // The onboarding flow records the confirmation; `/me` tells it which step to show.
+      this.redirect('/onboarding');
     }
   }
 
@@ -272,7 +288,7 @@ export class SessionService {
 
   private redirect(path: string): void {
     const current = this.router.url;
-    if (SESSION_PAGES.test(current)) {
+    if (SESSION_PAGES.test(current) || current.startsWith(path)) {
       return;
     }
     void this.router.navigate([path], { queryParams: { returnUrl: current } });

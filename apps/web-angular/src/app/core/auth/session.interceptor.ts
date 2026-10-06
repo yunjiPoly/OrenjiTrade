@@ -5,12 +5,17 @@ import { isApiError } from '../http/api-error';
 import { IS_API_REQUEST, SKIP_SESSION_REDIRECT } from '../http/http-context';
 import { SessionService } from './session.service';
 
-const SESSION_ERROR_CODES = new Set(['TERMS_ACCEPTANCE_REQUIRED', 'ACCOUNT_SUSPENDED']);
+const SESSION_ERROR_CODES = new Set([
+  'TERMS_ACCEPTANCE_REQUIRED',
+  'ACCOUNT_SUSPENDED',
+  'AGE_CONFIRMATION_REQUIRED',
+]);
 
 /**
- * Reports account-state answers (428 `TERMS_ACCEPTANCE_REQUIRED`, 403 `ACCOUNT_SUSPENDED`) from
- * any API call to {@link SessionService}, which routes to the consent or suspended page. The
- * error still reaches the caller. Opt out with the `SKIP_SESSION_REDIRECT` context token.
+ * Reports account-state answers (428 `TERMS_ACCEPTANCE_REQUIRED`, 403 `ACCOUNT_SUSPENDED`, 403
+ * `AGE_CONFIRMATION_REQUIRED`) from any API call to {@link SessionService}, which routes to the
+ * consent, suspended or onboarding page. The error still reaches the caller. Opt out with the
+ * `SKIP_SESSION_REDIRECT` context token.
  */
 export const sessionInterceptor: HttpInterceptorFn = (req, next) => {
   if (!req.context.get(IS_API_REQUEST) || req.context.get(SKIP_SESSION_REDIRECT)) {

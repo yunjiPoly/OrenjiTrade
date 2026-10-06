@@ -7,19 +7,24 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TagResponse } from '@orenji/api-client';
 import { safeReturnUrl } from '../../core/auth/auth.guards';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, isApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
+import {
+  AGE_CONFIRMATION_TYPE,
+  AgeConfirmationCheckboxComponent,
+} from '../../shared/legal/age-confirmation-checkbox.component';
+import { LegalDocumentsStore } from '../auth/data/legal-documents.store';
 import { DEFAULT_RADIUS_KM, DEFAULT_TRADING_CENTER } from '../../shared/location/city-presets';
 import { MyLocationStore } from '../../shared/location/my-location.store';
 import {
@@ -41,21 +46,25 @@ import { TagPickerComponent } from '../../shared/profile/tag-picker/tag-picker.c
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 
-type Busy = 'profile' | 'interests' | 'area' | null;
+type Busy = 'age' | 'profile' | 'interests' | 'area' | null;
 
 /**
- * `/onboarding`: three steps after sign-up — profile (handle, name, bio), interests (games,
- * languages, tags) and trading area (map picker + discoverability). Finishing goes to the map.
+ * `/onboarding`: the steps after sign-up — the 18+ confirmation when the account has none yet
+ * (existing accounts included; recorded with `POST /me/consents`), profile (handle, name, bio),
+ * interests (games, languages, tags) and trading area (map picker + discoverability). Finishing
+ * goes to the map. An account that only misses the confirmation is done right after it.
  */
 @Component({
   selector: 'app-onboarding-page',
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatSlideToggleModule,
     MatStepperModule,
+    AgeConfirmationCheckboxComponent,
     ProfileFieldsComponent,
     GamePickerComponent,
     LanguagePickerComponent,
@@ -74,6 +83,7 @@ export class OnboardingPageComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly profiles = inject(MyProfileStore);
   private readonly locations = inject(MyLocationStore);
+  protected readonly legal = inject(LegalDocumentsStore);
   protected readonly session = inject(SessionService);
   private readonly stepper = viewChild(MatStepper);
 
@@ -90,11 +100,19 @@ export class OnboardingPageComponent {
     source: 'MANUAL',
   });
   protected readonly discoverable = signal(false);
+  /** Unticked by default; the API records the confirmation (`AGE_CONFIRMATION`). */
+  protected readonly ageConfirmed = this.fb.control(false, {
+    validators: Validators.requiredTrue,
+  });
 
   protected readonly loading = signal(true);
   protected readonly loadError = signal<ApiError | null>(null);
   protected readonly busy = signal<Busy>(null);
   protected readonly stepError = signal<string | null>(null);
+  /** The age step is part of this visit (decided once, so step indexes never shift). */
+  protected readonly ageStep = signal(false);
+  protected readonly ageDone = signal(true);
+  protected readonly ageSubmitted = signal(false);
   protected readonly profileDone = signal(false);
   protected readonly interestsDone = signal(false);
   protected readonly interestsInvalid = signal(false);
@@ -109,7 +127,11 @@ export class OnboardingPageComponent {
   protected async load(): Promise<void> {
     this.loading.set(true);
     this.loadError.set(null);
-    const [profile, locationOk] = await Promise.all([this.profiles.load(), this.locations.load()]);
+    const [profile, locationOk] = await Promise.all([
+      this.profiles.load(),
+      this.locations.load(),
+      this.legal.load(),
+    ]);
     if (!profile || !locationOk) {
       this.loadError.set(this.profiles.error() ?? this.locations.error());
       this.loading.set(false);
@@ -122,6 +144,10 @@ export class OnboardingPageComponent {
     this.tags.set(curated);
     this.customTags.set(custom);
     const onboarding = this.session.me()?.onboarding;
+    // Only an API that reports the flag as false asks for the confirmation.
+    const ageConfirmed = onboarding?.ageConfirmed !== false;
+    this.ageDone.set(ageConfirmed);
+    this.ageStep.set(!ageConfirmed);
     this.profileDone.set(!!onboarding?.profileComplete);
     this.interestsDone.set(!!onboarding?.interestsSet);
     const saved = this.locations.location()?.tradingArea;
@@ -135,6 +161,38 @@ export class OnboardingPageComponent {
     }
     this.discoverable.set(this.locations.privacy()?.discoverable ?? false);
     this.loading.set(false);
+  }
+
+  protected retryLegal(): void {
+    void this.legal.load(true);
+  }
+
+  /**
+   * Records the 18+ confirmation. Accounts that already finished the other steps (existing
+   * collectors confirming on their next sign-in) are done right away.
+   */
+  protected async confirmAge(): Promise<void> {
+    this.ageSubmitted.set(true);
+    if (this.ageConfirmed.invalid) {
+      this.ageConfirmed.markAsTouched();
+      return;
+    }
+    await this.run('age', async () => {
+      const document = this.legal.ageConfirmation();
+      if (!document) {
+        throw new Error('The age confirmation is not published by the API');
+      }
+      await this.session.acceptConsents([
+        { documentType: AGE_CONFIRMATION_TYPE, version: document.version },
+      ]);
+      this.ageDone.set(true);
+      if (this.profileDone() && this.interestsDone()) {
+        this.snackBar.open('Thanks for confirming. Welcome back!', 'OK', { duration: 5000 });
+        await this.router.navigateByUrl(safeReturnUrl(this.returnUrl()));
+        return;
+      }
+      this.advance();
+    });
   }
 
   protected async saveProfile(): Promise<void> {

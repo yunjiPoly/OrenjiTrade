@@ -106,6 +106,71 @@ describe('SessionService', () => {
     await expect(session.ensureLoaded()).resolves.toBe('ready');
   });
 
+  it('asks for onboarding while the 18+ confirmation is missing, not when unreported', async () => {
+    await signInAndAnswer(
+      me({
+        onboarding: {
+          profileComplete: true,
+          tradingAreaSet: true,
+          interestsSet: true,
+          ageConfirmed: false,
+        },
+      }),
+    );
+    expect(session.status()).toBe('ready');
+    expect(session.needsOnboarding()).toBe(true);
+    expect(session.needsAgeConfirmation()).toBe(true);
+  });
+
+  it('does not require onboarding for a confirmed or an unreported age flag', async () => {
+    await signInAndAnswer(
+      me({
+        onboarding: {
+          profileComplete: true,
+          tradingAreaSet: true,
+          interestsSet: true,
+          ageConfirmed: true,
+        },
+      }),
+    );
+    expect(session.needsOnboarding()).toBe(false);
+    expect(session.needsAgeConfirmation()).toBe(false);
+    // An API without the flag (older contract) never asks for it.
+    expect(
+      me().onboarding.ageConfirmed,
+      'the fixture mirrors an API that does not report the flag',
+    ).toBeUndefined();
+  });
+
+  it('routes 403 AGE_CONFIRMATION_REQUIRED answers to the onboarding flow', async () => {
+    await signInAndAnswer(me());
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    session.handleApiError(
+      new ApiError(
+        {
+          errorCode: 'AGE_CONFIRMATION_REQUIRED',
+          message: 'Confirm that you are 18 years of age or older to continue',
+          requestId: null,
+          status: 403,
+          fieldErrors: {},
+        },
+        {
+          problem: {
+            requiredConsents: [{ documentType: 'AGE_CONFIRMATION', version: '2026-10-05' }],
+          },
+        },
+      ),
+    );
+
+    // Not a session state: the account stays usable, only the gated action was refused.
+    expect(session.status()).toBe('ready');
+    expect(navigate).toHaveBeenCalledWith(['/onboarding'], {
+      queryParams: { returnUrl: '/' },
+    });
+  });
+
   it('reports pending consents and pending deletions', async () => {
     await signInAndAnswer(
       me({

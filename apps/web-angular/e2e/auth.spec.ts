@@ -35,9 +35,12 @@ test.describe('authentication and onboarding', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
 
-    // Submitting without the consents shows the inline validation message.
+    // Submitting without the consents shows the inline validation messages (documents + 18+).
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByText('Please accept every document to continue.')).toBeVisible();
+    await expect(
+      page.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.'),
+    ).toBeVisible();
 
     const terms = page.getByRole('link', { name: 'Terms of Service' });
     await expect(terms).toHaveAttribute('href', '/legal/terms');
@@ -45,6 +48,10 @@ test.describe('authentication and onboarding', () => {
     for (const box of await page.getByRole('checkbox', { name: /I have read and accept/ }).all()) {
       await expect(box).toBeChecked();
     }
+    // "Accept all" never ticks the age confirmation: it is a separate, explicit statement.
+    const ageBox = page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ });
+    await expect(ageBox).not.toBeChecked();
+    await ageBox.check();
     await page.getByRole('button', { name: 'Create account' }).click();
 
     // --- Verify the email through the emulator's out-of-band code ---------------------------
@@ -123,9 +130,15 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByRole('menuitem', { name: 'Create account' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // --- Sign in again as the seed collector ---------------------------------------------------
+    // --- Sign in again as the seed collector: an existing account confirms its age first ------
     await signInThroughUi(page, 'collector1@orenjitrade.test', SEED_PASSWORD);
-    await expect(page).toHaveURL(/\/map$/);
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Are you 18 or older?' })).toBeVisible();
+    await expect(page.getByLabel('Handle')).not.toBeVisible();
+    await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page).toHaveURL(/\/map$/, { timeout: 20_000 });
+    await expect(page.getByText('Thanks for confirming. Welcome back!')).toBeVisible();
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-name')).toHaveText('Maïka Tremblay');
     await expect(page.getByTestId('account-menu-handle')).toHaveText('@collector1');
@@ -152,9 +165,15 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Review our terms' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Privacy Policy' })).toBeVisible();
     await page.getByRole('checkbox', { name: 'Accept all' }).check();
+    // The consent page also collects the 18+ confirmation (Google sign-ups never see sign-up).
+    await page.getByRole('button', { name: 'Accept and continue' }).click();
+    await expect(
+      page.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.'),
+    ).toBeVisible();
+    await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
     await page.getByRole('button', { name: 'Accept and continue' }).click();
 
-    // Terms accepted: a fresh account continues to onboarding.
+    // Terms accepted and age confirmed: a fresh account continues to the profile step.
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await expect(page.getByLabel('Handle')).toBeVisible();
   });

@@ -83,7 +83,7 @@ const COMMON_DEFINITIONS: LegalDefinition[] = [
   },
 ];
 
-const LAST_UPDATED = '2026-09-29';
+const LAST_UPDATED = '2026-10-05';
 
 export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
   terms: {
@@ -103,7 +103,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Acceptance of these terms',
         clauses: [
           'By creating an account or using the Service you agree to these Terms of Service, the Privacy Policy, the Community Guidelines and the Acceptable Use Policy.',
-          'You must be at least the age of majority in your jurisdiction, or use the Service under the supervision of a parent or guardian who accepts these terms on your behalf.',
+          'You must be 18 years of age or older to create an account or use the Service. OrenjiTrade is not intended for minors. When you create an account you confirm that you are 18 years of age or older; we record that confirmation and its date. We close accounts we find to belong to people under 18.',
           'We record the version of these terms you accepted and when. Material changes are announced in the app at least 14 days before they take effect.',
         ],
       },
@@ -251,10 +251,10 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
       },
       {
         id: 'international',
-        heading: 'International transfers and children',
+        heading: 'International transfers and age requirement',
         clauses: [
           'Data is hosted in [region to be confirmed]. Where data is transferred internationally we rely on appropriate safeguards such as standard contractual clauses.',
-          'The Service is not directed at children under 13 (or the higher age required locally). We delete accounts we learn belong to children below that age.',
+          'The Service is for people 18 years of age and older and is not directed at minors. We do not knowingly collect personal information from anyone under 18. We close accounts we find to belong to minors and delete their personal information, subject to the retention periods described above and to the law.',
         ],
       },
     ],
