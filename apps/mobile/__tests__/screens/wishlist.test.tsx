@@ -4,6 +4,7 @@ import WishlistScreen from '@/app/(tabs)/wishlist';
 import EditWishScreen from '@/app/wishlist/edit';
 import WishMatchesScreen from '@/app/wishlist/[id]';
 import NewWishScreen from '@/app/wishlist/new';
+import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -358,6 +359,14 @@ describe('Matches of a wish', () => {
     expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({
       recipientId: match.collector.id,
     });
+
+    // The listing accepts offers: "Make an offer" opens the form with the card and its holder.
+    fireEvent.press(screen.getByTestId(`match-offer-${match.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/offers/new',
+      params: { item: match.item.id },
+    });
+    expect(offerTargetFor(match.item.id)?.seller.displayName).toBe(match.collector.displayName);
 
     fireEvent.press(screen.getByTestId(`match-dismiss-${match.id}`));
     await waitFor(() => expect(screen.queryByTestId(`match-${match.id}`)).not.toBeOnTheScreen());

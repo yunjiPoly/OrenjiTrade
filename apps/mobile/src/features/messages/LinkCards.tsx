@@ -4,12 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BinderLink, CardLink, OfferLink } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
-import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { offerStatusInfo } from '@/src/features/offers/offerLabels';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
-
-/** What an offer tap says until the offers screens arrive in the app (mobile Phase 8 stage). */
-export const OFFERS_LATER_NOTE =
-  'Offers open in a later version of the app. Use orenjitrade.com to answer this one for now.';
 
 /**
  * A card or binder shared in a message or a community post (the web's `app-shared-link-card`):
@@ -101,32 +97,23 @@ export function SharedLinkCard({
 
 /** Human status of an offer (`OfferLink.status`). */
 export function offerStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    OPEN: 'Open',
-    COUNTERED: 'Countered',
-    ACCEPTED: 'Accepted',
-    DECLINED: 'Declined',
-    CANCELLED: 'Withdrawn',
-    EXPIRED: 'Expired',
-  };
-  return labels[status] ?? status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ');
+  return offerStatusInfo(status).label;
 }
 
 /**
  * An offer shared in a conversation (OFFER_LINK message, or the SYSTEM message the API posts on
- * every offer transition): the card picture, the live proposal's summary and status. The offer
- * screens arrive with the mobile Phase 8 stage; until then a tap explains where to answer it.
+ * every offer transition; web: `app-offer-link-card`): the card picture, the live proposal's
+ * summary and status. A tap opens the offer.
  */
 export function OfferLinkCard({ offer }: { offer: OfferLink }) {
   const { palette } = useTheme();
-  const snackbar = useSnackbar();
+  const router = useRouter();
   const status = offerStatusLabel(offer.status);
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Offer: ${offer.summary}, ${status}`}
-      accessibilityHint="Offers open in a later version of the app"
-      onPress={() => snackbar.show(OFFERS_LATER_NOTE, { duration: 6000 })}
+      accessibilityRole="link"
+      accessibilityLabel={`Open the offer: ${offer.summary}, ${status}`}
+      onPress={() => router.push({ pathname: '/offers/[id]', params: { id: offer.id } })}
       testID="offer-link-card"
       style={({ pressed }) => [
         styles.link,
@@ -154,6 +141,7 @@ export function OfferLinkCard({ offer }: { offer: OfferLink }) {
           {status}
         </Text>
       </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
     </Pressable>
   );
 }

@@ -7,7 +7,8 @@ import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { ListRow } from '@/src/components/ui/Layout';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-export type ThreadMenuAction = 'mute' | 'unmute' | 'archive' | 'block' | 'unblock';
+export type ThreadMenuAction =
+  'mute' | 'unmute' | 'archive' | 'block' | 'unblock' | 'report' | 'rate';
 
 /** The status line under the other collector's name (web: `ThreadHeaderComponent.status`). */
 export function threadStatus(
@@ -49,13 +50,14 @@ export function ThreadMenuButton({ name, onPress }: { name: string; onPress: () 
 /**
  * Thread header (the web's `app-thread-header`): the other collector (avatar, online dot,
  * "typing…", link to their profile) and the conversation options in a bottom sheet (opened by
- * {@link ThreadMenuButton}): mute, archive, block / unblock. Reporting a collector arrives with
- * the mobile Phase 7 stage.
+ * {@link ThreadMenuButton}): mute, archive, rate them (when an interaction can still be rated),
+ * block / unblock and report the collector.
  */
 export function ThreadHeader({
   conversation,
   typing,
   blocked,
+  canRate = false,
   menuOpen,
   onCloseMenu,
   onProfile,
@@ -64,6 +66,8 @@ export function ThreadHeader({
   conversation: ConversationSummary;
   typing: boolean;
   blocked: boolean;
+  /** An interaction with the other collector can still be rated ("Rate …"). */
+  canRate?: boolean;
   menuOpen: boolean;
   onCloseMenu: () => void;
   onProfile: () => void;
@@ -139,6 +143,15 @@ export function ThreadHeader({
           onPress={() => onAction('archive')}
           testID="conversation-archive"
         />
+        {canRate ? (
+          <ListRow
+            icon="star-outline"
+            label={`Rate ${other.displayName}`}
+            kind="button"
+            onPress={() => onAction('rate')}
+            testID="conversation-rate"
+          />
+        ) : null}
         {blocked ? (
           <ListRow
             icon="lock-open-variant-outline"
@@ -157,6 +170,14 @@ export function ThreadHeader({
             testID="conversation-block"
           />
         )}
+        <ListRow
+          icon="flag-outline"
+          label="Report collector"
+          kind="button"
+          tone="danger"
+          onPress={() => onAction('report')}
+          testID="conversation-report"
+        />
       </BottomSheet>
     </View>
   );

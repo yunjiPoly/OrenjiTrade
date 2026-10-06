@@ -1,0 +1,173 @@
+# Offers, trades and ratings (mobile Phases 7 and 8): Ada (fresh, fictional) opens the public
+# binder of Ben (fresh, fictional, discoverable; driven from the host through the isolated API,
+# scripts/offers.js) and makes a cash offer on his Emberfang Fox. Ben counters: Ada's offer
+# screen follows the counter-offer live over the realtime channel; she accepts it and the trade
+# opens. She confirms the exchange, Ben confirms too and the trade completes live; Ada rates Ben
+# from the trade (the API holds her rating).
+appId: host.exp.exponent
+name: Offer, counter-offer, trade and rating
+tags:
+  - mobile-m5
+  - offers
+  - trades
+  - ratings
+---
+- runScript:
+    file: scripts/offers.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-index'
+    timeout: 60000
+
+# Ben's public binder (deep link, like a shared https://www.orenjitrade.com/binders/<id>).
+- openLink: ${APP_URL}/--/binders/${output.ben.binderId}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'public-binder-title'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'make-offer-${output.ben.itemId}'
+- takeScreenshot: offer-binder
+- tapOn:
+    id: 'make-offer-${output.ben.itemId}'
+
+# The offer: cash (the card is for trade or sale), 38.
+- extendedWaitUntil:
+    visible:
+      id: 'offer-target-name'
+      text: 'Emberfang Fox'
+    timeout: 60000
+- tapOn:
+    id: 'offer-amount'
+- inputText: '38'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'offer-submit'
+- takeScreenshot: offer-form
+- tapOn:
+    id: 'offer-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'offer-turn'
+      text: 'Waiting for Ben Maestro'
+    timeout: 60000
+
+# Ben counters with 42: the screen follows the live proposal.
+- runScript:
+    file: scripts/offers.js
+    env:
+      ACTION: counter
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      ITEM: ${output.ben.itemId}
+- extendedWaitUntil:
+    visible:
+      id: 'offer-turn'
+      text: 'Your turn to answer'
+    timeout: 60000
+# (Pill texts are matched by text: Android does not expose a View's nested text by its id.)
+- assertVisible: 'Round 2'
+- takeScreenshot: offer-countered
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'offer-accept'
+- tapOn:
+    id: 'offer-accept'
+- extendedWaitUntil:
+    visible:
+      id: 'accept-dialog-confirm'
+    timeout: 30000
+- tapOn:
+    id: 'accept-dialog-confirm'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'offer-trade-link-action'
+- extendedWaitUntil:
+    visible:
+      id: 'offer-trade-link-action'
+    timeout: 60000
+- tapOn:
+    id: 'offer-trade-link-action'
+
+# The trade: Ada confirms the exchange, then Ben (host): it completes live.
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Your move: meet and exchange the cards'
+    timeout: 60000
+- takeScreenshot: trade-agreed
+- tapOn:
+    id: 'trade-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'complete-dialog-confirm'
+    timeout: 30000
+- tapOn:
+    id: 'complete-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Waiting for Ben Maestro'
+    timeout: 60000
+- runScript:
+    file: scripts/offers.js
+    env:
+      ACTION: complete
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      ITEM: ${output.ben.itemId}
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Trade completed'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'trade-rate'
+    timeout: 60000
+- takeScreenshot: trade-completed
+
+# Ada rates Ben from the trade.
+- tapOn:
+    id: 'trade-rate'
+- extendedWaitUntil:
+    visible:
+      id: 'rate-overall-5'
+    timeout: 60000
+- tapOn:
+    id: 'rate-overall-5'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'rate-submit'
+- takeScreenshot: rate-form
+- tapOn:
+    id: 'rate-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Trade completed'
+    timeout: 60000
+- runScript:
+    file: scripts/offers.js
+    env:
+      ACTION: expect-rating
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      HANDLE: ${output.ben.handle}
+      EXPECT_OVERALL: '5'

@@ -84,19 +84,66 @@ describe('Notification centre', () => {
     expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1);
   });
 
-  it('explains notifications whose screen arrives later (offers), and marks one read in place', async () => {
-    const api = mockApi(routes());
+  it('opens offers, trades, reports and ratings, explains disputes, and marks one read in place', async () => {
+    const trade = notificationFixture({
+      id: 'n-trade',
+      type: 'TRADE_UPDATE',
+      title: 'Trade updated',
+      body: 'Noé confirmed the exchange.',
+      data: { tradeId: 't1', deepLink: '/trades/t1' },
+      readAt: new Date().toISOString(),
+    });
+    const decision = notificationFixture({
+      id: 'n-report',
+      type: 'REPORT_DECISION',
+      title: 'Your report was reviewed',
+      body: 'The moderation team reviewed your report.',
+      data: { deepLink: '/settings/reports' },
+      readAt: new Date().toISOString(),
+    });
+    const rating = notificationFixture({
+      id: 'n-rating',
+      type: 'RATING_RECEIVED',
+      title: 'New rating from Noé',
+      body: 'Noé rated you 5/5.',
+      data: { ratingId: 'r1', deepLink: '/collectors/maika?tab=ratings' },
+      readAt: new Date().toISOString(),
+    });
+    const dispute = notificationFixture({
+      id: 'n-dispute',
+      type: 'DISPUTE_UPDATE',
+      title: 'Dispute opened',
+      body: 'A dispute was opened.',
+      data: { disputeId: 'd1', tradeId: 't1' },
+      readAt: new Date().toISOString(),
+    });
+    const api = mockApi(
+      routes({
+        'GET /api/v1/notifications': ok(
+          notificationPage([match, offer, trade, decision, rating, dispute])
+        ),
+      })
+    );
     renderWithProviders(<NotificationsScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId(`notification-${offer.id}`));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      /Offers and trades open in a later version of the app/
-    );
-    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith('/offers/o1');
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/notifications/{id}/read')[0]?.path).toBe(
         `/api/v1/notifications/${offer.id}/read`
       )
     );
+    fireEvent.press(screen.getByTestId(`notification-${trade.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith('/trades/t1');
+    fireEvent.press(screen.getByTestId(`notification-${decision.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
+    fireEvent.press(screen.getByTestId(`notification-${rating.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith('/collectors/maika?tab=ratings');
+    mockRouter.push.mockClear();
+    fireEvent.press(screen.getByTestId(`notification-${dispute.id}`));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      /Disputes open in a later version of the app/
+    );
+    expect(mockRouter.push).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId(`notification-read-${match.id}`));
     await waitFor(() => expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0));
   });

@@ -19,6 +19,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { TextField } from '@/src/components/ui/TextField';
 import { SharedLinkCard } from '@/src/features/messages/LinkCards';
+import { reportParams } from '@/src/features/reports/reportLabels';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -36,8 +37,8 @@ export interface PostItemProps {
 
 /**
  * One post of a channel (the web's `app-post-item`): author, time, text, shared card / binder,
- * the reply toggle and the post options (edit and delete for the author, block the author for
- * everyone else). Editing happens in place; replies open inline.
+ * the reply toggle and the post options (edit and delete for the author, block or report the
+ * author for everyone else). Editing happens in place; replies open inline.
  */
 export function PostItem({ post, slug, selfId, onDelete, onBlockAuthor }: PostItemProps) {
   const { palette } = useTheme();
@@ -221,17 +222,33 @@ export function PostItem({ post, slug, selfId, onDelete, onBlockAuthor }: PostIt
             ) : null}
           </>
         ) : (
-          <ListRow
-            icon="cancel"
-            label={`Block ${post.author.displayName}`}
-            kind="button"
-            tone="danger"
-            onPress={() => {
-              setMenuOpen(false);
-              onBlockAuthor(post);
-            }}
-            testID="post-block-author"
-          />
+          <>
+            <ListRow
+              icon="cancel"
+              label={`Block ${post.author.displayName}`}
+              kind="button"
+              tone="danger"
+              onPress={() => {
+                setMenuOpen(false);
+                onBlockAuthor(post);
+              }}
+              testID="post-block-author"
+            />
+            <ListRow
+              icon="flag-outline"
+              label="Report collector"
+              kind="button"
+              tone="danger"
+              onPress={() => {
+                setMenuOpen(false);
+                router.push({
+                  pathname: '/report',
+                  params: reportParams(post.author, { source: 'POST', postId: post.id }),
+                });
+              }}
+              testID="post-report-author"
+            />
+          </>
         )}
       </BottomSheet>
     </View>

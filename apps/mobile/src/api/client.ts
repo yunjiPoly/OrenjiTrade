@@ -19,7 +19,11 @@ const AUTHORIZATION = 'Authorization';
 
 export const API_BASE_URL = appConfig.apiBaseUrl;
 
-function newRequestId(): string {
+/**
+ * A fresh UUID: the `X-Request-Id` of every call, and the `Idempotency-Key` a form keeps for
+ * its lifetime (a double submit or a retry after a lost answer repeats the first answer).
+ */
+export function newRequestId(): string {
   try {
     return Crypto.randomUUID();
   } catch {

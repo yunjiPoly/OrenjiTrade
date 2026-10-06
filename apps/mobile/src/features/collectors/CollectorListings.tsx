@@ -13,6 +13,8 @@ import { Button } from '@/src/components/ui/Button';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
+import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
+import { offerTargetFromItem } from '@/src/features/offers/offerTarget';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -96,8 +98,17 @@ export function PublicBindersSection({
   );
 }
 
-/** A preview of the public cards across binders (`GET /collectors/{handle}/inventory`). */
-export function PublicCardsSection({ items }: { items: QueryPart<PublicInventoryPage> }) {
+/**
+ * A preview of the public cards across binders (`GET /collectors/{handle}/inventory`), each with
+ * "Make an offer" when it accepts one.
+ */
+export function PublicCardsSection({
+  items,
+  profile,
+}: {
+  items: QueryPart<PublicInventoryPage>;
+  profile: CollectorProfileResponse;
+}) {
   const { palette } = useTheme();
   const list = items.data?.items ?? [];
   if (!items.data || list.length === 0) {
@@ -110,7 +121,23 @@ export function PublicCardsSection({ items }: { items: QueryPart<PublicInventory
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{cardCount(total)}</Text>
       <View style={styles.list}>
         {list.map((item) => (
-          <ItemRow key={item.id} item={item} testID={`collector-card-${item.id}`} />
+          <ItemRow
+            key={item.id}
+            item={item}
+            testID={`collector-card-${item.id}`}
+            footer={
+              <MakeOfferButton
+                inCard
+                target={offerTargetFromItem(item, {
+                  id: profile.id,
+                  displayName: profile.displayName,
+                  handle: profile.handle,
+                  avatarUrl: profile.avatarUrl ?? null,
+                  placeLabel: profile.location?.publicLabel ?? null,
+                })}
+              />
+            }
+          />
         ))}
       </View>
     </SectionCard>

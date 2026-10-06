@@ -99,7 +99,7 @@ test.describe('mobile messages', () => {
     await expect(thread.getByText('Deal, see you there!')).toBeVisible({ timeout: 30_000 });
 
     // A photo from the library: uploaded first, then sent as an IMAGE message.
-    await thread.getByRole('button', { name: 'Attach a card, binder or photo' }).click();
+    await thread.getByRole('button', { name: 'Attach a card, binder, offer or photo' }).click();
     const chooser = page.waitForEvent('filechooser');
     await page.getByTestId('composer-attach-photo').click();
     await (await chooser).setFiles({ name: 'card.png', mimeType: 'image/png', buffer: PHOTO_PNG });
@@ -131,7 +131,7 @@ test.describe('mobile messages', () => {
     await expect(thread.getByText('Hello!')).toBeVisible({ timeout: 30_000 });
 
     // Share a card of the catalog: it arrives as a link card.
-    await thread.getByRole('button', { name: 'Attach a card, binder or photo' }).click();
+    await thread.getByRole('button', { name: 'Attach a card, binder, offer or photo' }).click();
     await page.getByTestId('composer-share-card').click();
     await thread.getByLabel('Card name or printing code').fill('Emberfang');
     await thread

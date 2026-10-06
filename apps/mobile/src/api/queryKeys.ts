@@ -88,6 +88,24 @@ export const meKeys = {
     [...ME_ROOT, uidKey(uid), 'notification-centre', 'feed'] as const,
   notificationFeed: (uid: Uid, unreadOnly: boolean) =>
     [...ME_ROOT, uidKey(uid), 'notification-centre', 'feed', { unreadOnly }] as const,
+  /** Every collector read of this viewer (profiles, their ratings and references; prefix). */
+  collectors: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'collectors'] as const,
+  /** Ratings (Phase 7): what the caller may still rate about one collector. */
+  ratingEligibility: (uid: Uid, userId: string) =>
+    [...ME_ROOT, uidKey(uid), 'rating-eligibility', userId] as const,
+  /** The caller's collector reports (`GET /me/reports`). */
+  reports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'reports'] as const,
+  /** Offers (Phase 8): every read (prefix), an inbox page set per query, one proposal. */
+  offers: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'offers'] as const,
+  offerList: (uid: Uid, query: object) =>
+    [...ME_ROOT, uidKey(uid), 'offers', 'list', query] as const,
+  offer: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'offers', 'one', id] as const,
+  offerSettings: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'offer-settings'] as const,
+  /** Trades (Phase 8): every read (prefix), a list per filter, one trade. */
+  trades: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'trades'] as const,
+  tradeList: (uid: Uid, filter: string) =>
+    [...ME_ROOT, uidKey(uid), 'trades', 'list', filter] as const,
+  trade: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'trades', 'one', id] as const,
 };
 
 export const publicKeys = {
@@ -99,6 +117,8 @@ export const publicKeys = {
   plans: ['public', 'plans'] as const,
   /** Public feature flags (`GET /public/feature-flags`: `publicChat`, ...). */
   featureFlags: ['public', 'feature-flags'] as const,
+  /** The reasons of the "Report collector" dialog (`GET /public/report-reasons`). */
+  reportReasons: ['public', 'report-reasons'] as const,
   /** A public binder as one viewer sees it (the owner block's distance bucket depends on them). */
   publicBinder: (id: string, uid: Uid) => ['public', 'binders', id, uidKey(uid)] as const,
   publicBinderItems: (id: string, uid: Uid, filters: object) =>

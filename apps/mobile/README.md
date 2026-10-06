@@ -51,6 +51,20 @@ the app. An ended session leads to the sign-in screen with an explanation, and a
 signed out reopens after signing in. Card recognition (Phase 11) is on hold: no scan flow, the
 `mlScanning` flag stays off.
 
+Phases 7 and 8 (stage M5) are implemented on the same API as the web: **Report collector**
+(`report`: the API's reasons, details, a confirmation; from profiles, the map preview,
+conversations, community posts and public binders) and **My reports** (`settings/reports`, the
+status only); **ratings and references** (`ratings/rate`, `ratings/reference`: overall and the four
+criteria after an eligible interaction, edits for 14 days, one reference per collector, from
+profiles, conversations and completed trades); **offers** ("Make an offer" on public cards from
+binders, profiles, the map's holders and wishlist matches; `offers/new`, `offers/counter`, the
+inbox `offers` with Received / Sent and status filters, one offer `offers/[id]` with accept /
+counter / decline / withdraw and the history; offer settings; offer links in chat open the offer
+and can be shared); **trades** (`trades`, `trades/[id]`: the next move, meetup, confirming the
+exchange, cancelling with a reason, the timeline, rating once completed). Admin and moderator
+consoles stay on the web; the payment-protection steps of Phase 9 are explained on the trade and
+done on the website for now.
+
 ## Prerequisites
 
 - Node 24 (`.nvmrc` at the repo root), npm 11, `npm ci` once at the repository root.
@@ -122,6 +136,13 @@ app/                       expo-router routes
   community/[slug].tsx     a public channel (posts, replies, own edits)
   (tabs)/wishlist.tsx      wishes; wishlist/new, edit (`?id=`), [id] (the wish's matches)
   notifications.tsx        the notification centre (the bell in every tab header opens it)
+  report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
+  ratings/                 rate (`?userId=&handle=&name=`, `&kind=TRADE`, `&rating=` to edit),
+                           reference (one per collector)
+  offers/                  index (Received / Sent, `?tab=&status=`), [id] (one proposal), new
+                           (`?item=`, the card handed over by "Make an offer"), counter (`?id=`)
+  trades/                  index (`?status=`), [id] (one trade: next move, steps, timeline)
+  settings/reports.tsx     My reports; settings/offers.tsx: mixed offers
   cards/[id].tsx           card detail (`?printing=` selects a printing)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
@@ -139,6 +160,10 @@ src/
                            catalog, inventory, binders, limits, map, collectors, messages, ...)
   components/map/          CollectorMap on three engines (react-native-maps, Leaflet in a
                            WebView, Leaflet on web), the WebView pages, the engine choice
+  features/offers/         offer vocabulary and rules (offerLabels, offerForm, offerProblems,
+                           offerTarget + the in-memory target store), the editor, the deal, the
+                           history, the action bar; features/trades/: trade labels, steps,
+                           timeline; features/reports/, features/ratings/: their rules and routes
   realtime/                STOMP 1.2 codec + connection, RealtimeClient, RealtimeProvider
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
   lib/                     pure helpers (3-decimal coordinates, distance buckets, card picture URLs,
@@ -232,12 +257,31 @@ Conventions later stages reuse:
   read marker is sent only while the thread is visible; photos are checked (JPEG / PNG / WebP,
   8 MB) before `POST /uploads/images?kind=MESSAGE`; refusals (`MESSAGING_BLOCKED`,
   `MESSAGE_BLOCKED`, `POST_BLOCKED`, `DUPLICATE_POST`, 429 with `retryAfterSeconds`) are explained
-  where they happen. Offers are not on mobile yet: offer links and offer notifications explain
-  where to answer.
+  where they happen. Offer links open the offer; "Share an offer" links a negotiation with the
+  other collector (OFFER_LINK).
+- **Offers and trades** (`src/features/offers/`, `src/features/trades/`, the web's
+  `shared/offers` and `features/{offers,trades}`): "Make an offer" (`MakeOfferButton`) shows only
+  on a card that accepts a kind of offer and is not the viewer's; it hands the card over to
+  `offers/new` in memory (`offerTargetStore`: no endpoint reads one public item; a reloaded page
+  asks to choose the card again). The form offers only the kinds the availability allows, sends
+  once with an `Idempotency-Key` fixed for the screen, and words every refusal through
+  `offerProblem` (the web's wording; `LIMIT_REACHED` with used / allowed and the reset). Answers
+  always send the version on screen; `STALE_OFFER` moves to `latestOfferId`, other conflicts
+  re-read. Screens only offer the API's `allowedActions` / `allowedOperations`. A counter-offer
+  that arrives while its offer is open replaces it on screen (`router.setParams`). Pushed OFFER_* and
+  trade notifications invalidate `['me', uid, 'offers' | 'trades']`. Payment protection (Phase 9)
+  is explained on the trade and stays on the website.
+- **Ratings and reports** (`src/features/collectors/ratingLabels.ts`, `src/features/ratings/`,
+  `src/features/reports/`): the rate, reference and report screens take the collector (and the
+  report's context or the rating to edit) in their route params (`ratingParams`,
+  `reportParams`, validated again when read); eligibility comes from `GET /ratings/eligibility`
+  and is never guessed; a report is sent with an `Idempotency-Key` and the reporter only ever
+  sees statuses.
 - **Notifications** (`src/features/notifications/notificationKinds.ts`, the web's
   `notification-kinds.ts`): an icon / tone / label per type, and the web path of a notification
   (`data.deepLink` when it is a safe same-app path, else rebuilt from its ids) mapped to an app
-  screen (`mobileTarget`), or a "later version" note for screens of later stages.
+  screen (`mobileTarget`: offers, trades, My reports and `?tab=ratings` included), or a "later
+  version" note for screens of later stages (disputes, Premium, credits, payouts).
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
@@ -318,7 +362,13 @@ photo; a card link, mute and a block both ways), `community.spec.ts` (channels w
 activity, post, edit, reply, delete), `wishlist.spec.ts` (a wish, then a listing nearby: the bell
 and the match count rise live, the notification opens the matches with a distance bucket only,
 Message), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
-leads to sign-in with the notice), `collector-map-page.spec.ts` (the
+leads to sign-in with the notice), `reports.spec.ts` (report a collector from the profile with
+the API's reasons -> "Report sent" -> My reports with the status; a second open report refused
+(409); a report from a conversation's options), `offers.spec.ts` (a cash offer from a public
+binder -> the seller's counter-offer (API) followed live -> accept -> the trade -> both confirm
+(the seller through the API, the completion arrives live) -> rate from the trade and a reference
+(a banned term refused); a received offer countered from the app and declined with a reason),
+`collector-map-page.spec.ts` (the
 Android WebView collector page in Chromium: zone size at 14, zoom cap, taps, clusters, a static
 profile map, a 0 x 0 first layout, Leaflet failure). The static web export served by `expo serve`
 has no rewrites for dynamic routes
@@ -368,7 +418,11 @@ Community -> General, a post and a reply checked on the API by `scripts/communit
 carry the run's handle because the channel keeps earlier runs' posts),
 `wishlist-match-notification.yaml` (a wish made in the app, a listing nearby by a second collector
 (`scripts/wishlist.js`): the bell's badge and the match count rise live, the notification opens
-the matches, then a conversation). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+the matches, then a conversation), `offer-trade-rating.yaml` (a cash offer on a public card
+opened by deep link, the seller's counter-offer from the host (`scripts/offers.js`) followed live,
+accept, the trade, both confirmations and the live completion, a rating checked on the API),
+`report-collector.yaml` (report a collector from the profile, the confirmation, My reports,
+checked on the API). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
@@ -383,15 +437,17 @@ Metro after source changes (`npm run test:mobile:maestro -- --stop`).
 
 - Custom scheme: `orenjitrade://collectors/<handle>`, `orenjitrade://cards/<id>`,
   `orenjitrade://binders/<id>`, and every other app route (`orenjitrade://messages/<id>`,
-  `orenjitrade://wishlist/<id>`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`).
+  `orenjitrade://wishlist/<id>`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
+  `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`).
   Signed out, a link leads to sign-in and opens after signing in.
 - Universal/App Links: `https://www.orenjitrade.com/(collectors|cards|binders)/<id>` via
   `ios.associatedDomains` and Android `intentFilters` (`autoVerify`) in `app.config.ts`.
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The mobile UIs of Phases 7-10 (rating collectors and "Report", offers and trades, payments,
-  Premium and credits). The Map tab leaves out the web map's tag and freshness filters and its
+- The mobile UIs of Phases 9 and 10 (payment protection: pay, ship, confirm receipt,
+  disputes, payouts; Premium, credits, ads, donations) and the admin / moderator consoles (web
+  only). "Make an offer" is not on the Map tab's list rows (the preview sheet has it). The Map tab leaves out the web map's tag and freshness filters and its
   search box (the Search tab finds cards; "Who has this near me" starts from a card). Moderators
   remove community posts on the web only; message photos come from the library (no camera).
 - Inventory extras of the web not on mobile yet: owner photos of an item, the multi-select bulk bar

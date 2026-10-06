@@ -25,6 +25,17 @@ export interface BinderLinkChoice {
   itemCount: number;
 }
 
+/** A negotiation with the conversation partner chosen to share (`offerId`). */
+export interface OfferLinkChoice {
+  offerId: string;
+  cardName: string;
+  /** Picture of the offer's card (API URL), `null` when unknown. */
+  imageUrl: string | null;
+  game: string | null;
+  terms: string;
+  status: string;
+}
+
 /** A photo picked from the library (`expo-image-picker` asset). */
 export interface PickedPhoto {
   uri: string;
@@ -41,6 +52,7 @@ export interface PickedPhoto {
 export type DraftAttachment =
   | { kind: 'card'; card: CardLinkChoice }
   | { kind: 'binder'; binder: BinderLinkChoice }
+  | { kind: 'offer'; offer: OfferLinkChoice }
   | { kind: 'image'; photo: PickedPhoto };
 
 /** What the composer hands to the thread when the collector presses Send. */
@@ -104,6 +116,8 @@ export function sendRequest(draft: MessageDraft, imageUploadId?: string): SendMe
       return { kind: 'CARD_LINK', body, cardPrintingId: attachment.card.printingId };
     case 'binder':
       return { kind: 'BINDER_LINK', body, binderId: attachment.binder.binderId };
+    case 'offer':
+      return { kind: 'OFFER_LINK', body, offerId: attachment.offer.offerId };
     case 'image':
       return { kind: 'IMAGE', body, imageUploadId };
     default:

@@ -59,7 +59,7 @@ describe('notification kinds', () => {
     );
   });
 
-  it('maps web paths to app screens, with a note for screens of later stages', () => {
+  it('maps web paths to app screens, with a note for screens of later stages (disputes, plans)', () => {
     expect(mobileTarget('/wishlist/w1')).toEqual({ kind: 'route', href: '/wishlist/w1' });
     expect(mobileTarget('/messages/c1')).toEqual({ kind: 'route', href: '/messages/c1' });
     expect(mobileTarget('/community')).toEqual({ kind: 'route', href: '/messages?view=community' });
@@ -69,7 +69,12 @@ describe('notification kinds', () => {
     });
     expect(mobileTarget('/inventory?binder=b1')).toEqual({ kind: 'route', href: '/binders/b1' });
     expect(mobileTarget('/inventory')).toEqual({ kind: 'route', href: '/inventory' });
+    // RATING_RECEIVED: the profile, scrolled to the ratings.
     expect(mobileTarget('/collectors/collector5?tab=ratings')).toEqual({
+      kind: 'route',
+      href: '/collectors/collector5?tab=ratings',
+    });
+    expect(mobileTarget('/collectors/collector5')).toEqual({
       kind: 'route',
       href: '/collectors/collector5',
     });
@@ -83,10 +88,18 @@ describe('notification kinds', () => {
       href: '/legal/community-guidelines',
     });
     expect(mobileTarget('/map')).toEqual({ kind: 'route', href: '/' });
-    expect(mobileTarget('/settings/reports').kind).toBe('later');
+    // Phase 7 and 8 screens (mobile stage M5).
+    expect(mobileTarget('/settings/reports')).toEqual({ kind: 'route', href: '/settings/reports' });
+    expect(mobileTarget('/settings/offers')).toEqual({ kind: 'route', href: '/settings/offers' });
+    expect(mobileTarget('/offers/o1')).toEqual({ kind: 'route', href: '/offers/o1' });
+    expect(mobileTarget('/offers')).toEqual({ kind: 'route', href: '/offers' });
+    expect(mobileTarget('/trades/t1')).toEqual({ kind: 'route', href: '/trades/t1' });
+    expect(mobileTarget('/trades')).toEqual({ kind: 'route', href: '/trades' });
+    expect(mobileTarget('/trades/bad id!')).toEqual({ kind: 'route', href: '/trades' });
+    // Still later: payouts and disputes (Phase 9).
     expect(mobileTarget('/settings/payouts').kind).toBe('later');
-    const offers = mobileTarget('/trades/t1');
-    expect(offers.kind === 'later' && offers.note).toMatch(/Offers and trades open in a later/);
+    const dispute = mobileTarget('/disputes/d1');
+    expect(dispute.kind === 'later' && dispute.note).toMatch(/Disputes open in a later/);
     const premium = mobileTarget('/premium');
     expect(premium.kind === 'later' && premium.note).toMatch(/Plans and Premium/);
     expect(mobileTarget('/something-else')).toEqual({ kind: 'route', href: '/notifications' });

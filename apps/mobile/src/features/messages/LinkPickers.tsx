@@ -6,14 +6,19 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useMyBinders } from '@/src/api/hooks/binders';
 import { fetchCard } from '@/src/api/hooks/catalog';
-import type { BinderResponse, CardDetail, CardSuggestion } from '@/src/api/types';
+import { useRecentOffers } from '@/src/api/hooks/offers';
+import type { BinderResponse, CardDetail, CardSuggestion, OfferSummary } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
+import { CardImage } from '@/src/components/ui/CardImage';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
+import { offerStatusInfo, offerTermsText } from '@/src/features/offers/offerLabels';
+import { StatusChip } from '@/src/features/offers/StatusChip';
+import { printingImageUrl } from '@/src/lib/catalog';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
-import type { BinderLinkChoice, CardLinkChoice } from './messageDraft';
+import type { BinderLinkChoice, CardLinkChoice, OfferLinkChoice } from './messageDraft';
 
 /** Height of an inline picker above the keyboard (the thread keeps the rest). */
 const PICKER_MAX_HEIGHT = 280;
@@ -238,6 +243,104 @@ export function BinderLinkPicker({
   return (
     <View style={styles.root} testID="binder-link-picker">
       <PickerHeader title="Share a binder" onCancel={onCancel} />
+      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+        <View style={styles.list}>{content}</View>
+      </ScrollView>
+    </View>
+  );
+}
+
+/** The negotiations with `otherId` among the caller's recent offers, as link choices. */
+export function offerChoices(offers: readonly OfferSummary[], otherId: string): OfferLinkChoice[] {
+  return offers
+    .filter((offer) => offer.counterparty.id === otherId)
+    .map((offer) => ({
+      offerId: offer.id,
+      cardName: offer.item?.card.name ?? 'A card',
+      imageUrl: printingImageUrl(offer.item?.printing),
+      game: offer.item?.card.game ?? null,
+      terms: offerTermsText({
+        kind: offer.kind,
+        cashAmount: offer.cashAmount,
+        currency: offer.currency,
+        cards: offer.tradeItemCount,
+      }),
+      status: offer.status,
+    }));
+}
+
+/**
+ * "Share an offer" (web: `app-offer-link-picker`): the caller's recent negotiations with the
+ * other participant (`GET /offers`, both sides; the API only links offers between the two).
+ */
+export function OfferLinkPicker({
+  otherId,
+  otherName,
+  onPicked,
+  onCancel,
+}: {
+  otherId: string;
+  otherName: string;
+  onPicked: (offer: OfferLinkChoice) => void;
+  onCancel: () => void;
+}) {
+  const { palette } = useTheme();
+  const offers = useRecentOffers();
+  const choices = useMemo(
+    () => offerChoices(offers.data?.items ?? [], otherId),
+    [offers.data, otherId]
+  );
+
+  let content;
+  if (offers.error && !offers.data) {
+    content = (
+      <View style={styles.note} testID="offer-link-picker-error">
+        <Text accessibilityRole="alert" style={[textStyle('sm'), { color: palette.danger }]}>
+          Your offers could not load.
+        </Text>
+        <Button label="Retry" variant="secondary" onPress={() => void offers.refetch()} />
+      </View>
+    );
+  } else if (!offers.data) {
+    content = <SkeletonList rows={2} rowHeight={48} testID="offer-link-picker-loading" />;
+  } else if (choices.length === 0) {
+    content = (
+      <Text
+        testID="offer-link-picker-empty"
+        style={[textStyle('sm'), { color: palette.textMuted }]}
+      >
+        No offer with {otherName} yet. Make one from a card of their binders.
+      </Text>
+    );
+  } else {
+    content = choices.map((choice) => (
+      <Pressable
+        key={choice.offerId}
+        accessibilityRole="button"
+        accessibilityLabel={`${choice.cardName}, ${choice.terms}, ${offerStatusInfo(choice.status).label}`}
+        onPress={() => onPicked(choice)}
+        testID={`offer-option-${choice.offerId}`}
+        style={({ pressed }) => [
+          styles.option,
+          { borderColor: palette.border, backgroundColor: palette.surface },
+          pressed && styles.pressed,
+        ]}
+      >
+        <CardImage src={choice.imageUrl} alt="" game={choice.game} size="xs" />
+        <View style={styles.grow}>
+          <Text style={[textStyle('md'), styles.title, { color: palette.ink }]}>
+            {choice.cardName}
+          </Text>
+          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{choice.terms}</Text>
+        </View>
+        <StatusChip info={offerStatusInfo(choice.status)} />
+      </Pressable>
+    ));
+  }
+
+  return (
+    <View style={styles.root} testID="offer-link-picker">
+      <PickerHeader title={`Share an offer with ${otherName}`} onCancel={onCancel} />
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
         <View style={styles.list}>{content}</View>
       </ScrollView>

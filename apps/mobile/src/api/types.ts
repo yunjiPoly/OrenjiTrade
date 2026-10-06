@@ -133,3 +133,44 @@ export type NotificationType = NotificationResponse['type'];
 export type NotificationPage = Schemas['CursorPageNotificationResponse'];
 export type UnreadNotificationCount = Schemas['UnreadNotificationCount'];
 export type ReadAllNotificationsResponse = Schemas['ReadAllNotificationsResponse'];
+
+// --- Ratings, references and collector reports (Phase 7) ---------------------------------------
+export type RatingEligibility = Schemas['RatingEligibility'];
+export type RatingEligibilityInteraction = Schemas['RatingEligibilityInteraction'];
+export type InteractionKind = RatingEligibilityInteraction['kind'];
+export type RatingBreakdown = Schemas['RatingBreakdown'];
+export type CreateRatingRequest = Schemas['CreateRatingRequest'];
+export type UpdateRatingRequest = Schemas['UpdateRatingRequest'];
+export type CreateReferenceRequest = Schemas['CreateReferenceRequest'];
+export type ReportReasonOption = Schemas['ReportReasonOption'];
+export type ReportReason = ReportReasonOption['code'];
+export type ReportCollectorRequest = Schemas['ReportCollectorRequest'];
+export type ReportContextRequest = Schemas['ReportContextRequest'];
+export type ReportContextSource = ReportContextRequest['source'];
+export type ReportConfirmation = Schemas['ReportConfirmation'];
+export type MyReport = Schemas['MyReport'];
+export type ReportStatus = MyReport['status'];
+
+// --- Offers and trades (Phase 8) ----------------------------------------------------------------
+export type OfferResponse = Schemas['OfferResponse'];
+export type OfferSummary = Schemas['OfferSummary'];
+export type OfferPage = Schemas['CursorPageOfferSummary'];
+export type OfferParty = Schemas['OfferParty'];
+export type OfferTradeItem = Schemas['OfferTradeItem'];
+export type OfferEvent = Schemas['OfferEvent'];
+export type OfferTerms = Schemas['OfferTerms'];
+export type OfferKind = OfferResponse['kind'];
+export type OfferStatus = OfferResponse['status'];
+export type OfferRole = OfferResponse['viewerRole'];
+export type OfferAction = OfferResponse['allowedActions'][number];
+export type CreateOfferRequest = Schemas['CreateOfferRequest'];
+export type CounterOfferRequest = Schemas['CounterOfferRequest'];
+export type OfferTradeItemRequest = Schemas['OfferTradeItemRequest'];
+export type OfferSettings = Schemas['OfferSettings'];
+export type TradeResponse = Schemas['TradeResponse'];
+export type TradeSummary = Schemas['TradeSummary'];
+export type TradePage = Schemas['CursorPageTradeSummary'];
+export type TradeEvent = Schemas['TradeEvent'];
+export type TradeNextAction = Schemas['TradeNextAction'];
+export type TradeStatus = TradeResponse['status'];
+export type TradeOperation = TradeResponse['allowedOperations'][number];

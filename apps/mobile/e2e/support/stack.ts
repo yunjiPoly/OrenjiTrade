@@ -373,6 +373,148 @@ export async function apiListCopy(
   expect(response.status(), 'POST /inventory/items').toBe(201);
 }
 
+/** A public card of `holder` in a public binder, with its options; returns the new item. */
+export async function apiListItem(
+  api: APIRequestContext,
+  holder: EmulatorUser,
+  binderId: string,
+  printingId: string,
+  options: Record<string, unknown> = {}
+): Promise<{ id: string; card: { id: string; name: string } }> {
+  const response = await api.post(`${API_URL}/api/v1/inventory/items`, {
+    headers: authHeader(holder.idToken),
+    data: {
+      printingId,
+      binderId,
+      condition: 'NEAR_MINT',
+      currency: 'CAD',
+      publicNotes: 'Fictional listing of the mobile E2E suite.',
+      ...options,
+    },
+  });
+  expect(response.status(), 'POST /inventory/items').toBe(201);
+  return (await response.json()) as { id: string; card: { id: string; name: string } };
+}
+
+export interface ApiOffer {
+  id: string;
+  status: string;
+  version: number;
+  latestOfferId: string;
+  tradeId?: string | null;
+  cashAmount?: number | null;
+}
+
+/** `GET /offers/{id}` as `as`. */
+export async function apiOffer(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  offerId: string
+): Promise<ApiOffer> {
+  const response = await api.get(`${API_URL}/api/v1/offers/${offerId}`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /offers/{id}').toBeTruthy();
+  return (await response.json()) as ApiOffer;
+}
+
+/** A cash offer by `buyer` on a public item (the second user of two-user specs). */
+export async function apiMakeOffer(
+  api: APIRequestContext,
+  buyer: EmulatorUser,
+  itemId: string,
+  cashAmount: number,
+  message?: string
+): Promise<ApiOffer> {
+  const response = await api.post(`${API_URL}/api/v1/offers`, {
+    headers: authHeader(buyer.idToken),
+    data: { itemId, kind: 'CASH', cashAmount, currency: 'CAD', ...(message ? { message } : {}) },
+  });
+  expect(response.status(), 'POST /offers').toBe(201);
+  return (await response.json()) as ApiOffer;
+}
+
+/** A cash counter-offer by `as` on the live proposal `offerId` (its current version). */
+export async function apiCounterOffer(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  offerId: string,
+  cashAmount: number
+): Promise<ApiOffer> {
+  const current = await apiOffer(api, as, offerId);
+  const response = await api.post(`${API_URL}/api/v1/offers/${offerId}/counter`, {
+    headers: authHeader(as.idToken),
+    data: {
+      kind: 'CASH',
+      cashAmount,
+      currency: 'CAD',
+      tradeItemIds: [],
+      version: current.version,
+    },
+  });
+  expect(response.status(), 'POST /offers/{id}/counter').toBe(200);
+  return (await response.json()) as ApiOffer;
+}
+
+/** `as` declines the live proposal `offerId` with a reason. */
+export async function apiDeclineOffer(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  offerId: string,
+  reason: string
+): Promise<void> {
+  const current = await apiOffer(api, as, offerId);
+  const response = await api.post(`${API_URL}/api/v1/offers/${offerId}/decline`, {
+    headers: authHeader(as.idToken),
+    data: { reason, version: current.version },
+  });
+  expect(response.status(), 'POST /offers/{id}/decline').toBe(200);
+}
+
+/** `as` confirms the exchange of a trade (both confirmations complete it). */
+export async function apiCompleteTrade(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  tradeId: string
+): Promise<{ status: string }> {
+  const response = await api.post(`${API_URL}/api/v1/trades/${tradeId}/complete`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.status(), 'POST /trades/{id}/complete').toBe(200);
+  return (await response.json()) as { status: string };
+}
+
+/** The ratings of a collector as `as` sees them. */
+export async function apiCollectorRatings(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  handle: string
+): Promise<{ items: { rater: { handle: string }; overall: number; comment?: string | null }[] }> {
+  const response = await api.get(`${API_URL}/api/v1/collectors/${handle}/ratings`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /collectors/{handle}/ratings').toBeTruthy();
+  return (await response.json()) as {
+    items: { rater: { handle: string }; overall: number; comment?: string | null }[];
+  };
+}
+
+/** `as`'s own reports (`GET /me/reports`). */
+export async function apiMyReports(
+  api: APIRequestContext,
+  as: EmulatorUser
+): Promise<{ status: string; reason: string; reportedUser: { handle: string } }[]> {
+  const response = await api.get(`${API_URL}/api/v1/me/reports`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /me/reports').toBeTruthy();
+  return (await response.json()) as {
+    status: string;
+    reason: string;
+    reportedUser: { handle: string };
+  }[];
+}
+
 /**
  * A random public point of rural Québec with 3 decimals (a region no other spec uses), so
  * parallel specs and earlier runs never match each other's listings.
@@ -433,10 +575,16 @@ export function snackbar(page: Page): Locator {
  */
 export async function openInApp(page: Page, path: string): Promise<void> {
   // Any rendered screen means expo-router is mounted and listening to the history.
-  await expect(page.locator('[data-testid^="screen-"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.locator('[data-testid^="screen-"]').filter({ visible: true }).first()
+  ).toBeVisible({
+    timeout: 30_000,
+  });
   await page.evaluate((target) => {
     window.history.pushState(null, '', target);
     window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
   }, path);
-  await expect(page).toHaveURL(new RegExp(`${path.replace(/[?]/g, '\?')}$`));
+  // The whole path, query string included, taken literally.
+  const literal = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await expect(page).toHaveURL(new RegExp(`${literal}$`));
 }

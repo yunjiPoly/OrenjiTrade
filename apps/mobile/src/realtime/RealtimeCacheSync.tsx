@@ -20,11 +20,21 @@ import {
 
 import { useRealtimeEvent } from './RealtimeProvider';
 
+/** Notifications that change a trade (its list rows and screen). */
+const TRADE_TYPES = new Set<string>([
+  'TRADE_UPDATE',
+  'OFFER_ACCEPTED',
+  'PAYMENT_UPDATE',
+  'SHIPMENT_STATUS',
+  'DISPUTE_UPDATE',
+]);
+
 /**
  * Applies realtime pushes to the react-query caches (the web's stores subscribing to
  * `RealtimeService`): messages into their thread and the inbox, read receipts ("Seen", unread
- * counts), presence dots, notifications (badge once per push, feeds, wishlist match counts), and
- * after every (re)connection a quiet re-read of what may have been missed. Renders nothing.
+ * counts), presence dots, notifications (badge once per push, feeds, wishlist match counts, the
+ * offers, trades, ratings and reports they announce), and after every (re)connection a quiet
+ * re-read of what may have been missed. Renders nothing.
  */
 export function RealtimeCacheSync() {
   const queryClient = useQueryClient();
@@ -82,6 +92,20 @@ export function RealtimeCacheSync() {
       // Match counts and the matches of the wish change.
       void queryClient.invalidateQueries({ queryKey: meKeys.wishlist(uid) });
     }
+    if (notification.type.startsWith('OFFER_')) {
+      // The inbox rows and the negotiation on screen (the offer screen follows a counter-offer).
+      void queryClient.invalidateQueries({ queryKey: meKeys.offers(uid) });
+    }
+    if (TRADE_TYPES.has(notification.type)) {
+      void queryClient.invalidateQueries({ queryKey: meKeys.trades(uid) });
+    }
+    if (notification.type === 'RATING_RECEIVED') {
+      // The caller's own profile shows the new rating and summary.
+      void queryClient.invalidateQueries({ queryKey: meKeys.collectors(uid) });
+    }
+    if (notification.type === 'REPORT_DECISION') {
+      void queryClient.invalidateQueries({ queryKey: meKeys.reports(uid) });
+    }
   });
 
   useRealtimeEvent('resync', () => {
@@ -91,6 +115,9 @@ export function RealtimeCacheSync() {
     void queryClient.invalidateQueries({ queryKey: meKeys.allMessages(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.notificationCentre(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.wishlist(uid) });
+    void queryClient.invalidateQueries({ queryKey: meKeys.offers(uid) });
+    void queryClient.invalidateQueries({ queryKey: meKeys.trades(uid) });
+    void queryClient.invalidateQueries({ queryKey: meKeys.reports(uid) });
   });
 
   return null;
