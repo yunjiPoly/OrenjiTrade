@@ -63,7 +63,13 @@ tags:
       EXPECT_COUNT: 1
       HANDLE: ${output.ben.handle}
 
-# Settings -> Blocked users: Ben, then Unblock.
+# Settings -> Blocked users: Ben, then Unblock (back to the inbox first: the tabs sit under the
+# conversation).
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'tab-profile'
+    timeout: 60000
 - runFlow: subflows/open-profile-tab.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml

@@ -16,6 +16,9 @@
 //            output.card.{id, name}, output.items.{offers, cheap}
 // ACTION=expect-blocks checks, as EMAIL / PASSWORD, that `GET /me/blocks` holds EXPECT_COUNT
 //   collectors (HANDLE among them when given).
+// ACTION=verify-email marks the e-mail of EMAIL / PASSWORD as verified in the emulator (a
+//   verification code requested, then applied; no e-mail is ever sent locally): Firebase then
+//   keeps the password when Google signs in with the same e-mail instead of replacing it.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
 // EXPECT_COUNT, HANDLE.
@@ -255,6 +258,35 @@ if (action === 'looking-for') {
       throw new Error(HANDLE + ' is not among the blocks: ' + JSON.stringify(blocks));
     }
   }
+} else if (action === 'verify-email') {
+  var idToken = signIn(EMAIL, PASSWORD);
+  check(
+    http.post(emulator + '/identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=demo-local-key', {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: idToken }),
+    }),
+    'emulator sendOobCode'
+  );
+  var codes = check(
+    http.get(emulator + '/emulator/v1/projects/orenjitrade-local/oobCodes'),
+    'emulator oobCodes'
+  ).oobCodes || [];
+  var code = null;
+  for (var c = 0; c < codes.length; c++) {
+    if (codes[c].email === EMAIL && codes[c].requestType === 'VERIFY_EMAIL') {
+      code = codes[c].oobCode;
+    }
+  }
+  if (!code) {
+    throw new Error('No verification code for ' + EMAIL);
+  }
+  check(
+    http.post(emulator + '/identitytoolkit.googleapis.com/v1/accounts:update?key=demo-local-key', {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oobCode: code }),
+    }),
+    'apply the verification code'
+  );
 } else {
   throw new Error('Unknown ACTION ' + action);
 }

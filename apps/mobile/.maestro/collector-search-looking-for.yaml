@@ -62,10 +62,15 @@ tags:
       id: 'collector-name'
       text: ${output.hal.displayName}
     timeout: 60000
+# The section sits at the bottom of the profile; its top edge shows before its text does.
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
       ID: 'collector-wishlist'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: '1 card ${output.hal.displayName} is looking for'
 - assertVisible: '1 card ${output.hal.displayName} is looking for'
 - runFlow:
     file: subflows/scroll-down-to.yaml

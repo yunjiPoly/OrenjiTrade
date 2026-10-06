@@ -1,8 +1,9 @@
 # Card holders with filters (mobile stage M7): Ada (fresh, fictional, a trading area around a
 # random rural point) opens Emberfang Fox, which Ben (about 1.5 km away; scripts/parity.js) lists
 # twice in a public binder, presses "Who has this near me" and gets the holders as a list: both
-# copies with their prices, sorted by price, then narrowed to the copies for sale, then every copy
-# again; "Show on the map" is the alternative view.
+# copies with their prices, sorted by price, then narrowed to the Lightly Played copy, then every
+# copy again; "Show on the map" is the alternative view. (The availability filter "Sale" also
+# matches "trade or sale" copies, like the map's intent filter, so the condition narrows here.)
 appId: host.exp.exponent
 name: Card holders list with sort and filters
 tags:
@@ -74,15 +75,15 @@ tags:
     id: 'holders-count'
     text: '2 listings near you'
 
-# Narrowed to the copies for sale only: the 20 CAD copy stays.
+# Narrowed to the Lightly Played copy: the 20 CAD copy stays.
 - tapOn:
     id: 'holders-filters'
 - extendedWaitUntil:
     visible:
-      id: 'holder-availability-SALE'
+      id: 'holder-condition-LIGHTLY_PLAYED'
     timeout: 30000
 - tapOn:
-    id: 'holder-availability-SALE'
+    id: 'holder-condition-LIGHTLY_PLAYED'
 - tapOn:
     id: 'holder-filters-done'
 - extendedWaitUntil:
