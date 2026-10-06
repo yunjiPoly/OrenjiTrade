@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
@@ -125,6 +125,7 @@ export default function TradeScreen() {
   >(null);
   // The checkout screen's answer is told once (state adjusted while rendering).
   const [checkoutTold, setCheckoutTold] = useState<string | null>(null);
+  const scroll = useRef<ScrollView>(null);
   const data = trade.data ?? null;
   const completed = data?.status === 'COMPLETED';
   const eligibility = useRatingEligibility(data?.counterparty.id, completed);
@@ -150,6 +151,13 @@ export default function TradeScreen() {
           }
     );
   }
+
+  // Back from the checkout: the notice is at the top.
+  useEffect(() => {
+    if (checkoutTold) {
+      scroll.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [checkoutTold]);
 
   if (!data) {
     let content;
@@ -304,6 +312,7 @@ export default function TradeScreen() {
     <View style={styles.fill} testID="screen-trade">
       <Stack.Screen options={{ title: current.offer.item?.card.name ?? 'Trade' }} />
       <ScrollView
+        ref={scroll}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={trade.isRefetching} onRefresh={() => void trade.refetch()} />

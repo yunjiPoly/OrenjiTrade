@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { useMyDonations, useStartDonationCheckout, useSupporters } from '@/src/api/hooks/billing';
@@ -39,6 +39,17 @@ export default function SupportScreen() {
     amount: string | null;
     currency: string | null;
   } | null>(null);
+
+  const scroll = useRef<ScrollView>(null);
+  const thanks = donation === 'thanks';
+
+  // Back from the checkout (this screen may still be scrolled down to the form): show the
+  // thank-you at the top.
+  useEffect(() => {
+    if (thanks) {
+      scroll.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [thanks]);
 
   const donate = async (request: DonationCheckoutRequest) => {
     setProblem(null);
@@ -78,13 +89,13 @@ export default function SupportScreen() {
   }
 
   return (
-    <Screen scroll safeBottom testID="screen-support">
+    <Screen scroll safeBottom scrollRef={scroll} testID="screen-support">
       <View style={styles.root}>
         <ScreenHeader
           title="Support OrenjiTrade"
           subtitle="OrenjiTrade is built by collectors for collectors. If it helps you trade, you can chip in."
         />
-        {donation === 'thanks' ? (
+        {thanks ? (
           <View
             testID="donation-thanks"
             accessibilityRole="summary"

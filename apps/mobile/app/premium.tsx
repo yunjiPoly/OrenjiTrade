@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -71,12 +71,21 @@ export default function PremiumScreen() {
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<CancelDialog>(null);
+  const scroll = useRef<ScrollView>(null);
 
   const premiumEnabled = flags.data?.[FEATURE.premiumPlans] === true;
   const creditsEnabled = flags.data?.[FEATURE.credits] === true;
   const subscription = myPlan.data?.subscription ?? null;
   const currentPlan = myPlan.data?.plan?.code ?? account.me?.plan ?? null;
   const welcome = checkout === 'success' && currentPlan !== null && currentPlan !== 'FREE';
+
+  // Back from the checkout (this screen may still be scrolled down to the plans): show the
+  // welcome at the top.
+  useEffect(() => {
+    if (welcome) {
+      scroll.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [welcome]);
   const openCheckout = (code: string | undefined) =>
     subscription?.status === 'PENDING' && subscription.planCode === code
       ? checkoutTarget(subscription.checkoutUrl)
@@ -243,7 +252,7 @@ export default function PremiumScreen() {
           };
 
   return (
-    <Screen scroll safeBottom testID="screen-premium">
+    <Screen scroll safeBottom scrollRef={scroll} testID="screen-premium">
       <View style={styles.root}>
         <ScreenHeader
           title="Premium"
