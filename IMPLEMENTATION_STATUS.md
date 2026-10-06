@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (launch readiness parts 4 and 5: the launch configuration — every money feature flag off by migration (V105), the last Premium entry points of the web hidden while `premiumPlans` is off, `LaunchConfigurationIT`, the `launch-config` Playwright project — the "Launch configuration" runbook section, the Quebec Law 25 operating docs (confidentiality incident register and procedure, requests from police and courts, owner account security checklist with the actual admin-MFA value per profile), and the full-UI-translation plan recorded as the next task — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 4 and 5"); 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -149,7 +149,7 @@ _Backend complete (workflow `web-mvp-local-continue` stage 9, independently re-v
 
 ## Phase 10 — Freemium + Credits + Ads + Donations
 
-_Backend complete (workflow `web-mvp-local-continue` stage 10, independently re-verified: 704 API tests / 140 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (243 paths, previously 199; 276 operations, previously 227; 364 schemas, previously 295; every contract route present; no path, operation or schema lost; no duplicate operationIds; existing schemas changed only additively: `MyPlan.subscription`, `ProblemDetail` `currentStatus` / `subscriptionId` / `balance` / `cost` / `reason` and the error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`, `NOT_IMPLEMENTED`); verifier fix: Jackson 3 `JsonNode` fields (webhook payloads, ledger and subscription event details) are documented as free-form objects by `OpenApiConfig` instead of a reflected, non-deterministic `JsonNode` bean schema, so two exports are byte-identical; clients regenerated (new `SubscriptionsService`, `CreditsService`, `AdsService`, `DonationsService`, `AdminBillingService`); live check on `.local-dev/api-snapshots/api-phase10.jar` (= `api-latest.jar`) on the local stack with emulator tokens: V090–V093 applied, 20 seed contributors, premium_user `GET /me/plan` PREMIUM with the ACTIVE fake subscription, collector1 credits 300 with `withdrawable`/`transferable` false and referral code `COLLECTOR1`, anonymous MAP_PANEL ads labelled "Sponsored", impression 204 and click 302 to the fictional `.example` landing, premium_user gets `[]`, supporters list without amounts, admin subscriptions 200 / collector 403, anonymous credits 401, mobile receipt 501 `NOT_IMPLEMENTED`, forged billing webhook 400 `WEBHOOK_SIGNATURE_INVALID`; log without ERROR lines, tokens, e-mail addresses or coordinates). Migrations V090–V093 (range V090–V099). Flags: `premiumPlans` (checkout, on by default), `credits` (on by default), `advertising` and `donations` (off by default, switched on by the local seed); member routes answer 404 `FEATURE_DISABLED` while their flag is off, admin routes stay available, live subscriptions keep working whatever `premiumPlans` says. Web Premium checkout, credits, "Sponsored" placements, donations and the admin billing/credits/ads/donations sections complete (workflow `web-mvp-local-continue` stage 11, independently re-verified: 704 API tests / 140 classes still green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI export unchanged (243 paths, 276 operations, 364 schemas; every contract route present), clients regenerated without changes, 578 web unit tests / 120 files, lint + format clean, production build 877.57 kB initial with no warnings, mobile typecheck/lint/29 tests and shared-types typecheck green, 51/51 Playwright specs against `.local-dev/api-snapshots/api-latest.jar` (rebuilt from this tree, same code as `api-phase10.jar`), 0 skipped; live curls: collector1 credits and referral code, anonymous MAP_PANEL ad labelled "Sponsored" with `Cache-Control: no-store`, premium_user `[]` and PREMIUM/ACTIVE plan, admin subscriptions 200 / collector 403, anonymous credits 401; log without ERROR lines, tokens, e-mail addresses or coordinates); mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 10 contract"; the contract document itself is not edited): subscription state PENDING and additive columns plus `subscription_event` / `billing_webhook_event`; checkout answers `{subscription, url, clientSecret, resumed}`; fake checkout routes `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm` (web path `/checkout/fake-billing/<ref>`); admin subscription detail and cancel; the plan follows `user_account.plan_code` + PREMIUM_USER instead of SUBSCRIPTION entitlements; `credit_ledger_entry` adds `balance_after` / `details` / `note` / `seq` and `credit_balance` is a plain view behind a Redis cache; `POST /me/credits/spend` takes a `credit_product` key; `GET /me/referrals` + `referral_redemption`; admin credit products and settings (`platform_settings` `credits.*`); prefixed ad tables (`ad_placement`, `ad_campaign`, `ad_creative`, `ad_targeting_rule`) with additive columns and `ad_campaign_daily`; impressions need the serve token body, clicks `?token=`; conversions through `POST /internal/ads/clicks/{clickId}/conversions`; donations add `GET /me/donations`, fake checkout and admin routes and `donations.*` settings, only the fake donation provider exists._
+_Backend complete (workflow `web-mvp-local-continue` stage 10, independently re-verified: 704 API tests / 140 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (243 paths, previously 199; 276 operations, previously 227; 364 schemas, previously 295; every contract route present; no path, operation or schema lost; no duplicate operationIds; existing schemas changed only additively: `MyPlan.subscription`, `ProblemDetail` `currentStatus` / `subscriptionId` / `balance` / `cost` / `reason` and the error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`, `NOT_IMPLEMENTED`); verifier fix: Jackson 3 `JsonNode` fields (webhook payloads, ledger and subscription event details) are documented as free-form objects by `OpenApiConfig` instead of a reflected, non-deterministic `JsonNode` bean schema, so two exports are byte-identical; clients regenerated (new `SubscriptionsService`, `CreditsService`, `AdsService`, `DonationsService`, `AdminBillingService`); live check on `.local-dev/api-snapshots/api-phase10.jar` (= `api-latest.jar`) on the local stack with emulator tokens: V090–V093 applied, 20 seed contributors, premium_user `GET /me/plan` PREMIUM with the ACTIVE fake subscription, collector1 credits 300 with `withdrawable`/`transferable` false and referral code `COLLECTOR1`, anonymous MAP_PANEL ads labelled "Sponsored", impression 204 and click 302 to the fictional `.example` landing, premium_user gets `[]`, supporters list without amounts, admin subscriptions 200 / collector 403, anonymous credits 401, mobile receipt 501 `NOT_IMPLEMENTED`, forged billing webhook 400 `WEBHOOK_SIGNATURE_INVALID`; log without ERROR lines, tokens, e-mail addresses or coordinates). Migrations V090–V093 (range V090–V099). Flags: `premiumPlans` (checkout; on by default in V010, **off since V105** — launch configuration, 2026-10-05), `credits` (on in V010, **off since V105**), `advertising` and `donations` (off by default); the local seed switches all four on with `protectedPayments`; member routes answer 404 `FEATURE_DISABLED` while their flag is off, admin routes stay available, live subscriptions keep working whatever `premiumPlans` says. Web Premium checkout, credits, "Sponsored" placements, donations and the admin billing/credits/ads/donations sections complete (workflow `web-mvp-local-continue` stage 11, independently re-verified: 704 API tests / 140 classes still green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI export unchanged (243 paths, 276 operations, 364 schemas; every contract route present), clients regenerated without changes, 578 web unit tests / 120 files, lint + format clean, production build 877.57 kB initial with no warnings, mobile typecheck/lint/29 tests and shared-types typecheck green, 51/51 Playwright specs against `.local-dev/api-snapshots/api-latest.jar` (rebuilt from this tree, same code as `api-phase10.jar`), 0 skipped; live curls: collector1 credits and referral code, anonymous MAP_PANEL ad labelled "Sponsored" with `Cache-Control: no-store`, premium_user `[]` and PREMIUM/ACTIVE plan, admin subscriptions 200 / collector 403, anonymous credits 401; log without ERROR lines, tokens, e-mail addresses or coordinates); mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 10 contract"; the contract document itself is not edited): subscription state PENDING and additive columns plus `subscription_event` / `billing_webhook_event`; checkout answers `{subscription, url, clientSecret, resumed}`; fake checkout routes `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm` (web path `/checkout/fake-billing/<ref>`); admin subscription detail and cancel; the plan follows `user_account.plan_code` + PREMIUM_USER instead of SUBSCRIPTION entitlements; `credit_ledger_entry` adds `balance_after` / `details` / `note` / `seq` and `credit_balance` is a plain view behind a Redis cache; `POST /me/credits/spend` takes a `credit_product` key; `GET /me/referrals` + `referral_redemption`; admin credit products and settings (`platform_settings` `credits.*`); prefixed ad tables (`ad_placement`, `ad_campaign`, `ad_creative`, `ad_targeting_rule`) with additive columns and `ad_campaign_daily`; impressions need the serve token body, clicks `?token=`; conversions through `POST /internal/ads/clicks/{clickId}/conversions`; donations add `GET /me/donations`, fake checkout and admin routes and `donations.*` settings, only the fake donation provider exists._
 
 - [x] Plans, plan features, usage limits, usage counters, entitlements (DB-configurable) — built early in stage 2 (plan item 2). `billing` module, migration V011 (`plan`, `plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; FREE and PREMIUM seeded with the contract limits; `user_account.plan_code` now a FK to `plan.code`). `Limits.check/consume/checkValue/overview` (atomic conditional upsert, Redis mirror written after commit), `LimitReachedException` → 429 LIMIT_REACHED (`limitKey`, `limit`, `used`, `resetsAt`, `planCode`, `upgradeUrl: "/premium"`), `Entitlements.has` + admin grant/revoke (audited, most generous active entitlement wins), `PlanService` Redis cache, `LimitUsageSource` SPI for TOTAL counts (e.g. `binders.max` in Phase 3). Endpoints `GET /plans` (public), `GET /me/plan`, `GET/PUT /admin/plans[/{code}]`, `GET/PUT /admin/usage-limits[/{id}]`, `GET/POST /admin/users/{id}/entitlements`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` — tests LimitsIT (5), LimitRulesTest (4). Subscriptions, checkout, billing webhooks and `GET /admin/subscriptions` landed in stage 10 (next item)
 - [x] Subscriptions + `BillingProvider` abstraction (fake by default, Stripe Billing skeleton) — `apps/api/.../billing` (stage 10): migration V090 (`subscription` with a one-live-per-account partial unique index, `subscription_event`, `billing_webhook_event`); `SubscriptionService` (checkout for paid active plans only, an open checkout of the same plan answered again, 409 `ALREADY_SUBSCRIBED` while entitled, cancel at the period end or at once, webhook events applied under a per-account advisory lock; an entitling subscription (TRIAL / ACTIVE / PAST_DUE) sets `user_account.plan_code` + PREMIUM_USER through the new `UserAccountService.applyPlan`, its end sets FREE and revokes the role; a payment for an abandoned checkout is cancelled at the provider); `BillingWebhookService` (signed `X-Fake-Signature` / `Stripe-Signature` in the Stripe format through the shared `common/webhooks/SignedWebhooks`, 400 `WEBHOOK_SIGNATURE_INVALID` stored IGNORED, deduplicated per provider event id, applied after commit via `BillingWebhookReceived` + `@ApplicationModuleListener`); `SubscriptionPeriodJob` `POST /internal/jobs/subscriptions-period` + hourly `SubscriptionPeriodScheduler` under `local` (period-end cancellations, fake renewals through a synthetic signed `subscription.renewed`, real-provider expiry after the 3-day grace); `FakeBillingProvider` (default, `fake_cs_…` checkouts at the web path `/checkout/fake-billing/<ref>`, `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm`), `StripeBillingProvider` (only with `BILLING_PROVIDER=stripe`, Checkout Sessions in subscription mode, `RestClient`, no SDK); routes `POST /me/subscription/checkout|cancel`, `POST /me/subscription/mobile-receipt` (reserved, 501 `NOT_IMPLEMENTED`), `POST /webhooks/billing/{provider}` (600/min per IP, 413 above 256 KB), `GET /me/plan` with `subscription`, `GET /admin/subscriptions[/{id}]`, `POST /admin/subscriptions/{id}/cancel` (audited `subscription.cancel`); `Entitlements` gains `normaliseOverride`, `grantBySystem`, `latestActiveExpiry`; export section `subscriptions`, deletion stops renewals and the purge ends the live subscription; seed "subscriptions" (premium_user ACTIVE fake subscription `…a000…0001`) — tests SubscriptionFlowIT (5: fake checkout → PREMIUM with raised limits → cancel; failed checkout retried and immediate cancellation downgrades at once; webhooks verified, stored once, renewals extend the period; validation, authorization and the reserved mobile-receipt route; admins browse and cancel), Phase10FeatureFlagOffIT (2), FakeBillingProviderTest (1), StripeBillingProviderTest (4, test secret, no network). Debt: the Stripe Billing adapter is compile- and unit-tested only (no Stripe account; cloud/real-provider work deferred, docs/deployment/DEFERRED.md); App Store / Google Play receipt validation is reserved (501)
@@ -1156,6 +1156,125 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   pseudo-locale pass, screenshots) 1 week. About 9–11 weeks web + mobile, 6–7 weeks for the
   consumer-facing web only. Recorded as a follow-up in NEXT TASK; not started.
 
+## Launch readiness, parts 4 and 5 — launch configuration and Law 25 operating docs (2026-10-05)
+
+_Branch `feature/launch-readiness`, on top of parts 1–3 (builder, workflow `launch-readiness`).
+Owner decision: launch as **discovery + messaging only** with every money feature switched off;
+operating documents for Quebec Law 25 and incidents; the full French UI translation assessed and
+recorded as the next task, not built. Nothing deployed; cloud, Terraform, payments logic, Stripe,
+credits logic and prices untouched._
+
+- [x] **Flag inventory and launch values** (`docs/deployment/runbooks.md` section 9, "Launch
+  configuration": one row per flag with what it switches on in the API and the web, why it is off,
+  how a `SUPER_ADMIN` changes it in `/admin > Feature flags`, the prerequisites before switching a
+  money feature on): `protectedPayments` off, `premiumPlans` off, `credits` off, `donations` off,
+  `advertising` off, `mlScanning` off (owner hold), `publicChat` on. Section 6 ("Emergency
+  feature-flag off") corrected on the way: real flag keys (`publicChat`, not
+  `publicCommunityChannels`), `updated_by` is a uuid foreign key (the SQL set a string), the Redis
+  key is `orenji:cache:feature-flags:v1` (not `rules:*`).
+- [x] **Migration default risk and handling.** `V010__feature_flags.sql` created `premiumPlans`
+  and `credits` **enabled**: a production database migrated from scratch would have shown "Upgrade
+  to Premium" with a live checkout through the *fake* billing provider (`BILLING_PROVIDER` is
+  `fake` unless configured; nobody would have paid) and the credits / referral ledger, until a
+  super admin with MFA switched them off. Handling: **`V105__launch_money_flags_off.sql`** switches
+  both rows off as data, respecting rows an admin already edited (`updated_by IS NOT NULL`);
+  `FeatureFlagSeedContributor` (local/dev only) now re-enables `protectedPayments`, `premiumPlans`,
+  `credits`, `advertising` and `donations` so development and both E2E suites keep exercising the
+  fake-provider flows; V010 untouched. Staging/prod never run the seed and start with every money
+  feature off. Not chosen: editing V010, a manual post-deploy step alone, constants in code.
+- [x] **Gaps fixed.** API: the daily-limit SYSTEM notification (`NotificationService.limitNotice`)
+  only carries the "upgrade to Premium" sentence, `upgradeUrl` and the `/premium` deep link while
+  `premiumPlans` is on for the recipient (otherwise "The limit resets tomorrow.", no link). Web:
+  `wishlist-summary` ("Need more room? See Premium"), `map-filters-bar` ("Up to N km on your plan",
+  now a plain `<span>` with `data-testid="radius-cap"` while the flag is off), the public binder
+  page's daily-views limit state ("See plans" → "Back to the map"), the generic `LIMIT_REACHED`
+  message and the offer-limit problem (no "Premium raises it"), and `notificationLink` (a plan-limit
+  notice opens `/wishlist` or `/notifications` unless the API offered `/premium`). Verified already
+  gated before this stage: route guards (`/credits`, `/support`, `/community`, `/settings/payouts`),
+  the account menu, the footer, `/premium` ("Premium is not available yet", no Upgrade button), the
+  limit dialog's "See Premium", the sponsored slots, the make-offer dialog's "Use payment
+  protection", the trade page's Pay / Ship / Confirm / Dispute (by trade state; an accepted offer
+  opens `AGREED` when the flag is off for the buyer), and every money service in the API
+  (`PaymentFeature`, `SubscriptionService.checkout`, `FakeBillingController`, `CreditLedger`,
+  `ReferralService`, `DonationService`, `DonationWebhookService`, `AdService`,
+  `CommunityService.requireFeature`).
+- [x] **Ungated by design (documented in the runbook):** `GET /plans` (public plan list with
+  prices) and `GET /me/plan` (the mobile app reads the map radius cap from both; `upgradeUrl` is
+  data), the `429 LIMIT_REACHED` Problem Details' `upgradeUrl`, `POST /me/subscription/cancel`
+  and the billing webhook (a live subscription stays manageable), every `/admin/**` console.
+  `mlScanning` has no consumer anywhere (nothing to gate; the hold stands).
+- [x] **Tests.** API: `LaunchConfigurationIT` (3: the public map shows the six money flags off and
+  `publicChat` on; with all six off a seller and a buyer are found on the map, list a card and a
+  public binder, wish, message, make a cash offer — a protection request is refused
+  `404 FEATURE_DISABLED protectedPayments` — accept it into an `AGREED` trade with no payment and
+  `/pay` refused, complete it in person, rate and report, while `/plans` and `/me/plan` stay
+  readable; every subscription, credits, referral, donation and seller-account route refuses with
+  the Problem Details (`errorCode`, `feature`, `requestId`) and `GET /ads` answers `[]`);
+  `FeatureFlagsIT` (migration state now `premiumPlans=false`, `credits=false`; the seed enables
+  all five fake-provider flags); `NotificationLimitIT` (+1: no Premium pitch and no deep link while
+  the flag is off, the pitch and `/premium` while on); `AbstractPhase10IT` switches `premiumPlans`
+  and `credits` on before each Phase 10 test and every money flag off afterwards;
+  `GeoPrivacyContractTest` enables the four flags it reads through. Already covering the refusals:
+  `billing/Phase10FeatureFlagOffIT`, `payments/FeatureFlagOffIT`,
+  `offers/OfferAuthorizationIT.paymentProtectionNeedsItsFlagAndACashPart`, `community/CommunityIT`.
+  Web (Vitest): `wishlist-summary.component.spec.ts` (3), `map-filters-bar.component.spec.ts` (3),
+  `public-binder-page.component.spec.ts` (2, the 429 limit state with and without Premium),
+  `footer.component.spec.ts` (2), `notification-kinds.spec.ts` (links updated). E2E:
+  `e2e/launch-config.spec.ts` in its own Playwright project `launch-config` (`dependencies:
+  ['chromium']`, so it runs alone after every other spec because it switches the real flags of
+  the E2E stack through the admin API and restores them): map radius cap as text, no sponsored
+  slot, account menu and footer without Premium / Credits / Support, `/premium` without Upgrade,
+  `/credits`, `/support`, `/settings/payouts` redirect with "… is not available right now.", an
+  offer without the protection checkbox, the agreed trade with the safety notice and no Pay
+  button, the money routes' `404 FEATURE_DISABLED`, `GET /ads` empty. Run it alone with
+  `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`. Results: see "Checks" in the
+  builder's report (full `npm run test:api`, `test:web`, `test:mobile`, `test:e2e`).
+- [x] **Operating docs (Law 25, incidents, authorities, owner accounts)**, linked from
+  `docs/security/README.md` section 11: `docs/security/confidentiality-incident-register.md`
+  (register template with date, description, data and people affected, risk-of-serious-injury
+  assessment, notifications, measures; the procedure contain → assess → notify the Commission
+  d'accès à l'information and the people concerned when there is a risk of serious injury →
+  record every incident even when not notified → follow up; a fictional example entry),
+  `docs/security/law-enforcement-requests.md` (valid legal process only, documented emergency
+  involving a risk to life, verification, minimum disclosure, precise locations never exported
+  unless specifically compelled, request log template, preservation requests),
+  `docs/security/owner-account-security-checklist.md` (two-factor sign-in on the Google /
+  Firebase, GitHub, Cloudflare + registrar, Stripe, mailbox and future store accounts; the
+  **actual** `orenji.security.admin.require-mfa` per Spring profile read from `application.yml`:
+  `true` in the base document hence in `dev`, `staging`, `prod`, `false` under `local` and `test`,
+  `false` for a JVM with no profile because `spring.profiles.default: local`; the code checks the
+  presence of `firebase.sign_in_second_factor` only, no freshness window). README section 7
+  corrected accordingly (it claimed a 12-hour `auth_time` check that does not exist).
+  `docs/product/product-overview.md` gained "Launch without payments"; `docs/database/schema.md`
+  and `docs/development/seed-data.md` describe V105 and the seed.
+- **Findings reported, not fixed (out of scope):** Terraform sets `SPRING_PROFILES_ACTIVE` to
+  `development` / `production` while `application.yml` declares `dev` / `prod`, so in cloud dev
+  and prod only the base document applies (`require-mfa` stays `true`, but the `prod` overrides
+  and the staging/prod `ServiceTokenStartupValidator` would not run) — align before any deploy;
+  no second-factor freshness check; the account-deletion job has no legal hold for preservation
+  requests; the mobile app's `src/api/errorMessages.ts` `LIMIT_REACHED` wording still says
+  "Premium raises it" and its notification deep-link handling is untouched (mobile follow-up).
+- **`[to confirm]` placeholders for the owner / lawyer (this stage):** Privacy Officer name,
+  title and postal address (also in the policies); the lawyer who reviews the three operating docs
+  and the notices; the CAI notification form / address; the register retention period (at least
+  five years assumed); the internal notification timelines (3 working days assumed); the policy
+  on telling a user about a disclosure; the handling of foreign authorities; the preservation
+  period; whether the Google account is a Workspace organisation; the domain registrar if not
+  Cloudflare; the Stripe account (none until payments are switched on); the mailbox provider for
+  `privacy@` / `security@` / `no-reply@`; Apple / Google Play / Expo accounts (none yet); the
+  password-manager emergency access; the date of the first quarterly review.
+
+### Full UI translation (French) — plan (next task)
+
+The assessment is in "Launch readiness, parts 2 and 3" ("Full UI translation (French) —
+assessment, not implemented"): no i18n scaffolding in either client; ≈ 5,000 user-facing web
+strings (≈ 3,200 consumer-facing, admin ≈ 1,650, legal texts 190 already bilingual) and ≈ 1,400
+mobile strings; recommendation **runtime translation library** (Transloco on the web, i18next +
+`expo-localization` on mobile) with shared JSON catalogs in `packages/i18n`, rather than
+`@angular/localize` (one build per locale, reload to switch, `$localize` for ≈ 1,000 TS literals,
+nothing shared with React Native); effort ≈ 9–11 weeks web + mobile, 6–7 weeks consumer web
+only. The plan as the exact next task is in NEXT TASK.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -1389,3 +1508,41 @@ verification.
 > placeholders listed in that section. **Follow-up product task — full French UI:** see the
 > assessment "Full UI translation (French)" in that section (runtime library with shared JSON
 > catalogs, ≈ 9–11 weeks web + mobile); not started.
+
+> **Launch readiness, parts 4 and 5 — launch configuration and Law 25 operating docs
+> (2026-10-05, same branch):** done (see "Launch readiness, parts 4 and 5"). **Next:** push
+> `feature/launch-readiness`, open the PR and merge to `main` when CI is green (the shared local
+> database then migrates to V105: the local seed re-enables the fake-provider flags, so nothing
+> changes for `npm run dev`). **Owner / lawyer follow-ups:** the `[to confirm]` placeholders listed
+> in that section and in parts 2 and 3; align the Spring profile names between Terraform and
+> `application.yml` before any cloud deployment. **Next mobile task (after the mobile stages are
+> merged):** neutral `LIMIT_REACHED` wording in `src/api/errorMessages.ts` and the plan-limit
+> notification deep link (`/premium` only when the payload carries it), in addition to the mobile
+> follow-ups of parts 1–3.
+
+**Exact next task after launch readiness — full French UI translation (web first, then mobile):**
+1. **Scaffolding (≈ 1 week).** `packages/i18n` with JSON catalogs per namespace (`common`,
+   `errors`, `auth`, `onboarding`, `map`, `inventory`, `binders`, `search`, `wishlist`,
+   `messages`, `offers`, `trades`, `collectors`, `settings`, `notifications`, `community`,
+   `legal-chrome`, `admin`), `en` and `fr-CA`, a typed key helper, a `missing-keys` script in CI.
+   Web: Transloco (`@jsverse/transloco`, pinned) with lazy scopes per feature folder, a
+   `LanguageService` that reuses the `LegalLanguageService` preference (browser language → stored
+   choice → `?lang=`), `LOCALE_ID` / `Intl` plumbing for `fr-CA` dates, numbers and currency,
+   French providers for Angular Material (`MatPaginatorIntl`, datepicker), `lang` on `<html>`.
+2. **Consumer-facing web strings (≈ 3–4 weeks, ≈ 3,200 strings).** Feature by feature in the
+   order users meet them: auth + onboarding, map + collectors, search + catalog, inventory +
+   binders, wishlist + notifications, messages, offers + trades, settings, community; replace
+   inline English with keys, keep the English catalog as the source, translate to Quebec French
+   (vous form, the glossary of the legal pages: « cartable », « zone d'échange », « collectionneur »),
+   `api-error-messages.ts` and `offer-problems.ts` through the `errors` namespace (the API keeps
+   English `message` / `errorCode`). Each feature's specs run in both languages; Playwright adds a
+   French walkthrough of the happy paths (sign-up → onboarding → map → message → offer).
+3. **Admin console (≈ 2 weeks, ≈ 1,650 strings, may lag: staff only).**
+4. **Mobile (≈ 2 weeks after the web catalogs exist, ≈ 1,100 strings).** i18next +
+   `react-i18next` + `expo-localization`, the same JSON catalogs from `packages/i18n`, the legal
+   texts in both languages (already listed as the mobile follow-up of parts 2 and 3).
+5. **Review and QA (≈ 2 weeks).** Professional French review of the whole catalog, pseudo-locale
+   pass for truncation, screenshots of every screen in both languages, Bill 96 check of every
+   consumer-facing text with the lawyer. Record the glossary in `docs/product/`.
+   Total ≈ 9–11 weeks web + mobile (6–7 weeks consumer web only); no owner decision needed to
+   start, cloud deployment stays deferred.

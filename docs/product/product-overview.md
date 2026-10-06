@@ -73,6 +73,17 @@ radius, saved searches, analytics, no ads). All limits are configurable by admin
 revenue: TCG-focused sponsored placements (clearly labelled, generalized geography only),
 voluntary donations, and non-cash OriEnji credits with an immutable ledger.
 
+**Launch without payments (owner decision, 2026-10-05).** OrenjiTrade launches as *discovery +
+messaging only*: collectors find each other on the map and chat, then trade on their own. Every
+money feature is built and feature-flagged but **switched off at launch**: `protectedPayments`
+(payment protection, payouts, disputes), `premiumPlans` (Premium checkout and every upgrade
+prompt), `credits`, `donations`, `advertising`; `mlScanning` stays off by the Phase 11 hold and
+`publicChat` stays on. With the flags off no screen offers to pay, subscribe, buy credits or
+donate, the related API routes answer `404 FEATURE_DISABLED`, offers are plain proposals and an
+accepted offer opens an in-person trade. The flags live in the database (migrations V010 + V105)
+and a super admin turns a feature on in `/admin > Feature flags` once its provider, keys and
+policies are ready (`docs/deployment/runbooks.md`, "Launch configuration").
+
 ## Explicit non-goals for the MVP
 
 Stores, events/meetups directory, binder-to-binder matching, unboxing-video evidence, general

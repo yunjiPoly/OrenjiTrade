@@ -130,8 +130,14 @@ the moderation queue.
 
 - Roles `MODERATOR`, `ADMIN`, `SUPER_ADMIN` must enrol a second factor (TOTP preferred, SMS
   fallback) in Identity Platform. Enrolment is enforced at first privileged login in the web
-  app; the API rejects privileged routes when the ID token lacks the `firebase.sign_in_second_factor`
-  claim or when the second factor is older than 12 hours (`auth_time` check) -> `403 MFA_REQUIRED`.
+  app; the API rejects privileged routes when the ID token lacks a non-blank
+  `firebase.sign_in_second_factor` claim -> `403 MFA_REQUIRED` (`AdminAuthorizationManager`,
+  `orenji.security.admin.require-mfa`). **Actual values per profile (2026-10-05):** `true` in the
+  base document and therefore in `dev`, `staging` and `prod` (no override), `false` only under
+  `local` and `test` (`AdminMfaIT` re-enables it); a JVM started without a profile runs as `local`.
+  The code does **not** yet check how recent the second factor is (`auth_time` is parsed but
+  not compared); a freshness window is a hardening follow-up. Details and the per-account
+  checklist: `owner-account-security-checklist.md`.
 - `/admin` routes on `www` are additionally protected by Cloudflare rules (optional geo
   challenge) and admin actions are written to `audit_log` with actor, target, before/after and
   `requestId`.
@@ -191,7 +197,19 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
 
 Report handling: acknowledge within 2 business days, triage within 5, fix per the SLA above,
 credit the reporter if they wish. Follow `docs/deployment/runbooks.md` section 8 for the
-incident process.
+incident process and section 11 below for the Law 25 duties.
+
+## 11. Operating documents (Quebec Law 25, incidents, authorities, owner accounts)
+
+Added for the launch (2026-10-05); drafts by engineering pending the lawyer's review, like the
+legal texts they implement. They never claim compliance.
+
+| Document | Purpose |
+| --- | --- |
+| [`confidentiality-incident-register.md`](confidentiality-incident-register.md) | Register template (date, description, data and people affected, risk-of-serious-injury assessment, notifications, measures) and the response procedure: contain, assess, notify the Commission d'accès à l'information and the people concerned when there is a risk of serious injury, record every incident even when not notified |
+| [`law-enforcement-requests.md`](law-enforcement-requests.md) | Requests from police, courts and other authorities: release data only on valid legal process (except a documented emergency involving a risk to life), verify, disclose the minimum, keep precise locations out unless specifically compelled, log every request |
+| [`owner-account-security-checklist.md`](owner-account-security-checklist.md) | Two-factor sign-in on the Google / Firebase, GitHub, Cloudflare (and registrar), Stripe and mailbox accounts; the actual `orenji.security.admin.require-mfa` value per Spring profile; the Terraform profile-name finding |
+| `docs/deployment/runbooks.md` section 9 | Launch configuration: every money feature flag off, why, how to change it in `/admin`, and the V105 handling of the V010 defaults |
 
 ## Code scanning availability
 
