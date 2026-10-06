@@ -50,6 +50,7 @@ export function RootNavigator() {
         <Stack.Screen name="settings/privacy" options={{ title: 'Privacy' }} />
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
+        <Stack.Screen name="settings/blocked" options={{ title: 'Blocked users' }} />
         <Stack.Screen name="settings/delete-account" options={{ title: 'Delete account' }} />
         <Stack.Screen name="settings/appearance" options={{ title: 'Appearance' }} />
         {/* Legal pages: readable from every gate (signed out, consent, suspended, app). */}
@@ -57,6 +58,9 @@ export function RootNavigator() {
         <Stack.Screen name="legal/[key]" options={{ title: 'Legal' }} />
         <Stack.Screen name="collectors/[id]" options={{ title: 'Collector' }} />
         <Stack.Screen name="cards/[id]" options={{ title: 'Card' }} />
+        {/* "Who has this near me" as a list (web: /search?card=) and a set's cards (web: /sets/:id). */}
+        <Stack.Screen name="holders" options={{ title: 'Card holders' }} />
+        <Stack.Screen name="sets/[id]" options={{ title: 'Set' }} />
         <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
         <Stack.Screen name="binders/new" options={{ title: 'New binder' }} />
         <Stack.Screen name="binders/edit" options={{ title: 'Edit binder' }} />

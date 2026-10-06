@@ -107,9 +107,29 @@ describe('notification kinds', () => {
     });
     expect(mobileTarget('/credits')).toEqual({ kind: 'route', href: '/credits' });
     expect(mobileTarget('/support')).toEqual({ kind: 'route', href: '/support' });
-    // Still on the web only: blocked users (unblocking is in the conversation's options).
-    const blocked = mobileTarget('/settings/blocked');
-    expect(blocked.kind === 'later' && blocked.note).toMatch(/orenjitrade\.com/);
+    expect(mobileTarget('/settings/blocked')).toEqual({
+      kind: 'route',
+      href: '/settings/blocked',
+    });
+    // A settings page the app does not have stays a website note.
+    const unknown = mobileTarget('/settings/something-new');
+    expect(unknown.kind === 'later' && unknown.note).toMatch(/orenjitrade\.com/);
+    // The web's holders view and the search tabs map to the app's screens.
+    expect(mobileTarget('/search?card=00000000-0000-4000-8a00-000000000001')).toEqual({
+      kind: 'route',
+      href: '/holders?card=00000000-0000-4000-8a00-000000000001',
+    });
+    expect(mobileTarget('/search?printing=00000000-0000-4000-8a10-00000000000a&sort=price')).toEqual(
+      { kind: 'route', href: '/holders?printing=00000000-0000-4000-8a10-00000000000a' }
+    );
+    expect(mobileTarget('/search?q=fox&tab=collectors')).toEqual({
+      kind: 'route',
+      href: '/search?tab=collectors',
+    });
+    expect(mobileTarget('/sets/00000000-0000-4000-8a20-000000000001')).toEqual({
+      kind: 'route',
+      href: '/sets/00000000-0000-4000-8a20-000000000001',
+    });
     expect(mobileTarget('/something-else')).toEqual({ kind: 'route', href: '/notifications' });
     expect(notificationTarget(notificationFixture())).toEqual({
       kind: 'route',

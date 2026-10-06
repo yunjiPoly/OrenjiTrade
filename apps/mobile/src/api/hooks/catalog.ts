@@ -10,7 +10,7 @@ import { CARD_PAGE_SIZE, SUGGEST_MIN_CHARS, uniqueSuggestions } from '@/src/lib/
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { catalogKeys } from '../queryKeys';
-import type { CardDetail, CardPage, CardSuggestion, SetSummary } from '../types';
+import type { CardDetail, CardPage, CardSuggestion, SetDetail, SetSummary } from '../types';
 
 /** The filters of `GET /api/v1/cards` the Search tab exposes (the web's `/cards` page). */
 export interface CardSearchQuery {
@@ -112,6 +112,31 @@ export function fetchCard(queryClient: QueryClient, id: string): Promise<CardDet
     queryKey: catalogKeys.card(id),
     queryFn: () => getCard(id),
     staleTime: 10 * 60_000,
+  });
+}
+
+/** Printings per page of a set page (the web's `/sets/:id`). */
+export const SET_PAGE_SIZE = 40;
+
+/** `GET /api/v1/sets/{id}`: a set with its printings, paged for an infinite list. */
+export function useSetDetail(id: string | null | undefined) {
+  return useInfiniteQuery<SetDetail, ApiError>({
+    queryKey: catalogKeys.set(id ?? ''),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) =>
+      required(
+        (
+          await api.GET('/api/v1/sets/{id}', {
+            params: {
+              path: { id: id ?? '' },
+              query: { page: pageParam as number, size: SET_PAGE_SIZE },
+            },
+          })
+        ).data
+      ),
+    getNextPageParam: (last) => nextPage(last.printings ?? {}),
+    enabled: !!id,
+    staleTime: 60 * 60_000,
   });
 }
 

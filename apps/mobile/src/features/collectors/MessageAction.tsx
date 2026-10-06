@@ -1,7 +1,8 @@
+import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface MessageActionProps {
   displayName: string;
@@ -29,6 +30,7 @@ export function MessageAction({
   testID = 'message-action',
 }: MessageActionProps) {
   const { palette } = useTheme();
+  const router = useRouter();
   if (canMessage) {
     return (
       <Button
@@ -59,10 +61,21 @@ export function MessageAction({
       <Text testID={`${testID}-reason`} style={[textStyle('sm'), { color: palette.textMuted }]}>
         {reason}
       </Text>
+      {isBlocked ? (
+        <Text
+          accessibilityRole="link"
+          onPress={() => router.push('/settings/blocked')}
+          testID={`${testID}-blocked-users`}
+          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+        >
+          Blocked users
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   disabled: { gap: spacing[1] },
+  link: { fontWeight: fontWeight.semibold },
 });

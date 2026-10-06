@@ -25,6 +25,7 @@ import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { ItemDetailsFields } from '@/src/features/inventory/ItemDetailsFields';
+import { ItemPhotos } from '@/src/features/inventory/ItemPhotos';
 import {
   hasErrors,
   itemFormValue,
@@ -43,8 +44,8 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 
 /**
  * Edit one of the collector's cards (web: the inventory edit panel): every field, sent as a
- * `PATCH` of the changed fields only; "Still available" restores a stale or hidden listing
- * (`POST .../confirm`); delete asks first.
+ * `PATCH` of the changed fields only; the owner's photos (add from the library, remove); "Still
+ * available" restores a stale or hidden listing (`POST .../confirm`); delete asks first.
  */
 export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -255,6 +256,8 @@ function ItemEditor({ item }: { item: InventoryItemResponse }) {
       {failure && isLimitReached(failure) ? <LimitReachedNotice error={failure} /> : null}
       {message ? <FormMessage testID="edit-item-error">{message}</FormMessage> : null}
 
+      <ItemPhotos item={item} disabled={busy} />
+
       <Button
         label="Save changes"
         loadingLabel="Saving…"
@@ -276,7 +279,7 @@ function ItemEditor({ item }: { item: InventoryItemResponse }) {
       <ConfirmDialog
         visible={confirmDelete}
         title={`Delete ${item.card.name}?`}
-        message={`${item.quantity} ${item.quantity === 1 ? 'copy' : 'copies'} will be removed from your inventory${item.binder ? ` and from “${item.binder.name}”` : ''}. This cannot be undone.`}
+        message={`${item.quantity} ${item.quantity === 1 ? 'copy' : 'copies'} and ${item.images.length === 1 ? 'its photo' : 'its photos'} will be removed from your inventory${item.binder ? ` and from “${item.binder.name}”` : ''}. This cannot be undone.`}
         confirmLabel="Delete card"
         tone="danger"
         busy={remove.isPending}

@@ -30,6 +30,10 @@ export interface ItemRowProps {
   /** A full-width action under the card (e.g. "Make an offer" on public cards; it sets its own
    * margins, so a footer that renders nothing leaves no gap). */
   footer?: ReactNode;
+  /** Selection mode (bulk actions): a checkbox, and the row toggles it instead of opening. */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggle?: (item: Item) => void;
   testID?: string;
 }
 
@@ -43,6 +47,9 @@ export const ItemRow = memo(function ItemRow({
   onPress,
   action,
   footer,
+  selectable = false,
+  selected = false,
+  onToggle,
   testID,
 }: ItemRowProps) {
   const { palette } = useTheme();
@@ -68,7 +75,20 @@ export const ItemRow = memo(function ItemRow({
 
   const content = (
     <>
-      <CardImage src={printingImageUrl(item.printing)} alt="" game={item.card.game} size="sm" />
+      {selectable ? (
+        <MaterialCommunityIcons
+          name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+          size={24}
+          color={selected ? palette.primary : palette.textMuted}
+          testID={`${testID ?? `item-${item.id}`}-checkbox`}
+        />
+      ) : null}
+      <CardImage
+        src={own && item.images[0]?.url ? item.images[0].url : printingImageUrl(item.printing)}
+        alt=""
+        game={item.card.game}
+        size="sm"
+      />
       <View style={styles.text}>
         <Text style={[textStyle('md'), styles.name, { color: palette.ink }]} numberOfLines={2}>
           {name}
@@ -116,11 +136,27 @@ export const ItemRow = memo(function ItemRow({
 
   return (
     <View
-      style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+      style={[
+        styles.card,
+        {
+          backgroundColor: palette.surface,
+          borderColor: selected ? palette.primary : palette.border,
+        },
+      ]}
       testID={testID ?? `item-${item.id}`}
     >
       <View style={styles.row}>
-        {onPress ? (
+        {selectable ? (
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel={summary}
+            aria-checked={selected}
+            onPress={() => onToggle?.(item)}
+            style={({ pressed }) => [styles.main, pressed && styles.pressed]}
+          >
+            {content}
+          </Pressable>
+        ) : onPress ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={summary}

@@ -209,13 +209,36 @@ describe('Map tab', () => {
     fireEvent.press(screen.getByTestId('map-filter-radius'));
     expect(screen.queryByTestId('map-filter-radius-option-50')).toBeNull();
     fireEvent.press(await screen.findByTestId('map-filter-radius-option-25'));
-    fireEvent.press(await screen.findByRole('button', { name: 'Clear filters (3)' }));
+    // Freshness, tags and the search box (the web map's filters bar and search).
+    await chooseOption('map-filter-freshness', 'ACTIVE');
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.get('freshness')).toBe(
+        'ACTIVE'
+      )
+    );
+    fireEvent.press(screen.getByTestId('map-filter-tags'));
+    fireEvent.press(await screen.findByTestId('map-filter-tags-option-local-pickup'));
+    fireEvent.press(screen.getByTestId('map-filter-tags-done'));
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.getAll('tags')).toEqual([
+        'local-pickup',
+      ])
+    );
+    fireEvent.press(screen.getByTestId('map-search-toggle'));
+    fireEvent.changeText(screen.getByTestId('map-search-input'), 'noé');
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.get('query')).toBe('noé')
+    );
+    fireEvent.press(await screen.findByRole('button', { name: 'Clear filters (6)' }));
     // Back to the first answer (cached: same query as the very first call).
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Game: All games' })).toBeOnTheScreen()
     );
     expect(screen.getByRole('button', { name: 'Intent: Any intent' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Within: 10 km' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Freshness: Any freshness' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Tags: any' })).toBeOnTheScreen();
+    expect(screen.getByTestId('map-search-input').props.value).toBe('');
     expect(screen.queryByRole('button', { name: /Clear filters/ })).toBeNull();
     expect(status()).toHaveTextContent('2 collectors within 10 km');
   });

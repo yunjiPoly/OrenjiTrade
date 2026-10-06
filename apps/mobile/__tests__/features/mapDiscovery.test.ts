@@ -104,8 +104,33 @@ describe('map discovery queries (the web map-query rules)', () => {
   });
 
   it('counts active filters', () => {
-    expect(activeFilterCount({ game: null, intent: null, radiusKm: null })).toBe(0);
-    expect(activeFilterCount({ game: 'mtg', intent: 'SALE', radiusKm: 25 })).toBe(3);
+    const none = { game: null, intent: null, radiusKm: null, freshness: null, tags: [], q: '' };
+    expect(activeFilterCount(none)).toBe(0);
+    expect(activeFilterCount({ ...none, game: 'mtg', intent: 'SALE', radiusKm: 25 })).toBe(3);
+    expect(
+      activeFilterCount({ ...none, freshness: 'ACTIVE', tags: ['local-pickup'], q: ' noé ' })
+    ).toBe(3);
+  });
+
+  it('sends the freshness, tags and search text filters, which also key the covered area', () => {
+    expect(
+      nearbyParams({
+        ...base,
+        freshness: 'AGING',
+        tags: ['local-pickup', 'trader'],
+        q: '  noé ',
+      })
+    ).toEqual({
+      radiusKm: 10,
+      limit: 200,
+      freshness: 'AGING',
+      tags: ['local-pickup', 'trader'],
+      query: 'noé',
+    });
+    expect(nearbyParams({ ...base, tags: [], q: '   ' })).toEqual({ radiusKm: 10, limit: 200 });
+    expect(filterKey({ ...base, tags: ['b', 'a'] })).toBe(filterKey({ ...base, tags: ['a', 'b'] }));
+    expect(filterKey({ ...base, q: 'noé' })).not.toBe(filterKey(base));
+    expect(filterKey({ ...base, freshness: 'ACTIVE' })).not.toBe(filterKey(base));
   });
 });
 

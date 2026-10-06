@@ -258,3 +258,20 @@ export function usePublicBinderItems(id: string, filters: PublicBinderFilters, e
     enabled,
   });
 }
+
+/**
+ * `PUT /api/v1/binders/reorder` (the web's binder manager): the listed binders come first in the
+ * given order; answers every binder in the new order, which replaces the cached list.
+ */
+export function useReorderBinders() {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<BinderResponse[], ApiError, string[]>({
+    mutationFn: async (binderIds) =>
+      required((await api.PUT('/api/v1/binders/reorder', { body: { binderIds } })).data),
+    onSuccess: async (binders) => {
+      queryClient.setQueryData(meKeys.binderList(uid), binders);
+      await queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) });
+    },
+  });
+}

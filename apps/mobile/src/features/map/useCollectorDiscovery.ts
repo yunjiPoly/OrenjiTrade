@@ -118,8 +118,22 @@ export function useCollectorDiscovery(
       game: filters.game,
       intent: filters.intent,
       holders,
+      freshness: filters.freshness,
+      tags: filters.tags,
+      q: filters.q,
     };
-  }, [origin, viewport, city, radiusKm, filters.game, filters.intent, holders]);
+  }, [
+    origin,
+    viewport,
+    city,
+    radiusKm,
+    filters.game,
+    filters.intent,
+    filters.freshness,
+    filters.tags,
+    filters.q,
+    holders,
+  ]);
 
   // The last good answer and the query it answered. Offline tolerance: when a pan's query fails,
   // it stays on the map (with a notice) instead of an empty map; it also tells which circle is
