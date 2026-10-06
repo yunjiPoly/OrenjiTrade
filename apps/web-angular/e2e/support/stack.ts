@@ -190,9 +190,15 @@ export async function apiAcceptConsents(api: APIRequestContext, token: string): 
   await apiConfirmAge(api, token);
 }
 
-/** Records the `AGE_CONFIRMATION` consent (current version from the public document list). */
+/**
+ * Records the `AGE_CONFIRMATION` consent (current version from the public document list). The
+ * list is read with the collector's token so the call counts against the per-user rate limit
+ * (120/min) rather than the anonymous per-IP budget (60/min) that every worker would share.
+ */
 export async function apiConfirmAge(api: APIRequestContext, token: string): Promise<void> {
-  const documents = await api.get(`${API_URL}/api/v1/public/legal/documents`);
+  const documents = await api.get(`${API_URL}/api/v1/public/legal/documents`, {
+    headers: bearer(token),
+  });
   expect(documents.ok(), 'GET /public/legal/documents').toBeTruthy();
   const list: { documentType: string; version: string }[] = await documents.json();
   const age = list.find((doc) => doc.documentType === 'AGE_CONFIRMATION');

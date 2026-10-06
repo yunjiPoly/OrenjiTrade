@@ -134,10 +134,12 @@ export class AcceptanceApi {
       await this.ok('POST', '/api/v1/me/consents', { token: user.idToken, data: consent });
     }
     // The 18+ confirmation (never required at registration, but gating discoverability,
-    // messaging, community posts and offers).
+    // messaging, community posts and offers). Read with the token: per-user rate limit, not the
+    // anonymous per-IP budget shared by every worker.
     const documents = await this.ok<{ documentType: string; version: string }[]>(
       'GET',
       '/api/v1/public/legal/documents',
+      { token: user.idToken },
     );
     const age = documents.find((doc) => doc.documentType === 'AGE_CONFIRMATION');
     expect(age, 'the API publishes the AGE_CONFIRMATION document').toBeTruthy();
