@@ -1,35 +1,30 @@
 # Copy to terraform.tfvars (git-ignored) and fill in. Every value here is fictional.
-# Sizing defaults for dev live in variables.tf; override only what differs.
+# Sizing defaults for dev (smallest low-cost topology, ADR 0016) live in variables.tf.
 
 project_id        = "orenjitrade-dev-123456"
 region            = "northamerica-northeast1"
 github_repository = "example-org/orenjitrade"
-alert_email       = "oncall@example.com"
+alert_email       = "dev-alerts@example.com"
 
-# Public hostnames (Cloudflare records point at the load balancer IP output).
 web_host = "dev.orenjitrade.com"
 api_host = "dev-api.orenjitrade.com"
 
-# Firebase project when it differs from the GCP project.
-# firebase_project_id = "orenjitrade-dev-123456"
+# Public web configuration (Firebase web app of the dev project; no secrets).
+firebase_web_api_key    = "AIzaSyExampleExampleExampleExampleExampl"
+firebase_web_app_id     = "1:123456789012:web:0123456789abcdef012345"
+google_maps_browser_key = ""
+google_maps_map_id      = ""
 
-# Enable only after adding versions to stripe-secret-key and stripe-webhook-secret.
-stripe_secrets_enabled = false
-
-# Cloud Armor: admit only Cloudflare edge ranges at the load balancer.
-restrict_to_cloudflare = false
-# extra_allowed_ranges = ["203.0.113.0/24"]
-
-# Images are deployed by GitHub Actions; the defaults are placeholders for the first apply.
-# api_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/api:latest"
-# web_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/web:latest"
-# ml_image  = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/ml:latest"
-
-# Images are built once into the dev registry; let staging/prod Cloud Run pull them.
+# Staging/prod Cloud Run service agents pull the images built into this project's registry.
 # artifact_registry_reader_members = [
 #   "serviceAccount:service-<STAGING_PROJECT_NUMBER>@serverless-robot-prod.iam.gserviceaccount.com",
 #   "serviceAccount:service-<PROD_PROJECT_NUMBER>@serverless-robot-prod.iam.gserviceaccount.com",
 # ]
+
+stripe_secrets_enabled = false
+restrict_to_cloudflare = false
+certificate_mode       = "certificate_manager"
+deletion_protection    = false
 
 labels = {
   cost_center = "orenjitrade"
