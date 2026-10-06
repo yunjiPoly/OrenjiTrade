@@ -53,6 +53,9 @@ const APP_ROOTS = new Set([
   'binders',
   'items',
   'messages',
+  'community',
+  'wishlist',
+  'notifications',
 ]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {

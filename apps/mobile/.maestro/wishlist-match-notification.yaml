@@ -1,0 +1,137 @@
+# Wishlist + notifications (mobile Phase 6): Wren (fresh, fictional, discoverable around a random
+# rural point) adds Emberfang Fox to her wishlist through the app; Hal, about 1.5 km away, lists
+# it publicly (host script scripts/wishlist.js). The matcher notifies Wren over the realtime
+# channel: the bell's badge and the wish's match count rise without a reload; the notification
+# opens the wish's matches (Hal's place and distance bucket, never a coordinate), and Message
+# opens a conversation with Hal.
+appId: host.exp.exponent
+name: Wishlist match, notification and deep link
+tags:
+  - mobile-m4
+  - wishlist
+  - notifications
+---
+- runScript:
+    file: scripts/wishlist.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.wren.email}
+      PASSWORD: ${output.wren.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-wishlist'
+    timeout: 60000
+- tapOn:
+    id: 'tab-wishlist'
+- extendedWaitUntil:
+    visible:
+      id: 'wishlist-empty'
+    timeout: 60000
+- tapOn:
+    id: 'wishlist-empty-action'
+
+# The wish: card autocomplete, then the radius (the FREE plan stops at 25 km).
+- extendedWaitUntil:
+    visible:
+      id: 'card-picker-input'
+    timeout: 60000
+- tapOn:
+    id: 'card-picker-input'
+- inputText: 'emberfang'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'suggestion-CARD-PFT-002'
+    timeout: 60000
+- tapOn:
+    id: 'suggestion-CARD-PFT-002'
+- extendedWaitUntil:
+    visible:
+      id: 'wish-card'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'wish-radius-decrease'
+- assertVisible:
+    id: 'wish-radius-value'
+    text: '25 km'
+- tapOn:
+    id: 'wish-radius-decrease'
+- tapOn:
+    id: 'wish-radius-decrease'
+- tapOn:
+    id: 'wish-radius-decrease'
+- assertVisible:
+    id: 'wish-radius-value'
+    text: '10 km'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'wish-save'
+- tapOn:
+    id: 'wish-save'
+- extendedWaitUntil:
+    visible:
+      id: 'wishlist-summary'
+    timeout: 60000
+- assertVisible: '.*No matches yet.*'
+- runScript:
+    file: scripts/wishlist.js
+    env:
+      ACTION: expect-wish
+      EMAIL: ${output.wren.email}
+      PASSWORD: ${output.wren.password}
+      EXPECT_RADIUS: '10'
+- takeScreenshot: wishlist-wish
+
+# Hal lists the card nearby: the bell and the match count follow live.
+- runScript:
+    file: scripts/wishlist.js
+    env:
+      ACTION: list
+      EMAIL: ${output.hal.email}
+      PASSWORD: ${output.hal.password}
+      BINDER: ${output.hal.binderId}
+- extendedWaitUntil:
+    visible:
+      id: 'notification-bell-wishlist-badge'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: '.*1 match.*'
+    timeout: 60000
+- takeScreenshot: wishlist-match-live
+
+# The notification centre, then the deep link to the matches.
+- tapOn:
+    id: 'notification-bell-wishlist'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-notifications'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: '.*Wishlist match: Emberfang Fox.*'
+    timeout: 60000
+- takeScreenshot: notifications-centre
+# The title itself (a pattern would also match the row's "Mark as read: …" button).
+- tapOn: 'Wishlist match: Emberfang Fox'
+- extendedWaitUntil:
+    visible:
+      id: 'wish-matches-head'
+    timeout: 60000
+- assertVisible: 'Hal Maestro'
+# The place and the distance bucket (nested text: on Android one line, no id of its own).
+- assertVisible: '.* · .*km away'
+- takeScreenshot: wishlist-matches
+
+# Message Hal from the match.
+- tapOn: 'Message'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- assertVisible: '.*Hal Maestro.*'

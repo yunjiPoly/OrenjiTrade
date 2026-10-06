@@ -1,0 +1,102 @@
+# Messages (mobile Phase 5): Ben (a fresh fictional collector driven from the host through the
+# isolated API, scripts/messaging.js) writes to Ada, who uses the app. Ada's inbox shows the
+# conversation with its preview and unread badge over the realtime channel ("Live"); she opens
+# it, reads it (Ben sees his message read), answers; Ben's next message arrives in the open
+# thread without a reload.
+appId: host.exp.exponent
+name: Messages inbox, thread and live delivery
+tags:
+  - mobile-m4
+  - messages
+---
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'realtime-status-connected'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-${output.ben.handle}'
+    timeout: 60000
+- assertVisible:
+    id: 'unread-badge-${output.ben.handle}'
+- assertVisible: '.*Hi Ada, still trading the Emberfang Fox\?.*'
+
+# Ben writes again: the inbox follows live.
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: send
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      BODY: 'It is in my trade binder.'
+- extendedWaitUntil:
+    visible: '.*It is in my trade binder\..*'
+    timeout: 60000
+- assertVisible:
+    id: 'unread-badge-${output.ben.handle}'
+- takeScreenshot: messages-inbox
+
+# The thread: both messages; reading them clears the badge.
+- tapOn:
+    id: 'conversation-row-${output.ben.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- assertVisible: 'Hi Ada, still trading the Emberfang Fox\?'
+- assertVisible: 'It is in my trade binder\.'
+
+# Ada answers.
+- tapOn:
+    id: 'conversation-input'
+- inputText: 'Great, Saturday at the cafe?'
+- hideKeyboard
+- tapOn:
+    id: 'conversation-send'
+- extendedWaitUntil:
+    visible: 'Great, Saturday at the cafe\?'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'receipt-sent'
+    timeout: 30000
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: expect
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      EXPECT_BODY: 'Great, Saturday at the cafe?'
+      EXPECT_READ: 'true'
+
+# Ben's answer arrives in the open thread.
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: send
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      BODY: 'Deal, see you there!'
+- extendedWaitUntil:
+    visible: 'Deal, see you there!'
+    timeout: 60000
+- takeScreenshot: messages-thread

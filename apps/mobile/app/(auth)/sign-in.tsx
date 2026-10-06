@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { validateEmail } from '@/src/account/registration';
 import { authErrorMessage } from '@/src/auth/authErrors';
+import { SESSION_ENDED_MESSAGE, useSessionNotice } from '@/src/auth/sessionNotice';
 import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage, PasswordField } from '@/src/components/ui/FormControls';
@@ -20,6 +21,7 @@ export default function SignInScreen() {
   const { palette } = useTheme();
   const session = useSession();
   const lastSignedInEmail = useAppStore((state) => state.prefs.lastSignedInEmail);
+  const sessionEnded = useSessionNotice((store) => store.ended);
   const updatePrefs = useAppStore((state) => state.updatePrefs);
 
   const [email, setEmail] = useState(lastSignedInEmail ?? '');
@@ -73,6 +75,11 @@ export default function SignInScreen() {
         </Text>
         {session.initError ? (
           <FormMessage tone="info">Sign-in is not configured for this environment.</FormMessage>
+        ) : null}
+        {sessionEnded && !error ? (
+          <FormMessage tone="info" testID="sign-in-session-ended">
+            {SESSION_ENDED_MESSAGE}
+          </FormMessage>
         ) : null}
         {error ? <FormMessage testID="sign-in-error">{error}</FormMessage> : null}
         <TextField

@@ -177,7 +177,7 @@ describe('Inventory tab', () => {
     fireEvent.press(await screen.findByTestId('listings-resume-dialog-confirm'));
     expect(await screen.findByText('Your public listings are visible again.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/me/listings/resume')).toHaveLength(1);
-    await waitFor(() => expect(screen.queryByTestId('listings-paused')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('listings-paused')).not.toBeOnTheScreen());
   });
 
   it('explains a moderation pause and warns about strikes', async () => {

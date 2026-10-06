@@ -54,12 +54,40 @@ export const meKeys = {
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase()] as const,
   collectorPart: (uid: Uid, handle: string, part: 'binders' | 'items' | 'ratings' | 'references') =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), part] as const,
-  /** Conversations (Phase 5): the list, one conversation, its messages. */
+  /** Conversations (Phase 5): every read below (prefix), the inbox, one conversation, messages. */
   conversations: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations'] as const,
+  conversationList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations', 'list'] as const,
   conversation: (uid: Uid, id: string) =>
     [...ME_ROOT, uidKey(uid), 'conversations', 'one', id] as const,
+  /** Every thread's messages (prefix). */
+  allMessages: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations', 'messages'] as const,
   messages: (uid: Uid, id: string) =>
     [...ME_ROOT, uidKey(uid), 'conversations', 'messages', id] as const,
+  /** Collectors the caller blocked (`GET /me/blocks`). */
+  blocks: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'blocks'] as const,
+  /**
+   * Community (Phase 5) as this viewer sees it (blocks hide authors both ways, `canEdit`):
+   * channels with 24 h counts, a channel's posts, a post's replies.
+   */
+  community: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community'] as const,
+  communityChannels: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community', 'channels'] as const,
+  communityPosts: (uid: Uid, slug: string) =>
+    [...ME_ROOT, uidKey(uid), 'community', 'posts', slug] as const,
+  communityReplies: (uid: Uid, postId: string) =>
+    [...ME_ROOT, uidKey(uid), 'community', 'replies', postId] as const,
+  /** Wishlist (Phase 6): every read (prefix), the list, one wish's matches. */
+  wishlist: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist'] as const,
+  wishlistItems: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'items'] as const,
+  wishMatches: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'wishlist', 'matches', id] as const,
+  /** Notification centre (Phase 6): every read (prefix), the unread count, the feeds. */
+  notificationCentre: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notification-centre'] as const,
+  notificationUnread: (uid: Uid) =>
+    [...ME_ROOT, uidKey(uid), 'notification-centre', 'unread-count'] as const,
+  notificationFeeds: (uid: Uid) =>
+    [...ME_ROOT, uidKey(uid), 'notification-centre', 'feed'] as const,
+  notificationFeed: (uid: Uid, unreadOnly: boolean) =>
+    [...ME_ROOT, uidKey(uid), 'notification-centre', 'feed', { unreadOnly }] as const,
 };
 
 export const publicKeys = {
@@ -69,6 +97,8 @@ export const publicKeys = {
   tags: (query: string) => ['tags', query] as const,
   /** The plans and their limits (`GET /plans`). */
   plans: ['public', 'plans'] as const,
+  /** Public feature flags (`GET /public/feature-flags`: `publicChat`, ...). */
+  featureFlags: ['public', 'feature-flags'] as const,
   /** A public binder as one viewer sees it (the owner block's distance bucket depends on them). */
   publicBinder: (id: string, uid: Uid) => ['public', 'binders', id, uidKey(uid)] as const,
   publicBinderItems: (id: string, uid: Uid, filters: object) =>

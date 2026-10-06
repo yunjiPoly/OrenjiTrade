@@ -63,8 +63,16 @@ export function RootNavigator() {
         {/* Inventory items (web: the add dialog and the edit panel of /inventory). */}
         <Stack.Screen name="items/new" options={{ title: 'Add a card' }} />
         <Stack.Screen name="items/[id]" options={{ title: 'Card' }} />
-        {/* A conversation opened from a collector (the Messages stage adds the inbox). */}
+        {/* A conversation (from the inbox, a collector, a match or a notification). */}
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation' }} />
+        {/* A public community channel (web: /community/:slug; the list is in the Messages tab). */}
+        <Stack.Screen name="community/[slug]" options={{ title: 'Community' }} />
+        {/* Wishlist (web: the add/edit dialog and the matches drawer of /wishlist/:id). */}
+        <Stack.Screen name="wishlist/new" options={{ title: 'Add to wishlist' }} />
+        <Stack.Screen name="wishlist/edit" options={{ title: 'Edit wish' }} />
+        <Stack.Screen name="wishlist/[id]" options={{ title: 'Matches nearby' }} />
+        {/* The notification centre (web: the top-bar bell and /notifications). */}
+        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}

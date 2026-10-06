@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -72,6 +74,18 @@ export default function CollectorScreen() {
 function MembersOnly() {
   const { palette } = useTheme();
   const router = useRouter();
+  const session = useSession();
+  // A 401 while signed in means the session itself ended: sign out (the gate then opens sign-in
+  // and reopens this profile afterwards) instead of pushing a sign-in screen the gate would send
+  // straight back to the tabs.
+  const signedIn = session.status === 'authenticated';
+  const go = (screen: '/sign-in' | '/sign-up') => {
+    if (signedIn) {
+      useSessionNotice.getState().reportEnded();
+    } else {
+      router.push(screen);
+    }
+  };
   return (
     <View testID="collector-members-only" accessibilityRole="summary" style={styles.centered}>
       <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>
@@ -80,11 +94,11 @@ function MembersOnly() {
       <Text style={[textStyle('md'), styles.title, { color: palette.textMuted }]}>
         Sign in or create a free account to see who trades near you.
       </Text>
-      <Button label="Sign in" onPress={() => router.push('/sign-in')} testID="collector-sign-in" />
+      <Button label="Sign in" onPress={() => go('/sign-in')} testID="collector-sign-in" />
       <Button
         label="Create account"
         variant="secondary"
-        onPress={() => router.push('/sign-up')}
+        onPress={() => go('/sign-up')}
         testID="collector-sign-up"
       />
     </View>

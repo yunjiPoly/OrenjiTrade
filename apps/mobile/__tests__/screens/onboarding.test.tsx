@@ -206,7 +206,7 @@ describe('Onboarding', () => {
     });
     // Never rendered as numbers, never drawn as a point.
     expect(screen.queryByText(/45\.519|73\.586/)).toBeNull();
-    await waitFor(() => expect(screen.queryByTestId('trading-area-pin')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('trading-area-pin')).not.toBeOnTheScreen());
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(/your device location/);
   });
 

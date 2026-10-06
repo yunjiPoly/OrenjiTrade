@@ -76,6 +76,27 @@ describe('Card detail', () => {
     });
   });
 
+  it('adds the card to the wishlist: any printing, or the printing of the link', async () => {
+    mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
+    const first = render();
+    await screen.findByTestId('card-name');
+    fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/wishlist/new',
+      params: { cardId: CARD_ID, printingId: '' },
+    });
+    first.unmount();
+
+    mockParams.current = { id: CARD_ID, printing: PRINTING_B };
+    render();
+    await screen.findByTestId('card-name');
+    fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/wishlist/new',
+      params: { cardId: CARD_ID, printingId: PRINTING_B },
+    });
+  });
+
   it('shows the provider credit for Yu-Gi-Oh! pictures', async () => {
     mockApi(
       signedInRoutes({

@@ -272,7 +272,7 @@ describe('Edit a card', () => {
       await screen.findByText('Confirmed: your card is listed as available again.')
     ).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/inventory/items/{id}/confirm')).toHaveLength(1);
-    await waitFor(() => expect(screen.queryByTestId('edit-item-stale')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('edit-item-stale')).not.toBeOnTheScreen());
   });
 
   it('deletes a card after a confirmation', async () => {
