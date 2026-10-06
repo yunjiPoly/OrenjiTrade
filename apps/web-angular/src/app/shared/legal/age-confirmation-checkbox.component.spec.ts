@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, Validators } from '@angular/forms';
 import {
   AGE_CONFIRMATION_ERROR,
+  AGE_CONFIRMATION_ERROR_FR,
   AGE_CONFIRMATION_LABEL_EN,
   AGE_CONFIRMATION_LABEL_FR,
   AgeConfirmationCheckboxComponent,
@@ -53,11 +54,13 @@ describe('AgeConfirmationCheckboxComponent', () => {
     expect(fixture.componentInstance.control.valid).toBe(true);
   });
 
-  it('announces the validation message when the parent asks for it', () => {
+  it('announces the validation message in both languages when the parent asks for it', () => {
     fixture.componentInstance.showError.set(true);
     fixture.detectChanges();
     const alert = element.querySelector('[role="alert"]');
     expect(alert?.textContent).toContain(AGE_CONFIRMATION_ERROR);
+    expect(alert?.textContent).toContain(AGE_CONFIRMATION_ERROR_FR);
+    expect(alert?.querySelector('[lang="fr"]')?.textContent).toContain(AGE_CONFIRMATION_ERROR_FR);
     expect(element.querySelector('.age')?.getAttribute('aria-describedby')).toBe(
       'age-confirmation-error',
     );

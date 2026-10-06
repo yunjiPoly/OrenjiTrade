@@ -5,11 +5,16 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 /** The API's document type of the 18+ attestation (`POST /me/consents`). */
 export const AGE_CONFIRMATION_TYPE = 'AGE_CONFIRMATION';
 
-/** Checkbox wording, English and its French equivalent (Bill 96). Both are always shown. */
+/**
+ * Checkbox and validation wording, English and its French equivalent (Bill 96). Both languages
+ * are always shown; the rest of the UI is English-only until the full translation.
+ */
 export const AGE_CONFIRMATION_LABEL_EN = 'I confirm I am 18 years of age or older';
 export const AGE_CONFIRMATION_LABEL_FR = 'Je confirme avoir 18 ans ou plus';
 export const AGE_CONFIRMATION_ERROR =
   'You must confirm that you are 18 years of age or older to use OrenjiTrade.';
+export const AGE_CONFIRMATION_ERROR_FR =
+  'Vous devez confirmer avoir 18 ans ou plus pour utiliser OrenjiTrade.';
 
 /**
  * The 18+ confirmation checkbox: never ticked by default, the parent owns the `requiredTrue`
@@ -26,7 +31,10 @@ export const AGE_CONFIRMATION_ERROR =
         <span class="age__label age__label--fr" lang="fr">{{ labelFr }}</span>
       </mat-checkbox>
       @if (showError()) {
-        <p class="age__error" id="age-confirmation-error" role="alert">{{ errorMessage }}</p>
+        <p class="age__error" id="age-confirmation-error" role="alert">
+          <span class="age__error-line">{{ errorMessage }}</span>
+          <span class="age__error-line" lang="fr">{{ errorMessageFr }}</span>
+        </p>
       }
     </div>
   `,
@@ -49,6 +57,9 @@ export const AGE_CONFIRMATION_ERROR =
       color: var(--color-danger);
       font-size: var(--font-size-sm);
     }
+    .age__error-line {
+      display: block;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -60,4 +71,5 @@ export class AgeConfirmationCheckboxComponent {
   protected readonly labelEn = AGE_CONFIRMATION_LABEL_EN;
   protected readonly labelFr = AGE_CONFIRMATION_LABEL_FR;
   protected readonly errorMessage = AGE_CONFIRMATION_ERROR;
+  protected readonly errorMessageFr = AGE_CONFIRMATION_ERROR_FR;
 }

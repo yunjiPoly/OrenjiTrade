@@ -54,7 +54,7 @@ export const LEGAL_PAGE_LABELS: Record<LegalLanguage, LegalPageLabels> = {
     languageName: 'Français',
     effectiveDate: 'Date d’entrée en vigueur\u00a0:',
     version: 'Version',
-    lastUpdated: 'Dernière mise à jour le',
+    lastUpdated: 'Dernière mise à jour\u00a0:',
     sections: 'Sections',
     definitions: 'Définitions',
     contact: 'Nous joindre',

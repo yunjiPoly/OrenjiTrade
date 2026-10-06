@@ -1084,6 +1084,23 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   guards the notice, the typography and case-insensitive placeholders. Owner / lawyer calls left
   as they are: « gradation » (community term for grading), « entiercement (escrow) », « Politique
   du marché », « Mint » kept as the app's condition label.
+  **Second French review (2026-10-05), fixed:** Marketplace Policy 2.3 said « la carte réellement
+  mise en vente », which narrowed "the actual card being listed" to cards for sale; it now reads
+  « la carte réellement annoncée » (the sentence about stock images « lorsqu'une carte est à
+  vendre » is unchanged). Wording alignments: « Votre position précise (coordonnées
+  géographiques) » instead of « Vos coordonnées précises » (coordonnées = contact details),
+  « un collectionneur de bonne foi » instead of « un échangeur » (a highway interchange),
+  « selon les lois qui vous sont applicables » for "in your jurisdiction", epicene rewrites of the
+  two participles addressed to the reader (« Ne cédez jamais à la pression de… », « pour maintenir
+  votre session ouverte »), the French `lastUpdated` label is « Dernière mise à jour : » (the
+  ISO date follows, as in English), and the Trading-safely short title is « Échanger en
+  sécurité » (« Sécurité » alone could be read as account security). The 18+ validation message
+  is now shown in both languages like the checkbox label. Left to the lawyer / owner, as before:
+  « gradation », « proxys », « premium » and « conseiller juridique » (correct; « avocat » is the
+  everyday word). Note for the UI translation: the French legal texts name UI controls in French
+  (« Signaler le collectionneur », « Paramètres → Compte (« Exporter mes données ») »,
+  « Utilisateurs bloqués ») that the English UI does not show verbatim until step 2 of the plan
+  translates those screens; keep the legal glossary and the UI catalog aligned then.
 - [x] **Consent references the version and the language shown.** V104 adds
   `user_consent.language` (`en` / `fr`, default `en`); `POST /me/consents` accepts an optional
   `language` (older clients unchanged), the admin detail, the export and the audit row expose it.
@@ -1142,11 +1159,13 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   hard-code `en-CA`. Mobile: no i18next / expo-localization; 8 `Intl` calls with `en-CA`. The legal
   texts are the only translated surface (runtime switch, this stage). The launch-stage strings
   around them are English-only and belong to the first batch of the follow-up: the safety notice
-  copy and its Report / Block / Dismiss labels (`trading-safety-notice.component.ts`), the 18+
-  validation message (`age-confirmation-checkbox.component.ts`; the checkbox label itself is
-  bilingual), the onboarding age step (`onboarding-page.component.html`), the consent list wording
-  ("I have read and accept the", `legal-consent-list.component.ts`) and the `legal_document.title`
-  row "Age confirmation (18 years or older)" (V103, shown in admin and `requiredConsents`).
+  copy and its Report / Block / Dismiss labels (`trading-safety-notice.component.ts`; two strings
+  keyed by context, cheap to switch on `LegalLanguageService` once a UI language exists), the
+  onboarding age step (`onboarding-page.component.html`), the consent list wording ("I have read
+  and accept the", `legal-consent-list.component.ts`) and the `legal_document.title` row "Age
+  confirmation (18 years or older)" (V103, shown in admin and `requiredConsents`). The 18+
+  checkbox label and its validation message (`age-confirmation-checkbox.component.ts`) are already
+  shown in both languages.
 - **User-facing strings (heuristic count of template text nodes, static attributes and TS string
   literals, ± 20 %):** web `features/` ≈ 4,000 across 300 files — admin 1,650 (100 files), inventory
   330, settings 290, legal 190 (the texts), trades 185, auth 140, map 120, messages 120, search 110,

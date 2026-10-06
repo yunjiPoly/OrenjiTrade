@@ -200,7 +200,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'location-privacy',
         heading: 'Confidentialité de la localisation',
         clauses: [
-          'Vos coordonnées précises, si vous les fournissez un jour, sont chiffrées au repos et servent uniquement à dériver votre Point public. Elles ne sont jamais renvoyées par nos API, affichées dans les applications, écrites dans les journaux ni incluses dans les analyses.',
+          'Votre position précise (coordonnées géographiques), si vous la fournissez un jour, est chiffrée au repos et sert uniquement à dériver votre Point public. Elle n’est jamais renvoyée par nos API, affichée dans les applications, écrite dans les journaux ni incluse dans les analyses.',
           'Les distances affichées aux autres Collectionneurs sont arrondies (par exemple «\u00a0environ 4 km\u00a0»). Le brouillage appliqué à votre Point public est fixe, de sorte que des requêtes répétées ne peuvent pas être combinées pour vous localiser.',
           'Vous pouvez choisir votre Zone d’échange manuellement plutôt qu’avec la localisation de l’appareil.',
         ],
@@ -287,7 +287,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'safety',
         heading: 'Rencontrez-vous et échangez en toute sécurité',
         clauses: [
-          'Pour les échanges en personne, donnez-vous rendez-vous dans des lieux publics achalandés, de jour, et faites-vous accompagner pour les cartes de valeur. Ne vous sentez jamais obligé de communiquer votre adresse domiciliaire; la carte n’affiche jamais que des positions approximatives. La page «\u00a0Échanger en toute sécurité\u00a0» donne des conseils pratiques.',
+          'Pour les échanges en personne, donnez-vous rendez-vous dans des lieux publics achalandés, de jour, et faites-vous accompagner pour les cartes de valeur. Ne cédez jamais à la pression de communiquer votre adresse domiciliaire; la carte n’affiche jamais que des positions approximatives. La page «\u00a0Échanger en toute sécurité\u00a0» donne des conseils pratiques.',
           'Utilisez les outils d’offre et de messagerie de l’application afin qu’il reste une trace si quelque chose tourne mal.',
           'Signalez tout comportement suspect avec le bouton Signaler le collectionneur. Les signalements sont examinés par les modérateurs et ne sont jamais montrés au Collectionneur signalé. Vous pouvez aussi bloquer un Collectionneur depuis son profil ou depuis le menu de la conversation.',
         ],
@@ -335,7 +335,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Ce qui peut être publié',
         clauses: [
           'Des cartes à collectionner physiques et des produits scellés pour les jeux pris en charge par OrenjiTrade.',
-          'Non permis\u00a0: les contrefaçons ou reproductions sans licence présentées comme authentiques, les biens volés, les codes numériques obtenus en violation des conditions de l’éditeur, et tout ce dont la vente est illégale là où vous vous trouvez.',
+          'Non permis\u00a0: les contrefaçons ou reproductions sans licence présentées comme authentiques, les biens volés, les codes numériques obtenus en violation des conditions de l’éditeur, et tout ce dont la vente est illégale selon les lois qui vous sont applicables.',
         ],
       },
       {
@@ -344,7 +344,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Chaque Annonce indique un état, une langue, une édition ou une impression, et une disponibilité (collection seulement, échange, vente, échange ou vente, offres acceptées, non disponible).',
           'Les prix sont fixés par le Collectionneur dans sa devise locale. OrenjiTrade ne fixe, ne suggère ni ne garantit aucun prix.',
-          'Les photos doivent montrer la carte réellement mise en vente. Des images de catalogue peuvent s’ajouter aux vraies photos, sans les remplacer, lorsqu’une carte est à vendre.',
+          'Les photos doivent montrer la carte réellement annoncée. Des images de catalogue peuvent s’ajouter aux vraies photos, sans les remplacer, lorsqu’une carte est à vendre.',
         ],
       },
       {
@@ -514,7 +514,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'what-we-use',
         heading: 'Ce que nous utilisons',
         clauses: [
-          'Strictement nécessaire\u00a0: les jetons de session du fournisseur d’identité (pour vous garder connecté) et les jetons de sécurité qui protègent contre la falsification de requêtes.',
+          'Strictement nécessaire\u00a0: les jetons de session du fournisseur d’identité (pour maintenir votre session ouverte) et les jetons de sécurité qui protègent contre la falsification de requêtes.',
           'Préférences\u00a0: votre thème (clair, sombre ou système), la langue des pages juridiques, les avis que vous avez fermés et les réglages semblables, conservés dans le stockage local et jamais envoyés à nos serveurs.',
           'Analyse\u00a0: des analyses de produit de première partie qui n’incluent ni localisation précise ni contenu de messages. [Confirmer si un consentement est requis dans les régions visées.]',
         ],
@@ -588,7 +588,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
   'trading-safely': {
     key: 'trading-safely',
     title: 'Échanger en toute sécurité',
-    shortTitle: 'Sécurité',
+    shortTitle: 'Échanger en sécurité',
     summary:
       'Conseils pratiques pour rencontrer d’autres collectionneurs et échanger avec eux, ce qu’OrenjiTrade montre à votre sujet, et comment signaler ou bloquer quelqu’un.',
     version: '0.1-draft',
@@ -611,7 +611,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'during-the-exchange',
         heading: 'Pendant l’échange',
         clauses: [
-          'Vérifiez les cartes avant de remettre de l’argent ou vos propres cartes\u00a0: état, édition, impression et signes de contrefaçon. Prenez votre temps; un échangeur de bonne foi s’y attend.',
+          'Vérifiez les cartes avant de remettre de l’argent ou vos propres cartes\u00a0: état, édition, impression et signes de contrefaçon. Prenez votre temps; un collectionneur de bonne foi s’y attend.',
           'Gardez l’échange simple\u00a0: une seule rencontre, en personne, cartes et paiement au même moment.',
           'Partez si quelque chose cloche. Vous n’avez jamais l’obligation de conclure un échange.',
         ],
