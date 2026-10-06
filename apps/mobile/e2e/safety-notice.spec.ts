@@ -84,6 +84,11 @@ test.describe('mobile trading safety', () => {
     await notice.getByRole('button', { name: 'Dismiss the safety notice' }).click();
     await expect(notice).toBeHidden();
     await expect(thread.getByLabel('Message', { exact: true })).toBeVisible();
+    // Reload on the Map tab (`/`): the static export serves no page for `/messages` or a thread.
+    await page.goBack();
+    await expect(screen(page, 'messages')).toBeVisible({ timeout: 30_000 });
+    await openTab(page, 'Map');
+    await expect(page).toHaveURL(/\/$/);
     await page.reload();
     await openTab(page, 'Messages');
     await screen(page, 'messages').getByTestId(`conversation-row-${ben.handle}`).click();

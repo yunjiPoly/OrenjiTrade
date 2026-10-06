@@ -1,9 +1,10 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { needsAgeConfirmation } from '@/src/account/accountStatus';
+import { usePendingLink } from '@/src/account/pendingLink';
 import { messageOf } from '@/src/api/errorMessages';
 import { useLegalDocuments } from '@/src/api/hooks/legal';
 import {
@@ -151,9 +152,28 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const ageConfirmation = ageConfirmationOf(legal.data);
 
   /**
+   * Leaves onboarding: for the tabs, or for the link the gate remembered when it sent the
+   * collector here (a deep link, a notification), which replaces this screen so that back leads
+   * to the tabs. The link is taken before `/me` reloads: the gate would otherwise push it the
+   * moment the account is ready, on top of this screen.
+   */
+  const takePendingLink = (): string | null => {
+    const href = usePendingLink.getState().href;
+    usePendingLink.getState().clear();
+    return href;
+  };
+  const leave = (pending: string | null) => {
+    if (pending) {
+      router.replace(pending as Href);
+    } else {
+      router.dismissTo('/');
+    }
+  };
+
+  /**
    * Records the 18+ confirmation. Accounts that already finished the other steps (existing
    * collectors confirming on their next sign-in) are done right away and go back to where they
-   * came from (the gate reopens the remembered link).
+   * came from.
    */
   const confirmAge = async () => {
     setAgeSubmitted(true);
@@ -162,12 +182,13 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
     }
     setAgeBusy(true);
     setAgeError(null);
+    const pending = ageOnly ? takePendingLink() : null;
     try {
       await account.acceptConsents([ageConsentFor(ageConfirmation)]);
       setAgeDone(true);
       if (ageOnly) {
         snackbar.show('Thanks for confirming. Welcome back!');
-        router.dismissTo('/');
+        leave(pending);
         return;
       }
       setStep('profile');
@@ -198,6 +219,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const finish = async (withArea: boolean) => {
     setFinishing(true);
     setAreaError(null);
+    const pending = takePendingLink();
     try {
       if (withArea) {
         const input = areaInput(area, location);
@@ -211,8 +233,11 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       }
       await account.reload();
       snackbar.show('Welcome to OrenjiTrade! Your profile is ready.');
-      router.dismissTo('/');
+      leave(pending);
     } catch (caught) {
+      if (pending) {
+        usePendingLink.getState().set(pending);
+      }
       setAreaError(messageOf(caught));
     } finally {
       setFinishing(false);

@@ -38,8 +38,13 @@ test.describe('mobile age confirmation', () => {
     await expect(onboarding.getByLabel('Handle')).toHaveCount(0);
     await expect(onboarding.getByText('Je confirme avoir 18 ans ou plus')).toBeVisible();
 
-    // A link opened meanwhile (a deep link, a notification) is remembered by the gate.
-    await openInApp(page, '/collectors/collector5');
+    // A link opened meanwhile (a deep link, a notification) is remembered by the gate, which
+    // sends the collector straight back to the step (so the URL never settles on the link).
+    await page.evaluate(() => {
+      window.history.pushState(null, '', '/collectors/collector5');
+      window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    });
+    await expect(page).toHaveURL(/\/onboarding$/, { timeout: 30_000 });
     await expect(onboarding.getByRole('heading', { name: 'Are you 18 or older?' })).toBeVisible({
       timeout: 30_000,
     });
@@ -76,7 +81,7 @@ test.describe('mobile age confirmation', () => {
       { timeout: 30_000 }
     );
     expect(await apiAgeConfirmed(request, collector.idToken)).toBe(true);
-    await page.goBack();
+    await openInApp(page, '/');
     await expect(screen(page, 'map')).toBeVisible({ timeout: 30_000 });
 
     // Confirmed for good: a reload lands on the tabs, never on the step again.

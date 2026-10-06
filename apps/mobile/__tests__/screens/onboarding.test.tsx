@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import OnboardingScreen from '@/app/onboarding';
+import { usePendingLink } from '@/src/account/pendingLink';
 import type { UpdateTradingAreaRequest } from '@/src/api/types';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -272,9 +273,14 @@ describe('Onboarding age step (18+ rule)', () => {
     ).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(0);
 
+    // The gate remembered where the collector was sent to onboarding from.
+    usePendingLink.getState().set('/collectors/collector5');
     fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
+    // The remembered link replaces onboarding (back leads to the tabs), the tabs otherwise.
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBeNull();
     expect(api.callsTo('POST /api/v1/me/consents')[0]?.body).toEqual({
       documentType: 'AGE_CONFIRMATION',
       version: '2026-10-05',
