@@ -176,6 +176,36 @@ export async function apiAcceptConsents(api: APIRequestContext, token: string): 
   }
 }
 
+/**
+ * Records the `AGE_CONFIRMATION` consent (current version from the public document list, read
+ * with the collector's token so the call counts against the per-user rate limit rather than the
+ * anonymous per-IP budget every worker shares). Idempotent on the API.
+ */
+export async function apiConfirmAge(api: APIRequestContext, token: string): Promise<void> {
+  const documents = await api.get(`${API_URL}/api/v1/public/legal/documents`, {
+    headers: authHeader(token),
+  });
+  expect(documents.ok(), 'GET /public/legal/documents').toBeTruthy();
+  const list = (await documents.json()) as { documentType: string; version: string }[];
+  const age = list.find((document) => document.documentType === 'AGE_CONFIRMATION');
+  expect(age, 'the API publishes the AGE_CONFIRMATION document').toBeTruthy();
+  const response = await api.post(`${API_URL}/api/v1/me/consents`, {
+    headers: authHeader(token),
+    data: { documentType: age!.documentType, version: age!.version },
+  });
+  expect(response.status(), 'consent AGE_CONFIRMATION').toBe(204);
+}
+
+/** Whether the collector recorded the 18+ confirmation (`GET /me`). */
+export async function apiAgeConfirmed(api: APIRequestContext, token: string): Promise<boolean> {
+  const me = await api.get(`${API_URL}/api/v1/me`, { headers: authHeader(token) });
+  expect(me.ok(), 'GET /me').toBeTruthy();
+  return (
+    ((await me.json()) as { onboarding: { ageConfirmed?: boolean } }).onboarding.ageConfirmed ===
+    true
+  );
+}
+
 export interface OnboardedCollector extends EmulatorUser {
   /** Account id (`GET /me`), e.g. a recipient of `POST /conversations`. */
   id: string;
@@ -191,18 +221,23 @@ export interface AreaPoint {
 }
 
 /**
- * A fresh collector created through the emulator + API: accepted terms, a saved profile with a
- * game (onboarding complete); without `area` no trading area and not discoverable, with `area` a
- * MANUAL trading area there and, with `discoverable`, on the map.
+ * A fresh collector created through the emulator + API: accepted terms, the 18+ confirmation
+ * (unless `confirmAge: false`: an account from before the rule, which the app sends to the
+ * onboarding age step), a saved profile with a game (onboarding complete); without `area` no
+ * trading area and not discoverable, with `area` a MANUAL trading area there and, with
+ * `discoverable`, on the map.
  */
 export async function createOnboardedCollector(
   api: APIRequestContext,
   prefix: string,
   displayName = `Mobile ${prefix} collector`,
-  options: { area?: AreaPoint; discoverable?: boolean } = {}
+  options: { area?: AreaPoint; discoverable?: boolean; confirmAge?: boolean } = {}
 ): Promise<OnboardedCollector> {
   const user = await emulatorSignUp(api, uniqueEmail(prefix));
   await apiAcceptConsents(api, user.idToken);
+  if (options.confirmAge !== false) {
+    await apiConfirmAge(api, user.idToken);
+  }
   const handle = uniqueHandle(prefix);
   const profile = await api.put(`${API_URL}/api/v1/me/profile`, {
     headers: authHeader(user.idToken),

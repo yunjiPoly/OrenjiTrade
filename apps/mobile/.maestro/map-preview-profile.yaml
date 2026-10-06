@@ -9,6 +9,13 @@ tags:
   - mobile-m3
   - map
 ---
+# The seed predates the 18+ rule: its confirmation is recorded through the API first (the
+# onboarding age step is proven by age-step-existing-account.yaml).
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
 - runFlow: subflows/launch-fresh.yaml
 - runFlow:
     file: subflows/sign-in.yaml

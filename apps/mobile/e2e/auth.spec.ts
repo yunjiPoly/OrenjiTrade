@@ -2,6 +2,7 @@ import { expect, test } from './support/fixtures';
 import {
   SEED_PASSWORD,
   TEST_PASSWORD,
+  apiAgeConfirmed,
   emulatorSignUp,
   openTab,
   requireStack,
@@ -63,6 +64,17 @@ test.describe('mobile accounts', () => {
       .all()) {
       await expect(box).toHaveAttribute('aria-checked', 'true');
     }
+    // "Accept all" never ticks the 18+ confirmation: it is a separate, explicit statement.
+    const ageBox = signUp.getByRole('checkbox', {
+      name: 'I confirm I am 18 years of age or older',
+    });
+    await expect(ageBox).toHaveAttribute('aria-checked', 'false');
+    await signUp.getByRole('button', { name: 'Create account' }).click();
+    await expect(
+      signUp.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.')
+    ).toBeVisible();
+    await ageBox.click();
+    await expect(ageBox).toHaveAttribute('aria-checked', 'true');
     await signUp.getByRole('button', { name: 'Create account' }).click();
 
     // Verification through the emulator's out-of-band code.
@@ -203,12 +215,25 @@ test.describe('mobile accounts', () => {
     await consent.getByRole('button', { name: 'Accept and continue' }).click();
     await expect(consent.getByText('Please accept every document to continue.')).toBeVisible();
     await consent.getByRole('checkbox', { name: 'Accept all' }).click();
+    // The consent screen also collects the 18+ confirmation (Google sign-ups never see sign-up).
     await consent.getByRole('button', { name: 'Accept and continue' }).click();
     await expect(
-      screen(page, 'onboarding').getByRole('heading', {
-        name: "Let's set up your collector profile",
-      })
+      consent.getByText(
+        'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
+      )
+    ).toBeVisible();
+    await consent
+      .getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' })
+      .click();
+    await consent.getByRole('button', { name: 'Accept and continue' }).click();
+    const onboarding = screen(page, 'onboarding');
+    await expect(
+      onboarding.getByRole('heading', { name: "Let's set up your collector profile" })
     ).toBeVisible({ timeout: 30_000 });
+    // Confirmed on the consent screen: onboarding starts at the profile, not the age step.
+    await expect(onboarding.getByText('Who are you?')).toBeVisible();
+    await expect(onboarding.getByText('Are you 18 or older?')).toHaveCount(0);
+    expect(await apiAgeConfirmed(request, user.idToken)).toBe(true);
   });
 
   test('a password reset never reveals whether the account exists', async ({ page }) => {
