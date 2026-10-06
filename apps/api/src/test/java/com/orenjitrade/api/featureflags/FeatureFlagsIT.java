@@ -17,7 +17,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
-/** Feature flags: migration defaults, public map, admin reads/writes, rollout, 404 when off. */
+/**
+ * Feature flags: migration defaults (V010 + the V105 launch configuration: every money feature
+ * off), public map, admin reads/writes, rollout, 404 when off.
+ */
 class FeatureFlagsIT extends AbstractIntegrationTest {
 
     static final Map<String, Boolean> DEFAULTS =
@@ -25,9 +28,9 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
                     "mlScanning", false,
                     "protectedPayments", false,
                     "publicChat", true,
-                    "premiumPlans", true,
+                    "premiumPlans", false,
                     "advertising", false,
-                    "credits", true,
+                    "credits", false,
                     "donations", false);
 
     @Autowired private FeatureFlags featureFlags;
@@ -214,6 +217,8 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         new FeatureFlagSeedContributor(repository, featureFlags, timeProvider).seed();
 
         assertThat(featureFlags.isEnabled("protectedPayments")).isTrue();
+        assertThat(featureFlags.isEnabled("premiumPlans")).isTrue();
+        assertThat(featureFlags.isEnabled("credits")).isTrue();
         assertThat(featureFlags.isEnabled("advertising")).isTrue();
         assertThat(featureFlags.isEnabled("donations")).isFalse();
         assertThat(featureFlags.isEnabled("mlScanning")).isFalse();

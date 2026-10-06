@@ -66,10 +66,12 @@ entries. Nothing happens while the real catalog is absent.
 - Plans: FREE and PREMIUM with limits (binder views/day 30 vs unlimited, wishlist alerts 5 vs
   unlimited, radius 25 km vs 100 km, advanced filters off/on); premium-user subscribed.
 - Delist policy: ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days.
-- Feature flags: `mlScanning=false`, `protectedPayments=false`, `publicChat=true`,
-  `premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false` (V010 migration
-  defaults). The `local`/`dev` seed (`FeatureFlagSeedContributor`) then switches on
-  `protectedPayments`, `advertising` and `donations` so those flows run with the fake
-  providers; `mlScanning` stays off (Phase 11 on hold). Flags an admin already edited are kept.
+- Feature flags (migration state, V010 + V105 launch configuration): `mlScanning=false`,
+  `protectedPayments=false`, `publicChat=true`, `premiumPlans=false`, `advertising=false`,
+  `credits=false`, `donations=false` — every money feature off. The `local`/`dev` seed
+  (`FeatureFlagSeedContributor`) then switches on `protectedPayments`, `premiumPlans`, `credits`,
+  `advertising` and `donations` so those flows run with the fake providers; `mlScanning` stays off
+  (Phase 11 on hold). Flags an admin already edited are kept. Staging/prod never run the seed and
+  start with the migration state (see `docs/deployment/runbooks.md`, "Launch configuration").
 - Community channels: Montréal / Yu-Gi-Oh!, Montréal / Pokémon, Montréal / Magic,
   Montréal / Riftbound, Looking For, New Listings, Trades, General.

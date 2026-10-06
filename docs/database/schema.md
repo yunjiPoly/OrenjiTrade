@@ -163,6 +163,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
 | V103 | `V103__age_confirmation.sql` | Launch readiness (18+ rule): `legal_document.document_type` accepts `AGE_CONFIRMATION` (named constraint `ck_legal_document_type` replaces the unnamed V003 check) and the attestation row `AGE_CONFIRMATION` / `2026-10-05` (`required_at_registration = false`, `url = '/legal#age-confirmation'`) is inserted; confirmations are ordinary `user_consent` rows |
 | V104 | `V104__consent_language.sql` | Launch readiness (French legal pages): `user_consent.language` (`en` / `fr`, default `en`, `ck_user_consent_language`) records which translation was shown when the consent was given; one `legal_document` version covers both languages |
+| V105 | `V105__launch_money_flags_off.sql` | Launch configuration ("discovery + messaging only"): `feature_flag` rows `premiumPlans` and `credits` switched off as data (V010 had created them enabled); rows an admin already edited (`updated_by` set) are left alone; the local/dev seed switches them back on |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -479,11 +480,15 @@ evicted after every write, so all API instances apply a change at once.
 | `updated_by` | `uuid` | FK → `user_account.id` (`ON DELETE SET NULL`); `NULL` for migration defaults and the local seed |
 | `updated_at`, `created_at` | `timestamptz` | |
 
-Seeded rows (production-safe defaults): `mlScanning=false`, `protectedPayments=false`,
-`publicChat=true`, `premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false`. The
-local/dev `FeatureFlagSeedContributor` enables `protectedPayments`, `advertising` and `donations`
-(fake providers) unless an admin already edited them (`updated_by` set); `mlScanning` stays off.
-A disabled flag makes guarded routes answer `404 FEATURE_DISABLED` (extension `feature`).
+Seeded rows (V010): `mlScanning=false`, `protectedPayments=false`, `publicChat=true`,
+`premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false`. **V105 (launch
+configuration, 2026-10-05) switches `premiumPlans` and `credits` off**, so a database migrated from
+scratch has every money feature off and only `publicChat` on; a SUPER_ADMIN turns a money feature on
+in `/admin > Feature flags` (`docs/deployment/runbooks.md`, "Launch configuration"). The local/dev
+`FeatureFlagSeedContributor` enables `protectedPayments`, `premiumPlans`, `credits`, `advertising`
+and `donations` (fake providers) unless an admin already edited them (`updated_by` set);
+`mlScanning` stays off everywhere. A disabled flag makes guarded routes answer
+`404 FEATURE_DISABLED` (extension `feature`).
 
 ### V011 — plans, plan features, usage limits, usage counters, entitlements (ADR 0014)
 
@@ -1893,3 +1898,13 @@ violation aborted its mock catalog seed and with it the API start-up. The `BEFOR
 trigger `trg_card_image_fill_owner` (function `card_image_fill_owner()`) fills the missing owners from
 the printing and its card; rows that set them (all current code) are left untouched. Covered by
 `CardImageLegacyWriterIT`, which runs the pre-V100 upsert verbatim.
+
+### V105 — launch configuration: money features off
+
+`UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans', 'credits') AND updated_by IS
+NULL`. V010 had created both flags enabled (Phase 10 defaults); the owner launches with every money
+feature off (2026-10-05), and applied migrations are never edited, so the change is a later
+migration acting on data. Admin edits (`updated_by` set) are respected; the local/dev seed
+re-enables both so the fake checkout, credits and referral flows stay testable locally. Covered by
+`FeatureFlagsIT` (migration state) and `LaunchConfigurationIT` (everything else keeps working with
+every money flag off).
