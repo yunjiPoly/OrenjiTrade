@@ -10,5 +10,6 @@ expo-env.d.ts
 src/theme/tokens.ts
 assets
 src/legal/legalContent.ts
+src/legal/legalContent.fr.ts
 test-results
 playwright-report

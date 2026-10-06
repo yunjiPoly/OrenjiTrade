@@ -76,7 +76,12 @@ export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
     avatarUrl: null,
     createdAt: '2026-09-01T12:00:00Z',
     lastActiveAt: null,
-    onboarding: { profileComplete: true, tradingAreaSet: true, interestsSet: true },
+    onboarding: {
+      profileComplete: true,
+      tradingAreaSet: true,
+      interestsSet: true,
+      ageConfirmed: true,
+    },
     requiredConsents: [],
     plan: 'FREE',
     ...overrides,
@@ -85,7 +90,17 @@ export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
 
 export const NOT_ONBOARDED = { profileComplete: false, tradingAreaSet: false, interestsSet: false };
 
+/** The 18+ attestation as the API publishes it (never required at registration). */
+export const AGE_CONFIRMATION: LegalDocument = {
+  documentType: 'AGE_CONFIRMATION',
+  version: '2026-10-05',
+  title: 'Age confirmation (18 years or older)',
+  url: '/legal#age-confirmation',
+  requiredAtRegistration: false,
+};
+
 export const LEGAL_DOCUMENTS: LegalDocument[] = [
+  AGE_CONFIRMATION,
   {
     documentType: 'PRIVACY',
     version: '2026-09-01',

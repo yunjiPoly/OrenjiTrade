@@ -8,6 +8,7 @@ import { useFlowLock } from '@/src/account/flowLock';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { LEGAL_DOCUMENTS, NOT_ONBOARDED, deletionFixture, meFixture } from '../support/fixtures';
+import { mockLocales } from '../support/locales';
 import { mockApi, noContent, ok, problem } from '../support/mockApi';
 import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -20,6 +21,7 @@ jest.mock('@/src/features/account/exportData', () => ({
 beforeEach(() => {
   resetRouterMock();
   resetAppState();
+  mockLocales('en-CA');
 });
 
 describe('Consent screen', () => {
@@ -49,8 +51,50 @@ describe('Consent screen', () => {
     expect(api.callsTo('POST /api/v1/me/consents')[0]?.body).toEqual({
       documentType: 'TERMS',
       version: '2026-10-01',
+      language: 'en',
     });
+    // An account that already confirmed its age (the fixture) is not asked again.
+    expect(screen.queryByRole('checkbox', { name: /18 years of age/ })).toBeNull();
     expect(await screen.findByText('You have accepted every current document.')).toBeOnTheScreen();
+  });
+
+  it('collects the 18+ confirmation from an account that never gave it (a Google sign-up)', async () => {
+    mockLocales('fr-CA');
+    const api = mockApi({
+      'GET /api/v1/me': [
+        ok(
+          meFixture({
+            requiredConsents: pending,
+            onboarding: { ...NOT_ONBOARDED, ageConfirmed: false },
+          })
+        ),
+        ok(meFixture({ onboarding: { ...NOT_ONBOARDED, ageConfirmed: true } })),
+      ],
+      'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
+      'POST /api/v1/me/consents': noContent,
+    });
+    renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
+    // French device: the document titles come from the French texts, the attestation is bilingual.
+    fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
+    expect(
+      screen.getByRole('checkbox', { name: 'I have read and accept the Conditions d’utilisation' })
+    ).toBeChecked();
+    const age = screen.getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' });
+    expect(age).not.toBeChecked();
+    fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
+    expect(
+      screen.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.')
+    ).toBeOnTheScreen();
+    expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(0);
+
+    fireEvent.press(age);
+    fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(3));
+    expect(api.callsTo('POST /api/v1/me/consents').map((call) => call.body)).toEqual([
+      { documentType: 'TERMS', version: '2026-10-01', language: 'fr' },
+      { documentType: 'PRIVACY', version: '2026-10-01', language: 'fr' },
+      { documentType: 'AGE_CONFIRMATION', version: '2026-10-05', language: 'fr' },
+    ]);
   });
 
   it('shows a failure and lets the collector sign out', async () => {

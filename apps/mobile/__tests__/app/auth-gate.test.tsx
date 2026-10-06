@@ -2,6 +2,8 @@ import { act, screen, waitFor } from '@testing-library/react-native';
 
 import { useFlowLock } from '@/src/account/flowLock';
 import { resumableHref, usePendingLink } from '@/src/account/pendingLink';
+import { reportAccountSignal } from '@/src/api/accountSignal';
+import { ApiError } from '@/src/api/ApiError';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 
@@ -161,5 +163,62 @@ describe('auth gate (RootNavigator)', () => {
     expect(
       resumableHref(['messages', '[id]'], '/messages/m1', { id: 'm1', view: ['a', 'b'] })
     ).toBe('/messages/m1?view=a');
+  });
+});
+
+describe('auth gate: the 18+ confirmation (launch readiness)', () => {
+  it('sends an unconfirmed existing collector to onboarding and remembers where they were', async () => {
+    mockSegments.current = ['messages', '[id]'];
+    mockPathname.current = '/messages/conv-1';
+    mockParams.current = { id: 'conv-1' };
+    mockApi({
+      'GET /api/v1/me': ok(
+        meFixture({
+          onboarding: {
+            profileComplete: true,
+            interestsSet: true,
+            tradingAreaSet: true,
+            ageConfirmed: false,
+          },
+        })
+      ),
+    });
+    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/onboarding'));
+    expect(usePendingLink.getState().href).toBe('/messages/conv-1');
+  });
+
+  it('reacts to 403 AGE_CONFIRMATION_REQUIRED from any endpoint by reloading /me and gating', async () => {
+    mockSegments.current = ['(tabs)', 'profile'];
+    const api = mockApi({
+      'GET /api/v1/me': [
+        ok(meFixture()),
+        ok(
+          meFixture({
+            onboarding: {
+              profileComplete: true,
+              interestsSet: true,
+              tradingAreaSet: true,
+              ageConfirmed: false,
+            },
+          })
+        ),
+      ],
+    });
+    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await waitFor(() => expect(api.callsTo('GET /api/v1/me')).toHaveLength(1));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    act(() => {
+      reportAccountSignal(
+        ApiError.fromProblem(403, {
+          status: 403,
+          errorCode: 'AGE_CONFIRMATION_REQUIRED',
+          message: 'Confirm that you are 18 years of age or older to continue',
+        }),
+        'http://localhost:8090/api/v1/me/settings/privacy'
+      );
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/onboarding'));
+    expect(api.callsTo('GET /api/v1/me')).toHaveLength(2);
   });
 });

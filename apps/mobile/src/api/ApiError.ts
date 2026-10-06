@@ -10,6 +10,7 @@ export const EMPTY_RESPONSE_CODE = 'EMPTY_RESPONSE';
 export const TERMS_ACCEPTANCE_REQUIRED_CODE = 'TERMS_ACCEPTANCE_REQUIRED';
 export const ACCOUNT_SUSPENDED_CODE = 'ACCOUNT_SUSPENDED';
 export const REAUTHENTICATION_REQUIRED_CODE = 'REAUTHENTICATION_REQUIRED';
+export const AGE_CONFIRMATION_REQUIRED_CODE = 'AGE_CONFIRMATION_REQUIRED';
 /** Message of the 403 `ACCOUNT_SUSPENDED` answered while an account deletion is pending. */
 export const DELETION_PENDING_MESSAGE = 'deletion pending';
 
@@ -84,6 +85,11 @@ export class ApiError extends Error implements SharedApiError {
   /** `401 REAUTHENTICATION_REQUIRED`: the ID token's `auth_time` is too old for this action. */
   get isReauthenticationRequired(): boolean {
     return this.errorCode === REAUTHENTICATION_REQUIRED_CODE;
+  }
+
+  /** `403 AGE_CONFIRMATION_REQUIRED`: the 18+ confirmation is missing (onboarding records it). */
+  get isAgeConfirmationRequired(): boolean {
+    return this.errorCode === AGE_CONFIRMATION_REQUIRED_CODE;
   }
 
   /** Documents to accept, from the `requiredConsents` extension of a 428 problem. */

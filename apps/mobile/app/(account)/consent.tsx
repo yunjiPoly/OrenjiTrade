@@ -2,47 +2,62 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
+import { needsAgeConfirmation } from '@/src/account/accountStatus';
 import { messageOf } from '@/src/api/errorMessages';
 import { useLegalDocuments } from '@/src/api/hooks/legal';
+import type { ConsentRequest } from '@/src/api/types';
 import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { ageConfirmationOf, ageConsentFor } from '@/src/features/legal/ageConfirmation';
+import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
 import { LegalConsentList } from '@/src/features/legal/LegalConsentList';
 import { describeConsent } from '@/src/features/legal/legalDocs';
+import { useLegalLanguage } from '@/src/features/legal/legalLanguage';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * Shown while the API answers 428 `TERMS_ACCEPTANCE_REQUIRED` (new documents, new versions, or an
- * account created elsewhere): records each acceptance, then the gate continues (web:
- * `/auth/consent`).
+ * account created elsewhere, e.g. a Google sign-up): records each acceptance, and the 18+
+ * confirmation while the account never gave it, then the gate continues (web: `/auth/consent`).
  */
 export default function ConsentScreen() {
   const { palette } = useTheme();
   const session = useSession();
   const account = useAccount();
   const legal = useLegalDocuments();
+  const { language } = useLegalLanguage();
   const [accepted, setAccepted] = useState<string[]>([]);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const items = useMemo(
-    () => account.requiredConsents.map((consent) => describeConsent(consent, legal.data)),
-    [account.requiredConsents, legal.data]
+    () => account.requiredConsents.map((consent) => describeConsent(consent, legal.data, language)),
+    [account.requiredConsents, language, legal.data]
   );
+  // Only an API that reports the flag as false (and publishes the attestation) asks for it.
+  const ageConfirmation = ageConfirmationOf(legal.data);
+  const agePending = needsAgeConfirmation(account.me ?? undefined) && ageConfirmation !== null;
   const allAccepted = items.every((item) => accepted.includes(item.documentType));
+  const ageOk = !agePending || ageConfirmed;
 
   const accept = async () => {
     setSubmitted(true);
-    if (!allAccepted) {
+    if (!allAccepted || !ageOk) {
       return;
     }
     setError(null);
     setSaving(true);
     try {
-      await account.acceptConsents(account.requiredConsents);
+      const consents: ConsentRequest[] = [...account.requiredConsents];
+      if (agePending && ageConfirmation) {
+        consents.push(ageConsentFor(ageConfirmation));
+      }
+      await account.acceptConsents(consents);
     } catch (caught) {
       setError(messageOf(caught, 'Please try again.'));
     } finally {
@@ -67,16 +82,26 @@ export default function ConsentScreen() {
         {error ? <FormMessage>{error}</FormMessage> : null}
         {account.refreshing && items.length === 0 ? (
           <SkeletonList rows={3} rowHeight={40} />
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && !agePending ? (
           <FormMessage tone="success">You have accepted every current document.</FormMessage>
         ) : (
           <>
-            <LegalConsentList
-              items={items}
-              accepted={accepted}
-              onChange={setAccepted}
-              showError={submitted && !allAccepted}
-            />
+            {items.length > 0 ? (
+              <LegalConsentList
+                items={items}
+                accepted={accepted}
+                onChange={setAccepted}
+                showError={submitted && !allAccepted}
+              />
+            ) : null}
+            {agePending ? (
+              <AgeConfirmationCheckbox
+                checked={ageConfirmed}
+                onChange={setAgeConfirmed}
+                showError={submitted && !ageOk}
+                disabled={saving}
+              />
+            ) : null}
             <Button
               label="Accept and continue"
               loading={saving}

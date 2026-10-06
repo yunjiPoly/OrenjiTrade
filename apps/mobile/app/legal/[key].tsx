@@ -6,25 +6,32 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { LegalDraftBanner } from '@/src/features/legal/LegalDraftBanner';
-import { LEGAL_DOCUMENTS, isLegalKey, legalKeyOf } from '@/src/features/legal/legalDocs';
-import { LEGAL_EFFECTIVE_DATE_PLACEHOLDER } from '@/src/legal/legalContent';
+import { isLegalKey, legalKeyOf } from '@/src/features/legal/legalDocs';
+import { LegalLanguageSwitch } from '@/src/features/legal/LegalLanguageSwitch';
+import { useLegalTexts } from '@/src/features/legal/legalTexts';
 import { fontFamily, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-/** One legal document, rendered in-app from the synced texts (web: `/legal/:key`). */
+/**
+ * One legal document, rendered in-app from the synced texts in the active legal language
+ * (web: `/legal/:key`): EN / FR switch, the draft banner (and the translation marking in French),
+ * the version to accept as the API publishes it.
+ */
 export default function LegalDocumentScreen() {
   const { palette } = useTheme();
   const router = useRouter();
   const { key } = useLocalSearchParams<{ key: string }>();
   const legal = useLegalDocuments();
-  const document = isLegalKey(key) ? LEGAL_DOCUMENTS[key] : null;
+  const texts = useLegalTexts();
+  const labels = texts.labels;
+  const document = isLegalKey(key) ? texts.documents[key] : null;
 
   if (!document) {
     return (
       <Screen testID="screen-legal-document">
         <ErrorState
-          title="Unknown legal document"
-          message="This document does not exist. Use the legal index to find what you need."
-          retryLabel="Open legal index"
+          title={labels.unknownTitle}
+          message={labels.unknownMessage}
+          retryLabel={labels.openIndex}
           onRetry={() => router.replace('/legal')}
         />
       </Screen>
@@ -36,23 +43,26 @@ export default function LegalDocumentScreen() {
   return (
     <Screen scroll safeBottom testID="screen-legal-document">
       <Stack.Screen options={{ title: document.shortTitle }} />
+      <View style={styles.bar}>
+        <LegalLanguageSwitch />
+      </View>
       <LegalDraftBanner />
       <View style={styles.spacer} />
       <ScreenHeader title={document.title} subtitle={document.summary} />
       <View style={styles.meta}>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          Effective date: {document.effectiveDate ?? LEGAL_EFFECTIVE_DATE_PLACEHOLDER}
+          {labels.effectiveDate} {document.effectiveDate ?? texts.effectiveDatePlaceholder}
         </Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          Version <Text style={{ fontFamily: fontFamily.mono }}>{document.version}</Text> · Last
-          updated {document.lastUpdated}
+          {labels.version} <Text style={{ fontFamily: fontFamily.mono }}>{document.version}</Text> ·{' '}
+          {labels.lastUpdated} {document.lastUpdated}
         </Text>
         {published ? (
           <Text
             testID="legal-published-version"
             style={[textStyle('sm'), { color: palette.textMuted }]}
           >
-            Version to accept:{' '}
+            {labels.versionToAccept}{' '}
             <Text style={{ fontFamily: fontFamily.mono }}>{published.version}</Text>
           </Text>
         ) : null}
@@ -60,7 +70,7 @@ export default function LegalDocumentScreen() {
 
       <View style={styles.sections}>
         {document.definitions.length > 0 ? (
-          <SectionCard title="Definitions">
+          <SectionCard title={labels.definitions}>
             {document.definitions.map((definition) => (
               <Text key={definition.term} style={[textStyle('sm'), { color: palette.ink }]}>
                 <Text style={styles.term}>{definition.term}: </Text>
@@ -81,7 +91,7 @@ export default function LegalDocumentScreen() {
             ))}
           </SectionCard>
         ))}
-        <SectionCard title="Contact">
+        <SectionCard title={labels.contact}>
           <Text style={[textStyle('sm'), { color: palette.ink }]}>{document.contact}</Text>
         </SectionCard>
       </View>
@@ -90,6 +100,7 @@ export default function LegalDocumentScreen() {
 }
 
 const styles = StyleSheet.create({
+  bar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing[3] },
   spacer: { height: spacing[4] },
   meta: { gap: spacing[1], marginBottom: spacing[4] },
   sections: { gap: spacing[3] },

@@ -6,6 +6,9 @@ import {
   type LegalKey,
 } from '@/src/legal/legalContent';
 
+import type { LegalLanguage } from './legalLanguage';
+import { legalTitleOf } from './legalTexts';
+
 export { LEGAL_DOCUMENTS, LEGAL_DOCUMENT_LIST, isLegalKey, type LegalKey };
 
 /** `/legal/terms` (the API's web path) → `terms`, the key of the in-app text. */
@@ -28,19 +31,26 @@ export interface ConsentItem {
   key: LegalKey | null;
 }
 
-/** Title and in-app page of a required consent (falls back to the humanised type). */
+/**
+ * Title and in-app page of a required consent: the in-app text's title in the active legal
+ * language when the app ships it (the linked page opens in that language), else the API's title,
+ * else the humanised type.
+ */
 export function describeConsent(
   consent: RequiredConsent,
-  documents: readonly LegalDocument[] | undefined
+  documents: readonly LegalDocument[] | undefined,
+  language: LegalLanguage = 'en'
 ): ConsentItem {
   const document = documents?.find((entry) => entry.documentType === consent.documentType);
   const key = legalKeyOf(document?.url) ?? legalKeyOfType(consent.documentType);
   return {
     documentType: consent.documentType,
     version: consent.version,
-    title:
-      document?.title ??
-      (key ? LEGAL_DOCUMENTS[key].title : consent.documentType.replace(/_/g, ' ').toLowerCase()),
+    title: legalTitleOf(
+      key,
+      language,
+      document?.title ?? consent.documentType.replace(/_/g, ' ').toLowerCase()
+    ),
     key,
   };
 }

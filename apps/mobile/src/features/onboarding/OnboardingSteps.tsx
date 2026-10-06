@@ -1,9 +1,13 @@
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { MyLocationResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
+import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
+import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
 import { TradingAreaPicker } from '@/src/features/location/TradingAreaPicker';
 import type { AreaDraft } from '@/src/features/location/tradingArea';
 import { GamePicker, LanguagePicker } from '@/src/features/profile/Pickers';
@@ -33,6 +37,102 @@ function SubHeading({ children }: { children: ReactNode }) {
     <Text accessibilityRole="header" style={[textStyle('md'), styles.sub, { color: palette.ink }]}>
       {children}
     </Text>
+  );
+}
+
+export interface AgeStepProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  /** Show the validation message (after a submit attempt). */
+  showError: boolean;
+  /** The published attestation: loading, failed (retry), or ready. */
+  documents: 'loading' | 'error' | 'ready';
+  documentsError?: unknown;
+  onRetryDocuments: () => void;
+  busy: boolean;
+  /** Recorded already (an answer is in flight or the step was just completed). */
+  done: boolean;
+  error: string | null;
+  onContinue: () => void;
+  onSignOut: () => void;
+}
+
+/**
+ * The first step of an account that never confirmed being 18 years of age or older (existing
+ * collectors on their next sign-in, Google sign-ups that passed the consent screen before the
+ * rule): the statement, the bilingual checkbox, Continue; never editable afterwards. Sign out
+ * stays available so a collector who cannot confirm is never stuck.
+ */
+export function AgeStep({
+  checked,
+  onChange,
+  showError,
+  documents,
+  documentsError,
+  onRetryDocuments,
+  busy,
+  done,
+  error,
+  onContinue,
+  onSignOut,
+}: AgeStepProps) {
+  const { palette } = useTheme();
+  const router = useRouter();
+  return (
+    <View style={styles.step} testID="onboarding-age">
+      <StepHeading
+        title="Are you 18 or older?"
+        text="OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map, message collectors, post in the community or make offers."
+      />
+      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+        We record only your confirmation and its date; no identity document is requested. Accounts
+        found to belong to minors are closed (see the{' '}
+        <Text
+          accessibilityRole="link"
+          style={[styles.link, { color: palette.accent }]}
+          onPress={() => router.push({ pathname: '/legal/[key]', params: { key: 'terms' } })}
+          testID="onboarding-age-terms"
+        >
+          Terms of Service
+        </Text>
+        ).
+      </Text>
+      {documents === 'loading' ? (
+        <View accessibilityLabel="Loading the confirmation" testID="onboarding-age-loading">
+          <SkeletonList rows={1} rowHeight={56} />
+        </View>
+      ) : documents === 'error' ? (
+        <ErrorState
+          compact
+          testID="onboarding-age-error"
+          error={documentsError}
+          title="We could not load the confirmation"
+          onRetry={onRetryDocuments}
+        />
+      ) : (
+        <AgeConfirmationCheckbox
+          checked={checked}
+          onChange={onChange}
+          showError={showError}
+          disabled={busy || done}
+        />
+      )}
+      {error ? <FormMessage>{error}</FormMessage> : null}
+      <Button
+        label="Continue"
+        loading={busy}
+        disabled={done || documents !== 'ready'}
+        onPress={onContinue}
+        testID="onboarding-age-continue"
+      />
+      <Button
+        label="Sign out"
+        variant="ghost"
+        disabled={busy}
+        onPress={onSignOut}
+        testID="onboarding-sign-out"
+      />
+    </View>
   );
 }
 
@@ -182,4 +282,5 @@ const styles = StyleSheet.create({
   sub: { fontWeight: fontWeight.semibold, marginTop: spacing[2] },
   actions: { flexDirection: 'row', gap: spacing[2], justifyContent: 'space-between' },
   grow: { flex: 1 },
+  link: { fontWeight: fontWeight.semibold, textDecorationLine: 'underline' },
 });

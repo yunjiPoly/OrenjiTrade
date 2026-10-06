@@ -1,12 +1,25 @@
-import { LEGAL_DRAFT_BANNER } from '@/src/legal/legalContent';
+import { Text } from 'react-native';
 
 import { FormMessage } from '@/src/components/ui/FormControls';
 
-/** Shown on every legal page until counsel reviewed the drafts (same text as the web). */
+import { useLegalTexts } from './legalTexts';
+
+/**
+ * Shown on every legal page until counsel reviewed the drafts, in the active legal language
+ * (same text as the web); the French pages add that the translation itself awaits the lawyer's
+ * validation (a marking only, never legal content).
+ */
 export function LegalDraftBanner() {
+  const texts = useLegalTexts();
   return (
     <FormMessage tone="info" testID="legal-draft-banner">
-      {LEGAL_DRAFT_BANNER}
+      {texts.draftBanner}
+      {texts.translationNotice ? (
+        <Text testID="legal-translation-notice">
+          {'\n'}
+          {texts.translationNotice}
+        </Text>
+      ) : null}
     </FormMessage>
   );
 }

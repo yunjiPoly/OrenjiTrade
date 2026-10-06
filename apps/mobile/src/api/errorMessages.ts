@@ -29,10 +29,10 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     }
     case 'LIMIT_REACHED':
+      // No Premium pitch here: the limit notice names the upgrade only while the flag is on.
       return {
         title: 'Plan limit reached',
-        message:
-          'You reached a limit of your plan. It resets soon, or Premium raises it right away.',
+        message: 'You reached a limit of your plan. It resets soon.',
       };
     case 'FEATURE_DISABLED':
       return {
@@ -48,6 +48,13 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     case 'ACCOUNT_SUSPENDED':
       return { title: 'Account unavailable', message: error.message };
+    case 'AGE_CONFIRMATION_REQUIRED':
+      // The onboarding flow records the confirmation; the account gate takes the collector there.
+      return {
+        title: 'Age confirmation required',
+        message:
+          'Please confirm that you are 18 years of age or older to be shown on the map, message, post or make offers. We will take you to the confirmation.',
+      };
     case 'FORBIDDEN':
       return {
         title: 'Not allowed',
