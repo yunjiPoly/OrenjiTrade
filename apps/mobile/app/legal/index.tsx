@@ -59,6 +59,6 @@ export default function LegalIndexScreen() {
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing[3] },
+  bar: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: spacing[3] },
   root: { gap: spacing[4] },
 });

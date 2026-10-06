@@ -81,20 +81,17 @@ export function TradingSafetyNotice({
       <MaterialCommunityIcons name="shield-account-outline" size={22} color={palette.primary} />
       <View style={styles.body}>
         <Text style={[textStyle('sm'), styles.title, { color: palette.ink }]}>{copy.title}</Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {copy.text}{' '}
-          <Text
-            accessibilityRole="link"
-            accessibilityLabel="Read our trading safety advice"
-            testID={`${testID}-guide`}
-            style={[styles.link, { color: palette.accent }]}
-            onPress={() =>
-              router.push({ pathname: '/legal/[key]', params: { key: 'trading-safely' } })
-            }
-          >
-            Read our trading safety advice
-          </Text>
-          .
+        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{copy.text}</Text>
+        <Text
+          accessibilityRole="link"
+          accessibilityLabel="Read our trading safety advice"
+          testID={`${testID}-guide`}
+          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+          onPress={() =>
+            router.push({ pathname: '/legal/[key]', params: { key: 'trading-safely' } })
+          }
+        >
+          Read our trading safety advice
         </Text>
         {onReport || onBlock ? (
           <View style={styles.actions}>

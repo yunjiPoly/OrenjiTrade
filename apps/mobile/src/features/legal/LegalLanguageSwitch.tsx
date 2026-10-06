@@ -53,7 +53,7 @@ export function LegalLanguageSwitch({ testID = 'legal-language-switch' }: { test
 const styles = StyleSheet.create({
   group: {
     flexDirection: 'row',
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderRadius: radius.pill,
     padding: 2,

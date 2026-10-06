@@ -100,7 +100,7 @@ export default function LegalDocumentScreen() {
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing[3] },
+  bar: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: spacing[3] },
   spacer: { height: spacing[4] },
   meta: { gap: spacing[1], marginBottom: spacing[4] },
   sections: { gap: spacing[3] },

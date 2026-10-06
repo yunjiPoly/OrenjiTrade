@@ -26,10 +26,18 @@ tags:
 - assertVisible: 'Draft — requires review by qualified legal counsel before production launch'
 - assertNotVisible:
     id: 'legal-translation-notice'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'legal-link-trading-safely'
 - assertVisible:
     id: 'legal-link-trading-safely'
 
 # FR: the index, the banner and the marking in French.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'legal-language-switch-fr'
 - tapOn:
     id: 'legal-language-switch-fr'
 - extendedWaitUntil:
@@ -57,6 +65,10 @@ tags:
 - assertVisible:
     id: 'legal-translation-notice'
 - takeScreenshot: legal-trading-safely-fr
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'legal-language-switch-en'
 - tapOn:
     id: 'legal-language-switch-en'
 - extendedWaitUntil:

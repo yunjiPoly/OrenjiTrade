@@ -1,5 +1,5 @@
 import { Stack, useRouter, type Href } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
@@ -155,18 +155,42 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
    * Leaves onboarding: for the tabs, or for the link the gate remembered when it sent the
    * collector here (a deep link, a notification), which replaces this screen so that back leads
    * to the tabs. The link is taken before `/me` reloads: the gate would otherwise push it the
-   * moment the account is ready, on top of this screen.
+   * moment the account is ready, on top of this screen. The navigation itself waits until the
+   * rendered account no longer needs onboarding (`leaving` + the effect below): right after the
+   * confirmation the query cache is fresh but the gate's render is still one step behind, and a
+   * navigation at that moment makes it push this screen again (seen on Android).
    */
   const takePendingLink = (): string | null => {
     const href = usePendingLink.getState().href;
     usePendingLink.getState().clear();
     return href;
   };
-  const leave = (pending: string | null) => {
+  const navigateAway = (pending: string | null) => {
     if (pending) {
       router.replace(pending as Href);
     } else {
       router.dismissTo('/');
+    }
+  };
+  const [leaving, setLeaving] = useState<{ pending: string | null } | null>(null);
+  const needsOnboarding = account.needsOnboarding;
+  useEffect(() => {
+    if (leaving && !needsOnboarding) {
+      navigateAway(leaving.pending);
+    }
+    // navigateAway only reads the router, which is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaving, needsOnboarding]);
+  /**
+   * `wait`: the step that flips `needsOnboarding` (the 18+ confirmation of an existing account)
+   * leaves once the rendered account reflects it; the end of a full onboarding already renders
+   * a complete profile and leaves right away.
+   */
+  const leave = (pending: string | null, wait = false) => {
+    if (wait) {
+      setLeaving({ pending });
+    } else {
+      navigateAway(pending);
     }
   };
 
@@ -188,7 +212,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       setAgeDone(true);
       if (ageOnly) {
         snackbar.show('Thanks for confirming. Welcome back!');
-        leave(pending);
+        leave(pending, true);
         return;
       }
       setStep('profile');
