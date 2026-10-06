@@ -161,6 +161,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V100 | `V100__card_image_cache.sql` | Card images (ADR 0015): `card_image` becomes one row per provider artwork (owner card/printing, provider id, server-side source URL, cache state), `card.image_id`, `card_image_cache_usage`, `card_image_cache_reservation`, `catalog_sync_run` image mode / provider version / phase / report |
 | V101 | `V101__yugioh_catalog_fields.sql` | Real Yu-Gi-Oh! catalog: the printing variant key includes the rarity (`uq_card_printing_variant` becomes a unique index); the yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, the complete monster types and common rarities |
 | V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
+| V103 | `V103__age_confirmation.sql` | Launch readiness (18+ rule): `legal_document.document_type` accepts `AGE_CONFIRMATION` (named constraint `ck_legal_document_type` replaces the unnamed V003 check) and the attestation row `AGE_CONFIRMATION` / `2026-10-05` (`required_at_registration = false`, `url = '/legal#age-confirmation'`) is inserted; confirmations are ordinary `user_consent` rows |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -248,16 +249,20 @@ Every account keeps `USER`. Only a `SUPER_ADMIN` may grant or revoke `ADMIN`/`SU
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK |
-| `document_type` | `text` | `TERMS`, `PRIVACY`, `COMMUNITY_GUIDELINES`, `MARKETPLACE_POLICY`, `PAYMENT_PROTECTION`, `REFUND_DISPUTE`, `COOKIES`, `ACCEPTABLE_USE` |
+| `document_type` | `text` | `TERMS`, `PRIVACY`, `COMMUNITY_GUIDELINES`, `MARKETPLACE_POLICY`, `PAYMENT_PROTECTION`, `REFUND_DISPUTE`, `COOKIES`, `ACCEPTABLE_USE`, `AGE_CONFIRMATION` (V103, constraint `ck_legal_document_type`) |
 | `version` | `text` | e.g. `2026-09-01`; `UNIQUE (document_type, version)` |
-| `title`, `url` | `text` | `url` is the web path (`/legal/terms`) |
-| `required_at_registration` | `boolean` | `true` for TERMS, PRIVACY, COMMUNITY_GUIDELINES, ACCEPTABLE_USE |
+| `title`, `url` | `text` | `url` is the web path (`/legal/terms`); `/legal#age-confirmation` for the attestation (not a page, and never mapped to an in-app text by the clients) |
+| `required_at_registration` | `boolean` | `true` for TERMS, PRIVACY, COMMUNITY_GUIDELINES, ACCEPTABLE_USE; `false` for `AGE_CONFIRMATION` on purpose (the service layer gates on it instead of the terms filter) |
 | `published_at` | `timestamptz` | |
 | `current` | `boolean` | at most one current version per type (`uq_legal_document_current`, partial unique index) |
 
-V003 seeds the eight documents in version `2026-09-01`. Publishing a new version = insert the row
-and flip `current` in one transaction; every user then sees it in `requiredConsents` and receives
-`428 TERMS_ACCEPTANCE_REQUIRED` on non-exempt routes until they accept it.
+V003 seeds the eight documents in version `2026-09-01`; V103 adds the 18+ attestation
+`AGE_CONFIRMATION` in version `2026-10-05`. Publishing a new version = insert the row and flip
+`current` in one transaction; every user then sees it in `requiredConsents` and receives
+`428 TERMS_ACCEPTANCE_REQUIRED` on non-exempt routes until they accept it. The age attestation
+is different: any recorded version counts (`ConsentService.hasConfirmedAge`), and a missing one
+answers `403 AGE_CONFIRMATION_REQUIRED` only on becoming discoverable, messaging, community
+posting and offers.
 
 #### `user_consent`
 

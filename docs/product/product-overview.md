@@ -35,6 +35,13 @@ Account deletion → public traces removed.
 
 ## Trust and safety principles
 
+- **18+ only.** OrenjiTrade is for adults: every account confirms "I am 18 years of age or
+  older" at sign-up (an explicit, unticked checkbox, English and French) and the confirmation is
+  recorded server-side with its date like any other consent. Accounts created before the rule
+  confirm in the onboarding flow on their next sign-in. Until then an account can browse but
+  cannot become discoverable on the map, message, post in the community or make offers
+  (`403 AGE_CONFIRMATION_REQUIRED`). Self-declaration only, no identity verification; accounts
+  found to belong to minors are closed (Terms of Service, Privacy Policy).
 - Approximate locations only; users control discoverability, distance display, online/last-active
   visibility, messaging permissions. Defaults favour safety.
 - Freshness is first-class: stale inventory ranks lower, is warned about, then hidden until the

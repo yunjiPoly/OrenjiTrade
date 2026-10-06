@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
 ---
@@ -951,6 +951,83 @@ accounts left by earlier mobile E2E runs._
   (the cache was checked file by file and through its accounting row instead). If the owner meant
   the infrastructure to stay down, `npm run infra:down` stops it again.
 
+## Launch readiness, part 1 — users must be 18 or older (2026-10-05)
+
+_Branch `feature/launch-readiness` (from `main` at `ded5470`), builder done. Owner request
+"Prepare OrenjiTrade for its first real users", section 1. Self-declaration only (no identity or
+document verification). The French legal pages, the Trading safely page, the launch
+configuration and the Law 25 operating docs are the following parts of the same workflow._
+
+- [x] **Server-side record.** The attestation "I confirm I am 18 years of age or older" is a
+  consent like any other: migration `V103__age_confirmation.sql` adds the document type
+  `AGE_CONFIRMATION` (named check `ck_legal_document_type` replaces the unnamed V003 check) and
+  its current row `2026-10-05` with `required_at_registration = false` and
+  `url = '/legal#age-confirmation'` (not a page: the clients map only `/legal/<slug>` urls to
+  in-app texts, and `AGE_CONFIRMATION` sorts before `TERMS` in the public list). `POST
+  /me/consents {AGE_CONFIRMATION, 2026-10-05}` stores version, timestamp, salted IP hash, user
+  agent and an audit row, idempotently (`ConsentService.accept`, unchanged). `GET /me` reports
+  `onboarding.ageConfirmed` (`OnboardingFlag.AGE_CONFIRMED`, bean `AgeConfirmedCheck`; schema
+  `NOT_REQUIRED`, so the generated clients get `ageConfirmed?: boolean` and the mobile fixtures
+  keep compiling). The confirmation shows up in the admin user detail and the data export (Law
+  25 evidence). Any recorded version counts (`ConsentService.hasConfirmedAge`), so republishing
+  the wording never un-confirms anyone.
+- [x] **Service-layer gate** `ConsentService.requireAgeConfirmed(userId)` → `403
+  AGE_CONFIRMATION_REQUIRED` (new `ErrorCode`; Problem Details with `errorCode`, safe `message`,
+  `requestId`, `timestamp` and the existing `requiredConsents` extension naming the document to
+  record). Called by `PrivacySettingsService.update` when `discoverable` is requested (the map;
+  `searchDiscoverable` stays ungated), `ConversationService.start` / `send`,
+  `CommunityService.createPost` / `createReply` (after the `publicChat` flag) and
+  `OfferService.create` / `counter`. Reading, accepting / declining / withdrawing offers, the
+  terms filter and every `/api/v1/admin/**` route are untouched: an unconfirmed ADMIN or
+  MODERATOR keeps working (`AgeConfirmationIT.adminAndStaffPathsAreNotGated`). Additive API:
+  no existing request gained a required field; the mobile client's sign-up, `/me`, consent and
+  profile calls are unchanged.
+- [x] **Existing accounts** (seed and local test accounts included) are never pre-confirmed: the
+  seed only inserts `required_at_registration` consents, so collector1… confirm through the
+  onboarding "Age" step on their next sign-in (the web routes them there: `needsOnboarding`
+  is true while `ageConfirmed === false`, the session interceptor sends a 403
+  `AGE_CONFIRMATION_REQUIRED` to `/onboarding`). Tests provision compliant accounts with the
+  confirmation (`TestUsers.confirmAge`, `AbstractIntegrationTest.provisionCompliant`) and
+  unconfirmed ones with `provisionWithoutAgeConfirmation`.
+- [x] **Web.** `AgeConfirmationCheckboxComponent` (shared, bilingual label "I confirm I am 18
+  years of age or older" / "Je confirme avoir 18 ans ou plus", unticked, `role="alert"` message,
+  keyboard and screen-reader accessible): on the sign-up page (a separate `requiredTrue` control;
+  "Accept all" never ticks it; the confirmation is posted with the required documents), on the
+  consent page for Google sign-ups and new document versions while `ageConfirmed === false`, and
+  as the first, non-editable step of the onboarding stepper. An existing collector that only
+  misses the confirmation is sent straight back ("Thanks for confirming. Welcome back!"); a new
+  one continues to the profile step. `friendlyError` explains `AGE_CONFIRMATION_REQUIRED`.
+  E2E helpers (`apiAcceptConsents`, `apiConfirmAge`, acceptance `collector()`) record the
+  confirmation for fresh collectors; `auth.spec.ts` covers the sign-up checkbox, the consent
+  page and the seed collector's age step; `admin.spec.ts` accepts `/onboarding` after the
+  staff-only snack bar (seed collectors are unconfirmed in the fresh E2E database).
+- [x] **Legal wording (English drafts; the French translation follows in part 2).** Terms
+  "Acceptance" clause 2: 18 or older, confirmation recorded with its date, accounts of people
+  under 18 closed. Privacy "International transfers and age requirement": for people 18 and
+  older, no knowing collection from minors, accounts of minors closed and their data deleted
+  subject to retention periods and the law. `LAST_UPDATED` 2026-10-05; the `legal_document`
+  versions stay `2026-09-01` (pre-launch drafts, zero users): publish a new version row when
+  the lawyer-reviewed texts land. `apps/mobile/src/legal/legalContent.ts` regenerated with `npm
+  run sync:legal` (mechanical; the mobile test "ships exactly the texts of the web app" needs it).
+- [x] **Tests.** API: `ConsentServiceTest` (4), `OnboardingServiceTest` (3), `AgeConfirmationIT`
+  (4: recording with timestamp / IP hash / UA / audit and the 409 for a stale version; never
+  required at registration; the gate on discoverability, messaging, community posts, offers and
+  counters with the `errorCode` and `requiredConsents`; admin and staff paths), `ConsentIT`,
+  `FlywayMigrationIT`, `AdminUsersIT`, `ExportIT` updated (9 documents, 5 consents). Web:
+  `age-confirmation-checkbox.component.spec.ts` (3), `sign-up-page.component.spec.ts` (3),
+  `onboarding-page.component.spec.ts` (4), `session.service.spec.ts` (+3),
+  `api-error-messages.spec.ts` (+1). Full runs: `npm run test:api` 790 tests green after the two
+  count updates, `npm run test:web` 646 green + lint + Prettier, `npm run test:mobile` 416 green
+  (typecheck, lint, jest) against the regenerated `packages/api-client` / `packages/shared-types`
+  (`./gradlew exportOpenApi`, `npm run generate:api`).
+- **Docs:** `docs/api/contracts/phase1-auth-users.md` (18+ rule), `docs/database/schema.md`
+  (V103, `legal_document`), `docs/product/product-overview.md` (trust and safety).
+- **Debt / follow-ups:** the mobile app must add the sign-up checkbox and the onboarding
+  confirmation (see NEXT TASK); the mobile web E2E harness (`apps/mobile/e2e/support/stack.ts`)
+  only accepts `requiredConsents`, so its flows that toggle discoverability or message will hit
+  the gate until it also posts `AGE_CONFIRMATION`; `searchDiscoverable` (name search, on by
+  default) is deliberately not gated — revisit if the owner wants search hidden too.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -1153,3 +1230,20 @@ verification.
 3. In parallel when useful (no owner decision needed): the backend and web debt listed above and
    Phase 13 hardening. Cloud deployment (Phase 14) and ML (Phase 11) stay deferred / on hold until
    the owner lifts them.
+
+> **Launch readiness, part 1 — 18+ rule (2026-10-05, branch `feature/launch-readiness`):** done
+> (see "Launch readiness, part 1"). **Next mobile task (do not start before the mobile stages
+> above are merged; the API is already additive):** add the 18+ confirmation to the Expo app —
+> an unticked checkbox "I confirm I am 18 years of age or older" / "Je confirme avoir 18 ans ou
+> plus" on `app/(auth)/sign-up.tsx` (`src/account/registration.ts`: post
+> `{ documentType: 'AGE_CONFIRMATION', version }` with the other consents through the existing
+> `acceptConsents`; the version comes from `GET /public/legal/documents`, which now lists
+> `AGE_CONFIRMATION` with `requiredAtRegistration: false`, so keep it out of the "I have read and
+> accept" list), the same checkbox on `app/(account)/consent.tsx` while
+> `me.onboarding.ageConfirmed === false`, a first onboarding step on `app/onboarding.tsx`
+> (`src/account/accountStatus.ts` `needsOnboarding` must also be true while
+> `ageConfirmed === false`), a message for `AGE_CONFIRMATION_REQUIRED` in
+> `src/api/errorMessages.ts` (route to onboarding), and `apps/mobile/e2e/support/stack.ts` must
+> post the `AGE_CONFIRMATION` consent for the collectors it creates (otherwise its discoverability
+> and messaging flows get the 403). Until then, a mobile user who never confirmed cannot turn
+> "Show me on the map" on, message, post or make offers (generic error message).
