@@ -112,7 +112,7 @@ export default function BlockedUsersScreen() {
       <View style={styles.note}>
         <MaterialCommunityIcons name="information-outline" size={18} color={palette.textMuted} />
         <Text style={[textStyle('xs'), styles.grow, { color: palette.textMuted }]}>
-          Block a collector from their conversation's options or from a community post.
+          Block a collector from the options of a conversation or from a community post.
         </Text>
       </View>
     </Screen>

@@ -1,4 +1,10 @@
 import type {
+  BlockedUser,
+  CardHolderResult,
+  CardHoldersPage,
+  SetDetail,
+  UnifiedSearchResponse,
+  WishlistSummaryEntry,
   MyReport,
   OfferPage,
   OfferParty,
@@ -1110,4 +1116,107 @@ export function tradeSummaryFixture(overrides: Partial<TradeSummary> = {}): Trad
 
 export function tradePage(items: TradeSummary[] = [tradeSummaryFixture()]): TradePage {
   return { items, nextCursor: null, hasMore: false };
+}
+
+// --- Stage M7: unified search, card holders, public wishlist, blocked users, sets -----------------
+
+export function unifiedSearchFixture(
+  overrides: Partial<UnifiedSearchResponse> = {}
+): UnifiedSearchResponse {
+  return {
+    query: 'noé',
+    cards: [],
+    printings: [],
+    sets: [],
+    collectors: [],
+    binders: [],
+    resolved: { printingId: null, cardId: null },
+    ...overrides,
+  };
+}
+
+/** A public binder of another collector as `GET /search` lists it (with its owner block). */
+export function searchBinderFixture(
+  overrides: Partial<PublicBinderSummary> = {}
+): PublicBinderSummary {
+  return publicBinderSummaryFixture({
+    owner: {
+      id: OTHER_ID,
+      handle: 'collector2',
+      displayName: 'Noé Verdun',
+      avatarUrl: null,
+      location: { publicLabel: 'Verdun, Montréal', distanceBucket: 'KM_1_5' },
+    },
+    ...overrides,
+  });
+}
+
+export const HOLDER_ITEM_ID = '00000000-0000-4000-8c00-000000030303';
+
+/** One "who near me has this card" result: a public copy and its holder (a map marker). */
+export function cardHolderFixture(overrides: Partial<CardHolderResult> = {}): CardHolderResult {
+  return {
+    collector: markerFixture(),
+    item: publicItemFixture({ id: HOLDER_ITEM_ID }),
+    ...overrides,
+  };
+}
+
+export function cardHoldersPage(
+  items: CardHolderResult[],
+  page = 0,
+  totalPages = 1,
+  totalItems?: number
+): CardHoldersPage {
+  return { items, page, size: 20, totalItems: totalItems ?? items.length, totalPages };
+}
+
+export function wishlistEntryFixture(
+  overrides: Partial<WishlistSummaryEntry> = {}
+): WishlistSummaryEntry {
+  return {
+    card: { id: CARD_ID, name: 'Azure-Eyes Sky Dragon', imageUrl: null },
+    printing: undefined,
+    conditionMin: 'LIGHTLY_PLAYED',
+    ...overrides,
+  };
+}
+
+export function blockedUserFixture(overrides: Partial<BlockedUser> = {}): BlockedUser {
+  return {
+    id: OTHER_ID,
+    handle: 'collector2',
+    displayName: 'Noé Verdun',
+    avatarUrl: null,
+    blockedAt: '2026-10-05T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export const SET_ID = '00000000-0000-4000-8a20-000000000001';
+
+export function setDetailFixture(overrides: Partial<SetDetail> = {}): SetDetail {
+  return {
+    set: {
+      id: SET_ID,
+      game: 'pokemon',
+      code: 'SVX',
+      name: 'Scarlet Expanse',
+      releaseDate: '2026-03-01',
+      totalCards: 2,
+      printingCount: 2,
+    },
+    metadata: {},
+    printings: {
+      items: [
+        printingFixture(),
+        printingFixture({ id: PRINTING_B, printingCode: 'SVX-002', collectorNumber: '002' }),
+      ],
+      page: 0,
+      size: 40,
+      totalItems: 2,
+      totalPages: 1,
+    },
+    ...overrides,
+  };
 }

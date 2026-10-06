@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -39,11 +39,14 @@ export function ReorderBindersSheet({
   const snackbar = useSnackbar();
   const reorder = useReorderBinders();
   const [order, setOrder] = useState<BinderResponse[]>([...binders]);
-  useEffect(() => {
+  // Opening the sheet starts from the saved order again (render-time reset, no effect).
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
     if (visible) {
       setOrder([...binders]);
     }
-  }, [binders, visible]);
+  }
   const changed = order.some((binder, index) => binder.id !== binders[index]?.id);
 
   const save = async () => {

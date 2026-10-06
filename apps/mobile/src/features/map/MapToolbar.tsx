@@ -83,13 +83,14 @@ export function MapToolbar({
     const timer = setTimeout(() => onFilters({ q }), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [text, filters.q, onFilters]);
-  useEffect(() => {
+  // "Clear filters" (and the clear button) also empty the box (render-time sync).
+  const [lastQ, setLastQ] = useState(filters.q);
+  if (lastQ !== filters.q) {
+    setLastQ(filters.q);
     if (!filters.q && text) {
-      // "Clear filters" also empties the box.
       setText('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.q]);
+  }
   // Curated tags (loaded once the pill opens; the tag list is short).
   const tags = useTagSearch('');
 

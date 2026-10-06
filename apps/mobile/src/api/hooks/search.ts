@@ -52,7 +52,7 @@ export function useUnifiedSearch(segment: Exclude<SearchSegment, 'cards'>, q: st
     queryKey: meKeys.search(uid, params),
     queryFn: async () =>
       required((await api.GET('/api/v1/search', { params: { query: params } })).data),
-    enabled: authenticated && query.length > 0,
+    enabled: authenticated && centre.ready && query.length > 0,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
@@ -82,7 +82,7 @@ export function useCardHolders(target: HoldersTarget | null, filters: HolderFilt
         ).data
       ),
     getNextPageParam: (last) => nextPage(last),
-    enabled: authenticated && base !== null,
+    enabled: authenticated && centre.ready && base !== null,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
   });

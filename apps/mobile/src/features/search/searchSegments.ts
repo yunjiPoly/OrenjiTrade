@@ -56,6 +56,8 @@ export const SEGMENT_EMPTY: Record<
  * else searches around a public city centre (Montréal, the launch city).
  */
 export interface DiscoveryCentre {
+  /** True once `/me` answered (before that the centre is unknown and nothing is asked). */
+  ready: boolean;
   signedIn: boolean;
   /** `null` = the caller's own trading area. */
   city: CityPreset | null;
@@ -63,6 +65,7 @@ export interface DiscoveryCentre {
 
 export function discoveryCentreFor(me: MeResponse | null | undefined): DiscoveryCentre {
   return {
+    ready: !!me,
     signedIn: !!me,
     city: me?.onboarding?.tradingAreaSet ? null : (CITY_PRESETS[0] ?? null),
   };

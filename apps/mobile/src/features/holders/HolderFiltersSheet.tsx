@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
@@ -55,12 +55,16 @@ export function HolderFiltersSheet({
   onChange,
 }: HolderFiltersSheetProps) {
   const { palette } = useTheme();
-  const [minText, setMinText] = useState(filters.minPrice === null ? '' : String(filters.minPrice));
-  const [maxText, setMaxText] = useState(filters.maxPrice === null ? '' : String(filters.maxPrice));
-  useEffect(() => {
-    setMinText(filters.minPrice === null ? '' : String(filters.minPrice));
-    setMaxText(filters.maxPrice === null ? '' : String(filters.maxPrice));
-  }, [filters.minPrice, filters.maxPrice]);
+  const priceText = (value: number | null) => (value === null ? '' : String(value));
+  const [minText, setMinText] = useState(priceText(filters.minPrice));
+  const [maxText, setMaxText] = useState(priceText(filters.maxPrice));
+  // Prices changed from outside ("Clear filters"): the fields follow (render-time sync).
+  const [synced, setSynced] = useState({ min: filters.minPrice, max: filters.maxPrice });
+  if (synced.min !== filters.minPrice || synced.max !== filters.maxPrice) {
+    setSynced({ min: filters.minPrice, max: filters.maxPrice });
+    setMinText(priceText(filters.minPrice));
+    setMaxText(priceText(filters.maxPrice));
+  }
 
   const minError = priceFieldError(minText);
   const maxError = priceFieldError(maxText);

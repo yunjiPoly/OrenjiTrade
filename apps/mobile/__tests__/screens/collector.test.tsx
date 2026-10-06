@@ -17,6 +17,9 @@ import {
   publicItemsPage,
   ratingsPageFixture,
   referencesPageFixture,
+  wishlistEntryFixture,
+  PRINTING_A,
+  printingFixture,
 } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -53,6 +56,7 @@ function routes(extra: MockRoutes = {}): MockRoutes {
     'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([publicItemFixture()])),
     'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture()),
     'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture()),
+    'GET /api/v1/collectors/{handle}/wishlist': problem(404, 'NOT_FOUND', 'hidden'),
     'GET /api/v1/collectors/{handle}': ok(OTHER),
     ...extra,
   });
@@ -246,6 +250,45 @@ describe('Collector profile', () => {
     expect(await screen.findByTestId('collector-message-reason')).toHaveTextContent(
       /because of a block/
     );
+  });
+
+  it('shows "Looking for" when the collector shows their wishlist, nothing when hidden', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}/wishlist': ok([
+          wishlistEntryFixture(),
+          wishlistEntryFixture({
+            card: { id: 'c2', name: 'Emberfang Fox VMAX', imageUrl: null },
+            printing: printingFixture(),
+            conditionMin: null,
+          }),
+        ]),
+      })
+    );
+    const first = render();
+    const section = await screen.findByTestId('collector-wishlist');
+    expect(section).toHaveTextContent(/2 cards Noé Verdun is looking for/);
+    const dragon = within(section).getByTestId(
+      'collector-wish-00000000-0000-4000-8a00-000000000001'
+    );
+    expect(dragon).toHaveTextContent(/Azure-Eyes Sky Dragon/);
+    expect(dragon).toHaveTextContent(/Any printing/);
+    expect(dragon).toHaveTextContent(/Lightly Played or better/);
+    const fox = within(section).getByTestId('collector-wish-c2');
+    expect(fox).toHaveTextContent(/SVX-001 · Stellar Vortex/);
+    // Never prices, radii or notes.
+    expect(section).not.toHaveTextContent(/km|CA\$/);
+    fireEvent.press(fox);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/cards/[id]',
+      params: { id: 'c2', printing: PRINTING_A },
+    });
+    first.unmount();
+
+    mockApi(routes());
+    render();
+    await screen.findByTestId('collector-binders');
+    await waitFor(() => expect(screen.queryByTestId('collector-wishlist')).toBeNull());
   });
 
   it('is the public preview of the own profile (edit, no Message)', async () => {
