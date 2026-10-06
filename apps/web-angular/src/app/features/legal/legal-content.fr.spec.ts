@@ -1,5 +1,12 @@
 import { LEGAL_DOCUMENTS, LEGAL_KEYS } from './legal-content';
-import { LEGAL_DOCUMENTS_FR, LEGAL_DOCUMENT_LIST_FR } from './legal-content.fr';
+import {
+  LEGAL_DOCUMENTS_FR,
+  LEGAL_DOCUMENT_LIST_FR,
+  LEGAL_DRAFT_BANNER_FR,
+  LEGAL_EFFECTIVE_DATE_PLACEHOLDER_FR,
+  LEGAL_TRANSLATION_NOTICE_FR,
+} from './legal-content.fr';
+import { LEGAL_PAGE_LABELS } from './legal-language.service';
 
 /**
  * The French texts are a translation of the English drafts, never separate legal content: same
@@ -7,6 +14,38 @@ import { LEGAL_DOCUMENTS_FR, LEGAL_DOCUMENT_LIST_FR } from './legal-content.fr';
  * same placeholders for the facts the owner or the lawyer still has to confirm.
  */
 describe('French legal content', () => {
+  /** Every French string a legal page can render. */
+  const frenchTexts = (): string[] => {
+    const texts = [
+      LEGAL_DRAFT_BANNER_FR,
+      LEGAL_TRANSLATION_NOTICE_FR,
+      LEGAL_EFFECTIVE_DATE_PLACEHOLDER_FR,
+      ...Object.values(LEGAL_PAGE_LABELS.fr),
+    ];
+    for (const doc of LEGAL_DOCUMENT_LIST_FR) {
+      texts.push(doc.title, doc.shortTitle, doc.summary, doc.contact);
+      texts.push(...doc.definitions.flatMap((item) => [item.term, item.definition]));
+      texts.push(...doc.sections.flatMap((section) => [section.heading, ...section.clauses]));
+    }
+    return texts;
+  };
+
+  it('marks the French text as a translation to validate, without adding legal content', () => {
+    // The notice is a marking only: no language-precedence rule or other clause lives in it
+    // (such content belongs in both languages of the documents, written by the lawyer).
+    expect(LEGAL_TRANSLATION_NOTICE_FR).toContain('Traduction de l’ébauche anglaise');
+    expect(LEGAL_TRANSLATION_NOTICE_FR).toContain('conseiller juridique');
+    expect(LEGAL_TRANSLATION_NOTICE_FR).not.toMatch(/fait foi|prévau|l’emporte|prevail/i);
+  });
+
+  it('follows Quebec typography: non-breaking space before a colon and inside guillemets', () => {
+    for (const text of frenchTexts()) {
+      expect(text, text).not.toMatch(/ [:»]|« /);
+      expect(text, text).not.toMatch(/\s[;!?]/);
+      expect(text, text).not.toContain("'");
+    }
+  });
+
   it('mirrors every English document, section and clause', () => {
     expect(Object.keys(LEGAL_DOCUMENTS_FR)).toEqual(LEGAL_KEYS);
     expect(LEGAL_DOCUMENT_LIST_FR.map((doc) => doc.key)).toEqual(LEGAL_KEYS);
@@ -36,10 +75,14 @@ describe('French legal content', () => {
     const flatten = (doc: (typeof LEGAL_DOCUMENTS)[keyof typeof LEGAL_DOCUMENTS]) =>
       doc.sections.flatMap((section) => section.clauses).join('\n');
     for (const key of LEGAL_KEYS) {
-      expect(
-        count(flatten(LEGAL_DOCUMENTS_FR[key]), /\[[^\]]*confirmer[^\]]*\]/g),
-        `${key} placeholders`,
-      ).toBe(count(flatten(LEGAL_DOCUMENTS[key]), /\[[^\]]*confirm[^\]]*\]/g));
+      // Case-insensitive: some placeholders start the sentence ("[Confirm whether…]").
+      const frPlaceholders = count(flatten(LEGAL_DOCUMENTS_FR[key]), /\[[^\]]*confirmer[^\]]*\]/gi);
+      expect(frPlaceholders, `${key} placeholders`).toBe(
+        count(flatten(LEGAL_DOCUMENTS[key]), /\[[^\]]*confirm[^\]]*\]/gi),
+      );
+      if (key === 'cookies' || key === 'privacy' || key === 'terms') {
+        expect(frPlaceholders, `${key} has placeholders`).toBeGreaterThan(0);
+      }
     }
   });
 

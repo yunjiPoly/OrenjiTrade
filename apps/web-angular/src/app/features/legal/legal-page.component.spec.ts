@@ -82,7 +82,7 @@ describe('LegalPageComponent', () => {
       element.querySelector('[data-testid="legal-translation-notice"]')?.textContent,
     ).toContain(LEGAL_TRANSLATION_NOTICE_FR);
     expect(element.querySelector('h1')?.textContent).toBe(doc.title);
-    expect(element.textContent).toContain('Date d’entrée en vigueur :');
+    expect(element.textContent).toContain('Date d’entrée en vigueur\u00a0:');
     expect(element.textContent).toContain('[Date d’entrée en vigueur à fixer au lancement]');
     const headings = Array.from(element.querySelectorAll('section h2'), (h) => h.textContent);
     expect(headings[0]).toBe('Définitions');

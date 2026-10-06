@@ -52,13 +52,13 @@ export const LEGAL_PAGE_LABELS: Record<LegalLanguage, LegalPageLabels> = {
   },
   fr: {
     languageName: 'Français',
-    effectiveDate: 'Date d’entrée en vigueur :',
+    effectiveDate: 'Date d’entrée en vigueur\u00a0:',
     version: 'Version',
     lastUpdated: 'Dernière mise à jour le',
     sections: 'Sections',
     definitions: 'Définitions',
     contact: 'Nous joindre',
-    seeAlso: 'Voir aussi :',
+    seeAlso: 'Voir aussi\u00a0:',
     otherDocuments: 'Autres documents juridiques',
     indexTitle: 'Mentions légales',
     indexSubtitle:

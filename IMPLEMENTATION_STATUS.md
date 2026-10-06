@@ -1071,6 +1071,19 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   `LegalLanguageService`), so the initial bundle stays at 897 kB (900 kB warning budget) instead of
   the 933 kB a single service produced. The app UI around the pages stays English (see the
   assessment below).
+  **French review fixes (2026-10-05):** the translation notice is a marking only (« Traduction de
+  l'ébauche anglaise, à faire valider par un conseiller juridique. ») — the French-only sentence
+  that made the English draft prevail in case of divergence was removed, because a
+  language-precedence rule is legal content (asymmetric, and of doubtful effect against Quebec
+  consumers under the Charter of the French language s. 55 and CPA s. 26); if the lawyer wants
+  one, it goes inside the documents in both languages. Quebec typography applied to every French
+  string (` ` before a colon and inside guillemets, no space before `; ! ?`), four wordings
+  aligned with the English source (« pays de résidence » / « tribunal compétent » in the
+  governing-law placeholder, « personne identifiée ou identifiable », « ou la nuit », « service de
+  police local », « Vous n'avez jamais l'obligation de conclure un échange »); the parity spec now
+  guards the notice, the typography and case-insensitive placeholders. Owner / lawyer calls left
+  as they are: « gradation » (community term for grading), « entiercement (escrow) », « Politique
+  du marché », « Mint » kept as the app's condition label.
 - [x] **Consent references the version and the language shown.** V104 adds
   `user_consent.language` (`en` / `fr`, default `en`); `POST /me/consents` accepts an optional
   `language` (older clients unchanged), the admin detail, the export and the audit row expose it.
@@ -1101,7 +1114,8 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   languages / admin detail, 400 for an unsupported code), `ConsentServiceTest` (+1), re-export of
   the OpenAPI and regeneration of the clients (`language?:` optional), `npm run test:mobile` green
   against them (416 tests). Web: `legal-language.service.spec.ts` (5), `legal-content.fr.spec.ts`
-  (3), `legal-page.component.spec.ts` (9 keys, French rendering, EN/FR toggle persisted, `?lang`),
+  (5: parity, placeholders, Law 25 vocabulary, notice without legal content, typography),
+  `legal-page.component.spec.ts` (9 keys, French rendering, EN/FR toggle persisted, `?lang`),
   `trading-safety-notice.component.spec.ts` (4), `session.service.spec.ts` (language on consents);
   `npm run test:web` 662 green + lint + Prettier. E2E `launch-safety.spec.ts`: sign up with the
   checkbox → discoverable from onboarding (API confirms, consents exported with `language: en`)
@@ -1126,7 +1140,13 @@ texts stay drafts (banner kept on both languages); nothing here claims legal com
   `i18n` attributes, Transloco or ngx-translate; `angular.json` has no i18n block; `index.html` is
   `lang="en"`; `LOCALE_ID` is only read by `relative-time.pipe.ts`; ~20 `Intl` / `toLocale*` calls
   hard-code `en-CA`. Mobile: no i18next / expo-localization; 8 `Intl` calls with `en-CA`. The legal
-  texts are the only translated surface (runtime switch, this stage).
+  texts are the only translated surface (runtime switch, this stage). The launch-stage strings
+  around them are English-only and belong to the first batch of the follow-up: the safety notice
+  copy and its Report / Block / Dismiss labels (`trading-safety-notice.component.ts`), the 18+
+  validation message (`age-confirmation-checkbox.component.ts`; the checkbox label itself is
+  bilingual), the onboarding age step (`onboarding-page.component.html`), the consent list wording
+  ("I have read and accept the", `legal-consent-list.component.ts`) and the `legal_document.title`
+  row "Age confirmation (18 years or older)" (V103, shown in admin and `requiredConsents`).
 - **User-facing strings (heuristic count of template text nodes, static attributes and TS string
   literals, ± 20 %):** web `features/` ≈ 4,000 across 300 files — admin 1,650 (100 files), inventory
   330, settings 290, legal 190 (the texts), trades 185, auth 140, map 120, messages 120, search 110,

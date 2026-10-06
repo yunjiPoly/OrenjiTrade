@@ -6,6 +6,9 @@
  * two share one version, and a lawyer must validate the translation before launch. Keep the
  * keys, section ids and clause counts aligned with the English file (a spec checks it).
  *
+ * Typography (OQLF, Quebec usage): a non-breaking space (`\u00a0` escape) before a colon and
+ * inside « guillemets », no space before ; ! ? — a spec checks it. Typographic apostrophes (’).
+ *
  * Plain TypeScript (types only from `./legal-content`) so it can be copied to the mobile app
  * later like the English file.
  */
@@ -16,22 +19,22 @@ export const LEGAL_DRAFT_BANNER_FR =
 
 /** Shown under the draft banner on French pages. */
 export const LEGAL_TRANSLATION_NOTICE_FR =
-  'Traduction de l’ébauche anglaise, à faire valider par un conseiller juridique. En cas de divergence, l’ébauche anglaise fait foi jusqu’à cette validation.';
+  'Traduction de l’ébauche anglaise, à faire valider par un conseiller juridique.';
 
 export const LEGAL_EFFECTIVE_DATE_PLACEHOLDER_FR =
   '[Date d’entrée en vigueur à fixer au lancement]';
 
 const CONTACT_LEGAL_FR =
-  'Questions sur ce document : legal@orenjitrade.com (Service juridique d’OrenjiTrade).';
+  'Questions sur ce document\u00a0: legal@orenjitrade.com (Service juridique d’OrenjiTrade).';
 const CONTACT_PRIVACY_FR =
-  'Demandes et questions relatives aux renseignements personnels : privacy@orenjitrade.com (Responsable de la protection des renseignements personnels d’OrenjiTrade).';
-const CONTACT_SUPPORT_FR = 'Questions : support@orenjitrade.com (Soutien OrenjiTrade).';
+  'Demandes et questions relatives aux renseignements personnels\u00a0: privacy@orenjitrade.com (Responsable de la protection des renseignements personnels d’OrenjiTrade).';
+const CONTACT_SUPPORT_FR = 'Questions\u00a0: support@orenjitrade.com (Soutien OrenjiTrade).';
 
 const COMMON_DEFINITIONS_FR: LegalDefinition[] = [
   {
     term: 'OrenjiTrade',
     definition:
-      'L’application Web OrenjiTrade à l’adresse www.orenjitrade.com, les applications mobiles OrenjiTrade et les API connexes, collectivement le « Service ».',
+      'L’application Web OrenjiTrade à l’adresse www.orenjitrade.com, les applications mobiles OrenjiTrade et les API connexes, collectivement le «\u00a0Service\u00a0».',
   },
   {
     term: 'Collectionneur',
@@ -92,9 +95,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'nature-of-service',
         heading: 'Ce qu’OrenjiTrade est et n’est pas',
         clauses: [
-          'OrenjiTrade est un lieu de découverte et de messagerie : il aide les Collectionneurs à trouver qui, près d’eux, possède, échange, vend, recherche ou accepte des offres pour une carte, et leur permet de se parler. Les Collectionneurs traitent directement entre eux.',
+          'OrenjiTrade est un lieu de découverte et de messagerie\u00a0: il aide les Collectionneurs à trouver qui, près d’eux, possède, échange, vend, recherche ou accepte des offres pour une carte, et leur permet de se parler. Les Collectionneurs traitent directement entre eux.',
           'OrenjiTrade n’est partie à aucun échange, aucune vente ni aucune rencontre entre Collectionneurs, ne détient aucun titre de propriété sur les cartes et n’offre aucun service de gradation, d’authentification ou d’évaluation.',
-          'Les Collectionneurs sont responsables de leurs propres échanges et rencontres : ce dont ils conviennent, où et comment ils se rencontrent, comment ils paient et ce qu’ils remettent. Lisez la page « Échanger en toute sécurité » avant de rencontrer ou de payer un autre Collectionneur.',
+          'Les Collectionneurs sont responsables de leurs propres échanges et rencontres\u00a0: ce dont ils conviennent, où et comment ils se rencontrent, comment ils paient et ce qu’ils remettent. Lisez la page «\u00a0Échanger en toute sécurité\u00a0» avant de rencontrer ou de payer un autre Collectionneur.',
           'Lorsque des fonctions de paiement sont activées, elles sont fournies par un fournisseur de services de paiement tiers selon la Politique de protection des paiements. OrenjiTrade n’exploite pas de service d’entiercement (escrow).',
         ],
       },
@@ -119,7 +122,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'liability',
         heading: 'Exclusions de garantie et limitation de responsabilité',
         clauses: [
-          'Le Service est fourni « tel quel » et « selon la disponibilité ». Dans la mesure permise par la loi, OrenjiTrade décline toute garantie, expresse ou implicite.',
+          'Le Service est fourni «\u00a0tel quel\u00a0» et «\u00a0selon la disponibilité\u00a0». Dans la mesure permise par la loi, OrenjiTrade décline toute garantie, expresse ou implicite.',
           'Dans la mesure permise par la loi, OrenjiTrade n’est pas responsable des dommages indirects, accessoires ou consécutifs, ni des pertes découlant des rapports entre Collectionneurs, y compris les échanges, les ventes et les rencontres en personne.',
           'Rien dans les présentes conditions ne limite ni n’exclut une responsabilité qui ne peut être limitée ou exclue en vertu de la loi applicable, notamment la législation sur la protection du consommateur.',
         ],
@@ -136,7 +139,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'governing-law',
         heading: 'Droit applicable et modifications',
         clauses: [
-          '[Droit applicable et for à confirmer par le conseiller juridique.] Les règles impératives de protection du consommateur de votre lieu de résidence continuent de s’appliquer.',
+          '[Droit applicable et tribunal compétent à confirmer par le conseiller juridique.] Les règles impératives de protection du consommateur de votre pays de résidence continuent de s’appliquer.',
           'Nous pouvons mettre à jour les présentes conditions. La version en vigueur est toujours accessible à l’adresse www.orenjitrade.com/legal/terms avec sa date d’entrée en vigueur.',
         ],
       },
@@ -156,13 +159,12 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
       ...COMMON_DEFINITIONS_FR,
       {
         term: 'Renseignement personnel',
-        definition:
-          'Tout renseignement qui concerne une personne physique et permet de l’identifier.',
+        definition: 'Tout renseignement qui concerne une personne identifiée ou identifiable.',
       },
       {
         term: 'Point public',
         definition:
-          'La position approximative sur la carte dérivée de votre Zone d’échange : alignée sur une grille d’environ un kilomètre et décalée d’un brouillage fixe propre à votre compte. Les cartes l’affichent comme une zone d’environ 3 km de large, jamais comme un point exact.',
+          'La position approximative sur la carte dérivée de votre Zone d’échange\u00a0: alignée sur une grille d’environ un kilomètre et décalée d’un brouillage fixe propre à votre compte. Les cartes l’affichent comme une zone d’environ 3 km de large, jamais comme un point exact.',
       },
     ],
     contact: CONTACT_PRIVACY_FR,
@@ -178,19 +180,19 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'data-we-collect',
         heading: 'Renseignements que nous recueillons',
         clauses: [
-          'Données du compte : adresse courriel, nom d’affichage, avatar, jeux suivis et étiquettes choisies. La connexion est gérée par notre fournisseur d’identité; nous ne voyons jamais votre mot de passe.',
-          'Données d’inventaire : les cartes, les états, les prix et la disponibilité que vous enregistrez, ainsi que la visibilité que vous attribuez à chaque Cartable.',
-          'Données de localisation : uniquement la Zone d’échange que vous choisissez (ou une position approximative que vous partagez explicitement). Nous conservons le Point public dérivé pour l’affichage sur la carte. Nous ne vous suivons pas en arrière-plan.',
-          'Données d’utilisation : type d’appareil, version de l’application, journaux de diagnostic identifiés par un identifiant de requête, et événements d’analyse du produit qui ne contiennent jamais de localisation précise ni de contenu de messages.',
-          'Communications : messages privés, publications dans les canaux communautaires, offres, évaluations et signalements que vous soumettez.',
+          'Données du compte\u00a0: adresse courriel, nom d’affichage, avatar, jeux suivis et étiquettes choisies. La connexion est gérée par notre fournisseur d’identité; nous ne voyons jamais votre mot de passe.',
+          'Données d’inventaire\u00a0: les cartes, les états, les prix et la disponibilité que vous enregistrez, ainsi que la visibilité que vous attribuez à chaque Cartable.',
+          'Données de localisation\u00a0: uniquement la Zone d’échange que vous choisissez (ou une position approximative que vous partagez explicitement). Nous conservons le Point public dérivé pour l’affichage sur la carte. Nous ne vous suivons pas en arrière-plan.',
+          'Données d’utilisation\u00a0: type d’appareil, version de l’application, journaux de diagnostic identifiés par un identifiant de requête, et événements d’analyse du produit qui ne contiennent jamais de localisation précise ni de contenu de messages.',
+          'Communications\u00a0: messages privés, publications dans les canaux communautaires, offres, évaluations et signalements que vous soumettez.',
         ],
       },
       {
         id: 'purposes',
         heading: 'Pourquoi nous les utilisons',
         clauses: [
-          'Pour exploiter le Service : afficher vos Cartables publics sur la carte, apparier les listes de souhaits, livrer les messages et les notifications.',
-          'Pour la sécurité de la communauté : détecter les abus, traiter les signalements, faire respecter les Règles de la communauté et nous conformer à nos obligations légales.',
+          'Pour exploiter le Service\u00a0: afficher vos Cartables publics sur la carte, apparier les listes de souhaits, livrer les messages et les notifications.',
+          'Pour la sécurité de la communauté\u00a0: détecter les abus, traiter les signalements, faire respecter les Règles de la communauté et nous conformer à nos obligations légales.',
           'Pour améliorer le produit à l’aide d’analyses agrégées. Nous ne vendons pas de renseignements personnels et nous ne les utilisons pas pour des profils publicitaires de tiers.',
         ],
       },
@@ -199,7 +201,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Confidentialité de la localisation',
         clauses: [
           'Vos coordonnées précises, si vous les fournissez un jour, sont chiffrées au repos et servent uniquement à dériver votre Point public. Elles ne sont jamais renvoyées par nos API, affichées dans les applications, écrites dans les journaux ni incluses dans les analyses.',
-          'Les distances affichées aux autres Collectionneurs sont arrondies (par exemple « environ 4 km »). Le brouillage appliqué à votre Point public est fixe, de sorte que des requêtes répétées ne peuvent pas être combinées pour vous localiser.',
+          'Les distances affichées aux autres Collectionneurs sont arrondies (par exemple «\u00a0environ 4 km\u00a0»). Le brouillage appliqué à votre Point public est fixe, de sorte que des requêtes répétées ne peuvent pas être combinées pour vous localiser.',
           'Vous pouvez choisir votre Zone d’échange manuellement plutôt qu’avec la localisation de l’appareil.',
         ],
       },
@@ -208,7 +210,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'À qui nous communiquons des renseignements',
         clauses: [
           'Les fournisseurs de services qui hébergent et exploitent le Service pour notre compte (infrastructure infonuagique, fournisseur d’identité, livraison des notifications poussées, fournisseur de paiement lorsqu’il est activé), liés par des ententes de traitement des données.',
-          'Les autres Collectionneurs, dans la limite de ce que vous rendez public : nom d’affichage, avatar, Cartables publics, évaluations et votre Point public.',
+          'Les autres Collectionneurs, dans la limite de ce que vous rendez public\u00a0: nom d’affichage, avatar, Cartables publics, évaluations et votre Point public.',
           'Les autorités, lorsque la loi l’exige ou pour protéger les droits et la sécurité des Collectionneurs.',
         ],
       },
@@ -225,8 +227,8 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Vos droits et comment les exercer',
         clauses: [
           'Vous avez le droit d’accéder aux renseignements personnels que nous détenons à votre sujet, de les faire rectifier s’ils sont inexacts, incomplets ou équivoques, d’en recevoir une copie et d’en demander la suppression. Selon votre lieu de résidence, vous pouvez aussi avoir le droit de restreindre certains traitements ou de vous y opposer.',
-          'Accès et rectification : votre profil, vos jeux, vos étiquettes, votre zone d’échange, vos choix de confidentialité et de notifications sont affichés et modifiables dans les Paramètres (Profil, Confidentialité, Zone d’échange, Notifications). Une copie de vos données est offerte dans Paramètres → Compte (« Exporter mes données »).',
-          'Suppression : Paramètres → Compte (« Supprimer mon compte ») lance la suppression. Un délai de grâce de 7 jours vous permet de l’annuler; ensuite, vos renseignements personnels sont supprimés ou anonymisés dans les 30 jours, sauf ce que nous devons conserver pour des motifs légaux, de litige ou de sécurité (voir Conservation).',
+          'Accès et rectification\u00a0: votre profil, vos jeux, vos étiquettes, votre zone d’échange, vos choix de confidentialité et de notifications sont affichés et modifiables dans les Paramètres (Profil, Confidentialité, Zone d’échange, Notifications). Une copie de vos données est offerte dans Paramètres → Compte («\u00a0Exporter mes données\u00a0»).',
+          'Suppression\u00a0: Paramètres → Compte («\u00a0Supprimer mon compte\u00a0») lance la suppression. Un délai de grâce de 7 jours vous permet de l’annuler; ensuite, vos renseignements personnels sont supprimés ou anonymisés dans les 30 jours, sauf ce que nous devons conserver pour des motifs légaux, de litige ou de sécurité (voir Conservation).',
           'Vous pouvez aussi écrire à privacy@orenjitrade.com. Nous répondons dans les 30 jours de la réception de votre demande, sans frais, et nous expliquons les motifs lorsque nous ne pouvons pas y donner suite ainsi que la façon de contester cette décision.',
           'Vous pouvez retirer votre consentement aux traitements facultatifs (comme les notifications poussées ou la repérabilité) en tout temps, sans que cela n’affecte la licéité des traitements antérieurs.',
           'Si notre réponse ne vous satisfait pas, vous pouvez déposer une plainte auprès de la Commission d’accès à l’information du Québec ou de l’autorité de protection de la vie privée de votre lieu de résidence.',
@@ -245,7 +247,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Lieu de conservation, communications hors du Québec et exigence d’âge',
         clauses: [
           'Notre base de données, les images téléversées et les analyses sont hébergées sur Google Cloud dans la région de Montréal (northamerica-northeast1, Québec), telle que configurée dans notre infrastructure [à confirmer au lancement].',
-          'Certains fournisseurs de services peuvent conserver ou traiter des renseignements personnels à l’extérieur du Québec : Firebase Authentication (Google; adresse courriel de connexion, empreinte du mot de passe, numéro de téléphone pour la double authentification du personnel, identifiants de fournisseurs; lieu de conservation [à confirmer]); Firebase Cloud Messaging (Google; jetons de notifications poussées; lieu de conservation [à confirmer]); Cloudflare (sécurité réseau et diffusion de contenu; adresses IP et journaux de requêtes à sa périphérie mondiale; lieu de conservation [à confirmer]); et, seulement lorsque les fonctions de paiement ou d’abonnement sont activées, Stripe (données de paiement, de versement et d’abonnement; États-Unis [à confirmer]). Avant de communiquer des renseignements personnels à l’extérieur du Québec, nous évaluons notamment s’ils bénéficieront d’une protection adéquate, y compris par des garanties contractuelles.',
+          'Certains fournisseurs de services peuvent conserver ou traiter des renseignements personnels à l’extérieur du Québec\u00a0: Firebase Authentication (Google; adresse courriel de connexion, empreinte du mot de passe, numéro de téléphone pour la double authentification du personnel, identifiants de fournisseurs; lieu de conservation [à confirmer]); Firebase Cloud Messaging (Google; jetons de notifications poussées; lieu de conservation [à confirmer]); Cloudflare (sécurité réseau et diffusion de contenu; adresses IP et journaux de requêtes à sa périphérie mondiale; lieu de conservation [à confirmer]); et, seulement lorsque les fonctions de paiement ou d’abonnement sont activées, Stripe (données de paiement, de versement et d’abonnement; États-Unis [à confirmer]). Avant de communiquer des renseignements personnels à l’extérieur du Québec, nous évaluons notamment s’ils bénéficieront d’une protection adéquate, y compris par des garanties contractuelles.',
           'Le Service s’adresse aux personnes de 18 ans et plus et ne vise pas les mineurs. Nous ne recueillons pas sciemment de renseignements personnels auprès de personnes de moins de 18 ans. Nous fermons les comptes dont nous constatons qu’ils appartiennent à des mineurs et supprimons leurs renseignements personnels, sous réserve des périodes de conservation décrites ci-dessus et de la loi.',
         ],
       },
@@ -285,7 +287,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'safety',
         heading: 'Rencontrez-vous et échangez en toute sécurité',
         clauses: [
-          'Pour les échanges en personne, donnez-vous rendez-vous dans des lieux publics achalandés, de jour, et faites-vous accompagner pour les cartes de valeur. Ne vous sentez jamais obligé de communiquer votre adresse domiciliaire; la carte n’affiche jamais que des positions approximatives. La page « Échanger en toute sécurité » donne des conseils pratiques.',
+          'Pour les échanges en personne, donnez-vous rendez-vous dans des lieux publics achalandés, de jour, et faites-vous accompagner pour les cartes de valeur. Ne vous sentez jamais obligé de communiquer votre adresse domiciliaire; la carte n’affiche jamais que des positions approximatives. La page «\u00a0Échanger en toute sécurité\u00a0» donne des conseils pratiques.',
           'Utilisez les outils d’offre et de messagerie de l’application afin qu’il reste une trace si quelque chose tourne mal.',
           'Signalez tout comportement suspect avec le bouton Signaler le collectionneur. Les signalements sont examinés par les modérateurs et ne sont jamais montrés au Collectionneur signalé. Vous pouvez aussi bloquer un Collectionneur depuis son profil ou depuis le menu de la conversation.',
         ],
@@ -294,7 +296,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'channels',
         heading: 'Canaux communautaires',
         clauses: [
-          'Restez dans le sujet : les canaux de jeu sont réservés à ce jeu, les canaux « recherche » aux cartes recherchées, « nouvelles annonces » à ce que vous venez de publier.',
+          'Restez dans le sujet\u00a0: les canaux de jeu sont réservés à ce jeu, les canaux «\u00a0recherche\u00a0» aux cartes recherchées, «\u00a0nouvelles annonces\u00a0» à ce que vous venez de publier.',
           'Pas de pourriel, de publications croisées répétées ni de publicité non sollicitée. Le contenu commandité est identifié par OrenjiTrade et n’est jamais publié par des comptes ordinaires.',
         ],
       },
@@ -333,7 +335,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Ce qui peut être publié',
         clauses: [
           'Des cartes à collectionner physiques et des produits scellés pour les jeux pris en charge par OrenjiTrade.',
-          'Non permis : les contrefaçons ou reproductions sans licence présentées comme authentiques, les biens volés, les codes numériques obtenus en violation des conditions de l’éditeur, et tout ce dont la vente est illégale là où vous vous trouvez.',
+          'Non permis\u00a0: les contrefaçons ou reproductions sans licence présentées comme authentiques, les biens volés, les codes numériques obtenus en violation des conditions de l’éditeur, et tout ce dont la vente est illégale là où vous vous trouvez.',
         ],
       },
       {
@@ -365,7 +367,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'delisting',
         heading: 'Retrait automatique',
         clauses: [
-          'Les Annonces affichent un état de fraîcheur : Récente (mise à jour depuis 14 jours ou moins), Vieillissante (15 à 30 jours), Périmée (31 à 45 jours). Après 45 jours sans confirmation, une Annonce est masquée jusqu’à ce que vous confirmiez qu’elle est toujours disponible.',
+          'Les Annonces affichent un état de fraîcheur\u00a0: Récente (mise à jour depuis 14 jours ou moins), Vieillissante (15 à 30 jours), Périmée (31 à 45 jours). Après 45 jours sans confirmation, une Annonce est masquée jusqu’à ce que vous confirmiez qu’elle est toujours disponible.',
           'Vous recevez des avertissements avant qu’une Annonce ne soit masquée et vous pouvez la rétablir en tout temps.',
         ],
       },
@@ -417,7 +419,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Ce qui est couvert',
         clauses: [
           'Article non reçu, article sensiblement différent de l’Annonce (mauvaise carte, mauvaise impression, état nettement inférieur à l’état déclaré).',
-          'Non couvert : les échanges en personne, les paiements effectués hors du Service, les regrets de l’acheteur, ou les désaccords mineurs sur l’état à l’intérieur d’un même grade.',
+          'Non couvert\u00a0: les échanges en personne, les paiements effectués hors du Service, les regrets de l’acheteur, ou les désaccords mineurs sur l’état à l’intérieur d’un même grade.',
         ],
       },
       {
@@ -512,9 +514,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'what-we-use',
         heading: 'Ce que nous utilisons',
         clauses: [
-          'Strictement nécessaire : les jetons de session du fournisseur d’identité (pour vous garder connecté) et les jetons de sécurité qui protègent contre la falsification de requêtes.',
-          'Préférences : votre thème (clair, sombre ou système), la langue des pages juridiques, les avis que vous avez fermés et les réglages semblables, conservés dans le stockage local et jamais envoyés à nos serveurs.',
-          'Analyse : des analyses de produit de première partie qui n’incluent ni localisation précise ni contenu de messages. [Confirmer si un consentement est requis dans les régions visées.]',
+          'Strictement nécessaire\u00a0: les jetons de session du fournisseur d’identité (pour vous garder connecté) et les jetons de sécurité qui protègent contre la falsification de requêtes.',
+          'Préférences\u00a0: votre thème (clair, sombre ou système), la langue des pages juridiques, les avis que vous avez fermés et les réglages semblables, conservés dans le stockage local et jamais envoyés à nos serveurs.',
+          'Analyse\u00a0: des analyses de produit de première partie qui n’incluent ni localisation précise ni contenu de messages. [Confirmer si un consentement est requis dans les régions visées.]',
         ],
       },
       {
@@ -530,7 +532,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Vos contrôles',
         clauses: [
           'Vous pouvez effacer ou bloquer le stockage dans les réglages de votre navigateur. Bloquer le stockage strictement nécessaire vous déconnectera et peut empêcher certaines parties du Service de fonctionner.',
-          'Lorsqu’une bannière de consentement est affichée, vous pouvez modifier votre choix en tout temps à partir du lien « Témoins » du pied de page.',
+          'Lorsqu’une bannière de consentement est affichée, vous pouvez modifier votre choix en tout temps à partir du lien «\u00a0Témoins\u00a0» du pied de page.',
         ],
       },
     ],
@@ -599,28 +601,28 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'before-you-meet',
         heading: 'Avant la rencontre',
         clauses: [
-          'Donnez-vous rendez-vous dans un lieu public achalandé, de jour : un café, un centre commercial, une boutique de cartes ou une bibliothèque. Certains postes de police offrent des zones d’échange sécuritaires; consultez le site Web de votre service de police.',
+          'Donnez-vous rendez-vous dans un lieu public achalandé, de jour\u00a0: un café, un centre commercial, une boutique de cartes ou une bibliothèque. Certains postes de police offrent des zones d’échange sécuritaires; consultez le site Web de votre service de police local.',
           'Faites-vous accompagner lorsque les cartes ont de la valeur, et dites à un proche où vous allez et à quelle heure vous comptez revenir.',
           'Ne communiquez jamais votre adresse domiciliaire, votre lieu de travail ni vos habitudes. OrenjiTrade n’affiche jamais que des zones approximatives, et vous contrôlez ce que vous publiez.',
-          'Convenez des détails dans l’application avant la rencontre : quelles cartes, quel état, quel prix ou quel échange, et comment vous paierez. La conversation et l’offre restent comme trace.',
+          'Convenez des détails dans l’application avant la rencontre\u00a0: quelles cartes, quel état, quel prix ou quel échange, et comment vous paierez. La conversation et l’offre restent comme trace.',
         ],
       },
       {
         id: 'during-the-exchange',
         heading: 'Pendant l’échange',
         clauses: [
-          'Vérifiez les cartes avant de remettre de l’argent ou vos propres cartes : état, édition, impression et signes de contrefaçon. Prenez votre temps; un échangeur de bonne foi s’y attend.',
-          'Gardez l’échange simple : une seule rencontre, en personne, cartes et paiement au même moment.',
-          'Partez si quelque chose cloche. Vous ne devez d’échange à personne.',
+          'Vérifiez les cartes avant de remettre de l’argent ou vos propres cartes\u00a0: état, édition, impression et signes de contrefaçon. Prenez votre temps; un échangeur de bonne foi s’y attend.',
+          'Gardez l’échange simple\u00a0: une seule rencontre, en personne, cartes et paiement au même moment.',
+          'Partez si quelque chose cloche. Vous n’avez jamais l’obligation de conclure un échange.',
         ],
       },
       {
         id: 'warning-signs',
         heading: 'Signaux d’alarme',
         clauses: [
-          'La pression pour décider tout de suite, pour se rencontrer dans un endroit isolé ou le soir, ou pour poursuivre la conversation hors d’OrenjiTrade.',
+          'La pression pour décider tout de suite, pour se rencontrer dans un endroit isolé ou la nuit, ou pour poursuivre la conversation hors d’OrenjiTrade.',
           'Les offres qui semblent trop belles pour être vraies le sont généralement.',
-          'Les demandes de paiement hors du mode convenu : un acompte avant la rencontre, des cartes-cadeaux, des virements bancaires ou des cryptomonnaies pour « réserver » une carte.',
+          'Les demandes de paiement hors du mode convenu\u00a0: un acompte avant la rencontre, des cartes-cadeaux, des virements bancaires ou des cryptomonnaies pour «\u00a0réserver\u00a0» une carte.',
           'Les histoires qui changent, les comptes tout neufs sans historique, ou le refus de montrer la vraie carte.',
         ],
       },
@@ -636,8 +638,8 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'report-and-block',
         heading: 'Signaler et bloquer',
         clauses: [
-          'Signalez un collectionneur depuis son profil, depuis le menu de la conversation ou depuis une publication communautaire (« Signaler le collectionneur »). Choisissez un motif; les modérateurs examinent chaque signalement, et le collectionneur signalé n’apprend jamais qui l’a signalé.',
-          'Bloquez un collectionneur depuis son profil ou depuis le menu de la conversation : vous cessez de vous voir sur la carte, dans la recherche et dans la communauté, et aucun de vous deux ne peut écrire à l’autre. Gérez les blocages dans Paramètres → Utilisateurs bloqués.',
+          'Signalez un collectionneur depuis son profil, depuis le menu de la conversation ou depuis une publication communautaire («\u00a0Signaler le collectionneur\u00a0»). Choisissez un motif; les modérateurs examinent chaque signalement, et le collectionneur signalé n’apprend jamais qui l’a signalé.',
+          'Bloquez un collectionneur depuis son profil ou depuis le menu de la conversation\u00a0: vous cessez de vous voir sur la carte, dans la recherche et dans la communauté, et aucun de vous deux ne peut écrire à l’autre. Gérez les blocages dans Paramètres → Utilisateurs bloqués.',
           'Si vous êtes en danger, communiquez d’abord avec les services d’urgence de votre région (le 911 au Canada).',
         ],
       },
@@ -645,7 +647,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'payments',
         heading: 'Paiements',
         clauses: [
-          'Au lancement, OrenjiTrade ne traite aucun paiement entre collectionneurs : vous réglez vos échanges et vos ventes directement entre vous. OrenjiTrade n’est pas partie à vos échanges et ne peut pas les rembourser.',
+          'Au lancement, OrenjiTrade ne traite aucun paiement entre collectionneurs\u00a0: vous réglez vos échanges et vos ventes directement entre vous. OrenjiTrade n’est pas partie à vos échanges et ne peut pas les rembourser.',
           'Si vous payez, privilégiez un mode de paiement que vous pouvez vérifier sur place, et seulement après avoir vérifié les cartes.',
         ],
       },
