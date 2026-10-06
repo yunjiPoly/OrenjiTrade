@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 import EditItemScreen from '@/app/items/[id]';
 import AddItemScreen from '@/app/items/new';
@@ -20,6 +21,12 @@ import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(),
+}));
+
+const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
 
 beforeEach(() => {
   resetRouterMock();
@@ -27,6 +34,127 @@ beforeEach(() => {
 });
 
 const port = () => new FakeAuthPort(testUser());
+
+const PHOTO = {
+  id: '00000000-0000-4000-8c10-000000000001',
+  url: '/api/v1/public/media/items/photo-1.jpg',
+  width: 1200,
+  height: 900,
+  sortOrder: 0,
+};
+
+describe('Item photos', () => {
+  beforeEach(() => {
+    mockParams.current = { id: ITEM_ID };
+  });
+
+  it('adds a photo from the library (multipart) and removes one', async () => {
+    picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
+    picker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///card.jpg',
+          mimeType: 'image/jpeg',
+          fileName: 'card.jpg',
+          fileSize: 120_000,
+        },
+      ],
+    } as never);
+    // The API keeps the photos of the item: the re-read after each write answers the same.
+    let images = [] as (typeof PHOTO)[];
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': () => ok(itemFixture({ images })),
+        'POST /api/v1/inventory/items/{id}/images': () => {
+          images = [PHOTO];
+          return ok(itemFixture({ images }), 201);
+        },
+        'DELETE /api/v1/inventory/items/{id}/images/{imageId}': () => {
+          images = [];
+          return noContent;
+        },
+      })
+    );
+    renderWithProviders(<EditItemScreen />, { port: port() });
+    const photos = await screen.findByTestId('item-photos');
+    expect(photos).toHaveTextContent(/Up to 4 photos \(JPEG, PNG or WebP, 8 MB\)/);
+    fireEvent.press(within(photos).getByTestId('item-photo-add'));
+    expect(await screen.findByTestId(`item-photo-${PHOTO.id}`)).toBeOnTheScreen();
+    const upload = api.callsTo('POST /api/v1/inventory/items/{id}/images')[0];
+    expect(upload?.path).toBe(`/api/v1/inventory/items/${ITEM_ID}/images`);
+    expect(upload?.headers.get('content-type')).toMatch(/multipart\/form-data/);
+    fireEvent.press(screen.getByRole('button', { name: 'Remove photo 1' }));
+    await waitFor(() => expect(screen.queryByTestId(`item-photo-${PHOTO.id}`)).toBeNull());
+    expect(api.callsTo('DELETE /api/v1/inventory/items/{id}/images/{imageId}')[0]?.path).toBe(
+      `/api/v1/inventory/items/${ITEM_ID}/images/${PHOTO.id}`
+    );
+  });
+
+  it('refuses the wrong type before uploading, explains a full card and a denied permission', async () => {
+    picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
+    picker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///a.gif', mimeType: 'image/gif', fileName: 'a.gif', fileSize: 100 }],
+    } as never);
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(itemFixture()),
+        'POST /api/v1/inventory/items/{id}/images': problem(409, 'CONFLICT', 'full'),
+      })
+    );
+    renderWithProviders(<EditItemScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('item-photo-add'));
+    expect(await screen.findByTestId('item-photo-error')).toHaveTextContent(
+      'Use a JPEG, PNG or WebP photo.'
+    );
+    expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(0);
+
+    picker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///b.png', mimeType: 'image/png', fileName: 'b.png', fileSize: 100 }],
+    } as never);
+    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await waitFor(() =>
+      expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
+        'A card can have at most 4 photos.'
+      )
+    );
+    // The web picker refuses a file that is not an image before the app sees it (a rejection).
+    picker.launchImageLibraryAsync.mockRejectedValue(
+      new Error('Unsupported file type: text/plain. Only images and videos are supported.')
+    );
+    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await waitFor(() =>
+      expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
+        'Use a JPEG, PNG or WebP photo.'
+      )
+    );
+    expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(1);
+    picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
+    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await waitFor(() =>
+      expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
+        'Allow access to your photos to add one.'
+      )
+    );
+  });
+
+  it('hides "Add photo" once the card has four', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({
+            images: [0, 1, 2, 3].map((index) => ({ ...PHOTO, id: `p-${index}`, sortOrder: index })),
+          })
+        ),
+      })
+    );
+    renderWithProviders(<EditItemScreen />, { port: port() });
+    await screen.findByTestId('item-photo-p-3');
+    expect(screen.queryByTestId('item-photo-add')).toBeNull();
+  });
+});
 
 describe('Add a card', () => {
   it('searches the catalog, picks a printing, fills the details and adds the card', async () => {

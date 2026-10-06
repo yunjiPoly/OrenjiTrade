@@ -322,6 +322,20 @@ describe('Settings → Account', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/delete-account');
   });
 
+  it('names the sign-in methods of a Google account', async () => {
+    mockApi(signedInRoutes());
+    renderWithProviders(<AccountSettingsScreen />, {
+      port: new FakeAuthPort(testUser({ providerIds: ['password', 'google.com'] })),
+    });
+    expect(screen.getByTestId('account-sign-in-method')).toHaveTextContent(
+      'Email and password, Google'
+    );
+    renderWithProviders(<AccountSettingsScreen />, {
+      port: new FakeAuthPort(testUser({ providerIds: ['google.com'] })),
+    });
+    expect(screen.getAllByTestId('account-sign-in-method').at(-1)).toHaveTextContent(/^Google$/);
+  });
+
   it('offers to resend the verification email and reports export failures', async () => {
     const port = new FakeAuthPort(testUser({ emailVerified: false }));
     exportMock().mockRejectedValueOnce(new Error('disk full'));
@@ -391,6 +405,39 @@ describe('Settings → Delete account', () => {
       exportFirst: false,
     });
     expect(exportMock()).not.toHaveBeenCalled();
+  });
+
+  it('confirms with Google for an account without a password', async () => {
+    const port = new FakeAuthPort(testUser({ providerIds: ['google.com'] }));
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/me': [ok(meFixture()), ok(meFixture({ status: 'DELETION_REQUESTED' }))],
+        'POST /api/v1/me/deletion-requests': ok(deletionFixture(), 201),
+      })
+    );
+    renderWithProviders(<DeleteAccountScreen />, { port });
+    expect(screen.queryByLabelText('Password')).toBeNull();
+    expect(screen.getByTestId('delete-google-note')).toHaveTextContent(
+      'You will confirm with Google.'
+    );
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Download a copy of my data first' }));
+    fireEvent.press(screen.getByRole('checkbox', { name: /I understand/ }));
+    fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
+    fireEvent.press(await screen.findByTestId('delete-confirm-confirm'));
+    // The simulated Google account is the signed-in one: its e-mail is fixed.
+    const dialog = await screen.findByTestId('google-dialog');
+    expect(within(dialog).getByTestId('google-locked-email')).toHaveTextContent(
+      'maika@example.test'
+    );
+    fireEvent.changeText(within(dialog).getByTestId('google-name'), 'Maïka Test');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/me/deletion-requests')).toHaveLength(1));
+    expect(port.reauthenticateWithGoogle).toHaveBeenCalledWith({
+      kind: 'emulator',
+      email: 'maika@example.test',
+      displayName: 'Maïka Test',
+    });
+    expect(port.reauthenticate).not.toHaveBeenCalled();
   });
 
   it('lists what blocks the deletion', async () => {

@@ -22,6 +22,7 @@ import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 import { ApproximateAreaMap } from './ApproximateAreaMap';
 import { CollectorRatingsSection } from './CollectorRatingsSection';
 import { PublicBindersSection, PublicCardsSection } from './CollectorListings';
+import { CollectorWishlistSection } from './CollectorWishlistSection';
 import { MessageAction } from './MessageAction';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -37,7 +38,8 @@ export function nearLabel(publicLabel: string | null | undefined): string {
  * ratings section): header with place, distance bucket, member since and last activity; actions
  * (own profile: edit and privacy; others: the first public binder, Message when allowed and
  * Report); about, games and tags; the approximate area (a 3 km zone, never a point); ratings and
- * references (rate, write a reference); public binders and cards ("Make an offer").
+ * references (rate, write a reference); public binders and cards ("Make an offer"); the public
+ * wishlist ("Looking for") when the collector shows it.
  */
 export function CollectorProfileView({
   profile,
@@ -227,6 +229,11 @@ export function CollectorProfileView({
       </View>
       <PublicBindersSection profile={profile} isOwn={isOwn} binders={binders} />
       <PublicCardsSection items={items} profile={profile} />
+      <CollectorWishlistSection
+        handle={profile.handle}
+        displayName={profile.displayName}
+        isOwn={isOwn}
+      />
       {!isOwn ? <SponsoredSlot placement="COLLECTOR_PROFILE" /> : null}
     </View>
   );

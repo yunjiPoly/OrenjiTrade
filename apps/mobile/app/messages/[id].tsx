@@ -390,7 +390,7 @@ export default function ConversationScreen() {
       <ConfirmDialog
         visible={confirmBlock}
         title={`Block ${name}?`}
-        message="You will stop seeing each other on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this conversation."
+        message="You will stop seeing each other on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this conversation or from Settings → Blocked users."
         confirmLabel="Block"
         tone="danger"
         busy={block.isPending}

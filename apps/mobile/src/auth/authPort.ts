@@ -4,6 +4,7 @@ import { appConfig } from '@/src/config/env';
 
 import { AuthError, toAuthError } from './authErrors';
 import { getFirebaseAuth, getFirebaseAuthModule } from './firebase';
+import { emulatorGoogleIdToken, type GoogleCredential } from './googleCredential';
 
 /** The subset of the Firebase user the app needs (serialisable, copied on every change). */
 export interface AuthUser {
@@ -33,6 +34,12 @@ export interface AuthPort {
   ): () => void;
   signIn(email: string, password: string): Promise<AuthUser>;
   signUp(email: string, password: string): Promise<AuthUser>;
+  /**
+   * Google sign-in or sign-up (see `googleCredential.ts`): the pop-up on web, an OAuth ID token on
+   * a device, a simulated account against the emulator. An existing e-mail/password account of the
+   * same (verified) e-mail is linked, like the web.
+   */
+  signInWithGoogle(credential: GoogleCredential): Promise<AuthUser>;
   updateDisplayName(displayName: string): Promise<AuthUser>;
   sendEmailVerification(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
@@ -40,6 +47,8 @@ export interface AuthPort {
   reload(): Promise<AuthUser | null>;
   /** Re-proves the password before sensitive actions (the API wants a recent `auth_time`). */
   reauthenticate(password: string): Promise<void>;
+  /** Re-proves a Google identity (accounts without a password) before sensitive actions. */
+  reauthenticateWithGoogle(credential: GoogleCredential): Promise<void>;
   /** Current ID token (`forceRefresh` bypasses the SDK cache), or null when signed out. */
   getIdToken(forceRefresh: boolean): Promise<string | null>;
   signOut(): Promise<void>;
@@ -84,6 +93,25 @@ async function currentUser(): Promise<{
   return { user, sdk };
 }
 
+type Sdk = Awaited<ReturnType<typeof handles>>['sdk'];
+
+/** Firebase's `select_account` prompt, like the web's Google provider. */
+function googleProvider(sdk: Sdk) {
+  const provider = new sdk.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+}
+
+/** The `AuthCredential` of a non-pop-up Google identity (see `googleCredential.ts`). */
+function googleAuthCredential(sdk: Sdk, credential: Exclude<GoogleCredential, { kind: 'popup' }>) {
+  if (credential.kind === 'emulator') {
+    return sdk.GoogleAuthProvider.credential(
+      emulatorGoogleIdToken(credential.email, credential.displayName)
+    );
+  }
+  return sdk.GoogleAuthProvider.credential(credential.idToken, credential.accessToken ?? undefined);
+}
+
 /** The production port: the Firebase JS SDK, loaded lazily (see `firebase.ts`). */
 export const firebaseAuthPort: AuthPort = {
   usesEmulator: appConfig.authEmulatorHost !== null,
@@ -124,6 +152,22 @@ export const firebaseAuthPort: AuthPort = {
     return toAuthUser(credential.user);
   },
 
+  async signInWithGoogle(credential) {
+    const { auth, sdk } = await handles();
+    if (credential.kind === 'emulator' && !appConfig.authEmulatorHost) {
+      // A simulated account only ever exists against the local emulator.
+      throw new AuthError('auth/operation-not-allowed');
+    }
+    const result = await guarded(() =>
+      credential.kind === 'popup'
+        ? // `initializeAuth` left the resolver out (it would load Google's iframe on every start);
+          // the pop-up gets it explicitly, like the web.
+          sdk.signInWithPopup(auth, googleProvider(sdk), sdk.browserPopupRedirectResolver)
+        : sdk.signInWithCredential(auth, googleAuthCredential(sdk, credential))
+    );
+    return toAuthUser(result.user);
+  },
+
   async updateDisplayName(displayName) {
     const { user, sdk } = await currentUser();
     await guarded(() => sdk.updateProfile(user, { displayName }));
@@ -157,6 +201,18 @@ export const firebaseAuthPort: AuthPort = {
     }
     const credential = sdk.EmailAuthProvider.credential(user.email, password);
     await guarded(() => sdk.reauthenticateWithCredential(user, credential));
+  },
+
+  async reauthenticateWithGoogle(credential) {
+    const { user, sdk } = await currentUser();
+    if (credential.kind === 'emulator' && !appConfig.authEmulatorHost) {
+      throw new AuthError('auth/operation-not-allowed');
+    }
+    await guarded(() =>
+      credential.kind === 'popup'
+        ? sdk.reauthenticateWithPopup(user, googleProvider(sdk), sdk.browserPopupRedirectResolver)
+        : sdk.reauthenticateWithCredential(user, googleAuthCredential(sdk, credential))
+    );
   },
 
   async getIdToken(forceRefresh) {

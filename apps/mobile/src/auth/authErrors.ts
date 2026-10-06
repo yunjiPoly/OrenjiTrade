@@ -23,6 +23,19 @@ export const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   'auth/timeout': 'The sign-in service took too long to answer. Check your connection and retry.',
   'auth/internal-error': 'The sign-in service had a problem. Wait a moment, then try again.',
   'auth/operation-not-allowed': 'This sign-in method is not enabled.',
+  'auth/popup-blocked':
+    'Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.',
+  'auth/popup-closed-by-user': 'The Google sign-in window was closed before finishing.',
+  'auth/cancelled-popup-request': 'Another sign-in window is already open.',
+  'auth/unauthorized-domain': 'Google sign-in is not enabled for this address yet.',
+  'auth/account-exists-with-different-credential':
+    'An account already exists for this email with a different sign-in method.',
+  'auth/credential-already-in-use': 'This Google account is already linked to another collector.',
+  'auth/user-mismatch': 'That is not the Google account of this collector.',
+  // The app's own codes for the device flow (expo-auth-session) and the local emulator.
+  'auth/google-not-configured': 'Google sign-in is not configured for this environment yet.',
+  'auth/google-cancelled': 'Google sign-in was cancelled before finishing.',
+  'auth/google-no-token': 'Google did not return a sign-in token. Please try again.',
   'auth/requires-recent-login': 'For your security, sign in again before doing this.',
   'auth/user-token-expired': 'Your session expired. Sign in again.',
   'auth/invalid-action-code': 'This link is invalid or has already been used.',
@@ -41,6 +54,22 @@ export const WRONG_PASSWORD_CODES: ReadonlySet<string> = new Set([
   'auth/invalid-credential',
   'auth/invalid-login-credentials',
 ]);
+
+/**
+ * Codes that mean the collector closed or blocked the Google window (web: `isPopupDismissed`):
+ * not a failure worth an alert, except a blocked pop-up, which the screens explain.
+ */
+export const GOOGLE_DISMISSED_CODES: ReadonlySet<string> = new Set([
+  'auth/popup-blocked',
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+  'auth/google-cancelled',
+]);
+
+/** True when a Google sign-in was dismissed rather than failed (web: `isPopupDismissed`). */
+export function isGoogleDismissed(error: unknown): boolean {
+  return GOOGLE_DISMISSED_CODES.has(toAuthError(error).code);
+}
 
 export function describeAuthError(code: string): string {
   return AUTH_ERROR_MESSAGES[code] ?? GENERIC_AUTH_ERROR;

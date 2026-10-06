@@ -144,6 +144,18 @@ export async function verifyEmailInEmulator(api: APIRequestContext, email: strin
   expect(response.ok(), 'apply the verification code').toBeTruthy();
 }
 
+/** Marks an emulator account's e-mail as verified: a verification code requested, then applied. */
+export async function emulatorVerifyEmail(
+  api: APIRequestContext,
+  user: EmulatorUser
+): Promise<void> {
+  const response = await api.post(`${IDENTITY}/accounts:sendOobCode?key=${FIREBASE_API_KEY}`, {
+    data: { requestType: 'VERIFY_EMAIL', idToken: user.idToken },
+  });
+  expect(response.ok(), `emulator sendOobCode for ${user.email}`).toBeTruthy();
+  await verifyEmailInEmulator(api, user.email);
+}
+
 export function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
@@ -588,3 +600,136 @@ export async function openInApp(page: Page, path: string): Promise<void> {
   const literal = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   await expect(page).toHaveURL(new RegExp(`${literal}$`));
 }
+
+/** The card and printing ids of a seed printing code (`PFT-002`), via `GET /cards/suggest`. */
+export async function cardOfPrinting(
+  api: APIRequestContext,
+  token: string,
+  code: string
+): Promise<{ cardId: string; printingId: string; cardName: string }> {
+  const response = await api.get(`${API_URL}/api/v1/cards/suggest`, {
+    headers: authHeader(token),
+    params: { q: code, limit: 10 },
+  });
+  expect(response.ok(), `suggest ${code}`).toBeTruthy();
+  const suggestions = (await response.json()) as {
+    kind: string;
+    id: string;
+    name: string;
+    printingId?: string;
+    printingCode?: string;
+  }[];
+  const match = suggestions.find(
+    (suggestion) => suggestion.kind === 'PRINTING' && suggestion.printingCode === code
+  );
+  expect(match?.printingId, `printing ${code} in the seed catalog`).toBeTruthy();
+  return { cardId: match!.id, printingId: match!.printingId!, cardName: match!.name };
+}
+
+/** A wish of `as` for a card (any printing), through the API (`POST /wishlist`). */
+export async function apiAddWish(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  cardId: string,
+  extra: Record<string, unknown> = {}
+): Promise<{ id: string }> {
+  const response = await api.post(`${API_URL}/api/v1/wishlist`, {
+    headers: authHeader(as.idToken),
+    data: {
+      cardId,
+      conditionMin: 'LIGHTLY_PLAYED',
+      radiusKm: 10,
+      tradePreference: 'ANY',
+      ...extra,
+    },
+  });
+  expect(response.status(), 'POST /wishlist').toBe(201);
+  return (await response.json()) as { id: string };
+}
+
+/** The collectors `as` blocked (`GET /me/blocks`). */
+export async function apiMyBlocks(
+  api: APIRequestContext,
+  as: EmulatorUser
+): Promise<{ id: string; handle: string }[]> {
+  const response = await api.get(`${API_URL}/api/v1/me/blocks`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /me/blocks').toBeTruthy();
+  return (await response.json()) as { id: string; handle: string }[];
+}
+
+/** One inventory item of `as` as the API holds it (`GET /inventory/items/{id}`). */
+export async function apiInventoryItem(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  itemId: string
+): Promise<{ id: string; visibility: string; images: { id: string; url: string }[] }> {
+  const response = await api.get(`${API_URL}/api/v1/inventory/items/${itemId}`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /inventory/items/{id}').toBeTruthy();
+  return (await response.json()) as {
+    id: string;
+    visibility: string;
+    images: { id: string; url: string }[];
+  };
+}
+
+/** An emulator account's sign-in providers (`google.com`, `password`), by e-mail; null when absent. */
+export async function emulatorProvidersOf(
+  api: APIRequestContext,
+  email: string
+): Promise<{ providers: string[]; displayName: string | null; emailVerified: boolean } | null> {
+  const base = `${AUTH_EMULATOR_URL}/identitytoolkit.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}`;
+  let pageToken: string | undefined;
+  do {
+    const response = await api.get(`${base}/accounts:batchGet`, {
+      headers: { Authorization: 'Bearer owner' },
+      params: { maxResults: 1000, ...(pageToken ? { nextPageToken: pageToken } : {}) },
+    });
+    expect(response.ok(), 'emulator accounts:batchGet').toBeTruthy();
+    const body = (await response.json()) as {
+      users?: {
+        email?: string;
+        displayName?: string;
+        emailVerified?: boolean;
+        providerUserInfo?: { providerId: string }[];
+      }[];
+      nextPageToken?: string;
+    };
+    const user = (body.users ?? []).find(
+      (candidate) => candidate.email?.toLowerCase() === email.toLowerCase()
+    );
+    if (user) {
+      return {
+        providers: (user.providerUserInfo ?? []).map((info) => info.providerId),
+        displayName: user.displayName ?? null,
+        emailVerified: user.emailVerified ?? false,
+      };
+    }
+    pageToken = body.nextPageToken;
+  } while (pageToken);
+  return null;
+}
+
+/** A copy of a printing outside any binder (private by default), with its options. */
+export async function apiAddItem(
+  api: APIRequestContext,
+  owner: EmulatorUser,
+  printingId: string,
+  options: Record<string, unknown> = {}
+): Promise<{ id: string; card: { id: string; name: string } }> {
+  const response = await api.post(`${API_URL}/api/v1/inventory/items`, {
+    headers: authHeader(owner.idToken),
+    data: { printingId, condition: 'NEAR_MINT', currency: 'CAD', ...options },
+  });
+  expect(response.status(), 'POST /inventory/items').toBe(201);
+  return (await response.json()) as { id: string; card: { id: string; name: string } };
+}
+
+/** A 2×2 PNG standing in for a photo from the library (the API re-encodes it). */
+export const PHOTO_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==',
+  'base64'
+);

@@ -66,6 +66,16 @@ export const meKeys = {
   /** Collectors the caller blocked (`GET /me/blocks`). */
   blocks: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'blocks'] as const,
   /**
+   * Unified search and card holders as this viewer sees them (`GET /search`,
+   * `GET /search/card-holders`: distance buckets and blocks depend on who asks).
+   */
+  search: (uid: Uid, params: object) => [...ME_ROOT, uidKey(uid), 'search', params] as const,
+  cardHolders: (uid: Uid, params: object) =>
+    [...ME_ROOT, uidKey(uid), 'search', 'holders', params] as const,
+  /** A collector's public wishlist (`GET /collectors/{handle}/wishlist`; 404 when hidden). */
+  collectorWishlist: (uid: Uid, handle: string) =>
+    [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), 'wishlist'] as const,
+  /**
    * Community (Phase 5) as this viewer sees it (blocks hide authors both ways, `canEdit`):
    * channels with 24 h counts, a channel's posts, a post's replies.
    */
@@ -164,4 +174,5 @@ export const catalogKeys = {
   suggest: (query: string) => ['catalog', 'suggest', query] as const,
   card: (id: string) => ['catalog', 'card', id] as const,
   sets: (game: string) => ['catalog', 'sets', game] as const,
+  set: (id: string) => ['catalog', 'set', id] as const,
 };

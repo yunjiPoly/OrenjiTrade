@@ -14,6 +14,7 @@ import { clearAccountSignal } from '@/src/api/accountSignal';
 
 import { AuthError } from './authErrors';
 import { firebaseAuthPort, type AuthPort, type AuthUser } from './authPort';
+import type { GoogleCredential } from './googleCredential';
 import { useSessionNotice } from './sessionNotice';
 import { initialSessionState, sessionReducer, type SessionStatus } from './sessionReducer';
 import { setIdTokenProvider, setSignedIn } from './tokenProvider';
@@ -35,12 +36,20 @@ export interface Session {
   signIn: (email: string, password: string) => Promise<AuthUser>;
   /** Creates the Firebase user and stores the display name on it. */
   signUp: (email: string, password: string, displayName?: string) => Promise<AuthUser>;
+  /** Google sign-in or sign-up (see `googleCredential.ts`); the gate then continues. */
+  signInWithGoogle: (credential: GoogleCredential) => Promise<AuthUser>;
+  /** True when the signed-in user has a password (otherwise Google proves their identity). */
+  hasPasswordProvider: boolean;
+  /** True when the signed-in user signed in with Google at least once. */
+  hasGoogleProvider: boolean;
   sendPasswordReset: (email: string) => Promise<void>;
   sendEmailVerification: () => Promise<void>;
   /** Re-reads the Firebase user (after the verification link was opened). */
   reloadUser: () => Promise<AuthUser | null>;
   /** Confirms the password before sensitive actions, then refreshes the ID token. */
   reauthenticate: (password: string) => Promise<void>;
+  /** Confirms a Google identity before sensitive actions, then refreshes the ID token. */
+  reauthenticateWithGoogle: (credential: GoogleCredential) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -147,6 +156,19 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
     [port]
   );
 
+  const signInWithGoogle = useCallback(
+    async (credential: GoogleCredential) => {
+      const user = await port.signInWithGoogle(credential);
+      useSessionNotice.getState().clear();
+      dispatch({ type: 'auth-state-changed', user });
+      // The first API call provisions a new account from the token's claims (Google's name and
+      // verified e-mail): a fresh token carries them for sure.
+      await port.getIdToken(true);
+      return user;
+    },
+    [port]
+  );
+
   const sendPasswordReset = useCallback(
     (email: string) => port.sendPasswordReset(email.trim()),
     [port]
@@ -175,6 +197,17 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
     [port, state.user]
   );
 
+  const reauthenticateWithGoogle = useCallback(
+    async (credential: GoogleCredential) => {
+      if (!state.user) {
+        throw new AuthError('auth/no-current-user');
+      }
+      await port.reauthenticateWithGoogle(credential);
+      await port.getIdToken(true);
+    },
+    [port, state.user]
+  );
+
   const signOut = useCallback(async () => {
     await port.signOut();
     dispatch({ type: 'auth-state-changed', user: null });
@@ -189,10 +222,14 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
       getIdToken,
       signIn,
       signUp,
+      signInWithGoogle,
+      hasPasswordProvider: state.user?.providerIds.includes('password') ?? false,
+      hasGoogleProvider: state.user?.providerIds.includes('google.com') ?? false,
       sendPasswordReset,
       sendEmailVerification,
       reloadUser,
       reauthenticate,
+      reauthenticateWithGoogle,
       signOut,
     }),
     [
@@ -201,10 +238,12 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
       getIdToken,
       signIn,
       signUp,
+      signInWithGoogle,
       sendPasswordReset,
       sendEmailVerification,
       reloadUser,
       reauthenticate,
+      reauthenticateWithGoogle,
       signOut,
     ]
   );

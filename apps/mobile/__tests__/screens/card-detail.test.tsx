@@ -58,7 +58,7 @@ describe('Card detail', () => {
     expect(screen.getByText('French')).toBeOnTheScreen();
   });
 
-  it('opens the add flow, the map and the set', async () => {
+  it('opens the add flow, the holders list, the map and the set', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
     render();
     await screen.findByTestId('card-name');
@@ -67,12 +67,17 @@ describe('Card detail', () => {
       pathname: '/items/new',
       params: { cardId: CARD_ID, printingId: PRINTING_A },
     });
+    fireEvent.press(screen.getByTestId('card-holders'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/holders',
+      params: { card: CARD_ID },
+    });
     fireEvent.press(screen.getByTestId('card-who-has-it'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
     fireEvent.press(screen.getByTestId('card-set-link'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith({
-      pathname: '/search',
-      params: { game: 'pokemon', set: 'SVX', q: '' },
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/sets/[id]',
+      params: { id: '00000000-0000-4000-8a20-000000000001' },
     });
   });
 

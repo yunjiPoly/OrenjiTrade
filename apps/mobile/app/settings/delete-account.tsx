@@ -15,6 +15,8 @@ import { Checkbox, FormMessage, PasswordField } from '@/src/components/ui/FormCo
 import { Screen } from '@/src/components/ui/Screen';
 import { TextField } from '@/src/components/ui/TextField';
 import { exportMyData } from '@/src/features/account/exportData';
+import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
+import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
 const FACTS = [
@@ -36,9 +38,10 @@ type Step = 'form' | 'working' | 'blocked';
 
 /**
  * Account deletion (web: the delete-account dialog): explains the 7-day grace period, optionally
- * exports first, re-authenticates with the password (the API needs a sign-in younger than five
- * minutes), confirms, then files `POST /me/deletion-requests`. The gate then shows the account
- * status screen with "Cancel deletion".
+ * exports first, re-authenticates with the password, or with Google for an account without one
+ * (the API needs a sign-in younger than five minutes), confirms, then files
+ * `POST /me/deletion-requests`. The gate then shows the account status screen with "Cancel
+ * deletion".
  */
 export default function DeleteAccountScreen() {
   const { palette } = useTheme();
@@ -56,13 +59,16 @@ export default function DeleteAccountScreen() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [blockers, setBlockers] = useState<string[]>([]);
+  const withPassword = session.hasPasswordProvider;
+  const google = useGoogleSignIn('reauthenticate');
 
-  const passwordError = submitted && !password ? 'Enter your password to continue.' : null;
+  const passwordError =
+    submitted && withPassword && !password ? 'Enter your password to continue.' : null;
   const acknowledgeError = submitted && !acknowledged;
 
   const review = () => {
     setSubmitted(true);
-    if (!password || !acknowledged) {
+    if ((withPassword && !password) || !acknowledged) {
       return;
     }
     setConfirming(true);
@@ -74,7 +80,13 @@ export default function DeleteAccountScreen() {
     setStep('working');
     try {
       setStatus('Confirming it is you…');
-      await session.reauthenticate(password);
+      if (withPassword) {
+        await session.reauthenticate(password);
+      } else if (!(await google.start())) {
+        // The Google window was closed: back to the form, nothing to explain.
+        setStep('form');
+        return;
+      }
       if (exportFirst) {
         setStatus('Preparing your data export…');
         await exportMyData(account.handle);
@@ -92,11 +104,11 @@ export default function DeleteAccountScreen() {
       setStep('form');
       if (isApiError(caught)) {
         setError(friendlyMessage(caught));
-      } else if (WRONG_PASSWORD_CODES.has(toAuthError(caught).code)) {
+      } else if (withPassword && WRONG_PASSWORD_CODES.has(toAuthError(caught).code)) {
         setError('That password is not correct.');
         setPassword('');
       } else {
-        setError(authErrorMessage(caught));
+        setError(withPassword ? authErrorMessage(caught) : googleErrorMessage(caught));
       }
     }
   };
@@ -128,6 +140,7 @@ export default function DeleteAccountScreen() {
         <View style={styles.working} accessibilityLiveRegion="polite">
           <Button label={status} loading loadingLabel={status} variant="secondary" />
         </View>
+        <SimulatedGoogleAccountDialog {...google.dialog} />
       </Screen>
     );
   }
@@ -162,16 +175,22 @@ export default function DeleteAccountScreen() {
           onChange={setExportFirst}
           testID="delete-export-first"
         />
-        <PasswordField
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          error={passwordError}
-          hint="For your security, confirm your password."
-          autoComplete="current-password"
-          textContentType="password"
-          testID="delete-password"
-        />
+        {withPassword ? (
+          <PasswordField
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            error={passwordError}
+            hint="For your security, confirm your password."
+            autoComplete="current-password"
+            textContentType="password"
+            testID="delete-password"
+          />
+        ) : (
+          <Text testID="delete-google-note" style={[textStyle('sm'), { color: palette.textMuted }]}>
+            You will confirm with Google.
+          </Text>
+        )}
         <Checkbox
           label="I understand that my profile, tags and location will be permanently deleted."
           checked={acknowledged}

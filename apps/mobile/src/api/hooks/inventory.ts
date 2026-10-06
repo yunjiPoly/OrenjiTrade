@@ -11,6 +11,7 @@ import { inventoryListQuery, type InventoryFilters } from '@/src/lib/inventoryFi
 
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
+import { imageFormData, type PickedImage } from '../imageFormData';
 import { meKeys } from '../queryKeys';
 import type {
   BulkInventoryRequest,
@@ -173,6 +174,66 @@ export function useDeleteInventoryItem() {
       await api.DELETE('/api/v1/inventory/items/{id}', { params: { path: { id } } });
     },
     onSuccess: async (_, id) => refreshInventory(queryClient, uid, { deletedItemId: id }),
+  });
+}
+
+export interface UploadItemPhotoInput {
+  id: string;
+  photo: PickedImage;
+}
+
+/**
+ * `POST /api/v1/inventory/items/{id}/images` (multipart `file`: JPEG / PNG / WebP up to 8 MB,
+ * re-encoded by the API without metadata; at most 4 per item, 409 beyond). Answers the item with
+ * its photos.
+ */
+export function useUploadItemPhoto() {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<InventoryItemResponse, ApiError, UploadItemPhotoInput>({
+    mutationFn: async ({ id, photo }) => {
+      const body = await imageFormData(photo, 'card');
+      return required(
+        (
+          await api.POST('/api/v1/inventory/items/{id}/images', {
+            params: { path: { id } },
+            // The contract types the multipart body as `{ file: binary }`; the FormData is sent as is.
+            body: body as unknown as { file: string },
+            bodySerializer: () => body,
+          })
+        ).data
+      );
+    },
+    onSuccess: async (item) => {
+      queryClient.setQueryData(meKeys.inventoryItem(uid, item.id), item);
+      await refreshInventory(queryClient, uid);
+    },
+  });
+}
+
+export interface DeleteItemPhotoInput {
+  id: string;
+  imageId: string;
+}
+
+/** `DELETE /api/v1/inventory/items/{id}/images/{imageId}`: removes one owner photo. */
+export function useDeleteItemPhoto() {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, DeleteItemPhotoInput>({
+    mutationFn: async ({ id, imageId }) => {
+      await api.DELETE('/api/v1/inventory/items/{id}/images/{imageId}', {
+        params: { path: { id, imageId } },
+      });
+    },
+    onSuccess: async (_, { id, imageId }) => {
+      queryClient.setQueryData<InventoryItemResponse | undefined>(
+        meKeys.inventoryItem(uid, id),
+        (item) =>
+          item ? { ...item, images: item.images.filter((image) => image.id !== imageId) } : item
+      );
+      await refreshInventory(queryClient, uid);
+    },
   });
 }
 

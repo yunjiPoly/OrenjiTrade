@@ -23,6 +23,9 @@ import { FormMessage, PasswordField } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
+import { GoogleButton, OrDivider } from '@/src/features/auth/GoogleButton';
+import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
+import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
 import { LegalConsentList } from '@/src/features/legal/LegalConsentList';
 import type { ConsentItem } from '@/src/features/legal/legalDocs';
 import { legalKeyOf } from '@/src/features/legal/legalDocs';
@@ -37,7 +40,9 @@ const STEP_LABELS: Record<RegistrationStep, string> = {
 /**
  * Create an account: display name, email + password, acceptance of every legal document required
  * at registration (versions from the API, texts readable in-app), then a verification email
- * (web: `/auth/sign-up`). The auth gate is held until the consents are recorded.
+ * (web: `/auth/sign-up`). The auth gate is held until the consents are recorded. "Sign up with
+ * Google" signs in with Google instead; the consent screen then collects the legal acceptance,
+ * exactly like the web.
  */
 export default function SignUpScreen() {
   const { palette } = useTheme();
@@ -53,6 +58,7 @@ export default function SignUpScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [step, setStep] = useState<RegistrationStep | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const google = useGoogleSignIn('sign-in');
 
   const documents = useMemo(() => requiredAtRegistration(legal.data ?? []), [legal.data]);
   const items = useMemo<ConsentItem[]>(
@@ -95,6 +101,16 @@ export default function SignUpScreen() {
       setError(isApiError(caught) ? friendlyMessage(caught) : authErrorMessage(caught));
     } finally {
       setStep(null);
+    }
+  };
+
+  /** Google sign-up: the consent screen collects the legal acceptance afterwards (the gate). */
+  const onGoogle = async () => {
+    setError(null);
+    try {
+      await google.start();
+    } catch (caught) {
+      setError(googleErrorMessage(caught));
     }
   };
 
@@ -175,11 +191,20 @@ export default function SignUpScreen() {
           label="Create account"
           loading={step !== null}
           loadingLabel={step ? STEP_LABELS[step] : undefined}
-          disabled={items.length === 0}
+          disabled={items.length === 0 || google.busy}
           onPress={() => void onSubmit()}
           testID="sign-up-submit"
         />
+        <OrDivider />
+        <GoogleButton
+          label="Sign up with Google"
+          busy={google.busy}
+          disabled={step !== null || !!session.initError}
+          onPress={() => void onGoogle()}
+          testID="sign-up-google"
+        />
       </View>
+      <SimulatedGoogleAccountDialog {...google.dialog} />
 
       <View style={styles.footer}>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
