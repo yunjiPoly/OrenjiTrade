@@ -67,6 +67,79 @@ describe('Sign in', () => {
     expect(JSON.stringify(useAppStore.getState())).not.toContain('correct-password');
   });
 
+  it('signs in with a simulated Google account against the emulator (the gate continues)', async () => {
+    const port = new FakeAuthPort();
+    mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+    renderWithProviders(<SignInScreen />, { port });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    const dialog = await screen.findByTestId('google-dialog');
+    expect(dialog).toHaveTextContent(/Simulated Google account/);
+    // Validation of the simulated account first.
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    expect(screen.getByText('Enter the e-mail of the simulated Google account.')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('google-email'), 'nope');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    expect(screen.getByText('That email address does not look right.')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('google-email'), 'Googler@Example.test');
+    fireEvent.changeText(screen.getByTestId('google-name'), 'Gina Google');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+
+    await waitFor(() =>
+      expect(port.signInWithGoogle).toHaveBeenCalledWith({
+        kind: 'emulator',
+        email: 'Googler@Example.test',
+        displayName: 'Gina Google',
+      })
+    );
+    await waitFor(() => expect(port.getIdToken).toHaveBeenCalledWith(true));
+    expect(port.user?.providerIds).toEqual(['google.com']);
+    expect(screen.queryByTestId('google-dialog')).toBeNull();
+    expect(screen.queryByTestId('sign-in-error')).toBeNull();
+  });
+
+  it('links Google to an existing e-mail/password account of the same e-mail', async () => {
+    const port = new FakeAuthPort();
+    mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+    renderWithProviders(<SignInScreen />, { port });
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    fireEvent.changeText(await screen.findByTestId('google-email'), 'maika@example.test');
+    fireEvent.changeText(screen.getByTestId('google-name'), 'Maïka Test');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await waitFor(() => expect(port.user?.providerIds).toEqual(['password', 'google.com']));
+    expect(port.user?.uid).toBe('uid-maika@example.test');
+  });
+
+  it('explains a Google failure, and says nothing when the window was closed', async () => {
+    const port = new FakeAuthPort();
+    port.signInWithGoogle.mockRejectedValueOnce(
+      new AuthError('auth/account-exists-with-different-credential')
+    );
+    mockApi({});
+    renderWithProviders(<SignInScreen />, { port });
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    fireEvent.changeText(await screen.findByTestId('google-email'), 'other@example.test');
+    fireEvent.changeText(screen.getByTestId('google-name'), 'Other');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    expect(await screen.findByTestId('sign-in-error')).toHaveTextContent(
+      /An account already exists for this email with a different sign-in method\./
+    );
+
+    // Closing the simulated-account dialog is a dismissal: no error.
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    fireEvent.press(await screen.findByTestId('google-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('google-dialog')).toBeNull());
+    expect(port.signInWithGoogle).toHaveBeenCalledTimes(1);
+
+    port.signInWithGoogle.mockRejectedValueOnce(new AuthError('auth/popup-closed-by-user'));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    fireEvent.changeText(await screen.findByTestId('google-email'), 'other@example.test');
+    fireEvent.changeText(screen.getByTestId('google-name'), 'Other');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await waitFor(() => expect(port.signInWithGoogle).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId('sign-in-error')).toBeNull();
+  });
+
   it('links to account creation, password reset and the legal pages', () => {
     mockApi({});
     renderWithProviders(<SignInScreen />, { port: new FakeAuthPort() });
@@ -148,6 +221,30 @@ describe('Sign up', () => {
     ]);
     // The gate stays held until the verification screen releases it.
     expect(useFlowLock.getState().lockedBy).toBe('sign-up');
+  });
+
+  it('signs up with Google: the consent screen then collects the legal acceptance', async () => {
+    const port = new FakeAuthPort();
+    mockApi({
+      'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
+      // A fresh Google account: provisioned by /me with every document still to accept.
+      'GET /api/v1/me': ok(
+        meFixture({
+          onboarding: NOT_ONBOARDED,
+          requiredConsents: [{ documentType: 'TERMS', version: '2026-09-01' }],
+        })
+      ),
+    });
+    renderWithProviders(<SignUpScreen />, { port });
+    fireEvent.press(await screen.findByRole('button', { name: 'Sign up with Google' }));
+    fireEvent.changeText(await screen.findByTestId('google-email'), 'fresh@example.test');
+    fireEvent.changeText(screen.getByTestId('google-name'), 'Fresh Googler');
+    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await waitFor(() => expect(port.signInWithGoogle).toHaveBeenCalled());
+    // No e-mail sign-up, no consents from this screen: the gate's consent screen does it.
+    expect(port.signUp).not.toHaveBeenCalled();
+    expect(useFlowLock.getState().lockedBy).toBeNull();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
   it('shows the friendly error and releases the gate when sign-up fails', async () => {

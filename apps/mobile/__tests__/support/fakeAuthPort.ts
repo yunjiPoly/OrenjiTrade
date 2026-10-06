@@ -1,5 +1,6 @@
 import { AuthError } from '@/src/auth/authErrors';
 import type { AuthPort, AuthUser } from '@/src/auth/authPort';
+import type { GoogleCredential } from '@/src/auth/googleCredential';
 
 /** A signed-in collector for tests (fictional). */
 export function testUser(overrides: Partial<AuthUser> = {}): AuthUser {
@@ -61,6 +62,36 @@ export class FakeAuthPort implements AuthPort {
     const user = testUser({ uid: `uid-${email}`, email, emailVerified: false, displayName: null });
     this.emit(user);
     return user;
+  });
+
+  /** Google identities the fake knows (e-mail -> name); a password account of the same e-mail links. */
+  readonly googleAccounts = new Map<string, string>();
+
+  signInWithGoogle = jest.fn(async (credential: GoogleCredential) => {
+    if (credential.kind !== 'emulator') {
+      throw new AuthError('auth/operation-not-allowed');
+    }
+    const email = credential.email.trim().toLowerCase();
+    this.googleAccounts.set(email, credential.displayName);
+    const linked = this.accounts.has(email);
+    const user = testUser({
+      uid: linked ? `uid-${email}` : `uid-google-${email}`,
+      email,
+      emailVerified: true,
+      displayName: credential.displayName,
+      providerIds: linked ? ['password', 'google.com'] : ['google.com'],
+    });
+    this.emit(user);
+    return user;
+  });
+
+  reauthenticateWithGoogle = jest.fn(async (credential: GoogleCredential) => {
+    if (!this.user) {
+      throw new AuthError('auth/no-current-user');
+    }
+    if (credential.kind !== 'emulator' || credential.email.toLowerCase() !== this.user.email) {
+      throw new AuthError('auth/user-mismatch');
+    }
   });
 
   updateDisplayName = jest.fn(async (displayName: string) => {

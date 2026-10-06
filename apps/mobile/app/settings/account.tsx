@@ -103,7 +103,17 @@ export default function AccountSettingsScreen() {
             ) : null}
           </View>
           <Divider />
-          <Row label="Sign-in method" value="Email and password" />
+          <Row
+            label="Sign-in method"
+            value={
+              session.hasGoogleProvider
+                ? session.hasPasswordProvider
+                  ? 'Email and password, Google'
+                  : 'Google'
+                : 'Email and password'
+            }
+            testID="account-sign-in-method"
+          />
           {account.me ? (
             <>
               <Divider />
