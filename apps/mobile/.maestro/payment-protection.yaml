@@ -1,0 +1,154 @@
+# Payment protection (mobile Phase 9) with the local fake payment provider (no card, no money):
+# Ada (fresh, fictional) offers 40 CAD with "Use payment protection" on the public card of Pia
+# (fresh, fictional, payouts set up; driven from the host through the isolated API,
+# scripts/payments.js). Pia accepts; Ada pays on the app's fake checkout and the trade shows the
+# payment secured; Pia ships with tracking and Ada's trade follows it live; Ada confirms receipt
+# and the trade completes with the payout released (the API holds it).
+appId: host.exp.exponent
+name: Payment protection - pay, ship, confirm receipt
+tags:
+  - mobile-m6
+  - payments
+---
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-index'
+    timeout: 60000
+
+# Pia's public binder (deep link) and the protected offer.
+- openLink: ${APP_URL}/--/binders/${output.pia.binderId}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'public-binder-title'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'make-offer-${output.pia.itemId}'
+- tapOn:
+    id: 'make-offer-${output.pia.itemId}'
+- extendedWaitUntil:
+    visible:
+      id: 'offer-target-name'
+      text: 'Emberfang Fox'
+    timeout: 60000
+- tapOn:
+    id: 'offer-amount'
+- inputText: '40'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'offer-protection'
+- tapOn:
+    id: 'offer-protection'
+# (Texts are matched by text: Android does not expose a View's nested text by its id.)
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: '.*for Emberfang Fox with payment protection.*'
+- assertVisible: '.*for Emberfang Fox with payment protection.*'
+- takeScreenshot: payment-offer-form
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'offer-submit'
+- tapOn:
+    id: 'offer-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'offer-turn'
+      text: 'Waiting for Pia Maestro'
+    timeout: 60000
+
+# Pia accepts (host): the protected trade waits for Ada's payment.
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: accept
+      EMAIL: ${output.pia.email}
+      PASSWORD: ${output.pia.password}
+      ITEM: ${output.pia.itemId}
+- openLink: ${APP_URL}/--/trades/${output.trade.id}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Your move: pay with payment protection'
+    timeout: 60000
+- takeScreenshot: payment-trade-awaiting
+- tapOn:
+    id: 'trade-pay'
+
+# The app's fake checkout: "Local test payment", Pay.
+- extendedWaitUntil:
+    visible:
+      id: 'checkout-pay'
+    timeout: 60000
+- assertVisible:
+    id: 'local-payment-banner'
+- takeScreenshot: payment-checkout
+- tapOn:
+    id: 'checkout-pay'
+- extendedWaitUntil:
+    visible:
+      id: 'trade-notice-text'
+      text: 'Payment secured.*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Waiting for Pia Maestro to ship'
+    timeout: 60000
+- takeScreenshot: payment-secured
+
+# Pia ships (host): SHIPMENT_STATUS arrives over the realtime channel.
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: ship
+      EMAIL: ${output.pia.email}
+      PASSWORD: ${output.pia.password}
+      ITEM: ${output.pia.itemId}
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Your move: confirm you received the card'
+    timeout: 60000
+- takeScreenshot: payment-shipped
+- tapOn:
+    id: 'trade-confirm-receipt'
+- extendedWaitUntil:
+    visible:
+      id: 'receipt-dialog-confirm'
+    timeout: 30000
+- tapOn:
+    id: 'receipt-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'trade-next-title'
+      text: 'Trade completed'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'payment-payout'
+- takeScreenshot: payment-paid-out
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: expect-paid-out
+      EMAIL: ${output.pia.email}
+      PASSWORD: ${output.pia.password}
+      ITEM: ${output.pia.itemId}
