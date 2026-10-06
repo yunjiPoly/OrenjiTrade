@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, provideRouter } from '@angular/router';
 import { MeResponse } from '@orenji/api-client';
+import { LegalLanguageService } from '../../features/legal/legal-language.service';
 import { provideApiClient } from '../api/provide-api-client';
 import { AppConfigService } from '../config/app-config.service';
 import { apiBaseUrlInterceptor } from '../http/api-base-url.interceptor';
@@ -254,17 +255,24 @@ describe('SessionService', () => {
         ] as MeResponse['requiredConsents'],
       }),
     );
+    // The language the legal texts are shown in travels with every consent (en here: the
+    // test browser is not French), unless the caller names one.
+    TestBed.inject(LegalLanguageService).set('en');
     const done = session.acceptConsents([
       { documentType: 'TERMS', version: 'v1' },
-      { documentType: 'PRIVACY', version: 'v1' },
+      { documentType: 'PRIVACY', version: 'v1', language: 'fr' },
     ]);
     await settle();
     const first = backend.expectOne(`${API}/api/v1/me/consents`);
-    expect(first.request.body).toEqual({ documentType: 'TERMS', version: 'v1' });
+    expect(first.request.body).toEqual({ documentType: 'TERMS', version: 'v1', language: 'en' });
     first.flush(null, { status: 204, statusText: 'No Content' });
     await settle();
     const second = backend.expectOne(`${API}/api/v1/me/consents`);
-    expect(second.request.body).toEqual({ documentType: 'PRIVACY', version: 'v1' });
+    expect(second.request.body).toEqual({
+      documentType: 'PRIVACY',
+      version: 'v1',
+      language: 'fr',
+    });
     second.flush(null, { status: 204, statusText: 'No Content' });
     await settle();
     backend.expectOne(`${API}/api/v1/me`).flush(me());

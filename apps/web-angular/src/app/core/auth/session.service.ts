@@ -4,11 +4,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import {
   ConsentRequestDocumentTypeEnum,
+  ConsentRequestLanguageEnum,
   MeResponse,
   MeService,
   RequiredConsent,
 } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
+import { LegalLanguageService } from '../../features/legal/legal-language.service';
 import { ApiError, toApiError } from '../http/api-error';
 import { SKIP_ERROR_TOAST, SKIP_SESSION_REDIRECT } from '../http/http-context';
 import { AuthService } from './auth.service';
@@ -42,10 +44,14 @@ export interface SuspensionInfo {
   until: string | null;
 }
 
-/** A legal document version to accept (`POST /me/consents`). */
+/**
+ * A legal document version to accept (`POST /me/consents`). The language of the text shown
+ * (the active legal language, EN/FR) is recorded with it unless the caller sets one.
+ */
 export interface ConsentToAccept {
   documentType: string;
   version: string;
+  language?: 'en' | 'fr';
 }
 
 /** Message the API uses for the 403 of an account whose deletion is pending. */
@@ -71,6 +77,7 @@ export class SessionService {
   private readonly auth = inject(AuthService);
   private readonly meApi = inject(MeService);
   private readonly router = inject(Router);
+  private readonly legalLanguage = inject(LegalLanguageService);
 
   private readonly meState = signal<MeResponse | null>(null);
   private readonly statusState = signal<SessionStatus>('anonymous');
@@ -198,13 +205,18 @@ export class SessionService {
     return request;
   }
 
-  /** Records the consents and reloads the session. Rejects with the first {@link ApiError}. */
+  /**
+   * Records the consents (with the language the legal texts were shown in) and reloads the
+   * session. Rejects with the first {@link ApiError}.
+   */
   async acceptConsents(consents: readonly ConsentToAccept[]): Promise<SessionStatus> {
     for (const consent of consents) {
       const documentType = consent.documentType as ConsentRequestDocumentTypeEnum;
+      const language = (consent.language ??
+        this.legalLanguage.language()) as ConsentRequestLanguageEnum;
       await firstValueFrom(
         this.meApi.acceptConsent(
-          { consentRequest: { documentType, version: consent.version } },
+          { consentRequest: { documentType, version: consent.version, language } },
           'body',
           false,
           { context: sessionRequestContext() },

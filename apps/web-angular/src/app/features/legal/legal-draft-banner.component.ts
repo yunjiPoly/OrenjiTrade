@@ -1,15 +1,23 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { LEGAL_DRAFT_BANNER } from './legal-content';
+import { LegalLanguageService } from './legal-language.service';
 
-/** Prominent notice that legal copy has not yet been reviewed by counsel. */
+/**
+ * Prominent notice that legal copy has not yet been reviewed by counsel, in the active legal
+ * language; the French pages add that the translation itself awaits the lawyer's validation.
+ */
 @Component({
   selector: 'app-legal-draft-banner',
   imports: [MatIconModule],
   template: `
-    <div class="banner" role="status">
+    <div class="banner" role="status" [attr.lang]="language.language()">
       <mat-icon aria-hidden="true">gavel</mat-icon>
-      <p class="banner__text">{{ text }}</p>
+      <div class="banner__body">
+        <p class="banner__text">{{ language.draftBanner() }}</p>
+        @if (language.translationNotice(); as notice) {
+          <p class="banner__notice" data-testid="legal-translation-notice">{{ notice }}</p>
+        }
+      </div>
     </div>
   `,
   styles: `
@@ -29,12 +37,23 @@ import { LEGAL_DRAFT_BANNER } from './legal-content';
       color: var(--color-ink);
       font-weight: var(--font-weight-semibold);
     }
+    .banner__body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-1);
+    }
     .banner__text {
       margin: 0;
+    }
+    .banner__notice {
+      margin: 0;
+      font-weight: var(--font-weight-regular);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LegalDraftBannerComponent {
-  protected readonly text = LEGAL_DRAFT_BANNER;
+  protected readonly language = inject(LegalLanguageService);
 }

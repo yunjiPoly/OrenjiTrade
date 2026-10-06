@@ -1,36 +1,43 @@
 @if (document(); as doc) {
-  <article class="page legal">
-    <app-legal-draft-banner />
+  <article class="page legal" [attr.lang]="language.language()">
+    <div class="legal__bar">
+      <app-legal-draft-banner class="legal__banner" />
+      <app-legal-language-switch />
+    </div>
 
     <app-page-header [title]="doc.title" [subtitle]="doc.summary" />
 
     <p class="legal__meta">
       <span
-        >Effective date: <strong>{{ effectiveDate() }}</strong></span
+        >{{ labels().effectiveDate }} <strong>{{ effectiveDate() }}</strong></span
       >
       <span
-        >Version <span class="mono">{{ doc.version }}</span></span
+        >{{ labels().version }} <span class="mono">{{ doc.version }}</span></span
       >
-      <span>Last updated {{ doc.lastUpdated }}</span>
+      <span>{{ labels().lastUpdated }} {{ doc.lastUpdated }}</span>
     </p>
 
-    <nav class="legal__toc" aria-label="Sections">
+    <nav class="legal__toc" [attr.aria-label]="labels().sections">
       <ol>
         @if (doc.definitions.length) {
-          <li><a routerLink="." fragment="definitions">Definitions</a></li>
+          <li>
+            <a routerLink="." fragment="definitions">{{ labels().definitions }}</a>
+          </li>
         }
         @for (section of doc.sections; track section.id) {
           <li>
             <a routerLink="." [fragment]="section.id">{{ section.heading }}</a>
           </li>
         }
-        <li><a routerLink="." fragment="contact">Contact</a></li>
+        <li>
+          <a routerLink="." fragment="contact">{{ labels().contact }}</a>
+        </li>
       </ol>
     </nav>
 
     @if (doc.definitions.length) {
       <section id="definitions" class="legal__section">
-        <h2>Definitions</h2>
+        <h2>{{ labels().definitions }}</h2>
         <dl class="legal__definitions">
           @for (definition of doc.definitions; track definition.term) {
             <dt>{{ definition.term }}</dt>
@@ -55,25 +62,27 @@
     }
 
     <section id="contact" class="legal__section">
-      <h2>Contact</h2>
+      <h2>{{ labels().contact }}</h2>
       <p>{{ doc.contact }}</p>
     </section>
 
-    <nav class="legal__related" aria-label="Other legal documents">
-      <span>See also:</span>
+    <nav class="legal__related" [attr.aria-label]="labels().otherDocuments">
+      <span>{{ labels().seeAlso }}</span>
       @for (other of otherDocuments(); track other.key) {
         <a [routerLink]="['/legal', other.key]">{{ other.title }}</a>
       }
     </nav>
   </article>
 } @else {
-  <div class="page">
+  <div class="page" [attr.lang]="language.language()">
     <app-error-state
-      title="Unknown legal document"
-      message="This document does not exist. Use the legal index to find what you need."
-      retryLabel="Open legal index"
+      [title]="labels().unknownTitle"
+      [message]="labels().unknownMessage"
+      [retryLabel]="labels().openIndex"
       (retry)="openIndex()"
     />
-    <p class="legal__fallback"><a routerLink="/legal">Go to the legal index</a></p>
+    <p class="legal__fallback">
+      <a routerLink="/legal">{{ labels().goToIndex }}</a>
+    </p>
   </div>
 }

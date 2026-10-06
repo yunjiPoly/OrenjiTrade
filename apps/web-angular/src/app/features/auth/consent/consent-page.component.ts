@@ -23,6 +23,7 @@ import {
 } from '../../../shared/legal/age-confirmation-checkbox.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { LegalLanguageService } from '../../legal/legal-language.service';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 import { routeAfterSignIn } from '../auth-navigation';
 import { LegalDocumentsStore } from '../data/legal-documents.store';
@@ -119,6 +120,7 @@ export class ConsentPageComponent {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly legal = inject(LegalDocumentsStore);
+  private readonly legalLanguage = inject(LegalLanguageService);
   protected readonly session = inject(SessionService);
 
   readonly returnUrl = input<string | undefined>();
@@ -134,10 +136,15 @@ export class ConsentPageComponent {
   protected readonly items = computed<ConsentItem[]>(() => {
     // Reading the documents keeps titles fresh once they load.
     this.legal.documents();
-    return this.session.requiredConsents().map((consent) => ({
-      documentType: consent.documentType,
-      ...this.legal.describe(consent),
-    }));
+    return this.session.requiredConsents().map((consent) => {
+      const described = this.legal.describe(consent);
+      return {
+        documentType: consent.documentType,
+        url: described.url,
+        // Titles follow the active legal language (the linked pages open in that language).
+        title: this.legalLanguage.titleOf(described.url, described.title),
+      };
+    });
   });
   /** The account never confirmed being 18+ and the API publishes the attestation to record. */
   protected readonly ageConfirmationPending = computed(
