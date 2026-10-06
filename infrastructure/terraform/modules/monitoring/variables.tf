@@ -61,16 +61,44 @@ variable "p95_latency_threshold_ms" {
   default     = 1500
 }
 
+variable "api_cpu_threshold" {
+  description = "api container CPU utilisation (p99) that triggers the scale-up warning (0.8 = 80%)."
+  type        = number
+  default     = 0.8
+
+  validation {
+    condition     = var.api_cpu_threshold > 0 && var.api_cpu_threshold <= 1
+    error_message = "api_cpu_threshold must be between 0 and 1."
+  }
+}
+
+variable "api_memory_threshold" {
+  description = "api container memory utilisation (p99) that triggers the warning (0.85 = 85%)."
+  type        = number
+  default     = 0.85
+
+  validation {
+    condition     = var.api_memory_threshold > 0 && var.api_memory_threshold <= 1
+    error_message = "api_memory_threshold must be between 0 and 1."
+  }
+}
+
 variable "sql_cpu_threshold" {
   description = "Cloud SQL CPU utilisation threshold (0.8 = 80%)."
   type        = number
   default     = 0.8
 }
 
-variable "sql_connection_threshold" {
-  description = "Absolute backend-connection count that represents 80% of the tier's max_connections."
+variable "sql_disk_threshold" {
+  description = "Cloud SQL disk utilisation threshold (0.8 = 80%); auto-resize grows the disk, the alert makes the growth visible."
   type        = number
-  default     = 80
+  default     = 0.8
+}
+
+variable "sql_connection_threshold" {
+  description = "Absolute backend-connection count that represents 80% of the tier's max_connections (db-g1-small: 50 => 40; db-f1-micro: 25 => 20; 3.75-6 GB tiers: 100 => 80)."
+  type        = number
+  default     = 40
 }
 
 variable "pubsub_backlog_threshold_seconds" {

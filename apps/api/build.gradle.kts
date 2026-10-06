@@ -75,6 +75,9 @@ dependencies {
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    // In-memory Google Cloud Storage (LocalStorageHelper) for the GcsObjectStorage and card image
+    // cache tests: no credentials, no network, no Docker (version from the libraries BOM).
+    testImplementation("com.google.cloud:google-cloud-nio")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
