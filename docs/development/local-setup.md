@@ -170,11 +170,12 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 5 min (704 tests), `test:web` about 40 s (lint + 578 unit tests), `test:mobile` 40–50 s (29
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
-`test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-05,
-stage M5): `test:mobile` about 0.5–2 min (604 jest tests in 71 suites + 28 harness guard tests),
-`test:mobile:e2e` about 2 min (38 specs, including the API jar and the web export),
-`test:mobile:maestro` about 31 min (15 flows on the `Pixel_6_API_34` emulator, including the API
-and Metro start; add a few minutes the first time, while Expo CLI installs Expo Go).
+`test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-06,
+stage M7): `test:mobile` about 1–2.5 min (713 jest tests in 81 suites + 28 harness guard tests),
+`test:mobile:e2e` about 4 min (54 specs, including the API jar and the web export; about 2 min
+when the stack is reused), `test:mobile:maestro` about 45 min (21 flows on the
+`Pixel_6_API_34` emulator, including the API and Metro start; add a few minutes the first time,
+while Expo CLI installs Expo Go).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -260,7 +261,12 @@ with the meetup, confirming the exchange, cancelling, and rating once completed)
 with statements and photos, Settings → Payouts; Premium through the fake billing checkout, credits
 with referrals and day unlocks, voluntary donations through the fake donation checkout,
 "Sponsored" placements) are implemented on the same API and the same local fake providers as the
-web; the admin consoles stay on the web. Locally the catalog is the fictional mock catalog of the seed (the real
+web; the admin consoles stay on the web. Stage M7 (2026-10-06) closes the web parity gaps:
+Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
+app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
+segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
+Blocked users, owner photos and bulk actions in the inventory, binder reordering, the map's
+freshness / tags filters and search box, set pages. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
@@ -332,7 +338,8 @@ second collector of the messaging, wishlist, offer and report flows comes from `
 `wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the
 Premium flow from `payments.js`; `offers.js` and `payments.js` post `{}` to body-less endpoints
 because Maestro's `http.post` needs a body)
-and check the result there (`check-area.js`, `check-inventory.js`, `community.js`); they refuse the developer API on :8080
+and check the result there (`check-area.js`, `check-inventory.js`, `community.js`; the collectors,
+listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
 run (Metro re-crawls the workspace and Expo Go may report "Packager is not running"), and restart
 Metro after source changes (`npm run test:mobile:maestro -- --stop`): on Windows a kept Metro did

@@ -2,20 +2,37 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
+import type { ApiError } from '@/src/api/ApiError';
+import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyBinders } from '@/src/api/hooks/binders';
-import { useInventoryItems, useInventorySummary } from '@/src/api/hooks/inventory';
+import {
+  useBulkInventory,
+  useInventoryItems,
+  useInventorySummary,
+} from '@/src/api/hooks/inventory';
 import { usePrivacySettings } from '@/src/api/hooks/location';
 import { useGames } from '@/src/api/hooks/profile';
 import type { BinderResponse, InventoryItemResponse, PublicInventoryItem } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
+import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { BinderRow } from '@/src/features/binders/BinderRow';
+import { ReorderBindersSheet } from '@/src/features/binders/ReorderBindersSheet';
+import {
+  BULK_DELETE_MESSAGE,
+  bulkDeleteTitle,
+  bulkResultMessage,
+  toBulkRequest,
+  type BulkAction,
+} from '@/src/features/inventory/bulkActions';
+import { BulkBar } from '@/src/features/inventory/BulkBar';
 import { InventoryFiltersBar } from '@/src/features/inventory/InventoryFiltersBar';
 import { InventorySummaryStrip } from '@/src/features/inventory/InventorySummaryStrip';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
@@ -34,9 +51,10 @@ type View_ = 'cards' | 'binders';
 
 /**
  * Inventory tab (web: `/inventory`), built for managing cards on a phone: the collector's cards
- * with search, game / intent / binder filters and sorting, the totals and the cards needing a
- * confirmation, paused listings with "Resume", and their binders. Cards open the editor; "Add
- * card" starts the catalog search → printing → details flow.
+ * with search, game / intent / visibility / binder filters and sorting, the totals and the cards
+ * needing a confirmation, paused listings with "Resume", multi-select bulk actions (visibility,
+ * move to a binder, availability, confirm, delete) and their binders (with reordering). Cards
+ * open the editor; "Add card" starts the catalog search → printing → details flow.
  */
 export default function InventoryScreen() {
   const router = useRouter();
@@ -90,12 +108,18 @@ export default function InventoryScreen() {
 
 function CardsView() {
   const router = useRouter();
+  const snackbar = useSnackbar();
   const [text, setText] = useState('');
   const [filters, setFilters] = useState<InventoryFilters>(DEFAULT_INVENTORY_FILTERS);
   const games = useGames();
   const binders = useMyBinders();
   const summary = useInventorySummary();
   const items = useInventoryItems(filters);
+  const bulk = useBulkInventory();
+  // Selection mode (web: the checkboxes of the grid and the bulk bar).
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     const q = boundedQuery(text);
@@ -128,6 +152,47 @@ function CardsView() {
       router.push({ pathname: '/items/[id]', params: { id: item.id } }),
     [router]
   );
+  const toggle = useCallback(
+    (item: InventoryItemResponse | PublicInventoryItem) =>
+      setSelected((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+        }
+        return next;
+      }),
+    []
+  );
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  const allSelected = list.length > 0 && list.every((item) => selected.has(item.id));
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(list.map((item) => item.id)));
+
+  const runBulk = async (action: BulkAction) => {
+    const ids = [...selected];
+    if (ids.length === 0) {
+      return;
+    }
+    if (action.kind === 'delete' && !confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setConfirmDelete(false);
+    try {
+      const response = await bulk.mutateAsync(toBulkRequest(action, ids));
+      snackbar.show(bulkResultMessage(action, response));
+      if (action.kind === 'delete') {
+        setSelected(new Set());
+      }
+    } catch (error) {
+      snackbar.show(friendlyMessage(error as ApiError), { tone: 'error' });
+    }
+  };
 
   const clear = () => {
     setText('');
@@ -154,7 +219,15 @@ function CardsView() {
         testID="inventory-items"
         data={list}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ItemRow item={item} onPress={open} />}
+        renderItem={({ item }) => (
+          <ItemRow
+            item={item}
+            onPress={open}
+            selectable={selecting}
+            selected={selected.has(item.id)}
+            onToggle={toggle}
+          />
+        )}
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -237,7 +310,41 @@ function CardsView() {
           testID="inventory-open-binder"
         />
       ) : null}
+      {items.data && list.length > 0 ? (
+        <Button
+          label={selecting ? 'Done selecting' : 'Select'}
+          icon={selecting ? 'check' : 'checkbox-multiple-marked-outline'}
+          variant="ghost"
+          onPress={selecting ? stopSelecting : () => setSelecting(true)}
+          style={styles.binderLink}
+          testID="inventory-select"
+        />
+      ) : null}
       <View style={[styles.grow, styles.listTop]}>{body}</View>
+      {selecting && selected.size > 0 ? (
+        <View style={styles.bulk}>
+          <BulkBar
+            count={selected.size}
+            allSelected={allSelected}
+            busy={bulk.isPending}
+            binders={binders.data ?? []}
+            onAction={(action) => void runBulk(action)}
+            onToggleAll={toggleAll}
+            onClear={() => setSelected(new Set())}
+          />
+        </View>
+      ) : null}
+      <ConfirmDialog
+        visible={confirmDelete}
+        title={bulkDeleteTitle(selected.size)}
+        message={BULK_DELETE_MESSAGE}
+        confirmLabel="Delete"
+        tone="danger"
+        busy={bulk.isPending}
+        onConfirm={() => void runBulk({ kind: 'delete' })}
+        onCancel={() => setConfirmDelete(false)}
+        testID="bulk-delete-dialog"
+      />
     </View>
   );
 }
@@ -247,6 +354,7 @@ function BindersView() {
   const binders = useMyBinders();
   const privacy = usePrivacySettings();
   const ownerVisible = ownerIsVisible(privacy.data);
+  const [reordering, setReordering] = useState(false);
   const open = (binder: BinderResponse) =>
     router.push({ pathname: '/binders/[id]', params: { id: binder.id } });
 
@@ -272,7 +380,26 @@ function BindersView() {
         <BinderRow binder={item} ownerVisible={ownerVisible} onPress={open} />
       )}
       ItemSeparatorComponent={Separator}
-      ListHeaderComponent={<ListingsPausedBanner />}
+      ListHeaderComponent={
+        <>
+          <ListingsPausedBanner />
+          {binders.data.length > 1 ? (
+            <Button
+              label="Reorder"
+              icon="swap-vertical"
+              variant="ghost"
+              onPress={() => setReordering(true)}
+              style={styles.binderLink}
+              testID="binders-reorder"
+            />
+          ) : null}
+          <ReorderBindersSheet
+            visible={reordering}
+            binders={binders.data}
+            onClose={() => setReordering(false)}
+          />
+        </>
+      }
       ListHeaderComponentStyle={styles.header}
       ListEmptyComponent={
         <EmptyState
@@ -306,6 +433,7 @@ const styles = StyleSheet.create({
   add: { minHeight: 44, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
   binderLink: { alignSelf: 'flex-start', minHeight: 36, paddingVertical: spacing[1] },
   listTop: { marginTop: spacing[2] },
+  bulk: { paddingBottom: spacing[2] },
   header: { gap: spacing[3], marginBottom: spacing[3] },
   listContent: { paddingBottom: spacing[6] },
   separator: { height: spacing[2] },

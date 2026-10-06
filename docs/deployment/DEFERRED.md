@@ -52,7 +52,12 @@ steps, not of missing code.
 3. Repository variables for WIF (`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_DEPLOYER_SA`,
    `GCP_PROJECT_ID`, `GCP_REGION`) and GitHub environments with approvals.
 4. Real Firebase / Identity Platform project (email, Google, Apple providers, authorized
-   domains, admin MFA) replacing the Auth emulator.
+   domains, admin MFA) replacing the Auth emulator. The Google sign-in OAuth client ids of the
+   mobile app (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`,
+   `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`: public values, documented in `apps/mobile/.env.example`)
+   belong to this step: locally "Continue with Google" on mobile is proven only against the Auth
+   emulator's simulated Google account (mobile stage M7, 2026-10-06), and a device build without
+   its platform's client id says so on the button.
 5. Real provider credentials: Stripe Connect + Billing, FCM, transactional email, Google Maps
    browser key (the web keeps the Leaflet/OpenStreetMap adapter until then).
 6. Cloudflare DNS records, TLS, WAF, cache and rate-limit rules for `www`/`api.orenjitrade.com`.

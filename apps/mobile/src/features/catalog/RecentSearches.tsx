@@ -3,18 +3,25 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { useRecentSearches, useRecentSearchesStore } from './recentSearchesStore';
+import {
+  useRecentSearches,
+  useRecentSearchesStore,
+  type RecentSearchScope,
+} from './recentSearchesStore';
 
 export interface RecentSearchesProps {
   uid: string | null;
+  /** The segment whose searches are shown (cards by default). */
+  scope?: RecentSearchScope;
   onPick: (query: string) => void;
 }
 
 /** The collector's recent searches on this device (tap to search again, clear them all). */
-export function RecentSearches({ uid, onPick }: RecentSearchesProps) {
+export function RecentSearches({ uid, scope = 'cards', onPick }: RecentSearchesProps) {
   const { palette } = useTheme();
-  const recent = useRecentSearches(uid);
-  const clear = useRecentSearchesStore((state) => state.clear);
+  const recent = useRecentSearches(uid, scope);
+  const clearScope = useRecentSearchesStore((state) => state.clear);
+  const clear = (user: string) => clearScope(user, scope);
   if (!uid || recent.length === 0) {
     return null;
   }

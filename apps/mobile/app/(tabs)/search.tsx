@@ -13,6 +13,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
+import { Segmented } from '@/src/components/ui/Segmented';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
@@ -28,6 +29,13 @@ import {
 import { RecentSearches } from '@/src/features/catalog/RecentSearches';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
 import {
+  SEARCH_SEGMENTS,
+  SEGMENT_FIELDS,
+  isSearchSegment,
+  type SearchSegment,
+} from '@/src/features/search/searchSegments';
+import { UnifiedResults } from '@/src/features/search/UnifiedResults';
+import {
   boundedQuery,
   PRINTING_CODE,
   QUERY_MAX_LENGTH,
@@ -38,18 +46,95 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 const ALL_GAMES = '__all__';
 
-type SearchParams = { q?: string; game?: string; set?: string };
+type SearchParams = { q?: string; game?: string; set?: string; tab?: string };
 
 /**
- * Search tab: the card catalog across games (the web's `/cards`): live, typo-tolerant search
- * (names, text, printing codes) with game pills and set / rarity / language / edition filters,
- * an infinite list of results with API pictures, and recent searches. Opening a result shows the
- * card detail.
+ * Search tab (the web's `/search` tabs): Cards | Collectors | Binders. Cards: the card catalog
+ * across games (the web's `/cards`): live, typo-tolerant search (names, text, printing codes)
+ * with game pills and set / rarity / language / edition filters, an infinite list of results with
+ * API pictures. Collectors (by name or handle, with the API's distance bucket) and public binders
+ * (by name) come from `GET /search`. Recent searches are kept per segment. A result opens the
+ * card detail, the collector profile or the public binder.
  */
 export default function SearchScreen() {
+  const params = useLocalSearchParams<SearchParams>();
+  const [segment, setSegment] = useState<SearchSegment>(
+    isSearchSegment(params.tab) ? params.tab : 'cards'
+  );
+  // A link into the tab (`?tab=collectors`) switches the segment once per new parameter.
+  const [linkedTab, setLinkedTab] = useState(params.tab);
+  if (params.tab !== linkedTab) {
+    setLinkedTab(params.tab);
+    if (isSearchSegment(params.tab)) {
+      setSegment(params.tab);
+    }
+  }
+  return (
+    <Screen testID="screen-search" style={styles.screen}>
+      <Segmented<SearchSegment>
+        label="Search"
+        options={SEARCH_SEGMENTS}
+        value={segment}
+        onChange={setSegment}
+        style={styles.segments}
+        testID="search-segment"
+      />
+      {segment === 'cards' ? <CardsSegment params={params} /> : <OtherSegment segment={segment} />}
+    </Screen>
+  );
+}
+
+/** The Collectors and Binders segments: one debounced field, the recent searches, the results. */
+function OtherSegment({ segment }: { segment: Exclude<SearchSegment, 'cards'> }) {
+  const uid = useUid();
+  const remember = useRecentSearchesStore((state) => state.remember);
+  const [text, setText] = useState('');
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const q = boundedQuery(text);
+    if (q === query) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setQuery(q), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [text, query]);
+
+  const search = (value: string) => {
+    const q = boundedQuery(value);
+    setText(value);
+    setQuery(q);
+    if (uid && q) {
+      remember(uid, q, segment);
+    }
+  };
+
+  return (
+    <>
+      <View style={styles.controls}>
+        <TextField
+          label={SEGMENT_FIELDS[segment].label}
+          placeholder={SEGMENT_FIELDS[segment].placeholder}
+          value={text}
+          onChangeText={setText}
+          onSubmitEditing={() => search(text)}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          maxLength={QUERY_MAX_LENGTH}
+          testID={`search-${segment}-input`}
+        />
+      </View>
+      <View style={styles.fill}>
+        <UnifiedResults segment={segment} query={query} onSearch={search} />
+      </View>
+    </>
+  );
+}
+
+function CardsSegment({ params }: { params: SearchParams }) {
   const { palette } = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<SearchParams>();
   const uid = useUid();
   const remember = useRecentSearchesStore((state) => state.remember);
   const gamesQuery = useGames();
@@ -211,11 +296,11 @@ export default function SearchScreen() {
   }
 
   return (
-    <Screen testID="screen-search" style={styles.screen}>
+    <>
       <View style={styles.controls}>
         <TextField
-          label="Find a card"
-          placeholder="Card name, text or printing code"
+          label={SEGMENT_FIELDS.cards.label}
+          placeholder={SEGMENT_FIELDS.cards.placeholder}
           value={text}
           onChangeText={setText}
           onSubmitEditing={() => search(text)}
@@ -266,7 +351,7 @@ export default function SearchScreen() {
         onFilter={onFilter}
         onClear={() => setQuery((current) => ({ ...withoutFilters(current), game: current.game }))}
       />
-    </Screen>
+    </>
   );
 }
 
@@ -306,6 +391,7 @@ function SearchSkeleton() {
 
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
+  segments: { marginBottom: spacing[3] },
   controls: { gap: spacing[3], marginBottom: spacing[2] },
   filterRow: { flexDirection: 'row', gap: spacing[2] },
   filterButton: { minHeight: 40, paddingVertical: spacing[2], paddingHorizontal: spacing[4] },

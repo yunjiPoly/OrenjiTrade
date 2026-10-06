@@ -1,4 +1,4 @@
-import type { FreshnessState, InventoryAvailability } from '@/src/api/types';
+import type { FreshnessState, InventoryAvailability, Visibility } from '@/src/api/types';
 
 import { boundedQuery } from './catalog';
 
@@ -24,6 +24,7 @@ export interface InventoryFilters {
   availability: InventoryAvailability | null;
   /** Binder id, {@link UNFILED}, or `null` for every card. */
   binder: string | null;
+  visibility: Visibility | null;
   freshness: FreshnessState | null;
   sort: InventorySort;
 }
@@ -33,6 +34,7 @@ export const DEFAULT_INVENTORY_FILTERS: InventoryFilters = {
   game: null,
   availability: null,
   binder: null,
+  visibility: null,
   freshness: null,
   sort: 'updated',
 };
@@ -48,6 +50,7 @@ export function inventoryListQuery(
     game?: string;
     binderId?: string;
     unfiled?: boolean;
+    visibility?: Visibility;
     availability?: InventoryAvailability;
     freshness?: FreshnessState;
     sort: 'updated' | 'name' | 'price';
@@ -69,6 +72,9 @@ export function inventoryListQuery(
   if (filters.availability) {
     query.availability = filters.availability;
   }
+  if (filters.visibility) {
+    query.visibility = filters.visibility;
+  }
   if (filters.freshness) {
     query.freshness = filters.freshness;
   }
@@ -85,7 +91,8 @@ export function inventoryListQuery(
 
 /** How many filters (not the search, binder or sort) are set. */
 export function activeInventoryFilterCount(filters: InventoryFilters): number {
-  return [filters.game, filters.availability, filters.freshness].filter(Boolean).length;
+  return [filters.game, filters.availability, filters.visibility, filters.freshness].filter(Boolean)
+    .length;
 }
 
 /** True when the list is narrowed in any way (search, filters or a binder). */

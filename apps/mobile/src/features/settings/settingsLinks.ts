@@ -51,6 +51,12 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     feature: 'protectedPayments',
   },
   {
+    href: '/settings/blocked',
+    label: 'Blocked users',
+    detail: 'Collectors you blocked, and how to unblock them',
+    icon: 'account-cancel-outline',
+  },
+  {
     href: '/settings/reports',
     label: 'My reports',
     detail: 'Collectors you reported and where each review stands',

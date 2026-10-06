@@ -141,8 +141,7 @@ export function notificationLink(
 /** Where a notification leads in the app, or why it cannot yet (a screen of a later stage). */
 export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'later'; note: string };
 
-const SETTINGS_LATER =
-  'This setting is on orenjitrade.com only for now (blocked users are managed from a conversation).';
+const SETTINGS_LATER = 'This setting is on orenjitrade.com only for now.';
 
 /** Settings pages of the app, by their web path segment (`/settings/<segment>`). */
 const SETTINGS_PAGES: Record<string, string> = {
@@ -156,6 +155,7 @@ const SETTINGS_PAGES: Record<string, string> = {
   reports: 'reports',
   offers: 'offers',
   payouts: 'payouts',
+  blocked: 'blocked',
 };
 
 function route(href: string): NotificationTarget {
@@ -189,14 +189,27 @@ export function mobileTarget(webPath: string): NotificationTarget {
       return route(id ? `/binders/${id}` : '/inventory?view=binders');
     case 'cards':
       return route(id ? `/cards/${id}` : '/search');
+    case 'sets':
+      return route(id ? `/sets/${id}` : '/search');
     case 'collectors':
       return route(
         id ? `/collectors/${id}${params.get('tab') === 'ratings' ? '?tab=ratings' : ''}` : '/'
       );
     case 'map':
       return route('/');
-    case 'search':
-      return route('/search');
+    case 'search': {
+      // The web's holders view (`/search?card=|printing=`) is the app's holders list.
+      const printing = params.get('printing');
+      const card = params.get('card');
+      if (printing && ID.test(printing)) {
+        return route(`/holders?printing=${printing}`);
+      }
+      if (card && ID.test(card)) {
+        return route(`/holders?card=${card}`);
+      }
+      const tab = params.get('tab');
+      return route(tab === 'collectors' || tab === 'binders' ? `/search?tab=${tab}` : '/search');
+    }
     case 'notifications':
       return route('/notifications');
     case 'legal':

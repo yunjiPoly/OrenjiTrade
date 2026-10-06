@@ -10,12 +10,16 @@ import { Button } from '@/src/components/ui/Button';
 import { FormMessage, PasswordField } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { TextField } from '@/src/components/ui/TextField';
+import { GoogleButton, OrDivider } from '@/src/features/auth/GoogleButton';
+import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
+import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
 import { useAppStore } from '@/src/store/useAppStore';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * Sign in with email and password (Firebase; the Auth emulator locally). On success the auth gate
- * takes over: consent, account status, onboarding or the tabs (web: `/auth/sign-in`).
+ * Sign in with email and password, or with Google (Firebase; the Auth emulator locally, where
+ * Google is a simulated account). On success the auth gate takes over: consent, account status,
+ * onboarding or the tabs (web: `/auth/sign-in`).
  */
 export default function SignInScreen() {
   const { palette } = useTheme();
@@ -29,6 +33,7 @@ export default function SignInScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const google = useGoogleSignIn('sign-in');
 
   const emailError = submitted ? validateEmail(email) : null;
   const passwordError = submitted && !password ? 'Enter your password.' : null;
@@ -47,6 +52,15 @@ export default function SignInScreen() {
       setError(authErrorMessage(caught));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setError(null);
+    try {
+      await google.start();
+    } catch (caught) {
+      setError(googleErrorMessage(caught));
     }
   };
 
@@ -114,10 +128,19 @@ export default function SignInScreen() {
           label="Sign in"
           loadingLabel="Signing in…"
           loading={busy}
+          disabled={google.busy}
           onPress={() => void onSubmit()}
           testID="sign-in-submit"
         />
+        <OrDivider />
+        <GoogleButton
+          busy={google.busy}
+          disabled={busy || !!session.initError}
+          onPress={() => void onGoogle()}
+          testID="sign-in-google"
+        />
       </View>
+      <SimulatedGoogleAccountDialog {...google.dialog} />
 
       <View style={styles.footer}>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>New to OrenjiTrade?</Text>

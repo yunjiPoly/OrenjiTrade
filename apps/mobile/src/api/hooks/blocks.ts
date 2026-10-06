@@ -1,9 +1,20 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { ApiError } from '../ApiError';
-import { api } from '../client';
+import { api, required } from '../client';
 import { meKeys } from '../queryKeys';
-import { useUid } from './useUid';
+import type { BlockedUser } from '../types';
+import { useIsAuthenticated, useUid } from './useUid';
+
+/** `GET /api/v1/me/blocks`: the collectors the caller blocked (Settings → Blocked users). */
+export function useMyBlocks() {
+  const uid = useUid();
+  return useQuery<BlockedUser[], ApiError>({
+    queryKey: meKeys.blocks(uid),
+    queryFn: async () => required((await api.GET('/api/v1/me/blocks')).data),
+    enabled: useIsAuthenticated(),
+  });
+}
 
 /**
  * Block / unblock a collector (`POST` / `DELETE /api/v1/users/{id}/block`, idempotent on the

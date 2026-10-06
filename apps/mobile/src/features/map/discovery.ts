@@ -48,15 +48,39 @@ export const NEARBY_LIMIT = 200;
 /** Pause after the last pan or zoom before the map asks for collectors again. */
 export const VIEWPORT_DEBOUNCE_MS = 400;
 
-/** Filters of the Map tab. The map position is never part of them (ADR 0004). */
+/** `freshness` filter of `/collectors/nearby` (STALE and HIDDEN never appear on the map). */
+export type FreshnessFilter = 'ACTIVE' | 'AGING';
+
+export const FRESHNESS_FILTERS: readonly { value: FreshnessFilter; label: string }[] = [
+  { value: 'ACTIVE', label: 'Fresh listings' },
+  { value: 'AGING', label: 'Aging listings' },
+];
+
+export function isFreshnessFilter(value: unknown): value is FreshnessFilter {
+  return value === 'ACTIVE' || value === 'AGING';
+}
+
+/** Filters of the Map tab (the web's `MapParams` filters). The map position is never part of them (ADR 0004). */
 export interface MapFilters {
   game: string | null;
   intent: IntentFilter | null;
   /** Chosen radius in km; `null` = the default. */
   radiusKm: number | null;
+  freshness: FreshnessFilter | null;
+  /** Tag slugs (any of them). */
+  tags: string[];
+  /** The map's search box: handle, display name or tag text (`query` of `/collectors/nearby`). */
+  q: string;
 }
 
-export const DEFAULT_MAP_FILTERS: MapFilters = { game: null, intent: null, radiusKm: null };
+export const DEFAULT_MAP_FILTERS: MapFilters = {
+  game: null,
+  intent: null,
+  radiusKm: null,
+  freshness: null,
+  tags: [],
+  q: '',
+};
 
 /** "Who has this near me": collectors listing any printing of a card, or one printing. */
 export type HoldersTarget = { kind: 'card' | 'printing'; id: string };
@@ -83,7 +107,14 @@ export function holdersTarget(params: {
 
 /** Number of active filters (for "Clear filters"). */
 export function activeFilterCount(filters: MapFilters): number {
-  return (filters.game ? 1 : 0) + (filters.intent ? 1 : 0) + (filters.radiusKm !== null ? 1 : 0);
+  return (
+    (filters.game ? 1 : 0) +
+    (filters.intent ? 1 : 0) +
+    (filters.radiusKm !== null ? 1 : 0) +
+    (filters.freshness ? 1 : 0) +
+    (filters.tags.length > 0 ? 1 : 0) +
+    (filters.q.trim() ? 1 : 0)
+  );
 }
 
 /** The plan cap as a radius bound: unlimited (`null`) plans stop at {@link MAX_RADIUS_KM}. */
@@ -124,6 +155,10 @@ export interface NearbyQuery {
   game: string | null;
   intent: IntentFilter | null;
   holders: HoldersTarget | null;
+  freshness?: FreshnessFilter | null;
+  tags?: readonly string[];
+  /** Handle, display name or tag text. */
+  q?: string;
 }
 
 /** Query parameters of a call (filters left out when unset; the centre at 2 decimals). */
@@ -139,6 +174,16 @@ export function nearbyParams(query: NearbyQuery): NearbyParams {
   }
   if (query.intent) {
     params.availability = query.intent;
+  }
+  if (query.freshness) {
+    params.freshness = query.freshness;
+  }
+  if (query.tags && query.tags.length > 0) {
+    params.tags = [...query.tags];
+  }
+  const text = query.q?.trim();
+  if (text) {
+    params.query = text;
   }
   if (query.holders?.kind === 'printing') {
     params.hasPrintingId = query.holders.id;
@@ -156,6 +201,9 @@ export function filterKey(query: NearbyQuery): string {
     query.intent,
     query.holders?.kind ?? null,
     query.holders?.id ?? null,
+    query.freshness ?? null,
+    [...(query.tags ?? [])].sort(),
+    query.q?.trim() ?? '',
   ]);
 }
 

@@ -57,6 +57,7 @@ export type CardPage = Schemas['PageResponseCardSummary'];
 
 // --- Inventory + binders (Phase 3) --------------------------------------------------------------
 export type InventoryItemResponse = Schemas['InventoryItemResponse'];
+export type InventoryItemImage = Schemas['InventoryItemImage'];
 export type InventoryPage = Schemas['PageResponseInventoryItemResponse'];
 export type CreateInventoryItemRequest = Schemas['CreateInventoryItemRequest'];
 export type UpdateInventoryItemRequest = Schemas['UpdateInventoryItemRequest'];
@@ -92,6 +93,12 @@ export type ReferenceResponse = Schemas['ReferenceResponse'];
 export type ReferencePage = Schemas['CursorPageReferenceResponse'];
 export type MyPlan = Schemas['MyPlan'];
 export type LimitStatus = Schemas['LimitStatus'];
+export type UnifiedSearchResponse = Schemas['UnifiedSearchResponse'];
+export type CardHolderResult = Schemas['CardHolderResult'];
+export type CardHoldersPage = Schemas['PageResponseCardHolderResult'];
+export type PublicBinderOwner = Schemas['PublicBinderOwner'];
+export type SetDetail = Schemas['SetDetail'];
+export type PrintingPage = Schemas['PageResponsePrintingSummary'];
 
 // --- Messaging (Phase 5) -----------------------------------------------------------------------
 export type ConversationSummary = Schemas['ConversationSummary'];
@@ -128,6 +135,7 @@ export type UpdateWishlistItemRequest = Schemas['UpdateWishlistItemRequest'];
 export type TradePreference = WishlistItemResponse['tradePreference'];
 export type WishlistMatchResponse = Schemas['WishlistMatchResponse'];
 export type WishlistMatchPage = Schemas['CursorPageWishlistMatchResponse'];
+export type WishlistSummaryEntry = Schemas['WishlistSummaryEntry'];
 export type NotificationResponse = Schemas['NotificationResponse'];
 export type NotificationType = NotificationResponse['type'];
 export type NotificationPage = Schemas['CursorPageNotificationResponse'];

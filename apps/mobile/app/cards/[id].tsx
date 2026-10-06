@@ -27,8 +27,10 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 /**
  * Card detail (web: `/cards/:id`, `?printing=` selects a printing): the picture with the
  * provider credit, game-specific attributes from the game schema, the selected printing with its
- * market price, every printing, "Add to inventory", "Who has this near me" and "Add to wishlist".
- * Deep-link target: https://www.orenjitrade.com/cards/<id> and orenjitrade://cards/<id>.
+ * market price, every printing, "Add to inventory", "Who has this near me" (the holders list with
+ * every filter; "Show on the map" is the alternative view, the Map tab filtered by the card) and
+ * "Add to wishlist". Deep-link target: https://www.orenjitrade.com/cards/<id> and
+ * orenjitrade://cards/<id>.
  */
 export default function CardScreen() {
   const { id, printing } = useLocalSearchParams<{ id: string; printing?: string }>();
@@ -175,9 +177,17 @@ function CardContent({ card, printingId }: { card: CardDetail; printingId: strin
         />
         <Button
           label="Who has this near me"
+          icon="account-search-outline"
+          variant="secondary"
+          accessibilityHint="Lists the collectors nearby who own, trade or sell this card"
+          onPress={() => router.push({ pathname: '/holders', params: { card: card.id ?? '' } })}
+          testID="card-holders"
+        />
+        <Button
+          label="Show on the map"
           icon="map-marker-radius-outline"
           variant="secondary"
-          accessibilityHint="Opens the map"
+          accessibilityHint="Opens the map filtered by this card"
           onPress={() => router.navigate({ pathname: '/', params: { card: card.id ?? '' } })}
           testID="card-who-has-it"
         />
@@ -202,10 +212,17 @@ function CardContent({ card, printingId }: { card: CardDetail; printingId: strin
           <Text
             accessibilityRole="link"
             onPress={() =>
-              router.navigate({
-                pathname: '/search',
-                params: { game: card.game ?? '', set: selected.setCode ?? '', q: '' },
-              })
+              selected.setId
+                ? router.push({ pathname: '/sets/[id]', params: { id: selected.setId } })
+                : router.navigate({
+                    pathname: '/search',
+                    params: {
+                      game: card.game ?? '',
+                      set: selected.setCode ?? '',
+                      q: '',
+                      tab: 'cards',
+                    },
+                  })
             }
             style={[textStyle('md'), styles.setLink, { color: palette.accent }]}
             testID="card-set-link"

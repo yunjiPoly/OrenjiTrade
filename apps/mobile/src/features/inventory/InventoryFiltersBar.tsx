@@ -1,11 +1,22 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import type { BinderResponse, GameResponse, InventoryAvailability } from '@/src/api/types';
+import type {
+  BinderResponse,
+  GameResponse,
+  InventoryAvailability,
+  Visibility,
+} from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { TextField } from '@/src/components/ui/TextField';
 import { QUERY_MAX_LENGTH } from '@/src/lib/catalog';
-import { AVAILABILITIES, AVAILABILITY_LABELS, cardCount } from '@/src/lib/inventory';
+import {
+  AVAILABILITIES,
+  AVAILABILITY_LABELS,
+  VISIBILITIES,
+  VISIBILITY_INFO,
+  cardCount,
+} from '@/src/lib/inventory';
 import {
   INVENTORY_SORTS,
   UNFILED,
@@ -33,7 +44,7 @@ export interface InventoryFiltersBarProps {
 
 /**
  * Search and filters of the Inventory tab (web: `app-inventory-toolbar` + the binder list):
- * game, intent (the API's availability), binder (all, unfiled or one binder) and sort.
+ * game, intent (the API's availability), visibility, binder (all, unfiled or one binder) and sort.
  */
 export function InventoryFiltersBar({
   text,
@@ -111,6 +122,22 @@ export function InventoryFiltersBar({
             onChange({ availability: availability === ALL ? null : availability })
           }
           testID="inventory-filter-intent"
+        />
+        <SelectSheet<Visibility | typeof ALL>
+          compact
+          label="Visibility"
+          options={[
+            { value: ALL, label: 'Any visibility' },
+            ...VISIBILITIES.map((visibility) => ({
+              value: visibility,
+              label: VISIBILITY_INFO[visibility].label,
+            })),
+          ]}
+          value={filters.visibility ?? ALL}
+          onChange={(visibility) =>
+            onChange({ visibility: visibility === ALL ? null : visibility })
+          }
+          testID="inventory-filter-visibility"
         />
         <SelectSheet<InventorySort>
           compact
