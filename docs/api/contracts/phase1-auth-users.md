@@ -25,8 +25,13 @@ email local part + suffix until the user picks one). `403 ACCOUNT_SUSPENDED` whe
 
 `GET /public/legal/documents` → `[ { "documentType": "TERMS|PRIVACY|COMMUNITY_GUIDELINES|MARKETPLACE_POLICY|PAYMENT_PROTECTION|REFUND_DISPUTE|COOKIES|ACCEPTABLE_USE|AGE_CONFIRMATION", "version": "2026-09-01", "title": "…", "url": "/legal/terms", "requiredAtRegistration": true } ]`
 
-`POST /me/consents` body `{ "documentType": "TERMS", "version": "2026-09-01" }` → 204. Stores
-version, timestamp, hashed IP, user agent. `409` if version is not current.
+`POST /me/consents` body `{ "documentType": "TERMS", "version": "2026-09-01", "language": "fr" }`
+→ 204. Stores version, the language of the text that was shown (`en` or `fr`; optional, `en` when
+omitted so older clients keep working; V104), timestamp, hashed IP, user agent. `409` if version is
+not current, `400 VALIDATION_FAILED` (field `language`) for another code. The French legal pages are
+a translation of the English draft, so one document version covers both languages and the consent
+records which one the collector read; the admin user detail and the data export (`ConsentSummary`)
+expose `language` next to the version.
 
 ### 18+ rule (2026-10-05, V103)
 

@@ -93,6 +93,39 @@ class ConsentServiceTest {
     }
 
     @Test
+    void consentLanguageDefaultsToEnglishAndRejectsOtherCodes() {
+        assertThat(ConsentLanguage.normalize(null)).isEqualTo("en");
+        assertThat(ConsentLanguage.normalize("  ")).isEqualTo("en");
+        assertThat(ConsentLanguage.normalize("FR")).isEqualTo("fr");
+        assertThatThrownBy(() -> ConsentLanguage.normalize("de"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        LegalDocument current = mock(LegalDocument.class);
+        when(current.getVersion()).thenReturn("2026-09-01");
+        when(documents.findByDocumentTypeAndCurrentTrue(LegalDocumentType.TERMS))
+                .thenReturn(Optional.of(current));
+        assertThatThrownBy(
+                        () ->
+                                service.accept(
+                                        USER,
+                                        LegalDocumentType.TERMS,
+                                        "2026-09-01",
+                                        null,
+                                        null,
+                                        "de"))
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        problem -> {
+                            assertThat(problem.getErrorCode())
+                                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+                            assertThat(problem.getFieldErrors())
+                                    .extracting(error -> error.field())
+                                    .containsExactly("language");
+                        });
+        verifyNoInteractions(audit);
+    }
+
+    @Test
     void theErrorCodeIsA403WithAStableProblemType() {
         assertThat(ErrorCode.AGE_CONFIRMATION_REQUIRED.defaultStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);

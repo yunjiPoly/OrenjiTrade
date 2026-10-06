@@ -1610,7 +1610,7 @@ export interface paths {
         put?: never;
         /**
          * Accept a legal document version
-         * @description Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
+         * @description Stores the version, the language the text was shown in (en or fr, en when omitted), timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
          */
         post: operations["acceptConsent"];
         delete?: never;
@@ -7620,6 +7620,12 @@ export interface components {
             documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE" | "AGE_CONFIRMATION";
             /** @example 2026-09-01 */
             version: string;
+            /**
+             * @description Language of the legal text shown to the collector (en or fr); en when omitted. The version is the same in both languages.
+             * @example fr
+             * @enum {string}
+             */
+            language?: "en" | "fr";
         };
         /** @description A new inventory item */
         CreateInventoryItemRequest: {
@@ -10133,6 +10139,12 @@ export interface components {
             version: string;
             /** Format: date-time */
             acceptedAt: string;
+            /**
+             * @description Language of the text shown when the consent was given
+             * @example fr
+             * @enum {string}
+             */
+            language?: "en" | "fr";
         };
         /** @description Pending account deletion request */
         DeletionRequestSummary: {

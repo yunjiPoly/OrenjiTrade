@@ -47,7 +47,7 @@ export class MeService extends BaseService implements MeServiceInterface {
 
     /**
      * Accept a legal document version
-     * Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
+     * Stores the version, the language the text was shown in (en or fr, en when omitted), timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
      * @endpoint post /api/v1/me/consents
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

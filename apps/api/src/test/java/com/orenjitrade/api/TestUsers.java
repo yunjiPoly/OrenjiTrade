@@ -86,8 +86,8 @@ public class TestUsers {
 
     public List<Map<String, Object>> consentsOf(UUID id) {
         return jdbc.queryForList(
-                "SELECT document_type, version, ip_hash, user_agent FROM user_consent"
-                        + " WHERE user_id = ? ORDER BY document_type",
+                "SELECT document_type, version, ip_hash, user_agent, language FROM"
+                        + " user_consent WHERE user_id = ? ORDER BY document_type",
                 id);
     }
 

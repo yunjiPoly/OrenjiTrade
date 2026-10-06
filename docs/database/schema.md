@@ -162,6 +162,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V101 | `V101__yugioh_catalog_fields.sql` | Real Yu-Gi-Oh! catalog: the printing variant key includes the rarity (`uq_card_printing_variant` becomes a unique index); the yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, the complete monster types and common rarities |
 | V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
 | V103 | `V103__age_confirmation.sql` | Launch readiness (18+ rule): `legal_document.document_type` accepts `AGE_CONFIRMATION` (named constraint `ck_legal_document_type` replaces the unnamed V003 check) and the attestation row `AGE_CONFIRMATION` / `2026-10-05` (`required_at_registration = false`, `url = '/legal#age-confirmation'`) is inserted; confirmations are ordinary `user_consent` rows |
+| V104 | `V104__consent_language.sql` | Launch readiness (French legal pages): `user_consent.language` (`en` / `fr`, default `en`, `ck_user_consent_language`) records which translation was shown when the consent was given; one `legal_document` version covers both languages |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -274,6 +275,7 @@ posting and offers.
 | `accepted_at` | `timestamptz` | |
 | `ip_hash` | `text` | SHA-256 hex of `<server salt>:<client IP>` (`orenji.consents.ip-salt`); the raw address is never stored |
 | `user_agent` | `text` | truncated to 512 characters |
+| `language` | `text` | `en` or `fr` (V104, `ck_user_consent_language`, default `en`): the language of the legal text shown when the consent was given. The French pages are a translation of the English draft, so one `legal_document (document_type, version)` row covers both languages and the consent records version + language |
 
 Consents survive account deletion (the account row is anonymised instead).
 

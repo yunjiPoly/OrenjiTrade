@@ -4,6 +4,7 @@ import com.orenjitrade.api.audit.domain.ActorType;
 import com.orenjitrade.api.audit.domain.AuditService;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.ErrorCode;
+import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.users.infra.ConsentProperties;
 import com.orenjitrade.api.users.infra.LegalDocumentRepository;
@@ -123,16 +124,12 @@ public class ConsentService {
                                 new ConsentSummary(
                                         consent.getDocumentType(),
                                         consent.getVersion(),
-                                        consent.getAcceptedAt()))
+                                        consent.getAcceptedAt(),
+                                        consent.getLanguage()))
                 .toList();
     }
 
-    /**
-     * Records that {@code userId} accepted {@code documentType} in {@code version}.
-     *
-     * @throws ApiException 404 when the document type has no current version, 409 when {@code
-     *     version} is not the current one
-     */
+    /** {@link #accept(UUID, LegalDocumentType, String, String, String, String)} in English. */
     @Transactional
     public void accept(
             UUID userId,
@@ -140,6 +137,33 @@ public class ConsentService {
             String version,
             @Nullable String clientIp,
             @Nullable String userAgent) {
+        accept(userId, documentType, version, clientIp, userAgent, null);
+    }
+
+    /**
+     * Records that {@code userId} accepted {@code documentType} in {@code version}, shown in {@code
+     * language} ({@code en} when {@code null}; one version covers both languages, see {@link
+     * ConsentLanguage}).
+     *
+     * @throws ApiException 404 when the document type has no current version, 409 when {@code
+     *     version} is not the current one, 400 for an unsupported language
+     */
+    @Transactional
+    public void accept(
+            UUID userId,
+            LegalDocumentType documentType,
+            String version,
+            @Nullable String clientIp,
+            @Nullable String userAgent,
+            @Nullable String language) {
+        String shownIn;
+        try {
+            shownIn = ConsentLanguage.normalize(language);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.validation(
+                    "Unsupported consent language",
+                    List.of(new ProblemFieldError("language", "must be one of en, fr")));
+        }
         LegalDocument current =
                 legalDocuments
                         .findByDocumentTypeAndCurrentTrue(documentType)
@@ -167,14 +191,21 @@ public class ConsentService {
                         version,
                         timeProvider.now(),
                         hashIp(clientIp),
-                        truncate(userAgent)));
+                        truncate(userAgent),
+                        shownIn));
         auditService.record(
                 ActorType.USER,
                 userId,
                 "consent.accept",
                 AuditService.TARGET_USER,
                 userId.toString(),
-                Map.of("documentType", documentType.name(), "version", version));
+                Map.of(
+                        "documentType",
+                        documentType.name(),
+                        "version",
+                        version,
+                        "language",
+                        shownIn));
     }
 
     /** SHA-256 over the server salt and the address; {@code null} when the address is unknown. */

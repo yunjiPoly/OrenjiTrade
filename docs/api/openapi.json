@@ -8463,7 +8463,7 @@
           "me"
         ],
         "summary": "Accept a legal document version",
-        "description": "Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.",
+        "description": "Stores the version, the language the text was shown in (en or fr, en when omitted), timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.",
         "operationId": "acceptConsent",
         "requestBody": {
           "content": {
@@ -33452,6 +33452,16 @@
             "example": "2026-09-01",
             "maxLength": 32,
             "minLength": 0
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the legal text shown to the collector (en or fr); en when omitted. The version is the same in both languages.",
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "example": "fr",
+            "pattern": "en|fr"
           }
         },
         "required": [
@@ -40463,6 +40473,15 @@
           "acceptedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the text shown when the consent was given",
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "example": "fr"
           }
         },
         "required": [
