@@ -15,6 +15,7 @@ import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 import {
   ITEM_PHOTO_HINT,
   ITEM_PHOTO_MAX_COUNT,
+  ITEM_PHOTO_TYPE_MESSAGE,
   itemPhotoErrorMessage,
   itemPhotoProblem,
   photoMimeType,
@@ -47,10 +48,17 @@ export function ItemPhotos({
       setProblem('Allow access to your photos to add one.');
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.9,
-    });
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.9,
+      });
+    } catch {
+      // The web picker refuses a file that is not an image before the app sees it.
+      setProblem(ITEM_PHOTO_TYPE_MESSAGE);
+      return;
+    }
     const asset = result.canceled ? null : result.assets[0];
     if (!asset) {
       return;

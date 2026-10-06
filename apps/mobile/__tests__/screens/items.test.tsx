@@ -120,6 +120,17 @@ describe('Item photos', () => {
         'A card can have at most 4 photos.'
       )
     );
+    // The web picker refuses a file that is not an image before the app sees it (a rejection).
+    picker.launchImageLibraryAsync.mockRejectedValue(
+      new Error('Unsupported file type: text/plain. Only images and videos are supported.')
+    );
+    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await waitFor(() =>
+      expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
+        'Use a JPEG, PNG or WebP photo.'
+      )
+    );
+    expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(1);
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
     fireEvent.press(screen.getByTestId('item-photo-add'));
     await waitFor(() =>

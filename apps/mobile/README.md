@@ -85,6 +85,27 @@ browser). Everything follows its feature flag (`protectedPayments`, `premiumPlan
 app-store in-app purchase rules: an open owner question recorded in ADR 0011 (no IAP and no real
 provider are added).
 
+Stage M7 closes the gaps a comparison with the web app found, each on the web's endpoints:
+**Google sign-in and sign-up** ("Continue with Google" / "Sign up with Google": Firebase's pop-up
+on the web build, an OAuth ID token through expo-auth-session on a device with the platform's
+client id, and, against the local Auth emulator, a simulated Google account sent as the emulator's
+fake OAuth credential; proven only against the emulator, see below; a Google sign-up collects the
+legal consent like the web and skips the e-mail verification; an existing e-mail/password account
+of the same verified e-mail is linked; Settings → Account names the sign-in methods; deleting an
+account without a password re-authenticates with Google), the **Search** tab's Cards | Collectors
+| Binders segments (collectors by name or handle with the API's distance bucket and the 3 km rule,
+public binders by name with their owner, recent searches per segment), the **card holders list**
+(`holders`: "Who has this near me" from a card as a list with sort, availability, condition, price
+range, freshness, edition, language and accepts-offers filters, paged; "Show on the map" stays the
+alternative view), **"Looking for"** on a collector's profile (the public wishlist of a collector
+who enabled "Show my wishlist on my profile"), **Settings → Blocked users** (list and unblock;
+linked from Settings, from a blocked profile's Message reason, from the block dialog and from the
+settings deep links), inventory **owner photos** on a card (view, add from the library, remove;
+the web's upload rules, no camera) and **multi-select bulk actions** (visibility including
+temporary, move to binder, availability, confirm, delete), the inventory **visibility filter**,
+**binder reordering**, the Map tab's **freshness and tags filters and search box**, and **set
+pages** (`sets/[id]`, from a card's set link).
+
 ## Prerequisites
 
 - Node 24 (`.nvmrc` at the repo root), npm 11, `npm ci` once at the repository root.
@@ -127,6 +148,9 @@ only to override a default.
 | `EXPO_PUBLIC_FIREBASE_APP_ID`             | Firebase app id                                                                                                                                                           | empty                                              |
 | `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | Auth emulator `host:port`; `off` for a real project                                                                                                                       | `10.0.2.2:9099` (Android), else `localhost:9099`   |
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`         | Android Google Maps key (app-restricted, development/store builds only); without it, and always in Expo Go, Android maps use Leaflet + OpenStreetMap; iOS uses Apple Maps | empty                                              |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`        | Google sign-in OAuth client id of the web build (public; from the Firebase project, deferred); empty locally: against the Auth emulator "Continue with Google" signs in with a simulated Google account | empty                                              |
+| `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`    | Google sign-in OAuth client id of the Android app (expo-auth-session, redirect `com.orenjitrade.app:/oauthredirect`); without it a device build says Google sign-in is not configured                      | empty                                              |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`        | Google sign-in OAuth client id of the iOS app                                                                                                                                                             | empty                                              |
 
 The Android emulator reaches the development machine at `10.0.2.2`; the iOS simulator and the web
 build use `localhost`; a physical phone needs the machine's LAN address. Firebase Auth is created
@@ -428,7 +452,23 @@ Premium" -> the fake billing checkout declines then succeeds -> the sixth binder
 "Cancel now"; a referral code redeemed, a feature unlocked for a day with credits, both in the
 ledger; a voluntary donation through the fake donation checkout and the supporters; a FREE
 collector's "Sponsored" search result: one impression (204), the click route's 302 to the landing
-page),
+page), `google.spec.ts` (a Google sign-up through the emulator's simulated account: the fake OAuth
+credential checked, consent -> onboarding -> tabs, Google as the only sign-in method; the chooser
+dismissed; Google with the e-mail of a verified password account signs in to it and links Google,
+the password still works; an unverified one is taken over, Firebase's rule), `search-segments.spec.ts`
+(collectors by name or handle with the distance bucket and no position in the request, a collector
+who opted out of name search never appears, recent searches per segment, the profile from a row;
+public binders by name with their owner, the public binder from a row), `holders.spec.ts` ("Who has
+this near me" from a card: both copies with prices and the holder's bucket, sort by price, accepts
+offers, a validated price range, availability and condition filters down to the empty state, "Clear
+filters", the holder's profile, "Show on the map"), `collector-wishlist.spec.ts` ("Looking for" on
+a profile with the condition only, never the price or radius; nothing for a collector who hides it,
+404), `blocked.spec.ts` (block from a conversation -> the blocked profile's Message reason links to
+Blocked users -> Unblock, checked on the API and on what the other collector can send),
+`item-photos.spec.ts` (a text file refused before any upload, a PNG uploaded and served through the
+API's media route, removed), `bulk-actions.spec.ts` (select two cards -> public, select all ->
+private with the skipped one explained, temporarily public for 24 hours, an availability, delete
+after a confirmation),
 `collector-map-page.spec.ts` (the
 Android WebView collector page in Chromium: zone size at 14, zoom cap, taps, clusters, a static
 profile map, a 0 x 0 first layout, Leaflet failure). The static web export served by `expo serve`
@@ -488,13 +528,23 @@ public card opened by deep link, the seller (payouts set up, `scripts/payments.j
 the host, Pay on the app's fake checkout, the shipment from the host followed live, Confirm
 receipt, the payout checked on the API), `premium.yaml` (the binder limit -> "See Premium" ->
 "Upgrade to Premium" -> the fake billing checkout declines, then succeeds -> the welcome and the
-plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again), `google-sign-in.yaml`
+(a fresh password collector continues with Google under the same e-mail through the emulator's
+simulated account: the chooser dismissed, then the sign-in lands on the tabs of that account and
+Settings -> Account names both methods), `collector-search-looking-for.yaml` (the Collectors
+segment finds a neighbour set up by `scripts/parity.js`, with the approximate note and a distance
+bucket; his profile and "Looking for" with the condition only; the wish opens the card),
+`holders-filters.yaml` (a card listed twice by a neighbour: the holders list with both prices,
+sorted by price, narrowed to the copies for sale, cleared, then the map), `blocked-users.yaml`
+(block from a conversation -> Settings -> Blocked users -> Unblock, checked on the API; the other
+collector can write again). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
 text field, which Android turns into a text-selection long press) and host-side helpers in
 `.maestro/scripts/` (create a fictional collector through the emulator and the API, verify an
-email with the emulator's code, check a saved trading area, add a card, check an inventory).
+email with the emulator's code, check a saved trading area, add a card, check an inventory, the
+collectors of the stage M7 flows and the blocks of an account in `parity.js`).
 Screenshots and reports: `.local-dev/mobile-e2e/maestro/`. Edit nothing in the repository while
 flows run (Metro re-crawls the workspace and Expo Go may lose the packager) and restart a kept
 Metro after source changes (`npm run test:mobile:maestro -- --stop`).
@@ -506,7 +556,8 @@ Metro after source changes (`npm run test:mobile:maestro -- --stop`).
   `orenjitrade://wishlist/<id>`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
   `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`,
   `orenjitrade://disputes/<id>`, `orenjitrade://premium`, `orenjitrade://credits`,
-  `orenjitrade://support`, `orenjitrade://settings/payouts`).
+  `orenjitrade://support`, `orenjitrade://settings/payouts`, `orenjitrade://holders?card=<id>`
+  (or `?printing=<id>`), `orenjitrade://sets/<id>`, `orenjitrade://settings/blocked`).
   Signed out, a link leads to sign-in and opens after signing in.
 - Universal/App Links: `https://www.orenjitrade.com/(collectors|cards|binders)/<id>` via
   `ios.associatedDomains` and Android `intentFilters` (`autoVerify`) in `app.config.ts`.
@@ -517,12 +568,17 @@ Metro after source changes (`npm run test:mobile:maestro -- --stop`).
   campaigns and donation refunds). PDF evidence of a dispute is listed by name and size and opened
   on the website (the app adds statements and photos). Store builds: real payment providers and
   in-app purchase are not wired (open owner question, ADR 0011); the fake providers are local
-  only. "Make an offer" is not on the Map tab's list rows (the preview sheet has it). The Map tab leaves out the web map's tag and freshness filters and its
-  search box (the Search tab finds cards; "Who has this near me" starts from a card). Moderators
-  remove community posts on the web only; message photos come from the library (no camera).
-- Inventory extras of the web not on mobile yet: owner photos of an item, the multi-select bulk bar
-  (visibility, availability, delete; moving cards into a binder is there), binder reordering, set
-  pages (`/sets/:id`); a set opens the Search tab filtered by that set instead.
+  only. "Make an offer" is not on the Map tab's list rows (the preview sheet and the holders list
+  have it). Moderators remove community posts on the web only; photos come from the library (no
+  camera).
+- Google sign-in on a device needs the OAuth client ids of the real Firebase project
+  (`EXPO_PUBLIC_GOOGLE_*_CLIENT_ID`, deferred with that project: `docs/deployment/DEFERRED.md`);
+  locally it is proven only against the Auth emulator's simulated account, and a device build
+  without its client id says so on the button. The web build's Firebase pop-up and the device
+  flow are implemented but have not run against a real project.
+- Signed-out browsing (the web's anonymous routes: public profiles, cards, binders, the map
+  without an account) is not mirrored: every screen needs a signed-in collector, and a link
+  opened while signed out reopens after signing in.
 - Device push notifications (preferences are saved; Expo / FCM push tokens need an EAS project
   and a real FCM sender, so notifications arrive in the app and over the realtime channel only).
 - Sora / Inter fonts (system font until `expo-font` loading is added).

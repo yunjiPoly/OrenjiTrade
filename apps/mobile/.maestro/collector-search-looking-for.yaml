@@ -1,0 +1,85 @@
+# Collector search and "Looking for" (mobile stage M7): Wren (fresh, fictional, discoverable around
+# a random rural point) searches the Collectors segment of the Search tab for Hal (about 1.5 km
+# away, name search allowed, wishlist shown on his profile; scripts/parity.js), opens his profile
+# from the result (place and distance bucket only) and reads what he is looking for; the wish opens
+# the card.
+appId: host.exp.exponent
+name: Collector search, profile and Looking for
+tags:
+  - mobile-m7
+  - search
+---
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: looking-for
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.wren.email}
+      PASSWORD: ${output.wren.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-search'
+    timeout: 60000
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-segment-collectors'
+    timeout: 60000
+- tapOn:
+    id: 'search-segment-collectors'
+- extendedWaitUntil:
+    visible:
+      id: 'search-collectors-idle'
+    timeout: 60000
+
+# By name: Hal, with the approximate location note and a distance bucket.
+- tapOn:
+    id: 'search-collectors-input'
+- inputText: ${output.hal.displayName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'collector-result-${output.hal.handle}'
+    timeout: 60000
+- assertVisible:
+    id: 'search-collectors-count'
+    text: '1 collector for .*'
+- assertVisible: '.*Locations are approximate \(about 3 km\).*'
+- assertVisible:
+    id: 'collector-result-${output.hal.handle}'
+    text: '.*km.*'
+- takeScreenshot: search-collectors
+
+# His profile, then "Looking for" with the Emberfang Fox wish (condition only, no price, no radius).
+- tapOn:
+    id: 'collector-result-${output.hal.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: ${output.hal.displayName}
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-wishlist'
+- assertVisible: '1 card ${output.hal.displayName} is looking for'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-wish-${output.card.id}'
+- assertVisible:
+    id: 'collector-wish-${output.card.id}'
+    text: '.*Lightly Played or better.*'
+- assertNotVisible: '.*30.*CAD.*'
+- takeScreenshot: collector-looking-for
+- tapOn:
+    id: 'collector-wish-${output.card.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: ${output.card.name}
+    timeout: 60000

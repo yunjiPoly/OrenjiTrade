@@ -1,0 +1,115 @@
+# Blocked users (mobile stage M7): Ada (fresh, fictional) blocks Ben from their conversation
+# (scripts/messaging.js), finds him under Settings -> Blocked users and unblocks him; the API holds
+# each step and Ben can write again afterwards.
+appId: host.exp.exponent
+name: Block from a conversation, Blocked users, unblock
+tags:
+  - mobile-m7
+  - settings
+---
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-${output.ben.handle}'
+    timeout: 60000
+- tapOn:
+    id: 'conversation-row-${output.ben.handle}'
+- extendedWaitUntil:
+    visible: 'Hi Ada, still trading the Emberfang Fox?'
+    timeout: 60000
+
+# Block Ben, after the confirmation that names Settings -> Blocked users.
+- tapOn:
+    id: 'conversation-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-block'
+    timeout: 30000
+- tapOn:
+    id: 'conversation-block'
+- extendedWaitUntil:
+    visible:
+      id: 'block-dialog'
+    timeout: 30000
+- assertVisible: 'Block ${output.ben.displayName}\?'
+- tapOn:
+    id: 'block-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-blocked-banner'
+    timeout: 60000
+- takeScreenshot: blocked-banner
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: expect-blocks
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      EXPECT_COUNT: 1
+      HANDLE: ${output.ben.handle}
+
+# Settings -> Blocked users: Ben, then Unblock.
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-settings'
+- tapOn:
+    id: 'profile-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'settings-link-blocked'
+- tapOn:
+    id: 'settings-link-blocked'
+- extendedWaitUntil:
+    visible:
+      id: 'blocked-${output.ben.handle}'
+    timeout: 60000
+- assertVisible: ${output.ben.displayName}
+- assertVisible: '@${output.ben.handle} · blocked .*'
+- takeScreenshot: blocked-users
+- tapOn:
+    id: 'unblock-${output.ben.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'blocked-empty'
+    timeout: 60000
+- assertVisible: 'You have not blocked anyone'
+- takeScreenshot: blocked-users-empty
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: expect-blocks
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      EXPECT_COUNT: 0
+
+# Ben can write again (the send would fail while blocked).
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: send
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      BODY: 'Back again, thanks!'

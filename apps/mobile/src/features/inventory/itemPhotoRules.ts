@@ -9,6 +9,7 @@ export const ITEM_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 export const ITEM_PHOTO_MAX_COUNT = 4;
 export const ITEM_PHOTO_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image/webp'];
 export const ITEM_PHOTO_HINT = `Up to ${ITEM_PHOTO_MAX_COUNT} photos (JPEG, PNG or WebP, 8 MB). Location data is removed from photos.`;
+export const ITEM_PHOTO_TYPE_MESSAGE = 'Use a JPEG, PNG or WebP photo.';
 
 /** The photo type from what the picker reports (the API sniffs the real one). */
 export function photoMimeType(
@@ -29,7 +30,7 @@ export function itemPhotoProblem(photo: {
 }): string | null {
   const type = (photo.mimeType ?? 'image/jpeg').toLowerCase();
   if (!ITEM_PHOTO_TYPES.includes(type)) {
-    return 'Use a JPEG, PNG or WebP photo.';
+    return ITEM_PHOTO_TYPE_MESSAGE;
   }
   if (photo.size === 0) {
     return 'That file is empty.';
@@ -48,7 +49,7 @@ export function itemPhotoErrorMessage(error: ApiError): string {
     case 413:
       return 'Choose a photo smaller than 8 MB.';
     case 415:
-      return 'Use a JPEG, PNG or WebP photo.';
+      return ITEM_PHOTO_TYPE_MESSAGE;
     case 400:
       return 'That photo could not be read. Try another one.';
     default:

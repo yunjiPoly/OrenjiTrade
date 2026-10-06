@@ -182,7 +182,8 @@ test.describe('mobile map discovery', () => {
     await openInApp(page, `/cards/${item!.card.id}`);
     const card = screen(page, 'card');
     await expect(card.getByTestId('card-name')).toHaveText(item!.card.name, { timeout: 30_000 });
-    await card.getByRole('button', { name: 'Who has this near me' }).click();
+    // Since stage M7 "Who has this near me" opens the holders list; the map is "Show on the map".
+    await card.getByRole('button', { name: 'Show on the map' }).click();
 
     const map = screen(page, 'map');
     await expect(map.getByTestId('map-holders')).toContainText(

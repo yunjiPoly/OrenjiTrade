@@ -1,0 +1,105 @@
+# Google sign-in (mobile stage M7) against the local Auth emulator, which has no Google: the app's
+# "simulated Google account" dialog sends the emulator's fake OAuth ID token through
+# signInWithCredential (the credential path a device takes with a real Google ID token). A fresh
+# collector with a password (scripts/create-collector.js) continues with Google under the same
+# e-mail: the dialog dismissed shows nothing, then the sign-in lands on the tabs of that account
+# (onboarding already done) and Settings -> Account names both sign-in methods.
+appId: host.exp.exponent
+name: Google sign-in through the emulator links the password account
+tags:
+  - mobile-m7
+  - auth
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: google
+      DISPLAY_NAME: Maestro Googler
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+
+# Dismissed: no error, still signed out.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'sign-in-google'
+- tapOn:
+    id: 'sign-in-google'
+- extendedWaitUntil:
+    visible:
+      id: 'google-dialog'
+    timeout: 30000
+- assertVisible: 'Local emulator only. Nothing reaches Google.'
+- tapOn:
+    id: 'google-dialog-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'google-dialog'
+    timeout: 30000
+- assertNotVisible:
+    id: 'sign-in-error'
+- assertVisible:
+    id: 'screen-sign-in'
+
+# The simulated account: the e-mail of the password account, the name Google would show.
+- tapOn:
+    id: 'sign-in-google'
+- extendedWaitUntil:
+    visible:
+      id: 'google-email'
+    timeout: 30000
+- tapOn:
+    id: 'google-email'
+- inputText: ${output.collector.email}
+- tapOn:
+    id: 'google-name'
+- inputText: 'Maestro Googler'
+- hideKeyboard
+- takeScreenshot: google-simulated-account
+- tapOn:
+    id: 'google-dialog-confirm'
+- extendedWaitUntil:
+    notVisible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+
+# The same account: its handle on the Profile tab, both methods under Settings -> Account.
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-handle-label'
+    text: '@${output.collector.handle}'
+- assertVisible:
+    id: 'profile-name'
+    text: 'Maestro Googler'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-settings'
+- tapOn:
+    id: 'profile-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'settings-link-account'
+- tapOn:
+    id: 'settings-link-account'
+- extendedWaitUntil:
+    visible:
+      id: 'account-sign-in-method'
+      text: 'Email and password, Google'
+    timeout: 60000
+- assertVisible:
+    id: 'account-email'
+    text: ${output.collector.email}
+- takeScreenshot: google-linked-account
