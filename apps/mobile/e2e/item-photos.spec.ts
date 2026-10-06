@@ -39,9 +39,9 @@ test.describe('mobile item photos', () => {
     });
     const photos = edit.getByTestId('item-photos');
     await expect(photos).toContainText('Up to 4 photos (JPEG, PNG or WebP, 8 MB).');
-    await expect(photos.locator('[data-testid^="item-photo-"][data-testid$="-remove"]')).toHaveCount(
-      0
-    );
+    await expect(
+      photos.locator('[data-testid^="item-photo-"][data-testid$="-remove"]')
+    ).toHaveCount(0);
 
     // A text file is refused before any upload.
     let uploads = 0;
@@ -55,7 +55,9 @@ test.describe('mobile item photos', () => {
     await (
       await wrong
     ).setFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a photo') });
-    await expect(photos.getByTestId('item-photo-error')).toHaveText('Use a JPEG, PNG or WebP photo.');
+    await expect(photos.getByTestId('item-photo-error')).toHaveText(
+      'Use a JPEG, PNG or WebP photo.'
+    );
     expect(uploads).toBe(0);
 
     // A PNG from the library: uploaded, shown as a tile, held by the API.

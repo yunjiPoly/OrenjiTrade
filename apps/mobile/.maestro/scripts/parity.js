@@ -261,16 +261,20 @@ if (action === 'looking-for') {
 } else if (action === 'verify-email') {
   var idToken = signIn(EMAIL, PASSWORD);
   check(
-    http.post(emulator + '/identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=demo-local-key', {
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: idToken }),
-    }),
+    http.post(
+      emulator + '/identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=demo-local-key',
+      {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: idToken }),
+      }
+    ),
     'emulator sendOobCode'
   );
-  var codes = check(
-    http.get(emulator + '/emulator/v1/projects/orenjitrade-local/oobCodes'),
-    'emulator oobCodes'
-  ).oobCodes || [];
+  var codes =
+    check(
+      http.get(emulator + '/emulator/v1/projects/orenjitrade-local/oobCodes'),
+      'emulator oobCodes'
+    ).oobCodes || [];
   var code = null;
   for (var c = 0; c < codes.length; c++) {
     if (codes[c].email === EMAIL && codes[c].requestType === 'VERIFY_EMAIL') {

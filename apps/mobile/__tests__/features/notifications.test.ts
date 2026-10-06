@@ -119,9 +119,9 @@ describe('notification kinds', () => {
       kind: 'route',
       href: '/holders?card=00000000-0000-4000-8a00-000000000001',
     });
-    expect(mobileTarget('/search?printing=00000000-0000-4000-8a10-00000000000a&sort=price')).toEqual(
-      { kind: 'route', href: '/holders?printing=00000000-0000-4000-8a10-00000000000a' }
-    );
+    expect(
+      mobileTarget('/search?printing=00000000-0000-4000-8a10-00000000000a&sort=price')
+    ).toEqual({ kind: 'route', href: '/holders?printing=00000000-0000-4000-8a10-00000000000a' });
     expect(mobileTarget('/search?q=fox&tab=collectors')).toEqual({
       kind: 'route',
       href: '/search?tab=collectors',

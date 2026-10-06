@@ -175,9 +175,10 @@ test.describe('mobile Google sign-in', () => {
     await expect(profile.getByTestId('profile-name')).toHaveText('Mobile Linked');
     await profile.getByTestId('profile-settings').click();
     await screen(page, 'settings').getByTestId('settings-link-account').click();
-    await expect(
-      screen(page, 'settings-account').getByTestId('account-sign-in-method')
-    ).toHaveText('Email and password, Google', { timeout: 30_000 });
+    await expect(screen(page, 'settings-account').getByTestId('account-sign-in-method')).toHaveText(
+      'Email and password, Google',
+      { timeout: 30_000 }
+    );
 
     // Google was linked to the verified account; the password still signs in.
     const identity = await emulatorProvidersOf(request, collector.email);
@@ -204,9 +205,10 @@ test.describe('mobile Google sign-in', () => {
     );
     await screen(page, 'profile').getByTestId('profile-settings').click();
     await screen(page, 'settings').getByTestId('settings-link-account').click();
-    await expect(
-      screen(page, 'settings-account').getByTestId('account-sign-in-method')
-    ).toHaveText('Google', { timeout: 30_000 });
+    await expect(screen(page, 'settings-account').getByTestId('account-sign-in-method')).toHaveText(
+      'Google',
+      { timeout: 30_000 }
+    );
     expect((await emulatorProvidersOf(request, collector.email))?.providers).toEqual([
       'google.com',
     ]);

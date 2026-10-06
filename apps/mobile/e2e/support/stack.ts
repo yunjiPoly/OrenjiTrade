@@ -145,7 +145,10 @@ export async function verifyEmailInEmulator(api: APIRequestContext, email: strin
 }
 
 /** Marks an emulator account's e-mail as verified: a verification code requested, then applied. */
-export async function emulatorVerifyEmail(api: APIRequestContext, user: EmulatorUser): Promise<void> {
+export async function emulatorVerifyEmail(
+  api: APIRequestContext,
+  user: EmulatorUser
+): Promise<void> {
   const response = await api.post(`${IDENTITY}/accounts:sendOobCode?key=${FIREBASE_API_KEY}`, {
     data: { requestType: 'VERIFY_EMAIL', idToken: user.idToken },
   });
@@ -632,7 +635,13 @@ export async function apiAddWish(
 ): Promise<{ id: string }> {
   const response = await api.post(`${API_URL}/api/v1/wishlist`, {
     headers: authHeader(as.idToken),
-    data: { cardId, conditionMin: 'LIGHTLY_PLAYED', radiusKm: 10, tradePreference: 'ANY', ...extra },
+    data: {
+      cardId,
+      conditionMin: 'LIGHTLY_PLAYED',
+      radiusKm: 10,
+      tradePreference: 'ANY',
+      ...extra,
+    },
   });
   expect(response.status(), 'POST /wishlist').toBe(201);
   return (await response.json()) as { id: string };
