@@ -13,6 +13,8 @@ import java.io.ByteArrayInputStream;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +40,17 @@ class CardImageCacheIT extends AbstractCardImageIT {
 
     private Path fileOf(String providerImageId) {
         return cache.directory().resolve((String) imageRow(providerImageId).get("storage_key"));
+    }
+
+    /**
+     * Makes a file older than the reservation TTL: reconciliation never deletes an unreferenced
+     * file younger than that (it may be a commit in flight elsewhere), it only counts it.
+     */
+    private void age(Path file) throws java.io.IOException {
+        Files.setLastModifiedTime(
+                file,
+                FileTime.from(
+                        Instant.now().minus(cacheProperties.reservationTtl().multipliedBy(2))));
     }
 
     @Test
@@ -298,6 +311,7 @@ class CardImageCacheIT extends AbstractCardImageIT {
         Path stray = cache.directory().resolve(GAME + "/ygoprodeck/ab/123456.jpg");
         Files.createDirectories(stray.getParent());
         Files.write(stray, new byte[2000]);
+        age(stray);
         testUsers.update("UPDATE card_image_cache_usage SET used_bytes = 999999 WHERE id = 1");
 
         CardImageCache.ReconcileResult result = cache.reconcile();
@@ -318,6 +332,7 @@ class CardImageCacheIT extends AbstractCardImageIT {
         Path stray = cache.directory().resolve(GAME + "/ygoprodeck/cd/654321.jpg");
         Files.createDirectories(stray.getParent());
         Files.write(stray, new byte[3000]);
+        age(stray);
         // java.io.RandomAccessFile opens without FILE_SHARE_DELETE on Windows, so the deletion
         // fails while it is open there (elsewhere it succeeds): either way the accounting must
         // never fall below the bytes actually on disk.
@@ -332,6 +347,33 @@ class CardImageCacheIT extends AbstractCardImageIT {
         assertThat(Files.exists(stray)).isFalse();
         assertThat(after.usedBytes()).isEqualTo(Files.size(fileOf("900000002")));
         assertThat(usedBytes()).isEqualTo(bytesOnDisk());
+    }
+
+    @Test
+    void reconciliationKeepsFreshUnreferencedFilesUntilTheyAge() throws Exception {
+        cache.ensureCached(imageId("900000002"));
+        long referenced = Files.size(fileOf("900000002"));
+        // A rendition another process has just stored (a rollout: the previous revision commits
+        // while the new one reconciles at start-up) is not referenced yet: never deleted, but it
+        // occupies capacity, so it counts.
+        Path fresh = cache.directory().resolve(GAME + "/ygoprodeck/ef/424242.jpg");
+        Files.createDirectories(fresh.getParent());
+        Files.write(fresh, new byte[4000]);
+
+        CardImageCache.ReconcileResult result = cache.reconcile();
+        assertThat(result.orphanFiles()).isZero();
+        assertThat(Files.exists(fresh)).isTrue();
+        assertThat(result.usedBytes()).isEqualTo(referenced + 4000).isEqualTo(bytesOnDisk());
+        assertThat(result.files()).isEqualTo(2);
+        assertThat(cache.status().remainingBytes())
+                .isEqualTo(cache.limitBytes() - referenced - 4000);
+
+        // Once older than the reservation TTL and still unreferenced, it is an orphan.
+        age(fresh);
+        CardImageCache.ReconcileResult later = cache.reconcile();
+        assertThat(later.orphanFiles()).isEqualTo(1);
+        assertThat(Files.exists(fresh)).isFalse();
+        assertThat(later.usedBytes()).isEqualTo(referenced).isEqualTo(bytesOnDisk());
     }
 
     @Test

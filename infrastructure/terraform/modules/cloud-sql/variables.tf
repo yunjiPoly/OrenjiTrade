@@ -42,13 +42,18 @@ variable "tier" {
 }
 
 variable "edition" {
-  description = "Cloud SQL edition (ENTERPRISE or ENTERPRISE_PLUS)."
+  description = "Cloud SQL edition (ENTERPRISE or ENTERPRISE_PLUS). Set explicitly: for PostgreSQL 16+ the API defaults to ENTERPRISE_PLUS, which has no shared-core tiers (db-f1-micro, db-g1-small) and costs more."
   type        = string
   default     = "ENTERPRISE"
 
   validation {
     condition     = contains(["ENTERPRISE", "ENTERPRISE_PLUS"], var.edition)
     error_message = "edition must be ENTERPRISE or ENTERPRISE_PLUS."
+  }
+
+  validation {
+    condition     = var.edition == "ENTERPRISE" || !can(regex("^db-(f1-micro|g1-small)$", var.tier))
+    error_message = "Shared-core tiers (db-f1-micro, db-g1-small) exist only in the ENTERPRISE edition."
   }
 }
 

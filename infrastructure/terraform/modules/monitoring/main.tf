@@ -199,9 +199,118 @@ resource "google_monitoring_alert_policy" "api_p95_latency" {
   }
 }
 
+# Resource saturation of the (single) api instance: these are the scale-up signals of the
+# low-cost profile (ADR 0016): sustained CPU or memory pressure means it is time to raise the
+# limits or move to Memorystore + several instances.
+resource "google_monitoring_alert_policy" "api_cpu_utilization" {
+  project               = var.project_id
+  display_name          = "[${var.environment}] api CPU utilisation > ${var.api_cpu_threshold * 100}% (10m)"
+  combiner              = "OR"
+  severity              = "WARNING"
+  notification_channels = local.channels
+
+  conditions {
+    display_name = "Container CPU utilisation (p99 over 5 minutes)"
+    condition_threshold {
+      filter          = "metric.type = \"run.googleapis.com/container/cpu/utilizations\" AND ${local.api_service_filter}"
+      comparison      = "COMPARISON_GT"
+      threshold_value = var.api_cpu_threshold
+      duration        = "600s"
+
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_PERCENTILE_99"
+        cross_series_reducer = "REDUCE_MAX"
+      }
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  documentation {
+    content   = "The api instance is CPU bound. Scale-up path (ADR 0016): raise api_cpu, then move Redis to Memorystore and allow api_max_instances > 1."
+    mime_type = "text/markdown"
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
+
+resource "google_monitoring_alert_policy" "api_memory_utilization" {
+  project               = var.project_id
+  display_name          = "[${var.environment}] api memory utilisation > ${var.api_memory_threshold * 100}% (10m)"
+  combiner              = "OR"
+  severity              = "WARNING"
+  notification_channels = local.channels
+
+  conditions {
+    display_name = "Container memory utilisation (p99 over 5 minutes)"
+    condition_threshold {
+      filter          = "metric.type = \"run.googleapis.com/container/memory/utilizations\" AND ${local.api_service_filter}"
+      comparison      = "COMPARISON_GT"
+      threshold_value = var.api_memory_threshold
+      duration        = "600s"
+
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_PERCENTILE_99"
+        cross_series_reducer = "REDUCE_MAX"
+      }
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  documentation {
+    content   = "An api container is close to its memory limit (OOM kills restart the instance and drop the Redis sidecar's cache). Raise api_memory (or redis_sidecar_memory) in the environment's tfvars."
+    mime_type = "text/markdown"
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
+
 # ---------------------------------------------------------------------------------------
 # Cloud SQL
 # ---------------------------------------------------------------------------------------
+
+resource "google_monitoring_alert_policy" "sql_disk" {
+  project               = var.project_id
+  display_name          = "[${var.environment}] Cloud SQL disk > ${var.sql_disk_threshold * 100}%"
+  combiner              = "OR"
+  severity              = "WARNING"
+  notification_channels = local.channels
+
+  conditions {
+    display_name = "Disk utilisation"
+    condition_threshold {
+      filter          = "metric.type = \"cloudsql.googleapis.com/database/disk/utilization\" AND resource.type = \"cloudsql_database\" AND resource.label.database_id = \"${var.sql_database_id}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = var.sql_disk_threshold
+      duration        = "900s"
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+    }
+  }
+
+  documentation {
+    content   = "Cloud SQL storage auto-resize will grow the disk (and the bill). Check for runaway tables (event_publication, audit_log, job_run) before accepting the growth."
+    mime_type = "text/markdown"
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
 
 resource "google_monitoring_alert_policy" "sql_cpu" {
   project               = var.project_id

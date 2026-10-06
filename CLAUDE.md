@@ -22,7 +22,7 @@ branding assets are supplied.
 | Backend | Java 21 + Spring Boot 4.1 (Spring Framework 7, Security 7, Hibernate 7, Jackson 3), Gradle Kotlin DSL. `apps/api` |
 | ML | Python 3.12+ / FastAPI / pytest, separate service, never a hard dependency. `apps/ml` |
 | Database | PostgreSQL 17 + PostGIS, Flyway migrations (`V<NNN>__<snake_case>.sql`, never edit an applied one) |
-| Cache | Redis (Memorystore in cloud) for cache, rate limits, presence, realtime fan-out. Never primary storage |
+| Cache | Redis-compatible cache (Valkey sidecar of the single api instance in the first-year prod profile, Memorystore on the scale-up path, ADR 0016) for cache, rate limits, presence, realtime fan-out. Never primary storage |
 | Cloud | Google Cloud: Cloud Run, Cloud SQL, GCS, Memorystore, Pub/Sub, BigQuery, Secret Manager, Artifact Registry |
 | Edge | Cloudflare Registrar/DNS/CDN/WAF in front of Google Cloud. Never cache authenticated API responses |
 | Infra | Terraform in `infrastructure/terraform`; Docker for every runtime; GitHub Actions with WIF/OIDC (no SA keys) |
