@@ -56,7 +56,8 @@ class ExportIT extends AbstractIntegrationTest {
         JsonNode sections = export.path("sections");
         assertThat(sections.path("account").path("email").asString())
                 .isEqualTo(uid.toLowerCase() + "@orenjitrade.test");
-        assertThat(sections.path("account").path("consents").size()).isEqualTo(4);
+        // 4 required documents + the 18+ confirmation (V103), both Law 25 evidence.
+        assertThat(sections.path("account").path("consents").size()).isEqualTo(5);
         assertThat(sections.path("profile").path("displayName").asString())
                 .isEqualTo("Export Person");
         assertThat(sections.path("profile").path("tags").get(0).path("slug").asString())

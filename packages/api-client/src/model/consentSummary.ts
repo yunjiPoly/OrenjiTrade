@@ -25,7 +25,8 @@ export enum ConsentSummaryDocumentTypeEnum {
     PaymentProtection = 'PAYMENT_PROTECTION',
     RefundDispute = 'REFUND_DISPUTE',
     Cookies = 'COOKIES',
-    AcceptableUse = 'ACCEPTABLE_USE'
+    AcceptableUse = 'ACCEPTABLE_USE',
+    AgeConfirmation = 'AGE_CONFIRMATION'
 };
 
 

@@ -132,7 +132,11 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
                         "SELECT count(*) FROM legal_document WHERE current AND"
                                 + " required_at_registration",
                         Integer.class);
-        assertThat(documents).isEqualTo(8);
-        assertThat(required).isEqualTo(4);
+        assertThat(documents)
+                .as("8 legal texts + the AGE_CONFIRMATION attestation (V103)")
+                .isEqualTo(9);
+        assertThat(required)
+                .as("the 18+ attestation is never required_at_registration")
+                .isEqualTo(4);
     }
 }

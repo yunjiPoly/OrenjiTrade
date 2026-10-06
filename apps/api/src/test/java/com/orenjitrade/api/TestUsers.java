@@ -71,6 +71,19 @@ public class TestUsers {
                 id);
     }
 
+    /**
+     * Records the 18+ confirmation (the current {@code AGE_CONFIRMATION} document) the way {@code
+     * POST /me/consents} would, so the account passes the service-layer age gate.
+     */
+    public void confirmAge(UUID id) {
+        jdbc.update(
+                "INSERT INTO user_consent (user_id, document_type, version, accepted_at,"
+                        + " user_agent) SELECT ?, document_type, version, now(), 'test' FROM"
+                        + " legal_document WHERE current AND document_type = 'AGE_CONFIRMATION'"
+                        + " ON CONFLICT (user_id, document_type, version) DO NOTHING",
+                id);
+    }
+
     public List<Map<String, Object>> consentsOf(UUID id) {
         return jdbc.queryForList(
                 "SELECT document_type, version, ip_hash, user_agent FROM user_consent"

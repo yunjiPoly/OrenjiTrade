@@ -33443,7 +33443,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -38375,7 +38376,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -38985,6 +38987,10 @@
           },
           "interestsSet": {
             "type": "boolean"
+          },
+          "ageConfirmed": {
+            "type": "boolean",
+            "description": "Whether the collector confirmed being 18 years of age or older (AGE_CONFIRMATION consent). Added 2026-10-05; optional so older clients keep working."
           }
         },
         "required": [
@@ -39007,7 +39013,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -40445,7 +40452,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -41970,6 +41978,7 @@
               "HANDLE_TAKEN",
               "DELETION_BLOCKED",
               "TERMS_ACCEPTANCE_REQUIRED",
+              "AGE_CONFIRMATION_REQUIRED",
               "RATE_LIMITED",
               "LIMIT_REACHED",
               "PAYLOAD_TOO_LARGE",
@@ -42007,7 +42016,7 @@
           },
           "requiredConsents": {
             "type": "array",
-            "description": "Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)",
+            "description": "Documents to accept with POST /me/consents (TERMS_ACCEPTANCE_REQUIRED problems; the AGE_CONFIRMATION document for AGE_CONFIRMATION_REQUIRED problems)",
             "items": {
               "type": "object",
               "properties": {

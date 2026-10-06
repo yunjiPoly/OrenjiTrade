@@ -24,7 +24,7 @@ class ConsentIT extends AbstractIntegrationTest {
                 .contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
                 .expectBody()
                 .jsonPath("$.length()")
-                .isEqualTo(8)
+                .isEqualTo(9)
                 .jsonPath("$[?(@.documentType == 'TERMS')].url")
                 .isEqualTo("/legal/terms")
                 .jsonPath("$[?(@.documentType == 'TERMS')].requiredAtRegistration")
@@ -33,10 +33,17 @@ class ConsentIT extends AbstractIntegrationTest {
                 .isEqualTo(false)
                 .jsonPath("$[?(@.documentType == 'COOKIES')].url")
                 .isEqualTo("/legal/cookies")
+                .jsonPath("$[?(@.documentType == 'AGE_CONFIRMATION')].requiredAtRegistration")
+                .isEqualTo(false)
+                .jsonPath("$[?(@.documentType == 'AGE_CONFIRMATION')].version")
+                .isEqualTo("2026-10-05")
                 .jsonPath("$[*].version")
                 .value(
                         List.class,
-                        versions -> assertThat(versions).containsOnly("2026-09-01").hasSize(8))
+                        versions ->
+                                assertThat(versions)
+                                        .hasSize(9)
+                                        .containsOnly("2026-09-01", "2026-10-05"))
                 .jsonPath("$[*].title")
                 .value(
                         List.class,

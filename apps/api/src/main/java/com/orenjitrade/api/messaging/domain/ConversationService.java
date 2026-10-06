@@ -33,6 +33,7 @@ import com.orenjitrade.api.profiles.domain.MessagingPermission;
 import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.profiles.domain.ProfileService;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
+import com.orenjitrade.api.users.domain.ConsentService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -91,6 +92,7 @@ public class ConversationService {
     private final MemberDirectory members;
     private final PrivacyPolicyService privacyPolicy;
     private final ProfileService profiles;
+    private final ConsentService consents;
     private final PresenceStore presence;
     private final ModerationService moderation;
     private final CatalogService catalog;
@@ -109,6 +111,7 @@ public class ConversationService {
             MemberDirectory members,
             PrivacyPolicyService privacyPolicy,
             ProfileService profiles,
+            ConsentService consents,
             PresenceStore presence,
             ModerationService moderation,
             CatalogService catalog,
@@ -125,6 +128,7 @@ public class ConversationService {
         this.members = members;
         this.privacyPolicy = privacyPolicy;
         this.profiles = profiles;
+        this.consents = consents;
         this.presence = presence;
         this.moderation = moderation;
         this.catalog = catalog;
@@ -169,7 +173,8 @@ public class ConversationService {
      * {@code POST /conversations}: the existing conversation with the recipient or a new one (never
      * 409). {@code 400} for oneself, {@code 404} for unknown, suspended or deleted recipients,
      * {@code 403 MESSAGING_BLOCKED} for a block in either direction or when the recipient's
-     * messaging permission refuses the caller (new conversations only).
+     * messaging permission refuses the caller (new conversations only), {@code 403
+     * AGE_CONFIRMATION_REQUIRED} until the caller confirmed being 18 or older.
      */
     @Transactional
     public Started start(UUID me, UUID recipientId) {
@@ -178,6 +183,7 @@ public class ConversationService {
                     "Validation failed",
                     List.of(new ProblemFieldError("recipientId", "You cannot message yourself")));
         }
+        consents.requireAgeConfirmed(me);
         Instant now = timeProvider.now();
         MemberCard recipient =
                 members.card(recipientId)
@@ -239,10 +245,12 @@ public class ConversationService {
      * {@code POST /conversations/{id}/messages}. {@code 404} for non-participants, {@code 403
      * MESSAGING_BLOCKED} when a block exists or the other participant cannot receive messages,
      * {@code 400} for invalid content, {@code 422 MESSAGE_BLOCKED} for content the moderation rules
-     * refuse, {@code 429 RATE_LIMITED} above the rate rule (30 per minute by default).
+     * refuse, {@code 429 RATE_LIMITED} above the rate rule (30 per minute by default), {@code 403
+     * AGE_CONFIRMATION_REQUIRED} until the caller confirmed being 18 or older.
      */
     @Transactional
     public MessageView send(UUID me, UUID conversationId, NewMessage input) {
+        consents.requireAgeConfirmed(me);
         Participants participants = requireParticipants(me, conversationId);
         UUID otherId = participants.other().userId();
         if (blocks.isBlockedEitherWay(me, otherId)) {

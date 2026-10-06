@@ -120,8 +120,11 @@ class AdminUsersIT extends AbstractIntegrationTest {
                                 .isEqualTo(targetId.toString())
                                 .jsonPath("$.account.status")
                                 .isEqualTo("ACTIVE")
+                                // 4 required documents + the 18+ confirmation (V103).
                                 .jsonPath("$.consents.length()")
-                                .isEqualTo(4)
+                                .isEqualTo(5)
+                                .jsonPath("$.consents[?(@.documentType == 'AGE_CONFIRMATION')]")
+                                .isNotEmpty()
                                 .jsonPath("$.consents[0].acceptedAt")
                                 .isNotEmpty()
                                 .jsonPath("$.recentAuditEntries")

@@ -204,7 +204,11 @@ public class OpenApiConfig {
                 "requiredConsents",
                 new ArraySchema()
                         .items(requiredConsent)
-                        .description("Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)"));
+                        .description(
+                                "Documents to accept with POST /me/consents"
+                                        + " (TERMS_ACCEPTANCE_REQUIRED problems; the"
+                                        + " AGE_CONFIRMATION document for"
+                                        + " AGE_CONFIRMATION_REQUIRED problems)"));
         schema.addProperty(
                 "suspendedUntil",
                 new StringSchema()
