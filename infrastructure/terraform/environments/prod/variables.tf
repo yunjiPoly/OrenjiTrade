@@ -524,15 +524,15 @@ variable "api_cpu" {
 }
 
 variable "api_memory" {
-  description = "api container memory limit (the Valkey sidecar has its own). Measured start-up / steady-state figures belong in ADR 0016; raise if the memory utilisation alert fires."
+  description = "api container memory limit (the Valkey sidecar has its own). Measured 2026-10-05 on the production image at 1 vCPU / 1 GiB with the prod profile: 513 MiB RSS idle after start-up, 595 MiB RSS (588 MiB cgroup peak) under ~36 req/s of mixed public + authenticated load, live heap after GC <= 108 MiB, committed heap <= 209 MiB, i.e. ~390 MiB is non-heap (metaspace, code cache, threads, Netty/gRPC buffers). 1 GiB leaves ~40% headroom with the heap capped at 50% (api_java_tool_options); raise to 1.5Gi/2Gi when the memory utilisation alert (85%) fires."
   type        = string
   default     = "1Gi"
 }
 
 variable "api_java_tool_options" {
-  description = "JAVA_TOOL_OPTIONS of the api container (heap as a share of the container limit; the in-memory file system and metaspace live in the remainder)."
+  description = "JAVA_TOOL_OPTIONS of the api container. The heap is capped at 50% of the container limit (512 MiB at 1Gi): the measured live heap is ~100 MiB and the measured non-heap footprint ~390 MiB, so a 75% cap (768 MiB) plus non-heap could exceed the container and be OOM-killed by the kernel instead of ending in a logged OutOfMemoryError (-XX:+ExitOnOutOfMemoryError in the Dockerfile). The in-memory file system (card image downloads, <= 10 MiB) lives in the remainder. Keep the share when raising api_memory."
   type        = string
-  default     = "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
+  default     = "-XX:MaxRAMPercentage=50 -XX:+UseG1GC"
 }
 
 variable "api_min_instances" {

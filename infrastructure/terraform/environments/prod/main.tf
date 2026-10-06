@@ -432,7 +432,7 @@ module "api" {
       GCS_BUCKET_MEDIA       = module.storage.bucket_name
       # The media bucket enforces public access prevention, so public media URLs must point at
       # the API (GET /api/v1/public/media/{key} reads from GCS; Cloudflare caches the response).
-      STORAGE_PUBLIC_BASE_URL    = "${local.api_url}/api/v1/public/media"
+      STORAGE_PUBLIC_BASE_URL = "${local.api_url}/api/v1/public/media"
       # Card image cache (ADR 0015): with STORAGE_PROVIDER=gcs the renditions are objects under
       # card-images/ of the media bucket (the cap, 5 GB, counts them from PostgreSQL); only the
       # in-flight downloads touch the instance's in-memory disk, so an explicit tmpfs path.
