@@ -32,6 +32,7 @@ import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
+import { BlockActionsService } from '../../shared/messaging/block-actions.service';
 import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
@@ -129,6 +130,8 @@ type ViewState =
               (retryBinders)="loadListings(profile.handle)"
               (messageRequested)="openConversation(profile.id)"
               (reportRequested)="report(profile)"
+              (blockRequested)="block(profile)"
+              (unblockRequested)="unblock(profile)"
               (ratingsRequested)="scrollToRatings()"
             />
             <app-collector-ratings-section
@@ -173,6 +176,7 @@ export class CollectorPageComponent {
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
   private readonly reports = inject(ReportActionsService);
+  private readonly blocks = inject(BlockActionsService);
   private readonly injector = inject(Injector);
   private readonly doc = inject(DOCUMENT);
   protected readonly starter = inject(ConversationStarterService);
@@ -241,6 +245,20 @@ export class CollectorPageComponent {
       },
       { source: 'PROFILE' },
     );
+  }
+
+  /** "Block": confirmation + `POST /users/{id}/block`, then the profile reloads (blocked state). */
+  protected async block(profile: CollectorProfileResponse): Promise<void> {
+    if (await this.blocks.block({ id: profile.id, displayName: profile.displayName })) {
+      await this.load();
+    }
+  }
+
+  /** "Unblock": `DELETE /users/{id}/block`, then the profile reloads. */
+  protected async unblock(profile: CollectorProfileResponse): Promise<void> {
+    if (await this.blocks.unblock({ id: profile.id, displayName: profile.displayName })) {
+      await this.load();
+    }
   }
 
   protected onSummary(summary: RatingSummaryResponse): void {

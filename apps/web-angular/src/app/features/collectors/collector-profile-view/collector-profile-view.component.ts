@@ -30,7 +30,7 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
 import { CollectorWishlistComponent } from '../collector-wishlist/collector-wishlist.component';
 
 /**
- * Presentational public profile: header, actions (message, report), about, location, rating
+ * Presentational public profile: header, actions (message, report, block), about, location, rating
  * summary, binders, cards and the public wishlist ("Looking for"). The full ratings and references
  * section is rendered by the page below this view.
  */
@@ -76,6 +76,9 @@ export class CollectorProfileViewComponent {
   readonly messageRequested = output<void>();
   /** "Report" pressed (other collectors only). */
   readonly reportRequested = output<void>();
+  /** "Block" / "Unblock" pressed (other collectors only; `profile.isBlocked` decides which). */
+  readonly blockRequested = output<void>();
+  readonly unblockRequested = output<void>();
   /** "See ratings and references" pressed. */
   readonly ratingsRequested = output<void>();
   /** Fresher rating summary than the profile's (after the ratings section loaded). */
