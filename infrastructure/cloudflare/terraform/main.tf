@@ -1,12 +1,19 @@
 # Cloudflare zone configuration for orenjitrade.com (the zone already exists in the owner's
 # account; this only manages records, settings and rules inside it). The narrative version
-# with dashboard steps is ../README.md.
+# with dashboard steps is ../README.md. Everything here fits the Free plan (ADR 0016): one
+# rate-limiting rule, <= 5 custom WAF rules, <= 10 cache rules, no managed rulesets.
 
 locals {
   www_host = "www.${var.zone_name}"
   api_host = "api.${var.zone_name}"
 
   static_ext_set = "{${join(" ", [for e in var.static_asset_extensions : "\"${e}\""])}}"
+
+  # Public, immutable image responses of the API that Cloudflare may cache (the API sends
+  # `Cache-Control: public, max-age=31536000, immutable` for cached artworks and media,
+  # `public, max-age=300` for placeholders); every other API response carries no-store.
+  public_image_paths_expr = join(" or ", [for p in var.cacheable_api_path_prefixes : "starts_with(http.request.uri.path, \"${p}\")"])
+  rate_limit_paths_expr   = join(" or ", [for p in var.rate_limit_path_prefixes : "starts_with(http.request.uri.path, \"${p}\")"])
 }
 
 # ---------------------------------------------------------------------------------------
@@ -79,6 +86,22 @@ resource "cloudflare_dns_record" "additional" {
   comment = "Non-production environment (managed by Terraform)"
 }
 
+# Certificate Manager DNS authorization (output `certificate_dns_authorizations` of each
+# Google Cloud environment): `_acme-challenge.<host>` CNAMEs that Google checks to issue the
+# origin certificate. They MUST stay DNS only (not proxied): a proxied CNAME is flattened to
+# Cloudflare edge addresses and the challenge never validates.
+resource "cloudflare_dns_record" "certificate_dns_authorization" {
+  for_each = var.certificate_dns_authorizations
+
+  zone_id = var.zone_id
+  name    = trimsuffix(each.value.name, ".")
+  type    = each.value.type
+  content = trimsuffix(each.value.data, ".")
+  proxied = false
+  ttl     = 300
+  comment = "Certificate Manager DNS authorization for ${each.key} (managed by Terraform; never proxy)"
+}
+
 resource "cloudflare_dns_record" "email" {
   for_each = var.email_records
 
@@ -97,7 +120,7 @@ resource "cloudflare_dns_record" "email" {
 
 locals {
   zone_settings = {
-    ssl                      = "strict" # Full (strict): validate the Google-managed origin certificate
+    ssl                      = "strict" # Full (strict): validates the origin certificate (Certificate Manager public CA or Cloudflare Origin CA)
     always_use_https         = "on"
     min_tls_version          = "1.2"
     tls_1_3                  = "on"
@@ -177,31 +200,45 @@ resource "cloudflare_ruleset" "redirects" {
 }
 
 # ---------------------------------------------------------------------------------------
-# Cache rules
+# Cache rules (Free plan: up to 10). Expressions are mutually exclusive so the outcome does
+# not depend on rule order. Cloudflare never caches responses with Cache-Control no-store /
+# private, and the API's authenticated and error responses carry
+# `no-cache, no-store, max-age=0, must-revalidate` (Spring Security defaults +
+# ProblemDetailFactory), so only the explicitly public image routes are cache-eligible.
 # ---------------------------------------------------------------------------------------
 
 resource "cloudflare_ruleset" "cache" {
   zone_id     = var.zone_id
   name        = "OrenjiTrade cache rules"
-  description = "Never cache the API or authenticated requests; cache hashed static assets on www"
+  description = "Cache public card images / media on api.* and hashed assets on www; bypass everything else"
   kind        = "zone"
   phase       = "http_request_cache_settings"
 
   rules = [
     {
-      ref         = "bypass_api"
-      description = "Bypass cache entirely for ${local.api_host}"
-      expression  = "(http.host eq \"${local.api_host}\")"
+      ref         = "public_images_api"
+      description = "Cache the API's public image routes (card images, placeholders, media) honouring origin Cache-Control"
+      expression  = "(http.host eq \"${local.api_host}\") and (${local.public_image_paths_expr})"
       action      = "set_cache_settings"
       enabled     = true
       action_parameters = {
-        cache = false
+        cache = true
+        edge_ttl = {
+          mode = "respect_origin"
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
+        cache_key = {
+          ignore_query_strings_order = true
+          cache_deception_armor      = true
+        }
       }
     },
     {
-      ref         = "bypass_authenticated"
-      description = "Bypass cache for any request carrying Authorization or Cookie headers"
-      expression  = "(any(http.request.headers.names[*] == \"authorization\")) or (http.cookie ne \"\")"
+      ref         = "bypass_api"
+      description = "Bypass cache for every other request to ${local.api_host} (authenticated JSON, WebSocket, webhooks)"
+      expression  = "(http.host eq \"${local.api_host}\") and not (${local.public_image_paths_expr})"
       action      = "set_cache_settings"
       enabled     = true
       action_parameters = {
@@ -230,7 +267,7 @@ resource "cloudflare_ruleset" "cache" {
     },
     {
       ref         = "bypass_app_shell"
-      description = "Never cache the SPA shell / API docs on ${local.www_host} (index.html must reflect every deploy)"
+      description = "Never cache the SPA shell / config.json on ${local.www_host} (index.html must reflect every deploy)"
       expression  = "(http.host eq \"${local.www_host}\") and not (http.request.uri.path.extension in ${local.static_ext_set})"
       action      = "set_cache_settings"
       enabled     = true
@@ -242,55 +279,40 @@ resource "cloudflare_ruleset" "cache" {
 }
 
 # ---------------------------------------------------------------------------------------
-# Rate limiting (available on every plan with ip.src + cf.colo.id characteristics, 10 s period)
+# Rate limiting. Free plan (Cloudflare docs, rate-limiting rules availability): ONE rule per
+# zone, counting period and mitigation timeout fixed at 10 s, characteristics IP (+ the
+# mandatory data-center id), request fields limited to path and verified bot. The former
+# auth / messaging / search rules are therefore merged into one path-based flood guard; the
+# fine-grained per-user and per-route limits are the API's Redis fixed windows
+# (apps/api application.yml orenji.ratelimit).
 # ---------------------------------------------------------------------------------------
-
-locals {
-  rate_limit_rules = {
-    auth = {
-      description         = "Auth/session endpoints"
-      expression          = "(http.host eq \"${local.api_host}\") and (starts_with(http.request.uri.path, \"/api/v1/auth\") or http.request.uri.path eq \"/api/v1/me\")"
-      requests_per_period = var.rate_limit_requests_per_10s.auth
-    }
-    messaging = {
-      description         = "Sending messages / creating conversations"
-      expression          = "(http.host eq \"${local.api_host}\") and (http.request.method eq \"POST\") and (starts_with(http.request.uri.path, \"/api/v1/conversations\") or starts_with(http.request.uri.path, \"/api/v1/community\"))"
-      requests_per_period = var.rate_limit_requests_per_10s.messaging
-    }
-    search = {
-      description         = "Search and nearby-collector queries"
-      expression          = "(http.host eq \"${local.api_host}\") and (starts_with(http.request.uri.path, \"/api/v1/search\") or starts_with(http.request.uri.path, \"/api/v1/collectors/nearby\") or starts_with(http.request.uri.path, \"/api/v1/cards\"))"
-      requests_per_period = var.rate_limit_requests_per_10s.search
-    }
-  }
-}
 
 resource "cloudflare_ruleset" "rate_limits" {
   zone_id     = var.zone_id
   name        = "OrenjiTrade rate limits"
-  description = "Edge rate limits in front of the API's own Redis token buckets"
+  description = "Edge flood guard in front of the API's own Redis fixed windows (Free plan: a single rule)"
   kind        = "zone"
   phase       = "http_ratelimit"
 
   rules = [
-    for key, rule in local.rate_limit_rules : {
-      ref         = "ratelimit_${key}"
-      description = rule.description
-      expression  = rule.expression
+    {
+      ref         = "ratelimit_api"
+      description = "Auth/session, messaging, community, search, nearby and card endpoints: ${var.rate_limit_requests_per_10s} requests per 10 s per IP"
+      expression  = "(${local.rate_limit_paths_expr})"
       action      = "block"
       enabled     = true
       ratelimit = {
         characteristics     = ["ip.src", "cf.colo.id"]
         period              = 10
-        requests_per_period = rule.requests_per_period
+        requests_per_period = var.rate_limit_requests_per_10s
         mitigation_timeout  = 10
       }
-    }
+    },
   ]
 }
 
 # ---------------------------------------------------------------------------------------
-# WAF: custom rules (all plans) + managed rulesets (Pro and above)
+# WAF: custom rules (all plans, 5 on Free) + managed rulesets (Pro and above)
 # ---------------------------------------------------------------------------------------
 
 resource "cloudflare_ruleset" "waf_custom" {
@@ -300,22 +322,37 @@ resource "cloudflare_ruleset" "waf_custom" {
   kind        = "zone"
   phase       = "http_request_firewall_custom"
 
-  rules = [
-    {
-      ref         = "block_actuator"
-      description = "Only the health endpoints of Spring Actuator are reachable"
-      expression  = "(http.host eq \"${local.api_host}\") and starts_with(http.request.uri.path, \"/actuator/\") and not starts_with(http.request.uri.path, \"/actuator/health\")"
-      action      = "block"
-      enabled     = true
-    },
-    {
-      ref         = "block_api_docs"
-      description = "Swagger UI / OpenAPI documents are local-profile only"
-      expression  = "(http.host eq \"${local.api_host}\") and (starts_with(http.request.uri.path, \"/swagger-ui\") or starts_with(http.request.uri.path, \"/v3/api-docs\"))"
-      action      = "block"
-      enabled     = true
-    },
-  ]
+  rules = concat(
+    [
+      {
+        ref         = "block_actuator"
+        description = "Only the health endpoints of Spring Actuator are reachable"
+        expression  = "(http.host eq \"${local.api_host}\") and starts_with(http.request.uri.path, \"/actuator/\") and not starts_with(http.request.uri.path, \"/actuator/health\")"
+        action      = "block"
+        enabled     = true
+      },
+      {
+        ref         = "block_api_docs"
+        description = "Swagger UI / OpenAPI documents are local-profile only"
+        expression  = "(http.host eq \"${local.api_host}\") and (starts_with(http.request.uri.path, \"/swagger-ui\") or starts_with(http.request.uri.path, \"/v3/api-docs\"))"
+        action      = "block"
+        enabled     = true
+      },
+    ],
+    # Cloud Scheduler and Pub/Sub reach /internal/** over the Cloud Run URL (internal ingress),
+    # so the edge can block the prefix outright. Off by default because the operator scripts
+    # (npm run catalog:import, card-images:status|reconcile) still go through the public
+    # hostname with the service token; turn it on once those run from inside the project.
+    var.block_internal_paths_at_edge ? [
+      {
+        ref         = "block_internal"
+        description = "/internal/** is served to Cloud Scheduler / Pub/Sub over the Cloud Run URL, never through the edge"
+        expression  = "(http.host eq \"${local.api_host}\") and starts_with(http.request.uri.path, \"/internal/\")"
+        action      = "block"
+        enabled     = true
+      },
+    ] : []
+  )
 }
 
 resource "cloudflare_ruleset" "waf_managed" {

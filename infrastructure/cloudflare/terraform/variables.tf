@@ -48,6 +48,26 @@ variable "additional_a_records" {
   default     = {}
 }
 
+variable "certificate_dns_authorizations" {
+  description = <<-EOT
+    Certificate Manager DNS authorization records, keyed by hostname, as printed by
+    `terraform output certificate_dns_authorizations` in each Google Cloud environment:
+    { "www.orenjitrade.com" = { name = "_acme-challenge.www.orenjitrade.com.", type = "CNAME", data = "<id>.authorize.certificatemanager.goog." } }.
+    Created DNS only (never proxied). Include the dev/staging hostnames when those environments exist.
+  EOT
+  type = map(object({
+    name = string
+    type = optional(string, "CNAME")
+    data = string
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for r in var.certificate_dns_authorizations : startswith(r.name, "_acme-challenge") && r.type == "CNAME"])
+    error_message = "Every DNS authorization record must be a CNAME named _acme-challenge.<host>."
+  }
+}
+
 variable "email_records" {
   description = <<-EOT
     Transactional-email DNS records (SPF/DKIM/DMARC) keyed by record name relative to the zone.
@@ -121,14 +141,55 @@ variable "owasp_paranoia_level" {
   }
 }
 
+variable "block_internal_paths_at_edge" {
+  description = "Add a custom WAF rule blocking /internal/** on api.* (Cloud Scheduler / Pub/Sub use the Cloud Run URL). Keep false while operator scripts (npm run catalog:import, card-images:*) call the public hostname."
+  type        = bool
+  default     = false
+}
+
 variable "rate_limit_requests_per_10s" {
-  description = "Requests allowed per client IP per 10 seconds for each protected group."
-  type = object({
-    auth      = optional(number, 20)
-    messaging = optional(number, 20)
-    search    = optional(number, 60)
-  })
-  default = {}
+  description = "Requests allowed per client IP per 10 s on the rate-limited path prefixes (the single rule the Free plan allows; period and mitigation timeout are fixed at 10 s there)."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.rate_limit_requests_per_10s >= 1
+    error_message = "rate_limit_requests_per_10s must be at least 1."
+  }
+}
+
+variable "rate_limit_path_prefixes" {
+  description = "API path prefixes covered by the edge rate-limiting rule (Free plan expressions may only use the path, not host or method). Public image routes are deliberately excluded: a page loads dozens of them and cached hits still count on Free."
+  type        = list(string)
+  default = [
+    "/api/v1/auth",
+    "/api/v1/me",
+    "/api/v1/conversations",
+    "/api/v1/community",
+    "/api/v1/search",
+    "/api/v1/collectors/nearby",
+    "/api/v1/cards",
+  ]
+
+  validation {
+    condition     = length(var.rate_limit_path_prefixes) > 0 && alltrue([for p in var.rate_limit_path_prefixes : startswith(p, "/api/")])
+    error_message = "rate_limit_path_prefixes must be non-empty API paths."
+  }
+}
+
+variable "cacheable_api_path_prefixes" {
+  description = "Public image routes of the API whose responses Cloudflare may cache (they carry Cache-Control: public ... immutable / max-age)."
+  type        = list(string)
+  default = [
+    "/api/v1/public/card-images/",
+    "/api/v1/public/placeholder-images/",
+    "/api/v1/public/media/",
+  ]
+
+  validation {
+    condition     = length(var.cacheable_api_path_prefixes) > 0 && alltrue([for p in var.cacheable_api_path_prefixes : startswith(p, "/api/v1/public/")])
+    error_message = "cacheable_api_path_prefixes must be /api/v1/public/... routes."
+  }
 }
 
 variable "static_asset_extensions" {
