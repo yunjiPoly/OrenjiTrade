@@ -184,6 +184,16 @@ test.describe('authentication and onboarding', () => {
     await page.getByLabel('Email').fill('collector2@orenjitrade.test');
     await page.getByLabel('Password', { exact: true }).fill(SEED_PASSWORD);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    // A seed collector confirms being 18+ first (fresh E2E database); the return URL survives.
+    await expect(page).toHaveURL(/\/onboarding\?returnUrl=(%2F|\/)settings(%2F|\/)privacy/, {
+      timeout: 20_000,
+    });
+    await expect(page.getByRole('heading', { name: 'Are you 18 or older?' })).toBeVisible();
+    await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
+    await page
+      .getByRole('button', { name: 'Continue', exact: true })
+      .filter({ visible: true })
+      .click();
     await expect(page).toHaveURL(/\/settings\/privacy$/, { timeout: 20_000 });
     await expect(page.getByRole('heading', { name: 'Visibility' })).toBeVisible();
   });
