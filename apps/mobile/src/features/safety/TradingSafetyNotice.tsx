@@ -64,10 +64,10 @@ export function TradingSafetyNotice({
   }
   const copy = COPY[context];
   return (
+    // Not one grouped accessibility element (web: `role="note"`): the guide link and the
+    // Report / Block / Dismiss buttons stay reachable one by one with a screen reader.
     <View
-      accessible
       accessibilityRole="summary"
-      accessibilityLabel={`${copy.title}. ${copy.text}`}
       testID={testID}
       style={[
         styles.notice,
@@ -78,9 +78,20 @@ export function TradingSafetyNotice({
         },
       ]}
     >
-      <MaterialCommunityIcons name="shield-account-outline" size={22} color={palette.primary} />
+      <MaterialCommunityIcons
+        name="shield-account-outline"
+        size={22}
+        color={palette.primary}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
       <View style={styles.body}>
-        <Text style={[textStyle('sm'), styles.title, { color: palette.ink }]}>{copy.title}</Text>
+        <Text
+          accessibilityRole="header"
+          style={[textStyle('sm'), styles.title, { color: palette.ink }]}
+        >
+          {copy.title}
+        </Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{copy.text}</Text>
         <Text
           accessibilityRole="link"

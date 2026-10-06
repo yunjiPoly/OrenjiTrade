@@ -1,5 +1,4 @@
-import type { ApiError } from '@/src/api/ApiError';
-import { friendlyMessage } from '@/src/api/errorMessages';
+import { messageOf } from '@/src/api/errorMessages';
 import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
@@ -45,7 +44,7 @@ export function BlockCollectorDialog({
       onBlocked?.(target);
     } catch (error) {
       onClose();
-      snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
+      snackbar.show(messageOf(error), { tone: 'error', duration: 6000 });
     }
   };
 
@@ -76,7 +75,7 @@ export function useUnblockCollector() {
         snackbar.show(`${target.displayName} is unblocked.`);
         return true;
       } catch (error) {
-        snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
+        snackbar.show(messageOf(error), { tone: 'error', duration: 6000 });
         return false;
       }
     },

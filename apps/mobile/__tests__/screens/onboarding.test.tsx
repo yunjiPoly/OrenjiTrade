@@ -321,9 +321,13 @@ describe('Onboarding age step (18+ rule)', () => {
       })
     );
     renderWithProviders(<OnboardingScreen />, { port });
+    usePendingLink.getState().set('/collectors/collector5');
     fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText(/Too many requests in a short time/)).toBeOnTheScreen();
+    // Nothing recorded: the collector stays, and the remembered link waits for the retry.
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBe('/collectors/collector5');
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });

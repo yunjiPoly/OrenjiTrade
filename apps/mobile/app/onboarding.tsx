@@ -217,6 +217,10 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       }
       setStep('profile');
     } catch (caught) {
+      if (pending) {
+        // Not recorded: the collector stays here, so the remembered link waits for the retry.
+        usePendingLink.getState().set(pending);
+      }
       setAgeError(messageOf(caught));
     } finally {
       setAgeBusy(false);
