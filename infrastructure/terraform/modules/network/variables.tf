@@ -4,7 +4,7 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region for the connector, subnet and NAT."
+  description = "Region for the subnets, connector and NAT."
   type        = string
   default     = "northamerica-northeast1"
 
@@ -23,6 +23,23 @@ variable "network_name" {
     condition     = can(regex("^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$", var.network_name))
     error_message = "network_name must be a valid GCE resource name."
   }
+}
+
+variable "direct_vpc_subnet_cidr" {
+  description = "CIDR of the subnet Cloud Run Direct VPC egress draws addresses from (null = not created). Cloud Run requires /26 or larger; /24 is the default used by the environments."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.direct_vpc_subnet_cidr == null || (can(cidrnetmask(var.direct_vpc_subnet_cidr)) && tonumber(split("/", var.direct_vpc_subnet_cidr)[1]) <= 26)
+    error_message = "direct_vpc_subnet_cidr must be an IPv4 CIDR block of /26 or larger (e.g. 10.9.0.0/24)."
+  }
+}
+
+variable "enable_connector" {
+  description = "Create the /28 connector subnet and the Serverless VPC Access connector (billed as VMs). false when the services use Direct VPC egress."
+  type        = bool
+  default     = true
 }
 
 variable "connector_name" {
@@ -92,7 +109,7 @@ variable "private_service_access_prefix_length" {
 }
 
 variable "enable_cloud_nat" {
-  description = "Create a Cloud Router + NAT so Cloud Run services with ALL_TRAFFIC egress can reach the public internet."
+  description = "Create a Cloud Router + NAT so Cloud Run services with ALL_TRAFFIC egress can reach the public internet. Not needed with PRIVATE_RANGES_ONLY egress."
   type        = bool
   default     = true
 }

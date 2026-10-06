@@ -14,6 +14,8 @@ variable "services" {
   default = [
     "artifactregistry.googleapis.com",
     "bigquery.googleapis.com",
+    "billingbudgets.googleapis.com",
+    "certificatemanager.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "cloudscheduler.googleapis.com",
     "cloudtrace.googleapis.com",
