@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   effect,
+  inject,
   input,
   output,
   signal,
@@ -16,6 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSliderModule } from '@angular/material/slider';
 import { RouterLink } from '@angular/router';
+import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
 import {
   AVAILABILITY_FILTERS,
   AvailabilityFilter,
@@ -35,7 +37,8 @@ export type MapFilterChange = Partial<
 
 /**
  * Bottom filter bar of the map: game, distance (slider bounded by the plan), availability,
- * listing freshness and tags. Emits changes; the page keeps them in the URL.
+ * listing freshness and tags. Emits changes; the page keeps them in the URL. The plan's radius
+ * cap is named under the slider; it links to Premium only while the `premiumPlans` flag is on.
  */
 @Component({
   selector: 'app-map-filters-bar',
@@ -82,9 +85,15 @@ export type MapFilterChange = Partial<
           />
         </mat-slider>
         @if (radiusMax() < maxRadius) {
-          <a class="bar__premium" routerLink="/premium">
-            Up to {{ radiusMax() }} km on your plan
-          </a>
+          @if (premiumEnabled()) {
+            <a class="bar__premium" routerLink="/premium" data-testid="radius-cap">
+              Up to {{ radiusMax() }} km on your plan
+            </a>
+          } @else {
+            <span class="bar__premium bar__premium--plain" data-testid="radius-cap">
+              Up to {{ radiusMax() }} km on your plan
+            </span>
+          }
         }
       </div>
 
@@ -174,6 +183,9 @@ export type MapFilterChange = Partial<
     .bar__premium {
       font-size: var(--font-size-xs);
     }
+    .bar__premium--plain {
+      color: var(--color-text-muted);
+    }
     .bar__clear {
       flex: 0 0 auto;
     }
@@ -181,6 +193,7 @@ export type MapFilterChange = Partial<
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MapFiltersBarComponent {
+  private readonly flags = inject(FeatureFlagsService);
   readonly params = input.required<MapParams>();
   /** Effective radius (the chosen one, bounded by the plan). */
   readonly radiusKm = input.required<number>();
@@ -194,6 +207,7 @@ export class MapFiltersBarComponent {
 
   protected readonly minRadius = MIN_RADIUS_KM;
   protected readonly maxRadius = MAX_RADIUS_KM;
+  protected readonly premiumEnabled = this.flags.enabled(FEATURE.premiumPlans);
   protected readonly availabilities = AVAILABILITY_FILTERS;
   protected readonly freshnesses = FRESHNESS_FILTERS;
   protected readonly draftRadius = signal<number | null>(null);

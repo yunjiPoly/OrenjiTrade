@@ -28,10 +28,10 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     }
     case 'LIMIT_REACHED':
+      // No Premium pitch here: the limit dialog names the upgrade only while the flag is on.
       return {
         title: 'Plan limit reached',
-        message:
-          'You reached a limit of your plan. It resets soon, or Premium raises it right away.',
+        message: 'You reached a limit of your plan. It resets soon.',
       };
     case 'FEATURE_DISABLED':
       return {

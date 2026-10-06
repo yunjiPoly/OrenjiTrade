@@ -57,8 +57,21 @@ describe('notification kinds', () => {
     expect(notificationLink({ type: Type.BinderStaleWarning, data: { binderId: 'b-2' } })).toBe(
       '/inventory?binder=b-2',
     );
+    // A plan-limit notice leads to Premium only when the API offered it (premiumPlans on).
+    expect(
+      notificationLink({
+        type: Type.System,
+        data: { kind: 'LIMIT_REACHED', upgradeUrl: '/premium', deepLink: '/premium' },
+      }),
+    ).toBe('/premium');
+    expect(
+      notificationLink({
+        type: Type.System,
+        data: { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_MATCH' },
+      }),
+    ).toBe('/wishlist');
     expect(notificationLink({ type: Type.System, data: { kind: 'LIMIT_REACHED' } })).toBe(
-      '/premium',
+      '/notifications',
     );
     expect(
       notificationLink({

@@ -127,7 +127,9 @@ export function notificationLink(
     case 'SYSTEM':
       switch (data?.['kind']) {
         case 'LIMIT_REACHED':
-          return '/premium';
+          // The API carries `deepLink: /premium` only while the premiumPlans flag is on (handled
+          // above); without it the notice is only about held-back alerts.
+          return data?.['notificationType'] === 'WISHLIST_MATCH' ? '/wishlist' : '/notifications';
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':
