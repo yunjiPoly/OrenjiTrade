@@ -1227,8 +1227,16 @@ credits logic and prices untouched._
   `/credits`, `/support`, `/settings/payouts` redirect with "… is not available right now.", an
   offer without the protection checkbox, the agreed trade with the safety notice and no Pay
   button, the money routes' `404 FEATURE_DISABLED`, `GET /ads` empty. Run it alone with
-  `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`. Results: see "Checks" in the
-  builder's report (full `npm run test:api`, `test:web`, `test:mobile`, `test:e2e`).
+  `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`. Fixed on the way: the E2E helpers
+  (`e2e/support/stack.ts` `apiConfirmAge`, `e2e/acceptance/support/api.ts` `collector()`) read
+  the public document list with the collector's token — anonymously, every worker shared the
+  per-IP budget (`RATE_LIMIT_ANONYMOUS_PER_MINUTE`, 60/min) and a fast full run failed seven
+  collector-heavy specs with `429`. Results (2026-10-05): `npm run test:api` 162 classes /
+  797 tests, 0 failures (6 min); `npm run test:web` lint clean, 139 files / 672 tests;
+  `npm run test:mobile` typecheck + lint + 416 jest tests; `npm run test:e2e` 72 specs: 71 passed,
+  1 flaky (`acceptance/search.spec.ts`, unrelated, passed on its retry), `launch-config` passed
+  after `chromium`; `./gradlew exportOpenApi` + `npm run generate:api` left `docs/api/openapi.json`
+  and the generated clients unchanged (no contract change in this stage).
 - [x] **Operating docs (Law 25, incidents, authorities, owner accounts)**, linked from
   `docs/security/README.md` section 11: `docs/security/confidentiality-incident-register.md`
   (register template with date, description, data and people affected, risk-of-serious-injury
