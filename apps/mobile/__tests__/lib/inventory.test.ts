@@ -136,7 +136,11 @@ describe('freemium limits', () => {
       resetsAt: null,
       planCode: 'FREE',
     });
+    // No Premium pitch unless premium plans are sold (launch configuration: every money flag off).
     expect(limitReachedMessage(limitReachedInfo(error))).toBe(
+      'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need.'
+    );
+    expect(limitReachedMessage(limitReachedInfo(error), NOW, { premiumOffered: true })).toBe(
       'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need, or Premium raises the limit.'
     );
   });
@@ -154,6 +158,9 @@ describe('freemium limits', () => {
       'You have used 30 of 30 public binder views today. It resets in 12 hours.'
     );
     expect(limitReachedMessage(limitReachedInfo(limit({})), NOW)).toBe(
+      'You reached the uses of this feature your plan allows.'
+    );
+    expect(limitReachedMessage(limitReachedInfo(limit({})), NOW, { premiumOffered: true })).toBe(
       'You reached the uses of this feature your plan allows. Premium raises the limit.'
     );
   });

@@ -15,6 +15,10 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
+import {
+  BlockCollectorDialog,
+  type BlockTarget,
+} from '@/src/features/collectors/BlockCollectorDialog';
 import { rateableInteractions } from '@/src/features/collectors/ratingLabels';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { DealNotice, type DealNoticeValue } from '@/src/features/offers/DealNotice';
@@ -29,6 +33,8 @@ import { payTarget } from '@/src/features/payments/checkoutTargets';
 import { money } from '@/src/features/payments/paymentLabels';
 import { paymentProblem } from '@/src/features/payments/paymentProblems';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
+import { reportParams } from '@/src/features/reports/reportLabels';
+import { TradingSafetyNotice } from '@/src/features/safety/TradingSafetyNotice';
 import { OpenDisputeDialog, ShipDialog } from '@/src/features/trades/ProtectedDialogs';
 import {
   DisputeCard,
@@ -125,6 +131,7 @@ export default function TradeScreen() {
   >(null);
   // The checkout screen's answer is told once (state adjusted while rendering).
   const [checkoutTold, setCheckoutTold] = useState<string | null>(null);
+  const [blocking, setBlocking] = useState<BlockTarget | null>(null);
   const scroll = useRef<ScrollView>(null);
   const data = trade.data ?? null;
   const completed = data?.status === 'COMPLETED';
@@ -322,6 +329,17 @@ export default function TradeScreen() {
           eyebrow={`Trade with ${other.displayName}`}
           title={current.offer.item?.card.name ?? 'Trade'}
           testID="trade"
+        />
+        <TradingSafetyNotice
+          context="trade"
+          otherName={other.displayName}
+          onReport={() =>
+            router.push({
+              pathname: '/report',
+              params: reportParams(other, { source: 'PROFILE' }),
+            })
+          }
+          onBlock={() => setBlocking({ id: other.id, displayName: other.displayName })}
         />
         <View style={styles.chips}>
           <StatusChip info={tradeStatusInfo(current.status)} testID="trade-status" />
@@ -574,6 +592,11 @@ export default function TradeScreen() {
         onConfirm={() => void run('complete')}
         onCancel={() => setDialog(null)}
         testID="complete-dialog"
+      />
+      <BlockCollectorDialog
+        target={blocking}
+        onClose={() => setBlocking(null)}
+        onBlocked={() => void trade.refetch()}
       />
       <ReasonDialog
         visible={dialog === 'cancel'}

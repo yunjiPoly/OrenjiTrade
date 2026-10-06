@@ -4,6 +4,10 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { useAnswerOffer, useOffer, type OfferAnswer } from '@/src/api/hooks/offers';
+import {
+  BlockCollectorDialog,
+  type BlockTarget,
+} from '@/src/features/collectors/BlockCollectorDialog';
 import type { OfferResponse } from '@/src/api/types';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -27,6 +31,8 @@ import { OfferPartyCard } from '@/src/features/offers/OfferPartyCard';
 import { offerProblem } from '@/src/features/offers/offerProblems';
 import { ReasonDialog } from '@/src/features/offers/ReasonDialog';
 import { StatusChip } from '@/src/features/offers/StatusChip';
+import { reportParams } from '@/src/features/reports/reportLabels';
+import { TradingSafetyNotice } from '@/src/features/safety/TradingSafetyNotice';
 import { spacing } from '@/src/theme';
 
 const ANSWER_ACTION: Record<OfferAnswer, OfferActionName> = {
@@ -50,7 +56,8 @@ function nameOf(offer: OfferResponse, role: 'SELLER' | 'BUYER'): string {
  * distance bucket only); the history of the whole negotiation. A proposal replaced by a
  * counter-offer links to the live one (and the screen follows it when that happens on screen);
  * an accepted offer links to its trade. Conflicts (409 STALE_OFFER, NOT_YOUR_TURN, ...) are
- * explained and the offer re-read.
+ * explained and the offer re-read. The dismissible trading safety notice (Report / Block the
+ * other collector) sits at the top until dismissed.
  */
 export default function OfferScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,6 +67,7 @@ export default function OfferScreen() {
   const { message, startingId } = useMessageCollector();
   const [notice, setNotice] = useState<DealNoticeValue | null>(null);
   const [dialog, setDialog] = useState<OfferAnswer | null>(null);
+  const [blocking, setBlocking] = useState<BlockTarget | null>(null);
   const data = offer.data ?? null;
 
   // Follow the negotiation: a proposal answered by a counter-offer while it is on screen.
@@ -188,6 +196,17 @@ export default function OfferScreen() {
           title={current.item?.card.name ?? 'Offer'}
           testID="offer"
         />
+        <TradingSafetyNotice
+          context="trade"
+          otherName={otherName}
+          onReport={() =>
+            router.push({
+              pathname: '/report',
+              params: reportParams(other, { source: 'PROFILE' }),
+            })
+          }
+          onBlock={() => setBlocking({ id: other.id, displayName: otherName })}
+        />
         <View style={styles.chips} testID="offer-chips">
           <StatusChip info={offerStatusInfo(current.status)} testID="offer-status" />
           <Pill label={offerKindLabel(current.kind)} testID="offer-kind-pill" />
@@ -305,6 +324,11 @@ export default function OfferScreen() {
         onConfirm={(reason) => void run('decline', reason)}
         onCancel={() => setDialog(null)}
         testID="decline-dialog"
+      />
+      <BlockCollectorDialog
+        target={blocking}
+        onClose={() => setBlocking(null)}
+        onBlocked={() => void offer.refetch()}
       />
       <ReasonDialog
         visible={dialog === 'cancel'}

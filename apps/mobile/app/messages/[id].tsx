@@ -48,6 +48,7 @@ import {
 import { ThreadMessageList } from '@/src/features/messages/ThreadMessageList';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
 import { reportParams } from '@/src/features/reports/reportLabels';
+import { TradingSafetyNotice } from '@/src/features/safety/TradingSafetyNotice';
 import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -66,7 +67,9 @@ const UNKNOWN_PARTICIPANT: ConversationParticipant = {
  * binders and offers, photos, "Sent" / "Seen", "… is typing", older pages on scroll) and the
  * composer (text, card, binder or offer link, photo). Live over realtime; the newest message is
  * marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
- * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer.
+ * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer. The dismissible trading safety
+ * notice sits under the header until dismissed (never over the composer; hidden once the thread
+ * is blocked).
  */
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -333,6 +336,16 @@ export default function ConversationScreen() {
           onAction={(action) => void onAction(action)}
         />
       ) : null}
+      {summary && !blockedByMe ? (
+        <View style={styles.notice}>
+          <TradingSafetyNotice
+            context="conversation"
+            otherName={summary.other.displayName}
+            onReport={() => void onAction('report')}
+            onBlock={() => setConfirmBlock(true)}
+          />
+        </View>
+      ) : null}
       {blockedByMe ? (
         <View
           testID="conversation-blocked-banner"
@@ -414,6 +427,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
   },
+  notice: { paddingHorizontal: spacing[3], paddingTop: spacing[2] },
   composer: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing[3],

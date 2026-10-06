@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
+import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import { limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -24,6 +25,7 @@ export function LimitReachedNotice({
   testID = 'limit-reached',
 }: LimitReachedNoticeProps) {
   const { palette } = useTheme();
+  const premium = useFeature(FEATURE.premiumPlans);
   const info = limitReachedInfo(error);
   const percent =
     info.used !== null && info.limit
@@ -45,7 +47,7 @@ export function LimitReachedNotice({
         <Text style={[textStyle('md'), styles.title, { color: palette.ink }]}>{title}</Text>
       </View>
       <Text testID={`${testID}-message`} style={[textStyle('sm'), { color: palette.ink }]}>
-        {limitReachedMessage(info)}
+        {limitReachedMessage(info, undefined, { premiumOffered: premium.enabled })}
       </Text>
       {percent !== null ? (
         <View style={[styles.meter, { backgroundColor: palette.border }]}>

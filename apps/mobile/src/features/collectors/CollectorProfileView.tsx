@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import type { ComponentProps } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useCollectorBinders, useCollectorPublicItems } from '@/src/api/hooks/collectors';
@@ -20,6 +20,11 @@ import { LAST_ACTIVE_LABELS, gameLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { ApproximateAreaMap } from './ApproximateAreaMap';
+import {
+  BlockCollectorDialog,
+  useUnblockCollector,
+  type BlockTarget,
+} from './BlockCollectorDialog';
 import { CollectorRatingsSection } from './CollectorRatingsSection';
 import { PublicBindersSection, PublicCardsSection } from './CollectorListings';
 import { CollectorWishlistSection } from './CollectorWishlistSection';
@@ -36,8 +41,8 @@ export function nearLabel(publicLabel: string | null | undefined): string {
 /**
  * A collector's public profile as the viewer sees it (the web's `collector-profile-view` +
  * ratings section): header with place, distance bucket, member since and last activity; actions
- * (own profile: edit and privacy; others: the first public binder, Message when allowed and
- * Report); about, games and tags; the approximate area (a 3 km zone, never a point); ratings and
+ * (own profile: edit and privacy; others: the first public binder, Message when allowed, Report
+ * and Block / Unblock); about, games and tags; the approximate area (a 3 km zone, never a point); ratings and
  * references (rate, write a reference); public binders and cards ("Make an offer"); the public
  * wishlist ("Looking for") when the collector shows it.
  */
@@ -56,6 +61,8 @@ export function CollectorProfileView({
   const binders = useCollectorBinders(profile.handle);
   const items = useCollectorPublicItems(profile.handle);
   const { message, startingId } = useMessageCollector();
+  const [blocking, setBlocking] = useState<BlockTarget | null>(null);
+  const unblocking = useUnblockCollector();
   const distance = distanceBucketLabel(profile.location?.distanceBucket);
   const lastActive =
     profile.lastActiveBucket !== 'HIDDEN' ? LAST_ACTIVE_LABELS[profile.lastActiveBucket] : null;
@@ -166,9 +173,32 @@ export function CollectorProfileView({
               }
               testID="collector-report"
             />
+            {profile.isBlocked ? (
+              <Button
+                label="Unblock"
+                icon="account-check-outline"
+                variant="ghost"
+                accessibilityLabel={`Unblock ${profile.displayName}`}
+                loading={unblocking.pending}
+                onPress={() =>
+                  void unblocking.unblock({ id: profile.id, displayName: profile.displayName })
+                }
+                testID="collector-unblock"
+              />
+            ) : (
+              <Button
+                label="Block"
+                icon="cancel"
+                variant="ghost"
+                accessibilityLabel={`Block ${profile.displayName}`}
+                onPress={() => setBlocking({ id: profile.id, displayName: profile.displayName })}
+                testID="collector-block"
+              />
+            )}
           </>
         )}
       </View>
+      <BlockCollectorDialog target={blocking} onClose={() => setBlocking(null)} />
 
       <SectionCard title="About" testID="collector-about">
         <Text style={[textStyle('md'), { color: profile.bio ? palette.ink : palette.textMuted }]}>
