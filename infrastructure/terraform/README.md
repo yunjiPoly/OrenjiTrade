@@ -58,6 +58,10 @@ Provider versions: `hashicorp/google` and `hashicorp/google-beta` `~> 7.46`,
 | ML | not instantiated (on hold) | `ml_enabled` |
 | Guardrails | billing budget US$150 (owner applies it), Artifact Registry keeps ~10 images per service, api CPU/memory and Cloud SQL disk alerts | `billing_account_id`, `monthly_budget_usd`, `artifact_registry_keep_versions` |
 
+The per-line monthly cost (≈ US$128–140 at Montreal list prices) and its sources are in
+ADR 0016 and `docs/deployment/README.md` section 13; the first-deploy order including the
+Cloudflare DNS and certificate steps is `docs/deployment/README.md` sections 1–11.
+
 Scale-up path, in order (all in `terraform.tfvars`, no code change): (1) `redis_mode =
 "memorystore"` with `redis_tier = "BASIC"`, `redis_memory_size_gb = 1` and
 `api_max_instances > 1` (lower `api_db_pool_size` so instances x pool stays under

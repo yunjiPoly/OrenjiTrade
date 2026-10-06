@@ -1,6 +1,7 @@
 # ADR 0003 — Cloud Run before GKE
 
-**Status:** Accepted · **Date:** 2026-09-29
+**Status:** Accepted · **Date:** 2026-09-29 · Refined by [ADR 0016](0016-low-cost-first-year-production-profile.md)
+(2026-10-05: one api instance with a Redis sidecar in year one; `ml` not deployed while on hold)
 
 ## Context
 Traffic is unknown and bursty; the team is small; every runtime is containerised.
