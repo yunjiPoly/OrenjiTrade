@@ -106,6 +106,29 @@ temporary, move to binder, availability, confirm, delete), the inventory **visib
 **binder reordering**, the Map tab's **freshness and tags filters and search box**, and **set
 pages** (`sets/[id]`, from a card's set link).
 
+Stage M8 (launch readiness on mobile, the mobile half of the web's `feature/launch-readiness`
+work) adds, each like the web: the **18+ rule** (a bilingual checkbox "I confirm I am 18 years of
+age or older / Je confirme avoir 18 ans ou plus" at sign-up, never ticked by "Accept all",
+recorded as the `AGE_CONFIRMATION` consent; the same checkbox on the consent screen for an account
+that never gave it, e.g. a Google sign-up; a first, non-editable onboarding "Age" step for
+existing accounts, which return to where they came from once confirmed; `needsOnboarding` while
+`/me` reports `ageConfirmed: false`; a friendly message for `403 AGE_CONFIRMATION_REQUIRED`, which
+also reloads `/me` so the gate shows the step; Sign out on the step so nobody is stuck), the
+**consent language** (every `POST /me/consents` carries `language`: `fr` when the device's
+primary language is French through `expo-localization`, an explicit EN / FR choice wins), the
+**French legal pages** (`npm run sync:legal` copies both web files, an EN / FR switch on the legal
+index and every document, French by default on a French device, the choice remembered on the
+device, the draft banner in both languages and the French translation marking as on the web, the
+"Trading safely" page, the document titles of the sign-up and consent checkboxes in the active
+language; the UI around the texts stays English), the dismissible **"Trade safely" notice**
+(link to the guide, Report, Block, Dismiss; under the conversation header and at the top of the
+offer and trade screens; dismissal kept on the device per collector and per context, as the web
+keeps it in local storage: there is no server-side preferences mechanism), **Block / Unblock on
+the collector profile** next to Report, and the **money-off follow-ups** (neutral plan-limit
+wording and no "See Premium" unless `premiumPlans` is on; the plan-limit notification opens
+Premium only when the API's payload carries `upgradeUrl`). Nothing here claims legal compliance:
+the legal texts stay drafts (banner kept).
+
 ## Prerequisites
 
 - Node 24 (`.nvmrc` at the repo root), npm 11, `npm ci` once at the repository root.
@@ -168,11 +191,12 @@ app/                       expo-router routes
                            state, onboarding, tabs)
   (auth)/                  sign-in, sign-up, reset-password (guests only)
   (account)/               verify-email, consent, suspended / deletion pending, unavailable
-  onboarding.tsx           profile -> interests -> trading area (+ map opt-in, off by default)
+  onboarding.tsx           (age, for an account that never confirmed being 18+) -> profile ->
+                           interests -> trading area (+ map opt-in, off by default)
   (tabs)/                  Map | Inventory | Search | Messages | Wishlist | Profile
   settings/                profile, location, privacy, notifications, account, delete-account,
                            appearance (screens of the root stack, no nested stack)
-  legal/                   index + [key] (versioned documents read in-app)
+  legal/                   index + [key] (versioned documents read in-app, EN / FR switch)
   (tabs)/index.tsx         the Map tab (collector zones, filters, list, preview sheet)
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
@@ -207,6 +231,10 @@ src/
                            error with retry), Snackbar, ConfirmDialog, Stepper, CardImage, ...
   features/                screen parts per feature (legal, location, onboarding, profile,
                            catalog, inventory, binders, limits, map, collectors, messages, ...)
+  features/legal/          the legal texts of both languages (legalTexts), the device / stored
+                           language rule (legalLanguage, expo-localization + AsyncStorage), the
+                           EN / FR switch, the draft banner, the 18+ checkbox (ageConfirmation)
+  features/safety/         the "Trade safely" notice and its per-collector dismissal store
   components/map/          CollectorMap on three engines (react-native-maps, Leaflet in a
                            WebView, Leaflet on web), the WebView pages, the engine choice
   features/offers/         offer vocabulary and rules (offerLabels, offerForm, offerProblems,
@@ -366,17 +394,17 @@ Conventions later stages reuse:
 
 ## Scripts
 
-| Script                                  | What it does                                                |
-| --------------------------------------- | ----------------------------------------------------------- |
-| `npm start` / `android` / `ios` / `web` | `expo start` (+ platform)                                   |
-| `npm run typecheck`                     | regenerate the typed routes, then `tsc --noEmit`            |
-| `npm run typegen`                       | regenerate `.expo/types/router.d.ts` (no Metro needed)      |
-| `npm run lint`                          | `expo lint` (eslint-config-expo + prettier compatibility)   |
-| `npm run format` / `format:check`       | Prettier                                                    |
-| `npm test`                              | Jest (`jest-expo`, `@testing-library/react-native`)         |
-| `npm run sync:tokens`                   | regenerate `src/theme/tokens.ts` from the design tokens     |
-| `npm run sync:legal`                    | copy the web's legal texts into `src/legal/legalContent.ts` |
-| `npm run doctor`                        | `expo-doctor`                                               |
+| Script                                  | What it does                                              |
+| --------------------------------------- | --------------------------------------------------------- |
+| `npm start` / `android` / `ios` / `web` | `expo start` (+ platform)                                 |
+| `npm run typecheck`                     | regenerate the typed routes, then `tsc --noEmit`          |
+| `npm run typegen`                       | regenerate `.expo/types/router.d.ts` (no Metro needed)    |
+| `npm run lint`                          | `expo lint` (eslint-config-expo + prettier compatibility) |
+| `npm run format` / `format:check`       | Prettier                                                  |
+| `npm test`                              | Jest (`jest-expo`, `@testing-library/react-native`)       |
+| `npm run sync:tokens`                   | regenerate `src/theme/tokens.ts` from the design tokens   |
+| `npm run sync:legal`                    | copy the web's legal texts (EN and FR) into `src/legal/`  |
+| `npm run doctor`                        | `expo-doctor`                                             |
 
 ## Tests
 
@@ -471,7 +499,18 @@ private with the skipped one explained, temporarily public for 24 hours, an avai
 after a confirmation),
 `collector-map-page.spec.ts` (the
 Android WebView collector page in Chromium: zone size at 14, zoom cap, taps, clusters, a static
-profile map, a 0 x 0 first layout, Leaflet failure). The static web export served by `expo serve`
+profile map, a 0 x 0 first layout, Leaflet failure), `age-confirmation.spec.ts` (an account from
+before the 18+ rule, created with `confirmAge: false`, is asked for the confirmation alone on its
+next sign-in, a link opened meanwhile is remembered and reopened after it, the consent checked on
+the API; Sign out from the step), `legal-french.spec.ts` (French by default for a `fr-CA` browser,
+the EN / FR switch, the choice remembered across a reload, the draft banner and the translation
+marking, the "Trading safely" page in both languages), `safety-notice.spec.ts` (the notice in a
+first conversation: the guide, Report, Block with its confirmation, Dismiss, gone after a reload;
+Block / Unblock on the collector profile). `auth.spec.ts` ticks the 18+ checkbox at sign-up and on
+the consent screen. The global setup records the `AGE_CONFIRMATION` consent for the seed
+collectors the specs sign in to (through the API, in the isolated database: the seed predates the
+rule), and `createOnboardedCollector` records it for every collector it creates unless
+`confirmAge: false`. The static web export served by `expo serve`
 has no rewrites for dynamic routes
 (`/cards/<id>` answers 404 on a full page load), so specs open them inside the running app
 (`openInApp` in `e2e/support/stack.ts`). A privacy fixture scans every API response for coordinates with more than 3 decimals,
@@ -537,7 +576,16 @@ bucket; his profile and "Looking for" with the condition only; the wish opens th
 `holders-filters.yaml` (a card listed twice by a neighbour: the holders list with both prices,
 sorted by price, narrowed to the copies for sale, cleared, then the map), `blocked-users.yaml`
 (block from a conversation -> Settings -> Blocked users -> Unblock, checked on the API; the other
-collector can write again). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
+collector can write again), `age-step-existing-account.yaml` (a collector created on the host
+without the 18+ confirmation (`CONFIRM_AGE=false`) signs in, sees the "Age" step alone, is refused
+unticked, confirms, lands on the tabs with "Welcome back", `scripts/check-age.js` checks the
+consent on the API, a relaunch never asks again), `legal-french.yaml` (from the sign-in screen:
+the legal index, FR with the French banner and the translation marking, "Trading safely" in French
+then in English, the choice kept across a relaunch), `safety-notice.yaml` (Ada's first conversation
+shows the "Trade safely" notice, the guide opens in-app, the composer keeps working, Dismiss, gone
+after a relaunch). The seed flows (`sign-in.yaml`, `map-preview-profile.yaml`) first record the
+seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
+that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled

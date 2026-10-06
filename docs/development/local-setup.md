@@ -171,9 +171,9 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
 `test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-06,
-stage M7): `test:mobile` about 1–2.5 min (713 jest tests in 81 suites + 28 harness guard tests),
-`test:mobile:e2e` about 4 min (54 specs, including the API jar and the web export; about 2 min
-when the stack is reused), `test:mobile:maestro` about 45 min (21 flows on the
+stage M8): `test:mobile` about 1–2.5 min (748 jest tests in 85 suites + 28 harness guard tests),
+`test:mobile:e2e` about 3–4 min (60 specs, including the API jar and the web export; about 2 min
+when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 `Pixel_6_API_34` emulator, including the API and Metro start; add a few minutes the first time,
 while Expo CLI installs Expo Go).
 
@@ -266,7 +266,13 @@ Google sign-in and sign-up (against the Auth emulator a simulated Google account
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
 Blocked users, owner photos and bulk actions in the inventory, binder reordering, the map's
-freshness / tags filters and search box, set pages. Locally the catalog is the fictional mock catalog of the seed (the real
+freshness / tags filters and search box, set pages. Stage M8 (2026-10-06, launch readiness on
+mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a
+first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
+pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
+both web files), consents recorded with the language shown, the dismissible "Trade safely"
+notice in conversations and on offers / trades (dismissal kept on the device), Block / Unblock
+on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The trading area is picked like on the web: a tap on the map or a dragged pin,

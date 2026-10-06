@@ -28,6 +28,13 @@ Handles must match `[a-z0-9_]{3,24}`, hence `premium_user`.
 All seed locations are public landmarks or neighbourhood centroids, never residential
 addresses. All names, emails and content are fictional.
 
+**18+ rule (launch readiness, 2026-10-05):** the seed accounts predate the rule and never
+recorded the `AGE_CONFIRMATION` consent, so the web app and the mobile app ask each of them to
+confirm being 18 or older once, on the next sign-in (the onboarding "Age" step; the confirmation
+is a consent row in the database, nothing else is asked). The mobile test suites record it for
+`collector1` and `collector2` through the API in their isolated database (`orenjitrade_mobile_e2e`;
+Playwright global setup, Maestro `scripts/confirm-age.js`), never in the emulator.
+
 Accounts created by the test suites (never seeds, all fictional, local emulator only): the web
 Playwright suite uses `@example.test` addresses; the mobile suites (`npm run test:mobile:e2e`,
 `npm run test:mobile:maestro`) use `m-<run id>-...@mobile-e2e.test` and delete the emulator
