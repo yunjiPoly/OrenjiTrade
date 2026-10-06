@@ -1,8 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -16,13 +19,23 @@ import { spacing, textStyle, useTheme } from '@/src/theme';
  * the owner it is the "public preview". Deep links: orenjitrade://collectors/<handle> and
  * https://www.orenjitrade.com/collectors/<handle>.
  *
+ * `?tab=ratings` (RATING_RECEIVED notifications) scrolls to the ratings once the profile is shown.
+ *
  * Like the web: members only (signed out, or a 401: "Collector profiles are for members");
  * 404 covers unknown, PRIVATE, suspended and deleted collectors alike ("not available"), so
  * nothing leaks about why. Location: a label, a distance bucket and a 3 km zone, never a point.
  */
 export default function CollectorScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const account = useAccount();
+  const scroll = useRef<ScrollView>(null);
+  const scrolledTo = useRef<string | null>(null);
+  const onRatingsLayout = (y: number) => {
+    if (tab === 'ratings' && scrolledTo.current !== id) {
+      scrolledTo.current = id ?? null;
+      scroll.current?.scrollTo({ y, animated: true });
+    }
+  };
   const signedOut = account.status === 'anonymous';
   const profile = useCollectorProfile(signedOut ? null : id);
   const isOwn = !!profile.data && account.me?.id === profile.data.id;
@@ -31,7 +44,13 @@ export default function CollectorScreen() {
   if (signedOut || profile.error?.status === 401) {
     content = <MembersOnly />;
   } else if (profile.data) {
-    content = <CollectorProfileView profile={profile.data} isOwn={isOwn} />;
+    content = (
+      <CollectorProfileView
+        profile={profile.data}
+        isOwn={isOwn}
+        onRatingsLayout={onRatingsLayout}
+      />
+    );
   } else if (profile.error?.status === 404) {
     content = <NotAvailable />;
   } else if (profile.error) {
@@ -60,7 +79,7 @@ export default function CollectorScreen() {
   }
 
   return (
-    <Screen scroll safeBottom testID="screen-collector">
+    <Screen scroll safeBottom scrollRef={scroll} testID="screen-collector">
       <Stack.Screen
         options={{ title: profile.data?.displayName ?? (id ? `@${id}` : 'Collector') }}
       />
@@ -72,6 +91,18 @@ export default function CollectorScreen() {
 function MembersOnly() {
   const { palette } = useTheme();
   const router = useRouter();
+  const session = useSession();
+  // A 401 while signed in means the session itself ended: sign out (the gate then opens sign-in
+  // and reopens this profile afterwards) instead of pushing a sign-in screen the gate would send
+  // straight back to the tabs.
+  const signedIn = session.status === 'authenticated';
+  const go = (screen: '/sign-in' | '/sign-up') => {
+    if (signedIn) {
+      useSessionNotice.getState().reportEnded();
+    } else {
+      router.push(screen);
+    }
+  };
   return (
     <View testID="collector-members-only" accessibilityRole="summary" style={styles.centered}>
       <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>
@@ -80,11 +111,11 @@ function MembersOnly() {
       <Text style={[textStyle('md'), styles.title, { color: palette.textMuted }]}>
         Sign in or create a free account to see who trades near you.
       </Text>
-      <Button label="Sign in" onPress={() => router.push('/sign-in')} testID="collector-sign-in" />
+      <Button label="Sign in" onPress={() => go('/sign-in')} testID="collector-sign-in" />
       <Button
         label="Create account"
         variant="secondary"
-        onPress={() => router.push('/sign-up')}
+        onPress={() => go('/sign-up')}
         testID="collector-sign-up"
       />
     </View>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +22,8 @@ export interface ScreenProps {
   safeBottom?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** The scroll view of a `scroll` screen (to scroll to a section). */
+  scrollRef?: Ref<ScrollView>;
   testID?: string;
 }
 
@@ -33,6 +35,7 @@ export function Screen({
   safeBottom = false,
   style,
   contentContainerStyle,
+  scrollRef,
   testID,
 }: ScreenProps) {
   const { palette } = useTheme();
@@ -55,6 +58,7 @@ export function Screen({
         behavior={Platform.OS === 'web' ? undefined : 'padding'}
       >
         <ScrollView
+          ref={scrollRef}
           testID={testID}
           style={[styles.fill, { backgroundColor: palette.background }, style]}
           contentContainerStyle={[padding, contentContainerStyle]}

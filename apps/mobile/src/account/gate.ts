@@ -53,6 +53,14 @@ const APP_ROOTS = new Set([
   'binders',
   'items',
   'messages',
+  'community',
+  'wishlist',
+  'notifications',
+  // Phases 7 and 8: collector reports, ratings and references, offers and trades.
+  'report',
+  'ratings',
+  'offers',
+  'trades',
 ]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {

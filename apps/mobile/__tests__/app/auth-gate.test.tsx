@@ -1,12 +1,20 @@
-import { screen, waitFor } from '@testing-library/react-native';
+import { act, screen, waitFor } from '@testing-library/react-native';
 
 import { useFlowLock } from '@/src/account/flowLock';
+import { resumableHref, usePendingLink } from '@/src/account/pendingLink';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { NOT_ONBOARDED, meFixture } from '../support/fixtures';
 import { mockApi, ok, problem } from '../support/mockApi';
-import { mockRouter, mockSegments, resetRouterMock } from '../support/router';
+import {
+  mockParams,
+  mockPathname,
+  mockRouter,
+  mockSegments,
+  resetRouterMock,
+} from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
@@ -91,5 +99,67 @@ describe('auth gate (RootNavigator)', () => {
     expect(api.callsTo('GET /api/v1/me')).toHaveLength(0);
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
     expect(screen.queryByTestId('boot-screen')).toBeNull();
+  });
+
+  it('reopens a link opened while signed out once the collector signed in', async () => {
+    mockSegments.current = ['collectors', '[id]'];
+    mockPathname.current = '/collectors/collector5';
+    mockParams.current = { id: 'collector5' };
+    const port = new FakeAuthPort(null);
+    mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+    renderWithProviders(<RootNavigator />, { port });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState().href).toBe('/collectors/collector5');
+
+    // On the sign-in screen, the collector signs in.
+    mockSegments.current = ['(auth)', 'sign-in'];
+    mockPathname.current = '/sign-in';
+    mockParams.current = {};
+    await act(async () => {
+      await port.signIn('maika@example.test', 'correct-password');
+    });
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith('/collectors/collector5'));
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith('/');
+    expect(usePendingLink.getState().href).toBeNull();
+  });
+
+  it('forgets the screen on an explicit sign-out, but not when the session ended', async () => {
+    mockSegments.current = ['(tabs)', 'profile'];
+    mockPathname.current = '/profile';
+    const port = new FakeAuthPort(testUser());
+    mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+    const first = renderWithProviders(<RootNavigator />, { port });
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
+    await act(async () => {
+      await port.signOut();
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState().href).toBeNull();
+    first.unmount();
+
+    resetRouterMock();
+    mockSegments.current = ['cards', '[id]'];
+    mockPathname.current = '/cards/c1';
+    mockParams.current = { id: 'c1', printing: 'p2' };
+    const second = new FakeAuthPort(testUser());
+    renderWithProviders(<RootNavigator />, { port: second });
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
+    act(() => useSessionNotice.getState().reportEnded());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(second.signOut).toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBe('/cards/c1?printing=p2');
+  });
+
+  it('knows which screens are worth reopening', () => {
+    expect(resumableHref(['collectors', '[id]'], '/collectors/c5', { id: 'c5' })).toBe(
+      '/collectors/c5'
+    );
+    expect(resumableHref(['(tabs)', 'wishlist'], '/wishlist', {})).toBe('/wishlist');
+    expect(resumableHref(['(tabs)'], '/', {})).toBeNull();
+    expect(resumableHref(['(auth)', 'sign-in'], '/sign-in', {})).toBeNull();
+    expect(resumableHref(['legal', '[key]'], '/legal/terms', { key: 'terms' })).toBeNull();
+    expect(
+      resumableHref(['messages', '[id]'], '/messages/m1', { id: 'm1', view: ['a', 'b'] })
+    ).toBe('/messages/m1?view=a');
   });
 });

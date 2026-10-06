@@ -6,7 +6,8 @@ import {
 import * as Crypto from 'expo-crypto';
 import type { Middleware } from 'openapi-fetch';
 
-import { getIdToken } from '@/src/auth/tokenProvider';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { getIdToken, isSignedIn } from '@/src/auth/tokenProvider';
 import { appConfig } from '@/src/config/env';
 
 import { ApiError, REAUTHENTICATION_REQUIRED_CODE } from './ApiError';
@@ -18,7 +19,11 @@ const AUTHORIZATION = 'Authorization';
 
 export const API_BASE_URL = appConfig.apiBaseUrl;
 
-function newRequestId(): string {
+/**
+ * A fresh UUID: the `X-Request-Id` of every call, and the `Idempotency-Key` a form keeps for
+ * its lifetime (a double submit or a retry after a lost answer repeats the first answer).
+ */
+export function newRequestId(): string {
   try {
     return Crypto.randomUUID();
   } catch {
@@ -141,9 +146,24 @@ export function createAuthMiddleware(
 }
 
 /**
- * Turns every non-2xx response and every transport failure into an `ApiError`, and records the
+ * A 401 for a request made while a Firebase user is signed in, after the auth middleware already
+ * retried with a force-refreshed token (or could not get one at all): the session itself ended
+ * (account deleted from Auth, revoked refresh token). `401 REAUTHENTICATION_REQUIRED` only asks
+ * for the password again and never ends the session.
+ */
+export function endsSession(error: ApiError, requestUrl: string, signedIn: boolean): boolean {
+  return (
+    signedIn &&
+    error.status === 401 &&
+    !error.isReauthenticationRequired &&
+    sendsIdToken(requestUrl)
+  );
+}
+
+/**
+ * Turns every non-2xx response and every transport failure into an `ApiError`, records the
  * account-state answers (428 consent required, 403 suspended / deletion pending) in the account
- * signal store.
+ * signal store, and reports a session that ended (see {@link endsSession}).
  */
 export const errorMiddleware: Middleware = {
   async onResponse({ request, response }) {
@@ -158,6 +178,9 @@ export const errorMiddleware: Middleware = {
       body,
       request.headers.get(REQUEST_ID_HEADER)
     );
+    if (endsSession(error, request.url, isSignedIn())) {
+      useSessionNotice.getState().reportEnded();
+    }
     reportAccountSignal(error, request.url);
     throw error;
   },

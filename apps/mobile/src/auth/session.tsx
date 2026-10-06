@@ -14,8 +14,9 @@ import { clearAccountSignal } from '@/src/api/accountSignal';
 
 import { AuthError } from './authErrors';
 import { firebaseAuthPort, type AuthPort, type AuthUser } from './authPort';
+import { useSessionNotice } from './sessionNotice';
 import { initialSessionState, sessionReducer, type SessionStatus } from './sessionReducer';
-import { setIdTokenProvider } from './tokenProvider';
+import { setIdTokenProvider, setSignedIn } from './tokenProvider';
 
 export type { AuthUser, SessionStatus };
 
@@ -99,9 +100,29 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
     return () => setIdTokenProvider(null);
   }, [port]);
 
+  // The API client tells whether a 401 means the session itself ended.
+  const authenticated = state.status === 'authenticated';
+  useEffect(() => {
+    setSignedIn(authenticated);
+    return () => setSignedIn(false);
+  }, [authenticated]);
+
+  // The session ended on its own (the Auth account is gone, the API refuses every token): sign
+  // out so the gate routes to sign-in, which explains it, instead of leaving every screen on
+  // "Your session has ended".
+  const sessionEnded = useSessionNotice((store) => store.ended);
+  useEffect(() => {
+    if (!sessionEnded || !authenticated) {
+      return;
+    }
+    port.signOut().catch(() => undefined);
+    dispatch({ type: 'auth-state-changed', user: null });
+  }, [authenticated, port, sessionEnded]);
+
   const signIn = useCallback(
     async (email: string, password: string) => {
       const user = await port.signIn(email.trim(), password);
+      useSessionNotice.getState().clear();
       dispatch({ type: 'auth-state-changed', user });
       return user;
     },
@@ -111,6 +132,7 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
   const signUp = useCallback(
     async (email: string, password: string, displayName?: string) => {
       let user = await port.signUp(email.trim(), password);
+      useSessionNotice.getState().clear();
       dispatch({ type: 'auth-state-changed', user });
       const name = displayName?.trim();
       if (name) {

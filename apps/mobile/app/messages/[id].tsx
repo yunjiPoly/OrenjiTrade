@@ -1,101 +1,263 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
-import { isApiError } from '@/src/api/ApiError';
-import { friendlyError } from '@/src/api/errorMessages';
+import { isApiError, type ApiError } from '@/src/api/ApiError';
+import { friendlyMessage } from '@/src/api/errorMessages';
+import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
+import { useRatingEligibility } from '@/src/api/hooks/ratings';
 import {
-  MESSAGE_MAX_LENGTH,
+  removeFromInbox,
+  restoreToInbox,
   useConversation,
   useMarkConversationRead,
   useMessages,
   useSendMessage,
+  useUpdateConversation,
 } from '@/src/api/hooks/messaging';
-import type { MessageResponse } from '@/src/api/types';
-import { Avatar } from '@/src/components/ui/Avatar';
+import { useUid } from '@/src/api/hooks/useUid';
+import type { ConversationParticipant, ConversationSummary } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
+import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { FormMessage } from '@/src/components/ui/FormControls';
-import { ListFooter } from '@/src/components/ui/ListFooter';
-import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { TextField } from '@/src/components/ui/TextField';
+import { Skeleton } from '@/src/components/ui/Skeleton';
+import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { rateableInteractions } from '@/src/features/collectors/ratingLabels';
+import { threadMessages } from '@/src/features/messages/conversationCache';
+import { MessageComposer } from '@/src/features/messages/MessageComposer';
+import {
+  draftProblem,
+  sendErrorMessage,
+  type MessageDraft,
+} from '@/src/features/messages/messageDraft';
+import {
+  ThreadHeader,
+  ThreadMenuButton,
+  type ThreadMenuAction,
+} from '@/src/features/messages/ThreadHeader';
+import {
+  useOtherTyping,
+  useSendTyping,
+  useThreadVisible,
+} from '@/src/features/messages/threadHooks';
+import { ThreadMessageList } from '@/src/features/messages/ThreadMessageList';
+import { ratingParams } from '@/src/features/ratings/ratingRoutes';
+import { reportParams } from '@/src/features/reports/reportLabels';
 import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
-import { relativeTime } from '@/src/lib/relativeTime';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { spacing, textStyle, useTheme } from '@/src/theme';
+
+/** Header-less fallback while the conversation summary cannot be read. */
+const UNKNOWN_PARTICIPANT: ConversationParticipant = {
+  id: '',
+  handle: '',
+  displayName: 'this collector',
+  onlineStatus: 'HIDDEN',
+};
 
 /**
- * A conversation with another collector (the web's `/messages/:id` thread, minimal for now: the
- * mobile Messages stage adds the inbox, realtime, photos and links): the messages, newest at the
- * bottom with older pages on scroll, a text composer, read markers. Opened from "Message" on the
- * map preview or a profile (`POST /conversations`). Refusals (403 `MESSAGING_BLOCKED`, 422
- * `MESSAGE_BLOCKED`, 429) are explained under the composer.
+ * One conversation (the web's `/messages/:id` thread view): the header with the conversation
+ * options (mute, archive, rate the collector when an interaction can still be rated, block /
+ * unblock with confirmation, report the collector), the history (day separators, links to cards,
+ * binders and offers, photos, "Sent" / "Seen", "… is typing", older pages on scroll) and the
+ * composer (text, card, binder or offer link, photo). Live over realtime; the newest message is
+ * marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
+ * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer.
  */
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const conversationId = id ?? '';
   const { palette } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const snackbar = useSnackbar();
+  const queryClient = useQueryClient();
+  const uid = useUid();
   const { ref: rootRef, overlap: keyboardOverlap, onLayout: onRootLayout } = useKeyboardOverlap();
   const selfId = useAccount().me?.id ?? null;
   const conversation = useConversation(id);
   const messages = useMessages(id);
-  const send = useSendMessage(id ?? '');
-  const markRead = useMarkConversationRead(id ?? '');
-  const [text, setText] = useState('');
+  const send = useSendMessage(conversationId, selfId);
+  const markRead = useMarkConversationRead(conversationId);
+  const update = useUpdateConversation();
+  const block = useBlockUser();
+  const unblock = useUnblockUser();
+  const visible = useThreadVisible(id ?? null);
+  const typing = useOtherTyping(id ?? null, selfId);
+  const sendTyping = useSendTyping(id ?? null);
   const [sendError, setSendError] = useState<string | null>(null);
-  const other = conversation.data?.other ?? null;
+  const [messagingBlocked, setMessagingBlocked] = useState(false);
+  const [blockedByMe, setBlockedByMe] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const summary = conversation.data ?? null;
+  const other = summary?.other ?? null;
+  // "Rate …" is offered silently: nothing without an answer (the API refuses anyway).
+  const eligibility = useRatingEligibility(other?.id);
+  const canRate = rateableInteractions(eligibility.data).length > 0;
+  const all = useMemo(() => threadMessages(messages.data), [messages.data]);
+  const unavailable =
+    !messages.data && (messages.error?.status === 404 || messages.error?.status === 403);
 
-  const items = useMemo(
-    () => messages.data?.pages.flatMap((page) => page.items ?? []) ?? [],
-    [messages.data]
-  );
-
-  // Read marker: the newest message of the other collector, once.
+  // Read marker: the newest message, while the thread is on screen (web: `ThreadStore.markRead`).
   const lastMarked = useRef<string | null>(null);
   const markReadMutate = markRead.mutate;
+  const unreadCount = summary?.unreadCount ?? 0;
   useEffect(() => {
-    const newest = items.find((message) => message.senderId && message.senderId !== selfId);
-    if (newest && newest.id !== lastMarked.current) {
-      lastMarked.current = newest.id;
-      markReadMutate({ lastReadMessageId: newest.id });
-    }
-  }, [items, selfId, markReadMutate]);
-
-  const body = text.trim();
-  const submit = async () => {
-    if (!body || send.isPending) {
+    const newest = all.at(-1);
+    if (!visible || !newest || newest.id === lastMarked.current) {
       return;
+    }
+    const fromOther = !!newest.senderId && newest.senderId !== selfId;
+    if (!fromOther && unreadCount === 0) {
+      return;
+    }
+    lastMarked.current = newest.id;
+    markReadMutate(
+      { lastReadMessageId: newest.id },
+      {
+        onError: () => {
+          lastMarked.current = null;
+        },
+      }
+    );
+  }, [all, markReadMutate, selfId, unreadCount, visible]);
+
+  const onSend = async (draft: MessageDraft): Promise<boolean> => {
+    const problem = draftProblem(draft);
+    if (problem) {
+      setSendError(problem);
+      return false;
     }
     setSendError(null);
     try {
-      await send.mutateAsync({ body });
-      setText('');
+      await send.mutateAsync(draft);
+      return true;
     } catch (error) {
-      const friendly = isApiError(error)
-        ? friendlyError(error)
-        : { title: 'Message not sent', message: 'Please try again.' };
-      setSendError(`${friendly.title}. ${friendly.message}`);
+      const apiError = isApiError(error) ? error : null;
+      if (apiError?.errorCode === 'MESSAGING_BLOCKED') {
+        setMessagingBlocked(true);
+      }
+      setSendError(apiError ? sendErrorMessage(apiError) : 'Message not sent. Please try again.');
+      return false;
     }
   };
 
-  let content;
+  const changeConversation = async (
+    target: ConversationSummary,
+    changes: { muted?: boolean; archived?: boolean },
+    confirmation: string
+  ): Promise<boolean> => {
+    try {
+      await update.mutateAsync({ id: target.id, changes });
+      snackbar.show(confirmation);
+      return true;
+    } catch (error) {
+      snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
+      return false;
+    }
+  };
+
+  const onAction = async (action: ThreadMenuAction) => {
+    setMenuOpen(false);
+    if (!summary) {
+      return;
+    }
+    const name = summary.other.displayName;
+    switch (action) {
+      case 'mute':
+      case 'unmute':
+        await changeConversation(
+          summary,
+          { muted: action === 'mute' },
+          action === 'mute' ? 'Conversation muted.' : 'Conversation unmuted.'
+        );
+        break;
+      case 'archive':
+        if (
+          await changeConversation(
+            summary,
+            { archived: true },
+            'Conversation archived. A new message brings it back.'
+          )
+        ) {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/messages');
+          }
+        }
+        break;
+      case 'block':
+        setConfirmBlock(true);
+        break;
+      case 'report':
+        router.push({
+          pathname: '/report',
+          params: reportParams(summary.other, {
+            source: 'CONVERSATION',
+            conversationId: summary.id,
+          }),
+        });
+        break;
+      case 'rate':
+        router.push({ pathname: '/ratings/rate', params: ratingParams(summary.other) });
+        break;
+      case 'unblock':
+        try {
+          await unblock.mutateAsync({ id: summary.other.id });
+          snackbar.show(`${name} is unblocked.`);
+          setBlockedByMe(false);
+          setMessagingBlocked(false);
+          setSendError(null);
+          restoreToInbox(queryClient, uid, summary);
+          void messages.refetch();
+        } catch (error) {
+          snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
+        }
+        break;
+    }
+  };
+
+  const confirmBlocking = async () => {
+    if (!summary) {
+      return;
+    }
+    try {
+      await block.mutateAsync({ id: summary.other.id });
+      setConfirmBlock(false);
+      snackbar.show(`${summary.other.displayName} is blocked.`);
+      setBlockedByMe(true);
+      setMessagingBlocked(true);
+      removeFromInbox(queryClient, uid, summary.id);
+    } catch (error) {
+      setConfirmBlock(false);
+      snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
+    }
+  };
+
+  const cannotSend = blockedByMe || messagingBlocked || unavailable;
+  const name = other?.displayName ?? 'this collector';
+
+  let body;
   if (!messages.data) {
-    if (messages.error?.status === 404 || messages.error?.status === 403) {
-      content = (
+    if (unavailable) {
+      body = (
         <EmptyState
           testID="conversation-not-found"
           icon="message-off-outline"
           title="This conversation is not available"
-          description="It does not exist, or a block now hides it."
-          actionLabel="Back to the map"
-          onAction={() => router.navigate('/')}
+          description="It may be hidden because of a block, or the collector left OrenjiTrade."
+          actionLabel="Back to messages"
+          onAction={() => router.navigate('/messages')}
         />
       );
     } else if (messages.error) {
-      content = (
+      body = (
         <ErrorState
           testID="conversation-error"
           error={messages.error}
@@ -104,42 +266,40 @@ export default function ConversationScreen() {
         />
       );
     } else {
-      content = (
-        <View style={styles.padded}>
-          <SkeletonList rows={4} rowHeight={48} testID="conversation-loading" />
+      body = (
+        <View
+          style={styles.skeleton}
+          testID="conversation-loading"
+          accessibilityLabel="Loading messages"
+          aria-busy
+        >
+          <Skeleton width="55%" height={40} />
+          <Skeleton width="45%" height={40} style={styles.ownSkeleton} />
+          <Skeleton width="62%" height={56} />
+          <Skeleton width="38%" height={40} style={styles.ownSkeleton} />
         </View>
       );
     }
+  } else if (all.length === 0) {
+    body = (
+      <EmptyState
+        testID="conversation-empty"
+        icon="hand-wave-outline"
+        title={`Say hello to ${name}`}
+        description="Ask about a card, share one from the catalog or one of your public binders. Meetup details always stay private between the two of you."
+      />
+    );
   } else {
-    content = (
-      <FlatList
-        testID="conversation-messages"
-        inverted={items.length > 0}
-        data={items}
-        keyExtractor={(message) => message.id}
-        renderItem={({ item }) => <Bubble message={item} mine={item.senderId === selfId} />}
-        contentContainerStyle={styles.messages}
-        onEndReached={() => {
-          if (messages.hasNextPage && !messages.isFetchingNextPage) {
-            void messages.fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={
-          <ListFooter
-            loading={messages.isFetchingNextPage}
-            failed={messages.isFetchNextPageError}
-            onRetry={() => void messages.fetchNextPage()}
-          />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            testID="conversation-empty"
-            icon="message-text-outline"
-            title="No messages yet"
-            description={`Say hello${other ? ` to ${other.displayName}` : ''}. Meetup details always stay private between the two of you.`}
-          />
-        }
+    body = (
+      <ThreadMessageList
+        messages={all}
+        other={other ?? UNKNOWN_PARTICIPANT}
+        selfId={selfId}
+        hasOlder={!!messages.hasNextPage}
+        loadingOlder={messages.isFetchingNextPage}
+        olderFailed={messages.isFetchNextPageError}
+        typing={typing}
+        onLoadOlder={() => void messages.fetchNextPage()}
       />
     );
   }
@@ -151,29 +311,60 @@ export default function ConversationScreen() {
       testID="screen-conversation"
       style={[styles.fill, { backgroundColor: palette.background }]}
     >
-      <Stack.Screen options={{ title: other?.displayName ?? 'Conversation' }} />
-      {other ? (
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={`View the profile of ${other.displayName}`}
-          onPress={() =>
-            router.push({ pathname: '/collectors/[id]', params: { id: other.handle } })
+      <Stack.Screen
+        options={{
+          title: other?.displayName ?? 'Conversation',
+          headerRight: other
+            ? () => <ThreadMenuButton name={other.displayName} onPress={() => setMenuOpen(true)} />
+            : undefined,
+        }}
+      />
+      {summary ? (
+        <ThreadHeader
+          conversation={summary}
+          typing={typing}
+          blocked={blockedByMe}
+          canRate={canRate}
+          menuOpen={menuOpen}
+          onCloseMenu={() => setMenuOpen(false)}
+          onProfile={() =>
+            router.push({ pathname: '/collectors/[id]', params: { id: summary.other.handle } })
           }
-          testID="conversation-profile"
-          style={[styles.header, { borderBottomColor: palette.border }]}
-        >
-          <Avatar src={other.avatarUrl} name={other.displayName} size={36} />
-          <View style={styles.grow}>
-            <Text style={[textStyle('md'), styles.strong, { color: palette.ink }]}>
-              {other.displayName}
-            </Text>
-            <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-              @{other.handle} · View profile
-            </Text>
-          </View>
-        </Pressable>
+          onAction={(action) => void onAction(action)}
+        />
       ) : null}
-      <View style={styles.fill}>{content}</View>
+      {blockedByMe ? (
+        <View
+          testID="conversation-blocked-banner"
+          accessibilityRole="summary"
+          style={[styles.banner, { backgroundColor: palette.primaryContainer }]}
+        >
+          <MaterialCommunityIcons name="cancel" size={20} color={palette.onPrimaryContainer} />
+          <Text style={[textStyle('sm'), styles.grow, { color: palette.onPrimaryContainer }]}>
+            You blocked {name}. Neither of you can send messages and this conversation is hidden
+            from your inbox.
+          </Text>
+          <Button
+            label="Unblock"
+            variant="ghost"
+            onPress={() => void onAction('unblock')}
+            loading={unblock.isPending}
+            testID="conversation-banner-unblock"
+          />
+        </View>
+      ) : messagingBlocked ? (
+        <View
+          testID="conversation-cannot-message"
+          accessibilityRole="summary"
+          style={[styles.banner, { backgroundColor: palette.surfaceVariant }]}
+        >
+          <MaterialCommunityIcons name="message-off-outline" size={20} color={palette.textMuted} />
+          <Text style={[textStyle('sm'), styles.grow, { color: palette.ink }]}>
+            You can no longer message {name}.
+          </Text>
+        </View>
+      ) : null}
+      <View style={styles.fill}>{body}</View>
       <View
         style={[
           styles.composer,
@@ -184,126 +375,48 @@ export default function ConversationScreen() {
           },
         ]}
       >
-        {sendError ? (
-          <FormMessage tone="error" testID="conversation-send-error">
-            {sendError}
-          </FormMessage>
-        ) : null}
-        <View style={styles.composerRow}>
-          <TextField
-            label="Message"
-            value={text}
-            onChangeText={(value) => {
-              setText(value);
-              setSendError(null);
-            }}
-            multiline
-            maxLength={MESSAGE_MAX_LENGTH}
-            containerStyle={styles.grow}
-            testID="conversation-input"
-          />
-          <Button
-            label="Send"
-            icon="send"
-            onPress={() => void submit()}
-            disabled={!body || !messages.data}
-            loading={send.isPending}
-            loadingLabel="Sending…"
-            testID="conversation-send"
-          />
-        </View>
+        <MessageComposer
+          busy={send.isPending}
+          disabled={cannotSend || !messages.data}
+          error={sendError}
+          placeholder={cannotSend ? `You cannot message ${name}` : `Message ${name}`}
+          onSend={onSend}
+          onTyping={sendTyping}
+          onDismissError={() => setSendError(null)}
+          otherId={other?.id ?? null}
+          otherName={name}
+        />
       </View>
+      <ConfirmDialog
+        visible={confirmBlock}
+        title={`Block ${name}?`}
+        message="You will stop seeing each other on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this conversation."
+        confirmLabel="Block"
+        tone="danger"
+        busy={block.isPending}
+        onConfirm={() => void confirmBlocking()}
+        onCancel={() => setConfirmBlock(false)}
+        testID="block-dialog"
+      />
     </View>
-  );
-}
-
-function Bubble({ message, mine }: { message: MessageResponse; mine: boolean }) {
-  const { palette } = useTheme();
-  const router = useRouter();
-  const card = message.payload?.card;
-  const binder = message.payload?.binder;
-  let text = message.body;
-  let onPress: (() => void) | undefined;
-  if (message.moderationState === 'REMOVED') {
-    text = 'This message was removed.';
-  } else if (message.kind === 'CARD_LINK' && card) {
-    text = `Card: ${card.name}${card.printingCode ? ` (${card.printingCode})` : ''}${message.body ? `\n${message.body}` : ''}`;
-    onPress = () => router.push({ pathname: '/cards/[id]', params: { id: card.cardId } });
-  } else if (message.kind === 'BINDER_LINK' && binder) {
-    text = `Binder: ${binder.name}${message.body ? `\n${message.body}` : ''}`;
-    onPress = () => router.push({ pathname: '/binders/[id]', params: { id: binder.id } });
-  } else if (message.kind === 'IMAGE') {
-    text = `Photo${message.body ? `: ${message.body}` : ''} (open it on the website for now)`;
-  } else if (message.kind === 'OFFER_LINK') {
-    text = `Offer${message.body ? `: ${message.body}` : ''}`;
-  }
-  if (message.kind === 'SYSTEM') {
-    return (
-      <Text style={[textStyle('xs'), styles.system, { color: palette.textMuted }]}>{text}</Text>
-    );
-  }
-  const bubble = (
-    <View
-      testID={`message-${message.id}`}
-      style={[
-        styles.bubble,
-        mine
-          ? { alignSelf: 'flex-end', backgroundColor: palette.primaryContainer }
-          : { alignSelf: 'flex-start', backgroundColor: palette.surfaceVariant },
-      ]}
-    >
-      <Text
-        style={[
-          textStyle('md'),
-          { color: mine ? palette.onPrimaryContainer : palette.ink },
-          onPress ? styles.link : null,
-        ]}
-      >
-        {text}
-      </Text>
-      <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-        {relativeTime(message.createdAt)}
-        {mine ? (message.readByOther ? ' · Seen' : ' · Sent') : ''}
-      </Text>
-    </View>
-  );
-  return onPress ? (
-    <Pressable accessibilityRole="link" onPress={onPress}>
-      {bubble}
-    </Pressable>
-  ) : (
-    bubble
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   grow: { flex: 1 },
-  strong: { fontWeight: fontWeight.semibold },
-  padded: { padding: spacing[4] },
-  header: {
+  skeleton: { padding: spacing[4], gap: spacing[3] },
+  ownSkeleton: { alignSelf: 'flex-end' },
+  banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  messages: { padding: spacing[4], gap: spacing[2], flexGrow: 1 },
-  bubble: {
-    maxWidth: '85%',
-    borderRadius: radius.lg,
+    gap: spacing[2],
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
-    gap: 2,
   },
-  link: { textDecorationLine: 'underline' },
-  system: { textAlign: 'center', fontStyle: 'italic' },
   composer: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing[3],
     paddingTop: spacing[2],
-    gap: spacing[2],
   },
-  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
 });

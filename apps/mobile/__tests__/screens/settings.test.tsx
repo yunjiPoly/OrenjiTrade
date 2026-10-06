@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('Settings home', () => {
-  it('lists the Phase 1 sections and signs out', async () => {
+  it('lists the sections (Phase 1, offers, my reports) and signs out', async () => {
     const port = new FakeAuthPort(testUser());
     mockApi(signedInRoutes());
     renderWithProviders(<SettingsScreen />, { port });
@@ -52,6 +52,8 @@ describe('Settings home', () => {
       'Location and discoverability',
       'Privacy',
       'Notifications',
+      'Offers',
+      'My reports',
       'Account',
       'Appearance',
       'Legal',
@@ -60,6 +62,8 @@ describe('Settings home', () => {
     }
     fireEvent.press(screen.getByRole('link', { name: 'Notifications' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
+    fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
     fireEvent.press(screen.getByTestId('settings-sign-out'));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });

@@ -38,6 +38,24 @@ export default function ProfileScreen() {
 
       <SectionCard style={styles.section}>
         <ListRow
+          icon="tag-outline"
+          label="Offers"
+          detail="Offers on your cards and the ones you made"
+          onPress={() => router.push('/offers')}
+          testID="profile-offers"
+        />
+        <Divider />
+        <ListRow
+          icon="swap-horizontal-bold"
+          label="Trades"
+          detail="Deals you agreed on: meet, exchange, confirm"
+          onPress={() => router.push('/trades')}
+          testID="profile-trades"
+        />
+      </SectionCard>
+
+      <SectionCard style={styles.section}>
+        <ListRow
           icon="cog-outline"
           label="Settings"
           onPress={() => router.push('/settings')}

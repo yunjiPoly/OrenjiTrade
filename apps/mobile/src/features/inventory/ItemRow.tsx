@@ -27,6 +27,9 @@ export interface ItemRowProps {
   onPress?: (item: Item) => void;
   /** A trailing action (e.g. "Remove from binder"). */
   action?: ReactNode;
+  /** A full-width action under the card (e.g. "Make an offer" on public cards; it sets its own
+   * margins, so a footer that renders nothing leaves no gap). */
+  footer?: ReactNode;
   testID?: string;
 }
 
@@ -35,7 +38,13 @@ export interface ItemRowProps {
  * asking price, the trade / sale intent and "accepts offers". The owner also sees visibility
  * and freshness (stale and hidden listings stand out); public rows show the public notes.
  */
-export const ItemRow = memo(function ItemRow({ item, onPress, action, testID }: ItemRowProps) {
+export const ItemRow = memo(function ItemRow({
+  item,
+  onPress,
+  action,
+  footer,
+  testID,
+}: ItemRowProps) {
   const { palette } = useTheme();
   const own = isOwnItem(item);
   const name = item.card.name;
@@ -107,25 +116,28 @@ export const ItemRow = memo(function ItemRow({ item, onPress, action, testID }: 
 
   return (
     <View
-      style={[styles.row, { backgroundColor: palette.surface, borderColor: palette.border }]}
+      style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
       testID={testID ?? `item-${item.id}`}
     >
-      {onPress ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={summary}
-          accessibilityHint="Opens the card to edit it"
-          onPress={() => onPress(item)}
-          style={({ pressed }) => [styles.main, pressed && styles.pressed]}
-        >
-          {content}
-        </Pressable>
-      ) : (
-        <View accessible accessibilityLabel={summary} style={styles.main}>
-          {content}
-        </View>
-      )}
-      {action}
+      <View style={styles.row}>
+        {onPress ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={summary}
+            accessibilityHint="Opens the card to edit it"
+            onPress={() => onPress(item)}
+            style={({ pressed }) => [styles.main, pressed && styles.pressed]}
+          >
+            {content}
+          </Pressable>
+        ) : (
+          <View accessible accessibilityLabel={summary} style={styles.main}>
+            {content}
+          </View>
+        )}
+        {action}
+      </View>
+      {footer}
     </View>
   );
 });
@@ -150,11 +162,10 @@ function Tag({
 }
 
 const styles = StyleSheet.create({
+  card: { borderRadius: radius.md, borderWidth: 1 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
     paddingRight: spacing[1],
   },
   main: {

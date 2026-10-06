@@ -132,6 +132,7 @@ export interface RadioGroupProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  /** Group id; each option is `<testID>-<value>`. */
   testID?: string;
 }
 
@@ -163,6 +164,7 @@ export function RadioGroup<T extends string>({
             aria-disabled={disabled}
             disabled={disabled}
             onPress={() => onChange(option.value)}
+            testID={testID ? `${testID}-${option.value}` : undefined}
             style={({ pressed }) => [styles.radioRow, pressed && styles.pressed]}
           >
             <View

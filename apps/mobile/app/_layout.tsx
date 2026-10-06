@@ -11,6 +11,8 @@ import { SessionProvider } from '@/src/auth/session';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
 import { SnackbarProvider } from '@/src/components/ui/Snackbar';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
+import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
+import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 
 export {
@@ -36,12 +38,15 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
           <AccountProvider>
-            <ThemeProvider>
-              <SnackbarProvider>
-                <OfflineBanner />
-                <RootNavigator />
-              </SnackbarProvider>
-            </ThemeProvider>
+            <RealtimeProvider>
+              <RealtimeCacheSync />
+              <ThemeProvider>
+                <SnackbarProvider>
+                  <OfflineBanner />
+                  <RootNavigator />
+                </SnackbarProvider>
+              </ThemeProvider>
+            </RealtimeProvider>
           </AccountProvider>
         </SessionProvider>
       </QueryClientProvider>
