@@ -4,6 +4,7 @@ import type { CollectorMarker, NearbyCollectorsResponse } from '@/src/api/types'
 import { Avatar } from '@/src/components/ui/Avatar';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { formatMoney } from '@/src/lib/catalog';
 import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -26,6 +27,8 @@ export interface CollectorListProps {
   onSelect: (handle: string) => void;
   emptyTitle: string;
   onClearFilters?: () => void;
+  /** Game filter of the map (targets the sponsored placement). */
+  game?: string | null;
 }
 
 /**
@@ -43,6 +46,7 @@ export function CollectorList({
   onSelect,
   emptyTitle,
   onClearFilters,
+  game = null,
 }: CollectorListProps) {
   const { palette } = useTheme();
   if (!result) {
@@ -76,6 +80,14 @@ export function CollectorList({
           onPress={() => onSelect(item.handle)}
         />
       )}
+      ListHeaderComponent={
+        <SponsoredSlot
+          placement="MAP_PANEL"
+          game={game}
+          variant="compact"
+          style={styles.sponsored}
+        />
+      }
       ListEmptyComponent={
         <MapEmptyNotice title={emptyTitle} onClearFilters={onClearFilters} inline />
       }
@@ -162,6 +174,7 @@ function CollectorRow({
 }
 
 const styles = StyleSheet.create({
+  sponsored: { marginBottom: spacing[2] },
   padded: { padding: spacing[4], paddingBottom: spacing[16] },
   row: {
     flexDirection: 'row',

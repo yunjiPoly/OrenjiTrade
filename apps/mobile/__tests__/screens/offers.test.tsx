@@ -183,6 +183,44 @@ describe('Make an offer', () => {
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Offer sent to Noé Verdun.');
   });
 
+  it('asks for payment protection on a cash offer while the flag is on', async () => {
+    useOfferTargets.getState().put(TARGET);
+    mockParams.current = { item: ITEM.id };
+    const api = mockApi(
+      routes({
+        'GET /api/v1/public/feature-flags': ok({ protectedPayments: true }),
+        'POST /api/v1/offers': ok(offerFixture({ protectionRequested: true }), 201),
+      })
+    );
+    renderWithProviders(<NewOfferScreen />, { port: port() });
+    expect(await screen.findByTestId('protection-option')).toHaveTextContent(
+      /Noé Verdun is paid only once you confirm it arrived/
+    );
+    fireEvent.press(screen.getByTestId('offer-protection'));
+    fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
+    expect(screen.getByTestId('offer-summary')).toHaveTextContent(/with payment protection/);
+    // A trade offer has no cash part: no protection.
+    fireEvent.press(screen.getByTestId('offer-kind-TRADE'));
+    expect(screen.queryByTestId('protection-option')).not.toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('offer-kind-CASH'));
+    fireEvent.press(screen.getByTestId('offer-submit'));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/offers')).toHaveLength(1));
+    expect(api.callsTo('POST /api/v1/offers')[0]?.body).toMatchObject({
+      kind: 'CASH',
+      cashAmount: 40,
+      protectionRequested: true,
+    });
+  });
+
+  it('offers no payment protection while the flag is off', async () => {
+    useOfferTargets.getState().put(TARGET);
+    mockParams.current = { item: ITEM.id };
+    mockApi(routes({ 'GET /api/v1/public/feature-flags': ok({ protectedPayments: false }) }));
+    renderWithProviders(<NewOfferScreen />, { port: port() });
+    expect(await screen.findByTestId('offer-amount')).toBeOnTheScreen();
+    await waitFor(() => expect(screen.queryByTestId('protection-option')).not.toBeOnTheScreen());
+  });
+
   it('picks cards of the caller for a trade offer', async () => {
     useOfferTargets.getState().put({ ...TARGET, availability: 'TRADE' });
     mockParams.current = { item: ITEM.id };

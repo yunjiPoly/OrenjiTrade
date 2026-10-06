@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
+import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
 import { MAP_PRIVACY_NOTE } from '@/src/lib/approximateArea';
 import { CITY_PRESETS, type CityPreset } from '@/src/lib/location';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -191,6 +192,7 @@ export function RadiusLimitNotice({ radiusKm }: { radiusKm: number }) {
       <Text style={[textStyle('sm'), { color: palette.ink }]}>
         Your plan shows collectors up to {radiusKm} km away. Premium raises it.
       </Text>
+      <SeePremiumButton testID="map-limit-premium" style={styles.action} />
     </NoticeCard>
   );
 }

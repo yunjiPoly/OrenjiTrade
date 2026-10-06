@@ -84,7 +84,7 @@ describe('Notification centre', () => {
     expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1);
   });
 
-  it('opens offers, trades, reports and ratings, explains disputes, and marks one read in place', async () => {
+  it('opens offers, trades, reports, ratings and disputes, and marks one read in place', async () => {
     const trade = notificationFixture({
       id: 'n-trade',
       type: 'TRADE_UPDATE',
@@ -138,12 +138,8 @@ describe('Notification centre', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
     fireEvent.press(screen.getByTestId(`notification-${rating.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/collectors/maika?tab=ratings');
-    mockRouter.push.mockClear();
     fireEvent.press(screen.getByTestId(`notification-${dispute.id}`));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      /Disputes open in a later version of the app/
-    );
-    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith('/disputes/d1');
     fireEvent.press(screen.getByTestId(`notification-read-${match.id}`));
     await waitFor(() => expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0));
   });

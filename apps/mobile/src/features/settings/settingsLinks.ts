@@ -7,6 +7,8 @@ export interface SettingsLink {
   label: string;
   detail: string;
   icon: IconName;
+  /** Shown only while this feature flag is on (web: `SETTINGS_LINKS.feature`). */
+  feature?: string;
 }
 
 /** Phase 1 sections (web: `SETTINGS_LINKS`); later phases append theirs. */
@@ -40,6 +42,13 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     label: 'Offers',
     detail: 'Which offers collectors can make on your cards',
     icon: 'tag-outline',
+  },
+  {
+    href: '/settings/payouts',
+    label: 'Payouts',
+    detail: 'Where the money of your protected sales goes',
+    icon: 'bank-outline',
+    feature: 'protectedPayments',
   },
   {
     href: '/settings/reports',

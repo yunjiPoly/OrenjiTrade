@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
+import { FEATURE, useFeatureFlags } from '@/src/api/hooks/featureFlags';
 import { useMyLocation } from '@/src/api/hooks/location';
 import { useMyProfile } from '@/src/api/hooks/profile';
 import type { MyLocationResponse, MyProfileResponse } from '@/src/api/types';
@@ -24,6 +25,8 @@ export default function ProfileScreen() {
   const location = useMyLocation();
   const router = useRouter();
   const session = useSession();
+  // Premium, credits and donations follow their flags (web: the account menu).
+  const flags = useFeatureFlags();
 
   return (
     <Screen scroll testID="screen-profile">
@@ -52,6 +55,42 @@ export default function ProfileScreen() {
           onPress={() => router.push('/trades')}
           testID="profile-trades"
         />
+        {flags.data?.[FEATURE.premiumPlans] === true ? (
+          <>
+            <Divider />
+            <ListRow
+              icon="crown-outline"
+              label="Premium"
+              detail="Plans, your subscription and your usage"
+              onPress={() => router.push('/premium')}
+              testID="profile-premium"
+            />
+          </>
+        ) : null}
+        {flags.data?.[FEATURE.credits] === true ? (
+          <>
+            <Divider />
+            <ListRow
+              icon="hand-coin-outline"
+              label="Credits"
+              detail="Your balance, unlocks for a day and referrals"
+              onPress={() => router.push('/credits')}
+              testID="profile-credits"
+            />
+          </>
+        ) : null}
+        {flags.data?.[FEATURE.donations] === true ? (
+          <>
+            <Divider />
+            <ListRow
+              icon="hand-heart-outline"
+              label="Support OrenjiTrade"
+              detail="A voluntary donation"
+              onPress={() => router.push('/support')}
+              testID="profile-support"
+            />
+          </>
+        ) : null}
       </SectionCard>
 
       <SectionCard style={styles.section}>

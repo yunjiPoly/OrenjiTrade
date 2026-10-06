@@ -61,6 +61,12 @@ const APP_ROOTS = new Set([
   'ratings',
   'offers',
   'trades',
+  // Phases 9 and 10: the local fake checkouts, disputes, Premium, credits and donations.
+  'checkout',
+  'disputes',
+  'premium',
+  'credits',
+  'support',
 ]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {

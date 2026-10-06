@@ -5,6 +5,8 @@ import type { ApiError } from '@/src/api/ApiError';
 import { limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
+import { SeePremiumButton } from './SeePremiumButton';
+
 export interface LimitReachedNoticeProps {
   error: ApiError;
   title?: string;
@@ -13,7 +15,8 @@ export interface LimitReachedNoticeProps {
 
 /**
  * Explains a reached freemium limit where it happened (429 `LIMIT_REACHED`): what is counted,
- * how much was used of the plan's allowance, and when it resets or how to get more.
+ * how much was used of the plan's allowance, when it resets or how to get more, and "See Premium"
+ * while premium plans are sold.
  */
 export function LimitReachedNotice({
   error,
@@ -49,6 +52,7 @@ export function LimitReachedNotice({
           <View style={[styles.fill, { width: `${percent}%`, backgroundColor: palette.warning }]} />
         </View>
       ) : null}
+      <SeePremiumButton testID={`${testID}-premium`} style={styles.premium} />
     </View>
   );
 }
@@ -59,4 +63,5 @@ const styles = StyleSheet.create({
   title: { fontWeight: fontWeight.semibold, flex: 1 },
   meter: { height: 6, borderRadius: radius.pill, overflow: 'hidden' },
   fill: { height: 6 },
+  premium: { alignSelf: 'flex-start' },
 });

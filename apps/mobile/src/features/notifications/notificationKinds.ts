@@ -141,12 +141,8 @@ export function notificationLink(
 /** Where a notification leads in the app, or why it cannot yet (a screen of a later stage). */
 export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'later'; note: string };
 
-const DISPUTES_LATER =
-  'Disputes open in a later version of the app. Use orenjitrade.com to follow this one for now.';
-const PLANS_LATER =
-  'Plans and Premium open in a later version of the app. Use orenjitrade.com for now.';
 const SETTINGS_LATER =
-  'This setting opens in a later version of the app. Use orenjitrade.com for now.';
+  'This setting is on orenjitrade.com only for now (blocked users are managed from a conversation).';
 
 /** Settings pages of the app, by their web path segment (`/settings/<segment>`). */
 const SETTINGS_PAGES: Record<string, string> = {
@@ -159,6 +155,7 @@ const SETTINGS_PAGES: Record<string, string> = {
   appearance: 'appearance',
   reports: 'reports',
   offers: 'offers',
+  payouts: 'payouts',
 };
 
 function route(href: string): NotificationTarget {
@@ -168,9 +165,9 @@ function route(href: string): NotificationTarget {
 /**
  * The mobile screen of a web path (the API's deep links are web paths): wishlist matches,
  * conversations, community channels, binders (`/inventory?binder=`), cards, collector profiles
- * (`?tab=ratings` scrolls to the ratings), offers, trades, legal pages and settings (My reports,
- * offer settings) map to their app screens; disputes, Premium, credits and the settings of later
- * stages explain where to go instead. Ids are validated again.
+ * (`?tab=ratings` scrolls to the ratings), offers, trades, disputes, Premium, credits, support,
+ * legal pages and settings (My reports, offer settings, payouts) map to their app screens; the
+ * web-only settings explain where to go instead. Ids are validated again.
  */
 export function mobileTarget(webPath: string): NotificationTarget {
   const [pathname = '', query = ''] = webPath.split('?');
@@ -216,11 +213,15 @@ export function mobileTarget(webPath: string): NotificationTarget {
     case 'trades':
       return route(id ? `/trades/${id}` : '/trades');
     case 'disputes':
-      return { kind: 'later', note: DISPUTES_LATER };
-    case 'premium':
+      return route(id ? `/disputes/${id}` : '/trades');
+    case 'premium': {
+      const checkout = params.get('checkout');
+      return route(checkout === 'success' ? '/premium?checkout=success' : '/premium');
+    }
     case 'credits':
+      return route('/credits');
     case 'support':
-      return { kind: 'later', note: PLANS_LATER };
+      return route('/support');
     default:
       return route('/notifications');
   }
