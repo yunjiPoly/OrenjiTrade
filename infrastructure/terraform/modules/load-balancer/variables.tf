@@ -48,6 +48,32 @@ variable "default_backend" {
   default     = "web"
 }
 
+variable "certificate_mode" {
+  description = "certificate_manager (Google-managed, DNS authorization; works behind the Cloudflare proxy), compute_managed (classic HTTP-validated managed certificate; hostnames must resolve directly to the LB) or self_managed (PEM supplied through self_managed_certificate, e.g. a Cloudflare Origin CA certificate)."
+  type        = string
+  default     = "certificate_manager"
+
+  validation {
+    condition     = contains(["certificate_manager", "compute_managed", "self_managed"], var.certificate_mode)
+    error_message = "certificate_mode must be certificate_manager, compute_managed or self_managed."
+  }
+}
+
+variable "self_managed_certificate" {
+  description = "PEM certificate chain + private key for certificate_mode = self_managed. Supply them through a git-ignored tfvars file or from Secret Manager data sources in the environment; never commit them."
+  type = object({
+    certificate_pem = string
+    private_key_pem = string
+  })
+  default   = null
+  sensitive = true
+
+  validation {
+    condition     = var.certificate_mode != "self_managed" || var.self_managed_certificate != null
+    error_message = "self_managed_certificate is required when certificate_mode is self_managed."
+  }
+}
+
 variable "enable_ipv6" {
   description = "Also reserve an IPv6 address and forwarding rules (Cloudflare can then use AAAA origins)."
   type        = bool
@@ -69,6 +95,12 @@ variable "extra_allowed_ranges" {
     condition     = length(var.extra_allowed_ranges) <= 10
     error_message = "extra_allowed_ranges supports at most 10 ranges."
   }
+}
+
+variable "labels" {
+  description = "Labels applied to Certificate Manager resources."
+  type        = map(string)
+  default     = {}
 }
 
 # Source of truth: https://www.cloudflare.com/ips-v4 and https://www.cloudflare.com/ips-v6

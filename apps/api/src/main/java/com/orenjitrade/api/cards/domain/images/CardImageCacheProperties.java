@@ -6,18 +6,30 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.util.unit.DataSize;
 
 /**
- * {@code orenji.card-images.cache.*}: the capped local card image cache (ADR 0015).
+ * {@code orenji.card-images.cache.*}: the capped card image cache (ADR 0015).
  *
- * <p>The cache never holds more than {@code maxMb} MiB of image files (final files, temporary
+ * <p>The cache never holds more than {@code maxMb} MiB of image data (stored renditions, temporary
  * download files and outstanding reservations together). {@code maxMb} comes from {@code
  * CARD_IMAGE_LOCAL_CACHE_MAX_MB} (default {@value #MAX_ALLOWED_MB} = 5 GB, owner decision
  * 2026-10-04: the whole Yu-Gi-Oh! catalog at 320 px, about 650 MB, fits with room for other games);
  * values above {@value #MAX_ALLOWED_MB} are refused at start-up (never silently lowered), smaller
  * values are allowed. Byte figures are {@code long}: 5 GB exceeds {@link Integer#MAX_VALUE}.
  *
+ * <p>Renditions are kept by an {@link com.orenjitrade.api.common.storage.ObjectStorage}: local
+ * files under {@code dir} (the default, one directory per database) or objects under {@code
+ * objectPrefix} of a bucket when the provider is {@code gcs} (Cloud Run wipes its local disk on
+ * every restart). Temporary download files always live under {@code dir}.
+ *
  * @param maxMb capacity in MiB (1 to {@value #MAX_ALLOWED_MB})
  * @param dir cache directory ({@code CARD_IMAGE_CACHE_DIR}, default {@code
- *     <STORAGE_LOCAL_ROOT>/card-images}); one directory per database
+ *     <STORAGE_LOCAL_ROOT>/card-images}); one directory per database with the local provider;
+ *     temporary files only with the gcs provider
+ * @param provider {@code local} or {@code gcs}; empty ({@code CARD_IMAGE_STORAGE_PROVIDER} unset)
+ *     follows {@code STORAGE_PROVIDER}
+ * @param gcsBucket bucket of the renditions with the gcs provider ({@code CARD_IMAGE_GCS_BUCKET});
+ *     empty means the media bucket ({@code GCS_BUCKET_MEDIA})
+ * @param objectPrefix object name prefix inside the bucket ({@code CARD_IMAGE_OBJECT_PREFIX},
+ *     default {@code card-images/}; empty for the bucket root; always ends with {@code /})
  * @param targetWidth width of the single stored rendition in pixels (never upscaled)
  * @param jpegQuality JPEG quality of the re-encoded rendition (the JVM has no WebP encoder)
  * @param maxDownloadSize largest accepted download per image; also the reservation when the
@@ -42,14 +54,34 @@ public record CardImageCacheProperties(
         @DefaultValue("60s") Duration downloadTimeout,
         @DefaultValue("3") int maxAttempts,
         @DefaultValue("1h") Duration failedRetryAfter,
-        @DefaultValue("true") boolean reconcileOnStartup) {
+        @DefaultValue("true") boolean reconcileOnStartup,
+        @DefaultValue("") String provider,
+        @DefaultValue("") String gcsBucket,
+        @DefaultValue("card-images/") String objectPrefix) {
 
     /** Hard ceiling of the local image cache (owner decision 2026-10-04: 5 GB), in MiB. */
     public static final int MAX_ALLOWED_MB = 5120;
 
     public static final long BYTES_PER_MB = 1024L * 1024L;
 
+    private static final java.util.regex.Pattern OBJECT_PREFIX =
+            java.util.regex.Pattern.compile("^([a-z0-9][a-z0-9-]{0,62}/)*$");
+
     public CardImageCacheProperties {
+        provider = provider == null ? "" : provider.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!provider.isEmpty() && !provider.equals("local") && !provider.equals("gcs")) {
+            throw new IllegalArgumentException(
+                    "CARD_IMAGE_STORAGE_PROVIDER (orenji.card-images.cache.provider) must be"
+                            + " local, gcs or empty (follow STORAGE_PROVIDER)");
+        }
+        gcsBucket = gcsBucket == null ? "" : gcsBucket.trim();
+        objectPrefix = objectPrefix == null ? "" : objectPrefix.trim();
+        if (!OBJECT_PREFIX.matcher(objectPrefix).matches()) {
+            throw new IllegalArgumentException(
+                    "CARD_IMAGE_OBJECT_PREFIX (orenji.card-images.cache.object-prefix) must be"
+                            + " empty or lower-case segments each ending with '/', e.g."
+                            + " card-images/");
+        }
         if (maxMb < 1 || maxMb > MAX_ALLOWED_MB) {
             throw new IllegalArgumentException(
                     "CARD_IMAGE_LOCAL_CACHE_MAX_MB (orenji.card-images.cache.max-mb) must be"

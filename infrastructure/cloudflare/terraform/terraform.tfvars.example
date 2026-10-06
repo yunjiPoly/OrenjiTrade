@@ -8,12 +8,26 @@ zone_name = "orenjitrade.com"
 load_balancer_ipv4 = "203.0.113.10"
 # load_balancer_ipv6 = "2001:db8::10"
 
-# Non-production origins (outputs of environments/dev and environments/staging).
+# Certificate Manager DNS authorization (DNS only, never proxied):
+# terraform -chdir=../../terraform/environments/prod output -json certificate_dns_authorizations
+certificate_dns_authorizations = {
+  "www.orenjitrade.com" = {
+    name = "_acme-challenge.www.orenjitrade.com."
+    type = "CNAME"
+    data = "0123abcd-0000-4000-8000-0123456789ab.1.authorize.certificatemanager.goog."
+  }
+  "api.orenjitrade.com" = {
+    name = "_acme-challenge.api.orenjitrade.com."
+    type = "CNAME"
+    data = "4567efab-0000-4000-8000-0123456789cd.1.authorize.certificatemanager.goog."
+  }
+}
+
+# Non-production origins (outputs of environments/dev and environments/staging), only while
+# those environments exist (staging is created on demand).
 additional_a_records = {
-  "dev"         = "203.0.113.20"
-  "dev-api"     = "203.0.113.20"
-  "staging"     = "203.0.113.30"
-  "staging-api" = "203.0.113.30"
+  "dev"     = "203.0.113.20"
+  "dev-api" = "203.0.113.20"
 }
 
 # Replace the placeholders once the transactional email provider is chosen.
@@ -32,14 +46,12 @@ email_records = {
   }
 }
 
-security_level     = "medium"
-bot_fight_mode     = true
-enable_managed_waf = false # true on Pro or higher
-hsts_max_age       = 31536000
-hsts_preload       = false
+security_level               = "medium"
+bot_fight_mode               = true
+enable_managed_waf           = false # true on Pro or higher
+block_internal_paths_at_edge = false # true once operator scripts stop using the public hostname
+hsts_max_age                 = 31536000
+hsts_preload                 = false
 
-rate_limit_requests_per_10s = {
-  auth      = 20
-  messaging = 20
-  search    = 60
-}
+# Free plan: one rule, 10 s window, per IP (+ data centre). Path prefixes in variables.tf.
+rate_limit_requests_per_10s = 60

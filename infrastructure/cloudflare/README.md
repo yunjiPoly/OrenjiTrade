@@ -30,6 +30,8 @@ traffic goes through the WAF/CDN and the origin IP is never published.
 | A | `dev-api` | `<DEV_LB_IPV4>` | Proxied | Auto | Optional dev API |
 | A | `staging` | `<STAGING_LB_IPV4>` | Proxied | Auto | Optional staging web |
 | A | `staging-api` | `<STAGING_LB_IPV4>` | Proxied | Auto | Optional staging API |
+| CNAME | `_acme-challenge.www` | `<ID>.authorize.certificatemanager.goog` | **DNS only** | 5 min | Certificate Manager DNS authorization for `www` (Terraform output `certificate_dns_authorizations` of environments/prod) |
+| CNAME | `_acme-challenge.api` | `<ID>.authorize.certificatemanager.goog` | **DNS only** | 5 min | Same for `api`; dev/staging get `_acme-challenge.dev*` / `_acme-challenge.staging*` while they exist |
 | TXT | `@` | `v=spf1 include:<PROVIDER_SPF> -all` | DNS only | 1 h | SPF for transactional email (`no-reply@orenjitrade.com`). Until a provider is chosen use `v=spf1 -all` |
 | CNAME | `<selector>._domainkey` | `<PROVIDER_DKIM_TARGET>` | DNS only | 1 h | DKIM (value supplied by the email provider; SendGrid/SES give 1-3 CNAMEs) |
 | TXT | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@<your-inbox>; adkim=s; aspf=s` | DNS only | 1 h | DMARC. Start with `p=none` while validating, move to `quarantine` then `reject` |
@@ -37,10 +39,15 @@ traffic goes through the WAF/CDN and the origin IP is never published.
 
 Notes:
 
-- Email records must be **DNS only** (grey cloud); proxying them breaks mail.
-- The Google-managed certificate on the load balancer covers `www.` and `api.` for prod and
-  `dev*.`/`staging*.` in their environments. Records must exist (proxied is fine) before the
-  certificate reaches `ACTIVE`; see `docs/deployment/README.md` step "verify certificates".
+- Email records and the `_acme-challenge` CNAMEs must be **DNS only** (grey cloud); proxying
+  them breaks mail / the certificate validation (a proxied CNAME is flattened to Cloudflare
+  edge addresses and Google never sees the authorization record).
+- The origin certificate is a Google-managed certificate issued by **Certificate Manager with
+  DNS authorization** (the classic HTTP-validated managed certificate cannot be issued while
+  the hostnames are proxied). It covers `www.` and `api.` for prod and `dev*.`/`staging*.` in
+  their environments; it reaches `ACTIVE` within minutes of the `_acme-challenge` CNAMEs
+  resolving, while the `www`/`api` records stay proxied. See
+  `infrastructure/terraform/modules/load-balancer/README.md` and `docs/deployment/README.md`.
 - Do not create records for `ml`: the ML service is internal-only on Cloud Run and has no
   public hostname.
 - Never publish the LB IP in records that are not proxied; with Cloud Armor
@@ -67,7 +74,7 @@ Dashboard: **SSL/TLS**.
 
 | Setting | Value | Why |
 | --- | --- | --- |
-| Overview > encryption mode | **Full (strict)** | Cloudflare validates the Google-managed certificate on the LB; anything weaker allows a MITM between edge and origin |
+| Overview > encryption mode | **Full (strict)** | Cloudflare validates the origin certificate on the LB (Certificate Manager public certificate, or a Cloudflare Origin CA certificate in the `self_managed` fallback); anything weaker allows a MITM between edge and origin |
 | Edge Certificates > Always Use HTTPS | On | 301 for any `http://` request at the edge |
 | Edge Certificates > HTTP Strict Transport Security | Enable; max-age **12 months** (31536000), include subdomains **on**, preload **off** until submitted to hstspreload.org, no-sniff header **on** | Browsers refuse plain HTTP; start with a shorter max-age (e.g. 1 day) during the first week if you want a safety net |
 | Edge Certificates > Minimum TLS version | **TLS 1.2** | Drop legacy clients |
@@ -102,19 +109,32 @@ Dashboard: **Caching > Cache Rules**. Order matters; rules are evaluated top to 
 
 | # | Name | Expression | Action |
 | --- | --- | --- | --- |
-| 1 | `bypass api host` | `(http.host eq "api.orenjitrade.com")` | Cache eligibility: **Bypass cache** |
-| 2 | `bypass authenticated` | `(any(http.request.headers.names[*] == "authorization")) or (http.cookie ne "")` | **Bypass cache** |
+| 1 | `public images api` | `(http.host eq "api.orenjitrade.com") and (starts_with(http.request.uri.path, "/api/v1/public/card-images/") or starts_with(http.request.uri.path, "/api/v1/public/placeholder-images/") or starts_with(http.request.uri.path, "/api/v1/public/media/"))` | Eligible for cache; Edge TTL **Respect origin**; Browser TTL **Respect origin**; Cache key: ignore query string order; Cache deception armor on |
+| 2 | `bypass api host` | `(http.host eq "api.orenjitrade.com") and not (...the three public image prefixes...)` | **Bypass cache** |
 | 3 | `static assets www` | `(http.host eq "www.orenjitrade.com") and (http.request.uri.path.extension in {"js" "css" "woff" "woff2" "ttf" "png" "jpg" "jpeg" "webp" "avif" "gif" "svg" "ico" "webmanifest"})` | Eligible for cache; Edge TTL **Respect origin**; Browser TTL **Respect origin**; Cache key: ignore query string order; Cache deception armor on |
-| 4 | `bypass app shell` | `(http.host eq "www.orenjitrade.com") and not (http.request.uri.path.extension in {...same set...})` | **Bypass cache** (index.html and Angular routes must change on every deploy) |
+| 4 | `bypass app shell` | `(http.host eq "www.orenjitrade.com") and not (http.request.uri.path.extension in {...same set...})` | **Bypass cache** (index.html, config.json and Angular routes must change on every deploy) |
 
-Also under **Caching > Configuration**: Caching level Standard, Browser Cache TTL "Respect
-Existing Headers", Crawler Hints off, Always Online off. Do **not** use "Cache Everything"
-page rules anywhere.
+The expressions are mutually exclusive, so the outcome never depends on rule order. The Free
+plan allows 10 cache rules. Also under **Caching > Configuration**: Caching level Standard,
+Browser Cache TTL "Respect Existing Headers", Crawler Hints off, Always Online off. Do **not**
+use "Cache Everything" page rules anywhere.
 
-Origin headers the rules respect: nginx (web image) sends
-`Cache-Control: public, max-age=31536000, immutable` for fingerprinted assets and
-`Cache-Control: no-store` for `index.html`; the API sends `Cache-Control: no-store` on every
-authenticated response and `private, max-age=0` on public ones, plus `Vary: Authorization`.
+Origin headers the rules respect (what the code actually sends, checked 2026-10-05):
+
+| Route | `Cache-Control` from the origin | Result |
+| --- | --- | --- |
+| `GET /api/v1/public/card-images/{id}` cached artwork | `public, max-age=31536000, immutable` + ETag (`CardImageController`) | cached at the edge; card images are extension-less, so rule 1 is what makes them eligible |
+| same route, placeholder SVG / provider redirect | `public, max-age=300` | cached 5 min |
+| `GET /api/v1/public/placeholder-images/**` | `public, max-age=86400` | cached |
+| `GET /api/v1/public/media/{key}` (avatars, listing photos read from GCS) | `public, max-age=31536000, immutable` (`PublicMediaController`) | cached |
+| every other API response, authenticated or not, and every error | `no-cache, no-store, max-age=0, must-revalidate` + `Pragma: no-cache` (Spring Security's default header writer; `ProblemDetailFactory` sets `no-store`) | never cached: rule 2 bypasses, and `no-store` is honoured regardless |
+| `www` fingerprinted assets | `public, max-age=31536000, immutable` (nginx) | cached |
+| `www` `index.html`, `config.json`, SPA routes | `no-cache, no-store, must-revalidate` (nginx) | never cached |
+
+Cloudflare also never caches responses with `Set-Cookie`, and a request carrying an
+`Authorization` header is only cached when the response is marked `public`, `s-maxage` or
+`must-revalidate` (Origin Cache Control): the image routes are `public` and public by design,
+everything else is `no-store`. There is no `Vary: Authorization` in the API and none is needed.
 
 Terraform: `cloudflare_ruleset.cache` (phase `http_request_cache_settings`).
 
@@ -142,28 +162,37 @@ Terraform: `cloudflare_ruleset.waf_managed` when `enable_managed_waf = true`.
 | --- | --- | --- |
 | `block actuator` | `(http.host eq "api.orenjitrade.com") and starts_with(http.request.uri.path, "/actuator/") and not starts_with(http.request.uri.path, "/actuator/health")` | Block |
 | `block api docs` | `(http.host eq "api.orenjitrade.com") and (starts_with(http.request.uri.path, "/swagger-ui") or starts_with(http.request.uri.path, "/v3/api-docs"))` | Block |
+| `block internal` (optional, `block_internal_paths_at_edge = true`) | `(http.host eq "api.orenjitrade.com") and starts_with(http.request.uri.path, "/internal/")` | Block. Cloud Scheduler and Pub/Sub call `/internal/**` over the Cloud Run `run.app` URL (internal ingress), never through the edge; keep it off while operator scripts (`npm run catalog:import`, `card-images:*`) use the public hostname |
 | `challenge admin from unexpected countries` (optional) | `(http.host eq "www.orenjitrade.com") and starts_with(http.request.uri.path, "/admin") and not (ip.geoip.country in {"CA" "US"})` | Managed Challenge |
 
-Terraform: `cloudflare_ruleset.waf_custom`.
+The Free plan allows 5 custom rules. Terraform: `cloudflare_ruleset.waf_custom`.
 
 ### 6.3 Rate limiting rules
 
-Dashboard: **Security > WAF > Rate limiting rules**. Free plans allow one rule with the
-characteristics `IP` + `Data center`, 10 s period and 10 s mitigation; Pro+ allow more rules
-and periods. These edge limits are a coarse shield; the fine-grained per-user/route limits
-are Redis token buckets in the API (`docs/security/README.md`).
+Dashboard: **Security > WAF > Rate limiting rules**. Free plan (Cloudflare docs, "Rate
+limiting rules > Availability", checked 2026-10-05): **one** rule per zone, counting period
+**10 s**, mitigation timeout **10 s**, characteristic IP (the data-centre id is implicitly
+included), and the expression may only use the **path** and **verified bot** fields (no host,
+no method). Pro+ allow more rules, periods and fields. This edge limit is a coarse flood
+guard; the fine-grained per-user/route limits are the API's Redis fixed windows
+(`orenji.ratelimit` in `application.yml`: 60/min per anonymous IP, 120/min per user, plus
+per-route policies; `docs/security/README.md`).
 
 | Name | Expression | Rate | Action |
 | --- | --- | --- | --- |
-| `auth` | `(http.host eq "api.orenjitrade.com") and (starts_with(http.request.uri.path, "/api/v1/auth") or http.request.uri.path eq "/api/v1/me")` | 20 req / 10 s per IP | Block 10 s |
-| `messaging` | `(http.host eq "api.orenjitrade.com") and (http.request.method eq "POST") and (starts_with(http.request.uri.path, "/api/v1/conversations") or starts_with(http.request.uri.path, "/api/v1/community"))` | 20 req / 10 s per IP | Block 10 s |
-| `search` | `(http.host eq "api.orenjitrade.com") and (starts_with(http.request.uri.path, "/api/v1/search") or starts_with(http.request.uri.path, "/api/v1/collectors/nearby") or starts_with(http.request.uri.path, "/api/v1/cards"))` | 60 req / 10 s per IP | Block 10 s |
+| `api` | `starts_with(http.request.uri.path, "/api/v1/auth") or starts_with(http.request.uri.path, "/api/v1/me") or starts_with(http.request.uri.path, "/api/v1/conversations") or starts_with(http.request.uri.path, "/api/v1/community") or starts_with(http.request.uri.path, "/api/v1/search") or starts_with(http.request.uri.path, "/api/v1/collectors/nearby") or starts_with(http.request.uri.path, "/api/v1/cards")` | 60 req / 10 s per IP | Block 10 s |
 
-If you are on Free, keep only `auth` at the edge and rely on the API buckets for the rest.
-Note: Firebase sign-in itself talks to `identitytoolkit.googleapis.com`, not to our API; the
-`auth` group protects session bootstrap, terms acceptance and profile provisioning.
+What the merge dropped compared with the former `auth` (20/10 s), `messaging` (POST only,
+20/10 s) and `search` (60/10 s) rules: the tighter per-group thresholds, the POST-only
+restriction on messaging and the `http.host` scoping (the rule also matches `www`, which
+never serves those paths). The API's own limits still enforce all of that. Public image routes
+(`/api/v1/public/card-images/...`) are deliberately outside the rule: a page loads dozens of
+them and, on Free, cached hits still count towards the limit. Note: Firebase sign-in itself
+talks to `identitytoolkit.googleapis.com`, not to our API; the auth paths protect session
+bootstrap, terms acceptance and profile provisioning.
 
-Terraform: `cloudflare_ruleset.rate_limits` (phase `http_ratelimit`).
+Terraform: `cloudflare_ruleset.rate_limits` (phase `http_ratelimit`, `rate_limit_path_prefixes`,
+`rate_limit_requests_per_10s`).
 
 ## 7. Bots and security level
 
@@ -267,9 +296,12 @@ curl -sI http://www.orenjitrade.com/ | grep -iE "^(HTTP|location)"
 curl -sI https://www.orenjitrade.com/ | grep -i strict-transport-security
 openssl s_client -connect www.orenjitrade.com:443 -tls1_1 </dev/null 2>&1 | grep -qi "alert" && echo "TLS 1.1 refused (good)"
 
-# Cache: API and authenticated requests are never cached
-curl -sI https://api.orenjitrade.com/api/v1/meta | grep -i cf-cache-status          # DYNAMIC
+# Cache: API JSON and authenticated requests are never cached
+curl -sI https://api.orenjitrade.com/api/v1/meta | grep -iE "cf-cache-status|cache-control"   # DYNAMIC, no-store
 curl -sI -H "Authorization: Bearer x" https://www.orenjitrade.com/ | grep -i cf-cache-status   # DYNAMIC / BYPASS
+# Cache: a public card image is cached (second request HIT) and immutable
+IMG=$(curl -s "https://api.orenjitrade.com/api/v1/cards?q=dragon&size=1" | jq -r '.items[0].image.url' 2>/dev/null)
+curl -sI "$IMG" >/dev/null; curl -sI "$IMG" | grep -iE "cf-cache-status|cache-control"   # HIT, public, immutable
 # Static asset is cached (second request HIT), app shell is not
 ASSET=$(curl -s https://www.orenjitrade.com/ | grep -oE 'main[^"]*\.js' | head -1)
 curl -sI "https://www.orenjitrade.com/$ASSET" >/dev/null; curl -sI "https://www.orenjitrade.com/$ASSET" | grep -i cf-cache-status   # HIT
@@ -293,6 +325,7 @@ curl -s https://api.orenjitrade.com/api/v1/meta | jq .clientIp
 ```
 
 Then in the dashboard: Security > Events shows no false positives for normal traffic; Analytics
-shows `api.*` requests as 100% uncached; SSL/TLS > Edge Certificates shows the universal
-certificate active; the Google-managed certificate is `ACTIVE`
-(`gcloud compute ssl-certificates describe <name> --global`).
+shows `api.*` requests uncached except the public image routes; SSL/TLS > Edge Certificates
+shows the universal certificate active; the Certificate Manager certificate is `ACTIVE`
+(`gcloud certificate-manager certificates describe <name> --format 'value(managed.state)'`;
+`AUTHORIZING` means an `_acme-challenge` CNAME is missing or proxied).

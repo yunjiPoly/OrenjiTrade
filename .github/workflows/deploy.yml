@@ -95,16 +95,23 @@ jobs:
             echo "$s previous revision: $rev"
           done
 
+      # The api service has sidecars (Valkey, ADR 0016): only the `api` container's image
+      # changes, everything else of the revision template (sidecar image pinned by digest,
+      # env, probes, resources) stays as Terraform applied it.
       - name: Deploy api
         id: deploy-api
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: orenjitrade-api-${{ env.ENVIRONMENT }}
-          region: ${{ vars.GCP_REGION }}
-          project_id: ${{ vars.GCP_PROJECT_ID }}
-          image: ${{ env.IMAGE_REGISTRY }}/api:${{ env.IMAGE_TAG }}
-          labels: |
-            git-sha=${{ github.sha }}
+        env:
+          IMAGE: ${{ env.IMAGE_REGISTRY }}/api:${{ env.IMAGE_TAG }}
+        run: |
+          set -euo pipefail
+          gcloud run services update "orenjitrade-api-$ENVIRONMENT" \
+            --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" \
+            --update-labels "git-sha=${{ github.sha }}" \
+            --container api --image "$IMAGE"
+          url=$(gcloud run services describe "orenjitrade-api-$ENVIRONMENT" \
+            --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" \
+            --format 'value(status.url)')
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Deploy web
         id: deploy-web
@@ -117,8 +124,11 @@ jobs:
           labels: |
             git-sha=${{ github.sha }}
 
+      # ML card recognition is on hold and the ml service is not instantiated (ml_enabled =
+      # false in Terraform); set the environment variable DEPLOY_ML=true once it returns.
       - name: Deploy ml
         id: deploy-ml
+        if: vars.DEPLOY_ML == 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: orenjitrade-ml-${{ env.ENVIRONMENT }}
@@ -193,7 +203,9 @@ jobs:
             echo
             echo "Rollback (route 100% traffic back to the previous revision, see docs/deployment/runbooks.md):"
             echo '```bash'
-            for s in api web ml; do
+            services="api web"
+            [ "${{ vars.DEPLOY_ML }}" = "true" ] && services="api web ml"
+            for s in $services; do
               case $s in api) prev="$PREV_API";; web) prev="$PREV_WEB";; ml) prev="$PREV_ML";; esac
               echo "gcloud run services update-traffic orenjitrade-$s-$ENVIRONMENT --region ${{ vars.GCP_REGION }} --project ${{ vars.GCP_PROJECT_ID }} --to-revisions $prev=100"
             done

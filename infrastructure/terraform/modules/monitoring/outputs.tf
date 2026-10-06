@@ -15,7 +15,16 @@ output "alert_policy_names" {
   description = "Names of every alert policy created."
   value = concat(
     [for p in google_monitoring_alert_policy.uptime : p.name],
-    [google_monitoring_alert_policy.api_5xx_ratio.name, google_monitoring_alert_policy.api_p95_latency.name, google_monitoring_alert_policy.sql_cpu.name, google_monitoring_alert_policy.sql_connections.name, google_monitoring_alert_policy.pubsub_oldest_unacked.name],
+    [
+      google_monitoring_alert_policy.api_5xx_ratio.name,
+      google_monitoring_alert_policy.api_p95_latency.name,
+      google_monitoring_alert_policy.api_cpu_utilization.name,
+      google_monitoring_alert_policy.api_memory_utilization.name,
+      google_monitoring_alert_policy.sql_cpu.name,
+      google_monitoring_alert_policy.sql_disk.name,
+      google_monitoring_alert_policy.sql_connections.name,
+      google_monitoring_alert_policy.pubsub_oldest_unacked.name,
+    ],
     [for p in google_monitoring_alert_policy.business_failures : p.name],
   )
 }

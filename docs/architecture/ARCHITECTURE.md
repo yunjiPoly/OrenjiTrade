@@ -250,9 +250,15 @@ flowchart LR
   CFd[Cloudflare<br/>www · api records<br/>WAF · cache bypass for api] --> CRp
 ```
 
-Environments: `local` (Docker Compose), `development`, `staging`, `production` — separate GCP
-projects or at least separate Cloud SQL instances, secrets and service accounts. Details in
-`docs/deployment/`.
+Environments: `local` (Docker Compose), `development`, `staging`, `production` (`ORENJI_ENV`;
+the Spring profiles are `local`, `dev`, `staging`, `prod`) — separate GCP projects or at least
+separate Cloud SQL instances, secrets and service accounts. Details in `docs/deployment/`.
+
+First-year production profile (ADR 0016, 2026-10-05): one always-on `api` Cloud Run instance
+with a Valkey sidecar as its Redis (no Memorystore until the scale-up path), Cloud SQL
+`db-g1-small` ZONAL, Direct VPC egress (no connector, no Cloud NAT), the web service scaled to
+zero, a Certificate Manager certificate behind Cloudflare, no `ml` service while Phase 11 is on
+hold. The diagram above shows the full topology the modules can still produce.
 
 ## 11. Observability
 
