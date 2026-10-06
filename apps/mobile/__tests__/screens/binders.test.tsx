@@ -255,6 +255,28 @@ describe('Public binder', () => {
     );
   });
 
+  it('reports the owner and makes an offer on a card of someone else’s binder', async () => {
+    mockApi(publicRoutes());
+    renderWithProviders(<BinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('public-binder-report'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: '00000000-0000-4000-8000-000000000001',
+        name: 'Collector One',
+        handle: 'collector1',
+        source: 'BINDER',
+        binderId: 'pub-1',
+      },
+    });
+    const item = publicItemFixture();
+    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/offers/new',
+      params: { item: item.id },
+    });
+  });
+
   it('opens the owner’s own binder as the public sees it', async () => {
     mockParams.current = { id: BINDER_ID, view: 'public' };
     mockApi(publicRoutes());

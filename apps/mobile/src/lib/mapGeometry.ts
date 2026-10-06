@@ -16,7 +16,8 @@ export const TILE_SIZE = 256;
 const EARTH_RADIUS_KM = 6371;
 /** Ground resolution at zoom 0 on the equator (m/px of a 256 px tile). */
 const METRES_PER_PX_Z0 = 156_543.033_92;
-const MAX_LAT = 85.0511;
+/** Web Mercator's latitude limit (about 85.05°), computed: no literal coordinate in the code. */
+const MAX_LAT = (Math.atan(Math.sinh(Math.PI)) * 180) / Math.PI;
 
 export interface MapBounds {
   north: number;

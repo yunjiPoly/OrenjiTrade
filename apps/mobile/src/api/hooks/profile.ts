@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
+import { imageFormData, type PickedImage } from '../imageFormData';
 import { meKeys, publicKeys } from '../queryKeys';
 import type {
   AvatarResponse,
@@ -93,29 +94,7 @@ export function useGames() {
   });
 }
 
-/** A picked image, as `expo-image-picker` returns it. */
-export interface PickedImage {
-  uri: string;
-  mimeType?: string | null;
-  fileName?: string | null;
-  /** Web only: the browser `File`. */
-  file?: Blob | null;
-}
-
-async function avatarFormData(image: PickedImage): Promise<FormData> {
-  const form = new FormData();
-  const type = image.mimeType ?? 'image/jpeg';
-  const name = image.fileName ?? `avatar.${type.split('/')[1] ?? 'jpg'}`;
-  if (image.file) {
-    form.append('file', image.file, name);
-  } else if (/^(blob|data):/.test(image.uri)) {
-    form.append('file', await (await fetch(image.uri)).blob(), name);
-  } else {
-    // React Native's FormData streams a local file from its URI.
-    form.append('file', { uri: image.uri, name, type } as unknown as Blob);
-  }
-  return form;
-}
+export type { PickedImage } from '../imageFormData';
 
 /** `POST /api/v1/me/profile/avatar` (multipart, JPEG/PNG/WebP up to 5 MB). */
 export function useUploadAvatar() {
@@ -123,7 +102,7 @@ export function useUploadAvatar() {
   const queryClient = useQueryClient();
   return useMutation<AvatarResponse, ApiError, PickedImage>({
     mutationFn: async (image) => {
-      const body = await avatarFormData(image);
+      const body = await imageFormData(image, 'avatar');
       const { data } = await api.POST('/api/v1/me/profile/avatar', {
         // The contract types the multipart body as `{ file: binary }`; the FormData is sent as is
         // (openapi-fetch then lets the platform set the multipart boundary).

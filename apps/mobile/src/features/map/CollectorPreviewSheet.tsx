@@ -16,6 +16,9 @@ import { ChipList } from '@/src/components/ui/Layout';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
 import { MessageAction } from '@/src/features/collectors/MessageAction';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
+import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
+import { offerTargetFromMatch, sellerFromPreview } from '@/src/features/offers/offerTarget';
+import { reportParams } from '@/src/features/reports/reportLabels';
 import { APPROXIMATE_LOCATION_NOTE } from '@/src/lib/approximateArea';
 import { formatMoney, printingImageUrl } from '@/src/lib/catalog';
 import { badgeFreshness, conditionLabel } from '@/src/lib/inventory';
@@ -44,8 +47,9 @@ export interface CollectorPreviewSheetProps {
  * The collector preview of the Map tab, in a bottom sheet (the web's `collector-preview-card` on
  * `GET /collectors/{handle}/preview`): name, avatar, approximate place with the "about 3 km" note,
  * bucketed distance, rating, last activity, listings, games and tags, the collector's listings of
- * the card in "who has this near me" mode, and View profile / View public binder / Message (only
- * when the collector accepts messages from the viewer) / Show on map.
+ * the card in "who has this near me" mode (each with "Make an offer" when it accepts one), and
+ * View profile / View public binder / Message (only when the collector accepts messages from the
+ * viewer) / Show on map / Report.
  */
 export function CollectorPreviewSheet({
   handle,
@@ -259,7 +263,13 @@ function ReadyPreview({
             Listings of this card by {preview.displayName}
           </Text>
           {matchingItems.map((item) => (
-            <MatchingItemRow key={item.itemId} item={item} card={holdersCard} />
+            <MatchingItemRow
+              key={item.itemId}
+              item={item}
+              card={holdersCard}
+              preview={preview}
+              onClose={onClose}
+            />
           ))}
         </View>
       ) : null}
@@ -315,29 +325,68 @@ function ReadyPreview({
             onPress={onShowOnMap}
           />
         ) : null}
+        {isSelf ? null : (
+          <Button
+            label="Report"
+            icon="flag-outline"
+            variant="ghost"
+            accessibilityLabel={`Report ${preview.displayName}`}
+            testID="preview-report"
+            onPress={() =>
+              open(() =>
+                router.push({
+                  pathname: '/report',
+                  params: reportParams(preview, { source: 'PROFILE' }),
+                })
+              )
+            }
+          />
+        )}
       </View>
     </ScrollView>
   );
 }
 
-function MatchingItemRow({ item, card }: { item: MatchingItem; card: CardDetail | null }) {
+function MatchingItemRow({
+  item,
+  card,
+  preview,
+  onClose,
+}: {
+  item: MatchingItem;
+  card: CardDetail | null;
+  preview: CollectorPreview;
+  onClose: () => void;
+}) {
   const { palette } = useTheme();
   const printing = card?.printings?.find((candidate) => candidate.id === item.printingId) ?? null;
   const price =
     formatMoney(item.askingPrice, item.currency) ??
     (item.acceptsOffers ? 'Make an offer' : 'No price');
   return (
-    <View style={styles.item} testID={`preview-item-${item.itemId}`}>
-      <CardImage src={printingImageUrl(printing)} alt={item.cardName} game={item.game} size="xs" />
-      <View style={styles.grow}>
-        <Text style={[textStyle('sm'), styles.mono, { color: palette.ink }]}>
-          {item.printingCode ?? item.cardName}
-        </Text>
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {conditionLabel(item.condition)}
-        </Text>
+    <View style={styles.itemBlock}>
+      <View style={styles.item} testID={`preview-item-${item.itemId}`}>
+        <CardImage
+          src={printingImageUrl(printing)}
+          alt={item.cardName}
+          game={item.game}
+          size="xs"
+        />
+        <View style={styles.grow}>
+          <Text style={[textStyle('sm'), styles.mono, { color: palette.ink }]}>
+            {item.printingCode ?? item.cardName}
+          </Text>
+          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
+            {conditionLabel(item.condition)}
+          </Text>
+        </View>
+        <Text style={[textStyle('sm'), styles.name, { color: palette.ink }]}>{price}</Text>
       </View>
-      <Text style={[textStyle('sm'), styles.name, { color: palette.ink }]}>{price}</Text>
+      <MakeOfferButton
+        target={offerTargetFromMatch(item, sellerFromPreview(preview), printingImageUrl(printing))}
+        beforeOpen={onClose}
+        testID={`preview-offer-${item.itemId}`}
+      />
     </View>
   );
 }
@@ -390,6 +439,7 @@ const styles = StyleSheet.create({
   fact: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   listings: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
   items: { gap: spacing[2] },
+  itemBlock: { gap: spacing[1] },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   actions: { gap: spacing[2] },
 });

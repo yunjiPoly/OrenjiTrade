@@ -200,7 +200,9 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
       '"focus":{"lat":45.606,"lng":-73.712'
     );
     send({ type: 'ready' });
-    await waitFor(() => expect(screen.queryByTestId('trading-area-map-loading')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByTestId('trading-area-map-loading')).not.toBeOnTheScreen()
+    );
     expect(applied().at(-1)).toEqual({
       area: { lat: 45.606, lng: -73.712, radiusKm: 10 },
       disabled: false,

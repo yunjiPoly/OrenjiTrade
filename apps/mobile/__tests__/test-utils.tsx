@@ -5,10 +5,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccountProvider } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
+import { usePendingLink } from '@/src/account/pendingLink';
+import { useActiveConversation } from '@/src/features/messages/activeConversation';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { clearAccountSignal } from '@/src/api/accountSignal';
 import type { AuthPort } from '@/src/auth/authPort';
 import { SessionProvider } from '@/src/auth/session';
 import { SnackbarProvider } from '@/src/components/ui/Snackbar';
+import type { RealtimeClient } from '@/src/realtime/realtimeClient';
+import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
+import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 import type { ColorScheme } from '@/src/theme/palette';
 
@@ -30,19 +36,37 @@ export interface ProvidersProps {
   queryClient?: QueryClient;
   /** The Firebase stand-in; anonymous by default. */
   port?: AuthPort;
+  /** A realtime client with fake sessions (`fakeRealtime()`); none by default. */
+  realtime?: RealtimeClient;
 }
 
 /** Everything the app root provides: query client, session, account, theme, snackbar. */
-export function TestProviders({ children, scheme = 'light', queryClient, port }: ProvidersProps) {
+export function TestProviders({
+  children,
+  scheme = 'light',
+  queryClient,
+  port,
+  realtime,
+}: ProvidersProps) {
   const client = queryClient ?? createTestQueryClient();
+  const themed = (
+    <ThemeProvider scheme={scheme}>
+      <SnackbarProvider>{children}</SnackbarProvider>
+    </ThemeProvider>
+  );
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={client}>
         <SessionProvider port={port ?? new FakeAuthPort()}>
           <AccountProvider>
-            <ThemeProvider scheme={scheme}>
-              <SnackbarProvider>{children}</SnackbarProvider>
-            </ThemeProvider>
+            {realtime ? (
+              <RealtimeProvider client={realtime}>
+                <RealtimeCacheSync />
+                {themed}
+              </RealtimeProvider>
+            ) : (
+              themed
+            )}
           </AccountProvider>
         </SessionProvider>
       </QueryClientProvider>
@@ -56,6 +80,7 @@ export function renderWithProviders(
     scheme,
     queryClient,
     port,
+    realtime,
     ...options
   }: Omit<RenderOptions, 'wrapper'> & Omit<ProvidersProps, 'children'> = {}
 ) {
@@ -63,7 +88,7 @@ export function renderWithProviders(
   const result = render(ui, {
     ...options,
     wrapper: ({ children }) => (
-      <TestProviders scheme={scheme} queryClient={client} port={port}>
+      <TestProviders scheme={scheme} queryClient={client} port={port} realtime={realtime}>
         {children}
       </TestProviders>
     ),
@@ -71,8 +96,11 @@ export function renderWithProviders(
   return { ...result, queryClient: client };
 }
 
-/** Resets module-level state shared between tests (account signal, flow lock). */
+/** Resets module-level state shared between tests (signals, locks, pending link, notices). */
 export function resetAppState(): void {
   clearAccountSignal();
   useFlowLock.getState().unlock();
+  usePendingLink.getState().clear();
+  useSessionNotice.getState().clear();
+  useActiveConversation.getState().set(null);
 }

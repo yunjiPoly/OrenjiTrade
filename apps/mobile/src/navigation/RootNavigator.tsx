@@ -63,8 +63,29 @@ export function RootNavigator() {
         {/* Inventory items (web: the add dialog and the edit panel of /inventory). */}
         <Stack.Screen name="items/new" options={{ title: 'Add a card' }} />
         <Stack.Screen name="items/[id]" options={{ title: 'Card' }} />
-        {/* A conversation opened from a collector (the Messages stage adds the inbox). */}
+        {/* A conversation (from the inbox, a collector, a match or a notification). */}
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation' }} />
+        {/* A public community channel (web: /community/:slug; the list is in the Messages tab). */}
+        <Stack.Screen name="community/[slug]" options={{ title: 'Community' }} />
+        {/* Wishlist (web: the add/edit dialog and the matches drawer of /wishlist/:id). */}
+        <Stack.Screen name="wishlist/new" options={{ title: 'Add to wishlist' }} />
+        <Stack.Screen name="wishlist/edit" options={{ title: 'Edit wish' }} />
+        <Stack.Screen name="wishlist/[id]" options={{ title: 'Matches nearby' }} />
+        {/* The notification centre (web: the top-bar bell and /notifications). */}
+        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+        {/* Ratings, references and collector reports (Phase 7; web: their dialogs). */}
+        <Stack.Screen name="report" options={{ title: 'Report collector' }} />
+        <Stack.Screen name="ratings/rate" options={{ title: 'Rate' }} />
+        <Stack.Screen name="ratings/reference" options={{ title: 'Write a reference' }} />
+        <Stack.Screen name="settings/reports" options={{ title: 'My reports' }} />
+        {/* Offers and trades (Phase 8; web: /offers, /offers/:id, the offer dialog, /trades). */}
+        <Stack.Screen name="offers/index" options={{ title: 'Offers' }} />
+        <Stack.Screen name="offers/[id]" options={{ title: 'Offer' }} />
+        <Stack.Screen name="offers/new" options={{ title: 'Make an offer' }} />
+        <Stack.Screen name="offers/counter" options={{ title: 'Counter-offer' }} />
+        <Stack.Screen name="trades/index" options={{ title: 'Trades' }} />
+        <Stack.Screen name="trades/[id]" options={{ title: 'Trade' }} />
+        <Stack.Screen name="settings/offers" options={{ title: 'Offer settings' }} />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}

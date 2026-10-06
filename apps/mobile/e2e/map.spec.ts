@@ -158,8 +158,8 @@ test.describe('mobile map discovery', () => {
     });
     await expect(thread.getByTestId('conversation-messages')).toBeVisible();
     const text = `Hello from the mobile map E2E ${Date.now().toString(36)}`;
-    await thread.getByLabel('Message').fill(text);
-    await thread.getByRole('button', { name: 'Send' }).click();
+    await thread.getByLabel('Message', { exact: true }).fill(text);
+    await thread.getByRole('button', { name: 'Send message' }).click();
     await expect(thread.getByText(text)).toBeVisible({ timeout: 30_000 });
   });
 

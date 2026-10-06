@@ -1,5 +1,26 @@
 import type {
+  MyReport,
+  OfferPage,
+  OfferParty,
+  OfferResponse,
+  OfferSummary,
+  RatingEligibility,
+  ReportReasonOption,
+  TradePage,
+  TradeResponse,
+  TradeSummary,
   BinderResponse,
+  CommunityChannel,
+  ConversationPage,
+  NotificationPage,
+  NotificationResponse,
+  PostPage,
+  PostResponse,
+  ReplyPage,
+  ReplyResponse,
+  WishlistItemResponse,
+  WishlistMatchPage,
+  WishlistMatchResponse,
   CardDetail,
   CollectorMarker,
   CollectorPreview,
@@ -707,5 +728,386 @@ export function messageFixture(overrides: Partial<MessageResponse> = {}): Messag
 }
 
 export function messagePage(items: MessageResponse[] = [messageFixture()]): MessagePage {
+  return { items, nextCursor: null, hasMore: false };
+}
+
+export function conversationPage(
+  items: ConversationSummary[] = [conversationFixture()],
+  overrides: Partial<ConversationPage> = {}
+): ConversationPage {
+  return { items, nextCursor: null, hasMore: false, ...overrides };
+}
+
+// --- Community (Phase 5, fictional) -------------------------------------------------------------
+
+export function channelFixture(overrides: Partial<CommunityChannel> = {}): CommunityChannel {
+  return {
+    id: '00000000-0000-4000-8f00-000000000001',
+    slug: 'montreal-pokemon',
+    name: 'Montréal · Pokémon',
+    kind: 'REGION',
+    game: 'pokemon',
+    regionLabel: 'Montréal',
+    description: 'Pokémon collectors around Montréal.',
+    postCount24h: 3,
+    ...overrides,
+  };
+}
+
+export const CHANNELS: CommunityChannel[] = [
+  channelFixture(),
+  channelFixture({
+    id: '00000000-0000-4000-8f00-000000000002',
+    slug: 'yugioh',
+    name: 'Yu-Gi-Oh!',
+    kind: 'GAME',
+    game: 'yugioh',
+    regionLabel: null,
+    description: 'Every Yu-Gi-Oh! collector.',
+    postCount24h: 0,
+  }),
+  channelFixture({
+    id: '00000000-0000-4000-8f00-000000000003',
+    slug: 'looking-for',
+    name: 'Looking for',
+    kind: 'LOOKING_FOR',
+    game: null,
+    regionLabel: null,
+    description: 'Cards you are hunting for.',
+    postCount24h: 1,
+  }),
+];
+
+export function postFixture(overrides: Partial<PostResponse> = {}): PostResponse {
+  return {
+    id: '00000000-0000-4000-8f10-000000000001',
+    channelSlug: 'montreal-pokemon',
+    author: {
+      id: '00000000-0000-4000-8000-0000000000b1',
+      handle: 'collector2',
+      displayName: 'Noé Verdun',
+      avatarUrl: null,
+    },
+    body: 'Anyone trading Lantern Fox this weekend?',
+    payload: {},
+    createdAt: '2026-10-05T10:00:00Z',
+    editedAt: null,
+    replyCount: 0,
+    lastReplyAt: null,
+    canEdit: false,
+    canDelete: false,
+    moderationState: 'OK',
+    ...overrides,
+  };
+}
+
+/** A post of the signed-in collector (`meFixture`). */
+export function ownPostFixture(overrides: Partial<PostResponse> = {}): PostResponse {
+  return postFixture({
+    id: '00000000-0000-4000-8f10-0000000000a1',
+    author: { id: SELF_ID, handle: 'maika', displayName: 'Maïka Test', avatarUrl: null },
+    body: 'Looking for Azure Dawn boosters.',
+    canEdit: true,
+    canDelete: true,
+    ...overrides,
+  });
+}
+
+export function postPage(items: PostResponse[] = [postFixture()]): PostPage {
+  return { items, nextCursor: null, hasMore: false };
+}
+
+export function replyFixture(overrides: Partial<ReplyResponse> = {}): ReplyResponse {
+  return {
+    id: '00000000-0000-4000-8f20-000000000001',
+    postId: '00000000-0000-4000-8f10-000000000001',
+    author: { id: SELF_ID, handle: 'maika', displayName: 'Maïka Test', avatarUrl: null },
+    body: 'I have one!',
+    createdAt: '2026-10-05T10:30:00Z',
+    canDelete: true,
+    moderationState: 'OK',
+    ...overrides,
+  };
+}
+
+export function replyPage(items: ReplyResponse[] = []): ReplyPage {
+  return { items, nextCursor: null, hasMore: false };
+}
+
+// --- Wishlist + notifications (Phase 6, fictional) ----------------------------------------------
+
+export const WISH_ID = '00000000-0000-4000-9a00-000000000001';
+
+export function wishFixture(overrides: Partial<WishlistItemResponse> = {}): WishlistItemResponse {
+  return {
+    id: WISH_ID,
+    game: 'yugioh',
+    card: { id: CARD_ID, name: 'Azure-Eyes Sky Dragon', imageUrl: null },
+    printing: undefined,
+    rarity: null,
+    conditionMin: 'LIGHTLY_PLAYED',
+    edition: null,
+    language: null,
+    maxPrice: 25,
+    currency: 'CAD',
+    radiusKm: 10,
+    tradePreference: 'ANY',
+    notes: 'For my deck.',
+    active: true,
+    matchCount: 0,
+    lastMatchedAt: null,
+    createdAt: '2026-10-04T12:00:00Z',
+    updatedAt: '2026-10-04T12:00:00Z',
+    ...overrides,
+  };
+}
+
+export function matchFixture(
+  overrides: Partial<WishlistMatchResponse> = {}
+): WishlistMatchResponse {
+  return {
+    id: '00000000-0000-4000-9a10-000000000001',
+    wishlistItemId: WISH_ID,
+    item: publicItemFixture(),
+    collector: markerFixture(),
+    distanceBucket: 'KM_1_5',
+    matchedAt: '2026-10-05T09:00:00Z',
+    dismissed: false,
+    ...overrides,
+  };
+}
+
+export function matchPage(items: WishlistMatchResponse[] = [matchFixture()]): WishlistMatchPage {
+  return { items, nextCursor: null, hasMore: false };
+}
+
+export function notificationFixture(
+  overrides: Partial<NotificationResponse> = {}
+): NotificationResponse {
+  return {
+    id: '00000000-0000-4000-9b00-000000000001',
+    type: 'WISHLIST_MATCH',
+    title: 'Wishlist match: Azure-Eyes Sky Dragon',
+    body: 'Azure-Eyes Sky Dragon was listed ~1-5 km away for 45.00 CAD.',
+    data: { wishlistItemId: WISH_ID, deepLink: `/wishlist/${WISH_ID}` },
+    createdAt: new Date().toISOString(),
+    readAt: null,
+    ...overrides,
+  };
+}
+
+export function notificationPage(
+  items: NotificationResponse[] = [notificationFixture()],
+  overrides: Partial<NotificationPage> = {}
+): NotificationPage {
+  return { items, nextCursor: null, hasMore: false, ...overrides };
+}
+
+// --- Ratings, reports, offers and trades (Phases 7 and 8, fictional) -----------------------------
+
+/** The other collector of the offer and trade fixtures (the signed-in one is `meFixture`). */
+export const OTHER_ID = '00000000-0000-4000-8000-0000000000b1';
+export const OFFER_ID = '00000000-0000-4000-9c00-000000000001';
+export const TRADE_ID = '00000000-0000-4000-9d00-000000000001';
+export const BUYER_ITEM_ID = '00000000-0000-4000-8c00-000000020202';
+
+export function eligibilityFixture(overrides: Partial<RatingEligibility> = {}): RatingEligibility {
+  return {
+    eligible: true,
+    interactions: [
+      {
+        id: '00000000-0000-4000-9e00-000000000001',
+        kind: 'TRADE',
+        occurredAt: '2026-10-03T12:00:00Z',
+        alreadyRated: false,
+      },
+    ],
+    ...overrides,
+  };
+}
+
+export const REPORT_REASONS: ReportReasonOption[] = [
+  { code: 'SCAM', label: 'Scam or fraud', description: 'Took payment or cards and disappeared.' },
+  { code: 'HARASSMENT', label: 'Harassment', description: 'Insults, threats or unwanted contact.' },
+  { code: 'OTHER', label: 'Something else', description: 'Tell the moderators what happened.' },
+];
+
+export function myReportFixture(overrides: Partial<MyReport> = {}): MyReport {
+  return {
+    id: '00000000-0000-4000-9f00-000000000001',
+    status: 'OPEN',
+    reason: 'SCAM',
+    createdAt: '2026-10-04T12:00:00Z',
+    resolvedAt: null,
+    reportedUser: {
+      id: OTHER_ID,
+      handle: 'collector2',
+      displayName: 'Noé Verdun',
+      avatarUrl: null,
+    },
+    ...overrides,
+  };
+}
+
+export function offerPartyFixture(overrides: Partial<OfferParty> = {}): OfferParty {
+  return {
+    id: OTHER_ID,
+    handle: 'collector2',
+    displayName: 'Noé Verdun',
+    avatarUrl: null,
+    location: { publicLabel: 'Plateau-Mont-Royal, Montréal', distanceBucket: 'KM_1_5' },
+    rating: { average: 4.5, count: 2 },
+    ...overrides,
+  };
+}
+
+export const SELF_PARTY: OfferParty = {
+  id: '00000000-0000-4000-8000-0000000000a1',
+  handle: 'maika',
+  displayName: 'Maïka Test',
+  avatarUrl: null,
+  rating: { average: null, count: 0 },
+};
+
+/** An OPEN cash offer of 40 CAD by Maïka (the buyer, signed in) on Noé's Azure-Eyes. */
+export function offerFixture(overrides: Partial<OfferResponse> = {}): OfferResponse {
+  return {
+    id: OFFER_ID,
+    rootOfferId: OFFER_ID,
+    counterOf: null,
+    latestOfferId: OFFER_ID,
+    item: publicItemFixture(),
+    seller: offerPartyFixture(),
+    buyer: SELF_PARTY,
+    viewerRole: 'BUYER',
+    kind: 'CASH',
+    cashAmount: 40,
+    currency: 'CAD',
+    tradeItems: [],
+    message: 'Could we meet at the café?',
+    status: 'OPEN',
+    currentTurn: 'SELLER',
+    superseded: false,
+    expiresAt: '2099-10-08T12:00:00Z',
+    version: 0,
+    protectionRequested: false,
+    allowedActions: ['CANCEL'],
+    tradeId: null,
+    history: [
+      {
+        id: '00000000-0000-4000-9c10-000000000001',
+        offerId: OFFER_ID,
+        event: 'CREATED',
+        actorRole: 'BUYER',
+        reason: null,
+        terms: {
+          status: 'OPEN',
+          kind: 'CASH',
+          cashAmount: 40,
+          currency: 'CAD',
+          tradeItems: [],
+          message: 'Could we meet at the café?',
+          currentTurn: 'SELLER',
+          expiresAt: '2099-10-08T12:00:00Z',
+          version: 0,
+        },
+        createdAt: '2026-10-05T10:00:00Z',
+      },
+    ],
+    createdAt: '2026-10-05T10:00:00Z',
+    updatedAt: '2026-10-05T10:00:00Z',
+    closedAt: null,
+    ...overrides,
+  };
+}
+
+export function offerSummaryFixture(overrides: Partial<OfferSummary> = {}): OfferSummary {
+  return {
+    id: OFFER_ID,
+    rootOfferId: OFFER_ID,
+    item: publicItemFixture(),
+    counterparty: offerPartyFixture(),
+    viewerRole: 'SELLER',
+    kind: 'CASH',
+    cashAmount: 40,
+    currency: 'CAD',
+    tradeItemCount: 0,
+    status: 'OPEN',
+    currentTurn: 'SELLER',
+    yourTurn: true,
+    allowedActions: ['ACCEPT', 'COUNTER', 'DECLINE'],
+    expiresAt: '2099-10-08T12:00:00Z',
+    version: 0,
+    tradeId: null,
+    createdAt: '2026-10-05T10:00:00Z',
+    updatedAt: '2026-10-05T10:00:00Z',
+    ...overrides,
+  };
+}
+
+export function offerPage(items: OfferSummary[] = [offerSummaryFixture()]): OfferPage {
+  return { items, nextCursor: null, hasMore: false };
+}
+
+/** An AGREED trade from the accepted offer, Maïka buying (her turn to meet and confirm). */
+export function tradeFixture(overrides: Partial<TradeResponse> = {}): TradeResponse {
+  return {
+    id: TRADE_ID,
+    offer: offerFixture({ status: 'ACCEPTED', allowedActions: [], tradeId: TRADE_ID }),
+    viewerRole: 'BUYER',
+    counterparty: offerPartyFixture(),
+    kind: 'CASH',
+    cashAmount: 40,
+    currency: 'CAD',
+    status: 'AGREED',
+    protectionEnabled: false,
+    meetup: false,
+    buyerMarkedMeetup: false,
+    sellerMarkedMeetup: false,
+    buyerConfirmedAt: null,
+    sellerConfirmedAt: null,
+    nextAction: { actor: 'BUYER', action: 'MEET' },
+    allowedOperations: ['MARK_MEETUP', 'CONFIRM_COMPLETION', 'CANCEL'],
+    timeline: [
+      {
+        id: '00000000-0000-4000-9d10-000000000001',
+        event: 'CREATED',
+        actorRole: 'SELLER',
+        details: {},
+        createdAt: '2026-10-05T11:00:00Z',
+      },
+    ],
+    cancelReason: null,
+    createdAt: '2026-10-05T11:00:00Z',
+    updatedAt: '2026-10-05T11:00:00Z',
+    completedAt: null,
+    cancelledAt: null,
+    ...overrides,
+  };
+}
+
+export function tradeSummaryFixture(overrides: Partial<TradeSummary> = {}): TradeSummary {
+  return {
+    id: TRADE_ID,
+    offerId: OFFER_ID,
+    item: publicItemFixture(),
+    counterparty: offerPartyFixture(),
+    viewerRole: 'BUYER',
+    kind: 'CASH',
+    cashAmount: 40,
+    currency: 'CAD',
+    tradeItemCount: 0,
+    status: 'AGREED',
+    protectionEnabled: false,
+    meetup: false,
+    nextAction: { actor: 'BUYER', action: 'MEET' },
+    createdAt: '2026-10-05T11:00:00Z',
+    updatedAt: '2026-10-05T11:00:00Z',
+    completedAt: null,
+    ...overrides,
+  };
+}
+
+export function tradePage(items: TradeSummary[] = [tradeSummaryFixture()]): TradePage {
   return { items, nextCursor: null, hasMore: false };
 }

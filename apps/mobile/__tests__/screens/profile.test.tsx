@@ -97,6 +97,10 @@ describe('Profile tab', () => {
     });
     fireEvent.press(screen.getByRole('link', { name: 'Settings' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings');
+    fireEvent.press(screen.getByTestId('profile-offers'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/offers');
+    fireEvent.press(screen.getByTestId('profile-trades'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/trades');
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });

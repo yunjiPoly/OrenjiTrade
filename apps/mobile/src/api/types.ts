@@ -93,10 +93,84 @@ export type ReferencePage = Schemas['CursorPageReferenceResponse'];
 export type MyPlan = Schemas['MyPlan'];
 export type LimitStatus = Schemas['LimitStatus'];
 
-// --- Messaging (Phase 5, the minimal thread opened from a collector) ----------------------------
+// --- Messaging (Phase 5) -----------------------------------------------------------------------
 export type ConversationSummary = Schemas['ConversationSummary'];
 export type ConversationParticipant = Schemas['ConversationParticipant'];
 export type ConversationPage = Schemas['CursorPageConversationSummary'];
 export type MessageResponse = Schemas['MessageResponse'];
 export type MessagePage = Schemas['CursorPageMessageResponse'];
 export type SendMessageRequest = Schemas['SendMessageRequest'];
+export type LastMessage = Schemas['LastMessage'];
+export type UpdateConversationRequest = Schemas['UpdateConversationRequest'];
+export type MessageKind = MessageResponse['kind'];
+export type CardLink = Schemas['CardLink'];
+export type BinderLink = Schemas['BinderLink'];
+export type OfferLink = Schemas['OfferLink'];
+export type MessageImage = Schemas['MessageImage'];
+export type ImageUploadResponse = Schemas['ImageUploadResponse'];
+export type BlockedUser = Schemas['BlockedUser'];
+
+// --- Community (Phase 5) ------------------------------------------------------------------------
+export type CommunityChannel = Schemas['CommunityChannel'];
+export type ChannelKind = CommunityChannel['kind'];
+export type CommunityAuthor = Schemas['CommunityAuthor'];
+export type PostResponse = Schemas['PostResponse'];
+export type PostPage = Schemas['CursorPagePostResponse'];
+export type ReplyResponse = Schemas['ReplyResponse'];
+export type ReplyPage = Schemas['CursorPageReplyResponse'];
+export type CreatePostRequest = Schemas['CreatePostRequest'];
+
+// --- Wishlist + notifications (Phase 6) ---------------------------------------------------------
+export type WishlistItemResponse = Schemas['WishlistItemResponse'];
+export type WishlistCardRef = Schemas['WishlistCardRef'];
+export type CreateWishlistItemRequest = Schemas['CreateWishlistItemRequest'];
+export type UpdateWishlistItemRequest = Schemas['UpdateWishlistItemRequest'];
+export type TradePreference = WishlistItemResponse['tradePreference'];
+export type WishlistMatchResponse = Schemas['WishlistMatchResponse'];
+export type WishlistMatchPage = Schemas['CursorPageWishlistMatchResponse'];
+export type NotificationResponse = Schemas['NotificationResponse'];
+export type NotificationType = NotificationResponse['type'];
+export type NotificationPage = Schemas['CursorPageNotificationResponse'];
+export type UnreadNotificationCount = Schemas['UnreadNotificationCount'];
+export type ReadAllNotificationsResponse = Schemas['ReadAllNotificationsResponse'];
+
+// --- Ratings, references and collector reports (Phase 7) ---------------------------------------
+export type RatingEligibility = Schemas['RatingEligibility'];
+export type RatingEligibilityInteraction = Schemas['RatingEligibilityInteraction'];
+export type InteractionKind = RatingEligibilityInteraction['kind'];
+export type RatingBreakdown = Schemas['RatingBreakdown'];
+export type CreateRatingRequest = Schemas['CreateRatingRequest'];
+export type UpdateRatingRequest = Schemas['UpdateRatingRequest'];
+export type CreateReferenceRequest = Schemas['CreateReferenceRequest'];
+export type ReportReasonOption = Schemas['ReportReasonOption'];
+export type ReportReason = ReportReasonOption['code'];
+export type ReportCollectorRequest = Schemas['ReportCollectorRequest'];
+export type ReportContextRequest = Schemas['ReportContextRequest'];
+export type ReportContextSource = ReportContextRequest['source'];
+export type ReportConfirmation = Schemas['ReportConfirmation'];
+export type MyReport = Schemas['MyReport'];
+export type ReportStatus = MyReport['status'];
+
+// --- Offers and trades (Phase 8) ----------------------------------------------------------------
+export type OfferResponse = Schemas['OfferResponse'];
+export type OfferSummary = Schemas['OfferSummary'];
+export type OfferPage = Schemas['CursorPageOfferSummary'];
+export type OfferParty = Schemas['OfferParty'];
+export type OfferTradeItem = Schemas['OfferTradeItem'];
+export type OfferEvent = Schemas['OfferEvent'];
+export type OfferTerms = Schemas['OfferTerms'];
+export type OfferKind = OfferResponse['kind'];
+export type OfferStatus = OfferResponse['status'];
+export type OfferRole = OfferResponse['viewerRole'];
+export type OfferAction = OfferResponse['allowedActions'][number];
+export type CreateOfferRequest = Schemas['CreateOfferRequest'];
+export type CounterOfferRequest = Schemas['CounterOfferRequest'];
+export type OfferTradeItemRequest = Schemas['OfferTradeItemRequest'];
+export type OfferSettings = Schemas['OfferSettings'];
+export type TradeResponse = Schemas['TradeResponse'];
+export type TradeSummary = Schemas['TradeSummary'];
+export type TradePage = Schemas['CursorPageTradeSummary'];
+export type TradeEvent = Schemas['TradeEvent'];
+export type TradeNextAction = Schemas['TradeNextAction'];
+export type TradeStatus = TradeResponse['status'];
+export type TradeOperation = TradeResponse['allowedOperations'][number];

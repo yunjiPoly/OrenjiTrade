@@ -4,15 +4,13 @@ import { Platform, StyleSheet, View } from 'react-native';
 import type { PublicPoint } from '@/src/api/types';
 import { CollectorMap } from '@/src/components/map/CollectorMap';
 import type { CollectorZone, InitialCamera } from '@/src/components/map/CollectorMap.types';
-import {
-  APPROXIMATE_AREA_RADIUS_M,
-  COLLECTOR_FOCUS_ZOOM,
-  clampZoom,
-  round3,
-} from '@/src/lib/approximateArea';
+import { APPROXIMATE_AREA_RADIUS_M, round3, zoneFitZoom } from '@/src/lib/approximateArea';
 
-/** Height of the profile's map (dp). */
-export const AREA_MAP_HEIGHT = 200;
+/**
+ * Height of the profile's map (dp): at zoom 13 the whole 3 km zone (about 225 dp at 45.5° N)
+ * fits with a margin; further north the zoom steps out instead of clipping the zone.
+ */
+export const AREA_MAP_HEIGHT = 260;
 
 const noop = () => undefined;
 
@@ -24,8 +22,9 @@ export interface ApproximateAreaMapProps {
 
 /**
  * A collector's approximate area on their profile (the web's `approximate-area-map`): the same
- * zone of radius 1500 m around the public point as on the Map tab, shown at zoom 13 (the whole
- * zone fits; never past the cap of 14), still inside the scrolling profile (no gestures, no taps).
+ * zone of radius 1500 m around the public point as on the Map tab, shown at the closest zoom where
+ * the whole zone fits the map (13 around Montréal, never past the cap of 14), still inside the
+ * scrolling profile (no gestures, no taps).
  */
 export function ApproximateAreaMap({ point, label }: ApproximateAreaMapProps) {
   const center = useMemo(() => ({ lat: round3(point.lat), lng: round3(point.lng) }), [point]);
@@ -43,7 +42,7 @@ export function ApproximateAreaMap({ point, label }: ApproximateAreaMapProps) {
     [center, label]
   );
   const initialCamera = useMemo<InitialCamera>(
-    () => ({ center, zoom: clampZoom(COLLECTOR_FOCUS_ZOOM) }),
+    () => ({ center, zoom: zoneFitZoom(center.lat, AREA_MAP_HEIGHT) }),
     [center]
   );
   return (

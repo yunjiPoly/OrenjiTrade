@@ -4,10 +4,13 @@ import {
   REQUEST_ID_HEADER,
   absoluteApiUrl,
   createApiClient,
+  endsSession,
   isPublicApiUrl,
   required,
   sendsIdToken,
 } from '@/src/api/client';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { setSignedIn } from '@/src/auth/tokenProvider';
 
 function jsonResponse(body: unknown, status: number, contentType = 'application/json'): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': contentType } });
@@ -55,6 +58,47 @@ describe('api client', () => {
     tokens.mockReset();
     tokens.mockImplementation(async (force) => (force ? 'fresh-token' : 'cached-token'));
     clearAccountSignal();
+    useSessionNotice.getState().clear();
+    setSignedIn(false);
+  });
+
+  it('reports an ended session when a signed-in request is still refused after the retry', async () => {
+    setSignedIn(true);
+    fetchMock.mockImplementation(async () =>
+      jsonResponse(
+        { status: 401, errorCode: 'UNAUTHENTICATED', message: 'No' },
+        401,
+        'application/problem+json'
+      )
+    );
+    await expect(client.GET('/api/v1/me/profile')).rejects.toBeInstanceOf(ApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(useSessionNotice.getState().ended).toBe(true);
+  });
+
+  it('never ends the session for a password check, a signed-out visitor or another status', async () => {
+    const reauth = jsonResponse(
+      { status: 401, errorCode: 'REAUTHENTICATION_REQUIRED', message: 'Again' },
+      401,
+      'application/problem+json'
+    );
+    setSignedIn(true);
+    fetchMock.mockResolvedValueOnce(reauth);
+    await expect(client.GET('/api/v1/me/profile')).rejects.toBeInstanceOf(ApiError);
+    fetchMock.mockImplementation(async () =>
+      jsonResponse({ status: 403, errorCode: 'FORBIDDEN', message: 'No' }, 403)
+    );
+    await expect(client.GET('/api/v1/me/profile')).rejects.toBeInstanceOf(ApiError);
+    expect(useSessionNotice.getState().ended).toBe(false);
+
+    const unauthenticated = new ApiError({
+      status: 401,
+      errorCode: 'UNAUTHENTICATED',
+      message: 'x',
+    });
+    expect(endsSession(unauthenticated, 'http://api.test/api/v1/me', false)).toBe(false);
+    expect(endsSession(unauthenticated, 'http://api.test/api/v1/meta', true)).toBe(false);
+    expect(endsSession(unauthenticated, 'http://api.test/api/v1/me', true)).toBe(true);
   });
 
   it('sends X-Request-Id and no Authorization on public routes', async () => {

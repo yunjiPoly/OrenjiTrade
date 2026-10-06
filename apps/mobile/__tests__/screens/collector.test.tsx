@@ -2,6 +2,8 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react-nativ
 import { Dimensions } from 'react-native';
 
 import CollectorScreen from '@/app/collectors/[id]';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 import { zoomOfRegion } from '@/src/lib/mapGeometry';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -110,6 +112,43 @@ describe('Collector profile', () => {
     expect(mockRouter.push).toHaveBeenCalledTimes(2);
   });
 
+  it('reports the collector and makes an offer on a public card', async () => {
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId('collector-report'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: OTHER.id,
+        name: 'Noé Verdun',
+        handle: 'collector2',
+        source: 'PROFILE',
+      },
+    });
+    const item = publicItemFixture();
+    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/offers/new',
+      params: { item: item.id },
+    });
+    expect(offerTargetFor(item.id)).toMatchObject({
+      cardName: 'Azure-Eyes Sky Dragon',
+      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Verdun, Montréal' },
+    });
+  });
+
+  it('offers no offer on cards that refuse them', async () => {
+    const item = publicItemFixture({ acceptsOffers: false });
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
+    expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
+  });
+
   it('shows empty binders, and a retry when they fail', async () => {
     const api = mockApi(
       routes({
@@ -215,6 +254,7 @@ describe('Collector profile', () => {
     render();
     expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-message')).toBeNull();
+    expect(screen.queryByTestId('collector-report')).toBeNull();
     fireEvent.press(screen.getByTestId('collector-edit-profile'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
   });
@@ -254,12 +294,35 @@ describe('Collector profile visibility (like the web)', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-up');
   });
 
-  it('a 401 (session ended) also asks to sign in', async () => {
+  it('a 401 ends the session: signed out, so the gate opens sign-in instead of looping', async () => {
     mockApi(
       routes({ 'GET /api/v1/collectors/{handle}': problem(401, 'UNAUTHENTICATED', 'Sign in') })
     );
-    render();
+    const port = new FakeAuthPort(testUser());
+    render(port);
     expect(await screen.findByTestId('collector-members-only')).toBeOnTheScreen();
+    await waitFor(() => expect(port.signOut).toHaveBeenCalled());
+    expect(useSessionNotice.getState().ended).toBe(true);
+    // Signed out now: the buttons open the auth screens.
+    fireEvent.press(screen.getByTestId('collector-sign-in'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/sign-in');
+  });
+
+  it('shows the whole 3 km zone: a lower zoom further north instead of clipping it', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': ok({
+          ...OTHER,
+          location: { ...OTHER.location, publicPoint: { lat: 60.17, lng: 24.94 } },
+        }),
+      })
+    );
+    render();
+    const map = await screen.findByTestId('collector-area-view');
+    expect(zoomOfRegion(map.props.initialRegion, Dimensions.get('window').width)).toBeCloseTo(
+      12,
+      5
+    );
   });
 
   it('shows an error with retry for other failures', async () => {

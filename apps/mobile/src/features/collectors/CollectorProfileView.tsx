@@ -10,6 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { ChipList, SectionCard } from '@/src/components/ui/Layout';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
+import { reportParams } from '@/src/features/reports/reportLabels';
 import { approximateAreaSentence } from '@/src/lib/approximateArea';
 import { formatLongDate } from '@/src/lib/dates';
 import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
@@ -33,16 +34,19 @@ export function nearLabel(publicLabel: string | null | undefined): string {
 /**
  * A collector's public profile as the viewer sees it (the web's `collector-profile-view` +
  * ratings section): header with place, distance bucket, member since and last activity; actions
- * (own profile: edit and privacy; others: the first public binder and Message when allowed);
- * about, games and tags; the approximate area (a 3 km zone, never a point); ratings and
- * references; public binders and cards.
+ * (own profile: edit and privacy; others: the first public binder, Message when allowed and
+ * Report); about, games and tags; the approximate area (a 3 km zone, never a point); ratings and
+ * references (rate, write a reference); public binders and cards ("Make an offer").
  */
 export function CollectorProfileView({
   profile,
   isOwn,
+  onRatingsLayout,
 }: {
   profile: CollectorProfileResponse;
   isOwn: boolean;
+  /** Where the ratings section starts (y in this view), to scroll there (`?tab=ratings`). */
+  onRatingsLayout?: (y: number) => void;
 }) {
   const { palette } = useTheme();
   const router = useRouter();
@@ -146,6 +150,19 @@ export function CollectorProfileView({
               onMessage={() => void message(profile.id)}
               testID="collector-message"
             />
+            <Button
+              label="Report"
+              icon="flag-outline"
+              variant="ghost"
+              accessibilityLabel={`Report ${profile.displayName}`}
+              onPress={() =>
+                router.push({
+                  pathname: '/report',
+                  params: reportParams(profile, { source: 'PROFILE' }),
+                })
+              }
+              testID="collector-report"
+            />
           </>
         )}
       </View>
@@ -204,9 +221,11 @@ export function CollectorProfileView({
         )}
       </SectionCard>
 
-      <CollectorRatingsSection profile={profile} isOwn={isOwn} />
+      <View onLayout={(event) => onRatingsLayout?.(event.nativeEvent.layout.y)}>
+        <CollectorRatingsSection profile={profile} isOwn={isOwn} />
+      </View>
       <PublicBindersSection profile={profile} isOwn={isOwn} binders={binders} />
-      <PublicCardsSection items={items} />
+      <PublicCardsSection items={items} profile={profile} />
     </View>
   );
 }
