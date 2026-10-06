@@ -50,6 +50,8 @@ export interface OfferFormValue {
   cards: TradeLine[];
   message: string;
   expiresInHours: number;
+  /** Ask for payment protection (cash part only; Phase 9, `protectedPayments` flag). */
+  protectionRequested: boolean;
 }
 
 export type OfferField = 'cashAmount' | 'cards' | 'message' | 'expiresInHours';
@@ -157,6 +159,7 @@ export function toCreateRequest(itemId: string, value: OfferFormValue): CreateOf
     ...(kindHasCards(value.kind) ? { tradeItemIds: tradeItems(value) } : {}),
     ...(message ? { message } : {}),
     expiresInHours: value.expiresInHours,
+    ...(kindHasCash(value.kind) && value.protectionRequested ? { protectionRequested: true } : {}),
   };
 }
 
@@ -248,6 +251,7 @@ export function newOfferValue(kinds: readonly OfferKind[], currency: string): Of
     cards: [],
     message: '',
     expiresInHours: OFFER_DEFAULT_EXPIRY_HOURS,
+    protectionRequested: false,
   };
 }
 
@@ -270,6 +274,7 @@ export function counterValue(offer: OfferResponse, fallbackCurrency: string): Of
       .filter((line): line is TradeLine => line !== null),
     message: '',
     expiresInHours: OFFER_DEFAULT_EXPIRY_HOURS,
+    protectionRequested: offer.protectionRequested,
   };
 }
 

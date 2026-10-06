@@ -33,7 +33,7 @@ const TRADE_TYPES = new Set<string>([
  * Applies realtime pushes to the react-query caches (the web's stores subscribing to
  * `RealtimeService`): messages into their thread and the inbox, read receipts ("Seen", unread
  * counts), presence dots, notifications (badge once per push, feeds, wishlist match counts, the
- * offers, trades, ratings and reports they announce), and after every (re)connection a quiet
+ * offers, trades, disputes, ratings and reports they announce), and after every (re)connection a quiet
  * re-read of what may have been missed. Renders nothing.
  */
 export function RealtimeCacheSync() {
@@ -99,6 +99,10 @@ export function RealtimeCacheSync() {
     if (TRADE_TYPES.has(notification.type)) {
       void queryClient.invalidateQueries({ queryKey: meKeys.trades(uid) });
     }
+    if (notification.type === 'DISPUTE_UPDATE') {
+      // The dispute on screen (evidence, messages, hold, decision).
+      void queryClient.invalidateQueries({ queryKey: meKeys.disputes(uid) });
+    }
     if (notification.type === 'RATING_RECEIVED') {
       // The caller's own profile shows the new rating and summary.
       void queryClient.invalidateQueries({ queryKey: meKeys.collectors(uid) });
@@ -117,6 +121,7 @@ export function RealtimeCacheSync() {
     void queryClient.invalidateQueries({ queryKey: meKeys.wishlist(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.offers(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.trades(uid) });
+    void queryClient.invalidateQueries({ queryKey: meKeys.disputes(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.reports(uid) });
   });
 

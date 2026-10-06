@@ -194,7 +194,7 @@ describe('One trade', () => {
     expect(screen.queryByTestId('trade-cancel')).not.toBeOnTheScreen();
   });
 
-  it('explains the payment protection steps done on the website, and missing trades', async () => {
+  it('shows the payment protection steps of a protected trade, and missing trades', async () => {
     mockApi(
       routes({
         'GET /api/v1/trades/{id}': ok(
@@ -208,9 +208,11 @@ describe('One trade', () => {
       })
     );
     const view = renderWithProviders(<TradeScreen />, { port: port() });
-    expect(await screen.findByTestId('trade-protected-web')).toHaveTextContent(
-      /done on orenjitrade\.com for now/
+    // Paying, shipping and disputes happen in the app (stage M6; see payments.test.tsx).
+    expect(await screen.findByTestId('trade-next-title')).toHaveTextContent(
+      'Your move: pay with payment protection'
     );
+    expect(screen.queryByTestId('trade-protected-web')).not.toBeOnTheScreen();
     expect(screen.getByTestId('trade-meetup-button')).toHaveTextContent(/Meet in person instead/);
     expect(screen.getByTestId('step-paid')).toBeOnTheScreen();
     view.unmount();

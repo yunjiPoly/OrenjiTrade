@@ -255,9 +255,12 @@ conversations and the community channels, live over the realtime channel; the Wi
 matches nearby; the notification centre with a live bell) and Phases 7–8 (reporting a
 collector and My reports; rating a collector and writing a reference after an interaction;
 "Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
-with the meetup, confirming the exchange, cancelling, and rating once completed) are implemented
-on the same API as the web; later phases (payment protection, Premium, credits) follow and the
-admin consoles stay on the web. Locally the catalog is the fictional mock catalog of the seed (the real
+with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
+(payment protection on the trade: pay on the app's fake checkout, ship, confirm receipt, disputes
+with statements and photos, Settings → Payouts; Premium through the fake billing checkout, credits
+with referrals and day unlocks, voluntary donations through the fake donation checkout,
+"Sponsored" placements) are implemented on the same API and the same local fake providers as the
+web; the admin consoles stay on the web. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
@@ -281,7 +284,13 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
 (collector1 and collector2 share a seed conversation; collector2 has a seed wish with a match;
 collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
-Offers / Trades).
+Offers / Trades; collector1 also sells a protected trade waiting for collector8's receipt, has
+payouts set up, 300 credits and the referral code `COLLECTOR1`; collector5's protected trade with
+collector2 is disputed: Trades → the trade → "View the dispute"; `premium_user` has a live fake
+Premium subscription). The app's checkouts (`checkout/fake/…`, `checkout/fake-billing/…`,
+`checkout/fake-donation/…`) are the local fake providers: a "Local test payment" banner, no card,
+no money; whether a store build may sell Premium or take donations at all is an open owner
+question (in-app purchase rules, ADR 0011).
 The realtime channel is the API's `/ws` (STOMP over a plain WebSocket): the app connects while a
 collector is signed in and shows "Live" on the Messages tab; on Android it reaches
 `ws://10.0.2.2:8080/ws` with the ID token in the handshake's `Authorization` header (the web build
@@ -320,8 +329,9 @@ the Metro started by the harness (`expo start --android`) installs it and the ha
 that install (up to 6 minutes) before running the flows. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
 second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
-`wishlist.js` and `offers.js`; `offers.js` posts `{}` to body-less endpoints because Maestro's
-`http.post` needs a body)
+`wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the
+Premium flow from `payments.js`; `offers.js` and `payments.js` post `{}` to body-less endpoints
+because Maestro's `http.post` needs a body)
 and check the result there (`check-area.js`, `check-inventory.js`, `community.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
 run (Metro re-crawls the workspace and Expo Go may report "Packager is not running"), and restart
@@ -371,7 +381,12 @@ npm run catalog:import -- --game yugioh --provider ygoprodeck --images reference
   still says `CARD_IMAGE_LOCAL_CACHE_MAX_MB=500`: delete the line or set 5120 to get the new
   default.
 - **Location:** `CARD_IMAGE_CACHE_DIR`, default `apps/api/.local-storage/card-images/` (one
-  directory per database; a start-up reconciliation deletes files no row references).
+  directory per database; a start-up reconciliation deletes files no row references, except
+  files younger than 10 minutes, which it only counts). In the cloud the same cache keeps its
+  renditions as objects under `card-images/` of the media bucket (`STORAGE_PROVIDER=gcs`,
+  ADR 0015 amendment 2026-10-05) and uses the directory only for in-flight downloads;
+  `CARD_IMAGE_STORAGE_PROVIDER`, `CARD_IMAGE_GCS_BUCKET` and `CARD_IMAGE_OBJECT_PREFIX` are
+  cloud-only settings that stay empty locally.
 
 The command polls the run and prints its report:
 
@@ -409,9 +424,9 @@ blocks the IP for an hour above it (OrenjiTrade paces at 5/s). Tests and CI neve
 
 | Area | Local implementation | Selected by | Where to see it |
 | --- | --- | --- | --- |
-| Protected payments | `FakePaymentProvider` (no money moves) | `PAYMENT_PROVIDER=fake` | the web shows the fake checkout page `/checkout/fake/<ref>` (approve / decline); synthetic webhooks are signed with a local HMAC key and logged at DEBUG (`Synthetic fake webhook`) |
-| Premium subscriptions | `FakeBillingProvider` | `BILLING_PROVIDER=fake` | fake checkout page `/checkout/fake-billing/<ref>`; state in the admin console (Billing) |
-| Donations | `FakeDonationProvider` | `DONATION_PROVIDER=fake` | fake checkout page `/checkout/fake-donation/<ref>`; admin console (Donations) |
+| Protected payments | `FakePaymentProvider` (no money moves) | `PAYMENT_PROVIDER=fake` | the web shows the fake checkout page `/checkout/fake/<ref>` (approve / decline), the mobile app the same checkout as its screen `checkout/fake/[ref]`; synthetic webhooks are signed with a local HMAC key and logged at DEBUG (`Synthetic fake webhook`) |
+| Premium subscriptions | `FakeBillingProvider` | `BILLING_PROVIDER=fake` | fake checkout page `/checkout/fake-billing/<ref>` (mobile: `checkout/fake-billing/[ref]`); state in the admin console (Billing) |
+| Donations | `FakeDonationProvider` | `DONATION_PROVIDER=fake` | fake checkout page `/checkout/fake-donation/<ref>` (mobile: `checkout/fake-donation/[ref]`); admin console (Donations) |
 | Push notifications | `LogPushProvider` | `PUSH_PROVIDER=log` | API log lines from logger `orenji.push`: `push (log provider) notification=... type=... title="..."` |
 | E-mail | `LogEmailProvider` | `EMAIL_PROVIDER=log` | logger `orenji.email`: `email (log provider) ... to=c***@orenjitrade.test subject="..."` (recipient masked) |
 | Analytics events | `LogAnalyticsTransport` | `EVENTS_TRANSPORT=local` | logger `orenji.analytics`: `analytics {"name":...}` (pseudonymous actor hash, no amounts or text) |

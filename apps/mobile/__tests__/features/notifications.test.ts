@@ -59,7 +59,7 @@ describe('notification kinds', () => {
     );
   });
 
-  it('maps web paths to app screens, with a note for screens of later stages (disputes, plans)', () => {
+  it('maps web paths to app screens, with a note for the settings that stay on the web', () => {
     expect(mobileTarget('/wishlist/w1')).toEqual({ kind: 'route', href: '/wishlist/w1' });
     expect(mobileTarget('/messages/c1')).toEqual({ kind: 'route', href: '/messages/c1' });
     expect(mobileTarget('/community')).toEqual({ kind: 'route', href: '/messages?view=community' });
@@ -96,12 +96,20 @@ describe('notification kinds', () => {
     expect(mobileTarget('/trades/t1')).toEqual({ kind: 'route', href: '/trades/t1' });
     expect(mobileTarget('/trades')).toEqual({ kind: 'route', href: '/trades' });
     expect(mobileTarget('/trades/bad id!')).toEqual({ kind: 'route', href: '/trades' });
-    // Still later: payouts and disputes (Phase 9).
-    expect(mobileTarget('/settings/payouts').kind).toBe('later');
-    const dispute = mobileTarget('/disputes/d1');
-    expect(dispute.kind === 'later' && dispute.note).toMatch(/Disputes open in a later/);
-    const premium = mobileTarget('/premium');
-    expect(premium.kind === 'later' && premium.note).toMatch(/Plans and Premium/);
+    // Phase 9 and 10 screens (mobile stage M6).
+    expect(mobileTarget('/settings/payouts')).toEqual({ kind: 'route', href: '/settings/payouts' });
+    expect(mobileTarget('/disputes/d1')).toEqual({ kind: 'route', href: '/disputes/d1' });
+    expect(mobileTarget('/disputes/bad id!')).toEqual({ kind: 'route', href: '/trades' });
+    expect(mobileTarget('/premium')).toEqual({ kind: 'route', href: '/premium' });
+    expect(mobileTarget('/premium?checkout=success')).toEqual({
+      kind: 'route',
+      href: '/premium?checkout=success',
+    });
+    expect(mobileTarget('/credits')).toEqual({ kind: 'route', href: '/credits' });
+    expect(mobileTarget('/support')).toEqual({ kind: 'route', href: '/support' });
+    // Still on the web only: blocked users (unblocking is in the conversation's options).
+    const blocked = mobileTarget('/settings/blocked');
+    expect(blocked.kind === 'later' && blocked.note).toMatch(/orenjitrade\.com/);
     expect(mobileTarget('/something-else')).toEqual({ kind: 'route', href: '/notifications' });
     expect(notificationTarget(notificationFixture())).toEqual({
       kind: 'route',

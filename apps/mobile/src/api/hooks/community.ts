@@ -11,7 +11,7 @@ import { useAccount } from '@/src/account/AccountProvider';
 
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
-import { meKeys, publicKeys } from '../queryKeys';
+import { meKeys } from '../queryKeys';
 import type {
   CommunityChannel,
   CreatePostRequest,
@@ -36,17 +36,11 @@ function useReady(): boolean {
 }
 
 /**
- * `GET /api/v1/public/feature-flags` (`publicChat` gates the community; `mlScanning` stays off).
- * An unreadable answer counts as "unknown": the community then asks the API itself, which
- * answers 403 `FEATURE_DISABLED` when the flag is off.
+ * The feature flags (`publicChat` gates the community; `mlScanning` stays off) live in
+ * `./featureFlags`; the community asks the API itself, which answers 403 `FEATURE_DISABLED`
+ * when the flag is off.
  */
-export function useFeatureFlags() {
-  return useQuery<Record<string, boolean>, ApiError>({
-    queryKey: publicKeys.featureFlags,
-    queryFn: async () => required((await api.GET('/api/v1/public/feature-flags')).data),
-    staleTime: 5 * 60_000,
-  });
-}
+export { useFeatureFlags } from './featureFlags';
 
 /** `GET /api/v1/community/channels`: every channel with its posts of the last 24 hours. */
 export function useCommunityChannels(enabled = true) {

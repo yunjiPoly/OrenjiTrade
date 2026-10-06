@@ -14,6 +14,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { BinderRow } from '@/src/features/binders/BinderRow';
 import { InventoryFiltersBar } from '@/src/features/inventory/InventoryFiltersBar';
 import { InventorySummaryStrip } from '@/src/features/inventory/InventorySummaryStrip';
@@ -159,6 +160,7 @@ function CardsView() {
           <View style={styles.header}>
             <ListingsPausedBanner />
             <InventorySummaryStrip />
+            <SponsoredSlot placement="INVENTORY_SIDEBAR" game={filters.game} variant="compact" />
           </View>
         }
         ListEmptyComponent={

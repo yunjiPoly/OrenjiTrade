@@ -73,7 +73,7 @@ action that is audited and excludes Restricted-location columns.
   (generated) or by an operator with `gcloud secrets versions add` — never through tfvars,
   git, chat or CI logs. `version_destroy_ttl` keeps destroyed versions recoverable for 7 days.
 - **Who**: runtime service accounts get access to exactly the secrets they need
-  (`api-run`: db-password, redis-url, service-token, stripe-*; `ml-run`: service-token). No
+  (`api-run`: db-password, service-token, location-jitter-secret, analytics-actor-salt, ads-token-secret, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
   project-wide `secretmanager.secretAccessor`.
 - **CI/CD**: GitHub Actions authenticates with **Workload Identity Federation** (OIDC) to the
   `github-deployer` SA; the provider trusts only `assertion.repository == "<owner/repo>"` (and
@@ -209,7 +209,7 @@ legal texts they implement. They never claim compliance.
 | [`confidentiality-incident-register.md`](confidentiality-incident-register.md) | Register template (date, description, data and people affected, risk-of-serious-injury assessment, notifications, measures) and the response procedure: contain, assess, notify the Commission d'accès à l'information and the people concerned when there is a risk of serious injury, record every incident even when not notified |
 | [`law-enforcement-requests.md`](law-enforcement-requests.md) | Requests from police, courts and other authorities: release data only on valid legal process (except a documented emergency involving a risk to life), verify, disclose the minimum, keep precise locations out unless specifically compelled, log every request |
 | [`owner-account-security-checklist.md`](owner-account-security-checklist.md) | Two-factor sign-in on the Google / Firebase, GitHub, Cloudflare (and registrar), Stripe and mailbox accounts; the actual `orenji.security.admin.require-mfa` value per Spring profile; the Terraform profile-name finding |
-| `docs/deployment/runbooks.md` section 9 | Launch configuration: every money feature flag off, why, how to change it in `/admin`, and the V105 handling of the V010 defaults |
+| `docs/deployment/runbooks.md` section 12 | Launch configuration: every money feature flag off, why, how to change it in `/admin`, and the V105 handling of the V010 defaults |
 
 ## Code scanning availability
 

@@ -15,6 +15,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
+import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { CardFiltersSheet } from '@/src/features/catalog/CardFiltersSheet';
 import { CardRow } from '@/src/features/catalog/CardRow';
 import {
@@ -141,6 +142,9 @@ export default function SearchScreen() {
             </View>
           ) : null}
         </View>
+      ) : null}
+      {query.q ? (
+        <SponsoredSlot placement="SEARCH_SPONSORED" game={query.game ?? null} variant="compact" />
       ) : null}
     </View>
   );

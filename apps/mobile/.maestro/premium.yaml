@@ -1,0 +1,140 @@
+# Premium (mobile Phase 10) with the local fake billing provider (no card, no money): Pat (fresh,
+# fictional, FREE) already has the five binders the free plan allows (scripts/payments.js). "New
+# binder" explains the limit and "See Premium" leads to the plans; "Upgrade to Premium" opens the
+# app's fake billing checkout, which declines once ("Try again") and then succeeds: Pat is welcomed
+# on Premium (the API holds the plan) and the sixth binder can be created. "Cancel now" brings
+# the free plan back.
+appId: host.exp.exponent
+name: Premium - limit reached, subscribe, limit lifted, cancel
+tags:
+  - mobile-m6
+  - premium
+---
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: premium
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.pat.email}
+      PASSWORD: ${output.pat.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-index'
+    timeout: 60000
+
+# The sixth binder: the limit, explained, leads to Premium.
+- openLink: ${APP_URL}/--/binders/new
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 60000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'One too many'
+- hideKeyboard
+- tapOn:
+    id: 'binder-save'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-limit-message'
+      text: 'You have used 5 of 5 binders on the Free plan.*'
+    timeout: 60000
+- takeScreenshot: premium-limit
+- tapOn:
+    id: 'binder-limit-premium'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-FREE-badge'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'plan-PREMIUM-upgrade'
+- takeScreenshot: premium-plans
+- tapOn:
+    id: 'plan-PREMIUM-upgrade'
+
+# The fake billing checkout: a decline, then a payment.
+- extendedWaitUntil:
+    visible:
+      id: 'checkout-decline'
+    timeout: 60000
+- takeScreenshot: premium-checkout
+- tapOn:
+    id: 'checkout-decline'
+- extendedWaitUntil:
+    visible: 'The payment was declined. Nothing was charged.'
+    timeout: 90000
+- tapOn:
+    id: 'checkout-try-again'
+- extendedWaitUntil:
+    visible: 'The last attempt was declined.*'
+    timeout: 30000
+- tapOn:
+    id: 'checkout-pay'
+- extendedWaitUntil:
+    visible:
+      id: 'premium-welcome'
+    timeout: 90000
+- takeScreenshot: premium-welcome
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: expect-plan
+      EMAIL: ${output.pat.email}
+      PASSWORD: ${output.pat.password}
+      PLAN: PREMIUM
+
+# The limit is lifted: the sixth binder.
+- openLink: ${APP_URL}/--/binders/new
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 60000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'Premium binder'
+- hideKeyboard
+- tapOn:
+    id: 'binder-save'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-title'
+      text: 'Premium binder'
+    timeout: 60000
+
+# Cancel now: the free plan again.
+- openLink: ${APP_URL}/--/premium
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'subscription-card'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'subscription-cancel-now'
+- tapOn:
+    id: 'subscription-cancel-now'
+- extendedWaitUntil:
+    visible:
+      id: 'subscription-dialog-confirm'
+    timeout: 30000
+- tapOn:
+    id: 'subscription-dialog-confirm'
+- extendedWaitUntil:
+    visible: 'Premium is cancelled. You are on the free plan now.'
+    timeout: 60000
+- takeScreenshot: premium-cancelled
+- runScript:
+    file: scripts/payments.js
+    env:
+      ACTION: expect-plan
+      EMAIL: ${output.pat.email}
+      PASSWORD: ${output.pat.password}
+      PLAN: FREE

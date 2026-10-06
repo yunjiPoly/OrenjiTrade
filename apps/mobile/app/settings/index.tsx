@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
+import { useFeatureFlags } from '@/src/api/hooks/featureFlags';
 import { useSession } from '@/src/auth/session';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Divider, ListRow, SectionCard } from '@/src/components/ui/Layout';
@@ -15,6 +16,11 @@ export default function SettingsScreen() {
   const router = useRouter();
   const session = useSession();
   const account = useAccount();
+  const flags = useFeatureFlags();
+  // Sections of a feature that is switched off are hidden (and while the flags are unknown).
+  const links = SETTINGS_LINKS.filter(
+    (link) => !link.feature || flags.data?.[link.feature] === true
+  );
 
   return (
     <Screen scroll testID="screen-settings">
@@ -30,7 +36,7 @@ export default function SettingsScreen() {
         </View>
       </View>
       <SectionCard>
-        {SETTINGS_LINKS.map((link, index) => (
+        {links.map((link, index) => (
           <View key={link.label}>
             {index > 0 ? <Divider /> : null}
             <ListRow

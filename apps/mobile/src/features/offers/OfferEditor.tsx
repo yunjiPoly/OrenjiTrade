@@ -5,15 +5,18 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { newRequestId } from '@/src/api/client';
+import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import { useCounterOffer, useCreateOffer } from '@/src/api/hooks/offers';
 import type { OfferResponse } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
-import { FormMessage } from '@/src/components/ui/FormControls';
+import { Checkbox, FormMessage } from '@/src/components/ui/FormControls';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { TextField } from '@/src/components/ui/TextField';
+import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
+import { ProtectionExplainer } from '@/src/features/payments/ProtectionExplainer';
 import { formatMoney } from '@/src/lib/catalog';
 import { CURRENCIES, availabilityLabel, conditionLabel } from '@/src/lib/inventory';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -83,6 +86,7 @@ export function OfferEditor({ target, counter = null, onSent, onStale }: OfferEd
   const create = useCreateOffer();
   const counterMutation = useCounterOffer();
   const [idempotencyKey] = useState(() => newRequestId());
+  const payments = useFeature(FEATURE.protectedPayments);
 
   const pool = useMemo<TradeLine[]>(
     () =>
@@ -126,6 +130,11 @@ export function OfferEditor({ target, counter = null, onSent, onStale }: OfferEd
     }
   };
 
+  // New offers with a cash part may ask for payment protection while the flag is on.
+  const protectionAvailable = !counter && kindHasCash(value.kind) && payments.enabled;
+  const withProtection =
+    kindHasCash(value.kind) &&
+    (protectionAvailable ? value.protectionRequested : !!counter?.offer.protectionRequested);
   const askingPrice = formatMoney(target.askingPrice, target.currency);
   const terms = offerTermsText({
     kind: value.kind,
@@ -308,7 +317,22 @@ export function OfferEditor({ target, counter = null, onSent, onStale }: OfferEd
               </View>
             </View>
           ) : null}
-          {kindHasCash(value.kind) && counter?.offer.protectionRequested ? (
+          {protectionAvailable ? (
+            <View style={styles.block} testID="protection-option">
+              <Checkbox
+                label="Use payment protection"
+                checked={value.protectionRequested}
+                onChange={(protectionRequested) => update({ protectionRequested })}
+                disabled={busy}
+                testID="offer-protection"
+              />
+              <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
+                The card is shipped to you with tracking and {target.seller.displayName} is paid
+                only once you confirm it arrived. You can still agree to meet in person later.
+              </Text>
+              <ProtectionExplainer collapsed testID="offer-protection-explainer" />
+            </View>
+          ) : kindHasCash(value.kind) && counter?.offer.protectionRequested ? (
             <FormMessage tone="info" testID="protection-kept">
               Payment protection stays on for this deal.
             </FormMessage>
@@ -376,10 +400,7 @@ export function OfferEditor({ target, counter = null, onSent, onStale }: OfferEd
             />
             <Text style={[textStyle('sm'), styles.grow, { color: palette.ink }]}>
               You offer <Text style={styles.strong}>{terms}</Text> for {target.cardName}
-              {counter?.offer.protectionRequested && kindHasCash(value.kind)
-                ? ' with payment protection'
-                : ''}
-              .
+              {withProtection ? ' with payment protection' : ''}.
             </Text>
           </View>
         </>
@@ -388,6 +409,9 @@ export function OfferEditor({ target, counter = null, onSent, onStale }: OfferEd
       {problem ? (
         <View style={styles.block}>
           <FormMessage testID="offer-error">{problem.message}</FormMessage>
+          {problem.code === 'LIMIT_REACHED' ? (
+            <SeePremiumButton testID="offer-limit-premium" />
+          ) : null}
           {problem.openOfferId ? (
             <Button
               label="View your open offer"
