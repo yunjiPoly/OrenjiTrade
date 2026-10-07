@@ -17,8 +17,9 @@ function jsonResponse(body: unknown, status: number, contentType = 'application/
 }
 
 /**
- * What `fetch` resolves with on React Native (Expo SDK 57): a working response that is NOT an
- * instance of the global `Response` class, which openapi-fetch rejects as a middleware result.
+ * What `fetch` resolves with on React Native (seen on Expo SDK 57): a working response that is
+ * NOT an instance of the global `Response` class, which openapi-fetch rejects as a middleware
+ * result.
  */
 function foreignResponse(body: unknown, status: number): Response {
   const inner = jsonResponse(body, status);

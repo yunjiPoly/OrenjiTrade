@@ -50,8 +50,9 @@ async function readBody(response: Response): Promise<unknown> {
 
 /**
  * openapi-fetch only accepts a replacement response that is `instanceof` the global `Response`.
- * On React Native (Expo SDK 57) `fetch` resolves with a response of another class, so a response
- * produced by a middleware (the retry after a 401) is copied into a global `Response` first.
+ * On React Native (seen on Expo SDK 57) `fetch` resolves with a response of another class, so a
+ * response produced by a middleware (the retry after a 401) is copied into a global `Response`
+ * first.
  */
 export async function asGlobalResponse(
   response: Pick<Response, 'status' | 'statusText' | 'headers' | 'arrayBuffer'>
