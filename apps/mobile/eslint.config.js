@@ -26,4 +26,16 @@ module.exports = defineConfig([
       'no-fallthrough': 'error',
     },
   },
+  {
+    // Testing Library 14 (Expo SDK 58): render, renderHook, fireEvent, act, rerender and unmount
+    // return promises; one that is not awaited lets a test assert before the screen updated.
+    files: ['__tests__/**/*.ts', '__tests__/**/*.tsx'],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: __dirname } },
+    rules: { '@typescript-eslint/no-floating-promises': 'error' },
+  },
+  {
+    // jest.mock factories are hoisted above the imports, so they load modules with require().
+    files: ['__tests__/**/*.ts', '__tests__/**/*.tsx', 'jest.setup.ts'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 ]);
