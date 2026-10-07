@@ -42,12 +42,14 @@ describe('Settings → Blocked users', () => {
         'DELETE /api/v1/users/{id}/block': noContent,
       })
     );
-    renderWithProviders(<BlockedUsersScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<BlockedUsersScreen />, { port: port() });
     expect(screen.getByTestId('blocked-loading')).toBeOnTheScreen();
+    release();
     const row = await screen.findByTestId('blocked-collector2');
     expect(row).toHaveTextContent(/Noé Verdun/);
     expect(row).toHaveTextContent(/@collector2 · blocked/);
-    fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
     expect(api.callsTo('DELETE /api/v1/users/{id}/block')[0]?.path).toBe(
       `/api/v1/users/${OTHER_ID}/block`
@@ -62,9 +64,9 @@ describe('Settings → Blocked users', () => {
         'GET /api/v1/me/blocks': [problem(503, 'SERVICE_UNAVAILABLE', 'down'), ok([])],
       })
     );
-    renderWithProviders(<BlockedUsersScreen />, { port: port() });
+    await renderWithProviders(<BlockedUsersScreen />, { port: port() });
     expect(await screen.findByTestId('blocked-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('blocked-error-retry'));
+    await fireEvent.press(screen.getByTestId('blocked-error-retry'));
     expect(await screen.findByText('You have not blocked anyone')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/me/blocks')).toHaveLength(2);
 
@@ -72,16 +74,16 @@ describe('Settings → Blocked users', () => {
       'GET /api/v1/me/blocks': ok([blockedUserFixture()]),
       'DELETE /api/v1/users/{id}/block': problem(500, 'INTERNAL_ERROR', 'boom'),
     });
-    renderWithProviders(<BlockedUsersScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
+    await renderWithProviders(<BlockedUsersScreen />, { port: port() });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(/Please try again/);
     expect(screen.getByTestId('blocked-collector2')).toBeOnTheScreen();
   });
 
   it('is linked from Settings and from a blocked collector profile', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/me/blocks': ok([]) }));
-    renderWithProviders(<SettingsScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('link', { name: 'Blocked users' }));
+    await renderWithProviders(<SettingsScreen />, { port: port() });
+    await fireEvent.press(await screen.findByRole('link', { name: 'Blocked users' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/blocked');
 
     mockParams.current = { id: 'collector2' };
@@ -102,11 +104,11 @@ describe('Settings → Blocked users', () => {
         'GET /api/v1/collectors/{handle}/wishlist': problem(404, 'NOT_FOUND', 'hidden'),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('collector-message-reason')).toHaveTextContent(
       /Messaging is unavailable because of a block/
     );
-    fireEvent.press(screen.getByTestId('collector-message-blocked-users'));
+    await fireEvent.press(screen.getByTestId('collector-message-blocked-users'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/blocked');
   });
 });

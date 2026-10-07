@@ -1,7 +1,8 @@
 # OrenjiTrade mobile (`apps/mobile`)
 
-React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Six tabs, as
-decided in `CLAUDE.md`: **Map | Inventory | Search | Messages | Wishlist | Profile**.
+React Native app built with **Expo SDK 58** (React Native 0.88, React 19.3), **expo-router** and
+strict TypeScript. Six tabs, as decided in `CLAUDE.md`: **Map | Inventory | Search | Messages |
+Wishlist | Profile**.
 
 Read the root `CLAUDE.md`, `IMPLEMENTATION_STATUS.md` (mobile rows) and
 `docs/architecture/adr/0006-angular-web-react-native-mobile.md` first. Privacy (ADR 0004) and the
@@ -131,13 +132,17 @@ the legal texts stay drafts (banner kept).
 
 ## Prerequisites
 
-- Node 24 (`.nvmrc` at the repo root), npm 11, `npm ci` once at the repository root.
+- Node 24 (`.nvmrc` at the repo root; SDK 58 needs Node ≥ 22.13), npm 11, `npm ci` once at the
+  repository root.
 - The local stack: `npm run infra:up` (PostGIS, Redis, Firebase Auth emulator) and an API
   (`npm run api:dev` on :8080, or the isolated mobile API, see [Tests](#tests)).
-- For native: the free **Expo Go** app on an Android emulator / iOS simulator / phone. Expo CLI
-  installs the matching Expo Go on an emulator by itself. Everything in this app runs in Expo Go;
-  a local debug build (`npx expo run:android`, local Gradle, never EAS) is the fallback, and the
-  generated `android/` / `ios/` folders stay git-ignored.
+- For native: the free **Expo Go** app for SDK 58 on an Android emulator / iOS simulator / phone.
+  Expo CLI installs the matching Expo Go on an emulator by itself (it replaces an older one). While
+  SDK 58 is a pre-release, the store's Expo Go still runs SDK 57 only: on a phone, let Expo CLI
+  install Expo Go 58 (`npx expo start`, then `a` with the phone connected over adb). Everything in
+  this app runs in Expo Go; a local debug build (`npx expo run:android`, local Gradle, never EAS;
+  SDK 58 compiles against Android platform 37) is the fallback, and the generated `android/` /
+  `ios/` folders stay git-ignored.
 
 ## Run
 
@@ -154,7 +159,17 @@ The npm workspace also holds the Angular app, whose toolchain uses Babel 8. The 
 `package.json` pins `@babel/generator` and `@babel/traverse` 7.x so Babel 7 is hoisted: the
 react-native-worklets Babel plugin needs it, and without it every native bundle fails with
 `[Worklets] Babel plugin exception` (guarded by `__tests__/config/babel-toolchain.test.ts` and the
-`expo export --platform android` step of the CI mobile job).
+`expo export --platform android` step of the CI mobile job). SDK 58 (Metro 0.87,
+babel-preset-expo 58) still needs Babel 7.
+
+SDK 58 was upgraded on 2026-10-06 while it is still npm's `next` release (expo 58.0.6, React Native
+0.88.0-rc.3). Until React Native 0.88.0 is stable, the root `package.json` overrides
+`react-native` to that release candidate: npm does not match a prerelease against the peer ranges
+of react-native-maps, reanimated, worklets, netinfo and Testing Library. Once SDK 58 is stable,
+rerun `npx expo install expo@^58 --fix` here, remove the override, bump
+`@react-native/jest-preset` with React Native, and check whether `expo.install.exclude` (jest and
+@types/jest: Expo's versions API still lists Jest 29, jest-expo 58 needs Jest 30) can go
+(ADR 0006, amendment 2026-10-06).
 
 ## Configuration
 
@@ -389,22 +404,26 @@ Conventions later stages reuse:
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
   and reopened after signing in.
 - **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`. Keep
-  controls off the top-right corner just below the header: Expo Go floats its tools button there
-  and a Maestro tap would open the developer menu instead.
+  controls off the top-right corner just below the header, where Expo Go 57 floated its tools
+  button. Expo Go 58 floats it over the right end of the navigation header instead, on the
+  notification bell and the conversation options: a tap there opens Expo Go's developer menu. The
+  Maestro flows turn the button off at every launch (`.maestro/subflows/hide-tools-button.yaml`,
+  called by `wait-for-app.yaml`); by hand, drag it away or turn off developer menu → "Tools
+  button" (the menu key, `adb shell input keyevent 82`, still opens the menu).
 
 ## Scripts
 
-| Script                                  | What it does                                              |
-| --------------------------------------- | --------------------------------------------------------- |
-| `npm start` / `android` / `ios` / `web` | `expo start` (+ platform)                                 |
-| `npm run typecheck`                     | regenerate the typed routes, then `tsc --noEmit`          |
-| `npm run typegen`                       | regenerate `.expo/types/router.d.ts` (no Metro needed)    |
-| `npm run lint`                          | `expo lint` (eslint-config-expo + prettier compatibility) |
-| `npm run format` / `format:check`       | Prettier                                                  |
-| `npm test`                              | Jest (`jest-expo`, `@testing-library/react-native`)       |
-| `npm run sync:tokens`                   | regenerate `src/theme/tokens.ts` from the design tokens   |
-| `npm run sync:legal`                    | copy the web's legal texts (EN and FR) into `src/legal/`  |
-| `npm run doctor`                        | `expo-doctor`                                             |
+| Script                                  | What it does                                                                                                                                                         |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm start` / `android` / `ios` / `web` | `expo start` (+ platform)                                                                                                                                            |
+| `npm run typecheck`                     | regenerate the typed routes, then `tsc --noEmit`                                                                                                                     |
+| `npm run typegen`                       | regenerate `.expo/types/router.d.ts` (no Metro needed)                                                                                                               |
+| `npm run lint`                          | `expo lint` on `src`, `app`, `__tests__` and `jest.setup.ts` (eslint-config-expo + prettier compatibility; un-awaited Testing Library calls in the tests are errors) |
+| `npm run format` / `format:check`       | Prettier                                                                                                                                                             |
+| `npm test`                              | Jest 30 (`jest-expo`, `@testing-library/react-native` 14, whose `render` / `fireEvent` / `act` are awaited)                                                          |
+| `npm run sync:tokens`                   | regenerate `src/theme/tokens.ts` from the design tokens                                                                                                              |
+| `npm run sync:legal`                    | copy the web's legal texts (EN and FR) into `src/legal/`                                                                                                             |
+| `npm run doctor`                        | `expo-doctor`                                                                                                                                                        |
 
 ## Tests
 
@@ -588,6 +607,7 @@ seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and e
 that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
 the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
+turning off Expo Go 58's floating tools button,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
 text field, which Android turns into a text-selection long press) and host-side helpers in
 `.maestro/scripts/` (create a fictional collector through the emulator and the API, verify an

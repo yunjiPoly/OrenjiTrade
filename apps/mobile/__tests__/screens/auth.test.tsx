@@ -30,12 +30,12 @@ describe('Sign in', () => {
   it('validates the form before calling Firebase', async () => {
     const port = new FakeAuthPort();
     mockApi({});
-    renderWithProviders(<SignInScreen />, { port });
+    await renderWithProviders(<SignInScreen />, { port });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Enter your email address.')).toBeOnTheScreen();
     expect(screen.getByText('Enter your password.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByLabelText('Email'), 'maika@');
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'maika@');
     expect(screen.getByText('That email address does not look right.')).toBeOnTheScreen();
     expect(port.signIn).not.toHaveBeenCalled();
   });
@@ -43,11 +43,11 @@ describe('Sign in', () => {
   it('shows a friendly error for wrong credentials', async () => {
     const port = new FakeAuthPort();
     mockApi({});
-    renderWithProviders(<SignInScreen />, { port });
+    await renderWithProviders(<SignInScreen />, { port });
 
-    fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
-    fireEvent.changeText(screen.getByLabelText('Password'), 'wrong');
-    fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'wrong');
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByTestId('sign-in-error')).toHaveTextContent(
       /No account matches these credentials\./
@@ -57,11 +57,11 @@ describe('Sign in', () => {
   it('signs in and remembers the email (never the password)', async () => {
     const port = new FakeAuthPort();
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<SignInScreen />, { port });
+    await renderWithProviders(<SignInScreen />, { port });
 
-    fireEvent.changeText(screen.getByLabelText('Email'), ' maika@example.test ');
-    fireEvent.changeText(screen.getByLabelText('Password'), 'correct-password');
-    fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
+    await fireEvent.changeText(screen.getByLabelText('Email'), ' maika@example.test ');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'correct-password');
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() =>
       expect(port.signIn).toHaveBeenCalledWith('maika@example.test', 'correct-password')
@@ -75,20 +75,20 @@ describe('Sign in', () => {
   it('signs in with a simulated Google account against the emulator (the gate continues)', async () => {
     const port = new FakeAuthPort();
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<SignInScreen />, { port });
+    await renderWithProviders(<SignInScreen />, { port });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
     const dialog = await screen.findByTestId('google-dialog');
     expect(dialog).toHaveTextContent(/Simulated Google account/);
     // Validation of the simulated account first.
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     expect(screen.getByText('Enter the e-mail of the simulated Google account.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('google-email'), 'nope');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await fireEvent.changeText(screen.getByTestId('google-email'), 'nope');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     expect(screen.getByText('That email address does not look right.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('google-email'), 'Googler@Example.test');
-    fireEvent.changeText(screen.getByTestId('google-name'), 'Gina Google');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await fireEvent.changeText(screen.getByTestId('google-email'), 'Googler@Example.test');
+    await fireEvent.changeText(screen.getByTestId('google-name'), 'Gina Google');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
 
     await waitFor(() =>
       expect(port.signInWithGoogle).toHaveBeenCalledWith({
@@ -106,11 +106,11 @@ describe('Sign in', () => {
   it('links Google to an existing e-mail/password account of the same e-mail', async () => {
     const port = new FakeAuthPort();
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<SignInScreen />, { port });
-    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
-    fireEvent.changeText(await screen.findByTestId('google-email'), 'maika@example.test');
-    fireEvent.changeText(screen.getByTestId('google-name'), 'Maïka Test');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await renderWithProviders(<SignInScreen />, { port });
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    await fireEvent.changeText(await screen.findByTestId('google-email'), 'maika@example.test');
+    await fireEvent.changeText(screen.getByTestId('google-name'), 'Maïka Test');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     await waitFor(() => expect(port.user?.providerIds).toEqual(['password', 'google.com']));
     expect(port.user?.uid).toBe('uid-maika@example.test');
   });
@@ -121,44 +121,44 @@ describe('Sign in', () => {
       new AuthError('auth/account-exists-with-different-credential')
     );
     mockApi({});
-    renderWithProviders(<SignInScreen />, { port });
-    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
-    fireEvent.changeText(await screen.findByTestId('google-email'), 'other@example.test');
-    fireEvent.changeText(screen.getByTestId('google-name'), 'Other');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await renderWithProviders(<SignInScreen />, { port });
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    await fireEvent.changeText(await screen.findByTestId('google-email'), 'other@example.test');
+    await fireEvent.changeText(screen.getByTestId('google-name'), 'Other');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     expect(await screen.findByTestId('sign-in-error')).toHaveTextContent(
       /An account already exists for this email with a different sign-in method\./
     );
 
     // Closing the simulated-account dialog is a dismissal: no error.
-    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
-    fireEvent.press(await screen.findByTestId('google-dialog-cancel'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    await fireEvent.press(await screen.findByTestId('google-dialog-cancel'));
     await waitFor(() => expect(screen.queryByTestId('google-dialog')).toBeNull());
     expect(port.signInWithGoogle).toHaveBeenCalledTimes(1);
 
     port.signInWithGoogle.mockRejectedValueOnce(new AuthError('auth/popup-closed-by-user'));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
-    fireEvent.changeText(await screen.findByTestId('google-email'), 'other@example.test');
-    fireEvent.changeText(screen.getByTestId('google-name'), 'Other');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue with Google' }));
+    await fireEvent.changeText(await screen.findByTestId('google-email'), 'other@example.test');
+    await fireEvent.changeText(screen.getByTestId('google-name'), 'Other');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     await waitFor(() => expect(port.signInWithGoogle).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('sign-in-error')).toBeNull();
   });
 
-  it('links to account creation, password reset and the legal pages', () => {
+  it('links to account creation, password reset and the legal pages', async () => {
     mockApi({});
-    renderWithProviders(<SignInScreen />, { port: new FakeAuthPort() });
-    fireEvent.press(screen.getByText('Create an account'));
+    await renderWithProviders(<SignInScreen />, { port: new FakeAuthPort() });
+    await fireEvent.press(screen.getByText('Create an account'));
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-up');
-    fireEvent.press(screen.getByText('Forgot your password?'));
+    await fireEvent.press(screen.getByText('Forgot your password?'));
     expect(mockRouter.push).toHaveBeenCalledWith('/reset-password');
   });
 });
 
 describe('Sign up', () => {
-  it('shows a skeleton while the legal documents load', () => {
+  it('shows a skeleton while the legal documents load', async () => {
     mockApi({ 'GET /api/v1/public/legal/documents': () => new Promise(() => undefined) });
-    renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
+    await renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
     expect(screen.getByTestId('sign-up-legal-loading')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled();
   });
@@ -170,9 +170,9 @@ describe('Sign up', () => {
         ok(LEGAL_DOCUMENTS),
       ],
     });
-    renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
+    await renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
     expect(await screen.findByText('We could not load the terms')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('checkbox', { name: 'Accept all' })).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/public/legal/documents')).toHaveLength(2);
   });
@@ -180,10 +180,10 @@ describe('Sign up', () => {
   it('validates every field and the consents', async () => {
     const port = new FakeAuthPort();
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    renderWithProviders(<SignUpScreen />, { port });
+    await renderWithProviders(<SignUpScreen />, { port });
     await screen.findByRole('checkbox', { name: 'Accept all' });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
     expect(screen.getByText('Enter a display name.')).toBeOnTheScreen();
     expect(screen.getByText('Enter your email address.')).toBeOnTheScreen();
     expect(screen.getByText('Choose a password.')).toBeOnTheScreen();
@@ -198,8 +198,8 @@ describe('Sign up', () => {
 
   it('never ticks the 18+ confirmation with "Accept all" and keeps it out of the document list', async () => {
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
-    fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
+    await renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
     expect(
       screen.getByRole('checkbox', { name: 'I have read and accept the Terms of Service' })
     ).toBeChecked();
@@ -209,7 +209,7 @@ describe('Sign up', () => {
     const age = screen.getByRole('checkbox', { name: AGE_LABEL });
     expect(age).not.toBeChecked();
     expect(screen.getByText('Je confirme avoir 18 ans ou plus')).toBeOnTheScreen();
-    fireEvent.press(age);
+    await fireEvent.press(age);
     expect(age).toBeChecked();
   });
 
@@ -220,29 +220,29 @@ describe('Sign up', () => {
       'POST /api/v1/me/consents': noContent,
       'GET /api/v1/me': ok(meFixture({ onboarding: NOT_ONBOARDED, emailVerified: false })),
     });
-    renderWithProviders(<SignUpScreen />, { port });
+    await renderWithProviders(<SignUpScreen />, { port });
     await screen.findByRole('checkbox', { name: 'Accept all' });
 
-    fireEvent.changeText(screen.getByLabelText('Display name'), 'Nouvelle');
-    fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.test');
-    fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
+    await fireEvent.changeText(screen.getByLabelText('Display name'), 'Nouvelle');
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.test');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
     // The texts are readable in-app before accepting them.
-    fireEvent.press(screen.getByLabelText('Read the Terms of Service'));
+    await fireEvent.press(screen.getByLabelText('Read the Terms of Service'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/legal/[key]',
       params: { key: 'terms' },
     });
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
     expect(
       screen.getByRole('checkbox', { name: 'I have read and accept the Terms of Service' })
     ).toBeChecked();
     // Every document accepted is not enough without the 18+ confirmation.
-    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
     expect(screen.getByText(AGE_ERROR)).toBeOnTheScreen();
     expect(port.signUp).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
     expect(screen.queryByText(AGE_ERROR)).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/verify-email'));
     expect(port.signUp).toHaveBeenCalledWith('new@example.test', 'long-enough-pass');
@@ -266,19 +266,19 @@ describe('Sign up', () => {
       'POST /api/v1/me/consents': noContent,
       'GET /api/v1/me': ok(meFixture({ onboarding: NOT_ONBOARDED, emailVerified: false })),
     });
-    renderWithProviders(<SignUpScreen />, { port });
+    await renderWithProviders(<SignUpScreen />, { port });
     // The document titles come from the French texts; the UI around them stays English.
     expect(
       await screen.findByRole('checkbox', {
         name: 'I have read and accept the Conditions d’utilisation',
       })
     ).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByLabelText('Display name'), 'Nouvelle');
-    fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.test');
-    fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    await fireEvent.changeText(screen.getByLabelText('Display name'), 'Nouvelle');
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.test');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/verify-email'));
     expect(api.callsTo('POST /api/v1/me/consents').map((call) => call.body)).toEqual([
       { documentType: 'TERMS', version: '2026-09-01', language: 'fr' },
@@ -299,11 +299,11 @@ describe('Sign up', () => {
         })
       ),
     });
-    renderWithProviders(<SignUpScreen />, { port });
-    fireEvent.press(await screen.findByRole('button', { name: 'Sign up with Google' }));
-    fireEvent.changeText(await screen.findByTestId('google-email'), 'fresh@example.test');
-    fireEvent.changeText(screen.getByTestId('google-name'), 'Fresh Googler');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await renderWithProviders(<SignUpScreen />, { port });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sign up with Google' }));
+    await fireEvent.changeText(await screen.findByTestId('google-email'), 'fresh@example.test');
+    await fireEvent.changeText(screen.getByTestId('google-name'), 'Fresh Googler');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     await waitFor(() => expect(port.signInWithGoogle).toHaveBeenCalled());
     // No e-mail sign-up, no consents from this screen: the gate's consent screen does it.
     expect(port.signUp).not.toHaveBeenCalled();
@@ -315,15 +315,15 @@ describe('Sign up', () => {
     const port = new FakeAuthPort();
     port.signUp.mockRejectedValueOnce(new AuthError('auth/email-already-in-use'));
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    renderWithProviders(<SignUpScreen />, { port });
+    await renderWithProviders(<SignUpScreen />, { port });
     await screen.findByRole('checkbox', { name: 'Accept all' });
 
-    fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka');
-    fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
-    fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    await fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka');
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByTestId('sign-up-error')).toHaveTextContent(
       /An account already exists for this email/
@@ -338,18 +338,18 @@ describe('Reset password', () => {
     const port = new FakeAuthPort();
     port.sendPasswordReset.mockRejectedValueOnce(new AuthError('auth/user-not-found'));
     mockApi({});
-    renderWithProviders(<ResetPasswordScreen />, { port });
+    await renderWithProviders(<ResetPasswordScreen />, { port });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
     expect(screen.getByText('Enter your email address.')).toBeOnTheScreen();
 
-    fireEvent.changeText(screen.getByLabelText('Email'), 'nobody@example.test');
-    fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'nobody@example.test');
+    await fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
     expect(await screen.findByTestId('reset-sent')).toHaveTextContent(
       /If an account exists for nobody@example\.test/
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Back to sign in' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Back to sign in' }));
     expect(mockRouter.replace).toHaveBeenCalledWith('/sign-in');
   });
 
@@ -357,9 +357,9 @@ describe('Reset password', () => {
     const port = new FakeAuthPort();
     port.sendPasswordReset.mockRejectedValueOnce(new AuthError('auth/too-many-requests'));
     mockApi({});
-    renderWithProviders(<ResetPasswordScreen />, { port });
-    fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
-    fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
+    await renderWithProviders(<ResetPasswordScreen />, { port });
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
+    await fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
     expect(
       await screen.findByText('Too many attempts. Wait a moment, then try again.')
     ).toBeOnTheScreen();

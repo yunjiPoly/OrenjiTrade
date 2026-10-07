@@ -1,8 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -10,7 +10,7 @@ export interface SectionCardProps {
   title?: string;
   description?: string;
   children: ReactNode;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

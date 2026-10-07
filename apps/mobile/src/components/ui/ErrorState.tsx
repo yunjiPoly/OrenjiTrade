@@ -1,9 +1,17 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
-import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+  type ViewStyleProp,
+} from '@/src/theme';
 
 import { Button } from './Button';
 
@@ -15,7 +23,7 @@ export interface ErrorStateProps {
   onRetry?: () => void;
   retryLabel?: string;
   compact?: boolean;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

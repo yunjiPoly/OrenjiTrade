@@ -18,7 +18,7 @@ branding assets are supplied.
 | Area | Decision |
 | --- | --- |
 | Web | Angular 22 + TypeScript strict + Angular Material (M3), standalone components, signals. `apps/web-angular` |
-| Mobile | React Native + Expo SDK 57 + expo-router (bottom tabs), TypeScript strict. `apps/mobile` |
+| Mobile | React Native + Expo SDK 58 + expo-router (bottom tabs), TypeScript strict. `apps/mobile` |
 | Backend | Java 21 + Spring Boot 4.1 (Spring Framework 7, Security 7, Hibernate 7, Jackson 3), Gradle Kotlin DSL. `apps/api` |
 | ML | Python 3.12+ / FastAPI / pytest, separate service, never a hard dependency. `apps/ml` |
 | Database | PostgreSQL 17 + PostGIS, Flyway migrations (`V<NNN>__<snake_case>.sql`, never edit an applied one) |

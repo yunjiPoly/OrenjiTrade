@@ -278,7 +278,8 @@ export async function stopProcess(pid, exited) {
 }
 
 function expoCli(args) {
-  const cli = resolvePackageFile(MOBILE_DIR, '@expo/cli', path.join('build', 'bin', 'cli'));
+  // The `expo` package's own bin (what `npx expo` runs); @expo/cli moved its entry in SDK 58.
+  const cli = resolvePackageFile(MOBILE_DIR, 'expo', path.join('bin', 'cli'));
   return { command: process.execPath, args: [cli, ...args], shell: false };
 }
 

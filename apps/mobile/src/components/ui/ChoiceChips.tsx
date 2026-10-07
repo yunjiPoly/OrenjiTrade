@@ -1,15 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 export interface ChoiceOption<T extends string> {
   value: T;
@@ -29,7 +21,7 @@ export interface ChoiceChipsProps<T extends string> {
   disabled?: boolean;
   error?: string | null;
   hint?: string;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   /** Group id; each option is `<testID>-<value>`. */
   testID?: string;
 }

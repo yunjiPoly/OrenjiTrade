@@ -1,8 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { assertNever } from '@/src/lib/assertNever';
-import { fontWeight, radius, spacing, useTheme, type Palette } from '@/src/theme';
+import {
+  fontWeight,
+  radius,
+  spacing,
+  useTheme,
+  type Palette,
+  type ViewStyleProp,
+} from '@/src/theme';
 
 import type { IconName } from './EmptyState';
 
@@ -16,7 +23,7 @@ export interface ChipProps {
   selected?: boolean;
   onPress?: () => void;
   disabled?: boolean;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

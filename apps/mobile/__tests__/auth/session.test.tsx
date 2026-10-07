@@ -11,20 +11,20 @@ import { getIdToken } from '@/src/auth/tokenProvider';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { createTestQueryClient } from '../test-utils';
 
-function setup(port: FakeAuthPort) {
+async function setup(port: FakeAuthPort) {
   const queryClient = createTestQueryClient();
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <SessionProvider port={port}>{children}</SessionProvider>
     </QueryClientProvider>
   );
-  return { queryClient, ...renderHook(() => useSession(), { wrapper }) };
+  return { queryClient, ...(await renderHook(() => useSession(), { wrapper })) };
 }
 
 describe('SessionProvider', () => {
   it('restores a persisted session on launch and bridges the ID token to the API client', async () => {
     const port = new FakeAuthPort(testUser());
-    const { result } = setup(port);
+    const { result } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
     expect(result.current.user?.email).toBe('maika@example.test');
     expect(result.current.usesEmulator).toBe(true);
@@ -37,9 +37,9 @@ describe('SessionProvider', () => {
     try {
       const port = new FakeAuthPort(null);
       port.subscribe.mockImplementationOnce(() => () => undefined);
-      const { result } = setup(port);
+      const { result } = await setup(port);
       expect(result.current.status).toBe('loading');
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(AUTH_READY_TIMEOUT_MS);
       });
       expect(result.current.status).toBe('anonymous');
@@ -50,7 +50,7 @@ describe('SessionProvider', () => {
 
   it('signs in with a trimmed email and surfaces friendly errors', async () => {
     const port = new FakeAuthPort(null);
-    const { result } = setup(port);
+    const { result } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('anonymous'));
 
     await expect(result.current.signIn('maika@example.test', 'nope')).rejects.toThrow(
@@ -65,7 +65,7 @@ describe('SessionProvider', () => {
 
   it('signs up, stores the display name and refreshes the token before the account is provisioned', async () => {
     const port = new FakeAuthPort(null);
-    const { result } = setup(port);
+    const { result } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('anonymous'));
 
     await act(async () => {
@@ -78,7 +78,7 @@ describe('SessionProvider', () => {
 
   it('drops cached data and account signals when the user signs out', async () => {
     const port = new FakeAuthPort(testUser());
-    const { result, queryClient } = setup(port);
+    const { result, queryClient } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
     queryClient.setQueryData(['me', 'uid-maika', 'profile'], { handle: 'maika' });
     useAccountSignalStore.getState().report({ kind: 'deletion-pending', at: 1 });
@@ -94,9 +94,9 @@ describe('SessionProvider', () => {
 
   it('signs out when the session ended on its own, until the collector signs in again', async () => {
     const port = new FakeAuthPort(testUser());
-    const { result } = setup(port);
+    const { result } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
-    act(() => useSessionNotice.getState().reportEnded());
+    await act(() => useSessionNotice.getState().reportEnded());
     await waitFor(() => expect(result.current.status).toBe('anonymous'));
     expect(port.signOut).toHaveBeenCalled();
     expect(useSessionNotice.getState().ended).toBe(true);
@@ -109,7 +109,7 @@ describe('SessionProvider', () => {
 
   it('re-authenticates with the password, then refreshes the token', async () => {
     const port = new FakeAuthPort(testUser());
-    const { result } = setup(port);
+    const { result } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
 
     await expect(result.current.reauthenticate('wrong')).rejects.toBeInstanceOf(AuthError);
@@ -122,7 +122,7 @@ describe('SessionProvider', () => {
   it('reloads the user after the verification link was opened', async () => {
     const port = new FakeAuthPort(testUser({ emailVerified: false }));
     port.reload.mockResolvedValueOnce(testUser({ emailVerified: true }));
-    const { result } = setup(port);
+    const { result } = await setup(port);
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
     await act(async () => {
       await result.current.reloadUser();

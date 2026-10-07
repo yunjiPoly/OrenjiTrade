@@ -1,16 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 import { TextField, type TextFieldProps } from './TextField';
 
@@ -226,7 +218,7 @@ export interface FormMessageProps {
   /** A second, quieter line under the message (its own text node, so tests can target it). */
   detail?: string | null;
   detailTestID?: string;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

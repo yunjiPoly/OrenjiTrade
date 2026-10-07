@@ -1,22 +1,14 @@
 import { useEffect, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  StyleSheet,
-  View,
-  type DimensionValue,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Animated, Easing, StyleSheet, View, type DimensionValue } from 'react-native';
 
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
-import { radius as radii, spacing, useTheme } from '@/src/theme';
+import { radius as radii, spacing, useTheme, type ViewStyleProp } from '@/src/theme';
 
 export interface SkeletonProps {
   width?: DimensionValue;
   height?: number;
   radius?: number;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 
@@ -73,7 +65,7 @@ export function Skeleton({
 export interface SkeletonListProps {
   rows?: number;
   rowHeight?: number;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

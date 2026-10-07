@@ -51,10 +51,12 @@ export default function TabLayout() {
               // The notification centre is one tap away from every tab (the web's top-bar bell).
               headerRight: () => <NotificationBell testID={`notification-bell-${tab.name}`} />,
               tabBarBadgeStyle: { backgroundColor: palette.primary, color: palette.onPrimary },
+              // The tint is one of the palette strings above (React Native 0.88 types it as any
+              // ColorValue: null, a number or a platform colour too).
               tabBarIcon: ({ color, focused, size }) => (
                 <MaterialCommunityIcons
                   name={focused ? tab.iconFocused : tab.icon}
-                  color={color}
+                  color={typeof color === 'string' ? color : undefined}
                   size={size}
                 />
               ),

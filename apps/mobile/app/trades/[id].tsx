@@ -1,6 +1,14 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
@@ -132,7 +140,7 @@ export default function TradeScreen() {
   // The checkout screen's answer is told once (state adjusted while rendering).
   const [checkoutTold, setCheckoutTold] = useState<string | null>(null);
   const [blocking, setBlocking] = useState<BlockTarget | null>(null);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const data = trade.data ?? null;
   const completed = data?.status === 'COMPLETED';
   const eligibility = useRatingEligibility(data?.counterparty.id, completed);

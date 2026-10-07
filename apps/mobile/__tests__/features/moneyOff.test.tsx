@@ -63,7 +63,7 @@ beforeEach(() => {
 describe('launch configuration: every money flag off', () => {
   it('shows no pay, subscribe, credits or donate entry point on the Profile tab', async () => {
     mockApi(routes());
-    renderWithProviders(<ProfileScreen />, { port: port() });
+    await renderWithProviders(<ProfileScreen />, { port: port() });
     expect(await screen.findByTestId('profile-trades')).toBeOnTheScreen();
     expect(screen.queryByTestId('profile-premium')).toBeNull();
     expect(screen.queryByTestId('profile-credits')).toBeNull();
@@ -73,7 +73,7 @@ describe('launch configuration: every money flag off', () => {
 
   it('lists no Payouts section in Settings', async () => {
     const api = mockApi(routes());
-    renderWithProviders(<SettingsScreen />, { port: port() });
+    await renderWithProviders(<SettingsScreen />, { port: port() });
     expect(await screen.findByTestId('settings-sign-out')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/public/feature-flags').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('settings-link-payouts')).toBeNull();
@@ -88,7 +88,7 @@ describe('launch configuration: every money flag off', () => {
       problem: { limitKey: 'binders.max', limit: 5, used: 5, planCode: 'FREE' },
     });
     const api = mockApi(routes());
-    renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
+    await renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
     expect(await screen.findByTestId('limit-reached-message')).toHaveTextContent(
       'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need.'
     );
@@ -102,14 +102,14 @@ describe('launch configuration: every money flag off', () => {
   it('shows no sponsored placement on another collector profile', async () => {
     mockParams.current = { id: 'collector2' };
     const api = mockApi(routes());
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('collector-name')).toBeOnTheScreen();
     expect(screen.queryByText(/Sponsored/)).toBeNull();
     expect(api.callsTo('GET /api/v1/ads')).toHaveLength(0);
     // Report and Block remain (trust and safety is not a money feature).
     expect(screen.getByTestId('collector-report')).toBeOnTheScreen();
     expect(screen.getByTestId('collector-block')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('collector-block'));
+    await fireEvent.press(screen.getByTestId('collector-block'));
     expect(screen.getByTestId('block-dialog')).toBeOnTheScreen();
   });
 });

@@ -1,7 +1,15 @@
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { assertNever } from '@/src/lib/assertNever';
-import { fontFamily, fontWeight, radius, spacing, useTheme, type Palette } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  radius,
+  spacing,
+  useTheme,
+  type Palette,
+  type ViewStyleProp,
+} from '@/src/theme';
 
 /** Freshness buckets from docs/design/design-system.md. */
 export type Freshness = 'FRESH' | 'AGING' | 'STALE' | 'HIDDEN';
@@ -11,8 +19,8 @@ export type CardCondition =
   'MINT' | 'NEAR_MINT' | 'LIGHTLY_PLAYED' | 'MODERATELY_PLAYED' | 'HEAVILY_PLAYED' | 'DAMAGED';
 
 export type BadgeProps =
-  | { variant: 'freshness'; value: Freshness; style?: StyleProp<ViewStyle>; testID?: string }
-  | { variant: 'condition'; value: CardCondition; style?: StyleProp<ViewStyle>; testID?: string };
+  | { variant: 'freshness'; value: Freshness; style?: ViewStyleProp; testID?: string }
+  | { variant: 'condition'; value: CardCondition; style?: ViewStyleProp; testID?: string };
 
 export const FRESHNESS_LABELS: Record<Freshness, string> = {
   FRESH: 'Fresh',

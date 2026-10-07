@@ -31,6 +31,12 @@ export interface MockApi {
   callsTo: (route: string) => MockRequest[];
   /** Adds or replaces routes. */
   use: (routes: MockRoutes) => void;
+  /**
+   * Holds every answer (or the answers of one route) back until the returned `release()`.
+   * Testing Library 14's `render` waits for the work the first render starts, answers included,
+   * so a screen's first frame (its skeleton) is only on screen while its answers are held.
+   */
+  hold: (route?: string) => () => void;
 }
 
 export function ok(body: unknown, status = 200): MockAnswer {
@@ -90,6 +96,8 @@ export function mockApi(initial: MockRoutes = {}): MockApi {
   const routes: MockRoutes = { ...initial };
   const counters = new Map<string, number>();
   const calls: MockRequest[] = [];
+  const holds = new Map<string, Promise<void>>();
+  const ALL = '*';
 
   const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
@@ -116,6 +124,7 @@ export function mockApi(initial: MockRoutes = {}): MockApi {
         { status: 404, headers: { 'content-type': 'application/problem+json' } }
       );
     }
+    await (holds.get(ALL) ?? holds.get(key));
     const entry = routes[key];
     let handler: MockHandler | undefined;
     if (Array.isArray(entry)) {
@@ -152,6 +161,19 @@ export function mockApi(initial: MockRoutes = {}): MockApi {
       for (const key of Object.keys(more)) {
         counters.delete(key);
       }
+    },
+    hold: (route = ALL) => {
+      let release: () => void = () => undefined;
+      holds.set(
+        route,
+        new Promise<void>((resolve) => {
+          release = resolve;
+        })
+      );
+      return () => {
+        holds.delete(route);
+        release();
+      };
     },
   };
 }

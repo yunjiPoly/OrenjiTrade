@@ -55,15 +55,17 @@ const mapView = () => screen.getByTestId('collector-map-view');
 const status = () => screen.getByTestId('map-status');
 
 async function chooseOption(select: string, value: string) {
-  fireEvent.press(screen.getByTestId(select));
-  fireEvent.press(await screen.findByTestId(`${select}-option-${value}`));
+  await fireEvent.press(screen.getByTestId(select));
+  await fireEvent.press(await screen.findByTestId(`${select}-option-${value}`));
 }
 
 describe('Map tab', () => {
   it('starts on the own trading area and draws the collectors as 3 km zones', async () => {
     const api = mockApi(routes());
-    render();
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('map-loading-state')).toBeOnTheScreen();
+    release();
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
     // The own area is the server's: no centre leaves the device.
     const [first] = api.callsTo('GET /api/v1/collectors/nearby');
@@ -84,12 +86,12 @@ describe('Map tab', () => {
 
   it('tells a hidden collector that others cannot find them', async () => {
     mockApi(routes());
-    render();
+    await render();
     const notice = await screen.findByTestId('map-hidden-notice');
     expect(notice).toHaveTextContent(/You are hidden from the map/);
-    fireEvent.press(within(notice).getByRole('button', { name: 'Location settings' }));
+    await fireEvent.press(within(notice).getByRole('button', { name: 'Location settings' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
-    fireEvent.press(within(notice).getByRole('button', { name: 'Not now' }));
+    await fireEvent.press(within(notice).getByRole('button', { name: 'Not now' }));
     expect(screen.queryByTestId('map-hidden-notice')).toBeNull();
   });
 
@@ -97,7 +99,7 @@ describe('Map tab', () => {
     mockApi(
       routes({ 'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })) })
     );
-    render();
+    await render();
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
     expect(screen.queryByTestId('map-hidden-notice')).toBeNull();
   });
@@ -112,7 +114,7 @@ describe('Map tab', () => {
         ),
       })
     );
-    render();
+    await render();
     await waitFor(() => expect(api.callsTo('GET /api/v1/collectors/nearby')).toHaveLength(1));
     const [first] = api.callsTo('GET /api/v1/collectors/nearby');
     expect(first?.query.get('lat')).toBe('45.5');
@@ -126,7 +128,7 @@ describe('Map tab', () => {
     });
     const [region] = animateToRegion().mock.calls.at(-1) as [{ latitude: number }];
     expect(region.latitude).toBe(46.813);
-    fireEvent.press(screen.getByTestId('map-set-area'));
+    await fireEvent.press(screen.getByTestId('map-set-area'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
   });
 
@@ -139,14 +141,14 @@ describe('Map tab', () => {
             : problem(400, 'VALIDATION_FAILED', 'No trading area'),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('map-area-prompt')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.get('lat')).toBe('45.5');
   });
 
   it('shows the empty state when nobody is in range', async () => {
     mockApi(routes({ 'GET /api/v1/collectors/nearby': ok(nearbyFixture([])) }));
-    render();
+    await render();
     const empty = await screen.findByTestId('map-empty');
     expect(empty).toHaveTextContent(/No collectors within 10 km yet/);
     expect(screen.queryAllByTestId(/^zone-/)).toEqual([]);
@@ -161,26 +163,27 @@ describe('Map tab', () => {
         ],
       })
     );
-    render();
+    await render();
     const error = await screen.findByTestId('map-error', {}, { timeout: 10_000 });
     expect(error).toHaveTextContent(/Collectors could not load/);
-    fireEvent.press(within(error).getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(within(error).getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
     expect(api.callsTo('GET /api/v1/collectors/nearby')).toHaveLength(2);
   });
 
   it('is offline tolerant: a failed refresh keeps the last answer on the map', async () => {
     const api = mockApi(routes());
-    render();
+    await render();
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
     api.use({ 'GET /api/v1/collectors/nearby': problem(0, 'NETWORK_ERROR', 'offline') });
     // A pan far away needs a new answer (debounced).
-    act(() =>
-      fireEvent(
-        mapView(),
-        'regionChangeComplete',
-        regionForCamera({ lat: 46.81, lng: -71.21 }, 11, WINDOW)
-      )
+    await act(
+      async () =>
+        await fireEvent(
+          mapView(),
+          'regionChangeComplete',
+          regionForCamera({ lat: 46.81, lng: -71.21 }, 11, WINDOW)
+        )
     );
     expect(await screen.findByTestId('map-refresh-error', {}, { timeout: 10_000 })).toBeTruthy();
     expect(screen.getByTestId('zone-collector2')).toBeOnTheScreen();
@@ -189,7 +192,7 @@ describe('Map tab', () => {
 
   it('re-queries with the game, intent and distance filters, and clears them', async () => {
     const api = mockApi(routes());
-    render();
+    await render();
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
     await chooseOption('map-filter-game', 'yugioh');
     await waitFor(() =>
@@ -206,9 +209,9 @@ describe('Map tab', () => {
       expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.get('radiusKm')).toBe('5')
     );
     // Distances above the plan cap (25 km) are not offered.
-    fireEvent.press(screen.getByTestId('map-filter-radius'));
+    await fireEvent.press(screen.getByTestId('map-filter-radius'));
     expect(screen.queryByTestId('map-filter-radius-option-50')).toBeNull();
-    fireEvent.press(await screen.findByTestId('map-filter-radius-option-25'));
+    await fireEvent.press(await screen.findByTestId('map-filter-radius-option-25'));
     // Freshness, tags and the search box (the web map's filters bar and search).
     await chooseOption('map-filter-freshness', 'ACTIVE');
     await waitFor(() =>
@@ -216,20 +219,20 @@ describe('Map tab', () => {
         'ACTIVE'
       )
     );
-    fireEvent.press(screen.getByTestId('map-filter-tags'));
-    fireEvent.press(await screen.findByTestId('map-filter-tags-option-local-pickup'));
-    fireEvent.press(screen.getByTestId('map-filter-tags-done'));
+    await fireEvent.press(screen.getByTestId('map-filter-tags'));
+    await fireEvent.press(await screen.findByTestId('map-filter-tags-option-local-pickup'));
+    await fireEvent.press(screen.getByTestId('map-filter-tags-done'));
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.getAll('tags')).toEqual([
         'local-pickup',
       ])
     );
-    fireEvent.press(screen.getByTestId('map-search-toggle'));
-    fireEvent.changeText(screen.getByTestId('map-search-input'), 'noé');
+    await fireEvent.press(screen.getByTestId('map-search-toggle'));
+    await fireEvent.changeText(screen.getByTestId('map-search-input'), 'noé');
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/collectors/nearby').at(-1)?.query.get('query')).toBe('noé')
     );
-    fireEvent.press(await screen.findByRole('button', { name: 'Clear filters (6)' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Clear filters (6)' }));
     // Back to the first answer (cached: same query as the very first call).
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Game: All games' })).toBeOnTheScreen()
@@ -253,7 +256,7 @@ describe('Map tab', () => {
             : ok(nearbyFixture(undefined, { radiusKm: 5 })),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('map-limit-notice')).toHaveTextContent(
       /Your plan shows collectors up to 5 km away\./
     );
@@ -274,7 +277,7 @@ describe('Map tab: who has this card near me', () => {
           ok(request.query.get('hasCardId') ? nearbyFixture([holder]) : nearbyFixture()),
       })
     );
-    render();
+    await render();
     await waitFor(() =>
       expect(screen.getByTestId('map-holders')).toHaveTextContent(
         /Who has Emberfang Fox VMAX near you/
@@ -286,15 +289,15 @@ describe('Map tab: who has this card near me', () => {
     expect(api.callsTo('GET /api/v1/collectors/nearby')[0]?.query.get('hasCardId')).toBe(CARD_ID);
 
     // The list shows their listings of the card; the preview lists them with an API picture.
-    fireEvent.press(screen.getByRole('button', { name: 'List' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'List' }));
     expect(await screen.findByTestId('collector-row-collector2-listings')).toHaveTextContent(
       /1 listing of this card · from/
     );
-    fireEvent.press(screen.getByTestId('collector-row-collector2'));
+    await fireEvent.press(screen.getByTestId('collector-row-collector2'));
     expect(await screen.findByTestId('preview-matching-items')).toBeOnTheScreen();
     // A listing that accepts offers: "Make an offer" closes the sheet and opens the offer form.
     const listing = matchingItemFixture();
-    fireEvent.press(await screen.findByTestId(`preview-offer-${listing.itemId}`));
+    await fireEvent.press(await screen.findByTestId(`preview-offer-${listing.itemId}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/new',
       params: { item: listing.itemId },
@@ -304,11 +307,11 @@ describe('Map tab: who has this card near me', () => {
       askingPrice: 12.5,
       seller: { handle: 'collector2', placeLabel: 'Verdun, Montréal' },
     });
-    fireEvent.press(screen.getByTestId('collector-row-collector2'));
+    await fireEvent.press(screen.getByTestId('collector-row-collector2'));
     await screen.findByTestId('preview-matching-items');
-    fireEvent.press(screen.getByTestId('collector-preview-backdrop'));
+    await fireEvent.press(screen.getByTestId('collector-preview-backdrop'));
 
-    fireEvent.press(screen.getByTestId('map-holders-clear'));
+    await fireEvent.press(screen.getByTestId('map-holders-clear'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ card: '', printing: '' });
     await waitFor(() => expect(screen.queryByTestId('map-holders')).not.toBeOnTheScreen());
     await waitFor(() =>
@@ -322,19 +325,20 @@ describe('Map tab: collector preview', () => {
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
     const toList = screen.queryByRole('button', { name: 'List' });
     if (toList) {
-      fireEvent.press(toList);
+      await fireEvent.press(toList);
     }
-    fireEvent.press(await screen.findByTestId(`collector-row-${handle}`));
+    await fireEvent.press(await screen.findByTestId(`collector-row-${handle}`));
   }
 
   it('opens from a tap in a zone with the web preview card information', async () => {
     const api = mockApi(routes());
-    render();
+    await render();
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
-    act(() =>
-      fireEvent(mapView(), 'press', {
-        nativeEvent: { coordinate: { latitude: 45.459, longitude: -73.573 } },
-      })
+    await act(
+      async () =>
+        await fireEvent(mapView(), 'press', {
+          nativeEvent: { coordinate: { latitude: 45.459, longitude: -73.573 } },
+        })
     );
     expect(await screen.findByTestId('collector-preview-loading')).toHaveTextContent(/Noé Verdun/);
     expect(await screen.findByTestId('preview-name')).toHaveTextContent('Noé Verdun');
@@ -356,9 +360,9 @@ describe('Map tab: collector preview', () => {
 
   it('opens the profile and the first public binder', async () => {
     mockApi(routes());
-    render();
+    await render();
     await openFromList();
-    fireEvent.press(await screen.findByTestId('preview-view-profile'));
+    await fireEvent.press(await screen.findByTestId('preview-view-profile'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'collector2' },
@@ -366,7 +370,7 @@ describe('Map tab: collector preview', () => {
     await openFromList();
     const binder = await screen.findByTestId('preview-view-binder');
     await waitFor(() => expect(binder).not.toBeDisabled());
-    fireEvent.press(binder);
+    await fireEvent.press(binder);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: PUBLIC_BINDER_ID },
@@ -375,9 +379,9 @@ describe('Map tab: collector preview', () => {
 
   it('reports the collector from the preview', async () => {
     mockApi(routes());
-    render();
+    await render();
     await openFromList();
-    fireEvent.press(await screen.findByTestId('preview-report'));
+    await fireEvent.press(await screen.findByTestId('preview-report'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/report',
       params: {
@@ -391,9 +395,9 @@ describe('Map tab: collector preview', () => {
 
   it('starts or opens the conversation with "Message"', async () => {
     const api = mockApi(routes({ 'POST /api/v1/conversations': ok(conversationFixture(), 201) }));
-    render();
+    await render();
     await openFromList();
-    fireEvent.press(await screen.findByRole('button', { name: 'Message' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Message' }));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/messages/[id]',
@@ -411,9 +415,9 @@ describe('Map tab: collector preview', () => {
         'POST /api/v1/conversations': problem(403, 'MESSAGING_BLOCKED', 'Messaging is blocked'),
       })
     );
-    render();
+    await render();
     await openFromList();
-    fireEvent.press(await screen.findByRole('button', { name: 'Message' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Message' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(/Messaging unavailable/);
     expect(mockRouter.push).not.toHaveBeenCalled();
   });
@@ -424,7 +428,7 @@ describe('Map tab: collector preview', () => {
         'GET /api/v1/collectors/{handle}/preview': ok(previewFixture({ canMessage: false })),
       })
     );
-    render();
+    await render();
     await openFromList();
     expect(await screen.findByTestId('preview-message')).toBeDisabled();
     expect(screen.getByTestId('preview-message-reason')).toHaveTextContent(
@@ -440,7 +444,7 @@ describe('Map tab: collector preview', () => {
         ),
       })
     );
-    render();
+    await render();
     await openFromList();
     expect(await screen.findByTestId('preview-message-reason')).toHaveTextContent(
       /because of a block/
@@ -459,7 +463,7 @@ describe('Map tab: collector preview', () => {
         ),
       })
     );
-    render();
+    await render();
     await openFromList('maika');
     expect(await screen.findByTestId('preview-distance')).toHaveTextContent('Your public position');
     expect(screen.queryByTestId('preview-message')).toBeNull();
@@ -472,7 +476,7 @@ describe('Map tab: collector preview', () => {
         'GET /api/v1/collectors/{handle}/preview': problem(404, 'NOT_FOUND', 'Not found'),
       })
     );
-    render();
+    await render();
     await openFromList();
     expect(await screen.findByTestId('collector-preview-not-found')).toHaveTextContent(
       /no longer on the map/
@@ -488,18 +492,18 @@ describe('Map tab: collector preview', () => {
         ],
       })
     );
-    render();
+    await render();
     await openFromList();
     expect(await screen.findByTestId('collector-preview-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('preview-name')).toHaveTextContent('Noé Verdun');
   });
 
   it('"Show on map" brings the zone into view, never past the cap', async () => {
     mockApi(routes());
-    render();
+    await render();
     await openFromList();
-    fireEvent.press(await screen.findByTestId('preview-show-on-map'));
+    await fireEvent.press(await screen.findByTestId('preview-show-on-map'));
     await waitFor(() => expect(animateToRegion()).toHaveBeenCalled());
     const [region] = animateToRegion().mock.calls.at(-1) as [ReturnType<typeof regionForCamera>];
     expect(region).toMatchObject({ latitude: 45.458, longitude: -73.571 });
@@ -508,15 +512,15 @@ describe('Map tab: collector preview', () => {
 
   it('lists collectors nearest first with bucketed distances only', async () => {
     mockApi(routes());
-    render();
+    await render();
     await waitFor(() => expect(status()).toHaveTextContent('2 collectors within 10 km'));
-    fireEvent.press(screen.getByRole('button', { name: 'List' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'List' }));
     const own = await screen.findByTestId('collector-row-maika');
     expect(own).toHaveTextContent(/You \(Maïka Test\)/);
     expect(own).toHaveTextContent(/Your public position/);
     expect(screen.getByTestId('collector-row-collector2')).toHaveTextContent(/1–5 km away/);
     expect(screen.queryByText(/45\.\d|73\.\d/)).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Map' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Map' }));
     expect(screen.getByTestId('collector-map-view')).toBeOnTheScreen();
   });
 });

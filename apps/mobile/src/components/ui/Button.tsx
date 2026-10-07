@@ -1,16 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -24,7 +16,7 @@ export interface ButtonProps {
   /** Label read while loading (e.g. "Saving…"); defaults to `label`. */
   loadingLabel?: string;
   icon?: ComponentProps<typeof MaterialCommunityIcons>['name'];
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
   accessibilityHint?: string;
   /** Read instead of the visible label (e.g. "Make an offer on Lantern Fox"). */

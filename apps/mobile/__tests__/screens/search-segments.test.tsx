@@ -44,12 +44,12 @@ describe('Search tab segments (the web /search tabs)', () => {
           })
         ),
     });
-    render();
-    fireEvent.press(screen.getByTestId('search-segment-collectors'));
+    await render();
+    await fireEvent.press(screen.getByTestId('search-segment-collectors'));
     expect(await screen.findByTestId('search-collectors-invite')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/search')).toHaveLength(0);
 
-    fireEvent.changeText(screen.getByTestId('search-collectors-input'), 'noé');
+    await fireEvent.changeText(screen.getByTestId('search-collectors-input'), 'noé');
     const row = await screen.findByTestId('collector-result-collector2');
     expect(row).toHaveTextContent(/Noé Verdun/);
     expect(row).toHaveTextContent(/@collector2 · Verdun, Montréal · 1–5 km away/);
@@ -64,7 +64,7 @@ describe('Search tab segments (the web /search tabs)', () => {
     // Coordinates are never written out.
     expect(screen.queryByText(/45\.4|73\.5/)).toBeNull();
 
-    fireEvent.press(row);
+    await fireEvent.press(row);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'collector2' },
@@ -84,9 +84,9 @@ describe('Search tab segments (the web /search tabs)', () => {
       ),
       'GET /api/v1/search': ok(unifiedSearchFixture({ query: 'zzz' })),
     });
-    render();
-    fireEvent.press(screen.getByTestId('search-segment-collectors'));
-    fireEvent.changeText(await screen.findByTestId('search-collectors-input'), 'zzz');
+    await render();
+    await fireEvent.press(screen.getByTestId('search-segment-collectors'));
+    await fireEvent.changeText(await screen.findByTestId('search-collectors-input'), 'zzz');
     expect(await screen.findByText('No collectors match')).toBeOnTheScreen();
     expect(
       screen.getByText('Collectors appear when they are on the map and allow name search.')
@@ -103,9 +103,9 @@ describe('Search tab segments (the web /search tabs)', () => {
         unifiedSearchFixture({ query: 'magic', binders: [searchBinderFixture()] })
       ),
     });
-    render();
-    fireEvent.press(screen.getByTestId('search-segment-binders'));
-    fireEvent.changeText(await screen.findByTestId('search-binders-input'), 'magic');
+    await render();
+    await fireEvent.press(screen.getByTestId('search-segment-binders'));
+    await fireEvent.changeText(await screen.findByTestId('search-binders-input'), 'magic');
     const row = await screen.findByTestId(`binder-result-${PUBLIC_BINDER_ID}`);
     expect(row).toHaveTextContent(/Magic trades/);
     expect(row).toHaveTextContent(/Trade binder · 14 cards · Magic: The Gathering/);
@@ -113,7 +113,7 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(screen.getByTestId('search-binders-count')).toHaveTextContent(
       '1 public binder for “magic”'
     );
-    fireEvent.press(row);
+    await fireEvent.press(row);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: PUBLIC_BINDER_ID, view: 'public' },
@@ -126,9 +126,9 @@ describe('Search tab segments (the web /search tabs)', () => {
       ...CARDS,
       'GET /api/v1/search': ok(unifiedSearchFixture({ query: 'deck' })),
     });
-    render();
-    fireEvent.press(screen.getByTestId('search-segment-binders'));
-    fireEvent.press(await screen.findByRole('button', { name: 'Search again for deck' }));
+    await render();
+    await fireEvent.press(screen.getByTestId('search-segment-binders'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Search again for deck' }));
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/search').at(-1)?.query.get('q')).toBe('deck')
     );
@@ -143,11 +143,11 @@ describe('Search tab segments (the web /search tabs)', () => {
         ok(unifiedSearchFixture({ query: 'noé', collectors: [markerFixture()] })),
       ],
     });
-    render();
-    fireEvent.press(screen.getByTestId('search-segment-collectors'));
-    fireEvent.changeText(await screen.findByTestId('search-collectors-input'), 'noé');
+    await render();
+    await fireEvent.press(screen.getByTestId('search-segment-collectors'));
+    await fireEvent.changeText(await screen.findByTestId('search-collectors-input'), 'noé');
     expect(await screen.findByTestId('search-collectors-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('search-collectors-error-retry'));
+    await fireEvent.press(screen.getByTestId('search-collectors-error-retry'));
     expect(await screen.findByTestId('collector-result-collector2')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/search')).toHaveLength(2);
   });
@@ -155,9 +155,9 @@ describe('Search tab segments (the web /search tabs)', () => {
   it('opens a segment from a link (?tab=) and keeps the cards segment as before', async () => {
     mockParams.current = { tab: 'binders' };
     mockApi({ ...CARDS, 'GET /api/v1/search': ok(unifiedSearchFixture()) });
-    render();
+    await render();
     expect(await screen.findByTestId('search-binders-invite')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('search-segment-cards'));
+    await fireEvent.press(screen.getByTestId('search-segment-cards'));
     expect(await screen.findByTestId('card-result-emberfang-fox-vmax')).toBeOnTheScreen();
   });
 });

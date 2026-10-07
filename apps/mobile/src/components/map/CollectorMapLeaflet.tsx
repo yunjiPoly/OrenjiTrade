@@ -48,7 +48,9 @@ export function CollectorMapLeaflet({
   interactive = true,
 }: CollectorMapProps & EngineCallbacks) {
   const { palette } = useTheme();
-  const webView = useRef<WebView>(null);
+  // react-native-webview 14 declares `class WebView<P = undefined>` with `WebViewProps & P` props,
+  // so the default makes them `never`; `WebView<object>` is the plain WebView.
+  const webView = useRef<WebView<object>>(null);
   const [ready, setReady] = useState(false);
   const [html] = useState(() =>
     collectorMapPageHtml({
@@ -148,7 +150,7 @@ export function CollectorMapLeaflet({
   };
 
   return (
-    <WebView
+    <WebView<object>
       ref={webView}
       testID={testID}
       style={styles.web}

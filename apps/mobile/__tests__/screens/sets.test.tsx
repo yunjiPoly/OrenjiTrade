@@ -22,19 +22,21 @@ const render = () => renderWithProviders(<SetScreen />, { port: new FakeAuthPort
 describe('Set page', () => {
   it('shows the set, its printings, opens a card and the filtered search', async () => {
     const api = mockApi(signedInRoutes({ 'GET /api/v1/sets/{id}': ok(setDetailFixture()) }));
-    render();
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('set-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('set-name')).toHaveTextContent('Scarlet Expanse');
     expect(screen.getByTestId('set-meta')).toHaveTextContent(
       'SVX · Released 2026-03-01 · 2 printings'
     );
     expect(api.callsTo('GET /api/v1/sets/{id}')[0]?.query.get('size')).toBe('40');
-    fireEvent.press(screen.getByTestId(`set-printing-${PRINTING_A}`));
+    await fireEvent.press(screen.getByTestId(`set-printing-${PRINTING_A}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: CARD_ID, printing: PRINTING_A },
     });
-    fireEvent.press(screen.getByTestId('set-search'));
+    await fireEvent.press(screen.getByTestId('set-search'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({
       pathname: '/search',
       params: { game: 'pokemon', set: 'SVX', q: '', tab: 'cards' },
@@ -50,14 +52,14 @@ describe('Set page', () => {
         ],
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('set-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('set-error-retry'));
+    await fireEvent.press(screen.getByTestId('set-error-retry'));
     expect(await screen.findByTestId('set-name')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/sets/{id}')).toHaveLength(2);
 
     mockApi(signedInRoutes({ 'GET /api/v1/sets/{id}': problem(404, 'NOT_FOUND', 'gone') }));
-    render();
+    await render();
     expect(await screen.findByTestId('set-not-found')).toBeOnTheScreen();
   });
 });

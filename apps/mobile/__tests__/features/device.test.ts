@@ -17,7 +17,7 @@ jest.mock('expo-location', () => ({
   getCurrentPositionAsync: jest.fn(),
 }));
 
-const mockWrites: { name: string; content: string }[] = [];
+const mockWrites: { name: string; content: string; done: boolean }[] = [];
 jest.mock('expo-file-system', () => ({
   Paths: { cache: 'file:///cache/' },
   File: class MockFile {
@@ -28,8 +28,12 @@ jest.mock('expo-file-system', () => ({
       this.uri = `file:///cache/${mockFileName}`;
     }
     create() {}
-    write(content: string) {
-      mockWrites.push({ name: this.mockName, content });
+    // Asynchronous like expo-file-system 58's File.write(): the content lands a tick later.
+    async write(content: string) {
+      const entry = { name: this.mockName, content, done: false };
+      mockWrites.push(entry);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      entry.done = true;
     }
   },
 }));
@@ -101,6 +105,10 @@ describe('exportMyData (native)', () => {
         account: { handle: 'maika' },
         exportedAt: '2026-10-04T12:00:00Z',
       }),
+    });
+    // The share sheet opens only once the file is fully written.
+    (Sharing.shareAsync as jest.Mock).mockImplementationOnce(async () => {
+      expect(mockWrites.at(-1)?.done).toBe(true);
     });
     const name = await exportMyData('maika');
     expect(name).toMatch(/^orenjitrade-export-maika-\d{4}-\d{2}-\d{2}\.json$/);

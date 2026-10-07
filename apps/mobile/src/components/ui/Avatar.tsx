@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { initialsOf } from '@/src/lib/profile';
-import { fontWeight, useTheme } from '@/src/theme';
+import { fontWeight, useTheme, type ViewStyleProp } from '@/src/theme';
 
 export interface AvatarProps {
   /** `avatarUrl` from the API (served under `/api/v1/public/media/`), or null. */
@@ -13,7 +13,7 @@ export interface AvatarProps {
   size?: number;
   /** Decorative avatars (next to the name) are hidden from screen readers. */
   decorative?: boolean;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

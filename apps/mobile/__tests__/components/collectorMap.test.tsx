@@ -42,9 +42,9 @@ function props(overrides: Partial<CollectorMapComponentProps> = {}): CollectorMa
   };
 }
 
-const render = (overrides: Partial<CollectorMapComponentProps> = {}) => {
+const render = async (overrides: Partial<CollectorMapComponentProps> = {}) => {
   const all = props(overrides);
-  const result = renderWithProviders(<CollectorMap {...all} />, {
+  const result = await renderWithProviders(<CollectorMap {...all} />, {
     port: new FakeAuthPort(testUser()),
   });
   return { ...result, props: all };
@@ -59,11 +59,11 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
   });
 
   const mapView = () => screen.getByTestId('collector-map-view');
-  const ready = () => act(() => fireEvent(mapView(), 'mapReady'));
+  const ready = () => fireEvent(mapView(), 'mapReady');
 
-  it('draws each collector as a 1500 m Circle around the public point, never a pin', () => {
-    render();
-    ready();
+  it('draws each collector as a 1500 m Circle around the public point, never a pin', async () => {
+    await render();
+    await ready();
     const circles = screen.getAllByTestId(/^zone-/);
     expect(circles).toHaveLength(2);
     expect(circles.map((circle) => circle.props.radius)).toEqual([1500, 1500]);
@@ -79,23 +79,23 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
     expect(screen.getByTestId('zone-maika').props.strokeWidth).toBe(1.5);
   });
 
-  it('caps gestures at zoom 14 and never shows the device position', () => {
-    render();
+  it('caps gestures at zoom 14 and never shows the device position', async () => {
+    await render();
     expect(mapView().props.maxZoomLevel).toBe(14);
     expect(mapView().props.showsUserLocation).toBe(false);
     expect(mapView().props.showsMyLocationButton).toBe(false);
     expect(zoomOfRegion(mapView().props.initialRegion, SIZE.width)).toBeCloseTo(11, 5);
   });
 
-  it('starts no closer than 14 even when asked for more', () => {
-    render({ initialCamera: { center: { lat: 45.5, lng: -73.57 }, zoom: 18 } });
+  it('starts no closer than 14 even when asked for more', async () => {
+    await render({ initialCamera: { center: { lat: 45.5, lng: -73.57 }, zoom: 18 } });
     expect(zoomOfRegion(mapView().props.initialRegion, SIZE.width)).toBeCloseTo(14, 5);
   });
 
-  it('clamps every programmatic camera change to 14 (centre, bounds, cluster expansion)', () => {
-    const view = render();
-    ready();
-    view.rerender(
+  it('clamps every programmatic camera change to 14 (centre, bounds, cluster expansion)', async () => {
+    const view = await render();
+    await ready();
+    await view.rerender(
       <CollectorMap
         {...view.props}
         camera={camera({ kind: 'center', center: { lat: 45.458, lng: -73.571 }, zoom: 17 })}
@@ -107,7 +107,7 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
     expect(region).toMatchObject({ latitude: 45.458, longitude: -73.571 });
 
     // A cluster of collectors sharing one cell: fitted bounds stop at 14 too.
-    view.rerender(
+    await view.rerender(
       <CollectorMap
         {...view.props}
         camera={camera(
@@ -121,7 +121,7 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
     expect(zoomOfRegion(fitted, SIZE.width)).toBeLessThanOrEqual(14 + 1e-9);
 
     // The same request again does not move the map.
-    view.rerender(
+    await view.rerender(
       <CollectorMap
         {...view.props}
         camera={camera({ kind: 'center', center: { lat: 45.458, lng: -73.571 }, zoom: 17 }, 2)}
@@ -130,57 +130,61 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
     expect(animateToRegion()).toHaveBeenCalledTimes(2);
   });
 
-  it('pulls the camera back when anything goes past the cap, and reports settled views', () => {
-    const view = render();
-    ready();
+  it('pulls the camera back when anything goes past the cap, and reports settled views', async () => {
+    const view = await render();
+    await ready();
     const tooClose = regionForCamera({ lat: 45.5, lng: -73.57 }, 17, SIZE, 20);
-    act(() => fireEvent(mapView(), 'regionChangeComplete', tooClose));
+    await act(async () => await fireEvent(mapView(), 'regionChangeComplete', tooClose));
     expect(animateToRegion()).toHaveBeenCalledTimes(1);
     const [back] = animateToRegion().mock.calls[0] as [ReturnType<typeof regionForCamera>];
     expect(zoomOfRegion(back, SIZE.width)).toBeCloseTo(14, 5);
     expect(view.props.onViewportChange).not.toHaveBeenCalled();
 
-    act(() =>
-      fireEvent(
-        mapView(),
-        'regionChangeComplete',
-        regionForCamera({ lat: 45.5, lng: -73.57 }, 12, SIZE)
-      )
+    await act(
+      async () =>
+        await fireEvent(
+          mapView(),
+          'regionChangeComplete',
+          regionForCamera({ lat: 45.5, lng: -73.57 }, 12, SIZE)
+        )
     );
     expect(view.props.onViewportChange).toHaveBeenCalledWith(
       expect.objectContaining({ center: { lat: 45.5, lng: -73.57 }, zoom: expect.closeTo(12, 5) })
     );
   });
 
-  it('opens the zone under a tap (the nearest one), and nothing outside the zones', () => {
-    const view = render();
-    ready();
-    act(() =>
-      fireEvent(mapView(), 'press', {
-        nativeEvent: { coordinate: { latitude: 45.459, longitude: -73.573 } },
-      })
+  it('opens the zone under a tap (the nearest one), and nothing outside the zones', async () => {
+    const view = await render();
+    await ready();
+    await act(
+      async () =>
+        await fireEvent(mapView(), 'press', {
+          nativeEvent: { coordinate: { latitude: 45.459, longitude: -73.573 } },
+        })
     );
     expect(view.props.onZonePress).toHaveBeenCalledWith('collector2');
-    act(() =>
-      fireEvent(mapView(), 'press', {
-        nativeEvent: { coordinate: { latitude: 45.6, longitude: -73.9 } },
-      })
+    await act(
+      async () =>
+        await fireEvent(mapView(), 'press', {
+          nativeEvent: { coordinate: { latitude: 45.6, longitude: -73.9 } },
+        })
     );
     expect(view.props.onEmptyPress).toHaveBeenCalledTimes(1);
     // A press on a cluster bubble is not a map tap.
-    act(() =>
-      fireEvent(mapView(), 'press', {
-        nativeEvent: {
-          action: 'marker-press',
-          coordinate: { latitude: 45.459, longitude: -73.573 },
-        },
-      })
+    await act(
+      async () =>
+        await fireEvent(mapView(), 'press', {
+          nativeEvent: {
+            action: 'marker-press',
+            coordinate: { latitude: 45.459, longitude: -73.573 },
+          },
+        })
     );
     expect(view.props.onZonePress).toHaveBeenCalledTimes(1);
   });
 
-  it('draws clusters as count bubbles at a 3-decimal average point', () => {
-    const view = render({
+  it('draws clusters as count bubbles at a 3-decimal average point', async () => {
+    const view = await render({
       zones: [],
       clusters: [
         {
@@ -196,18 +200,18 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
     expect(bubble.props.coordinate).toEqual({ latitude: 45.512, longitude: -73.581 });
     expect(bubble.props.accessibilityLabel).toBe('12 collectors here. Zoom in');
     expect(screen.getByText('12')).toBeOnTheScreen();
-    fireEvent.press(bubble);
+    await fireEvent.press(bubble);
     expect(view.props.onClusterPress).toHaveBeenCalledWith('cluster:9:1:2');
   });
 
-  it('shows the loading skeleton until the map is ready', () => {
-    render();
+  it('shows the loading skeleton until the map is ready', async () => {
+    await render();
     expect(screen.getByTestId('collector-map-loading')).toBeOnTheScreen();
-    ready();
+    await ready();
     expect(screen.queryByTestId('collector-map-loading')).toBeNull();
   });
 
-  it('shows an error with "Reload map" when the map cannot render, and retries', () => {
+  it('shows an error with "Reload map" when the map cannot render, and retries', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const maps = jest.requireMock('react-native-maps') as { default: { render?: unknown } };
@@ -217,11 +221,11 @@ describe('CollectorMap on react-native-maps (Apple Maps, Google Maps with a key)
     };
     (maps as { default: unknown }).default = Broken;
     try {
-      render();
+      await render();
       expect(screen.getByText('The map could not load')).toBeOnTheScreen();
       expect(screen.getByText('Collectors are still listed in the List view.')).toBeOnTheScreen();
       (maps as { default: unknown }).default = original;
-      fireEvent.press(screen.getByRole('button', { name: 'Reload map' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Reload map' }));
       expect(screen.getByTestId('collector-map-view')).toBeOnTheScreen();
     } finally {
       (maps as { default: unknown }).default = original;
@@ -238,9 +242,7 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
 
   const webView = () => screen.getByTestId('collector-map');
   const send = (message: unknown) =>
-    act(() => {
-      fireEvent(webView(), 'message', { nativeEvent: { data: JSON.stringify(message) } });
-    });
+    fireEvent(webView(), 'message', { nativeEvent: { data: JSON.stringify(message) } });
   const config = () => {
     const html = (webView().props.source as { html: string }).html;
     const match = /window\.__orenjiConfig=(\{.*\});<\/script>/.exec(html);
@@ -256,8 +258,8 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
       script.slice(script.indexOf(`${fn}(`) + fn.length + 1, script.lastIndexOf(');true;'))
     );
 
-  it('loads the OpenStreetMap page capped at 14, starting no closer than 14', () => {
-    render({ initialCamera: { center: { lat: 45.5, lng: -73.57 }, zoom: 18 } });
+  it('loads the OpenStreetMap page capped at 14, starting no closer than 14', async () => {
+    await render({ initialCamera: { center: { lat: 45.5, lng: -73.57 }, zoom: 18 } });
     expect(webView().props.source.baseUrl).toBe(PAGE_BASE_URL);
     expect(webView().props.geolocationEnabled).toBe(false);
     expect(webView().props.domStorageEnabled).toBe(false);
@@ -273,10 +275,10 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
     expect(html).not.toContain('navigator.geolocation');
   });
 
-  it('hands the page 1500 m zones and no pins once it is ready', () => {
-    render();
+  it('hands the page 1500 m zones and no pins once it is ready', async () => {
+    await render();
     expect(injected()).toEqual([]);
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     const layer = payload(injected().at(-1) ?? '', 'window.__orenji.layer');
     expect(layer).toEqual({
       zones: [
@@ -288,10 +290,10 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
     expect(screen.queryByTestId('collector-map-loading')).toBeNull();
   });
 
-  it('clamps camera requests to 14 before they reach the page', () => {
-    const view = render();
-    send({ type: 'ready' });
-    view.rerender(
+  it('clamps camera requests to 14 before they reach the page', async () => {
+    const view = await render();
+    await send({ type: 'ready' });
+    await view.rerender(
       <CollectorMap
         {...view.props}
         camera={camera({ kind: 'center', center: { lat: 45.458, lng: -73.571 }, zoom: 19 })}
@@ -301,29 +303,29 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
     expect(target).toEqual({ kind: 'center', center: { lat: 45.458, lng: -73.571 }, zoom: 14 });
   });
 
-  it('applies a camera request made before the page was ready', () => {
-    const view = render();
-    view.rerender(
+  it('applies a camera request made before the page was ready', async () => {
+    const view = await render();
+    await view.rerender(
       <CollectorMap
         {...view.props}
         camera={camera({ kind: 'center', center: { lat: 45.458, lng: -73.571 }, zoom: 13 })}
       />
     );
     expect(injected()).toEqual([]);
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     expect(injected().some((script) => script.includes('window.__orenji.view('))).toBe(true);
   });
 
-  it('turns page messages into zone taps, cluster presses and viewports', () => {
-    const view = render();
-    send({ type: 'ready' });
-    send({ type: 'tap', lat: 45.4595, lng: -73.5725, zoom: 12 });
+  it('turns page messages into zone taps, cluster presses and viewports', async () => {
+    const view = await render();
+    await send({ type: 'ready' });
+    await send({ type: 'tap', lat: 45.4595, lng: -73.5725, zoom: 12 });
     expect(view.props.onZonePress).toHaveBeenCalledWith('collector2');
-    send({ type: 'tap', lat: 45.7, lng: -73.9, zoom: 12 });
+    await send({ type: 'tap', lat: 45.7, lng: -73.9, zoom: 12 });
     expect(view.props.onEmptyPress).toHaveBeenCalledTimes(1);
-    send({ type: 'cluster', id: 'cluster:9:1:2' });
+    await send({ type: 'cluster', id: 'cluster:9:1:2' });
     expect(view.props.onClusterPress).toHaveBeenCalledWith('cluster:9:1:2');
-    send({
+    await send({
       type: 'viewport',
       lat: 45.5,
       lng: -73.57,
@@ -339,26 +341,26 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
       bounds: { north: 45.55, south: 45.45, east: -73.5, west: -73.64 },
     });
     // Malformed messages are ignored.
-    send({ type: 'tap', lat: 'x' });
-    send({ type: 'viewport', lat: 200, lng: 0 });
+    await send({ type: 'tap', lat: 'x' });
+    await send({ type: 'viewport', lat: 200, lng: 0 });
     expect(view.props.onZonePress).toHaveBeenCalledTimes(1);
     expect(view.props.onViewportChange).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the error state when Leaflet cannot load, and reloads the page', () => {
-    render();
-    send({ type: 'error', reason: 'leaflet' });
+  it('shows the error state when Leaflet cannot load, and reloads the page', async () => {
+    await render();
+    await send({ type: 'error', reason: 'leaflet' });
     expect(screen.getByText('The map could not load')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-map')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Reload map' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Reload map' }));
     expect(screen.getByTestId('collector-map')).toBeOnTheScreen();
   });
 
-  it('shows the error state when the page never becomes ready', () => {
+  it('shows the error state when the page never becomes ready', async () => {
     jest.useFakeTimers();
     try {
-      render();
-      act(() => {
+      await render();
+      await act(() => {
         jest.advanceTimersByTime(COLLECTOR_MAP_READY_TIMEOUT_MS + 1);
       });
       expect(screen.getByTestId('collector-map-error')).toBeOnTheScreen();
@@ -367,12 +369,12 @@ describe('CollectorMap on Leaflet in a WebView (Expo Go, no Google key)', () => 
     }
   });
 
-  it('keeps a map that only shows still (no taps reported)', () => {
-    const view = render({ interactive: false });
+  it('keeps a map that only shows still (no taps reported)', async () => {
+    const view = await render({ interactive: false });
     expect(config().interactive).toBe(false);
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     // The page sends no taps then; one arriving anyway is ignored.
-    send({ type: 'tap', lat: 45.4595, lng: -73.5725, zoom: 12 });
+    await send({ type: 'tap', lat: 45.4595, lng: -73.5725, zoom: 12 });
     expect(view.props.onZonePress).not.toHaveBeenCalled();
     expect(view.props.onEmptyPress).not.toHaveBeenCalled();
   });

@@ -1,0 +1,31 @@
+# Turns off Expo Go's floating "Tools" button when it is on screen. Expo Go 58 (Expo SDK 58)
+# floats it over the right end of the navigation header, where Expo Go 57 put it just below the
+# header: it now covers the header buttons (the tabs' notification bell, the conversation
+# options), and a tap meant for them opened Expo Go's developer menu instead. The app is
+# unchanged; this is Expo Go's own setting (developer menu -> "Tools button"), which a fresh Expo Go
+# turns on again, so every launch passes here (wait-for-app.yaml). Without the button the
+# developer menu still opens with the device's menu key (adb shell input keyevent 82).
+appId: host.exp.exponent
+---
+- runFlow:
+    when:
+      visible: 'Tools'
+    commands:
+      - tapOn: 'Tools'
+      - extendedWaitUntil:
+          visible: 'Go home'
+          timeout: 30000
+      - runFlow:
+          file: scroll-down-to-text.yaml
+          env:
+            TEXT: 'Tools button'
+      - tapOn: 'Tools button'
+      - tapOn: 'Close'
+      - runFlow:
+          when:
+            visible: 'Go home'
+          commands:
+            - back
+      - extendedWaitUntil:
+          notVisible: 'Tools'
+          timeout: 10000

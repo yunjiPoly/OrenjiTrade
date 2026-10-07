@@ -18,7 +18,8 @@ export async function exportMyData(handle: string | null | undefined): Promise<s
   const name = exportFileName(handle);
   const file = new File(Paths.cache, name);
   file.create({ overwrite: true });
-  file.write(JSON.stringify(data, null, 2));
+  // Asynchronous since expo-file-system 58 (SDK 58): the file is complete before it is shared.
+  await file.write(JSON.stringify(data, null, 2));
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error('Sharing files is not available on this device.');
   }

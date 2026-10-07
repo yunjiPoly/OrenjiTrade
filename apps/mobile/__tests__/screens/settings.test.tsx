@@ -45,7 +45,7 @@ describe('Settings home', () => {
   it('lists the sections (Phase 1, offers, my reports) and signs out', async () => {
     const port = new FakeAuthPort(testUser());
     mockApi(signedInRoutes());
-    renderWithProviders(<SettingsScreen />, { port });
+    await renderWithProviders(<SettingsScreen />, { port });
     expect(await screen.findByText('@maika')).toBeOnTheScreen();
     for (const label of [
       'Profile',
@@ -60,11 +60,11 @@ describe('Settings home', () => {
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeOnTheScreen();
     }
-    fireEvent.press(screen.getByRole('link', { name: 'Notifications' }));
+    await fireEvent.press(screen.getByRole('link', { name: 'Notifications' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
-    fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
+    await fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
-    fireEvent.press(screen.getByTestId('settings-sign-out'));
+    await fireEvent.press(screen.getByTestId('settings-sign-out'));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });
 });
@@ -78,18 +78,18 @@ describe('Settings → Profile', () => {
         'PUT /api/v1/me/profile/tags': ok(TAGS),
       })
     );
-    renderWithProviders(<ProfileSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<ProfileSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     const save = await screen.findByRole('button', { name: 'Save details' });
     expect(save).toBeDisabled();
 
-    fireEvent.changeText(screen.getByLabelText('Display name'), '');
-    fireEvent.press(save);
+    await fireEvent.changeText(screen.getByLabelText('Display name'), '');
+    await fireEvent.press(save);
     expect(screen.getByText('Enter a display name.')).toBeOnTheScreen();
     expect(api.callsTo('PUT /api/v1/me/profile')).toHaveLength(0);
 
-    fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka T.');
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Yu-Gi-Oh!' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
+    await fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka T.');
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Yu-Gi-Oh!' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Profile saved.');
     expect(api.callsTo('PUT /api/v1/me/profile')[0]?.body).toMatchObject({
       displayName: 'Maïka T.',
@@ -97,8 +97,8 @@ describe('Settings → Profile', () => {
       languages: ['fr', 'en'],
     });
 
-    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Binder collector' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Save tags' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add tag Binder collector' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save tags' }));
     expect(await screen.findByText('Tags saved.')).toBeOnTheScreen();
     expect(api.callsTo('PUT /api/v1/me/profile/tags')[0]?.body).toEqual({
       tagIds: ['tag-1', 'tag-2'],
@@ -115,21 +115,25 @@ describe('Settings → Profile', () => {
         ],
       })
     );
-    renderWithProviders(<ProfileSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.changeText(await screen.findByLabelText('Handle'), 'collector2');
-    fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
+    await renderWithProviders(<ProfileSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.changeText(await screen.findByLabelText('Handle'), 'collector2');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
     expect(
       await screen.findByText('That handle is already taken. Try another one.')
     ).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByLabelText('Handle'), 'maika_2');
-    fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
+    await fireEvent.changeText(screen.getByLabelText('Handle'), 'maika_2');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save details' }));
     expect(await screen.findByText(/Too many requests in a short time/)).toBeOnTheScreen();
   });
 
   it('shows the loading and error states', async () => {
-    mockApi(signedInRoutes({ 'GET /api/v1/me/profile': problem(500, 'INTERNAL_ERROR', 'boom') }));
-    renderWithProviders(<ProfileSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    const api = mockApi(
+      signedInRoutes({ 'GET /api/v1/me/profile': problem(500, 'INTERNAL_ERROR', 'boom') })
+    );
+    const release = api.hold();
+    await renderWithProviders(<ProfileSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     expect(screen.getByTestId('settings-profile-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByText('We could not load your profile')).toBeOnTheScreen();
   });
 });
@@ -151,15 +155,15 @@ describe('Settings → Location and discoverability', () => {
         ),
       })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByTestId('area-public-label')).toHaveTextContent(
       'Ville-Marie, Montréal · 10 km radius'
     );
     const save = screen.getByRole('button', { name: 'Save trading area' });
     expect(save).toBeDisabled();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Trading area saved · Vieux-Québec, Québec.'
     );
@@ -180,14 +184,14 @@ describe('Settings → Location and discoverability', () => {
         'PUT /api/v1/me/settings/privacy': ({ body }: MockRequest) => ok(body),
       })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     const optIn = await screen.findByRole('switch', { name: 'Show me on the map' });
     expect(optIn).not.toBeChecked();
     expect(screen.getByTestId('location-visibility')).toHaveTextContent(
       /You are hidden from the map\./
     );
 
-    fireEvent.press(optIn);
+    await fireEvent.press(optIn);
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('You now appear on the map.');
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')[0]?.body).toEqual({
       ...privacyFixture(),
@@ -203,10 +207,10 @@ describe('Settings → Location and discoverability', () => {
 
   it('removes the location after confirmation', async () => {
     const api = mockApi(signedInRoutes({ 'DELETE /api/v1/me/location': noContent }));
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Remove location' }));
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Remove location' }));
     expect(screen.getByText('Remove your location?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('confirm-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('confirm-dialog-confirm'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Your location was removed.');
     expect(api.callsTo('DELETE /api/v1/me/location')).toHaveLength(1);
     expect(await screen.findByTestId('area-public-label')).toHaveTextContent(
@@ -224,9 +228,9 @@ describe('Settings → Location and discoverability', () => {
         ),
       })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Increase trading radius' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Increase trading radius' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
     expect(await screen.findByTestId('location-error')).toHaveTextContent(/Radius out of range\./);
   });
 });
@@ -241,10 +245,10 @@ describe('Settings → Privacy', () => {
         ],
       })
     );
-    renderWithProviders(<PrivacySettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<PrivacySettingsScreen />, { port: new FakeAuthPort(testUser()) });
     const wishlist = await screen.findByRole('switch', { name: 'Show my wishlist on my profile' });
     expect(wishlist).toBeChecked();
-    fireEvent.press(wishlist);
+    await fireEvent.press(wishlist);
     await waitFor(() =>
       expect(screen.getByTestId('privacy-status')).toHaveTextContent(/All changes saved/)
     );
@@ -253,7 +257,7 @@ describe('Settings → Privacy', () => {
       wishlistVisible: false,
     });
 
-    fireEvent.press(screen.getByRole('radio', { name: 'Private' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Private' }));
     await waitFor(() =>
       expect(screen.getByTestId('privacy-status')).toHaveTextContent(/Last change not saved/)
     );
@@ -269,12 +273,14 @@ describe('Settings → Notifications', () => {
         'PUT /api/v1/me/settings/notifications': ({ body }: MockRequest) => ok(body),
       })
     );
-    renderWithProviders(<NotificationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('checkbox', { name: 'Messages by Email' }));
-    fireEvent.press(screen.getByRole('switch', { name: 'Email' }));
+    await renderWithProviders(<NotificationSettingsScreen />, {
+      port: new FakeAuthPort(testUser()),
+    });
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Messages by Email' }));
+    await fireEvent.press(screen.getByRole('switch', { name: 'Email' }));
     // A channel switched off disables its topics.
     expect(screen.getByRole('checkbox', { name: 'Messages by Email' })).toBeDisabled();
-    fireEvent.press(screen.getByRole('button', { name: 'Save preferences' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save preferences' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Notification preferences saved.'
     );
@@ -287,13 +293,15 @@ describe('Settings → Notifications', () => {
 
   it('validates quiet hours', async () => {
     const api = mockApi(signedInRoutes());
-    renderWithProviders(<NotificationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(
+    await renderWithProviders(<NotificationSettingsScreen />, {
+      port: new FakeAuthPort(testUser()),
+    });
+    await fireEvent.press(
       await screen.findByRole('switch', { name: 'Pause push notifications at night' })
     );
-    fireEvent.changeText(screen.getByLabelText('From'), '25:00');
+    await fireEvent.changeText(screen.getByLabelText('From'), '25:00');
     expect(screen.getByTestId('notif-quiet-error')).toHaveTextContent(/Use 24-hour times/);
-    fireEvent.press(screen.getByRole('button', { name: 'Save preferences' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save preferences' }));
     expect(api.callsTo('PUT /api/v1/me/settings/notifications')).toHaveLength(0);
   });
 
@@ -303,7 +311,9 @@ describe('Settings → Notifications', () => {
         'GET /api/v1/me/settings/notifications': problem(503, 'SERVICE_UNAVAILABLE', 'down'),
       })
     );
-    renderWithProviders(<NotificationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<NotificationSettingsScreen />, {
+      port: new FakeAuthPort(testUser()),
+    });
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeOnTheScreen();
   });
 });
@@ -311,26 +321,26 @@ describe('Settings → Notifications', () => {
 describe('Settings → Account', () => {
   it('shows the sign-in details and downloads the data', async () => {
     mockApi(signedInRoutes());
-    renderWithProviders(<AccountSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<AccountSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     expect(screen.getByTestId('account-email')).toHaveTextContent('maika@example.test');
     expect(screen.getByTestId('account-verified')).toHaveTextContent('Verified');
-    fireEvent.press(screen.getByRole('button', { name: 'Download my data' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Download my data' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Your data export orenjitrade-export-maika-2026-10-04.json is ready.'
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/delete-account');
   });
 
   it('names the sign-in methods of a Google account', async () => {
     mockApi(signedInRoutes());
-    renderWithProviders(<AccountSettingsScreen />, {
+    await renderWithProviders(<AccountSettingsScreen />, {
       port: new FakeAuthPort(testUser({ providerIds: ['password', 'google.com'] })),
     });
     expect(screen.getByTestId('account-sign-in-method')).toHaveTextContent(
       'Email and password, Google'
     );
-    renderWithProviders(<AccountSettingsScreen />, {
+    await renderWithProviders(<AccountSettingsScreen />, {
       port: new FakeAuthPort(testUser({ providerIds: ['google.com'] })),
     });
     expect(screen.getAllByTestId('account-sign-in-method').at(-1)).toHaveTextContent(/^Google$/);
@@ -340,13 +350,13 @@ describe('Settings → Account', () => {
     const port = new FakeAuthPort(testUser({ emailVerified: false }));
     exportMock().mockRejectedValueOnce(new Error('disk full'));
     mockApi(signedInRoutes());
-    renderWithProviders(<AccountSettingsScreen />, { port });
+    await renderWithProviders(<AccountSettingsScreen />, { port });
     expect(screen.getByTestId('account-verified')).toHaveTextContent('Not verified');
-    fireEvent.press(screen.getByRole('button', { name: 'Resend link' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Resend link' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Verification email sent. Check your inbox.'
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Download my data' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Download my data' }));
     await waitFor(() =>
       expect(screen.getByTestId('snackbar')).toHaveTextContent(
         'The export failed. Please try again.'
@@ -357,19 +367,21 @@ describe('Settings → Account', () => {
 
 describe('Settings → Delete account', () => {
   async function fill(password: string) {
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Download a copy of my data first' }));
-    fireEvent.press(screen.getByRole('checkbox', { name: /I understand/ }));
-    fireEvent.changeText(screen.getByLabelText('Password'), password);
-    fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
+    await fireEvent.press(
+      screen.getByRole('checkbox', { name: 'Download a copy of my data first' })
+    );
+    await fireEvent.press(screen.getByRole('checkbox', { name: /I understand/ }));
+    await fireEvent.changeText(screen.getByLabelText('Password'), password);
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
     const dialog = await screen.findByTestId('delete-confirm');
     expect(within(dialog).getByText('Delete your account?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('delete-confirm-confirm'));
+    await fireEvent.press(screen.getByTestId('delete-confirm-confirm'));
   }
 
   it('requires the password and the acknowledgement', async () => {
     const api = mockApi(signedInRoutes());
-    renderWithProviders(<DeleteAccountScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
+    await renderWithProviders(<DeleteAccountScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
     expect(screen.getByText('Enter your password to continue.')).toBeOnTheScreen();
     expect(screen.getByText('Please confirm to continue.')).toBeOnTheScreen();
     expect(screen.queryByTestId('delete-confirm')).toBeNull();
@@ -379,7 +391,7 @@ describe('Settings → Delete account', () => {
   it('rejects a wrong password', async () => {
     const port = new FakeAuthPort(testUser());
     const api = mockApi(signedInRoutes());
-    renderWithProviders(<DeleteAccountScreen />, { port });
+    await renderWithProviders(<DeleteAccountScreen />, { port });
     await fill('not-it');
     expect(await screen.findByTestId('delete-error')).toHaveTextContent(
       /That password is not correct\./
@@ -395,8 +407,11 @@ describe('Settings → Delete account', () => {
         'POST /api/v1/me/deletion-requests': ok(deletionFixture(), 201),
       })
     );
-    renderWithProviders(<DeleteAccountScreen />, { port });
-    fireEvent.changeText(screen.getByLabelText('Why are you leaving? (optional)'), 'Moving away.');
+    await renderWithProviders(<DeleteAccountScreen />, { port });
+    await fireEvent.changeText(
+      screen.getByLabelText('Why are you leaving? (optional)'),
+      'Moving away.'
+    );
     await fill('correct-password');
     await waitFor(() => expect(api.callsTo('POST /api/v1/me/deletion-requests')).toHaveLength(1));
     expect(port.reauthenticate).toHaveBeenCalledWith('correct-password');
@@ -415,22 +430,24 @@ describe('Settings → Delete account', () => {
         'POST /api/v1/me/deletion-requests': ok(deletionFixture(), 201),
       })
     );
-    renderWithProviders(<DeleteAccountScreen />, { port });
+    await renderWithProviders(<DeleteAccountScreen />, { port });
     expect(screen.queryByLabelText('Password')).toBeNull();
     expect(screen.getByTestId('delete-google-note')).toHaveTextContent(
       'You will confirm with Google.'
     );
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Download a copy of my data first' }));
-    fireEvent.press(screen.getByRole('checkbox', { name: /I understand/ }));
-    fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
-    fireEvent.press(await screen.findByTestId('delete-confirm-confirm'));
+    await fireEvent.press(
+      screen.getByRole('checkbox', { name: 'Download a copy of my data first' })
+    );
+    await fireEvent.press(screen.getByRole('checkbox', { name: /I understand/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete my account' }));
+    await fireEvent.press(await screen.findByTestId('delete-confirm-confirm'));
     // The simulated Google account is the signed-in one: its e-mail is fixed.
     const dialog = await screen.findByTestId('google-dialog');
     expect(within(dialog).getByTestId('google-locked-email')).toHaveTextContent(
       'maika@example.test'
     );
-    fireEvent.changeText(within(dialog).getByTestId('google-name'), 'Maïka Test');
-    fireEvent.press(screen.getByTestId('google-dialog-confirm'));
+    await fireEvent.changeText(within(dialog).getByTestId('google-name'), 'Maïka Test');
+    await fireEvent.press(screen.getByTestId('google-dialog-confirm'));
     await waitFor(() => expect(api.callsTo('POST /api/v1/me/deletion-requests')).toHaveLength(1));
     expect(port.reauthenticateWithGoogle).toHaveBeenCalledWith({
       kind: 'emulator',
@@ -448,10 +465,10 @@ describe('Settings → Delete account', () => {
         }),
       })
     );
-    renderWithProviders(<DeleteAccountScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<DeleteAccountScreen />, { port: new FakeAuthPort(testUser()) });
     await fill('correct-password');
     expect(await screen.findByText(/You have a trade in progress\./)).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
     expect(mockRouter.back).toHaveBeenCalled();
   });
 });
@@ -469,8 +486,8 @@ describe('Settings → Appearance', () => {
         }),
       })
     );
-    renderWithProviders(<AppearanceSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(screen.getByRole('button', { name: 'Dark' }));
+    await renderWithProviders(<AppearanceSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(screen.getByRole('button', { name: 'Dark' }));
     expect(useAppStore.getState().themeOverride).toBe('dark');
     expect(await screen.findByTestId('api-version')).toHaveTextContent('0.1.0');
   });

@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
-import type { StyleProp, ViewStyle } from 'react-native';
 
 import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import { Button } from '@/src/components/ui/Button';
+import type { ViewStyleProp } from '@/src/theme';
 
 /**
  * "See Premium" of a reached plan limit (web: the limit-reached dialog's action): opens the
@@ -13,7 +13,7 @@ export function SeePremiumButton({
   style,
 }: {
   testID?: string;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
 }) {
   const router = useRouter();
   const premium = useFeature(FEATURE.premiumPlans);

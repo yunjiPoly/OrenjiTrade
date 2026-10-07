@@ -1,13 +1,13 @@
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fontWeight, radius, spacing, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, useTheme, type ViewStyleProp } from '@/src/theme';
 
 export interface SegmentedProps<T extends string> {
   label: string;
   options: readonly { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   /** Group id; each segment is `<testID>-<value>`. */
   testID?: string;
 }

@@ -20,8 +20,9 @@ export {
   ErrorBoundary,
 } from 'expo-router';
 
+// The screen under any deep-linked route (expo-router 58 renamed `initialRouteName` to `anchor`).
 export const unstable_settings = {
-  initialRouteName: '(tabs)',
+  anchor: '(tabs)',
 };
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, type View } from 'react-native';
+import { Keyboard, Platform, type ViewInstance } from 'react-native';
 
 /**
  * How much of a view the on-screen keyboard covers (0 when hidden or when the window already
@@ -9,7 +9,7 @@ import { Keyboard, Platform, type View } from 'react-native';
  * the keyboard's top.
  */
 export function useKeyboardOverlap() {
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewInstance>(null);
   const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
   const [bottom, setBottom] = useState<number | null>(null);
 

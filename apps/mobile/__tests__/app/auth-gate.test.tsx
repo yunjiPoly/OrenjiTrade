@@ -31,11 +31,11 @@ beforeEach(() => {
 });
 
 describe('auth gate (RootNavigator)', () => {
-  it('keeps the boot screen up until Firebase and /me answered', () => {
+  it('keeps the boot screen up until Firebase and /me answered', async () => {
     const port = new FakeAuthPort(null);
     port.subscribe.mockImplementationOnce(() => () => undefined);
     mockApi({});
-    renderWithProviders(<RootNavigator />, { port });
+    await renderWithProviders(<RootNavigator />, { port });
     expect(screen.getByTestId('boot-screen')).toBeOnTheScreen();
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
   });
@@ -43,7 +43,7 @@ describe('auth gate (RootNavigator)', () => {
   it('sends signed-out visitors to sign in', async () => {
     mockSegments.current = ['(tabs)'];
     mockApi({});
-    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(null) });
+    await renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(null) });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
     expect(screen.queryByTestId('boot-screen')).toBeNull();
   });
@@ -67,27 +67,27 @@ describe('auth gate (RootNavigator)', () => {
       resetRouterMock();
       mockSegments.current = ['(tabs)'];
       mockApi(routes);
-      const { unmount } = renderWithProviders(<RootNavigator />, {
+      const { unmount } = await renderWithProviders(<RootNavigator />, {
         port: new FakeAuthPort(testUser()),
       });
       await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith(target));
-      unmount();
+      await unmount();
     }
   });
 
   it('brings an onboarded collector from sign-in back to the tabs, and leaves the tabs alone', async () => {
     mockSegments.current = ['(auth)', 'sign-in'];
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    const { unmount } = renderWithProviders(<RootNavigator />, {
+    const { unmount } = await renderWithProviders(<RootNavigator />, {
       port: new FakeAuthPort(testUser()),
     });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
-    unmount();
+    await unmount();
 
     resetRouterMock();
     mockSegments.current = ['(tabs)', 'profile'];
     const api = mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
     await waitFor(() => expect(api.callsTo('GET /api/v1/me')).toHaveLength(1));
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
   });
@@ -96,7 +96,7 @@ describe('auth gate (RootNavigator)', () => {
     useFlowLock.getState().lock('sign-up');
     mockSegments.current = ['(auth)', 'sign-up'];
     const api = mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(api.callsTo('GET /api/v1/me')).toHaveLength(0);
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe('auth gate (RootNavigator)', () => {
     mockParams.current = { id: 'collector5' };
     const port = new FakeAuthPort(null);
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<RootNavigator />, { port });
+    await renderWithProviders(<RootNavigator />, { port });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
     expect(usePendingLink.getState().href).toBe('/collectors/collector5');
 
@@ -130,23 +130,23 @@ describe('auth gate (RootNavigator)', () => {
     mockPathname.current = '/profile';
     const port = new FakeAuthPort(testUser());
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    const first = renderWithProviders(<RootNavigator />, { port });
+    const first = await renderWithProviders(<RootNavigator />, { port });
     await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
     await act(async () => {
       await port.signOut();
     });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
     expect(usePendingLink.getState().href).toBeNull();
-    first.unmount();
+    await first.unmount();
 
     resetRouterMock();
     mockSegments.current = ['cards', '[id]'];
     mockPathname.current = '/cards/c1';
     mockParams.current = { id: 'c1', printing: 'p2' };
     const second = new FakeAuthPort(testUser());
-    renderWithProviders(<RootNavigator />, { port: second });
+    await renderWithProviders(<RootNavigator />, { port: second });
     await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
-    act(() => useSessionNotice.getState().reportEnded());
+    await act(() => useSessionNotice.getState().reportEnded());
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
     expect(second.signOut).toHaveBeenCalled();
     expect(usePendingLink.getState().href).toBe('/cards/c1?printing=p2');
@@ -183,7 +183,7 @@ describe('auth gate: the 18+ confirmation (launch readiness)', () => {
         })
       ),
     });
-    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/onboarding'));
     expect(usePendingLink.getState().href).toBe('/messages/conv-1');
   });
@@ -205,10 +205,10 @@ describe('auth gate: the 18+ confirmation (launch readiness)', () => {
         ),
       ],
     });
-    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
     await waitFor(() => expect(api.callsTo('GET /api/v1/me')).toHaveLength(1));
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
-    act(() => {
+    await act(() => {
       reportAccountSignal(
         ApiError.fromProblem(403, {
           status: 403,

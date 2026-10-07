@@ -18,9 +18,11 @@ beforeEach(() => {
 
 describe('Profile tab', () => {
   it('shows a skeleton, then the collector, their interests, area and visibility', async () => {
-    mockApi(signedInRoutes());
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
+    const api = mockApi(signedInRoutes());
+    const release = api.hold();
+    await renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
     expect(screen.getByTestId('profile-loading')).toBeOnTheScreen();
+    release();
 
     expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
     expect(screen.getByTestId('profile-handle-label')).toHaveTextContent('@maika');
@@ -41,7 +43,7 @@ describe('Profile tab', () => {
     mockApi(
       signedInRoutes({ 'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })) })
     );
-    const { unmount } = renderWithProviders(<ProfileScreen />, {
+    const { unmount } = await renderWithProviders(<ProfileScreen />, {
       port: new FakeAuthPort(testUser()),
     });
     await waitFor(() =>
@@ -49,10 +51,10 @@ describe('Profile tab', () => {
         'Visible on the map at an approximate position.'
       )
     );
-    unmount();
+    await unmount();
 
     mockApi(signedInRoutes({ 'GET /api/v1/me/location': ok({ discoverable: true }) }));
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByTestId('profile-area')).toHaveTextContent('No trading area yet.');
     expect(screen.getByTestId('profile-visibility')).toHaveTextContent('Hidden from the map.');
   });
@@ -65,7 +67,7 @@ describe('Profile tab', () => {
         ),
       })
     );
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('No games yet')).toBeOnTheScreen();
     expect(screen.getByText('No tags yet')).toBeOnTheScreen();
     expect(screen.queryByTestId('profile-bio-text')).toBeNull();
@@ -77,9 +79,9 @@ describe('Profile tab', () => {
         'GET /api/v1/me/profile': [problem(500, 'INTERNAL_ERROR', 'boom'), ok(profileFixture())],
       })
     );
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('We could not load your profile')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
     expect(api.callsTo('GET /api/v1/me/profile')).toHaveLength(2);
   });
@@ -87,21 +89,21 @@ describe('Profile tab', () => {
   it('opens the editor, the public preview and Settings, and signs out', async () => {
     const port = new FakeAuthPort(testUser());
     mockApi(signedInRoutes());
-    renderWithProviders(<ProfileScreen />, { port });
-    fireEvent.press(await screen.findByRole('button', { name: 'Edit profile' }));
+    await renderWithProviders(<ProfileScreen />, { port });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit profile' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
-    fireEvent.press(screen.getByRole('button', { name: 'Public preview' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Public preview' }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'maika' },
     });
-    fireEvent.press(screen.getByRole('link', { name: 'Settings' }));
+    await fireEvent.press(screen.getByRole('link', { name: 'Settings' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings');
-    fireEvent.press(screen.getByTestId('profile-offers'));
+    await fireEvent.press(screen.getByTestId('profile-offers'));
     expect(mockRouter.push).toHaveBeenCalledWith('/offers');
-    fireEvent.press(screen.getByTestId('profile-trades'));
+    await fireEvent.press(screen.getByTestId('profile-trades'));
     expect(mockRouter.push).toHaveBeenCalledWith('/trades');
-    fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });
 });

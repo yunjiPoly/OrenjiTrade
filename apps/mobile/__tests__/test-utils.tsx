@@ -74,7 +74,7 @@ export function TestProviders({
   );
 }
 
-export function renderWithProviders(
+export async function renderWithProviders(
   ui: ReactElement,
   {
     scheme,
@@ -85,7 +85,7 @@ export function renderWithProviders(
   }: Omit<RenderOptions, 'wrapper'> & Omit<ProvidersProps, 'children'> = {}
 ) {
   const client = queryClient ?? createTestQueryClient();
-  const result = render(ui, {
+  const result = await render(ui, {
     ...options,
     wrapper: ({ children }) => (
       <TestProviders scheme={scheme} queryClient={client} port={port} realtime={realtime}>

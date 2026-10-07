@@ -48,22 +48,25 @@ describe('RealtimeProvider', () => {
   it('connects only for a ready account, pauses in the background and resumes in the foreground', async () => {
     const rt = fakeRealtime();
     mockApi({ 'GET /api/v1/me': ok(meFixture()) });
-    renderWithProviders(<State />, { port: new FakeAuthPort(testUser()), realtime: rt.client });
+    await renderWithProviders(<State />, {
+      port: new FakeAuthPort(testUser()),
+      realtime: rt.client,
+    });
     await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('connected'));
     expect(rt.sessions).toHaveLength(1);
 
-    act(() => appStateListener?.('background'));
+    await act(() => appStateListener?.('background'));
     expect(screen.getByTestId('state')).toHaveTextContent('paused');
     expect(rt.sessions[0]?.closed).toBe(true);
 
-    act(() => appStateListener?.('active'));
+    await act(() => appStateListener?.('active'));
     await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('connected'));
     expect(rt.sessions).toHaveLength(2);
 
     // The network comes back while reconnecting: no backoff wait.
-    act(() => rt.current().drop());
+    await act(() => rt.current().drop());
     expect(screen.getByTestId('state')).toHaveTextContent('reconnecting');
-    act(() => netInfoListener?.({ isConnected: true, isInternetReachable: true }));
+    await act(() => netInfoListener?.({ isConnected: true, isInternetReachable: true }));
     await waitFor(() => expect(screen.getByTestId('state')).toHaveTextContent('connected'));
     expect(rt.sessions).toHaveLength(3);
   });
@@ -71,17 +74,17 @@ describe('RealtimeProvider', () => {
   it('stays disabled while signed out or while the account is not ready', async () => {
     const signedOut = fakeRealtime();
     mockApi({});
-    const first = renderWithProviders(<State />, {
+    const first = await renderWithProviders(<State />, {
       port: new FakeAuthPort(null),
       realtime: signedOut.client,
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.getByTestId('state')).toHaveTextContent('disabled');
-    first.unmount();
+    await first.unmount();
 
     const suspended = fakeRealtime();
     mockApi({ 'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'Suspended') });
-    renderWithProviders(<State />, {
+    await renderWithProviders(<State />, {
       port: new FakeAuthPort(testUser()),
       realtime: suspended.client,
     });
@@ -99,7 +102,7 @@ describe('RealtimeCacheSync', () => {
       'GET /api/v1/conversations': ok(conversationPage([conversationFixture()])),
       'GET /api/v1/notifications/unread-count': ok({ count: 1 }),
     });
-    const { queryClient } = renderWithProviders(<State />, {
+    const { queryClient } = await renderWithProviders(<State />, {
       port: new FakeAuthPort(testUser()),
       realtime: rt.client,
     });
@@ -117,7 +120,7 @@ describe('RealtimeCacheSync', () => {
     queryClient.setQueryData(meKeys.wishlistItems(uid), []);
     const session = rt.current();
 
-    act(() =>
+    await act(() =>
       session.push(
         '/user/queue/messages',
         messageFixture({ id: 'pushed', createdAt: new Date().toISOString() })
@@ -132,7 +135,7 @@ describe('RealtimeCacheSync', () => {
     );
     expect(inbox?.pages[0]?.items[0]?.unreadCount).toBe(1);
 
-    act(() =>
+    await act(() =>
       session.push('/user/queue/receipts', {
         conversationId: CONVERSATION_ID,
         userId: '00000000-0000-4000-8000-0000000000b1',
@@ -145,7 +148,7 @@ describe('RealtimeCacheSync', () => {
     }>(meKeys.messages(uid, CONVERSATION_ID));
     expect(seen?.pages[0]?.items.find((item) => item.id === 'mine')?.readByOther).toBe(true);
 
-    act(() =>
+    await act(() =>
       session.push('/user/queue/presence', {
         userId: '00000000-0000-4000-8000-0000000000b1',
         status: 'ONLINE',
@@ -159,8 +162,8 @@ describe('RealtimeCacheSync', () => {
 
     // A notification counts once, however often it is pushed.
     const notification = notificationFixture();
-    act(() => session.push('/user/queue/notifications', notification));
-    act(() => session.push('/user/queue/notifications', notification));
+    await act(() => session.push('/user/queue/notifications', notification));
+    await act(() => session.push('/user/queue/notifications', notification));
     expect(queryClient.getQueryData<{ count: number }>(meKeys.notificationUnread(uid))?.count).toBe(
       2
     );
@@ -169,7 +172,7 @@ describe('RealtimeCacheSync', () => {
 
     // A reconnection re-reads the inbox.
     const before = api.callsTo('GET /api/v1/conversations').length;
-    act(() => session.drop());
+    await act(() => session.drop());
     await act(async () => {
       rt.client.reconnectNow();
     });

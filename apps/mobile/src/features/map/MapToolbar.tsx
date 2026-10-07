@@ -50,8 +50,8 @@ export interface MapToolbarProps {
  * The Map tab's top bar: the status line ("8 collectors within 10 km"), the Map / List switch, the
  * search box (collectors by handle, name or tag text, like the web map's search) and the filters
  * as compact selects (game, intent, distance bounded by the plan, freshness, tags), then the "who
- * has this near me" banner. Controls stay off the top-right corner, where a development build
- * (Expo Go) floats its tools button. Filters never carry a position.
+ * has this near me" banner. Controls stay off the top-right corner, where Expo Go 57 floated its
+ * tools button (Expo Go 58 floats it over the header). Filters never carry a position.
  */
 export function MapToolbar({
   status,

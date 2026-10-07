@@ -80,7 +80,7 @@ describe('Premium', () => {
         ],
       })
     );
-    renderWithProviders(<PremiumScreen />, { port: port() });
+    await renderWithProviders(<PremiumScreen />, { port: port() });
     expect(await screen.findByTestId('plan-PREMIUM')).toHaveTextContent(/Most popular/);
     expect(screen.getByTestId('plan-FREE-badge')).toHaveTextContent('Your plan');
     expect(screen.getByTestId('plan-PREMIUM-price')).toHaveTextContent(/\$4\.99/);
@@ -89,11 +89,11 @@ describe('Premium', () => {
     expect(await screen.findByTestId('usage-binders.max')).toHaveTextContent(/Binders.*5 \/ 5/);
     expect(screen.getByTestId('premium-credits')).toHaveTextContent(/Only need it for a day\?/);
 
-    fireEvent.press(screen.getByTestId('plan-PREMIUM-upgrade'));
+    await fireEvent.press(screen.getByTestId('plan-PREMIUM-upgrade'));
     expect(await screen.findByTestId('premium-problem')).toHaveTextContent(
       /You already have a subscription \(checkout open\)/
     );
-    fireEvent.press(screen.getByTestId('plan-PREMIUM-upgrade'));
+    await fireEvent.press(screen.getByTestId('plan-PREMIUM-upgrade'));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/checkout/fake-billing/[ref]',
@@ -113,7 +113,7 @@ describe('Premium', () => {
         'POST /api/v1/me/subscription/cancel': ok(subscriptionFixture({ cancelAtPeriodEnd: true })),
       })
     );
-    renderWithProviders(<PremiumScreen />, { port: port() });
+    await renderWithProviders(<PremiumScreen />, { port: port() });
     expect(await screen.findByTestId('premium-welcome')).toHaveTextContent(/Welcome to Premium!/);
     expect(screen.getByTestId('subscription-text')).toHaveTextContent(
       /Premium renews automatically every month/
@@ -121,11 +121,11 @@ describe('Premium', () => {
     expect(screen.getByTestId('subscription-status')).toHaveTextContent(/Active/);
     expect(screen.getByTestId('plan-PREMIUM-current')).toBeOnTheScreen();
     expect(screen.queryByTestId('premium-credits')).not.toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('subscription-cancel-end'));
+    await fireEvent.press(screen.getByTestId('subscription-cancel-end'));
     expect(screen.getByTestId('subscription-dialog')).toHaveTextContent(
       /Cancel Premium at the end of the period\?/
     );
-    fireEvent.press(screen.getByTestId('subscription-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('subscription-dialog-confirm'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       /Premium is cancelled and ends on/
     );
@@ -147,20 +147,20 @@ describe('Premium', () => {
         'POST /api/v1/me/subscription/cancel': ok({ ...pending, status: 'CANCELLED' }),
       })
     );
-    renderWithProviders(<PremiumScreen />, { port: port() });
+    await renderWithProviders(<PremiumScreen />, { port: port() });
     expect(await screen.findByTestId('subscription-text')).toHaveTextContent(
       /the last payment attempt was declined/
     );
-    fireEvent.press(screen.getByTestId('plan-PREMIUM-continue'));
+    await fireEvent.press(screen.getByTestId('plan-PREMIUM-continue'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/checkout/fake-billing/[ref]',
       params: { ref: 'fake_cs_test01' },
     });
-    fireEvent.press(screen.getByTestId('subscription-close'));
+    await fireEvent.press(screen.getByTestId('subscription-close'));
     expect(screen.getByTestId('subscription-dialog')).toHaveTextContent(
       /Close the open checkout\?/
     );
-    fireEvent.press(screen.getByTestId('subscription-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('subscription-dialog-confirm'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('The checkout is closed.');
     expect(api.callsTo('POST /api/v1/me/subscription/cancel')[0]?.body).toEqual({
       atPeriodEnd: false,
@@ -169,16 +169,16 @@ describe('Premium', () => {
 
   it('is not available while premium plans are off, and retries plans that failed', async () => {
     mockApi(routes({ 'GET /api/v1/public/feature-flags': ok(flags({ premiumPlans: false })) }));
-    const view = renderWithProviders(<PremiumScreen />, { port: port() });
+    const view = await renderWithProviders(<PremiumScreen />, { port: port() });
     expect(await screen.findByTestId('premium-unavailable')).toHaveTextContent(
       /Premium is not available yet/
     );
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/plans': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(PLANS)] }));
-    renderWithProviders(<PremiumScreen />, { port: port() });
+    await renderWithProviders(<PremiumScreen />, { port: port() });
     const plansError = await screen.findByTestId('plans-error');
-    fireEvent.press(within(plansError).getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(within(plansError).getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('plan-PREMIUM-upgrade')).toBeOnTheScreen();
   });
 });
@@ -206,18 +206,18 @@ describe('Fake billing checkout', () => {
         },
       })
     );
-    renderWithProviders(<BillingCheckoutScreen />, { port: port() });
+    await renderWithProviders(<BillingCheckoutScreen />, { port: port() });
     expect(await screen.findByTestId('checkout-amount')).toHaveTextContent(/\$4\.99.*per month/);
     expect(screen.getByTestId('checkout-heading')).toHaveTextContent('Premium subscription');
-    fireEvent.press(screen.getByTestId('checkout-decline'));
+    await fireEvent.press(screen.getByTestId('checkout-decline'));
     expect(await screen.findByTestId('checkout-outcome')).toHaveTextContent(
       /The payment was declined\. Nothing was charged\./
     );
-    fireEvent.press(screen.getByTestId('checkout-try-again'));
+    await fireEvent.press(screen.getByTestId('checkout-try-again'));
     expect(await screen.findByTestId('checkout-note')).toHaveTextContent(
       /The last attempt was declined/
     );
-    fireEvent.press(screen.getByTestId('checkout-pay'));
+    await fireEvent.press(screen.getByTestId('checkout-pay'));
     await waitFor(() =>
       expect(mockRouter.dismissTo).toHaveBeenCalledWith({
         pathname: '/premium',
@@ -231,7 +231,7 @@ describe('Fake billing checkout', () => {
 
   it('shows not-found for another member’s checkout', async () => {
     mockApi(routes({ 'GET /api/v1/billing/fake/{ref}': problem(404, 'NOT_FOUND', 'Nope') }));
-    renderWithProviders(<BillingCheckoutScreen />, { port: port() });
+    await renderWithProviders(<BillingCheckoutScreen />, { port: port() });
     expect(await screen.findByTestId('checkout-not-found')).toBeOnTheScreen();
   });
 });
@@ -274,8 +274,10 @@ describe('Credits', () => {
         ],
       })
     );
-    renderWithProviders(<CreditsScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<CreditsScreen />, { port: port() });
     expect(screen.getByTestId('credits-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('credit-balance')).toHaveTextContent(/200.*credits/);
     expect(screen.getByTestId('credit-balance-card')).toHaveTextContent(
       /never withdrawable or transferable/
@@ -286,14 +288,14 @@ describe('Credits', () => {
     expect(screen.getAllByTestId('ledger-entry')).toHaveLength(1);
     expect(screen.getAllByTestId('ledger-amount')[0]).toHaveTextContent('+200');
 
-    fireEvent.press(screen.getByTestId('product-map_radius_day-unlock'));
+    await fireEvent.press(screen.getByTestId('product-map_radius_day-unlock'));
     expect(screen.getByTestId('spend-dialog')).toHaveTextContent(/Unlock Wider map for a day\?/);
     expect(screen.getByTestId('spend-cost')).toHaveTextContent(/50 credits/);
-    fireEvent.press(screen.getByTestId('spend-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('spend-dialog-confirm'));
     expect(await screen.findByTestId('spend-problem')).toHaveTextContent(
       /You have 20 credits and this costs 50 credits\./
     );
-    fireEvent.press(screen.getByTestId('spend-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('spend-dialog-confirm'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       /Wider map for a day unlocked until .*Balance: 150 credits\./
     );
@@ -324,8 +326,8 @@ describe('Credits', () => {
           ),
       })
     );
-    renderWithProviders(<CreditsScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('ledger-more'));
+    await renderWithProviders(<CreditsScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('ledger-more'));
     await waitFor(() => expect(screen.getAllByTestId('ledger-entry')).toHaveLength(2));
     expect(screen.getByText('Referral reward')).toBeOnTheScreen();
     expect(screen.queryByTestId('ledger-more')).not.toBeOnTheScreen();
@@ -340,17 +342,17 @@ describe('Credits', () => {
         ],
       })
     );
-    renderWithProviders(<CreditsScreen />, { port: port() });
+    await renderWithProviders(<CreditsScreen />, { port: port() });
     expect(await screen.findByTestId('referral-code')).toHaveTextContent('MAIKA42');
-    fireEvent.press(screen.getByTestId('referral-redeem'));
+    await fireEvent.press(screen.getByTestId('referral-redeem'));
     expect(screen.getByText('Enter the code another collector shared with you.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('referral-input'), 'MAIKA42');
-    fireEvent.press(screen.getByTestId('referral-redeem'));
+    await fireEvent.changeText(screen.getByTestId('referral-input'), 'MAIKA42');
+    await fireEvent.press(screen.getByTestId('referral-redeem'));
     expect(
       await screen.findByText('This is your own code: share it with other collectors instead.')
     ).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('referral-input'), 'NOE-2026');
-    fireEvent.press(screen.getByTestId('referral-redeem'));
+    await fireEvent.changeText(screen.getByTestId('referral-input'), 'NOE-2026');
+    await fireEvent.press(screen.getByTestId('referral-redeem'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       /Code redeemed: you earned 50 credits/
     );
@@ -359,17 +361,17 @@ describe('Credits', () => {
 
   it('is unavailable while credits are off, and shows an error with retry', async () => {
     mockApi(routes({ 'GET /api/v1/public/feature-flags': ok(flags({ credits: false })) }));
-    const view = renderWithProviders(<CreditsScreen />, { port: port() });
+    const view = await renderWithProviders(<CreditsScreen />, { port: port() });
     expect(await screen.findByTestId('credits-disabled')).toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(
       routes({
         'GET /api/v1/me/credits': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(creditsFixture())],
       })
     );
-    renderWithProviders(<CreditsScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
+    await renderWithProviders(<CreditsScreen />, { port: port() });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('credit-balance')).toBeOnTheScreen();
   });
 });
@@ -384,17 +386,17 @@ describe('Support OrenjiTrade', () => {
         }),
       })
     );
-    renderWithProviders(<SupportScreen />, { port: port() });
+    await renderWithProviders(<SupportScreen />, { port: port() });
     expect(screen.getByTestId('voluntary-label')).toHaveTextContent(/Voluntary support/);
     expect(await screen.findByTestId('supporter')).toHaveTextContent(/Noé Verdun.*October 2026/);
     expect(await screen.findByTestId('my-donation')).toHaveTextContent(
       /\$10\.00.*thanked publicly/
     );
-    fireEvent.press(screen.getByTestId('donation-preset-25'));
-    fireEvent.changeText(screen.getByTestId('donation-message'), ' Keep it up! ');
-    fireEvent.press(screen.getByTestId('donation-public-thanks'));
+    await fireEvent.press(screen.getByTestId('donation-preset-25'));
+    await fireEvent.changeText(screen.getByTestId('donation-message'), ' Keep it up! ');
+    await fireEvent.press(screen.getByTestId('donation-public-thanks'));
     expect(screen.getByTestId('donation-submit')).toHaveTextContent(/Donate \$25\.00/);
-    fireEvent.press(screen.getByTestId('donation-submit'));
+    await fireEvent.press(screen.getByTestId('donation-submit'));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/checkout/fake-donation/[ref]',
@@ -417,18 +419,18 @@ describe('Support OrenjiTrade', () => {
         }),
       })
     );
-    renderWithProviders(<SupportScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('donation-preset-other'));
-    fireEvent.press(screen.getByTestId('donation-submit'));
+    await renderWithProviders(<SupportScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('donation-preset-other'));
+    await fireEvent.press(screen.getByTestId('donation-submit'));
     expect(screen.getByText('Enter an amount.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('donation-custom-amount'), '7.555');
-    fireEvent.press(screen.getByTestId('donation-submit'));
+    await fireEvent.changeText(screen.getByTestId('donation-custom-amount'), '7.555');
+    await fireEvent.press(screen.getByTestId('donation-submit'));
     expect(
       screen.getByText('Enter a positive amount with at most two decimals.')
     ).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/donations/checkout')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('donation-custom-amount'), '1,5');
-    fireEvent.press(screen.getByTestId('donation-submit'));
+    await fireEvent.changeText(screen.getByTestId('donation-custom-amount'), '1,5');
+    await fireEvent.press(screen.getByTestId('donation-submit'));
     expect(await screen.findByTestId('donation-problem')).toHaveTextContent(
       /Check the amount and the currency\./
     );
@@ -442,13 +444,13 @@ describe('Support OrenjiTrade', () => {
         'GET /api/v1/public/donations/supporters': ok(supportersFixture({ supporters: [] })),
       })
     );
-    const view = renderWithProviders(<SupportScreen />, { port: port() });
+    const view = await renderWithProviders(<SupportScreen />, { port: port() });
     expect(await screen.findByTestId('donation-thanks')).toHaveTextContent(/Thank you!/);
     expect(await screen.findByTestId('supporters-empty')).toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/public/feature-flags': ok(flags({ donations: false })) }));
-    renderWithProviders(<SupportScreen />, { port: port() });
+    await renderWithProviders(<SupportScreen />, { port: port() });
     expect(await screen.findByTestId('support-disabled')).toBeOnTheScreen();
   });
 
@@ -463,9 +465,9 @@ describe('Support OrenjiTrade', () => {
         'POST /api/v1/donations/fake/{ref}/confirm': ok({ received: true }, 202),
       })
     );
-    renderWithProviders(<DonationCheckoutScreen />, { port: port() });
+    await renderWithProviders(<DonationCheckoutScreen />, { port: port() });
     expect(await screen.findByTestId('checkout-pay')).toHaveTextContent(/Donate \$10\.00/);
-    fireEvent.press(screen.getByTestId('checkout-pay'));
+    await fireEvent.press(screen.getByTestId('checkout-pay'));
     await waitFor(() =>
       expect(mockRouter.dismissTo).toHaveBeenCalledWith({
         pathname: '/support',
@@ -490,32 +492,36 @@ describe('Sponsored placements', () => {
 
   it('labels the ad "Sponsored", records one impression and opens the click route', async () => {
     mockParams.current = { id: 'collector2' };
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     const api = mockApi(
       collectorRoutes({
         'GET /api/v1/ads': ok([adFixture()]),
         'POST /api/v1/ads/{creativeId}/impression': { status: 204 },
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    await renderWithProviders(<CollectorScreen />, { port: port() });
     const ad = await screen.findByTestId('sponsored-ad');
     expect(within(ad).getByTestId('sponsored-label')).toHaveTextContent('Sponsored');
     expect(ad).toHaveTextContent(/Sleeves that survive every trade/);
     expect(within(ad).getByTestId('sponsored-remove-ads')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/ads')[0]?.query.get('placement')).toBe('COLLECTOR_PROFILE');
-    fireEvent(ad, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 120 } } });
-    fireEvent(ad, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 120 } } });
+    await fireEvent(ad, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 120 } },
+    });
+    await fireEvent(ad, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 120 } },
+    });
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/ads/{creativeId}/impression')).toHaveLength(1)
     );
     expect(api.callsTo('POST /api/v1/ads/{creativeId}/impression')[0]?.body).toEqual({
       token: 'tok-1',
     });
-    fireEvent.press(within(ad).getByTestId('sponsored-link'));
+    await fireEvent.press(within(ad).getByTestId('sponsored-link'));
     expect(open).toHaveBeenCalledWith(
       'http://localhost:8080/api/v1/ads/00000000-0000-4000-a300-000000000001/click?token=tok-1'
     );
-    fireEvent.press(within(ad).getByTestId('sponsored-remove-ads'));
+    await fireEvent.press(within(ad).getByTestId('sponsored-remove-ads'));
     expect(mockRouter.push).toHaveBeenCalledWith('/premium');
     open.mockRestore();
   });
@@ -528,19 +534,19 @@ describe('Sponsored placements', () => {
         'GET /api/v1/ads': ok([adFixture()]),
       })
     );
-    let view = renderWithProviders(<CollectorScreen />, { port: port() });
+    let view = await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('collector-about')).toBeOnTheScreen();
     expect(screen.queryByTestId('sponsored-ad')).not.toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/ads')).toHaveLength(0);
-    view.unmount();
+    await view.unmount();
 
     mockApi(
       collectorRoutes({ 'GET /api/v1/ads': ok([adFixture({ clickUrl: 'javascript:alert(1)' })]) })
     );
-    view = renderWithProviders(<CollectorScreen />, { port: port() });
+    view = await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('collector-about')).toBeOnTheScreen();
     expect(screen.queryByTestId('sponsored-ad')).not.toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockParams.current = { id: 'maika' };
     const own = mockApi(
@@ -549,7 +555,7 @@ describe('Sponsored placements', () => {
         'GET /api/v1/ads': ok([adFixture()]),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('sponsored-ad')).not.toBeOnTheScreen();
     expect(own.callsTo('GET /api/v1/ads')).toHaveLength(0);
@@ -559,14 +565,14 @@ describe('Sponsored placements', () => {
 describe('Entry points', () => {
   it('lists Premium, Credits and Support in the Profile tab only while their flags are on', async () => {
     mockApi(routes());
-    const view = renderWithProviders(<ProfileScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('profile-premium'));
+    const view = await renderWithProviders(<ProfileScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('profile-premium'));
     expect(mockRouter.push).toHaveBeenCalledWith('/premium');
-    fireEvent.press(screen.getByTestId('profile-credits'));
+    await fireEvent.press(screen.getByTestId('profile-credits'));
     expect(mockRouter.push).toHaveBeenCalledWith('/credits');
-    fireEvent.press(screen.getByTestId('profile-support'));
+    await fireEvent.press(screen.getByTestId('profile-support'));
     expect(mockRouter.push).toHaveBeenCalledWith('/support');
-    view.unmount();
+    await view.unmount();
 
     mockApi(
       routes({
@@ -575,7 +581,7 @@ describe('Entry points', () => {
         ),
       })
     );
-    renderWithProviders(<ProfileScreen />, { port: port() });
+    await renderWithProviders(<ProfileScreen />, { port: port() });
     expect(await screen.findByTestId('profile-trades')).toBeOnTheScreen();
     expect(screen.queryByTestId('profile-premium')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('profile-credits')).not.toBeOnTheScreen();
@@ -590,13 +596,13 @@ describe('Entry points', () => {
       problem: { limitKey: 'binders.max', limit: 5, used: 5, planCode: 'FREE' },
     });
     mockApi(routes());
-    const view = renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
-    fireEvent.press(await screen.findByTestId('limit-reached-premium'));
+    const view = await renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('limit-reached-premium'));
     expect(mockRouter.push).toHaveBeenCalledWith('/premium');
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/public/feature-flags': ok(flags({ premiumPlans: false })) }));
-    renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
+    await renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
     expect(await screen.findByTestId('limit-reached-message')).toHaveTextContent(
       /You have used 5 of 5 binders on the Free plan/
     );

@@ -84,7 +84,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     const api = mockApi(
       signedInRoutes({ 'PUT /api/v1/me/location/trading-area': echoTradingArea })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Montréal city centre.'
     );
@@ -96,7 +96,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     });
     expect(screen.getByTestId('mock-map-circle').props.radius).toBe(10_000);
 
-    tapMap(45.5612345, -73.6409876);
+    await tapMap(45.5612345, -73.6409876);
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: the point you chose on the map.'
     );
@@ -104,7 +104,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
       latitude: 45.561,
       longitude: -73.641,
     });
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Trading area saved · Ahuntsic-Cartierville, Montréal.'
     );
@@ -125,13 +125,13 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     const api = mockApi(
       signedInRoutes({ 'PUT /api/v1/me/location/trading-area': echoTradingArea })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     const pin = await screen.findByTestId('trading-area-pin');
     expect(pin.props.draggable).toBe(true);
-    fireEvent(pin, 'dragEnd', {
+    await fireEvent(pin, 'dragEnd', {
       nativeEvent: { coordinate: { latitude: 45.4709999, longitude: -73.5800001 } },
     });
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
     await screen.findByTestId('snackbar');
     expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
       lat: 45.471,
@@ -142,7 +142,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
   });
 
   it('uses the map centre after the collector pans the map', async () => {
-    renderWithProviders(<Harness location={undefined} />, {
+    await renderWithProviders(<Harness location={undefined} />, {
       port: new FakeAuthPort(testUser()),
     });
     expect(screen.getByTestId('area-public-label')).toHaveTextContent('No trading area saved yet.');
@@ -150,7 +150,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
       'Centre: Montréal city centre.'
     );
     expect(screen.getByTestId('area-radius-value')).toHaveTextContent('5 km');
-    fireEvent(mapView(), 'regionChangeComplete', {
+    await fireEvent(mapView(), 'regionChangeComplete', {
       latitude: 45.6012345,
       longitude: -73.4012345,
       latitudeDelta: 0.1,
@@ -160,7 +160,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Montréal city centre.'
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Use map centre' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Use map centre' }));
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: the point you chose on the map.'
     );
@@ -171,12 +171,12 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
   });
 
   it('jumps to a city with its suggested radius, like the web', async () => {
-    renderWithProviders(<Harness location={undefined} />, {
+    await renderWithProviders(<Harness location={undefined} />, {
       port: new FakeAuthPort(testUser()),
     });
     expect(screen.getByTestId('area-city-quebec')).not.toBeSelected();
     expect(screen.getByTestId('area-city-montreal')).toBeSelected();
-    fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Québec city centre.'
     );
@@ -189,7 +189,7 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     expect(screen.getByTestId('area-city-quebec')).toBeSelected();
     expect(screen.getByTestId('area-city-montreal')).not.toBeSelected();
     // The radius stepper still adjusts it.
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
     expect(screen.getByTestId('area-radius-value')).toHaveTextContent('20 km');
     expect(screen.getByTestId('mock-map-circle').props.radius).toBe(20_000);
   });
@@ -204,7 +204,9 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
         label: 'Rosemont, Montréal',
       },
     });
-    renderWithProviders(<Harness location={device} />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<Harness location={device} />, {
+      port: new FakeAuthPort(testUser()),
+    });
     expect(screen.queryByTestId('trading-area-pin')).toBeNull();
     expect(screen.queryByTestId('mock-map-circle')).toBeNull();
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
@@ -215,15 +217,15 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     expect(region.latitude).toBe(45.54);
     expect(region.longitude).toBe(-73.62);
     // Picking by hand replaces it.
-    tapMap(45.55, -73.6);
+    await tapMap(45.55, -73.6);
     expect(screen.getByTestId('trading-area-pin')).toBeOnTheScreen();
   });
 
   it('ignores taps while disabled', async () => {
-    renderWithProviders(<Harness location={locationFixture()} disabled />, {
+    await renderWithProviders(<Harness location={locationFixture()} disabled />, {
       port: new FakeAuthPort(testUser()),
     });
-    tapMap(45.6, -73.7);
+    await tapMap(45.6, -73.7);
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Montréal city centre.'
     );
@@ -232,12 +234,12 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
   });
 
   it('shows a loading skeleton until the map is ready', async () => {
-    renderWithProviders(<Harness location={locationFixture()} />, {
+    await renderWithProviders(<Harness location={locationFixture()} />, {
       port: new FakeAuthPort(testUser()),
     });
     expect(screen.getByTestId('trading-area-map-loading')).toBeOnTheScreen();
-    act(() => {
-      fireEvent(mapView(), 'mapReady');
+    await act(async () => {
+      await fireEvent(mapView(), 'mapReady');
     });
     expect(screen.queryByTestId('trading-area-map-loading')).toBeNull();
   });
@@ -246,19 +248,19 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockMapFails = true;
-    renderWithProviders(<Harness location={locationFixture()} />, {
+    await renderWithProviders(<Harness location={locationFixture()} />, {
       port: new FakeAuthPort(testUser()),
     });
     const failure = await screen.findByTestId('trading-area-map-error');
     expect(within(failure).getByText('The map could not load')).toBeOnTheScreen();
     // The rest of the picker keeps working.
-    fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Laval city centre.'
     );
 
     mockMapFails = false;
-    fireEvent.press(within(failure).getByRole('button', { name: 'Reload map' }));
+    await fireEvent.press(within(failure).getByRole('button', { name: 'Reload map' }));
     await waitFor(() =>
       expect(screen.queryByTestId('trading-area-map-error')).not.toBeOnTheScreen()
     );
@@ -287,8 +289,8 @@ describe('Trading-area picker map (same mechanism as the web picker)', () => {
           ),
       })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
     expect(await screen.findByTestId('area-device-message')).toHaveTextContent(
       /Trading area set from your approximate location\./
     );

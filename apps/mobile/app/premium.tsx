@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -71,7 +71,7 @@ export default function PremiumScreen() {
   const [upgrading, setUpgrading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<CancelDialog>(null);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
 
   const premiumEnabled = flags.data?.[FEATURE.premiumPlans] === true;
   const creditsEnabled = flags.data?.[FEATURE.credits] === true;

@@ -41,7 +41,7 @@ beforeEach(() => {
 describe('useProviderCheckout', () => {
   it('gives up after the polls with "pending" when the provider never answers', async () => {
     const checkout = source([{ status: 'REQUIRES_ACTION' }]);
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => useProviderCheckout('payment', 'ref-1', checkout, { pollDelayMs: 1, maxPolls: 3 }),
       { wrapper }
     );
@@ -64,7 +64,7 @@ describe('useProviderCheckout', () => {
         throw conflict;
       })
     );
-    const { result } = renderHook(() => useProviderCheckout('payment', 'ref-2', checkout), {
+    const { result } = await renderHook(() => useProviderCheckout('payment', 'ref-2', checkout), {
       wrapper,
     });
     await waitFor(() => expect(result.current.status).toBe('ready'));
@@ -84,7 +84,9 @@ describe('useProviderCheckout', () => {
         throw refused;
       })
     );
-    const second = renderHook(() => useProviderCheckout('payment', 'ref-3', failing), { wrapper });
+    const second = await renderHook(() => useProviderCheckout('payment', 'ref-3', failing), {
+      wrapper,
+    });
     await waitFor(() => expect(second.result.current.status).toBe('ready'));
     await act(async () => {
       expect(await second.result.current.confirm('SUCCEEDED')).toBeNull();

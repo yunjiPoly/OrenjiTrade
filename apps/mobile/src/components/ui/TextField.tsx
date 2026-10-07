@@ -1,21 +1,13 @@
 import { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type StyleProp,
-  type TextInputProps,
-  type ViewStyle,
-} from 'react-native';
+import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   label: string;
   error?: string | null;
   hint?: string;
-  containerStyle?: StyleProp<ViewStyle>;
+  containerStyle?: ViewStyleProp;
 }
 
 /** Labelled input with visible focus ring (2px accent) and inline error, per the design system. */

@@ -1,5 +1,6 @@
-import { Platform, type TextStyle, type ViewStyle } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
+import type { ViewStyleObject } from './styleTypes';
 import { tokens } from './tokens';
 
 /**
@@ -24,7 +25,7 @@ export const radius = tokens.radius;
 export const fontSize = tokens.fontSize;
 
 /** React Native translation of the CSS `elevation` tokens (subtle shadows on floating elements). */
-export const elevation: Record<'floating' | 'sheet' | 'menu', ViewStyle> = {
+export const elevation: Record<'floating' | 'sheet' | 'menu', ViewStyleObject> = {
   floating: {
     shadowColor: '#1C1917',
     shadowOpacity: 0.12,
@@ -58,7 +59,7 @@ export const motion = {
 export function textStyle(
   size: keyof typeof fontSize,
   variant: 'body' | 'heading' = 'body'
-): TextStyle {
+): Pick<TextStyle, 'fontSize' | 'lineHeight' | 'fontFamily'> {
   const px = fontSize[size];
   return {
     fontSize: px,

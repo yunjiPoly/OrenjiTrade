@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 
 import type * as Leaflet from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ViewInstance } from 'react-native';
 
 import { OSM_ATTRIBUTION, OSM_TILE_URL, pinHtml } from '@/src/components/map/leaflet/leafletShared';
 import { zoomForRadius } from '@/src/lib/location';
@@ -44,7 +44,7 @@ export function TradingAreaMap({
   testID = 'trading-area-map',
 }: TradingAreaMapProps) {
   const { palette } = useTheme();
-  const hostRef = useRef<View>(null);
+  const hostRef = useRef<ViewInstance>(null);
   const leafletRef = useRef<LeafletState | null>(null);
   const [state, setState] = useState<MapLoadState>('loading');
   const [attempt, setAttempt] = useState(0);

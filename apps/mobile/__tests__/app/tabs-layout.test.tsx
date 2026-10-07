@@ -53,7 +53,7 @@ describe('(tabs) layout', () => {
   });
 
   it('renders all six tab buttons and the map screen first', async () => {
-    renderRouter(routes, { initialUrl: '/' });
+    await renderRouter(routes, { initialUrl: '/' });
 
     expect(await screen.findByTestId('screen-map')).toBeOnTheScreen();
     for (const tab of TABS) {
@@ -77,7 +77,7 @@ describe('(tabs) layout', () => {
         'GET /api/v1/notifications/unread-count': ok({ count: 5 }),
       })
     );
-    renderRouter(routes, { initialUrl: '/' });
+    await renderRouter(routes, { initialUrl: '/' });
     await screen.findByTestId('screen-map');
     expect(await screen.findByLabelText('Messages tab, 3 unread')).toBeOnTheScreen();
     expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
@@ -85,10 +85,10 @@ describe('(tabs) layout', () => {
   });
 
   it('navigates to the Profile tab', async () => {
-    renderRouter(routes, { initialUrl: '/' });
+    await renderRouter(routes, { initialUrl: '/' });
     await screen.findByTestId('screen-map');
 
-    fireEvent.press(screen.getByLabelText('Profile tab'));
+    await fireEvent.press(screen.getByLabelText('Profile tab'));
 
     expect(await screen.findByTestId('screen-profile')).toBeOnTheScreen();
     expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
