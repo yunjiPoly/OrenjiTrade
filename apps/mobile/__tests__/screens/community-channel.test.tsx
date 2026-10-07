@@ -143,10 +143,16 @@ describe('Community channel', () => {
     expect(api.callsTo('POST /api/v1/community/posts/{id}/replies')[0]?.body).toEqual({
       body: 'I have one!',
     });
-    expect(screen.getByTestId(`post-replies-toggle-${post.id}`)).toHaveTextContent(/1 reply$/);
+    // The reply list and the post's reply count are separate queries, so their re-renders can
+    // land in different ticks: wait for the count instead of reading it once.
+    await waitFor(() =>
+      expect(screen.getByTestId(`post-replies-toggle-${post.id}`)).toHaveTextContent(/1 reply$/)
+    );
     await fireEvent.press(screen.getByTestId('reply-delete-r-new'));
     await waitFor(() => expect(screen.queryByTestId('reply-r-new')).not.toBeOnTheScreen());
-    expect(screen.getByTestId(`post-replies-toggle-${post.id}`)).toHaveTextContent(/Reply$/);
+    await waitFor(() =>
+      expect(screen.getByTestId(`post-replies-toggle-${post.id}`)).toHaveTextContent(/Reply$/)
+    );
   });
 
   it('blocks a post author after a confirmation and hides their posts', async () => {
