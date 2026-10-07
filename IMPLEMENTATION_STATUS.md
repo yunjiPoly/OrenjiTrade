@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-07 (Expo SDK 58 upgrade of the mobile app — Expo SDK 57 → 58 (pre-release: `expo` 58.0.6, React Native 0.88.0-rc.3, React 19.3.0) with every Expo module, Jest 30, Testing Library 14 and the asynchronous test API, React Native's strict TypeScript API, the Maestro flows turning off Expo Go 58's floating tools button; ADR 0006 amended, CLAUDE.md says SDK 58 — branch `feature/expo-sdk-58` from `feature/launch-readiness` (PR #52, merged into `main` 2026-10-07), builder done and every check rerun on 2026-10-07: 748 jest tests, 60 Playwright specs, 24/24 Maestro flows in one run on Expo Go 58; see "Expo SDK 58 upgrade (mobile)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
 **Last updated:** 2026-10-06 (mobile stage M7: the web-vs-mobile parity gaps closed on the Expo app — Google sign-in and sign-up (proven against the Auth emulator only), the Search tab's Collectors and Binders segments, the card holders list with the web's sort and filters, "Looking for" on profiles, Settings → Blocked users, inventory owner photos and multi-select bulk actions, the visibility filter, binder reordering, the map's freshness / tags filters and search box, set pages; every acceptance row's mobile half completed; the M1–M6 verification caveats replaced with their merged PRs — branch `feature/mobile-m7` on top of `feature/mobile-m6` with `origin/main` (#49, #51) merged in, builder done; see "Mobile app (stage M7)"); 2026-10-05 (mobile stage M6: Phases 9 and 10 on the Expo app — payment protection on the trade (pay on the app's fake checkout, ship, confirm receipt, disputes with statements and photos, payouts), Premium through the fake billing checkout, credits, voluntary donations through the fake donation checkout, "Sponsored" placements, "See Premium" on every reached limit, the mobile half of the acceptance tracker, app-store purchase rules recorded as an open owner question in ADR 0011 — branch `feature/mobile-m6` on top of `feature/mobile-m5`, builder done; see "Mobile app (stage M6)"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Last updated:** 2026-10-05 (launch readiness parts 4 and 5: the launch configuration — every money feature flag off by migration (V105), the last Premium entry points of the web hidden while `premiumPlans` is off, `LaunchConfigurationIT`, the `launch-config` Playwright project — the "Launch configuration" runbook section, the Quebec Law 25 operating docs (confidentiality incident register and procedure, requests from police and courts, owner account security checklist with the actual admin-MFA value per profile), and the full-UI-translation plan recorded as the next task — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 4 and 5"); 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
@@ -1457,6 +1458,105 @@ compliance: the legal texts stay drafts (banner kept on both languages)._
   age-only visit shows the full step indicator ("Step 1 of 4 · Age") before going straight back,
   like the web's stepper; the Expo SDK 58 upgrade stays its own PR.
 
+## Expo SDK 58 upgrade (mobile, 2026-10-06)
+
+_Branch `feature/expo-sdk-58` (worktree) from `feature/launch-readiness` (8c859d6, PR #52 with
+mobile stage M8; #52 merged into `main` on 2026-10-07 as 7420905, whose tree is 8c859d6's, so the
+branch needs no merge from `main`), builder done (started 2026-10-06, paused by the owner, resumed
+and verified 2026-10-07); not pushed. Owner decision 2026-10-05: one coordinated Expo SDK
+57 → 58 upgrade of `apps/mobile` (every Expo module, React Native and React together with
+`npx expo install expo@^58 --fix`), verified like every mobile stage, in a single PR (ADR 0006,
+amendment 2026-10-06). SDK 58 is still npm's `next` release (`expo` 58.0.6; `latest` 57.0.27,
+unchanged on 2026-10-07) and pins a React Native release candidate (0.88.0-rc.3; React Native's
+`next` is rc.4 since 2026-10-06): this PR ships that pre-release; rerun
+`npx expo install expo@^58 --fix` once SDK 58 is stable. Local and free only: Expo Go 58
+installed on the emulator by Expo CLI, no EAS, no Expo account, no Maestro Cloud._
+
+- [x] **Dependencies** (`npx expo install expo@^58 --fix`, then `npx expo install --fix` until
+  `expo-doctor` was clean): `expo` 58.0.6 and every Expo module on its SDK 58 version
+  (`expo-router` 58.0.16, `expo-file-system` 58.0.7, `expo-notifications` 58.1.1, …), React /
+  React DOM 19.3.0, React Native 0.88.0-rc.3, react-native-web 0.21.3, react-native-maps 1.29.0,
+  reanimated 4.7.0, worklets 0.13.0, safe-area-context 5.9.1, screens 4.28.0, webview 14.0.1,
+  `@types/react` 19.3, `eslint-config-expo` 58.0.4; AsyncStorage stays 2.2.0 (SDK 58's pin) and
+  Firebase 12.19.0. The test toolchain, which `expo install` does not manage, by hand: Jest 30.5.2,
+  `@types/jest` 30.0.0, `jest-expo` 58.0.8, `@testing-library/react-native` 14.0.1, `test-renderer`
+  1.3.0 instead of `react-test-renderer`, `@react-native/jest-preset` 0.88.0-rc.3;
+  `expo.install.exclude` keeps `expo install --fix` off `jest` / `@types/jest` (Expo's versions API
+  still lists Jest 29 for SDK 58, while `jest-expo` 58 needs Jest 30).
+- [x] **Root workspace:** `overrides.react-native` = 0.88.0-rc.3 (npm does not match a prerelease
+  against the peer ranges of react-native-maps, reanimated, worklets, netinfo and Testing Library;
+  drop it with the stable React Native 0.88). The Babel 7 pins (`@babel/generator` /
+  `@babel/traverse` 7.29.8) stay: still the newest 7.x, and SDK 58 (Metro 0.87.1,
+  `babel-preset-expo` 58, the worklets Babel plugin) still needs Babel 7 while the Angular
+  toolchain keeps its nested Babel 8. Lockfile re-hoisted: no duplicate Expo module
+  (`expo-doctor`), the web workspace's versions unchanged.
+- [x] **App changes for the new versions (behaviour unchanged):** React Native 0.87+'s strict
+  TypeScript API (component style props typed with `ViewStyleProp`,
+  `src/theme/styleTypes.ts`; `ScrollViewInstance` / `ViewInstance` refs; empty FlatList slots
+  `undefined`; `textStyle()` returns the keys it sets; the tab icon colour narrowed to a string),
+  react-native-webview 14 (`WebView<object>` in the Leaflet maps), expo-file-system 58 (the data
+  export awaits the now asynchronous `File.write()` before the share sheet), expo-router 58
+  (`unstable_settings.anchor` instead of `initialRouteName`).
+- [x] **Tests:** Testing Library 14 makes `render`, `renderHook`, `fireEvent`, `act`, `rerender`
+  and `unmount` asynchronous: every call is awaited (codemod `rntl-v14-async-functions`, then the
+  helpers and about thirty missed calls by hand); `UNSAFE_getByType` gave way to host queries and a
+  walk up to the composite `KeyboardAvoidingView`; `ReactTestInstance` → `TestInstance`; the
+  skeleton tests hold the fake API's answers (`mockApi().hold()`) because `render` now waits for
+  what the first render asks for. `npm run lint` now also lints `__tests__` and `jest.setup.ts`, with
+  `@typescript-eslint/no-floating-promises` (an un-awaited Testing Library call is an error). Same
+  748 tests in 85 suites; none removed or skipped.
+- [x] **Harnesses:** `@expo/cli` 58 no longer ships `build/bin/cli`, so the web E2E harness and
+  the Maestro harness start `expo/bin/cli` (what `npx expo` runs). Expo Go 58 draws the app
+  edge-to-edge under the status bar and floats its tools button over the right end of the
+  navigation header (Expo Go 57: just below the header), on the tabs' notification bell and the
+  conversation options: the Maestro tap meant for them opened Expo Go's developer menu
+  (`blocked-users.yaml` failed on `conversation-block`). `.maestro/subflows/hide-tools-button.yaml`
+  turns the button off through Expo Go's own setting (developer menu → "Tools button") at every
+  launch (`wait-for-app.yaml`); the app's header is unchanged.
+- [x] **Verification (2026-10-07, every check rerun after the pause; 2026-10-06 gave the same
+  results):** `npm ci` clean (1,971 packages); `npx expo-doctor` 20/20, "No issues detected", and
+  `npx expo install --check` "Dependencies are up to date" (`jest` / `@types/jest` skipped by the
+  exclude). SDK 58 runs 20 doctor checks, not 21: the check "Expo SDK versions affected by Hermes
+  V1 regressions" declares `sdkVersionRange` `>=55.0.0 <58.0.0` (read in expo-doctor 1.20.4, the
+  `latest` that `npx` runs; `expo-doctor@next` 1.21.4 also 20/20). `npm run test:mobile` green
+  (typecheck, lint, 748 jest tests in 85 suites, 28 harness guard tests; 3,374 `expect(` calls
+  against 3,372 before the upgrade, the same 737 test blocks, no `skip` / `only`); `npm run
+  format:check -w apps/mobile` OK; `node scripts/sync-legal.mjs --check` (in `apps/mobile`) up to
+  date; `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` green;
+  `npm run test:mobile:e2e` 60/60 passed, 0 flaky, 0 skipped, no retry (2.1 min of specs, 3 min
+  20 s with the stack); `npm run audit:gate` OK with no new advisory against the SDK 57 lockfile
+  (the same allow-listed braces / node-forge highs and sprintf-js / uuid moderates;
+  `decode-uri-component` is gone); `npm run test:web` (674 tests in 139 files) and `npm run build
+  -w apps/web-angular` green on the shared lockfile, whose web workspace resolves the same 630
+  packages (name@version) as the SDK 57 lockfile; `npm run test:scripts` 54/54. Native: Expo Go
+  58.0.2 installed on `Pixel_6_API_34` by the harness's Metro (Expo CLI, no login),
+  harness-started API :8090 and Metro :8082: `npm run test:mobile:maestro` **24/24 flows passed in
+  one run** (57 min 42 s). Then by hand as the seed collector `collector1`: the six tabs (Map with
+  3 km zones and the approximate-location notice, Inventory, Search, Messages with the live
+  channel, Wishlist, Profile), a card detail (the API's placeholder picture), a conversation with
+  the safety notice and its header options sheet (where Expo Go 58's tools button would float), and
+  Settings → Account → "Download my data" (the awaited `File.write()`: the share sheet offers
+  `orenjitrade-export-collector1-<date>.json`, then "… is ready"); a session whose account is gone
+  (a deleted run account) lands on sign-in. Metro log: bundling lines only. Logcat: crash buffer
+  empty, no `ReactNativeJS` error or warning, no token, no coordinate; only Expo Go's own host
+  messages (its headless app loader, its update loader trying an on-disk update before Metro, a
+  `ReactNoCrashSoftException` from Expo Go's `ExponentPackage` at each app start). Metro, the API
+  and the emulator were stopped afterwards.
+- **Dependabot:** superseded by this PR: #14 (expo-router 58), #26 (expo-constants 58), #27
+  (expo-camera 58), #21 (`@testing-library/react-native` 14.0.1), #15 (Jest and `@types/jest` 30);
+  not covered: #23 (AsyncStorage 3.1.1: SDK 58 still pins 2.2.0, so it stays open or is closed as
+  not supported by the SDK).
+- **Debt / follow-ups:** SDK 58 and React Native 0.88 are pre-releases here: once stable, rerun
+  `npx expo install expo@^58 --fix`, drop the `react-native` override, bump
+  `@react-native/jest-preset` with React Native and re-check `expo.install.exclude`; the web export
+  prints a Babel code-frame deprecation while warning about `leaflet.css`'s local images and
+  "Something prevented Expo from exiting" after a successful export (both already printed on SDK
+  57: the mobile web build of PR #52's E2E CI run); Android release builds now minify with R8 by
+  default (no release build is made locally); a local debug build (`npx expo run:android`) would
+  compile against Android platform 37 (not installed; Expo Go 58 made it unnecessary); iOS not run
+  (no macOS); the Play Store's Expo Go stays on SDK 57 until SDK 58 is stable, so a phone needs
+  Expo Go 58 installed by Expo CLI over adb (README, local setup).
+
 ## E2E isolation, test-data purge and 3 km zones (2026-10-04)
 
 _Workflow task on branch `fix/e2e-isolation-3km-zones` (worktree, not pushed). Owner request: the
@@ -2176,8 +2276,20 @@ EAS, Expo publish or Maestro Cloud). Phase 11 (ML card recognition) is on hold.
 > conversations and on offers / trades, Block / Unblock on the profile, the money-off follow-ups;
 > the mobile harness and the Maestro host scripts record the age consent; 6 new Playwright specs
 > (60 in all, all green), 3 new Maestro flows (24 in all, 24/24 in one run), `expo-localization`
-> added. Committed, not pushed.
-> **Next:** push, let PR #52 run CI (the mobile browser suite now passes the gated API) and merge.
+> added. Merged into `main` as #52 (2026-10-07, 7420905).
+
+> **Expo SDK 58 upgrade (2026-10-06/07, branch `feature/expo-sdk-58` from `feature/launch-readiness`
+> at 8c859d6, which merged into `main` as #52 on 2026-10-07):** the owner-approved coordinated
+> upgrade of the Expo app (see "Expo SDK 58 upgrade (mobile)"): Expo SDK 58 while it is still npm's
+> `next` release (`expo` 58.0.6, React Native 0.88.0-rc.3 behind a root `overrides` entry, React
+> 19.3.0), Jest 30, Testing Library 14 with every test call awaited, the strict React Native types,
+> the harnesses on `expo/bin/cli`, the Maestro flows turning off Expo Go 58's floating tools button;
+> ADR 0006 amended, `CLAUDE.md` says SDK 58. Same 748 jest tests, 60 Playwright specs and 24 Maestro
+> flows (24/24 in one run on Expo Go 58, 2026-10-07). Committed, not pushed. **Next:** push the
+> branch, open its PR against `main` and merge it when CI is green, then close the Dependabot PRs it
+> supersedes (#14 expo-router, #15 Jest, #21 Testing Library, #26 expo-constants, #27 expo-camera);
+> #23 (AsyncStorage 3) is not part of SDK 58 (it pins 2.2.0). When SDK 58 is stable, rerun
+> `npx expo install expo@^58 --fix` and drop the `react-native` override.
 
 > **E2E isolation, test-data purge and 3 km zones (2026-10-04, branch `fix/e2e-isolation-3km-zones`):**
 > merged into `main` as #39 (see the section of the same name): `npm run test:e2e` runs on its
@@ -2206,24 +2318,25 @@ Phase 8 API + web Phase 7 · stage 9 Phase 9 API + web Phase 8 · stage 10 Phase
 · stage 11 web Phase 10 · stage 12 local environment tooling + web acceptance suite + final
 verification.
 
-**Exact next task — ship PR #52 with mobile stage M8, then the Expo SDK 58 upgrade, then the full
-French UI translation:**
-1. Push `feature/launch-readiness` (launch readiness parts 1–5 + mobile stage M8, `origin/main`
-   with #53 already merged in) and merge PR #52 when every check is green, the mobile browser
-   suite included. The checks to repeat for an
-   independent verification: `npm run test:mobile` (748 jest tests in 85 suites), `npx expo-doctor`
-   (20/21, the known newer-patch notice), `expo export` for android and web, `npm run
-   test:mobile:e2e` (60 specs, 0 flaky, 0 skipped), the native check with `npm run
-   test:mobile:maestro` (24 flows) on `Pixel_6_API_34`, plus a look at the sign-up checkbox, the
-   "Age" step of an account created without the confirmation (`CONFIRM_AGE=false` in
-   `create-collector.js`, or `confirmAge: false` in the Playwright helper), the legal pages in both
-   languages (EN / FR switch, the French banner and marking), the "Trade safely" notice in a first
-   conversation and Block / Unblock on a profile (seed accounts, `LocalDev!2026`, see the age step
-   once).
-2. The Expo SDK 58 upgrade (owner-approved 2026-10-05) as its own PR after the merges, then close
-   the Dependabot Expo PRs.
-3. The full French UI translation, web first then mobile: the plan "Exact next task after launch
-   readiness — full French UI translation" below.
+**Exact next task — the full French UI translation (step 3), once the Expo SDK 58 PR (step 2) is
+merged:**
+1. **Done (2026-10-07):** PR #52 (launch readiness parts 1–5 + mobile stage M8) merged into `main`
+   (7420905).
+2. The Expo SDK 58 upgrade (owner-approved 2026-10-05): **done** on branch `feature/expo-sdk-58`
+   (see "Expo SDK 58 upgrade (mobile)"; its base 8c859d6 is the tree of `main` at 7420905). Push
+   it, open its PR against `main`, merge when CI is green (the mobile job, the mobile browser suite
+   and the web jobs on the shared lockfile), then close the superseded Dependabot PRs #14, #15,
+   #21, #26 and #27 (#23, AsyncStorage 3, is not covered: SDK 58 pins 2.2.0). The checks to repeat
+   for an independent verification: `npx expo-doctor` (20/20: SDK 58 has no 21st check),
+   `npm run test:mobile` (748 jest tests in 85 suites), `expo export` for android and web,
+   `npm run test:mobile:e2e` (60 specs, 0 flaky, 0 skipped), `npm run audit:gate`, `npm run
+   test:web` and the web build, and the native check `npm run test:mobile:maestro` (24 flows,
+   about an hour) on `Pixel_6_API_34` with Expo Go 58 (Expo CLI installs it), plus a look at the
+   tabs, a conversation's header options and Settings → Account → "Download my data" (seed
+   accounts, `LocalDev!2026`).
+3. **Next:** the full French UI translation, web first then mobile: the plan "Exact next task after
+   launch readiness — full French UI translation" below, starting with its step 1 (scaffolding:
+   `packages/i18n` catalogs, Transloco on the web, the `missing-keys` CI script).
 4. Owner decision (no code until then): how a store build sells Premium and takes donations (ADR 0011
    open question). Device push (EAS + FCM), iOS runs, the fonts and Google sign-in against a real
    Firebase project (OAuth client ids) stay open for the mobile app; cloud deployment (Phase 14) and

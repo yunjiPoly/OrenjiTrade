@@ -310,6 +310,15 @@ uses `?access_token=`). Notifications arrive in the app and over that channel on
 (Expo / FCM tokens) needs an EAS project and a real FCM sender and is not wired.
 Everything is free and local: Expo Go (installed on an emulator by Expo CLI), a local Android
 emulator, Metro; no EAS, no Expo account, no Maestro Cloud.
+The app runs on **Expo SDK 58** (React Native 0.88, React 19.3; upgraded 2026-10-06, ADR 0006
+amendment), so it needs **Expo Go for SDK 58**: Expo CLI installs it on an emulator by itself
+(replacing an older Expo Go). While SDK 58 is a pre-release (npm `next`), the Play Store's Expo Go
+still runs SDK 57 only, so on a phone let Expo CLI install Expo Go 58 over adb (`npx expo start`,
+then `a`). Node ≥ 22.13 is required (the repository uses Node 24).
+Expo Go 58 floats its tools button over the right end of the navigation header, on the
+notification bell and the conversation options button: drag it away or turn it off in its
+developer menu ("Tools button"; the device's menu key still opens the menu). The Maestro flows
+turn it off at every launch.
 
 ### Mobile end-to-end suites (isolated stack)
 

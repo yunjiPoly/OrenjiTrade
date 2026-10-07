@@ -62,7 +62,7 @@ The ML service is internal only (Pub/Sub + authenticated service-to-service call
 | --- | --- | --- |
 | `apps/api` | Spring Boot 4.1 / Java 21 | All business logic, persistence, authorization, events |
 | `apps/web-angular` | Angular 22 | Desktop/responsive web UI incl. admin console |
-| `apps/mobile` | Expo SDK 57 | Native mobile UI (bottom tabs, camera, push) |
+| `apps/mobile` | Expo SDK 58 | Native mobile UI (bottom tabs, camera, push) |
 | `apps/ml` | FastAPI / Python | Card identification, duplicate detection, future ranking |
 | `packages/api-client` | generated | Angular HttpClient services from OpenAPI |
 | `packages/shared-types` | generated | TypeScript types from OpenAPI for mobile (+ `openapi-fetch`) |

@@ -41,7 +41,7 @@ OrenjiTrade/
 ├── apps/
 │   ├── api/            Spring Boot API (Gradle, Java 21)
 │   ├── web-angular/    Angular 22 web app (Material, Playwright)
-│   ├── mobile/         Expo SDK 57 / React Native app (expo-router, Maestro)
+│   ├── mobile/         Expo SDK 58 / React Native app (expo-router, Maestro)
 │   └── ml/             FastAPI ML service (card identification, duplicates)
 ├── packages/
 │   ├── api-client/     Generated Angular client from OpenAPI
