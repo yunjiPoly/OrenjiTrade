@@ -29,7 +29,9 @@ export function threadStatus(
 
 /**
  * The conversation options button, shown in the navigation header (`headerRight`): the top-right
- * corner under the header is where Expo Go floats its tools button, so no control goes there.
+ * corner under the header is where Expo Go 57 floated its tools button, so no control goes there.
+ * Expo Go 58 floats it over the header's right end instead (drag it away or turn it off in its
+ * developer menu; the Maestro flows turn it off).
  */
 export function ThreadMenuButton({ name, onPress }: { name: string; onPress: () => void }) {
   const { palette } = useTheme();

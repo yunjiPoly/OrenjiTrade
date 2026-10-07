@@ -14,3 +14,5 @@ appId: host.exp.exponent
           notVisible:
             id: 'boot-screen'
           timeout: 60000
+# Expo Go 58's floating tools button sits on the header buttons: turn it off (see the subflow).
+- runFlow: hide-tools-button.yaml

@@ -49,7 +49,7 @@ export function Screen({
       };
 
   if (scroll) {
-    // Forms scroll above the on-screen keyboard: the app is edge-to-edge on Android (SDK 57), so
+    // Forms scroll above the on-screen keyboard: the app is edge-to-edge on Android (since SDK 57), so
     // the window no longer resizes for the keyboard and the padding comes from here instead.
     return (
       <KeyboardAvoidingView
