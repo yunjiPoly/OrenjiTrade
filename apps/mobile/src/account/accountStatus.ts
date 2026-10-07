@@ -120,8 +120,20 @@ export function deriveAccountStatus(input: DeriveAccountInput): AccountSnapshot 
   return snapshot('ready');
 }
 
-/** Profile saved at least once and at least one game or tag chosen (web: `needsOnboarding`). */
+/**
+ * Profile saved at least once, at least one game or tag chosen, and the 18+ confirmation recorded
+ * (web: `needsOnboarding`). Only an API that reports `ageConfirmed === false` asks for the
+ * confirmation; an older API without the flag never does.
+ */
 export function needsOnboarding(me: MeResponse | undefined): boolean {
   const onboarding = me?.onboarding;
-  return !!onboarding && (!onboarding.profileComplete || !onboarding.interestsSet);
+  return (
+    !!onboarding &&
+    (!onboarding.profileComplete || !onboarding.interestsSet || needsAgeConfirmation(me))
+  );
+}
+
+/** The account exists but never confirmed being 18 years of age or older. */
+export function needsAgeConfirmation(me: MeResponse | undefined): boolean {
+  return me?.onboarding?.ageConfirmed === false;
 }

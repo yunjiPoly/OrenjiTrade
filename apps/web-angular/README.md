@@ -1025,7 +1025,10 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   spec, keep that stack running (`npm run test:e2e -- --stack-only`), then
   `npm run test:e2e -- --reuse-running e2e/map.spec.ts` or `npm run e2e` here. The global setup
   refuses any API without the E2E identity block (`e2e/support/isolation.ts`), so the developer
-  API on :8080 is never used.
+  API on :8080 is never used. Two Playwright projects: `chromium` (every spec, fully parallel)
+  and `launch-config` (`e2e/launch-config.spec.ts` alone, after `chromium`, because it switches
+  the stack's real feature flags off through the admin API and restores them); run the latter by
+  itself with `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`.
 
 ## Docker (Cloud Run)
 

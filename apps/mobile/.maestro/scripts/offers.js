@@ -42,6 +42,28 @@ function jsonHeaders(token) {
   return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
 }
 
+/** Records the 18+ confirmation (`AGE_CONFIRMATION`, its current version) for the account. */
+function confirmAge(token) {
+  var documents = check(
+    http.get(api + '/api/v1/public/legal/documents', { headers: jsonHeaders(token) }),
+    'GET /public/legal/documents'
+  );
+  for (var d = 0; d < documents.length; d++) {
+    if (documents[d].documentType === 'AGE_CONFIRMATION') {
+      check(
+        http.post(api + '/api/v1/me/consents', {
+          headers: jsonHeaders(token),
+          body: JSON.stringify({
+            documentType: documents[d].documentType,
+            version: documents[d].version,
+          }),
+        }),
+        'POST /me/consents (AGE_CONFIRMATION)'
+      );
+    }
+  }
+}
+
 function signIn(email, password) {
   if (!/@mobile-e2e\.test$/.test(email)) {
     throw new Error('offers.js only acts as the run accounts (@mobile-e2e.test).');
@@ -91,6 +113,8 @@ function createCollector(prefix, displayName, area) {
       'POST /me/consents'
     );
   }
+  // The 18+ confirmation (launch readiness): the current AGE_CONFIRMATION version, like the app.
+  confirmAge(token);
   check(
     http.put(api + '/api/v1/me/profile', {
       headers: jsonHeaders(token),

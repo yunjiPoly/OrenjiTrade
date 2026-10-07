@@ -24,13 +24,23 @@ class OnboardingServiceTest {
                                 check(OnboardingFlag.PROFILE_COMPLETE, false),
                                 check(OnboardingFlag.PROFILE_COMPLETE, true),
                                 check(OnboardingFlag.TRADING_AREA_SET, true),
-                                check(OnboardingFlag.TRADING_AREA_SET, false)));
+                                check(OnboardingFlag.TRADING_AREA_SET, false),
+                                check(OnboardingFlag.AGE_CONFIRMED, true)));
 
         OnboardingStatus status = service.statusOf(USER);
 
         assertThat(status.profileComplete()).isTrue();
         assertThat(status.tradingAreaSet()).isTrue();
         assertThat(status.interestsSet()).isFalse();
+        assertThat(status.ageConfirmed()).isTrue();
+    }
+
+    @Test
+    void ageConfirmedIsFalseWithoutItsCheck() {
+        OnboardingService service =
+                new OnboardingService(List.of(check(OnboardingFlag.PROFILE_COMPLETE, true)));
+
+        assertThat(service.statusOf(USER).ageConfirmed()).isFalse();
     }
 
     private static OnboardingCheck check(OnboardingFlag flag, boolean satisfied) {

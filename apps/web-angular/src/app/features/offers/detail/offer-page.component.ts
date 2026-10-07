@@ -11,6 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
 import { ConversationStarterService } from '../../../shared/messaging/conversation-starter.service';
 import { DealSummaryComponent } from '../../../shared/offers/deal-summary.component';
 import { OfferActionsService } from '../../../shared/offers/offer-actions.service';
@@ -23,6 +24,8 @@ import {
 import { OfferPartyCardComponent } from '../../../shared/offers/offer-party-card.component';
 import { offerTargetFromItem, sellerFromParty } from '../../../shared/offers/offer-target';
 import { StatusChipComponent } from '../../../shared/offers/status-chip.component';
+import { ReportActionsService } from '../../../shared/reports/report-actions.service';
+import { TradingSafetyNoticeComponent } from '../../../shared/safety/trading-safety-notice.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
@@ -50,6 +53,7 @@ import { OfferHistoryComponent } from './offer-history.component';
     OfferPartyCardComponent,
     SkeletonComponent,
     StatusChipComponent,
+    TradingSafetyNoticeComponent,
   ],
   providers: [OfferDetailStore],
   template: `
@@ -167,6 +171,12 @@ import { OfferHistoryComponent } from './offer-history.component';
 
             <div class="op__grid">
               <div class="op__main">
+                <app-trading-safety-notice
+                  context="trade"
+                  [otherName]="store.otherName()"
+                  (reportRequested)="report()"
+                  (blockRequested)="block()"
+                />
                 @if (!offer.superseded) {
                   <app-offer-action-bar
                     [allowedActions]="offer.allowedActions"
@@ -386,6 +396,8 @@ export class OfferPageComponent {
   protected readonly store = inject(OfferDetailStore);
   private readonly offers = inject(OfferActionsService);
   private readonly conversations = inject(ConversationStarterService);
+  private readonly reports = inject(ReportActionsService);
+  private readonly blocks = inject(BlockActionsService);
   private readonly router = inject(Router);
 
   /** Route parameter (bound by the router). */
@@ -494,6 +506,27 @@ export class OfferPageComponent {
     if (conversation) {
       await this.router.navigate(['/messages', conversation.id]);
     }
+  }
+
+  /** "Report" of the safety notice: the Report collector modal (PROFILE context). */
+  protected async report(): Promise<void> {
+    const other = this.store.other();
+    if (!other) {
+      return;
+    }
+    await this.reports.report(
+      { id: other.id, displayName: other.displayName, handle: other.handle },
+      { source: 'PROFILE' },
+    );
+  }
+
+  /** "Block" of the safety notice: confirmation, then the block (the page stays). */
+  protected async block(): Promise<void> {
+    const other = this.store.other();
+    if (!other) {
+      return;
+    }
+    await this.blocks.block({ id: other.id, displayName: other.displayName });
   }
 
   private nameOf(role: 'SELLER' | 'BUYER'): string {

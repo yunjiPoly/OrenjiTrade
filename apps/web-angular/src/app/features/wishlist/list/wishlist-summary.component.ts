@@ -1,11 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
+import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
 import type { WishUsage } from '../data/wishlist.store';
 
 /**
  * The wishlist at a glance: number of wishes, wishes with matches nearby, matches in total and
- * the plan usage (`wishlist.items.max`) as a meter with a link to Premium when it is close.
+ * the plan usage (`wishlist.items.max`) as a meter with a link to Premium when it is close
+ * (only while the `premiumPlans` flag is on: nothing offers a subscription otherwise).
  */
 @Component({
   selector: 'app-wishlist-summary',
@@ -54,7 +56,7 @@ import type { WishUsage } from '../data/wishlist.store';
               ></span>
             </div>
           }
-          @if (full()) {
+          @if (full() && premiumEnabled()) {
             <a class="ws__upgrade" routerLink="/premium">
               <mat-icon aria-hidden="true">workspace_premium</mat-icon>
               Need more room? See Premium
@@ -161,6 +163,7 @@ import type { WishUsage } from '../data/wishlist.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WishlistSummaryComponent {
+  private readonly flags = inject(FeatureFlagsService);
   readonly count = input(0);
   readonly matched = input(0);
   readonly totalMatches = input(0);
@@ -175,4 +178,5 @@ export class WishlistSummaryComponent {
   });
   /** At least 80 % of the plan's wishes are used. */
   protected readonly full = computed(() => (this.percent() ?? 0) >= 80);
+  protected readonly premiumEnabled = this.flags.enabled(FEATURE.premiumPlans);
 }

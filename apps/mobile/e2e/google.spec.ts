@@ -105,9 +105,20 @@ test.describe('mobile Google sign-in', () => {
     await consent.getByRole('button', { name: 'Accept and continue' }).click();
     await expect(consent.getByText('Please accept every document to continue.')).toBeVisible();
     await consent.getByRole('checkbox', { name: 'Accept all' }).click();
+    // A Google sign-up never saw the sign-up screen: the consent screen collects the 18+
+    // confirmation too (its own checkbox, never ticked by "Accept all").
+    await consent.getByRole('button', { name: 'Accept and continue' }).click();
+    await expect(
+      consent.getByText(
+        'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
+      )
+    ).toBeVisible();
+    await consent
+      .getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' })
+      .click();
     await consent.getByRole('button', { name: 'Accept and continue' }).click();
 
-    // Onboarding, with the name Google returned prefilled.
+    // Onboarding, with the name Google returned prefilled (no age step: confirmed already).
     const onboarding = screen(page, 'onboarding');
     await expect(
       onboarding.getByRole('heading', { name: "Let's set up your collector profile" })

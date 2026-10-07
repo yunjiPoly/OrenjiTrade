@@ -153,23 +153,32 @@ fix the producer or add the column, messages wait in the subscription for 7 days
 ## 6. Emergency feature-flag off
 
 Business rules are data (ADR 0014). Flags live in `feature_flag`, are edited in `/admin >
-Feature flags` (audited) and cached in Redis for at most 60 s.
+Feature flags` (audited) and cached in Redis for at most 60 s. The flag keys are
+`protectedPayments`, `premiumPlans`, `credits`, `donations`, `advertising`, `publicChat` and
+`mlScanning` (section 9 lists what each one switches on and its launch value).
 
-1. Preferred: **/admin > Feature flags**, toggle (e.g. `protectedPayments`, `mlScanning`,
-   `publicCommunityChannels`), confirm. Every instance picks it up within the cache TTL.
-2. If the admin console is unavailable, use the Cloud SQL Auth Proxy from an operator machine:
+1. Preferred: **/admin > Feature flags** (signed in as a `SUPER_ADMIN`, second factor required
+   outside `local`), toggle (e.g. `protectedPayments`, `publicChat`), confirm. Every instance
+   picks it up within the cache TTL; the web app reads the flags once per session, so visitors
+   see the change on their next page load.
+2. If the admin console is unavailable, use the Cloud SQL Auth Proxy from an operator machine.
+   `updated_by` is a foreign key to `user_account.id`: record the acting admin's account id (or
+   leave it `NULL`, and write the incident id in the timeline instead):
 
 ```bash
 cloud-sql-proxy "$PROJECT_ID:$REGION:orenjitrade-$ENV" --port 5433 &
 PGPASSWORD=$(gcloud secrets versions access latest --secret db-password --project "$PROJECT_ID") \
   psql -h 127.0.0.1 -p 5433 -U orenjitrade orenjitrade \
-  -c "UPDATE feature_flag SET enabled = false, updated_by = 'incident-<id>', updated_at = now() WHERE key = 'protectedPayments';"
+  -c "UPDATE feature_flag SET enabled = false, updated_at = now(),
+        updated_by = (SELECT id FROM user_account WHERE email = '<admin email>')
+      WHERE key = 'protectedPayments';"
 ```
 
 3. The rule caches (`orenji:cache:feature-flags:v1` and friends, `RedisJsonCache`) expire within
    60 s; a change through `/admin` evicts them at once. After a direct SQL change there is no
    shell into the Valkey sidecar: wait the TTL, or deploy a new revision (empty cache).
-4. Log the change in the incident timeline; re-enable through `/admin` after the fix.
+4. Verify with `curl https://api.<domain>/api/v1/public/feature-flags`.
+5. Log the change in the incident timeline; re-enable through `/admin` after the fix.
 
 ## 7. Lock down during an attack
 
@@ -258,3 +267,82 @@ Prod keeps 7 automated daily backups and 7 days of PITR logs on a single-zone `d
 instance** with `--backup-instance`, are in [backup-restore.md](backup-restore.md); runbook 4
 has the PITR clone one-liner. During a zonal outage the instance is unavailable until Google
 recovers the zone or you restore into a new instance (RTO target 1 h, RPO 5 minutes).
+
+## 12. Launch configuration (2026-10-05): money features off
+
+OrenjiTrade launches as **discovery + messaging only**: collectors find each other on the map and
+chat, then trade on their own. Every money feature stays switched off until the owner turns it on.
+The switches are the `feature_flag` rows (ADR 0014): nothing is hard-coded, the launch state is
+data created by the migrations, and a `SUPER_ADMIN` changes it in `/admin > Feature flags`.
+
+### Flag table
+
+| Flag | Launch value | Migration state of a fresh database | What it switches on (API and web) | Why this value at launch |
+| --- | --- | --- | --- | --- |
+| `protectedPayments` | **off** | off (V010) | Seller payouts (Settings → Payouts, `GET/POST /me/seller-account*`), "Use payment protection" on cash offers, `POST /trades/{id}/pay`, `/ship`, `/confirm-receipt`, disputes, the payment webhook and the fake checkout. Off: an accepted offer opens the trade as `AGREED` (in-person exchange), payment routes answer `404 FEATURE_DISABLED` | No Stripe account or keys; the Payment Protection and Refund policies are unreviewed drafts; `PAYMENT_PROVIDER` is `fake` unless `stripe_secrets_enabled` (Terraform), so a live flag would run a *fake* checkout in production |
+| `premiumPlans` | **off** | **on in V010, off since V105** | `POST /me/subscription/checkout`, the fake billing checkout, the "Upgrade to Premium" button on `/premium`, the Premium entries of the account menu and footer, "See Premium" in the limit dialog, the wishlist / map / binder upgrade links, the upgrade sentence and `/premium` deep link of the daily-limit notification. Off: `/premium` only shows "Premium is not available yet" (a live subscription stays manageable) and nothing links to it | No paid plan at launch; `BILLING_PROVIDER` defaults to `fake` (Terraform does not set it), so a live flag would grant Premium for free through the fake checkout |
+| `credits` | **off** | **on in V010, off since V105** | `/credits`, `GET /me/credits`, `POST /me/credits/spend`, referrals (`/me/referrals*`), "Use credits" on `/premium`. Off: the routes answer `404 FEATURE_DISABLED`, the menu entry and page are hidden | Credits are non-cash, but they are a money-adjacent feature the owner keeps off for the first users |
+| `donations` | **off** | off (V010) | `/support`, `POST /donations/checkout`, the supporters list, the donation webhook, the footer link. Off: `404 FEATURE_DISABLED`, nothing links to it | Only the fake donation provider exists (`DONATION_PROVIDER=fake` is the only implementation) |
+| `advertising` | **off** | off (V010) | Sponsored placements (`GET /ads`, impressions and clicks). Off: `GET /ads` answers `[]` (never an error) and the sponsored slots render nothing | No advertiser at launch |
+| `mlScanning` | **off** | off (V010) | Nothing yet: no consumer in the API, web or mobile (Phase 11 on hold by owner instruction) | Owner hold; do not switch on before the owner lifts it |
+| `publicChat` | **on** | on (V010) | Community channels (`/community`, `/api/v1/community/**`). Off: `404 FEATURE_DISABLED` and the nav entry disappears; the moderator console stays | Part of "discovery + messaging"; moderated, reportable, blockable |
+
+Always available regardless of the flags: the admin consoles (`/admin/payments`,
+`/admin/disputes`, `/admin/subscriptions`, `/admin/credits`, `/admin/donations`, `/admin/ads`),
+`GET /api/v1/plans` and `GET /api/v1/me/plan` (the mobile app reads the map radius cap from them;
+the plan answer and the `429 LIMIT_REACHED` Problem Details carry `upgradeUrl: /premium` as data,
+and clients hide it while the flag is off), `POST /me/subscription/cancel` and the billing
+webhook (an existing subscription stays manageable and renewals keep being recorded).
+
+### How to change a flag in `/admin`
+
+1. Sign in as a `SUPER_ADMIN` (an `ADMIN` sees the page read-only). Outside `local` the account
+   must have signed in with a second factor (`orenji.security.admin.require-mfa`, see
+   `docs/security/owner-account-security-checklist.md`).
+2. **/admin > Feature flags**: move the switch, confirm in the dialog. The change is audited
+   (`feature_flag.update` with the previous and new values), the Redis cache
+   (`orenji:cache:feature-flags:v1`) is evicted at once and every API instance answers the new
+   value immediately; a web visitor sees it on the next page load (the app reads
+   `GET /api/v1/public/feature-flags` once per session).
+3. Verify: `curl https://api.<domain>/api/v1/public/feature-flags` and, for the UI, the account
+   menu and footer of a signed-in collector.
+4. Prerequisites before switching a money feature **on** (not before): `protectedPayments` needs
+   Stripe Connect live keys in Secret Manager and `stripe_secrets_enabled = true`
+   (`PAYMENT_PROVIDER=stripe`), the webhook endpoint registered at Stripe, and the Payment
+   Protection / Refund policies reviewed by the lawyer; `premiumPlans` needs
+   `BILLING_PROVIDER=stripe` with `STRIPE_PRICE_PREMIUM` and the plan prices reviewed; `donations`
+   needs a real donation provider (none implemented); `advertising` needs campaigns in
+   `/admin > Ads`; `mlScanning` needs the owner to lift the Phase 11 hold.
+
+### Why `premiumPlans` and `credits` needed a migration
+
+`V010__feature_flags.sql` created `premiumPlans` and `credits` **enabled** (the Phase 10
+defaults, when Premium was only marketing). On a production database migrated from scratch the
+first boot would therefore have shown "Upgrade to Premium" with a live checkout — through the
+*fake* billing provider, since no Stripe configuration exists, so anyone could have subscribed
+without paying — and exposed the credits and referral ledger, until a `SUPER_ADMIN` (who first
+needs MFA enrolment) switched them off. Applied migrations are never edited (CLAUDE.md), so the
+handling is `V105__launch_money_flags_off.sql`: an explicit data change that switches both rows
+off while respecting rows an admin already edited (`updated_by IS NOT NULL`), plus the local/dev
+seed (`FeatureFlagSeedContributor`) that switches every fake-provider flag back on so development
+and the E2E suites keep exercising those flows. `FeatureFlagsIT` asserts the migration state,
+`LaunchConfigurationIT` that everything else works with every money flag off, and the Playwright
+project `launch-config` that no payment or subscription entry point is visible. Not chosen:
+editing V010, a manual post-deploy admin step alone (a window of exposure), or constants in code
+(ADR 0014).
+
+### Pre-launch check (first production deploy)
+
+1. `GET /api/v1/public/feature-flags` answers `publicChat: true` and `false` for the six others;
+   `/admin > Feature flags` shows the same with no "edited by" author.
+2. Environment of the API revision: `PAYMENT_PROVIDER=fake`, no `BILLING_PROVIDER` /
+   `DONATION_PROVIDER` override, no `stripe-*` secret versions, `PUSH_PROVIDER=fcm`,
+   `EMAIL_PROVIDER=log` (no transactional e-mail provider exists yet; only Firebase sends e-mails).
+3. As a collector: the account menu lists Profile, Offers, Trades, Settings (no Premium, Credits
+   or Support entries); the footer has only the legal links; `/premium` says "Premium is not
+   available yet"; `/credits`, `/support` and `/settings/payouts` redirect with "… is not
+   available right now."; "Make an offer" has no payment-protection checkbox; an accepted offer
+   shows "meet and exchange the cards" with the trading safety notice and no "Pay" button.
+4. Mobile: the Expo app has no feature-flag consumer and no money screen; it keeps reading
+   `/plans` and `/me/plan`. Its `LIMIT_REACHED` wording still mentions Premium (mobile follow-up
+   in `IMPLEMENTATION_STATUS.md`).

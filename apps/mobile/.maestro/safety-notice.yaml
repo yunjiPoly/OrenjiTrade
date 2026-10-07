@@ -1,0 +1,111 @@
+# Trading safety (launch readiness): Ben (a fresh fictional collector driven from the host,
+# scripts/messaging.js) writes to Ada, who uses the app. Her first conversation shows the
+# dismissible "Trade safely" notice under the header: the guide link opens the "Trading safely"
+# page in-app, the composer keeps working with the notice on screen, Dismiss removes it, and it
+# stays gone after a relaunch (the dismissal lives on the device, per collector).
+appId: host.exp.exponent
+name: Safety notice in a first conversation
+tags:
+  - launch-readiness
+  - messages
+---
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-${output.ben.handle}'
+    timeout: 60000
+- tapOn:
+    id: 'conversation-row-${output.ben.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'safety-notice'
+    timeout: 30000
+- assertVisible: 'Trade safely'
+- assertVisible: 'Hi Ada, still trading the Emberfang Fox\?'
+- takeScreenshot: safety-notice
+
+# The guide, in-app, then back to the thread with the notice still there.
+- tapOn:
+    id: 'safety-notice-guide'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-legal-document'
+    timeout: 60000
+- assertVisible: 'Trading safely'
+- assertVisible:
+    id: 'legal-draft-banner'
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'safety-notice'
+    timeout: 30000
+
+# The composer is never blocked by the notice.
+- tapOn:
+    id: 'conversation-input'
+- inputText: 'Lets meet at the library.'
+- hideKeyboard
+- tapOn:
+    id: 'conversation-send'
+- extendedWaitUntil:
+    visible: 'Lets meet at the library\.'
+    timeout: 60000
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: expect
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      EXPECT_BODY: 'Lets meet at the library.'
+      EXPECT_READ: 'false'
+- assertVisible:
+    id: 'safety-notice'
+
+# Dismiss: gone now, and still gone after a relaunch.
+- tapOn:
+    id: 'safety-notice-dismiss'
+- assertNotVisible:
+    id: 'safety-notice'
+- assertVisible:
+    id: 'conversation-input'
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-${output.ben.handle}'
+    timeout: 60000
+- tapOn:
+    id: 'conversation-row-${output.ben.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- assertVisible: 'Lets meet at the library\.'
+- assertNotVisible:
+    id: 'safety-notice'
+- takeScreenshot: safety-notice-dismissed

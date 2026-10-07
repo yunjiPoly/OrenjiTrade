@@ -1,7 +1,8 @@
 # Sign up -> verification -> onboarding -> tabs (Phase 1): a new fictional collector
-# (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) accepts the versioned legal documents, verifies
-# the email through the local Auth emulator, completes the three onboarding steps with a manual
-# trading area and stays hidden from the map (discoverability defaults to off).
+# (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) accepts the versioned legal documents and the
+# 18+ confirmation (its own checkbox, never ticked by "Accept all"), verifies the email through
+# the local Auth emulator, completes the three onboarding steps with a manual trading area and
+# stays hidden from the map (discoverability defaults to off).
 appId: host.exp.exponent
 name: Sign up and onboarding
 tags:
@@ -54,6 +55,30 @@ tags:
       ID: 'legal-consents-all'
 - tapOn:
     id: 'legal-consents-all'
+# The 18+ confirmation stays unticked after "Accept all" and is required on its own.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'age-confirmation'
+- assertVisible:
+    id: 'age-confirmation'
+    checked: false
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'sign-up-submit'
+- tapOn:
+    id: 'sign-up-submit'
+- assertVisible: 'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'age-confirmation'
+- tapOn:
+    id: 'age-confirmation'
+- assertVisible:
+    id: 'age-confirmation'
+    checked: true
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

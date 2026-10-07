@@ -14,7 +14,8 @@ export type LegalKey =
   | 'payment-protection'
   | 'refund-dispute'
   | 'cookies'
-  | 'acceptable-use';
+  | 'acceptable-use'
+  | 'trading-safely';
 
 export interface LegalDefinition {
   term: string;
@@ -80,7 +81,7 @@ const COMMON_DEFINITIONS: LegalDefinition[] = [
   },
 ];
 
-const LAST_UPDATED = '2026-09-29';
+const LAST_UPDATED = '2026-10-05';
 
 export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
   terms: {
@@ -100,7 +101,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Acceptance of these terms',
         clauses: [
           'By creating an account or using the Service you agree to these Terms of Service, the Privacy Policy, the Community Guidelines and the Acceptable Use Policy.',
-          'You must be at least the age of majority in your jurisdiction, or use the Service under the supervision of a parent or guardian who accepts these terms on your behalf.',
+          'You must be 18 years of age or older to create an account or use the Service. OrenjiTrade is not intended for minors. When you create an account you confirm that you are 18 years of age or older; we record that confirmation and its date. We close accounts we find to belong to people under 18.',
           'We record the version of these terms you accepted and when. Material changes are announced in the app at least 14 days before they take effect.',
         ],
       },
@@ -117,8 +118,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'nature-of-service',
         heading: 'What OrenjiTrade is and is not',
         clauses: [
-          'OrenjiTrade is a discovery network: it helps Collectors find who near them owns, trades, sells, wants or accepts offers for a card. Collectors deal with each other directly.',
-          'OrenjiTrade is not a party to any trade or sale between Collectors, does not hold title to cards, and does not provide grading, authentication or valuation services.',
+          'OrenjiTrade is a discovery and messaging venue: it helps Collectors find who near them owns, trades, sells, wants or accepts offers for a card, and lets them talk to each other. Collectors deal with each other directly.',
+          'OrenjiTrade is not a party to any trade, sale or meeting between Collectors, does not hold title to cards, and does not provide grading, authentication or valuation services.',
+          'Collectors are responsible for their own trades and meetings: what they agree on, where and how they meet, how they pay and what they hand over. Read the "Trading safely" page before you meet or pay another Collector.',
           'Where payment features are enabled, they are provided through a third-party payment provider under the Payment Protection Policy. OrenjiTrade does not operate an escrow service.',
         ],
       },
@@ -143,9 +145,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'liability',
         heading: 'Disclaimers and limitation of liability',
         clauses: [
-          'The Service is provided "as is" and "as available". To the fullest extent permitted by law, OrenjiTrade disclaims all warranties, express or implied.',
-          'To the fullest extent permitted by law, OrenjiTrade is not liable for indirect, incidental or consequential damages, or for losses arising from dealings between Collectors.',
-          'Nothing in these terms limits liability that cannot be limited under applicable consumer protection law.',
+          'The Service is provided "as is" and "as available". To the extent permitted by law, OrenjiTrade disclaims all warranties, express or implied.',
+          'To the extent permitted by law, OrenjiTrade is not liable for indirect, incidental or consequential damages, or for losses arising from dealings between Collectors, including trades, sales and in-person meetings.',
+          'Nothing in these terms limits or excludes liability that cannot be limited or excluded under applicable law, including consumer protection law.',
         ],
       },
       {
@@ -175,8 +177,8 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     version: '0.1-draft',
     effectiveDate: null,
     // Public point definition: maps show an area about 3 km wide (ADR 0004, "Client rendering",
-    // owner decision 2026-10-04; it said 2 km from 2026-10-03).
-    lastUpdated: '2026-10-04',
+    // owner decision 2026-10-04; it said 2 km from 2026-10-03). Law 25 additions 2026-10-05.
+    lastUpdated: LAST_UPDATED,
     definitions: [
       ...COMMON_DEFINITIONS,
       {
@@ -191,6 +193,13 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     ],
     contact: CONTACT_PRIVACY,
     sections: [
+      {
+        id: 'privacy-officer',
+        heading: 'Person in charge of the protection of personal information',
+        clauses: [
+          'Our Privacy Officer / Responsable de la protection des renseignements personnels is [name to confirm], [title to confirm], who can be reached at privacy@orenjitrade.com [postal address to confirm]. This person oversees how OrenjiTrade collects, uses, keeps and shares personal information and handles requests and complaints about it.',
+        ],
+      },
       {
         id: 'data-we-collect',
         heading: 'Data we collect',
@@ -239,19 +248,31 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
       },
       {
         id: 'your-rights',
-        heading: 'Your rights',
+        heading: 'Your rights and how to exercise them',
         clauses: [
-          'Depending on where you live you may have the right to access, correct, export, restrict or delete your personal data, and to object to certain processing. You can exercise most rights directly in Settings.',
+          'You have the right to access the personal information we hold about you, to have it corrected when it is inaccurate, incomplete or ambiguous, to receive a copy of it, and to ask for its deletion. Depending on where you live you may also have the right to restrict or object to certain processing.',
+          'Access and correction: your profile, games, tags, trading area, privacy and notification choices are shown and editable in Settings (Profile, Privacy, Trading area, Notifications). A copy of your data is available in Settings → Account ("Export my data").',
+          'Deletion: Settings → Account ("Delete my account") starts the deletion. A 7-day grace period lets you cancel; afterwards your personal information is deleted or anonymised within 30 days, except what we must keep for legal, dispute or safety reasons (see Retention).',
+          'You can also write to privacy@orenjitrade.com. We answer within 30 days of receiving your request, free of charge, and we explain the reasons when we cannot act on it and how to challenge that decision.',
           'You can withdraw consent for optional processing (such as push notifications or discoverability) at any time without affecting the lawfulness of prior processing.',
-          'You may lodge a complaint with your local data protection authority.',
+          "If you are not satisfied with our answer, you may lodge a complaint with the Commission d'accès à l'information du Québec or with the privacy authority of the place where you live.",
+        ],
+      },
+      {
+        id: 'incidents',
+        heading: 'Confidentiality incidents',
+        clauses: [
+          'A confidentiality incident is the loss of, or the unauthorised access to, use or communication of personal information. We keep a register of every confidentiality incident, whether or not it had to be reported.',
+          "When an incident presents a risk of serious injury to the people concerned, we notify the Commission d'accès à l'information du Québec and the affected people as soon as possible, and we take reasonable measures to reduce the risk of injury and to prevent new incidents of the same kind.",
         ],
       },
       {
         id: 'international',
-        heading: 'International transfers and children',
+        heading: 'Where your data is stored, transfers outside Quebec, and age requirement',
         clauses: [
-          'Data is hosted in [region to be confirmed]. Where data is transferred internationally we rely on appropriate safeguards such as standard contractual clauses.',
-          'The Service is not directed at children under 13 (or the higher age required locally). We delete accounts we learn belong to children below that age.',
+          'Our database, uploaded images and analytics are hosted on Google Cloud in the Montréal region (northamerica-northeast1, Québec), as configured in our infrastructure [to confirm at launch].',
+          'Some service providers may store or process personal information outside Quebec: Firebase Authentication (Google; sign-in email address, password hash, phone number for staff two-factor sign-in, provider ids; data location [to confirm]); Firebase Cloud Messaging (Google; push notification tokens; data location [to confirm]); Cloudflare (network security and content delivery; IP addresses and request logs at its global edge; data location [to confirm]); and, only when payment or premium features are enabled, Stripe (payment, payout and subscription data; United States [to confirm]). Before communicating personal information outside Quebec we assess, among other things, whether it will receive adequate protection, including through contractual safeguards.',
+          'The Service is for people 18 years of age and older and is not directed at minors. We do not knowingly collect personal information from anyone under 18. We close accounts we find to belong to minors and delete their personal information, subject to the retention periods described above and to the law.',
         ],
       },
     ],
@@ -289,9 +310,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'safety',
         heading: 'Meet and trade safely',
         clauses: [
-          'Prefer public places for in-person trades. Never feel pressured to share your home address; the map only ever shows approximate positions.',
+          'Meet in busy public places in daylight for in-person trades, and bring someone along for valuable cards. Never feel pressured to share your home address; the map only ever shows approximate positions. The "Trading safely" page has practical advice.',
           'Use the in-app offer and messaging tools so there is a record if something goes wrong.',
-          'Report suspicious behaviour with the Report collector button. Reports are reviewed by moderators and never shown to the reported Collector.',
+          'Report suspicious behaviour with the Report collector button. Reports are reviewed by moderators and never shown to the reported Collector. You can also block a Collector from their profile or from the conversation menu.',
         ],
       },
       {
@@ -513,7 +534,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'What we use',
         clauses: [
           'Strictly necessary: identity provider session tokens (to keep you signed in) and security tokens that protect against request forgery.',
-          'Preferences: your theme (light, dark or system), dismissed banners and similar settings, stored in local storage and never sent to our servers.',
+          'Preferences: your theme (light, dark or system), the language of the legal pages, dismissed notices and similar settings, stored in local storage and never sent to our servers.',
           'Analytics: first-party product analytics that do not include precise location or message content. [Confirm whether consent is required in target regions.]',
         ],
       },
@@ -577,6 +598,75 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Consequences',
         clauses: [
           'Breaches may result in content removal, feature restrictions, suspension or termination, and, where appropriate, referral to law enforcement.',
+        ],
+      },
+    ],
+  },
+
+  'trading-safely': {
+    key: 'trading-safely',
+    title: 'Trading safely',
+    shortTitle: 'Trading safely',
+    summary:
+      'Practical advice for meeting and trading with other collectors, what OrenjiTrade shows about you, and how to report or block someone.',
+    version: '0.1-draft',
+    effectiveDate: null,
+    lastUpdated: LAST_UPDATED,
+    definitions: COMMON_DEFINITIONS,
+    contact: CONTACT_SUPPORT,
+    sections: [
+      {
+        id: 'before-you-meet',
+        heading: 'Before you meet',
+        clauses: [
+          'Meet in a busy public place, in daylight: a café, a shopping centre, a card shop or a library. Some police stations offer safe exchange zones; check the website of your local police service.',
+          'Bring someone along when the cards are valuable, and tell a friend where you are going and when you expect to be back.',
+          'Never share your home address, your workplace or your routine. OrenjiTrade only ever shows approximate areas, and you control what you publish.',
+          'Agree on the details in the app before you meet: which cards, which condition, which price or trade, and how you will pay. The conversation and the offer stay as a record.',
+        ],
+      },
+      {
+        id: 'during-the-exchange',
+        heading: 'During the exchange',
+        clauses: [
+          'Check the cards before handing over money or your own cards: condition, edition, printing, and signs of a counterfeit. Take your time; a genuine trader expects it.',
+          'Keep the exchange simple: one meeting, in person, cards and payment at the same time.',
+          'Walk away if something feels wrong. You never owe anyone a trade.',
+        ],
+      },
+      {
+        id: 'warning-signs',
+        heading: 'Warning signs',
+        clauses: [
+          'Pressure to decide right now, to meet somewhere isolated or at night, or to move the conversation off OrenjiTrade.',
+          'Deals that seem too good to be true usually are.',
+          'Requests to pay outside the agreed method: a deposit before you meet, gift cards, wire transfers or cryptocurrency to "hold" a card.',
+          'Stories that change, brand-new accounts with no history, or a refusal to show the actual card.',
+        ],
+      },
+      {
+        id: 'what-we-show',
+        heading: 'What OrenjiTrade shows about you',
+        clauses: [
+          'Other collectors see your trading area as an approximate zone about 3 km wide, never your exact position or your address. Distances are shown as ranges.',
+          'Discoverability is off by default. You choose whether to appear on the map, who can message you and what your binders show, in Settings → Privacy.',
+        ],
+      },
+      {
+        id: 'report-and-block',
+        heading: 'Report and block',
+        clauses: [
+          'Report a collector from their profile, from the conversation menu or from a community post ("Report collector"). Choose a reason; moderators review every report, and the reported collector is never told who reported them.',
+          'Block a collector from their profile or from the conversation menu: you stop seeing each other on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
+          'If you are in danger, contact your local emergency services first (911 in Canada).',
+        ],
+      },
+      {
+        id: 'payments',
+        heading: 'Payments',
+        clauses: [
+          'At launch, OrenjiTrade does not process payments between collectors: you settle trades and sales directly with each other. OrenjiTrade is not a party to your trades and cannot refund them.',
+          'If you pay, prefer a method you can verify on the spot, and only once you have checked the cards.',
         ],
       },
     ],

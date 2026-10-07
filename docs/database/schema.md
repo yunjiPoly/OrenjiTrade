@@ -161,6 +161,9 @@ Detailed column lists are appended per phase below as migrations land.
 | V100 | `V100__card_image_cache.sql` | Card images (ADR 0015): `card_image` becomes one row per provider artwork (owner card/printing, provider id, server-side source URL, cache state), `card.image_id`, `card_image_cache_usage`, `card_image_cache_reservation`, `catalog_sync_run` image mode / provider version / phase / report |
 | V101 | `V101__yugioh_catalog_fields.sql` | Real Yu-Gi-Oh! catalog: the printing variant key includes the rarity (`uq_card_printing_variant` becomes a unique index); the yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, the complete monster types and common rarities |
 | V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
+| V103 | `V103__age_confirmation.sql` | Launch readiness (18+ rule): `legal_document.document_type` accepts `AGE_CONFIRMATION` (named constraint `ck_legal_document_type` replaces the unnamed V003 check) and the attestation row `AGE_CONFIRMATION` / `2026-10-05` (`required_at_registration = false`, `url = '/legal#age-confirmation'`) is inserted; confirmations are ordinary `user_consent` rows |
+| V104 | `V104__consent_language.sql` | Launch readiness (French legal pages): `user_consent.language` (`en` / `fr`, default `en`, `ck_user_consent_language`) records which translation was shown when the consent was given; one `legal_document` version covers both languages |
+| V105 | `V105__launch_money_flags_off.sql` | Launch configuration ("discovery + messaging only"): `feature_flag` rows `premiumPlans` and `credits` switched off as data (V010 had created them enabled); rows an admin already edited (`updated_by` set) are left alone; the local/dev seed switches them back on |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -248,16 +251,20 @@ Every account keeps `USER`. Only a `SUPER_ADMIN` may grant or revoke `ADMIN`/`SU
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK |
-| `document_type` | `text` | `TERMS`, `PRIVACY`, `COMMUNITY_GUIDELINES`, `MARKETPLACE_POLICY`, `PAYMENT_PROTECTION`, `REFUND_DISPUTE`, `COOKIES`, `ACCEPTABLE_USE` |
+| `document_type` | `text` | `TERMS`, `PRIVACY`, `COMMUNITY_GUIDELINES`, `MARKETPLACE_POLICY`, `PAYMENT_PROTECTION`, `REFUND_DISPUTE`, `COOKIES`, `ACCEPTABLE_USE`, `AGE_CONFIRMATION` (V103, constraint `ck_legal_document_type`) |
 | `version` | `text` | e.g. `2026-09-01`; `UNIQUE (document_type, version)` |
-| `title`, `url` | `text` | `url` is the web path (`/legal/terms`) |
-| `required_at_registration` | `boolean` | `true` for TERMS, PRIVACY, COMMUNITY_GUIDELINES, ACCEPTABLE_USE |
+| `title`, `url` | `text` | `url` is the web path (`/legal/terms`); `/legal#age-confirmation` for the attestation (not a page, and never mapped to an in-app text by the clients) |
+| `required_at_registration` | `boolean` | `true` for TERMS, PRIVACY, COMMUNITY_GUIDELINES, ACCEPTABLE_USE; `false` for `AGE_CONFIRMATION` on purpose (the service layer gates on it instead of the terms filter) |
 | `published_at` | `timestamptz` | |
 | `current` | `boolean` | at most one current version per type (`uq_legal_document_current`, partial unique index) |
 
-V003 seeds the eight documents in version `2026-09-01`. Publishing a new version = insert the row
-and flip `current` in one transaction; every user then sees it in `requiredConsents` and receives
-`428 TERMS_ACCEPTANCE_REQUIRED` on non-exempt routes until they accept it.
+V003 seeds the eight documents in version `2026-09-01`; V103 adds the 18+ attestation
+`AGE_CONFIRMATION` in version `2026-10-05`. Publishing a new version = insert the row and flip
+`current` in one transaction; every user then sees it in `requiredConsents` and receives
+`428 TERMS_ACCEPTANCE_REQUIRED` on non-exempt routes until they accept it. The age attestation
+is different: any recorded version counts (`ConsentService.hasConfirmedAge`), and a missing one
+answers `403 AGE_CONFIRMATION_REQUIRED` only on becoming discoverable, messaging, community
+posting and offers.
 
 #### `user_consent`
 
@@ -269,6 +276,7 @@ and flip `current` in one transaction; every user then sees it in `requiredConse
 | `accepted_at` | `timestamptz` | |
 | `ip_hash` | `text` | SHA-256 hex of `<server salt>:<client IP>` (`orenji.consents.ip-salt`); the raw address is never stored |
 | `user_agent` | `text` | truncated to 512 characters |
+| `language` | `text` | `en` or `fr` (V104, `ck_user_consent_language`, default `en`): the language of the legal text shown when the consent was given. The French pages are a translation of the English draft, so one `legal_document (document_type, version)` row covers both languages and the consent records version + language |
 
 Consents survive account deletion (the account row is anonymised instead).
 
@@ -472,11 +480,15 @@ evicted after every write, so all API instances apply a change at once.
 | `updated_by` | `uuid` | FK → `user_account.id` (`ON DELETE SET NULL`); `NULL` for migration defaults and the local seed |
 | `updated_at`, `created_at` | `timestamptz` | |
 
-Seeded rows (production-safe defaults): `mlScanning=false`, `protectedPayments=false`,
-`publicChat=true`, `premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false`. The
-local/dev `FeatureFlagSeedContributor` enables `protectedPayments`, `advertising` and `donations`
-(fake providers) unless an admin already edited them (`updated_by` set); `mlScanning` stays off.
-A disabled flag makes guarded routes answer `404 FEATURE_DISABLED` (extension `feature`).
+Seeded rows (V010): `mlScanning=false`, `protectedPayments=false`, `publicChat=true`,
+`premiumPlans=true`, `advertising=false`, `credits=true`, `donations=false`. **V105 (launch
+configuration, 2026-10-05) switches `premiumPlans` and `credits` off**, so a database migrated from
+scratch has every money feature off and only `publicChat` on; a SUPER_ADMIN turns a money feature on
+in `/admin > Feature flags` (`docs/deployment/runbooks.md`, "Launch configuration"). The local/dev
+`FeatureFlagSeedContributor` enables `protectedPayments`, `premiumPlans`, `credits`, `advertising`
+and `donations` (fake providers) unless an admin already edited them (`updated_by` set);
+`mlScanning` stays off everywhere. A disabled flag makes guarded routes answer
+`404 FEATURE_DISABLED` (extension `feature`).
 
 ### V011 — plans, plan features, usage limits, usage counters, entitlements (ADR 0014)
 
@@ -1886,3 +1898,13 @@ violation aborted its mock catalog seed and with it the API start-up. The `BEFOR
 trigger `trg_card_image_fill_owner` (function `card_image_fill_owner()`) fills the missing owners from
 the printing and its card; rows that set them (all current code) are left untouched. Covered by
 `CardImageLegacyWriterIT`, which runs the pre-V100 upsert verbatim.
+
+### V105 — launch configuration: money features off
+
+`UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans', 'credits') AND updated_by IS
+NULL`. V010 had created both flags enabled (Phase 10 defaults); the owner launches with every money
+feature off (2026-10-05), and applied migrations are never edited, so the change is a later
+migration acting on data. Admin edits (`updated_by` set) are respected; the local/dev seed
+re-enables both so the fake checkout, credits and referral flows stay testable locally. Covered by
+`FeatureFlagsIT` (migration state) and `LaunchConfigurationIT` (everything else keeps working with
+every money flag off).

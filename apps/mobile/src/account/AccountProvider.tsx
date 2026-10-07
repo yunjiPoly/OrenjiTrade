@@ -7,6 +7,7 @@ import { api, required } from '@/src/api/client';
 import { ME_ROOT, meKeys } from '@/src/api/queryKeys';
 import type { ConsentRequest, MeResponse, RequiredConsent } from '@/src/api/types';
 import { useSession } from '@/src/auth/session';
+import { currentLegalLanguage } from '@/src/features/legal/legalLanguage';
 
 import { useFlowLock } from './flowLock';
 import {
@@ -32,7 +33,10 @@ export interface Account {
   handle: string | null;
   /** Reloads `/me` and resolves with the fresh status. */
   reload: () => Promise<void>;
-  /** `POST /me/consents` for each document, then reloads `/me`. Rejects with the first ApiError. */
+  /**
+   * `POST /me/consents` for each document (with the language the legal texts are shown in, unless
+   * the consent names one), then reloads `/me`. Rejects with the first ApiError.
+   */
   acceptConsents: (consents: readonly ConsentRequest[]) => Promise<void>;
 }
 
@@ -82,9 +86,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const acceptConsents = useCallback(
     async (consents: readonly ConsentRequest[]) => {
+      const language = currentLegalLanguage();
       for (const consent of consents) {
         await api.POST('/api/v1/me/consents', {
-          body: { documentType: consent.documentType, version: consent.version },
+          body: {
+            documentType: consent.documentType,
+            version: consent.version,
+            language: consent.language ?? language,
+          },
         });
       }
       clearAccountSignal();

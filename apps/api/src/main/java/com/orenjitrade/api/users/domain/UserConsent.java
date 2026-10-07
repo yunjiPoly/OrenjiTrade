@@ -38,6 +38,10 @@ public class UserConsent {
     @Column(name = "user_agent", updatable = false)
     private @Nullable String userAgent;
 
+    /** Language of the text shown when the consent was given ({@link ConsentLanguage}). */
+    @Column(name = "language", nullable = false, updatable = false)
+    private String language;
+
     /** JPA only. */
     protected UserConsent() {
         this.id = UUID.randomUUID();
@@ -45,6 +49,7 @@ public class UserConsent {
         this.documentType = LegalDocumentType.TERMS;
         this.version = "";
         this.acceptedAt = Instant.EPOCH;
+        this.language = ConsentLanguage.ENGLISH;
     }
 
     public UserConsent(
@@ -53,7 +58,8 @@ public class UserConsent {
             String version,
             Instant acceptedAt,
             @Nullable String ipHash,
-            @Nullable String userAgent) {
+            @Nullable String userAgent,
+            String language) {
         this.id = UUID.randomUUID();
         this.userId = userId;
         this.documentType = documentType;
@@ -61,6 +67,7 @@ public class UserConsent {
         this.acceptedAt = acceptedAt;
         this.ipHash = ipHash;
         this.userAgent = userAgent;
+        this.language = ConsentLanguage.normalize(language);
     }
 
     public UUID getId() {
@@ -89,5 +96,9 @@ public class UserConsent {
 
     public @Nullable String getUserAgent() {
         return userAgent;
+    }
+
+    public String getLanguage() {
+        return language;
     }
 }

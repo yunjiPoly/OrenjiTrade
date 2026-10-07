@@ -20,6 +20,14 @@ jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(() => '00000000-0000-4000-8000-000000000000'),
 }));
 
+// The device language: English unless a test sets `require('expo-localization').mockLocales`.
+jest.mock('expo-localization', () => {
+  const mockLocales: { languageCode: string | null; languageTag: string }[] = [
+    { languageCode: 'en', languageTag: 'en-CA' },
+  ];
+  return { __esModule: true, mockLocales, getLocales: () => mockLocales };
+});
+
 // The map renders Views carrying their props; the camera calls are jest mocks shared by every
 // instance (`require('react-native-maps').mockAnimateToRegion`), cleared before each test.
 jest.mock('react-native-maps', () => {

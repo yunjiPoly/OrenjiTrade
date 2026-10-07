@@ -51,7 +51,17 @@ describe('notification kinds', () => {
     expect(link('OFFER_ACCEPTED', { offerId: 'o1', tradeId: 't1' })).toBe('/trades/t1');
     expect(link('DISPUTE_UPDATE', { disputeId: 'd1' })).toBe('/disputes/d1');
     expect(link('REPORT_DECISION', {})).toBe('/settings/reports');
-    expect(link('SYSTEM', { kind: 'LIMIT_REACHED' })).toBe('/premium');
+    // The plan-limit notice leads to Premium only while the API offers it (`upgradeUrl` /
+    // `deepLink` in the payload); with the flag off it is only about held-back alerts.
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED' })).toBe('/notifications');
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_MATCH' })).toBe(
+      '/wishlist'
+    );
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: '/premium' })).toBe('/premium');
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: 'https://evil.example' })).toBe(
+      '/notifications'
+    );
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', deepLink: '/premium' })).toBe('/premium');
     expect(link('SYSTEM', { kind: 'MODERATION_WARNING' })).toBe('/legal/community-guidelines');
     expect(link('MESSAGE', { conversationId: '../../x' })).toBe('/messages');
     expect(link('MESSAGE', { deepLink: '/messages/c9', conversationId: 'c1' })).toBe(

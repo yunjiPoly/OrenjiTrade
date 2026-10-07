@@ -9,4 +9,10 @@ import java.time.Instant;
 public record ConsentSummary(
         @Schema(requiredMode = RequiredMode.REQUIRED) LegalDocumentType documentType,
         @Schema(requiredMode = RequiredMode.REQUIRED, example = "2026-09-01") String version,
-        @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time") Instant acceptedAt) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time") Instant acceptedAt,
+        @Schema(
+                        requiredMode = RequiredMode.NOT_REQUIRED,
+                        description = "Language of the text shown when the consent was given",
+                        example = "fr",
+                        allowableValues = {"en", "fr"})
+                String language) {}

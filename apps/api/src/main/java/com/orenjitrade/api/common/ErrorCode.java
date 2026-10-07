@@ -115,6 +115,12 @@ public enum ErrorCode {
     DELETION_BLOCKED(HttpStatus.CONFLICT, "Deletion blocked"),
     /** The caller has not accepted the current version of a required legal document. */
     TERMS_ACCEPTANCE_REQUIRED(HttpStatus.PRECONDITION_REQUIRED, "Terms acceptance required"),
+    /**
+     * The caller has not confirmed being 18 years of age or older (the {@code AGE_CONFIRMATION}
+     * consent). Refuses becoming discoverable, messaging, community posts and offers; the {@code
+     * requiredConsents} extension names the confirmation to record with {@code POST /me/consents}.
+     */
+    AGE_CONFIRMATION_REQUIRED(HttpStatus.FORBIDDEN, "Age confirmation required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
     /**
      * A freemium usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used},

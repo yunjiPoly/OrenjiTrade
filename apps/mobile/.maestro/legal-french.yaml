@@ -1,0 +1,105 @@
+# The French legal pages (launch readiness, Bill 96): from the sign-in screen (legal pages are
+# readable signed out), the index in English on an English emulator, the EN / FR switch, the
+# French index with the French draft banner and the translation marking, the "Trading safely"
+# page in French then in English, the choice remembered across a relaunch (AsyncStorage).
+appId: host.exp.exponent
+name: French legal pages and the EN / FR switch
+tags:
+  - launch-readiness
+  - legal
+---
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Terms, privacy and community guidelines'
+- tapOn: 'Terms, privacy and community guidelines'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-legal'
+    timeout: 60000
+- assertVisible: 'Legal'
+- assertVisible: 'Draft — requires review by qualified legal counsel before production launch'
+- assertNotVisible:
+    id: 'legal-translation-notice'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'legal-link-trading-safely'
+- assertVisible:
+    id: 'legal-link-trading-safely'
+
+# FR: the index, the banner and the marking in French.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'legal-language-switch-fr'
+- tapOn:
+    id: 'legal-language-switch-fr'
+- extendedWaitUntil:
+    visible: 'Mentions légales'
+    timeout: 30000
+- assertVisible: 'Ébauche — doit être révisée par un conseiller juridique qualifié avant le lancement en production'
+- assertVisible:
+    id: 'legal-translation-notice'
+- assertVisible: 'Traduction de l’ébauche anglaise, à faire valider par un conseiller juridique\.'
+- takeScreenshot: legal-index-fr
+
+# The "Trading safely" page in French, then in English.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'legal-link-trading-safely'
+- tapOn:
+    id: 'legal-link-trading-safely'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-legal-document'
+    timeout: 60000
+- assertVisible: 'Échanger en toute sécurité'
+- assertVisible: 'Date d’entrée en vigueur.*'
+- assertVisible:
+    id: 'legal-translation-notice'
+- takeScreenshot: legal-trading-safely-fr
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'legal-language-switch-en'
+- tapOn:
+    id: 'legal-language-switch-en'
+- extendedWaitUntil:
+    visible: 'Trading safely'
+    timeout: 30000
+- assertVisible: 'Effective date:.*'
+- assertNotVisible:
+    id: 'legal-translation-notice'
+- assertVisible: 'Draft — requires review by qualified legal counsel before production launch'
+
+# The explicit choice (EN) survives a relaunch; FR again from the index.
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Terms, privacy and community guidelines'
+- tapOn: 'Terms, privacy and community guidelines'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-legal'
+    timeout: 60000
+- assertVisible: 'Legal'
+- assertNotVisible:
+    id: 'legal-translation-notice'
+- tapOn:
+    id: 'legal-language-switch-fr'
+- extendedWaitUntil:
+    visible: 'Mentions légales'
+    timeout: 30000
+- takeScreenshot: legal-index-fr-again

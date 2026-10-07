@@ -16,5 +16,9 @@ export interface OnboardingStatus {
     profileComplete: boolean;
     tradingAreaSet: boolean;
     interestsSet: boolean;
+    /**
+     * Whether the collector confirmed being 18 years of age or older (AGE_CONFIRMATION consent). Added 2026-10-05; optional so older clients keep working.
+     */
+    ageConfirmed?: boolean;
 }
 

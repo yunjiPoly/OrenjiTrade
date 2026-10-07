@@ -387,3 +387,42 @@ describe('Collector profile visibility (like the web)', () => {
     expect(await screen.findByTestId('collector-error')).toBeOnTheScreen();
   });
 });
+
+describe('Collector profile: Block / Unblock (launch readiness)', () => {
+  it('blocks the collector after a confirmation, then offers Unblock', async () => {
+    const api = mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
+        'POST /api/v1/users/{id}/block': { status: 204 },
+        'DELETE /api/v1/users/{id}/block': { status: 204 },
+      })
+    );
+    render();
+    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
+    expect(screen.getByTestId('collector-report')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
+    const dialog = screen.getByTestId('block-dialog');
+    expect(within(dialog).getByText('Block Noé Verdun?')).toBeOnTheScreen();
+    expect(within(dialog).getByText(/Settings → Blocked users/)).toBeOnTheScreen();
+    fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(1));
+    expect(api.callsTo('POST /api/v1/users/{id}/block')[0]?.path).toBe(
+      '/api/v1/users/00000000-0000-4000-8000-0000000000b1/block'
+    );
+    expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is blocked.');
+    // The profile is read again: blocked now, Unblock in place of Block.
+    expect(await screen.findByRole('button', { name: 'Unblock Noé Verdun' })).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
+    await waitFor(() => expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1));
+    expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
+  });
+
+  it("never offers Block on the collector's own profile", async () => {
+    // The fixture's default is the signed-in collector's own profile.
+    mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
+    render();
+    expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
+    expect(screen.queryByTestId('collector-block')).toBeNull();
+    expect(screen.queryByTestId('collector-report')).toBeNull();
+  });
+});

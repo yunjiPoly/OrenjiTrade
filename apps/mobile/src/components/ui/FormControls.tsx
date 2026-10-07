@@ -223,12 +223,22 @@ export type FormMessageTone = 'error' | 'info' | 'success';
 export interface FormMessageProps {
   tone?: FormMessageTone;
   children: ReactNode;
+  /** A second, quieter line under the message (its own text node, so tests can target it). */
+  detail?: string | null;
+  detailTestID?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
 /** Inline alert above or below a form (role alert for errors, status otherwise). */
-export function FormMessage({ tone = 'error', children, style, testID }: FormMessageProps) {
+export function FormMessage({
+  tone = 'error',
+  children,
+  detail,
+  detailTestID,
+  style,
+  testID,
+}: FormMessageProps) {
   const { palette } = useTheme();
   const color =
     tone === 'error' ? palette.danger : tone === 'success' ? palette.success : palette.info;
@@ -251,7 +261,14 @@ export function FormMessage({ tone = 'error', children, style, testID }: FormMes
       ]}
     >
       <MaterialCommunityIcons name={icon} size={20} color={color} />
-      <Text style={[textStyle('sm'), styles.grow, { color: palette.ink }]}>{children}</Text>
+      <View style={styles.grow}>
+        <Text style={[textStyle('sm'), { color: palette.ink }]}>{children}</Text>
+        {detail ? (
+          <Text testID={detailTestID} style={[textStyle('xs'), { color: palette.textMuted }]}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }

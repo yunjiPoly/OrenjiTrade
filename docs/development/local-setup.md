@@ -160,7 +160,7 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | `npm run test:mobile` | `tsc --noEmit`, `expo lint`, `jest` for `apps/mobile`, plus the mobile E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`) | |
 | `npm run test:mobile:e2e` | Playwright (`apps/mobile/e2e`) against the Expo **web** build and an isolated stack | see [Mobile app](#mobile-app-expo); never touches the developer database, files or ports 8080/4200 |
 | `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator, same isolated stack | needs an emulator and the Maestro CLI (`MAESTRO_BIN`); not part of `test:all` or CI |
-| `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0` |
+| `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0`. The `launch-config` project (`e2e/launch-config.spec.ts`, every money flag off) runs alone after the `chromium` project; `-- e2e/launch-config.spec.ts --no-deps` runs it by itself |
 | `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards and the purge rules (also run at the start of every `test:e2e`) |
 | `npm run test:all` | scripts, api, web, mobile, e2e, mobile:e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
 | `npm run test:ml` | `pytest` in `apps/ml` with `apps/ml/.venv` when present | optional; Phase 11 is on hold, this only runs the existing skeleton tests |
@@ -171,9 +171,9 @@ Reference timings (Windows 11, 16 cores, warm Gradle/npm caches, 2026-09-30): `t
 tests), `test:e2e` 3–4.5 min (51 specs, including building the jar and starting the stack; 5–6 min for 69
 tests on its isolated stack on 2026-10-04, including recreating `orenjitrade_e2e`),
 `test:all` 9–11 min; `infra:reset` about 15 s, `infra:validate` about 20 s. Mobile (2026-10-06,
-stage M7): `test:mobile` about 1–2.5 min (713 jest tests in 81 suites + 28 harness guard tests),
-`test:mobile:e2e` about 4 min (54 specs, including the API jar and the web export; about 2 min
-when the stack is reused), `test:mobile:maestro` about 45 min (21 flows on the
+stage M8): `test:mobile` about 1–2.5 min (748 jest tests in 85 suites + 28 harness guard tests),
+`test:mobile:e2e` about 3–4 min (60 specs, including the API jar and the web export; about 2 min
+when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 `Pixel_6_API_34` emulator, including the API and Metro start; add a few minutes the first time,
 while Expo CLI installs Expo Go).
 
@@ -266,7 +266,13 @@ Google sign-in and sign-up (against the Auth emulator a simulated Google account
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
 Blocked users, owner photos and bulk actions in the inventory, binder reordering, the map's
-freshness / tags filters and search box, set pages. Locally the catalog is the fictional mock catalog of the seed (the real
+freshness / tags filters and search box, set pages. Stage M8 (2026-10-06, launch readiness on
+mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a
+first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
+pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
+both web files), consents recorded with the language shown, the dismissible "Trade safely"
+notice in conversations and on offers / trades (dismissal kept on the device), Block / Unblock
+on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The trading area is picked like on the web: a tap on the map or a dragged pin,

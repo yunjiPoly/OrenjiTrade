@@ -174,7 +174,10 @@ export async function apiMe(
   return response.json();
 }
 
-/** Accepts every document still required for the account. */
+/**
+ * Accepts every document still required for the account and records the 18+ confirmation (the
+ * state the sign-up page leaves a new collector in).
+ */
 export async function apiAcceptConsents(api: APIRequestContext, token: string): Promise<void> {
   const me = await apiMe(api, token);
   for (const consent of me.requiredConsents) {
@@ -184,6 +187,27 @@ export async function apiAcceptConsents(api: APIRequestContext, token: string): 
     });
     expect(response.status(), `consent ${consent.documentType}`).toBe(204);
   }
+  await apiConfirmAge(api, token);
+}
+
+/**
+ * Records the `AGE_CONFIRMATION` consent (current version from the public document list). The
+ * list is read with the collector's token so the call counts against the per-user rate limit
+ * (120/min) rather than the anonymous per-IP budget (60/min) that every worker would share.
+ */
+export async function apiConfirmAge(api: APIRequestContext, token: string): Promise<void> {
+  const documents = await api.get(`${API_URL}/api/v1/public/legal/documents`, {
+    headers: bearer(token),
+  });
+  expect(documents.ok(), 'GET /public/legal/documents').toBeTruthy();
+  const list: { documentType: string; version: string }[] = await documents.json();
+  const age = list.find((doc) => doc.documentType === 'AGE_CONFIRMATION');
+  expect(age, 'the API publishes the AGE_CONFIRMATION document').toBeTruthy();
+  const response = await api.post(`${API_URL}/api/v1/me/consents`, {
+    headers: bearer(token),
+    data: { documentType: age!.documentType, version: age!.version },
+  });
+  expect(response.status(), 'consent AGE_CONFIRMATION').toBe(204);
 }
 
 export interface OnboardedCollector extends EmulatorUser {

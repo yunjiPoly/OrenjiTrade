@@ -4,11 +4,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import {
   ConsentRequestDocumentTypeEnum,
+  ConsentRequestLanguageEnum,
   MeResponse,
   MeService,
   RequiredConsent,
 } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
+import { LegalLanguageService } from '../../features/legal/legal-language.service';
 import { ApiError, toApiError } from '../http/api-error';
 import { SKIP_ERROR_TOAST, SKIP_SESSION_REDIRECT } from '../http/http-context';
 import { AuthService } from './auth.service';
@@ -20,6 +22,9 @@ import { Role, hasAdminRole, roleList } from './roles';
  * - `loading`: `GET /me` has not answered yet for the current user;
  * - `ready`: active account, terms accepted;
  * - `consent-required`: `requiredConsents` is not empty (428 everywhere else);
+ *   (a missing 18+ confirmation is not a session state: it is an onboarding step, see
+ *   {@link needsOnboarding}, and the API answers 403 `AGE_CONFIRMATION_REQUIRED` on the gated
+ *   actions);
  * - `suspended`: 403 `ACCOUNT_SUSPENDED` (or a deleted account);
  * - `deletion-pending`: the owner asked for deletion; only /me, export and cancel work;
  * - `error`: the API could not be reached or failed; retryable.
@@ -39,10 +44,14 @@ export interface SuspensionInfo {
   until: string | null;
 }
 
-/** A legal document version to accept (`POST /me/consents`). */
+/**
+ * A legal document version to accept (`POST /me/consents`). The language of the text shown
+ * (the active legal language, EN/FR) is recorded with it unless the caller sets one.
+ */
 export interface ConsentToAccept {
   documentType: string;
   version: string;
+  language?: 'en' | 'fr';
 }
 
 /** Message the API uses for the 403 of an account whose deletion is pending. */
@@ -68,6 +77,7 @@ export class SessionService {
   private readonly auth = inject(AuthService);
   private readonly meApi = inject(MeService);
   private readonly router = inject(Router);
+  private readonly legalLanguage = inject(LegalLanguageService);
 
   private readonly meState = signal<MeResponse | null>(null);
   private readonly statusState = signal<SessionStatus>('anonymous');
@@ -104,11 +114,21 @@ export class SessionService {
     const fromMe = this.meState()?.requiredConsents ?? [];
     return fromMe.length > 0 ? fromMe : this.pendingConsentsState();
   });
-  /** Profile saved at least once and at least one game or tag chosen. */
+  /**
+   * Profile saved at least once, at least one game or tag chosen, and the 18+ confirmation
+   * recorded (`ageConfirmed === false`; an API that does not report the flag never asks for it).
+   */
   readonly needsOnboarding = computed(() => {
     const onboarding = this.meState()?.onboarding;
-    return !!onboarding && (!onboarding.profileComplete || !onboarding.interestsSet);
+    return (
+      !!onboarding &&
+      (!onboarding.profileComplete || !onboarding.interestsSet || onboarding.ageConfirmed === false)
+    );
   });
+  /** The account exists but never confirmed being 18 years of age or older. */
+  readonly needsAgeConfirmation = computed(
+    () => this.meState()?.onboarding?.ageConfirmed === false,
+  );
 
   constructor() {
     this.auth.changes$.pipe(takeUntilDestroyed()).subscribe((change) => {
@@ -185,13 +205,18 @@ export class SessionService {
     return request;
   }
 
-  /** Records the consents and reloads the session. Rejects with the first {@link ApiError}. */
+  /**
+   * Records the consents (with the language the legal texts were shown in) and reloads the
+   * session. Rejects with the first {@link ApiError}.
+   */
   async acceptConsents(consents: readonly ConsentToAccept[]): Promise<SessionStatus> {
     for (const consent of consents) {
       const documentType = consent.documentType as ConsentRequestDocumentTypeEnum;
+      const language = (consent.language ??
+        this.legalLanguage.language()) as ConsentRequestLanguageEnum;
       await firstValueFrom(
         this.meApi.acceptConsent(
-          { consentRequest: { documentType, version: consent.version } },
+          { consentRequest: { documentType, version: consent.version, language } },
           'body',
           false,
           { context: sessionRequestContext() },
@@ -225,6 +250,9 @@ export class SessionService {
       if (this.statusState() === 'deletion-pending') {
         void this.load();
       }
+    } else if (error.errorCode === 'AGE_CONFIRMATION_REQUIRED') {
+      // The onboarding flow records the confirmation; `/me` tells it which step to show.
+      this.redirect('/onboarding');
     }
   }
 
@@ -272,7 +300,7 @@ export class SessionService {
 
   private redirect(path: string): void {
     const current = this.router.url;
-    if (SESSION_PAGES.test(current)) {
+    if (SESSION_PAGES.test(current) || current.startsWith(path)) {
       return;
     }
     void this.router.navigate([path], { queryParams: { returnUrl: current } });

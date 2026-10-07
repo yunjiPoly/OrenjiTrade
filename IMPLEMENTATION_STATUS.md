@@ -7,7 +7,10 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
 **Last updated:** 2026-10-06 (mobile stage M7: the web-vs-mobile parity gaps closed on the Expo app — Google sign-in and sign-up (proven against the Auth emulator only), the Search tab's Collectors and Binders segments, the card holders list with the web's sort and filters, "Looking for" on profiles, Settings → Blocked users, inventory owner photos and multi-select bulk actions, the visibility filter, binder reordering, the map's freshness / tags filters and search box, set pages; every acceptance row's mobile half completed; the M1–M6 verification caveats replaced with their merged PRs — branch `feature/mobile-m7` on top of `feature/mobile-m6` with `origin/main` (#49, #51) merged in, builder done; see "Mobile app (stage M7)"); 2026-10-05 (mobile stage M6: Phases 9 and 10 on the Expo app — payment protection on the trade (pay on the app's fake checkout, ship, confirm receipt, disputes with statements and photos, payouts), Premium through the fake billing checkout, credits, voluntary donations through the fake donation checkout, "Sponsored" placements, "See Premium" on every reached limit, the mobile half of the acceptance tracker, app-store purchase rules recorded as an open owner question in ADR 0011 — branch `feature/mobile-m6` on top of `feature/mobile-m5`, builder done; see "Mobile app (stage M6)"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (launch readiness parts 4 and 5: the launch configuration — every money feature flag off by migration (V105), the last Premium entry points of the web hidden while `premiumPlans` is off, `LaunchConfigurationIT`, the `launch-config` Playwright project — the "Launch configuration" runbook section, the Quebec Law 25 operating docs (confidentiality incident register and procedure, requests from police and courts, owner account security checklist with the actual admin-MFA value per profile), and the full-UI-translation plan recorded as the next task — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 4 and 5"); 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
+**Last updated:** 2026-10-05 (mobile stage M6: Phases 9 and 10 on the Expo app — payment protection on the trade (pay on the app's fake checkout, ship, confirm receipt, disputes with statements and photos, payouts), Premium through the fake billing checkout, credits, voluntary donations through the fake donation checkout, "Sponsored" placements, "See Premium" on every reached limit, the mobile half of the acceptance tracker, app-store purchase rules recorded as an open owner question in ADR 0011 — branch `feature/mobile-m6` on top of `feature/mobile-m5`, builder done; see "Mobile app (stage M6)"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Last updated:** 2026-10-05 (low-cost first-year production profile, ADR 0016, branch `feature/prod-low-cost`: Terraform, API and docs prepared for a ≈ US$131–142/month Google Cloud prod, go-live blockers fixed, nothing applied; see "Low-cost first-year production profile"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Next task:** see "NEXT TASK" at the bottom.
 
@@ -151,7 +154,7 @@ _Backend complete (workflow `web-mvp-local-continue` stage 9, independently re-v
 
 ## Phase 10 — Freemium + Credits + Ads + Donations
 
-_Backend complete (workflow `web-mvp-local-continue` stage 10, independently re-verified: 704 API tests / 140 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (243 paths, previously 199; 276 operations, previously 227; 364 schemas, previously 295; every contract route present; no path, operation or schema lost; no duplicate operationIds; existing schemas changed only additively: `MyPlan.subscription`, `ProblemDetail` `currentStatus` / `subscriptionId` / `balance` / `cost` / `reason` and the error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`, `NOT_IMPLEMENTED`); verifier fix: Jackson 3 `JsonNode` fields (webhook payloads, ledger and subscription event details) are documented as free-form objects by `OpenApiConfig` instead of a reflected, non-deterministic `JsonNode` bean schema, so two exports are byte-identical; clients regenerated (new `SubscriptionsService`, `CreditsService`, `AdsService`, `DonationsService`, `AdminBillingService`); live check on `.local-dev/api-snapshots/api-phase10.jar` (= `api-latest.jar`) on the local stack with emulator tokens: V090–V093 applied, 20 seed contributors, premium_user `GET /me/plan` PREMIUM with the ACTIVE fake subscription, collector1 credits 300 with `withdrawable`/`transferable` false and referral code `COLLECTOR1`, anonymous MAP_PANEL ads labelled "Sponsored", impression 204 and click 302 to the fictional `.example` landing, premium_user gets `[]`, supporters list without amounts, admin subscriptions 200 / collector 403, anonymous credits 401, mobile receipt 501 `NOT_IMPLEMENTED`, forged billing webhook 400 `WEBHOOK_SIGNATURE_INVALID`; log without ERROR lines, tokens, e-mail addresses or coordinates). Migrations V090–V093 (range V090–V099). Flags: `premiumPlans` (checkout, on by default), `credits` (on by default), `advertising` and `donations` (off by default, switched on by the local seed); member routes answer 404 `FEATURE_DISABLED` while their flag is off, admin routes stay available, live subscriptions keep working whatever `premiumPlans` says. Web Premium checkout, credits, "Sponsored" placements, donations and the admin billing/credits/ads/donations sections complete (workflow `web-mvp-local-continue` stage 11, independently re-verified: 704 API tests / 140 classes still green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI export unchanged (243 paths, 276 operations, 364 schemas; every contract route present), clients regenerated without changes, 578 web unit tests / 120 files, lint + format clean, production build 877.57 kB initial with no warnings, mobile typecheck/lint/29 tests and shared-types typecheck green, 51/51 Playwright specs against `.local-dev/api-snapshots/api-latest.jar` (rebuilt from this tree, same code as `api-phase10.jar`), 0 skipped; live curls: collector1 credits and referral code, anonymous MAP_PANEL ad labelled "Sponsored" with `Cache-Control: no-store`, premium_user `[]` and PREMIUM/ACTIVE plan, admin subscriptions 200 / collector 403, anonymous credits 401; log without ERROR lines, tokens, e-mail addresses or coordinates); mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 10 contract"; the contract document itself is not edited): subscription state PENDING and additive columns plus `subscription_event` / `billing_webhook_event`; checkout answers `{subscription, url, clientSecret, resumed}`; fake checkout routes `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm` (web path `/checkout/fake-billing/<ref>`); admin subscription detail and cancel; the plan follows `user_account.plan_code` + PREMIUM_USER instead of SUBSCRIPTION entitlements; `credit_ledger_entry` adds `balance_after` / `details` / `note` / `seq` and `credit_balance` is a plain view behind a Redis cache; `POST /me/credits/spend` takes a `credit_product` key; `GET /me/referrals` + `referral_redemption`; admin credit products and settings (`platform_settings` `credits.*`); prefixed ad tables (`ad_placement`, `ad_campaign`, `ad_creative`, `ad_targeting_rule`) with additive columns and `ad_campaign_daily`; impressions need the serve token body, clicks `?token=`; conversions through `POST /internal/ads/clicks/{clickId}/conversions`; donations add `GET /me/donations`, fake checkout and admin routes and `donations.*` settings, only the fake donation provider exists._
+_Backend complete (workflow `web-mvp-local-continue` stage 10, independently re-verified: 704 API tests / 140 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (243 paths, previously 199; 276 operations, previously 227; 364 schemas, previously 295; every contract route present; no path, operation or schema lost; no duplicate operationIds; existing schemas changed only additively: `MyPlan.subscription`, `ProblemDetail` `currentStatus` / `subscriptionId` / `balance` / `cost` / `reason` and the error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`, `NOT_IMPLEMENTED`); verifier fix: Jackson 3 `JsonNode` fields (webhook payloads, ledger and subscription event details) are documented as free-form objects by `OpenApiConfig` instead of a reflected, non-deterministic `JsonNode` bean schema, so two exports are byte-identical; clients regenerated (new `SubscriptionsService`, `CreditsService`, `AdsService`, `DonationsService`, `AdminBillingService`); live check on `.local-dev/api-snapshots/api-phase10.jar` (= `api-latest.jar`) on the local stack with emulator tokens: V090–V093 applied, 20 seed contributors, premium_user `GET /me/plan` PREMIUM with the ACTIVE fake subscription, collector1 credits 300 with `withdrawable`/`transferable` false and referral code `COLLECTOR1`, anonymous MAP_PANEL ads labelled "Sponsored", impression 204 and click 302 to the fictional `.example` landing, premium_user gets `[]`, supporters list without amounts, admin subscriptions 200 / collector 403, anonymous credits 401, mobile receipt 501 `NOT_IMPLEMENTED`, forged billing webhook 400 `WEBHOOK_SIGNATURE_INVALID`; log without ERROR lines, tokens, e-mail addresses or coordinates). Migrations V090–V093 (range V090–V099). Flags: `premiumPlans` (checkout; on by default in V010, **off since V105** — launch configuration, 2026-10-05), `credits` (on in V010, **off since V105**), `advertising` and `donations` (off by default); the local seed switches all four on with `protectedPayments`; member routes answer 404 `FEATURE_DISABLED` while their flag is off, admin routes stay available, live subscriptions keep working whatever `premiumPlans` says. Web Premium checkout, credits, "Sponsored" placements, donations and the admin billing/credits/ads/donations sections complete (workflow `web-mvp-local-continue` stage 11, independently re-verified: 704 API tests / 140 classes still green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI export unchanged (243 paths, 276 operations, 364 schemas; every contract route present), clients regenerated without changes, 578 web unit tests / 120 files, lint + format clean, production build 877.57 kB initial with no warnings, mobile typecheck/lint/29 tests and shared-types typecheck green, 51/51 Playwright specs against `.local-dev/api-snapshots/api-latest.jar` (rebuilt from this tree, same code as `api-phase10.jar`), 0 skipped; live curls: collector1 credits and referral code, anonymous MAP_PANEL ad labelled "Sponsored" with `Cache-Control: no-store`, premium_user `[]` and PREMIUM/ACTIVE plan, admin subscriptions 200 / collector 403, anonymous credits 401; log without ERROR lines, tokens, e-mail addresses or coordinates); mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 10 contract"; the contract document itself is not edited): subscription state PENDING and additive columns plus `subscription_event` / `billing_webhook_event`; checkout answers `{subscription, url, clientSecret, resumed}`; fake checkout routes `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm` (web path `/checkout/fake-billing/<ref>`); admin subscription detail and cancel; the plan follows `user_account.plan_code` + PREMIUM_USER instead of SUBSCRIPTION entitlements; `credit_ledger_entry` adds `balance_after` / `details` / `note` / `seq` and `credit_balance` is a plain view behind a Redis cache; `POST /me/credits/spend` takes a `credit_product` key; `GET /me/referrals` + `referral_redemption`; admin credit products and settings (`platform_settings` `credits.*`); prefixed ad tables (`ad_placement`, `ad_campaign`, `ad_creative`, `ad_targeting_rule`) with additive columns and `ad_campaign_daily`; impressions need the serve token body, clicks `?token=`; conversions through `POST /internal/ads/clicks/{clickId}/conversions`; donations add `GET /me/donations`, fake checkout and admin routes and `donations.*` settings, only the fake donation provider exists._
 
 - [x] Plans, plan features, usage limits, usage counters, entitlements (DB-configurable) — built early in stage 2 (plan item 2). `billing` module, migration V011 (`plan`, `plan_feature`, `usage_limit`, `usage_counter`, `entitlement`; FREE and PREMIUM seeded with the contract limits; `user_account.plan_code` now a FK to `plan.code`). `Limits.check/consume/checkValue/overview` (atomic conditional upsert, Redis mirror written after commit), `LimitReachedException` → 429 LIMIT_REACHED (`limitKey`, `limit`, `used`, `resetsAt`, `planCode`, `upgradeUrl: "/premium"`), `Entitlements.has` + admin grant/revoke (audited, most generous active entitlement wins), `PlanService` Redis cache, `LimitUsageSource` SPI for TOTAL counts (e.g. `binders.max` in Phase 3). Endpoints `GET /plans` (public), `GET /me/plan`, `GET/PUT /admin/plans[/{code}]`, `GET/PUT /admin/usage-limits[/{id}]`, `GET/POST /admin/users/{id}/entitlements`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` — tests LimitsIT (5), LimitRulesTest (4). Subscriptions, checkout, billing webhooks and `GET /admin/subscriptions` landed in stage 10 (next item)
 - [x] Subscriptions + `BillingProvider` abstraction (fake by default, Stripe Billing skeleton) — `apps/api/.../billing` (stage 10): migration V090 (`subscription` with a one-live-per-account partial unique index, `subscription_event`, `billing_webhook_event`); `SubscriptionService` (checkout for paid active plans only, an open checkout of the same plan answered again, 409 `ALREADY_SUBSCRIBED` while entitled, cancel at the period end or at once, webhook events applied under a per-account advisory lock; an entitling subscription (TRIAL / ACTIVE / PAST_DUE) sets `user_account.plan_code` + PREMIUM_USER through the new `UserAccountService.applyPlan`, its end sets FREE and revokes the role; a payment for an abandoned checkout is cancelled at the provider); `BillingWebhookService` (signed `X-Fake-Signature` / `Stripe-Signature` in the Stripe format through the shared `common/webhooks/SignedWebhooks`, 400 `WEBHOOK_SIGNATURE_INVALID` stored IGNORED, deduplicated per provider event id, applied after commit via `BillingWebhookReceived` + `@ApplicationModuleListener`); `SubscriptionPeriodJob` `POST /internal/jobs/subscriptions-period` + hourly `SubscriptionPeriodScheduler` under `local` (period-end cancellations, fake renewals through a synthetic signed `subscription.renewed`, real-provider expiry after the 3-day grace); `FakeBillingProvider` (default, `fake_cs_…` checkouts at the web path `/checkout/fake-billing/<ref>`, `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm`), `StripeBillingProvider` (only with `BILLING_PROVIDER=stripe`, Checkout Sessions in subscription mode, `RestClient`, no SDK); routes `POST /me/subscription/checkout|cancel`, `POST /me/subscription/mobile-receipt` (reserved, 501 `NOT_IMPLEMENTED`), `POST /webhooks/billing/{provider}` (600/min per IP, 413 above 256 KB), `GET /me/plan` with `subscription`, `GET /admin/subscriptions[/{id}]`, `POST /admin/subscriptions/{id}/cancel` (audited `subscription.cancel`); `Entitlements` gains `normaliseOverride`, `grantBySystem`, `latestActiveExpiry`; export section `subscriptions`, deletion stops renewals and the purge ends the live subscription; seed "subscriptions" (premium_user ACTIVE fake subscription `…a000…0001`) — tests SubscriptionFlowIT (5: fake checkout → PREMIUM with raised limits → cancel; failed checkout retried and immediate cancellation downgrades at once; webhooks verified, stored once, renewals extend the period; validation, authorization and the reserved mobile-receipt route; admins browse and cancel), Phase10FeatureFlagOffIT (2), FakeBillingProviderTest (1), StripeBillingProviderTest (4, test secret, no network). Debt: the Stripe Billing adapter is compile- and unit-tested only (no Stripe account; cloud/real-provider work deferred, docs/deployment/DEFERRED.md); App Store / Google Play receipt validation is reserved (501)
@@ -1342,6 +1345,118 @@ web or package change; dependency added with `npx expo install`: `expo-auth-sess
   confirmation (sign-up and onboarding for existing accounts) waits for the launch-readiness API
   change; the Expo SDK 58 upgrade is its own PR; device push and iOS stay deferred.
 
+## Mobile app (stage M8: launch readiness on the Expo app — 18+ confirmation, French legal pages, safety notice, money-off, 2026-10-06)
+
+_Branch `feature/launch-readiness` (worktree), on top of launch readiness parts 1–5 with
+`origin/feature/mobile-m7` merged in (455456c) and then `origin/main` once #53 had merged there
+(1d233e7, no file change), builder done; not pushed. The mobile
+half of the launch-readiness work, so PR #52's "Mobile web build against the local stack" check
+turns green: every mobile flow that messages, posts, toggles discoverability or makes offers hit the
+new `403 AGE_CONFIRMATION_REQUIRED` gate until the app and its harnesses learned the 18+
+confirmation. Everything local and free; no API, web or package change (the generated clients
+already carried `OnboardingStatus.ageConfirmed`, `ConsentRequest.language` and the
+`AGE_CONFIRMATION` document type); one dependency added with `npx expo install`:
+`expo-localization` (pinned `~57.0.2`, `npm run audit:gate` green). Nothing here claims legal
+compliance: the legal texts stay drafts (banner kept on both languages)._
+
+- [x] **18+ confirmation** (mirror of the web's `age-confirmation-checkbox`, sign-up, consent and
+  onboarding pages): `src/features/legal/ageConfirmation.ts` + `AgeConfirmationCheckbox.tsx`
+  (English and French label and validation message, never ticked by default, never part of
+  "Accept all"); `app/(auth)/sign-up.tsx` posts `{ documentType: 'AGE_CONFIRMATION', version }`
+  after the required documents through the existing `acceptConsents` (`registration.ts`: the
+  version comes from `GET /public/legal/documents`, which lists `AGE_CONFIRMATION` with
+  `requiredAtRegistration: false`, so `requiredAtRegistration()` keeps it out of the "I have read
+  and accept" list; `validateSignUp` gets an `age` error while the attestation is published and
+  unticked); `app/(account)/consent.tsx` shows the same checkbox while `me.onboarding.ageConfirmed
+  === false` (Google sign-ups land there) and records it with the pending documents;
+  `app/onboarding.tsx` + `OnboardingSteps.tsx` `AgeStep`: a first, non-editable "Age" step
+  ("Are you 18 or older?", the terms link, the checkbox, Continue, Sign out so nobody is stuck;
+  skeleton / retry while the document list loads), the steps of a visit decided once so indexes
+  never shift, an existing collector who only misses the confirmation gets "Thanks for
+  confirming. Welcome back!" and returns to where they came from (`useAuthGate` remembers the
+  resumable link when it sends an app screen to onboarding, like the web's `returnUrl`);
+  `accountStatus.needsOnboarding` is true while `ageConfirmed === false` (`undefined` → an older
+  API never asks); `ApiError.isAgeConfirmationRequired`, a friendly message for
+  `AGE_CONFIRMATION_REQUIRED` in `errorMessages.ts` and a new account signal
+  (`age-confirmation-required`) that reloads `/me`, so the gate shows the step from any screen.
+- [x] **Test harness:** `apps/mobile/e2e/support/stack.ts` `apiConfirmAge` /
+  `apiAgeConfirmed`, `createOnboardedCollector` records the consent unless `confirmAge: false`
+  (an account from before the rule); the Playwright global setup records it for the seed
+  collectors the specs sign in to (`collector1`, `collector2`: the seed predates the rule, the
+  consent row lands in the isolated database, the emulator account is only signed in to); every
+  Maestro host script that creates a collector (`create-collector.js` with `CONFIRM_AGE`,
+  `messaging.js`, `offers.js`, `payments.js`, `wishlist.js`, `parity.js`) records it, the seed
+  flows (`sign-in.yaml`, `map-preview-profile.yaml`) run `scripts/confirm-age.js` first and
+  `scripts/check-age.js` checks `onboarding.ageConfirmed` on the API.
+- [x] **Consent language:** `src/features/legal/legalLanguage.ts` (the web rule: French when the
+  device's primary language is French through `expo-localization`, an explicit EN / FR choice
+  remembered on the device in AsyncStorage wins); `AccountProvider.acceptConsents` sends
+  `language` with every consent (`consent.language` when the caller sets one), so the API records
+  which translation was read; the sign-up and consent checkboxes name the documents in that
+  language.
+- [x] **French legal pages:** `npm run sync:legal` now generates `src/legal/legalContent.fr.ts`
+  from the web's `legal-content.fr.ts` next to the English file (the type import rewritten; a jest
+  test keeps both copies identical to the web files, never hand-copied); `legalTexts.ts` serves the
+  texts, draft banner, translation marking, effective-date placeholder and chrome labels of the
+  active language; `LegalLanguageSwitch` (EN / FR, a radio group) on `app/legal/index.tsx` and
+  `app/legal/[key].tsx`; `LegalDraftBanner` shows the French draft banner and the translation
+  marking exactly as the web (« Traduction de l'ébauche anglaise, à faire valider par un
+  conseiller juridique. »); the `trading-safely` key is listed (both languages). The UI around the
+  texts stays English (the full French UI translation is the recorded next task).
+- [x] **Safety notice and Block on the profile:** `src/features/safety/TradingSafetyNotice.tsx`
+  (the web's wording per context, link to the "Trading safely" page, Report, Block, Dismiss;
+  a labelled note whose title is a header, never one grouped accessibility element, so the guide
+  link and the Report / Block / Dismiss buttons stay reachable one by one with a screen reader)
+  under the conversation header (hidden once the
+  thread is blocked, never over the composer) and at the top of `offers/[id]` and `trades/[id]`;
+  `safetyNoticeStore.ts` keeps the dismissal per collector and per context on the device
+  (AsyncStorage `orenjitrade.safety-notice.v1`: no server-side preferences mechanism exists;
+  nothing is shown before the stored dismissals are read; the hydration flag lives in a separate
+  non-persisted store because a persisted store writes on every `setState`, which broke the web
+  build's static rendering). `BlockCollectorDialog.tsx` (one confirmation dialog, used by the
+  notices and the profile) and `useUnblockCollector`; `CollectorProfileView` offers Block /
+  Unblock next to Report (`profile.isBlocked`; the profile reloads through the existing cache
+  invalidation). Stage M7 had Settings → Blocked users and the conversation menu only.
+- [x] **Money-off consistency:** `errorMessages.ts` `LIMIT_REACHED` is neutral ("It resets
+  soon."); `lib/limits.ts` `limitReachedMessage` names Premium only with `premiumOffered`
+  (`LimitReachedNotice` passes the `premiumPlans` flag, "See Premium" was already flag-gated);
+  `notificationKinds.ts` opens Premium for the plan-limit notice only when the payload carries
+  `upgradeUrl` / `deepLink` (else the wishlist for a held-back match, or the list, as the web);
+  `__tests__/features/moneyOff.test.tsx` proves no pay / subscribe / credits / donate entry point
+  (Profile tab, Settings, limit notice, another collector's profile) with every money flag off.
+- [x] **Tests.** jest: `account/ageConfirmation` (4), `account/registration` (+3),
+  `features/legalLanguage` (5), `features/safetyNotice` (6), `features/moneyOff` (4),
+  `screens/auth` (+2), `screens/account-states` (+1), `screens/onboarding` (+5), `screens/legal`
+  (rewritten: FR default, switch remembered, both copies synced), `screens/collector` (+2),
+  `app/auth-gate` (+2), `features/notifications` and `lib/inventory` updated — `npm run
+  test:mobile` 748 tests in 85 suites green (typecheck, lint, Prettier, the harness guard tests).
+  Playwright (`npm run test:mobile:e2e`): 60 specs (54 + `age-confirmation.spec.ts` 2,
+  `legal-french.spec.ts` 2, `safety-notice.spec.ts` 2; `auth.spec.ts` ticks the checkbox at
+  sign-up and on the consent screen) — 60 passed, 0 flaky, 0 skipped, no retries (2026-10-06,
+  2 m 43 s with the stack). Maestro (`npm run test:mobile:maestro` on
+  `Pixel_6_API_34`): 24 flows (21 + `age-step-existing-account.yaml`, `legal-french.yaml`,
+  `safety-notice.yaml`; `sign-up-onboarding.yaml` ticks the checkbox) — 24/24 passed in one run
+  (49 m 17 s, 2026-10-06). Walked by hand on the emulator once (adb screenshots): the sign-up
+  checkbox ("Accept all" leaves it unticked, the bilingual refusal), the legal index and "Trading
+  safely" in French with the banner and the marking, the "Age" step of the unconfirmed seed
+  `collector5` (refused unticked, then "Welcome back" on the Map; the consent row recorded with
+  `language = fr`, the language chosen on the legal pages), Block / Unblock on a profile, the
+  notice in a first conversation (a message sent under it, dismissed, still gone after a relaunch),
+  and the consent-screen checkbox of a simulated Google sign-up (refused unticked, then onboarding
+  from the profile step; the emulator account deleted afterwards); logcat without crash, red box,
+  token or coordinate, Metro without error.
+  `npx expo-doctor` 20/21 (the known newer-patch-versions notice only), `npx expo export` for
+  android and web green, `npm run audit:gate` OK.
+- **Docs:** `apps/mobile/README.md` (status, architecture, scripts, specs and flows),
+  `docs/development/local-setup.md`, `docs/development/test-accounts.md` (seed accounts see the
+  age step once; the mobile suites record the consent in their isolated database).
+- **Debt / follow-ups:** the UI around the legal texts stays English (next task: the full French
+  UI translation); the safety notice dismissal is per device (signing in elsewhere shows it
+  again, acceptable for a safety reminder, same as the web); the seed accounts of a developer
+  stack confirm their age once on the next sign-in (web or mobile); an existing collector's
+  age-only visit shows the full step indicator ("Step 1 of 4 · Age") before going straight back,
+  like the web's stepper; the Expo SDK 58 upgrade stays its own PR.
+
 ## E2E isolation, test-data purge and 3 km zones (2026-10-04)
 
 _Workflow task on branch `fix/e2e-isolation-3km-zones` (worktree, not pushed). Owner request: the
@@ -1457,6 +1572,378 @@ accounts left by earlier mobile E2E runs._
   (the cache was checked file by file and through its accounting row instead). If the owner meant
   the infrastructure to stay down, `npm run infra:down` stops it again.
 
+## Launch readiness, part 1 — users must be 18 or older (2026-10-05)
+
+_Branch `feature/launch-readiness` (from `main` at `ded5470`), builder done. Owner request
+"Prepare OrenjiTrade for its first real users", section 1. Self-declaration only (no identity or
+document verification). The French legal pages, the Trading safely page, the launch
+configuration and the Law 25 operating docs are the following parts of the same workflow._
+
+- [x] **Server-side record.** The attestation "I confirm I am 18 years of age or older" is a
+  consent like any other: migration `V103__age_confirmation.sql` adds the document type
+  `AGE_CONFIRMATION` (named check `ck_legal_document_type` replaces the unnamed V003 check) and
+  its current row `2026-10-05` with `required_at_registration = false` and
+  `url = '/legal#age-confirmation'` (not a page: the clients map only `/legal/<slug>` urls to
+  in-app texts, and `AGE_CONFIRMATION` sorts before `TERMS` in the public list). `POST
+  /me/consents {AGE_CONFIRMATION, 2026-10-05}` stores version, timestamp, salted IP hash, user
+  agent and an audit row, idempotently (`ConsentService.accept`, unchanged). `GET /me` reports
+  `onboarding.ageConfirmed` (`OnboardingFlag.AGE_CONFIRMED`, bean `AgeConfirmedCheck`; schema
+  `NOT_REQUIRED`, so the generated clients get `ageConfirmed?: boolean` and the mobile fixtures
+  keep compiling). The confirmation shows up in the admin user detail and the data export (Law
+  25 evidence). Any recorded version counts (`ConsentService.hasConfirmedAge`), so republishing
+  the wording never un-confirms anyone.
+- [x] **Service-layer gate** `ConsentService.requireAgeConfirmed(userId)` → `403
+  AGE_CONFIRMATION_REQUIRED` (new `ErrorCode`; Problem Details with `errorCode`, safe `message`,
+  `requestId`, `timestamp` and the existing `requiredConsents` extension naming the document to
+  record). Called by `PrivacySettingsService.update` when `discoverable` is requested (the map;
+  `searchDiscoverable` stays ungated), `ConversationService.start` / `send`,
+  `CommunityService.createPost` / `createReply` (after the `publicChat` flag) and
+  `OfferService.create` / `counter`. Reading, accepting / declining / withdrawing offers, the
+  terms filter and every `/api/v1/admin/**` route are untouched: an unconfirmed ADMIN or
+  MODERATOR keeps working (`AgeConfirmationIT.adminAndStaffPathsAreNotGated`). Additive API:
+  no existing request gained a required field; the mobile client's sign-up, `/me`, consent and
+  profile calls are unchanged.
+- [x] **Existing accounts** (seed and local test accounts included) are never pre-confirmed: the
+  seed only inserts `required_at_registration` consents, so collector1… confirm through the
+  onboarding "Age" step on their next sign-in (the web routes them there: `needsOnboarding`
+  is true while `ageConfirmed === false`, the session interceptor sends a 403
+  `AGE_CONFIRMATION_REQUIRED` to `/onboarding`). Tests provision compliant accounts with the
+  confirmation (`TestUsers.confirmAge`, `AbstractIntegrationTest.provisionCompliant`) and
+  unconfirmed ones with `provisionWithoutAgeConfirmation`.
+- [x] **Web.** `AgeConfirmationCheckboxComponent` (shared, bilingual label "I confirm I am 18
+  years of age or older" / "Je confirme avoir 18 ans ou plus", unticked, `role="alert"` message,
+  keyboard and screen-reader accessible): on the sign-up page (a separate `requiredTrue` control;
+  "Accept all" never ticks it; the confirmation is posted with the required documents), on the
+  consent page for Google sign-ups and new document versions while `ageConfirmed === false`, and
+  as the first, non-editable step of the onboarding stepper. An existing collector that only
+  misses the confirmation is sent straight back ("Thanks for confirming. Welcome back!"); a new
+  one continues to the profile step. `friendlyError` explains `AGE_CONFIRMATION_REQUIRED`.
+  E2E helpers (`apiAcceptConsents`, `apiConfirmAge`, acceptance `collector()`) record the
+  confirmation for fresh collectors; `auth.spec.ts` covers the sign-up checkbox, the consent
+  page and the seed collector's age step; `admin.spec.ts` accepts `/onboarding` after the
+  staff-only snack bar (seed collectors are unconfirmed in the fresh E2E database).
+- [x] **Legal wording (English drafts; the French translation follows in part 2).** Terms
+  "Acceptance" clause 2: 18 or older, confirmation recorded with its date, accounts of people
+  under 18 closed. Privacy "International transfers and age requirement": for people 18 and
+  older, no knowing collection from minors, accounts of minors closed and their data deleted
+  subject to retention periods and the law. `LAST_UPDATED` 2026-10-05; the `legal_document`
+  versions stay `2026-09-01` (pre-launch drafts, zero users): publish a new version row when
+  the lawyer-reviewed texts land. `apps/mobile/src/legal/legalContent.ts` regenerated with `npm
+  run sync:legal` (mechanical; the mobile test "ships exactly the texts of the web app" needs it).
+- [x] **Tests.** API: `ConsentServiceTest` (4), `OnboardingServiceTest` (3), `AgeConfirmationIT`
+  (4: recording with timestamp / IP hash / UA / audit and the 409 for a stale version; never
+  required at registration; the gate on discoverability, messaging, community posts, offers and
+  counters with the `errorCode` and `requiredConsents`; admin and staff paths), `ConsentIT`,
+  `FlywayMigrationIT`, `AdminUsersIT`, `ExportIT` updated (9 documents, 5 consents). Web:
+  `age-confirmation-checkbox.component.spec.ts` (3), `sign-up-page.component.spec.ts` (3),
+  `onboarding-page.component.spec.ts` (4), `session.service.spec.ts` (+3),
+  `api-error-messages.spec.ts` (+1). Full runs: `npm run test:api` 790 tests green after the two
+  count updates, `npm run test:web` 646 green + lint + Prettier, `npm run test:mobile` 416 green
+  (typecheck, lint, jest) against the regenerated `packages/api-client` / `packages/shared-types`
+  (`./gradlew exportOpenApi`, `npm run generate:api`).
+- **Docs:** `docs/api/contracts/phase1-auth-users.md` (18+ rule), `docs/database/schema.md`
+  (V103, `legal_document`), `docs/product/product-overview.md` (trust and safety).
+- **Debt / follow-ups:** the mobile app's sign-up checkbox, consent-screen checkbox and
+  onboarding confirmation, and the mobile harnesses' `AGE_CONFIRMATION` consent, are done in
+  mobile stage M8 (2026-10-06, same branch; see "Mobile app (stage M8)"); `searchDiscoverable`
+  (name search, on by default) is deliberately not gated — revisit if the owner wants search
+  hidden too.
+
+## Launch readiness, parts 2 and 3 — trading safety and French legal pages (2026-10-05)
+
+_Branch `feature/launch-readiness`, builder done. Owner request "Prepare OrenjiTrade for its first
+real users", sections 2 ("Trading safety") and 3 ("French versions of the legal pages"). The legal
+texts stay drafts (banner kept on both languages); nothing here claims legal compliance._
+
+- [x] **"Trading safely" page** (`/legal/trading-safely`, key `trading-safely` in
+  `apps/web-angular/src/app/features/legal/legal-content.ts` and `legal-content.fr.ts`; route,
+  index card, "See also" links and footer link follow automatically): meet in busy public places
+  in daylight (some police stations offer safe exchange zones), bring someone along for valuable
+  cards, never share your home address, check the cards before handing over money, warning signs
+  (pressure, too-good deals, payment outside the agreed method), what OrenjiTrade shows (3 km
+  zones, discoverability off by default), how to report and block, no payments at launch.
+- [x] **Safety notice** `shared/safety/trading-safety-notice.component.ts` (`role="note"`, design
+  tokens, keyboard / screen-reader accessible, link to the page, Report and Block buttons, Dismiss)
+  in every conversation (`thread-view`, hidden once the thread is blocked; the composer is never
+  blocked) and at the top of `/offers/:id` and `/trades/:id`. `SafetyNoticeService` stores the
+  dismissal **per collector and per context (conversation / trade) in local storage**
+  (`orenji.safety-notice.v1`): there is no generic server-side preferences mechanism (only typed
+  privacy, notification and offer settings), and a new table for one hint was not worth a
+  migration; signing in on another device shows the reminder again. Report from the notice opens
+  the existing Report collector modal (`PROFILE` context on offer / trade pages), Block the
+  existing confirmation dialog.
+- [x] **Report and Block verified end to end.** Report already worked from the profile, the map
+  preview, the conversation menu, community posts and public binders (`reporting.spec.ts`,
+  ReportFlowIT). Block worked from the conversation menu and Settings → Blocked users
+  (`messaging.spec.ts`, MessagingAuthorizationIT) but was **missing from the collector profile**:
+  the profile now offers Block / Unblock next to Report (`collector-profile-view` outputs,
+  `collector-page` + `BlockActionsService`, profile reloaded afterwards). No other redesign.
+- [x] **French legal pages (Bill 96).** `legal-content.fr.ts` holds a careful Quebec-French
+  translation of every English draft (vous form; « renseignements personnels », « Commission
+  d'accès à l'information du Québec », « responsable de la protection des renseignements
+  personnels », « cartable », « zone d'échange »), with the same keys, versions, section ids and
+  clause counts (`legal-content.fr.spec.ts` enforces the parity and the `[à confirmer]`
+  placeholders), its own draft banner and a "translation to be validated by a lawyer" notice.
+  `LegalLanguageService`: French when the browser prefers it (`navigator.languages[0]` starts with
+  `fr`), an explicit choice remembered per browser (`orenji.legal.language`), `?lang=en|fr` deep
+  links; `LegalLanguageSwitchComponent` (EN / FR toggle) on every legal page and the index; pages
+  carry `lang="fr"` / `"en"`. `LegalTextsService` holds the texts of the active language and is
+  only imported by the lazy legal and auth chunks (the session service reads the light
+  `LegalLanguageService`), so the initial bundle stays at 897 kB (900 kB warning budget) instead of
+  the 933 kB a single service produced. The app UI around the pages stays English (see the
+  assessment below).
+  **French review fixes (2026-10-05):** the translation notice is a marking only (« Traduction de
+  l'ébauche anglaise, à faire valider par un conseiller juridique. ») — the French-only sentence
+  that made the English draft prevail in case of divergence was removed, because a
+  language-precedence rule is legal content (asymmetric, and of doubtful effect against Quebec
+  consumers under the Charter of the French language s. 55 and CPA s. 26); if the lawyer wants
+  one, it goes inside the documents in both languages. Quebec typography applied to every French
+  string (` ` before a colon and inside guillemets, no space before `; ! ?`), four wordings
+  aligned with the English source (« pays de résidence » / « tribunal compétent » in the
+  governing-law placeholder, « personne identifiée ou identifiable », « ou la nuit », « service de
+  police local », « Vous n'avez jamais l'obligation de conclure un échange »); the parity spec now
+  guards the notice, the typography and case-insensitive placeholders. Owner / lawyer calls left
+  as they are: « gradation » (community term for grading), « entiercement (escrow) », « Politique
+  du marché », « Mint » kept as the app's condition label.
+  **Second French review (2026-10-05), fixed:** Marketplace Policy 2.3 said « la carte réellement
+  mise en vente », which narrowed "the actual card being listed" to cards for sale; it now reads
+  « la carte réellement annoncée » (the sentence about stock images « lorsqu'une carte est à
+  vendre » is unchanged). Wording alignments: « Votre position précise (coordonnées
+  géographiques) » instead of « Vos coordonnées précises » (coordonnées = contact details),
+  « un collectionneur de bonne foi » instead of « un échangeur » (a highway interchange),
+  « selon les lois qui vous sont applicables » for "in your jurisdiction", epicene rewrites of the
+  two participles addressed to the reader (« Ne cédez jamais à la pression de… », « pour maintenir
+  votre session ouverte »), the French `lastUpdated` label is « Dernière mise à jour : » (the
+  ISO date follows, as in English), and the Trading-safely short title is « Échanger en
+  sécurité » (« Sécurité » alone could be read as account security). The 18+ validation message
+  is now shown in both languages like the checkbox label. Left to the lawyer / owner, as before:
+  « gradation », « proxys », « premium » and « conseiller juridique » (correct; « avocat » is the
+  everyday word). Note for the UI translation: the French legal texts name UI controls in French
+  (« Signaler le collectionneur », « Paramètres → Compte (« Exporter mes données ») »,
+  « Utilisateurs bloqués ») that the English UI does not show verbatim until step 2 of the plan
+  translates those screens; keep the legal glossary and the UI catalog aligned then.
+- [x] **Consent references the version and the language shown.** V104 adds
+  `user_consent.language` (`en` / `fr`, default `en`); `POST /me/consents` accepts an optional
+  `language` (older clients unchanged), the admin detail, the export and the audit row expose it.
+  One `legal_document (document_type, version)` row covers both languages on purpose: the French
+  text is a translation of the same draft, not separate legal content, so the version identifies
+  the content and the consent records which rendering was read (per-language rows would collide
+  with `uq_legal_document_current` and double `requiredConsents`). The web sends the active legal
+  language with every consent, and the sign-up / consent checkboxes show the document titles in
+  that language (the linked pages open in it). The mobile app keeps sending English consents until
+  it ships the French texts (see NEXT TASK).
+- [x] **Privacy Policy additions (EN + FR, placeholders where the repository does not say):** the
+  Privacy Officer / Responsable de la protection des renseignements personnels (`[name to
+  confirm]`, `[title to confirm]`, `privacy@orenjitrade.com`, `[postal address to confirm]`); how
+  to exercise access, correction and deletion (Settings, Export my data, Delete my account with
+  the 7-day grace and 30-day deletion, `privacy@` answered within 30 days, complaint to the CAI);
+  confidentiality incidents (register kept; CAI and affected people notified when there is a risk
+  of serious injury); where data is stored and which providers may store it outside Quebec:
+  Google Cloud Montréal region `northamerica-northeast1` (Terraform default, `[to confirm at
+  launch]`), Firebase Authentication, Firebase Cloud Messaging, Cloudflare (`[to confirm]` each)
+  and Stripe only when payment / premium features are enabled (`United States [to confirm]`).
+  **Terms additions:** OrenjiTrade is a discovery and messaging venue, not a party to trades, sales
+  or meetings; collectors are responsible for their own trades and meetings (pointer to "Trading
+  safely"); the limitation of liability stays qualified by "to the extent permitted by law" and
+  never limits what consumer protection law forbids; no arbitration clause, class-action waiver or
+  bodily-injury exclusion. Community Guidelines "Meet and trade safely" aligned. `LAST_UPDATED`
+  2026-10-05; `legal_document` versions stay `2026-09-01` (pre-launch drafts, zero users).
+- [x] **Tests.** API: `ConsentIT` (+2: language recorded / English by default / idempotent across
+  languages / admin detail, 400 for an unsupported code), `ConsentServiceTest` (+1), re-export of
+  the OpenAPI and regeneration of the clients (`language?:` optional), `npm run test:mobile` green
+  against them (416 tests). Web: `legal-language.service.spec.ts` (5), `legal-content.fr.spec.ts`
+  (5: parity, placeholders, Law 25 vocabulary, notice without legal content, typography),
+  `legal-page.component.spec.ts` (9 keys, French rendering, EN/FR toggle persisted, `?lang`),
+  `trading-safety-notice.component.spec.ts` (4), `session.service.spec.ts` (language on consents);
+  `npm run test:web` 662 green + lint + Prettier. E2E `launch-safety.spec.ts`: sign up with the
+  checkbox → discoverable from onboarding (API confirms, consents exported with `language: en`)
+  → first conversation from a profile shows the notice (link, Report and Block dialogs, keyboard
+  dismiss, hidden after reload, messaging never blocked) → Block / Unblock from the profile;
+  legal pages French by default for a `fr-CA` browser, EN/FR switch remembered, `?lang=fr`, index
+  and the new page in both languages, footer link. Full `npm run test:e2e`: 71 passed after fixing
+  the acceptance registration spec, which part 1 had left without the 18+ checkbox step.
+- **Docs:** `docs/database/schema.md` (V104, `user_consent.language`),
+  `docs/api/contracts/phase1-auth-users.md`, `docs/product/product-overview.md`,
+  `docs/security/README.md` (privacy officer named in the policy, consents evidence).
+- **Follow-ups:** the mobile app (French legal texts, the "Trading safely" page, the safety
+  notice, `language` on its consents, Block on its profile) is done in mobile stage M8
+  (2026-10-06, same branch; see "Mobile app (stage M8)"); the `[to confirm]` placeholders
+  for the owner / lawyer (privacy officer name, title and postal address; data locations of
+  Firebase Authentication, FCM, Cloudflare and Stripe; Google Cloud region at launch; log
+  retention; governing law and venue; cookie consent requirement; effective dates); the French
+  translation itself awaits the lawyer's validation.
+
+### Full UI translation (French) — assessment, not implemented
+
+- **Today:** no i18n scaffolding in either client. Web: no `@angular/localize`, `$localize`,
+  `i18n` attributes, Transloco or ngx-translate; `angular.json` has no i18n block; `index.html` is
+  `lang="en"`; `LOCALE_ID` is only read by `relative-time.pipe.ts`; ~20 `Intl` / `toLocale*` calls
+  hard-code `en-CA`. Mobile: no i18next / expo-localization; 8 `Intl` calls with `en-CA`. The legal
+  texts are the only translated surface (runtime switch, this stage). The launch-stage strings
+  around them are English-only and belong to the first batch of the follow-up: the safety notice
+  copy and its Report / Block / Dismiss labels (`trading-safety-notice.component.ts`; two strings
+  keyed by context, cheap to switch on `LegalLanguageService` once a UI language exists), the
+  onboarding age step (`onboarding-page.component.html`), the consent list wording ("I have read
+  and accept the", `legal-consent-list.component.ts`) and the `legal_document.title` row "Age
+  confirmation (18 years or older)" (V103, shown in admin and `requiredConsents`). The 18+
+  checkbox label and its validation message (`age-confirmation-checkbox.component.ts`) are already
+  shown in both languages.
+- **User-facing strings (heuristic count of template text nodes, static attributes and TS string
+  literals, ± 20 %):** web `features/` ≈ 4,000 across 300 files — admin 1,650 (100 files), inventory
+  330, settings 290, legal 190 (the texts), trades 185, auth 140, map 120, messages 120, search 110,
+  wishlist 105, collectors 105, catalog 95, community 95, premium 90, offers 85, checkout 65, credits
+  60, support 45, binders 40, disputes 40, onboarding 30, notifications 30; `shared/` ≈ 810 (116
+  files); `core/` ≈ 210 (mostly `api-error-messages.ts`). Total ≈ 5,000, of which ≈ 3,200 are
+  consumer-facing (excluding the admin console and the legal texts). Mobile ≈ 1,400 (≈ 1,100 without
+  the legal texts): `app/` routes 400, `src/features` 475, `src/api` error / status messages 130.
+- **Recommendation: a runtime translation library (Transloco on the web, i18next +
+  expo-localization on mobile) with shared JSON catalogs in `packages/i18n`**, rather than the
+  built-in `@angular/localize`. Built-in i18n gives compile-time extraction and zero runtime cost
+  but produces one build per locale (two deployables or a locale-prefixed nginx layout), switches
+  language only by reload, needs `$localize` for every TS string (error messages, snack bars,
+  dialogs — ≈ 1,000 literals here), and shares nothing with the React Native app. A runtime library
+  keeps one bundle, switches instantly (the legal pages already do), lazy-loads a JSON scope per
+  feature, and lets the mobile app load the same `common`, `errors`, `inventory`, … namespaces,
+  which halves the translation and review work. Costs: a small runtime (~15 kB), keys instead of
+  inline English (a typed key helper mitigates typos), and `Intl` locale plumbing (`fr-CA` dates,
+  numbers, currency). Either way Angular Material's own strings (`MatPaginatorIntl`, datepicker)
+  need a French provider, and the server-sent `message` / `errorCode` wording stays English on the
+  API (clients already map `errorCode` → local text, so translating `api-error-messages.ts` covers
+  it).
+- **Effort (one developer, rough):** web scaffolding + extraction tooling 1 week; consumer-facing
+  web strings ≈ 3,200 → 3–4 weeks of keying and French copy (legal pages excluded, already done);
+  admin console ≈ 1,650 → 2 weeks (can lag: staff-only); mobile ≈ 1,100 → 2 weeks after the web
+  catalogs exist; professional French review of the whole catalog ≈ 1 week; QA (both languages,
+  pseudo-locale pass, screenshots) 1 week. About 9–11 weeks web + mobile, 6–7 weeks for the
+  consumer-facing web only. Recorded as a follow-up in NEXT TASK; not started.
+
+## Launch readiness, parts 4 and 5 — launch configuration and Law 25 operating docs (2026-10-05)
+
+_Branch `feature/launch-readiness`, on top of parts 1–3 (builder, workflow `launch-readiness`).
+Owner decision: launch as **discovery + messaging only** with every money feature switched off;
+operating documents for Quebec Law 25 and incidents; the full French UI translation assessed and
+recorded as the next task, not built. Nothing deployed; cloud, Terraform, payments logic, Stripe,
+credits logic and prices untouched._
+
+- [x] **Flag inventory and launch values** (`docs/deployment/runbooks.md` section 12, "Launch
+  configuration": one row per flag with what it switches on in the API and the web, why it is off,
+  how a `SUPER_ADMIN` changes it in `/admin > Feature flags`, the prerequisites before switching a
+  money feature on): `protectedPayments` off, `premiumPlans` off, `credits` off, `donations` off,
+  `advertising` off, `mlScanning` off (owner hold), `publicChat` on. Section 6 ("Emergency
+  feature-flag off") corrected on the way: real flag keys (`publicChat`, not
+  `publicCommunityChannels`), `updated_by` is a uuid foreign key (the SQL set a string), the Redis
+  key is `orenji:cache:feature-flags:v1` (not `rules:*`).
+- [x] **Migration default risk and handling.** `V010__feature_flags.sql` created `premiumPlans`
+  and `credits` **enabled**: a production database migrated from scratch would have shown "Upgrade
+  to Premium" with a live checkout through the *fake* billing provider (`BILLING_PROVIDER` is
+  `fake` unless configured; nobody would have paid) and the credits / referral ledger, until a
+  super admin with MFA switched them off. Handling: **`V105__launch_money_flags_off.sql`** switches
+  both rows off as data, respecting rows an admin already edited (`updated_by IS NOT NULL`);
+  `FeatureFlagSeedContributor` (local/dev only) now re-enables `protectedPayments`, `premiumPlans`,
+  `credits`, `advertising` and `donations` so development and both E2E suites keep exercising the
+  fake-provider flows; V010 untouched. Staging/prod never run the seed and start with every money
+  feature off. Not chosen: editing V010, a manual post-deploy step alone, constants in code.
+- [x] **Gaps fixed.** API: the daily-limit SYSTEM notification (`NotificationService.limitNotice`)
+  only carries the "upgrade to Premium" sentence, `upgradeUrl` and the `/premium` deep link while
+  `premiumPlans` is on for the recipient (otherwise "The limit resets tomorrow.", no link). Web:
+  `wishlist-summary` ("Need more room? See Premium"), `map-filters-bar` ("Up to N km on your plan",
+  now a plain `<span>` with `data-testid="radius-cap"` while the flag is off), the public binder
+  page's daily-views limit state ("See plans" → "Back to the map"), the generic `LIMIT_REACHED`
+  message and the offer-limit problem (no "Premium raises it"), and `notificationLink` (a plan-limit
+  notice opens `/wishlist` or `/notifications` unless the API offered `/premium`). Verified already
+  gated before this stage: route guards (`/credits`, `/support`, `/community`, `/settings/payouts`),
+  the account menu, the footer, `/premium` ("Premium is not available yet", no Upgrade button), the
+  limit dialog's "See Premium", the sponsored slots, the make-offer dialog's "Use payment
+  protection", the trade page's Pay / Ship / Confirm / Dispute (by trade state; an accepted offer
+  opens `AGREED` when the flag is off for the buyer), and every money service in the API
+  (`PaymentFeature`, `SubscriptionService.checkout`, `FakeBillingController`, `CreditLedger`,
+  `ReferralService`, `DonationService`, `DonationWebhookService`, `AdService`,
+  `CommunityService.requireFeature`).
+- [x] **Ungated by design (documented in the runbook):** `GET /plans` (public plan list with
+  prices) and `GET /me/plan` (the mobile app reads the map radius cap from both; `upgradeUrl` is
+  data), the `429 LIMIT_REACHED` Problem Details' `upgradeUrl`, `POST /me/subscription/cancel`
+  and the billing webhook (a live subscription stays manageable), every `/admin/**` console.
+  `mlScanning` has no consumer anywhere (nothing to gate; the hold stands).
+- [x] **Tests.** API: `LaunchConfigurationIT` (3: the public map shows the six money flags off and
+  `publicChat` on; with all six off a seller and a buyer are found on the map, list a card and a
+  public binder, wish, message, make a cash offer — a protection request is refused
+  `404 FEATURE_DISABLED protectedPayments` — accept it into an `AGREED` trade with no payment and
+  `/pay` refused, complete it in person, rate and report, while `/plans` and `/me/plan` stay
+  readable; every subscription, credits, referral, donation and seller-account route refuses with
+  the Problem Details (`errorCode`, `feature`, `requestId`) and `GET /ads` answers `[]`);
+  `FeatureFlagsIT` (migration state now `premiumPlans=false`, `credits=false`; the seed enables
+  all five fake-provider flags); `NotificationLimitIT` (+1: no Premium pitch and no deep link while
+  the flag is off, the pitch and `/premium` while on); `AbstractPhase10IT` switches `premiumPlans`
+  and `credits` on before each Phase 10 test and every money flag off afterwards;
+  `GeoPrivacyContractTest` enables the four flags it reads through. Already covering the refusals:
+  `billing/Phase10FeatureFlagOffIT`, `payments/FeatureFlagOffIT`,
+  `offers/OfferAuthorizationIT.paymentProtectionNeedsItsFlagAndACashPart`, `community/CommunityIT`.
+  Web (Vitest): `wishlist-summary.component.spec.ts` (3), `map-filters-bar.component.spec.ts` (3),
+  `public-binder-page.component.spec.ts` (2, the 429 limit state with and without Premium),
+  `footer.component.spec.ts` (2), `notification-kinds.spec.ts` (links updated). E2E:
+  `e2e/launch-config.spec.ts` in its own Playwright project `launch-config` (`dependencies:
+  ['chromium']`, so it runs alone after every other spec because it switches the real flags of
+  the E2E stack through the admin API and restores them): map radius cap as text, no sponsored
+  slot, account menu and footer without Premium / Credits / Support, `/premium` without Upgrade,
+  `/credits`, `/support`, `/settings/payouts` redirect with "… is not available right now.", an
+  offer without the protection checkbox, the agreed trade with the safety notice and no Pay
+  button, the money routes' `404 FEATURE_DISABLED`, `GET /ads` empty. Run it alone with
+  `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`. Fixed on the way: the E2E helpers
+  (`e2e/support/stack.ts` `apiConfirmAge`, `e2e/acceptance/support/api.ts` `collector()`) read
+  the public document list with the collector's token — anonymously, every worker shared the
+  per-IP budget (`RATE_LIMIT_ANONYMOUS_PER_MINUTE`, 60/min) and a fast full run failed seven
+  collector-heavy specs with `429`. Results (2026-10-05): `npm run test:api` 162 classes /
+  797 tests, 0 failures (6 min); `npm run test:web` lint clean, 139 files / 672 tests;
+  `npm run test:mobile` typecheck + lint + 416 jest tests; `npm run test:e2e` 72 specs: 71 passed,
+  1 flaky (`acceptance/search.spec.ts`, unrelated, passed on its retry), `launch-config` passed
+  after `chromium`; `./gradlew exportOpenApi` + `npm run generate:api` left `docs/api/openapi.json`
+  and the generated clients unchanged (no contract change in this stage).
+- [x] **Operating docs (Law 25, incidents, authorities, owner accounts)**, linked from
+  `docs/security/README.md` section 11: `docs/security/confidentiality-incident-register.md`
+  (register template with date, description, data and people affected, risk-of-serious-injury
+  assessment, notifications, measures; the procedure contain → assess → notify the Commission
+  d'accès à l'information and the people concerned when there is a risk of serious injury →
+  record every incident even when not notified → follow up; a fictional example entry),
+  `docs/security/law-enforcement-requests.md` (valid legal process only, documented emergency
+  involving a risk to life, verification, minimum disclosure, precise locations never exported
+  unless specifically compelled, request log template, preservation requests),
+  `docs/security/owner-account-security-checklist.md` (two-factor sign-in on the Google /
+  Firebase, GitHub, Cloudflare + registrar, Stripe, mailbox and future store accounts; the
+  **actual** `orenji.security.admin.require-mfa` per Spring profile read from `application.yml`:
+  `true` in the base document hence in `dev`, `staging`, `prod`, `false` under `local` and `test`,
+  `false` for a JVM with no profile because `spring.profiles.default: local`; the code checks the
+  presence of `firebase.sign_in_second_factor` only, no freshness window). README section 7
+  corrected accordingly (it claimed a 12-hour `auth_time` check that does not exist).
+  `docs/product/product-overview.md` gained "Launch without payments"; `docs/database/schema.md`
+  and `docs/development/seed-data.md` describe V105 and the seed.
+- **Findings reported, not fixed (out of scope):** Terraform sets `SPRING_PROFILES_ACTIVE` to
+  `development` / `production` while `application.yml` declares `dev` / `prod`, so in cloud dev
+  and prod only the base document applies (`require-mfa` stays `true`, but the `prod` overrides
+  and the staging/prod `ServiceTokenStartupValidator` would not run) — align before any deploy;
+  no second-factor freshness check; the account-deletion job has no legal hold for preservation
+  requests; the mobile app's `src/api/errorMessages.ts` `LIMIT_REACHED` wording still says
+  "Premium raises it" and its notification deep-link handling is untouched (mobile follow-up).
+- **`[to confirm]` placeholders for the owner / lawyer (this stage):** Privacy Officer name,
+  title and postal address (also in the policies); the lawyer who reviews the three operating docs
+  and the notices; the CAI notification form / address; the register retention period (at least
+  five years assumed); the internal notification timelines (3 working days assumed); the policy
+  on telling a user about a disclosure; the handling of foreign authorities; the preservation
+  period; whether the Google account is a Workspace organisation; the domain registrar if not
+  Cloudflare; the Stripe account (none until payments are switched on); the mailbox provider for
+  `privacy@` / `security@` / `no-reply@`; Apple / Google Play / Expo accounts (none yet); the
+  password-manager emergency access; the date of the first quarterly review.
+
+### Full UI translation (French) — plan (next task)
+
+The assessment is in "Launch readiness, parts 2 and 3" ("Full UI translation (French) —
+assessment, not implemented"): no i18n scaffolding in either client; ≈ 5,000 user-facing web
+strings (≈ 3,200 consumer-facing, admin ≈ 1,650, legal texts 190 already bilingual) and ≈ 1,400
+mobile strings; recommendation **runtime translation library** (Transloco on the web, i18next +
+`expo-localization` on mobile) with shared JSON catalogs in `packages/i18n`, rather than
+`@angular/localize` (one build per locale, reload to switch, `$localize` for ≈ 1,000 TS literals,
+nothing shared with React Native); effort ≈ 9–11 weeks web + mobile, 6–7 weeks consumer web
+only. The plan as the exact next task is in NEXT TASK.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -1511,11 +1998,11 @@ Final independent verification, 2026-09-30, from a clean local state (`npm run i
 no cloud deployment) · **DEFERRED-MOBILE** (owner decision: web first) · **ON-HOLD-ML** · **FAIL**.
 "Acceptance" = `apps/web-angular/e2e/acceptance/*.spec.ts`; "walkthrough" = the manual `npm run dev`
 walkthrough above. No criterion is FAIL; none is ON-HOLD-ML (card scanning is not one of the 44).
-Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): stages M1–M7 (2026-10-04/06) implement the mobile half of every user-facing criterion, and each row names its mobile evidence: `apps/mobile/e2e/*.spec.ts` (Playwright on the Expo web build against the isolated stack, 54 specs, every API answer scanned for coordinates with more than 3 decimals) and `apps/mobile/.maestro/*.yaml` (Maestro in Expo Go on the Android emulator, 21 flows), plus the jest suites named. DEFERRED-MOBILE now remains only for device push (25: needs an EAS project and a real FCM sender) and iOS (40: no macOS); the admin and moderator criteria (30–34) are web-only by scope (the admin consoles stay on the web; their mobile part is what a collector sees). The statuses are those of the final web verification, with the mobile results added; the mobile evidence is the builder's of each stage; M1–M6 were verified and merged into `main` as #41, #45, #46, #47, #48 and #51; the stage M7 evidence (branch `feature/mobile-m7`) is the builder's. After stage M7 every row's mobile half matches the web's or states the exact difference: 1 (Google sign-in proven only against the Auth emulator), 25 (device push), 30–34 (admin consoles web-only), 38 (draft texts, same as the web), 40 (iOS not run).
+Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): stages M1–M7 (2026-10-04/06) implement the mobile half of every user-facing criterion, and each row names its mobile evidence: `apps/mobile/e2e/*.spec.ts` (Playwright on the Expo web build against the isolated stack, 60 specs after stage M8, every API answer scanned for coordinates with more than 3 decimals) and `apps/mobile/.maestro/*.yaml` (Maestro in Expo Go on the Android emulator, 24 flows after stage M8), plus the jest suites named. DEFERRED-MOBILE now remains only for device push (25: needs an EAS project and a real FCM sender) and iOS (40: no macOS); the admin and moderator criteria (30–34) are web-only by scope (the admin consoles stay on the web; their mobile part is what a collector sees). The statuses are those of the final web verification, with the mobile results added; the mobile evidence is the builder's of each stage; M1–M6 were verified and merged into `main` as #41, #45, #46, #47, #48 and #51; the stage M7 evidence (branch `feature/mobile-m7`) and the stage M8 evidence (branch `feature/launch-readiness`, the 18+ rule and the legal pages in both languages) are the builder's. After stage M7 every row's mobile half matches the web's or states the exact difference: 1 (Google sign-in proven only against the Auth emulator), 25 (device push), 30–34 (admin consoles web-only), 38 (draft texts, same as the web), 40 (iOS not run).
 
 | # | Criterion | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Register and log in | PASS | acceptance `registration.spec.ts` (consents → emulator e-mail verification → sign out → sign in), `auth.spec.ts`; AuthenticationIT; walkthrough sign-in (emulator ID token → `GET /me`, anonymous 401); mobile (M1): `auth.spec.ts` (sign-up with the legal documents → emulator verification → onboarding → tabs → sign-out; a seed sign-in with session restore; friendly errors; consent screen; password reset), Maestro `sign-up-onboarding.yaml`, `sign-in.yaml`, `sign-out.yaml`; mobile (M7): `google.spec.ts` (Google sign-up through the Auth emulator's simulated account: the fake OAuth credential checked, consent → onboarding → tabs, Google the only sign-in method; the chooser dismissed; Google with the e-mail of a verified password account signs in to it and links Google, an unverified one is taken over — Firebase's trusted-provider rule, as on the web), Maestro `google-sign-in.yaml`, jest `auth/google`, `screens/auth`, `screens/settings`. Difference: mobile Google sign-in is proven only against the emulator (the web build's pop-up and the device flow through expo-auth-session need the Firebase project's OAuth client ids, DEFERRED.md item 4) |
+| 1 | Register and log in | PASS | acceptance `registration.spec.ts` (consents → emulator e-mail verification → sign out → sign in), `auth.spec.ts`; AuthenticationIT; walkthrough sign-in (emulator ID token → `GET /me`, anonymous 401); mobile (M1): `auth.spec.ts` (sign-up with the legal documents → emulator verification → onboarding → tabs → sign-out; a seed sign-in with session restore; friendly errors; consent screen; password reset), Maestro `sign-up-onboarding.yaml`, `sign-in.yaml`, `sign-out.yaml`; mobile (M7): `google.spec.ts` (Google sign-up through the Auth emulator's simulated account: the fake OAuth credential checked, consent → onboarding → tabs, Google the only sign-in method; the chooser dismissed; Google with the e-mail of a verified password account signs in to it and links Google, an unverified one is taken over — Firebase's trusted-provider rule, as on the web), Maestro `google-sign-in.yaml`, jest `auth/google`, `screens/auth`, `screens/settings`. Difference: mobile Google sign-in is proven only against the emulator (the web build's pop-up and the device flow through expo-auth-session need the Firebase project's OAuth client ids, DEFERRED.md item 4); mobile (M8, launch readiness): the bilingual 18+ checkbox at sign-up and on the consent screen, the onboarding "Age" step for an existing account with the remembered link (`auth.spec.ts`, `age-confirmation.spec.ts`, Maestro `sign-up-onboarding.yaml`, `age-step-existing-account.yaml`, jest `screens/auth`, `screens/account-states`, `screens/onboarding`, `account/ageConfirmation`, `app/auth-gate`), every consent recorded with the language shown |
 | 2 | Create/edit profile | PASS | acceptance `registration.spec.ts` (profile step), `settings.spec.ts` (edits shown on the public profile); ProfileIT, TagIT; mobile (M1): `auth.spec.ts` (profile step), `profile.spec.ts` (edit, validation, tags, public preview), Maestro `profile-edit.yaml` |
 | 3 | Configure privacy settings | PASS | `settings.spec.ts` (discoverability saved, public label only); acceptance `map.spec.ts` / `privacy.spec.ts` (discoverable collectors); SettingsIT, PrivacyPolicyServiceTest; mobile (M1): `account.spec.ts` (privacy switches saved, notification preferences), `location.spec.ts` (map opt-in, off by default, public label only), Maestro `discoverability.yaml`; mobile (M7): Settings → Blocked users (`blocked.spec.ts`, Maestro `blocked-users.yaml`), "Show my wishlist on my profile" shown on profiles (`collector-wishlist.spec.ts`) |
 | 4 | Choose approximate trading location | PASS | acceptance `registration.spec.ts` (approximate area on the Leaflet map), `auth.spec.ts`, `settings.spec.ts`; LocationIT, ApproximateLocationServiceTest, GeoPrivacyContractTest; mobile (M1): `location.spec.ts` (city quick pick, a tap on the map, a dragged pin, `PUT` body MANUAL with 3 decimals), `auth.spec.ts` (map tap at onboarding), `leaflet-page.spec.ts`, Maestro `discoverability.yaml` (centre checked on the API), `sign-up-onboarding.yaml` |
@@ -1552,7 +2039,7 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 35 | Freemium limits work | PASS | acceptance `freemium.spec.ts`, `freemium.spec.ts`, `inventory.spec.ts`, `admin-rules.spec.ts`; LimitsIT, BinderIT, BinderViewLimitIT; mobile (M2/M6): limits explained where they happen (`binders.spec.ts` `binders.max` 5 of 5; jest binder views, offers per day, wishlist, map radius) with "See Premium" (`billing.spec.ts`, Maestro `premium.yaml`, jest `screens/billing`) |
 | 36 | Premium entitlements override | PASS | acceptance `freemium.spec.ts` (fake billing checkout → Premium lifts `binders.max`), `freemium.spec.ts`, `credits-ads.spec.ts`; LimitsIT, SubscriptionFlowIT, CreditLedgerIT; walkthrough (FREE → PREMIUM → no ads → FREE); mobile (M6): `billing.spec.ts` (fake billing checkout, a decline then a payment → PREMIUM lifts `binders.max` (sixth binder), no "Sponsored" result → "Cancel now" → FREE; a credits unlock adds a day's boost), Maestro `premium.yaml` (plan checked on the API) |
 | 37 | Account deletion works | PASS | acceptance `account-deletion.spec.ts` (hidden at once; deletion job anonymises, identity deleted, consents/audit kept), `settings.spec.ts`; DeletionIT, ExportIT; mobile (M1): `account.spec.ts` (deletion request with re-authentication → the deletion-pending screen → cancelled; data export), jest `screens/account-states` |
-| 38 | Legal pages exist | PARTIAL | 8 pages served under `/legal/*` with versioned consent (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); texts are drafts until counsel review (owner action); mobile (M1): the 8 documents in the app (`legal/[key]`, synced from the web, draft banner), `auth.spec.ts` (Terms read before accepting), jest `screens/legal`; texts still drafts (counsel review) |
+| 38 | Legal pages exist | PARTIAL | 9 pages served under `/legal/*` in English and French (EN/FR switch, French by default for a French browser, `launch-safety.spec.ts`) with versioned consent recording the language shown (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); mobile (M8): the same 9 texts in-app in both languages, synced from the web files, an EN/FR switch on the index and every document, French by default on a French device, the draft banner on both and the translation marking in French, consents with the language shown (`legal-french.spec.ts`, Maestro `legal-french.yaml`, jest `screens/legal`, `features/legalLanguage`); texts are drafts until counsel review and the French translation awaits the lawyer's validation (owner action) |
 | 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally; mobile: CI runs the mobile typecheck, lint, jest and the `mobile-web` Playwright job; the Maestro flows are local only (they need an Android emulator) |
 | 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android) · DEFERRED-MOBILE (iOS: no macOS) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium |
 | 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials; mobile: Expo Go on a local Android emulator against the local stack; `npm run test:mobile:e2e` (isolated API :8090, web build :19006) and `npm run test:mobile:maestro` (Metro :8082) run locally and free (no EAS, no Expo account, no Maestro Cloud) |
@@ -1563,9 +2050,9 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 ### Remaining gaps (after the final verification)
 
 - **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `LOCATION_JITTER_SECRET` / `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
-- **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); open: the 18+ confirmation checkbox at sign-up and the onboarding confirmation for existing accounts (once the launch-readiness API change of `feature/launch-readiness` merges), the Expo SDK 58 upgrade (owner-approved, its own PR), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), iOS runs (no macOS), fonts; EAS stays unused (project id placeholder).
+- **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), iOS runs (no macOS), fonts; EAS stays unused (project id placeholder).
 - **ML (on hold):** Phase 11 card recognition and scanning.
-- **Legal:** counsel review of the 8 draft legal pages (criterion 38).
+- **Legal:** counsel review of the 9 draft legal pages and validation of their French translation (criterion 38); the `[to confirm]` placeholders of the Privacy Policy (privacy officer, data locations).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
 - **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 887.66 kB close to the 900 kB warning budget (887.59 kB before the map privacy rendering, 877.57 kB before the card pictures); the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
 - **Hardening (Phase 13):** dedicated security review and header audit, rate-limit tuning (rapid full reloads reach the 120/min per-user and 60/min anonymous per-IP limits, see stage 12 debt), accessibility pass, load test script, DB index review, backup/restore docs, failure testing; first GitHub run of the E2E workflow.
@@ -1678,8 +2165,19 @@ EAS, Expo publish or Maestro Cloud). Phase 11 (ML card recognition) is on hold.
 > list with the web's sort and filters, "Looking for" on profiles, Settings → Blocked users, inventory
 > owner photos and bulk actions, the visibility filter, binder reordering, the map's freshness / tags
 > filters and search box, set pages; every acceptance row's mobile half completed; 9 new Playwright
-> specs (54 in all), 4 new Maestro flows (21 in all), `expo-auth-session` added. Committed, not pushed.
-> **Next:** push, PR and merge when CI is green; then the two recorded mobile tasks below.
+> specs (54 in all), 4 new Maestro flows (21 in all), `expo-auth-session` added. Merged into `main`
+> as #53 (2026-10-06) and into `feature/launch-readiness` for stage M8.
+
+> **Mobile stage M8 (2026-10-06, branch `feature/launch-readiness` with `origin/feature/mobile-m7`
+> and then `origin/main` (#53) merged in):** launch readiness on the Expo app (see "Mobile app (stage M8)"): the 18+
+> confirmation at sign-up, on the consent screen and as the onboarding "Age" step of existing
+> accounts (with the `AGE_CONFIRMATION_REQUIRED` answer routed to it), consents recorded with the
+> language shown, the French legal pages with an EN / FR switch, the "Trade safely" notice in
+> conversations and on offers / trades, Block / Unblock on the profile, the money-off follow-ups;
+> the mobile harness and the Maestro host scripts record the age consent; 6 new Playwright specs
+> (60 in all, all green), 3 new Maestro flows (24 in all, 24/24 in one run), `expo-localization`
+> added. Committed, not pushed.
+> **Next:** push, let PR #52 run CI (the mobile browser suite now passes the gated API) and merge.
 
 > **E2E isolation, test-data purge and 3 km zones (2026-10-04, branch `fix/e2e-isolation-3km-zones`):**
 > merged into `main` as #39 (see the section of the same name): `npm run test:e2e` runs on its
@@ -1708,24 +2206,98 @@ Phase 8 API + web Phase 7 · stage 9 Phase 9 API + web Phase 8 · stage 10 Phase
 · stage 11 web Phase 10 · stage 12 local environment tooling + web acceptance suite + final
 verification.
 
-**Exact next task — ship mobile stage M7, then the two recorded mobile tasks:**
-1. Push `feature/mobile-m7`, open the PR (base `main`, which already holds M1–M6 as #41, #45–#48,
-   #51 and the low-cost production profile #49) and merge it when CI is green. The checks to repeat
-   for an independent verification: `npm run test:mobile`, `npx expo-doctor`, `expo export` for
-   android and web, `npm run test:mobile:e2e` (54 specs, 0 flaky, 0 skipped), the native check with
-   `npm run test:mobile:maestro` (21 flows) on `Pixel_6_API_34`, plus a look at "Continue with Google"
-   (a simulated account against the emulator), the Search tab's Collectors / Binders segments, a
-   card's "Who has this near me" list and its filters, a profile's "Looking for", Settings → Blocked
-   users, a card's photos and the inventory's Select / bulk bar (seed accounts, `LocalDev!2026`).
-2. (a) The 18+ confirmation checkbox at sign-up and the onboarding confirmation for existing
-   accounts on mobile, to be added once the launch-readiness API change (branch
-   `feature/launch-readiness`: 18+ rule, French legal pages, launch flags) merges, mirroring the
-   web's sign-up and onboarding. (b) The Expo SDK 58 upgrade (owner-approved 2026-10-05) as its own
-   PR after M7 merges, then close the Dependabot Expo PRs.
-3. Owner decision (no code until then): how a store build sells Premium and takes donations (ADR 0011
+**Exact next task — ship PR #52 with mobile stage M8, then the Expo SDK 58 upgrade, then the full
+French UI translation:**
+1. Push `feature/launch-readiness` (launch readiness parts 1–5 + mobile stage M8, `origin/main`
+   with #53 already merged in) and merge PR #52 when every check is green, the mobile browser
+   suite included. The checks to repeat for an
+   independent verification: `npm run test:mobile` (748 jest tests in 85 suites), `npx expo-doctor`
+   (20/21, the known newer-patch notice), `expo export` for android and web, `npm run
+   test:mobile:e2e` (60 specs, 0 flaky, 0 skipped), the native check with `npm run
+   test:mobile:maestro` (24 flows) on `Pixel_6_API_34`, plus a look at the sign-up checkbox, the
+   "Age" step of an account created without the confirmation (`CONFIRM_AGE=false` in
+   `create-collector.js`, or `confirmAge: false` in the Playwright helper), the legal pages in both
+   languages (EN / FR switch, the French banner and marking), the "Trade safely" notice in a first
+   conversation and Block / Unblock on a profile (seed accounts, `LocalDev!2026`, see the age step
+   once).
+2. The Expo SDK 58 upgrade (owner-approved 2026-10-05) as its own PR after the merges, then close
+   the Dependabot Expo PRs.
+3. The full French UI translation, web first then mobile: the plan "Exact next task after launch
+   readiness — full French UI translation" below.
+4. Owner decision (no code until then): how a store build sells Premium and takes donations (ADR 0011
    open question). Device push (EAS + FCM), iOS runs, the fonts and Google sign-in against a real
    Firebase project (OAuth client ids) stay open for the mobile app; cloud deployment (Phase 14) and
    ML (Phase 11) stay deferred / on hold until the owner lifts them.
+
+> **Launch readiness, part 1 — 18+ rule (2026-10-05, branch `feature/launch-readiness`):** done
+> (see "Launch readiness, part 1"). **Next mobile task (do not start before the mobile stages
+> above are merged; the API is already additive):** add the 18+ confirmation to the Expo app —
+> an unticked checkbox "I confirm I am 18 years of age or older" / "Je confirme avoir 18 ans ou
+> plus" on `app/(auth)/sign-up.tsx` (`src/account/registration.ts`: post
+> `{ documentType: 'AGE_CONFIRMATION', version }` with the other consents through the existing
+> `acceptConsents`; the version comes from `GET /public/legal/documents`, which now lists
+> `AGE_CONFIRMATION` with `requiredAtRegistration: false`, so keep it out of the "I have read and
+> accept" list), the same checkbox on `app/(account)/consent.tsx` while
+> `me.onboarding.ageConfirmed === false`, a first onboarding step on `app/onboarding.tsx`
+> (`src/account/accountStatus.ts` `needsOnboarding` must also be true while
+> `ageConfirmed === false`), a message for `AGE_CONFIRMATION_REQUIRED` in
+> `src/api/errorMessages.ts` (route to onboarding), and `apps/mobile/e2e/support/stack.ts` must
+> post the `AGE_CONFIRMATION` consent for the collectors it creates (otherwise its discoverability
+> and messaging flows get the 403). **Done in mobile stage M8 (2026-10-06, same branch; see
+> "Mobile app (stage M8)").**
+
+> **Launch readiness, parts 2 and 3 — trading safety and French legal pages (2026-10-05, same
+> branch):** done (see "Launch readiness, parts 2 and 3"). **Next mobile task (after the mobile
+> stages above are merged):** ship the French legal texts (copy `legal-content.fr.ts` next to the
+> synced English file, a language switch on `app/legal/index.tsx` and `app/legal/[key].tsx`,
+> French by default when `expo-localization` reports `fr`), send `language` with every consent in
+> `src/account/AccountProvider.tsx` (`acceptConsents`) so the API records which translation was
+> read, list the new `trading-safely` key (already in the synced English file), show the
+> dismissible safety notice in the conversation screen of stage M3 (and on the offer / trade
+> screens when they exist; dismissal in AsyncStorage per user), and add Block / Unblock on the
+> mobile collector profile next to Report. **Done in mobile stage M8 (2026-10-06, same branch).**
+> **Follow-up for the owner / lawyer:** the `[to confirm]`
+> placeholders listed in that section. **Follow-up product task — full French UI:** see the
+> assessment "Full UI translation (French)" in that section (runtime library with shared JSON
+> catalogs, ≈ 9–11 weeks web + mobile); not started.
+
+> **Launch readiness, parts 4 and 5 — launch configuration and Law 25 operating docs
+> (2026-10-05, same branch):** done (see "Launch readiness, parts 4 and 5"). **Next:** push
+> `feature/launch-readiness`, open the PR and merge to `main` when CI is green (the shared local
+> database then migrates to V105: the local seed re-enables the fake-provider flags, so nothing
+> changes for `npm run dev`). **Owner / lawyer follow-ups:** the `[to confirm]` placeholders listed
+> in that section and in parts 2 and 3; align the Spring profile names between Terraform and
+> `application.yml` before any cloud deployment. **Next mobile task (after the mobile stages are
+> merged):** neutral `LIMIT_REACHED` wording in `src/api/errorMessages.ts` and the plan-limit
+> notification deep link (`/premium` only when the payload carries it), in addition to the mobile
+> follow-ups of parts 1–3. **Done in mobile stage M8 (2026-10-06, same branch).**
+
+**Exact next task after launch readiness — full French UI translation (web first, then mobile):**
+1. **Scaffolding (≈ 1 week).** `packages/i18n` with JSON catalogs per namespace (`common`,
+   `errors`, `auth`, `onboarding`, `map`, `inventory`, `binders`, `search`, `wishlist`,
+   `messages`, `offers`, `trades`, `collectors`, `settings`, `notifications`, `community`,
+   `legal-chrome`, `admin`), `en` and `fr-CA`, a typed key helper, a `missing-keys` script in CI.
+   Web: Transloco (`@jsverse/transloco`, pinned) with lazy scopes per feature folder, a
+   `LanguageService` that reuses the `LegalLanguageService` preference (browser language → stored
+   choice → `?lang=`), `LOCALE_ID` / `Intl` plumbing for `fr-CA` dates, numbers and currency,
+   French providers for Angular Material (`MatPaginatorIntl`, datepicker), `lang` on `<html>`.
+2. **Consumer-facing web strings (≈ 3–4 weeks, ≈ 3,200 strings).** Feature by feature in the
+   order users meet them: auth + onboarding, map + collectors, search + catalog, inventory +
+   binders, wishlist + notifications, messages, offers + trades, settings, community; replace
+   inline English with keys, keep the English catalog as the source, translate to Quebec French
+   (vous form, the glossary of the legal pages: « cartable », « zone d'échange », « collectionneur »),
+   `api-error-messages.ts` and `offer-problems.ts` through the `errors` namespace (the API keeps
+   English `message` / `errorCode`). Each feature's specs run in both languages; Playwright adds a
+   French walkthrough of the happy paths (sign-up → onboarding → map → message → offer).
+3. **Admin console (≈ 2 weeks, ≈ 1,650 strings, may lag: staff only).**
+4. **Mobile (≈ 2 weeks after the web catalogs exist, ≈ 1,100 strings).** i18next +
+   `react-i18next` + `expo-localization`, the same JSON catalogs from `packages/i18n`, the legal
+   texts in both languages (already listed as the mobile follow-up of parts 2 and 3).
+5. **Review and QA (≈ 2 weeks).** Professional French review of the whole catalog, pseudo-locale
+   pass for truncation, screenshots of every screen in both languages, Bill 96 check of every
+   consumer-facing text with the lawyer. Record the glossary in `docs/product/`.
+   Total ≈ 9–11 weeks web + mobile (6–7 weeks consumer web only); no owner decision needed to
+   start, cloud deployment stays deferred.
 
 **Exact next task on `feature/prod-low-cost` (2026-10-05) — PR open, merge, then owner steps:**
 1. Done (2026-10-05): independent verification of the branch — `npm run infra:validate` (fmt +

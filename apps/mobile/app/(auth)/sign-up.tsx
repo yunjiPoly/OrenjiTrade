@@ -26,9 +26,13 @@ import { TextField } from '@/src/components/ui/TextField';
 import { GoogleButton, OrDivider } from '@/src/features/auth/GoogleButton';
 import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
 import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
+import { ageConfirmationOf } from '@/src/features/legal/ageConfirmation';
+import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
 import { LegalConsentList } from '@/src/features/legal/LegalConsentList';
 import type { ConsentItem } from '@/src/features/legal/legalDocs';
 import { legalKeyOf } from '@/src/features/legal/legalDocs';
+import { useLegalLanguage } from '@/src/features/legal/legalLanguage';
+import { legalTitleOf } from '@/src/features/legal/legalTexts';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 const STEP_LABELS: Record<RegistrationStep, string> = {
@@ -39,10 +43,11 @@ const STEP_LABELS: Record<RegistrationStep, string> = {
 
 /**
  * Create an account: display name, email + password, acceptance of every legal document required
- * at registration (versions from the API, texts readable in-app), then a verification email
- * (web: `/auth/sign-up`). The auth gate is held until the consents are recorded. "Sign up with
- * Google" signs in with Google instead; the consent screen then collects the legal acceptance,
- * exactly like the web.
+ * at registration (versions from the API, texts readable in-app in the active legal language)
+ * and the 18+ confirmation (its own unticked checkbox, recorded as the `AGE_CONFIRMATION`
+ * consent), then a verification email (web: `/auth/sign-up`). The auth gate is held until the
+ * consents are recorded. "Sign up with Google" signs in with Google instead; the consent screen
+ * then collects the legal acceptance and the 18+ confirmation, exactly like the web.
  */
 export default function SignUpScreen() {
   const { palette } = useTheme();
@@ -50,31 +55,38 @@ export default function SignUpScreen() {
   const session = useSession();
   const account = useAccount();
   const legal = useLegalDocuments();
+  const { language } = useLegalLanguage();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accepted, setAccepted] = useState<string[]>([]);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [step, setStep] = useState<RegistrationStep | null>(null);
   const [error, setError] = useState<string | null>(null);
   const google = useGoogleSignIn('sign-in');
 
   const documents = useMemo(() => requiredAtRegistration(legal.data ?? []), [legal.data]);
+  const ageConfirmation = useMemo(() => ageConfirmationOf(legal.data), [legal.data]);
   const items = useMemo<ConsentItem[]>(
     () =>
-      documents.map((document) => ({
-        documentType: document.documentType,
-        version: document.version,
-        title: document.title,
-        key: legalKeyOf(document.url),
-      })),
-    [documents]
+      documents.map((document) => {
+        const key = legalKeyOf(document.url);
+        return {
+          documentType: document.documentType,
+          version: document.version,
+          title: legalTitleOf(key, language, document.title),
+          key,
+        };
+      }),
+    [documents, language]
   );
 
   const errors = validateSignUp(
-    { displayName, email, password, acceptedDocumentTypes: accepted },
-    documents
+    { displayName, email, password, acceptedDocumentTypes: accepted, ageConfirmed },
+    documents,
+    ageConfirmation
   );
   const shown = submitted ? errors : null;
 
@@ -87,13 +99,18 @@ export default function SignUpScreen() {
     const flowLock = useFlowLock.getState();
     flowLock.lock('sign-up');
     try {
-      await register({ displayName, email, password }, documents, {
-        signUp: (value, secret, name) => session.signUp(value, secret, name),
-        currentEmail: () => session.user?.email ?? null,
-        acceptConsents: account.acceptConsents,
-        sendEmailVerification: session.sendEmailVerification,
-        onStep: setStep,
-      });
+      await register(
+        { displayName, email, password },
+        documents,
+        {
+          signUp: (value, secret, name) => session.signUp(value, secret, name),
+          currentEmail: () => session.user?.email ?? null,
+          acceptConsents: account.acceptConsents,
+          sendEmailVerification: session.sendEmailVerification,
+          onStep: setStep,
+        },
+        ageConfirmation
+      );
       // The verify-email screen releases the gate once it is shown.
       router.replace('/verify-email');
     } catch (caught) {
@@ -179,12 +196,22 @@ export default function SignUpScreen() {
             onRetry={() => void legal.refetch()}
           />
         ) : (
-          <LegalConsentList
-            items={items}
-            accepted={accepted}
-            onChange={setAccepted}
-            showError={submitted && errors.consents !== null}
-          />
+          <>
+            <LegalConsentList
+              items={items}
+              accepted={accepted}
+              onChange={setAccepted}
+              showError={submitted && errors.consents !== null}
+            />
+            {ageConfirmation ? (
+              <AgeConfirmationCheckbox
+                checked={ageConfirmed}
+                onChange={setAgeConfirmed}
+                showError={submitted && errors.age !== null}
+                disabled={step !== null}
+              />
+            ) : null}
+          </>
         )}
 
         <Button

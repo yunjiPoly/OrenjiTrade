@@ -5,15 +5,18 @@ import type { RequiredConsent } from './types';
 
 /**
  * Account-state answers raised by ANY endpoint (mirror of the web's `sessionInterceptor`):
- * `428 TERMS_ACCEPTANCE_REQUIRED` (a new legal document version) and `403 ACCOUNT_SUSPENDED`
- * (suspended, deleted, or "deletion pending"). The API client records them here; the account
- * provider merges them with `GET /me` and reloads it, so the gate reacts without every screen
- * handling these codes. Not persisted: a signal only matters for the current session.
+ * `428 TERMS_ACCEPTANCE_REQUIRED` (a new legal document version), `403 ACCOUNT_SUSPENDED`
+ * (suspended, deleted, or "deletion pending") and `403 AGE_CONFIRMATION_REQUIRED` (the 18+
+ * confirmation is missing: `/me` then reports `ageConfirmed: false` and the gate shows the
+ * onboarding age step). The API client records them here; the account provider merges them with
+ * `GET /me` and reloads it, so the gate reacts without every screen handling these codes. Not
+ * persisted: a signal only matters for the current session.
  */
 export type AccountSignal =
   | { kind: 'consent-required'; requiredConsents: RequiredConsent[]; at: number }
   | { kind: 'suspended'; message: string; suspendedUntil: string | null; at: number }
-  | { kind: 'deletion-pending'; at: number };
+  | { kind: 'deletion-pending'; at: number }
+  | { kind: 'age-confirmation-required'; at: number };
 
 export interface AccountSignalStore {
   signal: AccountSignal | null;
@@ -45,6 +48,9 @@ export function signalFromError(error: unknown, now: number = Date.now()): Accou
   }
   if (error.isConsentRequired) {
     return { kind: 'consent-required', requiredConsents: error.requiredConsents, at: now };
+  }
+  if (error.isAgeConfirmationRequired) {
+    return { kind: 'age-confirmation-required', at: now };
   }
   return null;
 }

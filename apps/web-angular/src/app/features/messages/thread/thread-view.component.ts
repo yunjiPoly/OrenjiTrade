@@ -22,6 +22,7 @@ import { BlockActionsService } from '../../../shared/messaging/block-actions.ser
 import { RatingActionsService } from '../../../shared/ratings/rating-actions.service';
 import { rateableInteractions } from '../../../shared/ratings/rating-labels';
 import { ReportActionsService } from '../../../shared/reports/report-actions.service';
+import { TradingSafetyNoticeComponent } from '../../../shared/safety/trading-safety-notice.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
@@ -48,6 +49,7 @@ import { ThreadHeaderComponent, ThreadMenuAction } from './thread-header.compone
     MessageListComponent,
     SkeletonComponent,
     ThreadHeaderComponent,
+    TradingSafetyNoticeComponent,
   ],
   providers: [ThreadStore],
   template: `
@@ -77,6 +79,15 @@ import { ThreadHeaderComponent, ThreadMenuAction } from './thread-header.compone
           <mat-icon aria-hidden="true">speaker_notes_off</mat-icon>
           <span>You can no longer message {{ c.other.displayName }}.</span>
         </div>
+      } @else if (store.status() !== 'unavailable') {
+        <!-- Shown until dismissed (per collector, this browser); never blocks the composer. -->
+        <app-trading-safety-notice
+          class="thread__safety"
+          context="conversation"
+          [otherName]="c.other.displayName"
+          (reportRequested)="onAction('report')"
+          (blockRequested)="onAction('block')"
+        />
       }
 
       <div class="thread__body">
@@ -176,6 +187,10 @@ import { ThreadHeaderComponent, ThreadMenuAction } from './thread-header.compone
     }
     .thread__skeleton-own {
       align-self: flex-end;
+    }
+    .thread__safety {
+      padding: var(--spacing-2) var(--spacing-3) 0;
+      background: var(--color-background);
     }
     .banner {
       display: flex;

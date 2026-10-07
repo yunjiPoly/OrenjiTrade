@@ -124,8 +124,16 @@ export function notificationLink(
       return '/settings/reports';
     case 'SYSTEM':
       switch (data?.['kind']) {
-        case 'LIMIT_REACHED':
-          return '/premium';
+        case 'LIMIT_REACHED': {
+          // The API carries `upgradeUrl` / `deepLink: /premium` only while the premiumPlans flag
+          // is on (`deepLink` handled above); without it the notice is only about held-back
+          // alerts.
+          const upgrade = safeAppPath(data?.['upgradeUrl']);
+          if (upgrade) {
+            return upgrade;
+          }
+          return data?.['notificationType'] === 'WISHLIST_MATCH' ? '/wishlist' : '/notifications';
+        }
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':

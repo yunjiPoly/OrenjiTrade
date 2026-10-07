@@ -29,7 +29,7 @@ export interface ProblemDetail {
      */
     errors?: Array<ProblemDetailErrorsInner>;
     /**
-     * Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)
+     * Documents to accept with POST /me/consents (TERMS_ACCEPTANCE_REQUIRED problems; the AGE_CONFIRMATION document for AGE_CONFIRMATION_REQUIRED problems)
      */
     requiredConsents?: Array<ProblemDetailRequiredConsentsInner>;
     /**
@@ -128,6 +128,7 @@ export enum ProblemDetailErrorCodeEnum {
     HandleTaken = 'HANDLE_TAKEN',
     DeletionBlocked = 'DELETION_BLOCKED',
     TermsAcceptanceRequired = 'TERMS_ACCEPTANCE_REQUIRED',
+    AgeConfirmationRequired = 'AGE_CONFIRMATION_REQUIRED',
     RateLimited = 'RATE_LIMITED',
     LimitReached = 'LIMIT_REACHED',
     PayloadTooLarge = 'PAYLOAD_TOO_LARGE',

@@ -1,4 +1,5 @@
 import type { ConsentRequest, LegalDocument } from '@/src/api/types';
+import { ageConsentFor, isAgeConfirmation } from '@/src/features/legal/ageConfirmation';
 
 /**
  * Sign-up form rules and orchestration (mirror of the web's `/auth/sign-up`, plus the display
@@ -17,6 +18,8 @@ export interface SignUpForm {
   password: string;
   /** `documentType`s the user ticked. */
   acceptedDocumentTypes: readonly string[];
+  /** The 18+ checkbox (never ticked by default, never part of "Accept all"). */
+  ageConfirmed: boolean;
 }
 
 export interface SignUpErrors {
@@ -24,7 +27,12 @@ export interface SignUpErrors {
   email: string | null;
   password: string | null;
   consents: string | null;
+  /** Set while the attestation is published and not ticked (older API: never asked). */
+  age: string | null;
 }
+
+export const AGE_CONFIRMATION_REQUIRED_MESSAGE =
+  'You must confirm that you are 18 years of age or older to use OrenjiTrade.';
 
 export function validateEmail(email: string): string | null {
   const value = email.trim();
@@ -36,7 +44,8 @@ export function validateEmail(email: string): string | null {
 
 export function validateSignUp(
   form: SignUpForm,
-  requiredDocuments: readonly LegalDocument[]
+  requiredDocuments: readonly LegalDocument[],
+  ageConfirmation: LegalDocument | null = null
 ): SignUpErrors {
   const name = form.displayName.trim();
   const missing = requiredDocuments.filter(
@@ -60,6 +69,7 @@ export function validateSignUp(
         : missing.length > 0
           ? 'Please accept every document to continue.'
           : null,
+    age: ageConfirmation && !form.ageConfirmed ? AGE_CONFIRMATION_REQUIRED_MESSAGE : null,
   };
 }
 
@@ -69,22 +79,34 @@ export function hasErrors(errors: object): boolean {
 
 const ORDER = ['TERMS', 'PRIVACY', 'COMMUNITY_GUIDELINES', 'ACCEPTABLE_USE'];
 
-/** Documents a new collector must accept, in a stable reading order (terms first). */
+/**
+ * Documents a new collector must accept, in a stable reading order (terms first). The 18+
+ * attestation (`AGE_CONFIRMATION`) is a consent to record, never a document to read, so it stays
+ * out of the "I have read and accept" list and gets its own checkbox.
+ */
 export function requiredAtRegistration(documents: readonly LegalDocument[]): LegalDocument[] {
   const rank = (type: string) => {
     const index = ORDER.indexOf(type);
     return index === -1 ? ORDER.length : index;
   };
   return documents
-    .filter((document) => document.requiredAtRegistration)
+    .filter((document) => document.requiredAtRegistration && !isAgeConfirmation(document))
     .sort((a, b) => rank(a.documentType) - rank(b.documentType));
 }
 
-export function consentsFor(documents: readonly LegalDocument[]): ConsentRequest[] {
-  return documents.map((document) => ({
+/** The consents of a sign-up: every required document, then the 18+ attestation when published. */
+export function consentsFor(
+  documents: readonly LegalDocument[],
+  ageConfirmation: LegalDocument | null = null
+): ConsentRequest[] {
+  const consents: ConsentRequest[] = documents.map((document) => ({
     documentType: document.documentType,
     version: document.version,
   }));
+  if (ageConfirmation) {
+    consents.push(ageConsentFor(ageConfirmation));
+  }
+  return consents;
 }
 
 export type RegistrationStep = 'account' | 'consents' | 'verification';
@@ -106,7 +128,8 @@ export interface RegistrationDeps {
 export async function register(
   form: Pick<SignUpForm, 'displayName' | 'email' | 'password'>,
   documents: readonly LegalDocument[],
-  deps: RegistrationDeps
+  deps: RegistrationDeps,
+  ageConfirmation: LegalDocument | null = null
 ): Promise<{ verificationEmailSent: boolean }> {
   const email = form.email.trim();
   if (deps.currentEmail()?.toLowerCase() !== email.toLowerCase()) {
@@ -114,7 +137,7 @@ export async function register(
     await deps.signUp(email, form.password, form.displayName.trim());
   }
   deps.onStep?.('consents');
-  await deps.acceptConsents(consentsFor(documents));
+  await deps.acceptConsents(consentsFor(documents, ageConfirmation));
   deps.onStep?.('verification');
   try {
     await deps.sendEmailVerification();

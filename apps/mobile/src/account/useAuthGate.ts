@@ -52,6 +52,14 @@ export function useAuthGate(): Gate {
       if (href && (previousGate.current !== 'app' || sessionEnded)) {
         usePendingLink.getState().set(href);
       }
+    } else if (target === GATE_HOME.onboarding) {
+      // An existing collector sent to onboarding from a screen (the 18+ confirmation asked on
+      // their next sign-in, a deep link, a 403 AGE_CONFIRMATION_REQUIRED) comes back to it once
+      // the account is ready, like the web's `returnUrl`.
+      const href = resumableHref(current, latest.current.pathname, latest.current.params);
+      if (href) {
+        usePendingLink.getState().set(href);
+      }
     }
     if (gate !== 'boot') {
       previousGate.current = gate;

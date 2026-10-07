@@ -1610,7 +1610,7 @@ export interface paths {
         put?: never;
         /**
          * Accept a legal document version
-         * @description Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
+         * @description Stores the version, the language the text was shown in (en or fr, en when omitted), timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.
          */
         post: operations["acceptConsent"];
         delete?: never;
@@ -7617,9 +7617,15 @@ export interface components {
         /** @description Acceptance of one legal document version */
         ConsentRequest: {
             /** @enum {string} */
-            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
+            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE" | "AGE_CONFIRMATION";
             /** @example 2026-09-01 */
             version: string;
+            /**
+             * @description Language of the legal text shown to the collector (en or fr); en when omitted. The version is the same in both languages.
+             * @example fr
+             * @enum {string}
+             */
+            language?: "en" | "fr";
         };
         /** @description A new inventory item */
         CreateInventoryItemRequest: {
@@ -9320,7 +9326,7 @@ export interface components {
         /** @description A published legal document */
         LegalDocument: {
             /** @enum {string} */
-            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
+            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE" | "AGE_CONFIRMATION";
             /** @example 2026-09-01 */
             version: string;
             /** @example Terms of Service */
@@ -9545,11 +9551,13 @@ export interface components {
             profileComplete: boolean;
             tradingAreaSet: boolean;
             interestsSet: boolean;
+            /** @description Whether the collector confirmed being 18 years of age or older (AGE_CONFIRMATION consent). Added 2026-10-05; optional so older clients keep working. */
+            ageConfirmed?: boolean;
         };
         /** @description A legal document version that must be accepted */
         RequiredConsent: {
             /** @enum {string} */
-            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
+            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE" | "AGE_CONFIRMATION";
             /** @example 2026-09-01 */
             version: string;
         };
@@ -10126,11 +10134,17 @@ export interface components {
         /** @description An accepted legal document version */
         ConsentSummary: {
             /** @enum {string} */
-            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE";
+            documentType: "TERMS" | "PRIVACY" | "COMMUNITY_GUIDELINES" | "MARKETPLACE_POLICY" | "PAYMENT_PROTECTION" | "REFUND_DISPUTE" | "COOKIES" | "ACCEPTABLE_USE" | "AGE_CONFIRMATION";
             /** @example 2026-09-01 */
             version: string;
             /** Format: date-time */
             acceptedAt: string;
+            /**
+             * @description Language of the text shown when the consent was given
+             * @example fr
+             * @enum {string}
+             */
+            language?: "en" | "fr";
         };
         /** @description Pending account deletion request */
         DeletionRequestSummary: {
@@ -10887,7 +10901,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -10897,7 +10911,7 @@ export interface components {
                 field?: string;
                 message?: string;
             }[];
-            /** @description Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems) */
+            /** @description Documents to accept with POST /me/consents (TERMS_ACCEPTANCE_REQUIRED problems; the AGE_CONFIRMATION document for AGE_CONFIRMATION_REQUIRED problems) */
             requiredConsents?: {
                 documentType?: string;
                 version?: string;

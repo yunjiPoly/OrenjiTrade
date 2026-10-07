@@ -9,6 +9,7 @@ import { useAppStore } from '@/src/store/useAppStore';
 
 import { FakeAuthPort } from '../support/fakeAuthPort';
 import { LEGAL_DOCUMENTS, NOT_ONBOARDED, meFixture } from '../support/fixtures';
+import { mockLocales } from '../support/locales';
 import { mockApi, noContent, ok, problem } from '../support/mockApi';
 import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -19,7 +20,11 @@ beforeEach(() => {
   resetRouterMock();
   resetAppState();
   useAppStore.getState().reset();
+  mockLocales('en-CA');
 });
+
+const AGE_LABEL = 'I confirm I am 18 years of age or older';
+const AGE_ERROR = 'You must confirm that you are 18 years of age or older to use OrenjiTrade.';
 
 describe('Sign in', () => {
   it('validates the form before calling Firebase', async () => {
@@ -183,7 +188,29 @@ describe('Sign up', () => {
     expect(screen.getByText('Enter your email address.')).toBeOnTheScreen();
     expect(screen.getByText('Choose a password.')).toBeOnTheScreen();
     expect(screen.getByText('Please accept every document to continue.')).toBeOnTheScreen();
+    // The 18+ confirmation is its own statement, in both languages.
+    expect(screen.getByText(AGE_ERROR)).toBeOnTheScreen();
+    expect(
+      screen.getByText('Vous devez confirmer avoir 18 ans ou plus pour utiliser OrenjiTrade.')
+    ).toBeOnTheScreen();
     expect(port.signUp).not.toHaveBeenCalled();
+  });
+
+  it('never ticks the 18+ confirmation with "Accept all" and keeps it out of the document list', async () => {
+    mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
+    renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
+    fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
+    expect(
+      screen.getByRole('checkbox', { name: 'I have read and accept the Terms of Service' })
+    ).toBeChecked();
+    expect(
+      screen.queryByRole('checkbox', { name: /I have read and accept the Age confirmation/ })
+    ).toBeNull();
+    const age = screen.getByRole('checkbox', { name: AGE_LABEL });
+    expect(age).not.toBeChecked();
+    expect(screen.getByText('Je confirme avoir 18 ans ou plus')).toBeOnTheScreen();
+    fireEvent.press(age);
+    expect(age).toBeChecked();
   });
 
   it('creates the account, records each consent and opens the verification screen', async () => {
@@ -209,18 +236,55 @@ describe('Sign up', () => {
     expect(
       screen.getByRole('checkbox', { name: 'I have read and accept the Terms of Service' })
     ).toBeChecked();
+    // Every document accepted is not enough without the 18+ confirmation.
+    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    expect(screen.getByText(AGE_ERROR)).toBeOnTheScreen();
+    expect(port.signUp).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    expect(screen.queryByText(AGE_ERROR)).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/verify-email'));
     expect(port.signUp).toHaveBeenCalledWith('new@example.test', 'long-enough-pass');
     expect(port.updateDisplayName).toHaveBeenCalledWith('Nouvelle');
     expect(port.sendEmailVerification).toHaveBeenCalled();
+    // The documents, then the attestation, each with the language the texts were shown in.
     expect(api.callsTo('POST /api/v1/me/consents').map((call) => call.body)).toEqual([
-      { documentType: 'TERMS', version: '2026-09-01' },
-      { documentType: 'PRIVACY', version: '2026-09-01' },
+      { documentType: 'TERMS', version: '2026-09-01', language: 'en' },
+      { documentType: 'PRIVACY', version: '2026-09-01', language: 'en' },
+      { documentType: 'AGE_CONFIRMATION', version: '2026-10-05', language: 'en' },
     ]);
     // The gate stays held until the verification screen releases it.
     expect(useFlowLock.getState().lockedBy).toBe('sign-up');
+  });
+
+  it('records the consents as read in French on a French device, with the French titles', async () => {
+    mockLocales('fr-CA');
+    const port = new FakeAuthPort();
+    const api = mockApi({
+      'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
+      'POST /api/v1/me/consents': noContent,
+      'GET /api/v1/me': ok(meFixture({ onboarding: NOT_ONBOARDED, emailVerified: false })),
+    });
+    renderWithProviders(<SignUpScreen />, { port });
+    // The document titles come from the French texts; the UI around them stays English.
+    expect(
+      await screen.findByRole('checkbox', {
+        name: 'I have read and accept the Conditions d’utilisation',
+      })
+    ).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByLabelText('Display name'), 'Nouvelle');
+    fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.test');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
+    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/verify-email'));
+    expect(api.callsTo('POST /api/v1/me/consents').map((call) => call.body)).toEqual([
+      { documentType: 'TERMS', version: '2026-09-01', language: 'fr' },
+      { documentType: 'PRIVACY', version: '2026-09-01', language: 'fr' },
+      { documentType: 'AGE_CONFIRMATION', version: '2026-10-05', language: 'fr' },
+    ]);
   });
 
   it('signs up with Google: the consent screen then collects the legal acceptance', async () => {
@@ -258,6 +322,7 @@ describe('Sign up', () => {
     fireEvent.changeText(screen.getByLabelText('Email'), 'maika@example.test');
     fireEvent.changeText(screen.getByLabelText('Password'), 'long-enough-pass');
     fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
+    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByTestId('sign-up-error')).toHaveTextContent(

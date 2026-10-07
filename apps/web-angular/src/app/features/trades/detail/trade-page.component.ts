@@ -21,7 +21,10 @@ import { offerKindLabel } from '../../../shared/offers/offer-labels';
 import { OfferPartyCardComponent } from '../../../shared/offers/offer-party-card.component';
 import { StatusChipComponent } from '../../../shared/offers/status-chip.component';
 import { nextActionView, tradeStatusInfo } from '../../../shared/offers/trade-labels';
+import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
 import { RatingActionsService } from '../../../shared/ratings/rating-actions.service';
+import { ReportActionsService } from '../../../shared/reports/report-actions.service';
+import { TradingSafetyNoticeComponent } from '../../../shared/safety/trading-safety-notice.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { formatDateTime, money } from '../../../shared/payments/payment-labels';
@@ -79,6 +82,7 @@ interface ReceivedCard {
     TradeShipmentCardComponent,
     TradeStepsComponent,
     TradeTimelineComponent,
+    TradingSafetyNoticeComponent,
   ],
   providers: [TradeDetailStore, TradeProtectionActions],
   template: `
@@ -274,6 +278,12 @@ interface ReceivedCard {
 
             <div class="tp__grid">
               <div class="tp__main">
+                <app-trading-safety-notice
+                  context="trade"
+                  [otherName]="trade.counterparty.displayName"
+                  (reportRequested)="report()"
+                  (blockRequested)="block()"
+                />
                 <section aria-labelledby="tp-progress">
                   <h2 id="tp-progress" class="tp__h2">Progress</h2>
                   <app-trade-steps [trade]="trade" />
@@ -576,6 +586,8 @@ export class TradePageComponent {
   private readonly offers = inject(OfferActionsService);
   private readonly ratings = inject(RatingActionsService);
   private readonly conversations = inject(ConversationStarterService);
+  private readonly reports = inject(ReportActionsService);
+  private readonly blocks = inject(BlockActionsService);
   private readonly router = inject(Router);
 
   /** Route parameter (bound by the router). */
@@ -739,6 +751,27 @@ export class TradePageComponent {
     if (conversation) {
       await this.router.navigate(['/messages', conversation.id]);
     }
+  }
+
+  /** "Report" of the safety notice: the Report collector modal (PROFILE context). */
+  protected async report(): Promise<void> {
+    const party = this.store.trade()?.counterparty;
+    if (!party) {
+      return;
+    }
+    await this.reports.report(
+      { id: party.id, displayName: party.displayName, handle: party.handle },
+      { source: 'PROFILE' },
+    );
+  }
+
+  /** "Block" of the safety notice: confirmation, then the block (the trade page stays). */
+  protected async block(): Promise<void> {
+    const party = this.store.trade()?.counterparty;
+    if (!party) {
+      return;
+    }
+    await this.blocks.block({ id: party.id, displayName: party.displayName });
   }
 
   private async checkEligibility(userId: string): Promise<void> {

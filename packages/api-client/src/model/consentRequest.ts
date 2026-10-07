@@ -15,6 +15,10 @@
 export interface ConsentRequest { 
     documentType: ConsentRequestDocumentTypeEnum;
     version: string;
+    /**
+     * Language of the legal text shown to the collector (en or fr); en when omitted. The version is the same in both languages.
+     */
+    language?: ConsentRequestLanguageEnum;
 }
 export enum ConsentRequestDocumentTypeEnum {
     Terms = 'TERMS',
@@ -24,7 +28,12 @@ export enum ConsentRequestDocumentTypeEnum {
     PaymentProtection = 'PAYMENT_PROTECTION',
     RefundDispute = 'REFUND_DISPUTE',
     Cookies = 'COOKIES',
-    AcceptableUse = 'ACCEPTABLE_USE'
+    AcceptableUse = 'ACCEPTABLE_USE',
+    AgeConfirmation = 'AGE_CONFIRMATION'
+};
+export enum ConsentRequestLanguageEnum {
+    En = 'en',
+    Fr = 'fr'
 };
 
 

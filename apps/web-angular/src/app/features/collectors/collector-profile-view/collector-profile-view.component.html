@@ -115,6 +115,29 @@
             <mat-icon aria-hidden="true">flag</mat-icon>
             Report
           </button>
+          @if (p.isBlocked) {
+            <button
+              matButton
+              type="button"
+              class="collector__report"
+              [attr.aria-label]="'Unblock ' + p.displayName"
+              (click)="unblockRequested.emit()"
+            >
+              <mat-icon aria-hidden="true">lock_open</mat-icon>
+              Unblock
+            </button>
+          } @else {
+            <button
+              matButton
+              type="button"
+              class="collector__report"
+              [attr.aria-label]="'Block ' + p.displayName"
+              (click)="blockRequested.emit()"
+            >
+              <mat-icon aria-hidden="true">block</mat-icon>
+              Block
+            </button>
+          }
         }
       </div>
     </div>

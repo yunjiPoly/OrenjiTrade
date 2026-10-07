@@ -53,20 +53,27 @@ const LIMIT_NAMES: Record<string, string> = {
 const PLAN_NAMES: Record<string, string> = { FREE: 'Free', PREMIUM: 'Premium' };
 
 /**
- * One sentence for a reached limit: "You have 5 of 5 binders on the Free plan. Delete one or
- * upgrade to Premium to create more." Resets are mentioned when the window has one.
+ * One sentence for a reached limit: "You have used 5 of 5 binders on the Free plan. Delete a
+ * binder you no longer need." Resets are mentioned when the window has one. Premium is named
+ * only while premium plans are sold (`premiumOffered`, the `premiumPlans` flag): with every money
+ * feature off (launch configuration) nothing in the app pitches an upgrade.
  */
-export function limitReachedMessage(info: LimitReachedInfo, now: number = Date.now()): string {
+export function limitReachedMessage(
+  info: LimitReachedInfo,
+  now: number = Date.now(),
+  options: { premiumOffered?: boolean } = {}
+): string {
   const what = LIMIT_NAMES[info.limitKey] ?? 'uses of this feature';
   const plan = info.planCode ? (PLAN_NAMES[info.planCode] ?? info.planCode) : null;
   const usage =
     info.used !== null && info.limit !== null
       ? `You have used ${info.used} of ${info.limit} ${what}${plan ? ` on the ${plan} plan` : ''}.`
       : `You reached the ${what} your plan allows.`;
+  const premium = options.premiumOffered ? ' Premium raises the limit.' : '';
   const reset = info.resetsAt
     ? ` It resets ${relativeTime(info.resetsAt, now)}.`
     : info.limitKey === 'binders.max'
-      ? ' Delete a binder you no longer need, or Premium raises the limit.'
-      : ' Premium raises the limit.';
+      ? ` Delete a binder you no longer need${premium ? ', or Premium raises the limit' : ''}.`
+      : premium;
   return `${usage}${reset}`;
 }

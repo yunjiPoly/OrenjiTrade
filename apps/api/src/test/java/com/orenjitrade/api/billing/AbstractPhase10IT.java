@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -23,8 +24,10 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Helpers of the Phase 10 integration tests (subscriptions, credits, ads, donations): fresh members
- * and staff, feature flags (restored to the V010 defaults after each test), raw webhooks, internal
- * jobs and polling of asynchronously applied webhooks.
+ * and staff, feature flags ({@code premiumPlans} and {@code credits} switched on before each test,
+ * as the local seed does; every money flag restored to the migration state, all off since the V105
+ * launch configuration, after each test), raw webhooks, internal jobs and polling of asynchronously
+ * applied webhooks.
  */
 public abstract class AbstractPhase10IT extends AbstractIntegrationTest {
 
@@ -36,10 +39,16 @@ public abstract class AbstractPhase10IT extends AbstractIntegrationTest {
     /** A member: token uid and account id. */
     public record Member(String uid, UUID id) {}
 
-    @AfterEach
-    void restoreFlagDefaults() {
+    @BeforeEach
+    void enableThePhase10Flags() {
         flag("premiumPlans", true);
         flag("credits", true);
+    }
+
+    @AfterEach
+    void restoreFlagDefaults() {
+        flag("premiumPlans", false);
+        flag("credits", false);
         flag("advertising", false);
         flag("donations", false);
     }

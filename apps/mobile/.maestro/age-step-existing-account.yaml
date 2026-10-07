@@ -1,0 +1,103 @@
+# The 18+ rule on an existing account (launch readiness): a fictional collector created on the
+# host WITHOUT the AGE_CONFIRMATION consent (every document accepted, profile complete: an
+# account from before the rule) signs in and is asked for the confirmation alone, as the first
+# and only onboarding step; nothing is recorded while the checkbox is unticked; once confirmed,
+# the tabs, "Welcome back" and the consent checked on the API (scripts/check-age.js).
+appId: host.exp.exponent
+name: Existing account confirms its age
+tags:
+  - launch-readiness
+  - onboarding
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: age
+      DISPLAY_NAME: Maestro Adult
+      CONFIRM_AGE: 'false'
+- runScript:
+    file: scripts/check-age.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT: 'false'
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+
+# Only the age step: no profile fields for a complete profile.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-age'
+    timeout: 60000
+- assertVisible: 'Are you 18 or older?'
+- assertVisible: 'Je confirme avoir 18 ans ou plus'
+- assertNotVisible:
+    id: 'onboarding-profile'
+- extendedWaitUntil:
+    visible:
+      id: 'age-confirmation'
+    timeout: 30000
+- assertVisible:
+    id: 'age-confirmation'
+    checked: false
+- takeScreenshot: age-step
+
+# Unticked: refused in both languages, nothing recorded.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-age-continue'
+- tapOn:
+    id: 'onboarding-age-continue'
+- assertVisible: 'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
+- assertVisible: 'Vous devez confirmer avoir 18 ans ou plus pour utiliser OrenjiTrade.'
+- runScript:
+    file: scripts/check-age.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT: 'false'
+
+# Ticked: recorded, welcome back on the tabs.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'age-confirmation'
+- tapOn:
+    id: 'age-confirmation'
+- assertVisible:
+    id: 'age-confirmation'
+    checked: true
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-age-continue'
+- tapOn:
+    id: 'onboarding-age-continue'
+# The welcome-back snackbar shows as soon as the consent is recorded, then the tabs.
+- extendedWaitUntil:
+    visible: 'Thanks for confirming\. Welcome back!'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- runScript:
+    file: scripts/check-age.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT: 'true'
+- takeScreenshot: age-step-confirmed
+
+# Never asked again: a relaunch restores the session on the tabs.
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- assertNotVisible: 'Are you 18 or older?'

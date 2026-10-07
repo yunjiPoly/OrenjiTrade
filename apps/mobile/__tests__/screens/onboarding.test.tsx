@@ -1,10 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import OnboardingScreen from '@/app/onboarding';
+import { usePendingLink } from '@/src/account/pendingLink';
 import type { UpdateTradingAreaRequest } from '@/src/api/types';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
+  LEGAL_DOCUMENTS,
   NOT_ONBOARDED,
   TAGS,
   locationFixture,
@@ -12,7 +14,7 @@ import {
   privacyFixture,
   profileFixture,
 } from '../support/fixtures';
-import { mockApi, ok, problem, type MockRequest } from '../support/mockApi';
+import { mockApi, noContent, ok, problem, type MockRequest } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -232,5 +234,138 @@ describe('Onboarding', () => {
       /Location permission was denied/
     );
     expect(api.callsTo('PUT /api/v1/me/location/trading-area')).toHaveLength(0);
+  });
+});
+
+describe('Onboarding age step (18+ rule)', () => {
+  const AGE_LABEL = 'I confirm I am 18 years of age or older';
+  const unconfirmed = (rest: Record<string, boolean>) =>
+    meFixture({ onboarding: { ...NOT_ONBOARDED, ...rest, ageConfirmed: false } });
+
+  it('asks an existing collector only for the confirmation, then sends them back', async () => {
+    const api = mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': [
+          ok(unconfirmed({ profileComplete: true, interestsSet: true, tradingAreaSet: true })),
+          ok(meFixture()),
+        ],
+        'GET /api/v1/me/profile': ok(profileFixture()),
+        'POST /api/v1/me/consents': noContent,
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Handle')).toBeNull();
+    expect(screen.getByText('Je confirme avoir 18 ans ou plus')).toBeOnTheScreen();
+
+    // The terms are readable from the step.
+    fireEvent.press(screen.getByTestId('onboarding-age-terms'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/legal/[key]',
+      params: { key: 'terms' },
+    });
+
+    // Unticked: nothing is recorded.
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(
+      screen.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.')
+    ).toBeOnTheScreen();
+    expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(0);
+
+    // The gate remembered where the collector was sent to onboarding from.
+    usePendingLink.getState().set('/collectors/collector5');
+    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    // The remembered link replaces onboarding (back leads to the tabs), the tabs otherwise.
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBeNull();
+    expect(api.callsTo('POST /api/v1/me/consents')[0]?.body).toEqual({
+      documentType: 'AGE_CONFIRMATION',
+      version: '2026-10-05',
+      language: 'en',
+    });
+    expect(screen.getByTestId('snackbar')).toHaveTextContent(
+      'Thanks for confirming. Welcome back!'
+    );
+  });
+
+  it('puts the confirmation first for a new account, then continues to the profile step', async () => {
+    const api = mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': [ok(unconfirmed({})), ok(meFixture({ onboarding: NOT_ONBOARDED }))],
+        'POST /api/v1/me/consents': noContent,
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 2 of 4 · Profile')).toBeOnTheScreen();
+    expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(1);
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+  });
+
+  it('shows the failure of the confirmation and offers Sign out so nobody is stuck', async () => {
+    const port = new FakeAuthPort(testUser());
+    mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': ok(
+          unconfirmed({ profileComplete: true, interestsSet: true, tradingAreaSet: true })
+        ),
+        'GET /api/v1/me/profile': ok(profileFixture()),
+        'POST /api/v1/me/consents': problem(429, 'RATE_LIMITED', 'slow down'),
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port });
+    usePendingLink.getState().set('/collectors/collector5');
+    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText(/Too many requests in a short time/)).toBeOnTheScreen();
+    // Nothing recorded: the collector stays, and the remembered link waits for the retry.
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBe('/collectors/collector5');
+    fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+    await waitFor(() => expect(port.signOut).toHaveBeenCalled());
+  });
+
+  it('retries the legal documents when they cannot be loaded', async () => {
+    const api = mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': ok(
+          unconfirmed({ profileComplete: true, interestsSet: true, tradingAreaSet: true })
+        ),
+        'GET /api/v1/me/profile': ok(profileFixture()),
+        'GET /api/v1/public/legal/documents': [
+          problem(503, 'SERVICE_UNAVAILABLE', 'down'),
+          ok(LEGAL_DOCUMENTS),
+        ],
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('We could not load the confirmation')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('checkbox', { name: AGE_LABEL })).toBeOnTheScreen();
+    expect(api.callsTo('GET /api/v1/public/legal/documents')).toHaveLength(2);
+  });
+
+  it('never asks an onboarded account whose API does not report the flag', async () => {
+    mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': ok(
+          meFixture({
+            onboarding: { profileComplete: false, interestsSet: false, tradingAreaSet: false },
+          })
+        ),
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 1 of 3 · Profile')).toBeOnTheScreen();
+    expect(screen.queryByText('Are you 18 or older?')).toBeNull();
   });
 });

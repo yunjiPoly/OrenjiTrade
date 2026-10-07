@@ -73,7 +73,7 @@ action that is audited and excludes Restricted-location columns.
   (generated) or by an operator with `gcloud secrets versions add` — never through tfvars,
   git, chat or CI logs. `version_destroy_ttl` keeps destroyed versions recoverable for 7 days.
 - **Who**: runtime service accounts get access to exactly the secrets they need
-  (`api-run`: db-password, redis-url, service-token, stripe-*; `ml-run`: service-token). No
+  (`api-run`: db-password, service-token, location-jitter-secret, analytics-actor-salt, ads-token-secret, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
   project-wide `secretmanager.secretAccessor`.
 - **CI/CD**: GitHub Actions authenticates with **Workload Identity Federation** (OIDC) to the
   `github-deployer` SA; the provider trusts only `assertion.repository == "<owner/repo>"` (and
@@ -130,8 +130,14 @@ the moderation queue.
 
 - Roles `MODERATOR`, `ADMIN`, `SUPER_ADMIN` must enrol a second factor (TOTP preferred, SMS
   fallback) in Identity Platform. Enrolment is enforced at first privileged login in the web
-  app; the API rejects privileged routes when the ID token lacks the `firebase.sign_in_second_factor`
-  claim or when the second factor is older than 12 hours (`auth_time` check) -> `403 MFA_REQUIRED`.
+  app; the API rejects privileged routes when the ID token lacks a non-blank
+  `firebase.sign_in_second_factor` claim -> `403 MFA_REQUIRED` (`AdminAuthorizationManager`,
+  `orenji.security.admin.require-mfa`). **Actual values per profile (2026-10-05):** `true` in the
+  base document and therefore in `dev`, `staging` and `prod` (no override), `false` only under
+  `local` and `test` (`AdminMfaIT` re-enables it); a JVM started without a profile runs as `local`.
+  The code does **not** yet check how recent the second factor is (`auth_time` is parsed but
+  not compared); a freshness window is a hardening follow-up. Details and the per-account
+  checklist: `owner-account-security-checklist.md`.
 - `/admin` routes on `www` are additionally protected by Cloudflare rules (optional geo
   challenge) and admin actions are written to `audit_log` with actor, target, before/after and
   `requestId`.
@@ -173,7 +179,12 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
   `AnalyticsEvent`.
 - Data subject requests (Quebec Law 25 / PIPEDA): export and deletion are admin actions with
   audit entries; deletion completes within 30 days and cascades to media, messages (anonymised
-  for the counterpart), analytics (hash unlinkable).
+  for the counterpart), analytics (hash unlinkable). Collectors can also export and delete
+  themselves (Settings → Account), as the Privacy Policy explains in English and in French.
+- Consent evidence: `user_consent` keeps, per collector, the document type, the version, the
+  language the text was shown in (`en` / `fr`, V104), the timestamp, a salted hash of the IP and
+  the user agent, plus an audit row; the 18+ attestation is one of these consents. Rows survive
+  account deletion (the account is anonymised instead).
 
 ## 10. Incident contact
 
@@ -182,11 +193,23 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
 | Security owner | `security@orenjitrade.com` (placeholder, to be created) | Receives vulnerability reports; publish in `/.well-known/security.txt` on `www` with `Expires` and PGP key |
 | On-call engineer | Cloud Monitoring email channel (`alert_email` Terraform variable) | Phase 14: PagerDuty/Opsgenie integration |
 | Cloudflare / Google Cloud support | Dashboard support tickets | Enterprise support not yet purchased |
-| Privacy officer (Law 25) | `privacy@orenjitrade.com` (placeholder) | Named in the privacy policy; handles data subject requests |
+| Privacy officer (Law 25) | `privacy@orenjitrade.com` (placeholder) | Named in the Privacy Policy as "Privacy Officer / Responsable de la protection des renseignements personnels" (name, title and postal address are `[to confirm]` placeholders in both languages); handles data subject requests within 30 days and complaints, and the confidentiality-incident notifications to the Commission d'accès à l'information |
 
 Report handling: acknowledge within 2 business days, triage within 5, fix per the SLA above,
 credit the reporter if they wish. Follow `docs/deployment/runbooks.md` section 8 for the
-incident process.
+incident process and section 11 below for the Law 25 duties.
+
+## 11. Operating documents (Quebec Law 25, incidents, authorities, owner accounts)
+
+Added for the launch (2026-10-05); drafts by engineering pending the lawyer's review, like the
+legal texts they implement. They never claim compliance.
+
+| Document | Purpose |
+| --- | --- |
+| [`confidentiality-incident-register.md`](confidentiality-incident-register.md) | Register template (date, description, data and people affected, risk-of-serious-injury assessment, notifications, measures) and the response procedure: contain, assess, notify the Commission d'accès à l'information and the people concerned when there is a risk of serious injury, record every incident even when not notified |
+| [`law-enforcement-requests.md`](law-enforcement-requests.md) | Requests from police, courts and other authorities: release data only on valid legal process (except a documented emergency involving a risk to life), verify, disclose the minimum, keep precise locations out unless specifically compelled, log every request |
+| [`owner-account-security-checklist.md`](owner-account-security-checklist.md) | Two-factor sign-in on the Google / Firebase, GitHub, Cloudflare (and registrar), Stripe and mailbox accounts; the actual `orenji.security.admin.require-mfa` value per Spring profile; the Terraform profile-name finding |
+| `docs/deployment/runbooks.md` section 12 | Launch configuration: every money feature flag off, why, how to change it in `/admin`, and the V105 handling of the V010 defaults |
 
 ## Code scanning availability
 

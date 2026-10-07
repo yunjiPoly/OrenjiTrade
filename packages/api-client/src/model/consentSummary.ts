@@ -16,6 +16,10 @@ export interface ConsentSummary {
     documentType: ConsentSummaryDocumentTypeEnum;
     version: string;
     acceptedAt: string;
+    /**
+     * Language of the text shown when the consent was given
+     */
+    language?: ConsentSummaryLanguageEnum;
 }
 export enum ConsentSummaryDocumentTypeEnum {
     Terms = 'TERMS',
@@ -25,7 +29,12 @@ export enum ConsentSummaryDocumentTypeEnum {
     PaymentProtection = 'PAYMENT_PROTECTION',
     RefundDispute = 'REFUND_DISPUTE',
     Cookies = 'COOKIES',
-    AcceptableUse = 'ACCEPTABLE_USE'
+    AcceptableUse = 'ACCEPTABLE_USE',
+    AgeConfirmation = 'AGE_CONFIRMATION'
+};
+export enum ConsentSummaryLanguageEnum {
+    En = 'en',
+    Fr = 'fr'
 };
 
 
