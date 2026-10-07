@@ -71,22 +71,24 @@ beforeEach(() => {
 describe('Rate a collector', () => {
   it('needs an overall score, then publishes the rating with the chosen details', async () => {
     const api = mockApi(routes());
-    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(screen.getByTestId('rate-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('rate-interaction-line')).toHaveTextContent(/Completed trade/);
-    fireEvent.press(screen.getByTestId('rate-submit'));
+    await fireEvent.press(screen.getByTestId('rate-submit'));
     expect(await screen.findByTestId('rate-overall-error')).toHaveTextContent(
       'Choose an overall score from 1 to 5 stars.'
     );
     expect(api.callsTo('POST /api/v1/ratings')).toHaveLength(0);
-    fireEvent.press(screen.getByTestId('rate-overall-5'));
+    await fireEvent.press(screen.getByTestId('rate-overall-5'));
     expect(screen.getByTestId('rate-overall-5')).toBeChecked();
     expect(screen.getByTestId('rate-overall-4')).not.toBeChecked();
-    fireEvent.press(screen.getByTestId('rate-communication-4'));
-    fireEvent.press(screen.getByTestId('rate-shipping-2'));
-    fireEvent.press(screen.getByTestId('rate-shipping-clear'));
-    fireEvent.changeText(screen.getByTestId('rate-comment'), ' Smooth meetup. ');
-    fireEvent.press(screen.getByTestId('rate-submit'));
+    await fireEvent.press(screen.getByTestId('rate-communication-4'));
+    await fireEvent.press(screen.getByTestId('rate-shipping-2'));
+    await fireEvent.press(screen.getByTestId('rate-shipping-clear'));
+    await fireEvent.changeText(screen.getByTestId('rate-comment'), ' Smooth meetup. ');
+    await fireEvent.press(screen.getByTestId('rate-submit'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/ratings')[0]?.body).toEqual({
       interactionId: '00000000-0000-4000-9e00-000000000001',
@@ -123,12 +125,12 @@ describe('Rate a collector', () => {
         'POST /api/v1/ratings': problem(409, 'ALREADY_RATED', 'Already rated'),
       })
     );
-    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    await renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rate-interaction')).toBeOnTheScreen();
     expect(screen.getByText('Which interaction are you rating?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('rate-interaction-i-chat'));
-    fireEvent.press(screen.getByTestId('rate-overall-3'));
-    fireEvent.press(screen.getByTestId('rate-submit'));
+    await fireEvent.press(screen.getByTestId('rate-interaction-i-chat'));
+    await fireEvent.press(screen.getByTestId('rate-overall-3'));
+    await fireEvent.press(screen.getByTestId('rate-submit'));
     expect(await screen.findByTestId('rating-error')).toHaveTextContent(
       /You already rated this interaction/
     );
@@ -153,7 +155,7 @@ describe('Rate a collector', () => {
         ),
       })
     );
-    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    await renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rate-not-eligible')).toHaveTextContent(
       /You cannot rate Noé Verdun now/
     );
@@ -166,13 +168,13 @@ describe('Rate a collector', () => {
         'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture({ items: [OWN_RATING] })),
       })
     );
-    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    await renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rate-interaction-line')).toHaveTextContent(
       /Conversation · editable until/
     );
     expect(screen.getByTestId('rate-comment').props.value).toBe('Friendly.');
-    fireEvent.press(screen.getByTestId('rate-overall-2'));
-    fireEvent.press(screen.getByTestId('rate-submit'));
+    await fireEvent.press(screen.getByTestId('rate-overall-2'));
+    await fireEvent.press(screen.getByTestId('rate-submit'));
     await waitFor(() => expect(api.callsTo('PUT /api/v1/ratings/{id}')).toHaveLength(1));
     expect(api.callsTo('PUT /api/v1/ratings/{id}')[0]?.body).toEqual({
       overall: 2,
@@ -204,18 +206,18 @@ describe('Write a reference', () => {
         ],
       })
     );
-    renderWithProviders(<WriteReferenceScreen />, { port: port() });
-    fireEvent.press(screen.getByTestId('reference-submit'));
+    await renderWithProviders(<WriteReferenceScreen />, { port: port() });
+    await fireEvent.press(screen.getByTestId('reference-submit'));
     expect(await screen.findByText('Write a few words first.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('reference-body'), 'x'.repeat(401));
+    await fireEvent.changeText(screen.getByTestId('reference-body'), 'x'.repeat(401));
     expect(screen.getByText('Keep it under 400 characters.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('reference-body'), 'A zorblax trader');
-    fireEvent.press(screen.getByTestId('reference-submit'));
+    await fireEvent.changeText(screen.getByTestId('reference-body'), 'A zorblax trader');
+    await fireEvent.press(screen.getByTestId('reference-submit'));
     expect(await screen.findByTestId('reference-error')).toHaveTextContent(
       /Your text breaks the community guidelines\. Please rephrase it\./
     );
-    fireEvent.changeText(screen.getByTestId('reference-body'), 'Great trader');
-    fireEvent.press(screen.getByTestId('reference-submit'));
+    await fireEvent.changeText(screen.getByTestId('reference-body'), 'Great trader');
+    await fireEvent.press(screen.getByTestId('reference-submit'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/references').at(-1)?.body).toEqual({
       subjectId: OTHER_ID,
@@ -231,13 +233,13 @@ describe('Ratings section of a profile', () => {
 
   it('offers to rate and to write a reference after an interaction', async () => {
     mockApi(routes());
-    renderWithProviders(<CollectorScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('collector-rate'));
+    await renderWithProviders(<CollectorScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('collector-rate'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
       params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun' },
     });
-    fireEvent.press(await screen.findByTestId('collector-write-reference'));
+    await fireEvent.press(await screen.findByTestId('collector-write-reference'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/reference',
       params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun' },
@@ -276,7 +278,7 @@ describe('Ratings section of a profile', () => {
         ),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rating-hint')).toHaveTextContent(
       /You already rated your interactions with Noé Verdun/
     );
@@ -286,7 +288,7 @@ describe('Ratings section of a profile', () => {
     expect(screen.getByTestId(`rating-criteria-${RATING_ID}`)).toHaveTextContent(
       'Communication 5★ · Shipping 3★'
     );
-    fireEvent.press(screen.getByTestId(`rating-edit-${RATING_ID}`));
+    await fireEvent.press(screen.getByTestId(`rating-edit-${RATING_ID}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
       params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun', rating: RATING_ID },
@@ -301,7 +303,7 @@ describe('Ratings section of a profile', () => {
         ),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    await renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rating-hint')).toHaveTextContent(
       /You can rate Noé Verdun after a completed trade/
     );

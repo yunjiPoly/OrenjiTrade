@@ -68,8 +68,10 @@ function sentMessage(overrides: Parameters<typeof messageFixture>[0] = {}) {
 describe('Conversation', () => {
   it('loads the messages, names the other collector and marks the thread read', async () => {
     const api = mockApi(routes());
-    render();
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('conversation-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
     expect(await screen.findByTestId('conversation-profile')).toHaveTextContent(/Noé Verdun/);
     expect(screen.getByTestId('conversation-status')).toHaveTextContent('@collector2');
@@ -81,7 +83,7 @@ describe('Conversation', () => {
         lastReadMessageId: messageFixture().id,
       })
     );
-    fireEvent.press(screen.getByTestId('conversation-profile'));
+    await fireEvent.press(screen.getByTestId('conversation-profile'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'collector2' },
@@ -95,13 +97,13 @@ describe('Conversation', () => {
         'POST /api/v1/conversations/{id}/messages': ok(sentMessage(), 201),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('conversation-empty')).toHaveTextContent(
       /Say hello to Noé Verdun/
     );
     expect(screen.getByTestId('conversation-send')).toBeDisabled();
-    fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! Saturday at the café?  ');
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! Saturday at the café?  ');
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByText('Yes! Saturday at the café?')).toBeOnTheScreen();
     expect(screen.getByTestId('receipt-sent')).toHaveTextContent('Sent');
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
@@ -145,16 +147,16 @@ describe('Conversation', () => {
         ),
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-share-card'));
-    fireEvent.changeText(await screen.findByTestId('card-picker-input'), 'Azure');
-    fireEvent.press(await screen.findByTestId('suggestion-CARD-AZR-EN001'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-share-card'));
+    await fireEvent.changeText(await screen.findByTestId('card-picker-input'), 'Azure');
+    await fireEvent.press(await screen.findByTestId('suggestion-CARD-AZR-EN001'));
     expect(await screen.findByTestId('composer-attachment')).toHaveTextContent(
       /Azure-Eyes Sky Dragon/
     );
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByTestId('shared-card-link')).toBeOnTheScreen();
     const body = api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body as Record<
       string,
@@ -164,7 +166,7 @@ describe('Conversation', () => {
     expect(typeof body.cardPrintingId).toBe('string');
     expect(screen.queryByTestId('composer-attachment')).toBeNull();
     // The link opens the card with the shared printing.
-    fireEvent.press(screen.getByTestId('shared-card-link'));
+    await fireEvent.press(screen.getByTestId('shared-card-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: CARD_ID, printing: PRINTING_A },
@@ -188,14 +190,14 @@ describe('Conversation', () => {
         ),
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-share-binder'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-share-binder'));
     expect(await screen.findByText('Trade binder')).toBeOnTheScreen();
     expect(screen.queryByText('Private stash')).toBeNull();
-    fireEvent.press(screen.getByText('Trade binder'));
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.press(screen.getByText('Trade binder'));
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByTestId('shared-binder-link')).toHaveTextContent(/by @maika/);
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
       kind: 'BINDER_LINK',
@@ -248,14 +250,14 @@ describe('Conversation', () => {
         ),
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-attach-photo'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-attach-photo'));
     expect(await screen.findByTestId('composer-attachment')).toHaveTextContent(/photo\.jpg/);
     expect(screen.getByTestId('composer-attachment')).toHaveTextContent(/117 KB/);
-    fireEvent.changeText(screen.getByLabelText('Message'), 'The card');
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.changeText(screen.getByLabelText('Message'), 'The card');
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
         kind: 'IMAGE',
@@ -270,11 +272,11 @@ describe('Conversation', () => {
 
   it('refuses unsupported or too large photos, and explains a denied permission', async () => {
     mockApi(routes());
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-attach-photo'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-attach-photo'));
     expect(await screen.findByText('Allow access to your photos to attach one.')).toBeOnTheScreen();
 
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
@@ -284,8 +286,8 @@ describe('Conversation', () => {
         { uri: 'file:///a.gif', mimeType: 'image/gif', fileName: 'a.gif', width: 1, height: 1 },
       ],
     } as never);
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-attach-photo'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-attach-photo'));
     expect(await screen.findByText('Use a JPEG, PNG or WebP photo.')).toBeOnTheScreen();
 
     picker.launchImageLibraryAsync.mockResolvedValue({
@@ -301,8 +303,8 @@ describe('Conversation', () => {
         },
       ],
     } as never);
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-attach-photo'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-attach-photo'));
     expect(await screen.findByText('Choose a photo up to 8 MB.')).toBeOnTheScreen();
     expect(screen.queryByTestId('composer-attachment')).toBeNull();
   });
@@ -317,19 +319,19 @@ describe('Conversation', () => {
         ],
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.changeText(screen.getByLabelText('Message'), 'Something');
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.changeText(screen.getByLabelText('Message'), 'Something');
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByTestId('conversation-send-error')).toHaveTextContent(
       /breaks the community guidelines/
     );
     expect(screen.getByLabelText('Message').props.value).toBe('Something');
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByTestId('conversation-send-error')).toHaveTextContent(
       'You are sending messages too quickly. Try again in 42 seconds.'
     );
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByTestId('conversation-cannot-message')).toHaveTextContent(
       /You can no longer message Noé Verdun\./
     );
@@ -388,20 +390,20 @@ describe('Conversation', () => {
         ),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('offer-link-card')).toHaveTextContent(/Open/);
     expect(screen.getByText('Noé countered the offer.')).toBeOnTheScreen();
     expect(screen.getByText('This message was removed by moderation.')).toBeOnTheScreen();
     // A photo outside the API's media routes is never loaded.
     expect(screen.getByTestId('message-photo-unavailable')).toBeOnTheScreen();
     expect(screen.getByTestId('shared-binder-link')).toHaveTextContent(/Trade binder/);
-    fireEvent.press(screen.getByTestId('shared-binder-link'));
+    await fireEvent.press(screen.getByTestId('shared-binder-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: BINDER_ID },
     });
     // An offer link opens the offer.
-    fireEvent.press(screen.getByTestId('offer-link-card'));
+    await fireEvent.press(screen.getByTestId('offer-link-card'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/[id]',
       params: { id: 'o1' },
@@ -419,12 +421,12 @@ describe('Conversation', () => {
           ),
         })
       );
-      render(rt);
+      await render(rt);
       expect(await screen.findByText('Yes! Saturday at the café?')).toBeOnTheScreen();
       await waitFor(() => expect(rt.client.state).toBe('connected'));
       const session = rt.current();
 
-      act(() =>
+      await act(() =>
         session.push('/user/queue/typing', { conversationId: CONVERSATION_ID, userId: OTHER_ID })
       );
       expect(await screen.findByTestId('typing-indicator')).toHaveTextContent(
@@ -432,7 +434,7 @@ describe('Conversation', () => {
       );
       expect(screen.getByTestId('conversation-status')).toHaveTextContent('typing…');
 
-      act(() =>
+      await act(() =>
         session.push('/user/queue/receipts', {
           conversationId: CONVERSATION_ID,
           userId: OTHER_ID,
@@ -442,7 +444,7 @@ describe('Conversation', () => {
       );
       expect(await screen.findByTestId('receipt-seen')).toHaveTextContent('Seen');
 
-      act(() =>
+      await act(() =>
         session.push(
           '/user/queue/messages',
           messageFixture({
@@ -461,8 +463,8 @@ describe('Conversation', () => {
       );
 
       // Typing notices of the caller are throttled to one every few seconds.
-      fireEvent.changeText(screen.getByLabelText('Message'), 'O');
-      fireEvent.changeText(screen.getByLabelText('Message'), 'Ok');
+      await fireEvent.changeText(screen.getByLabelText('Message'), 'O');
+      await fireEvent.changeText(screen.getByLabelText('Message'), 'Ok');
       expect(session.sent).toEqual([
         { destination: '/app/typing', body: JSON.stringify({ conversationId: CONVERSATION_ID }) },
       ]);
@@ -478,16 +480,16 @@ describe('Conversation', () => {
           ok(conversationFixture({ ...(request.body as object) })),
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('conversation-menu'));
-    fireEvent.press(await screen.findByTestId('conversation-mute'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(await screen.findByTestId('conversation-mute'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Conversation muted.');
     expect(api.callsTo('PATCH /api/v1/conversations/{id}')[0]?.body).toEqual({ muted: true });
     expect(await screen.findByTestId('conversation-status')).toHaveTextContent(/Muted/);
 
-    fireEvent.press(screen.getByTestId('conversation-menu'));
-    fireEvent.press(await screen.findByTestId('conversation-archive'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(await screen.findByTestId('conversation-archive'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('PATCH /api/v1/conversations/{id}')[1]?.body).toEqual({ archived: true });
   });
@@ -508,16 +510,16 @@ describe('Conversation', () => {
         }),
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('conversation-menu'));
-    fireEvent.press(await screen.findByTestId('conversation-rate'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(await screen.findByTestId('conversation-rate'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
       params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun' },
     });
-    fireEvent.press(screen.getByTestId('conversation-menu'));
-    fireEvent.press(await screen.findByTestId('conversation-report'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(await screen.findByTestId('conversation-report'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/report',
       params: {
@@ -532,9 +534,9 @@ describe('Conversation', () => {
 
   it('offers no rating without an eligible interaction (silently)', async () => {
     mockApi(routes({ 'GET /api/v1/ratings/eligibility': problem(500, 'INTERNAL_ERROR', 'Boom') }));
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
     expect(await screen.findByTestId('conversation-report')).toBeOnTheScreen();
     expect(screen.queryByTestId('conversation-rate')).not.toBeOnTheScreen();
   });
@@ -581,19 +583,19 @@ describe('Conversation', () => {
         ),
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-share-offer'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-share-offer'));
     expect(await screen.findByTestId('offer-link-picker-empty')).toHaveTextContent(
       /No offer with Noé Verdun yet/
     );
-    fireEvent.press(screen.getByTestId('link-picker-cancel'));
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-share-offer'));
-    fireEvent.press(await screen.findByTestId('offer-option-o-shared'));
+    await fireEvent.press(screen.getByTestId('link-picker-cancel'));
+    await fireEvent.press(screen.getByTestId('composer-attach'));
+    await fireEvent.press(await screen.findByTestId('composer-share-offer'));
+    await fireEvent.press(await screen.findByTestId('offer-option-o-shared'));
     expect(screen.getByTestId('composer-attachment')).toHaveTextContent(/Offer.*\$40\.00/);
-    fireEvent.press(screen.getByTestId('conversation-send'));
+    await fireEvent.press(screen.getByTestId('conversation-send'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
         kind: 'OFFER_LINK',
@@ -615,18 +617,18 @@ describe('Conversation', () => {
         'DELETE /api/v1/users/{id}/block': noContent,
       })
     );
-    render();
+    await render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
-    fireEvent.press(screen.getByTestId('conversation-menu'));
-    fireEvent.press(await screen.findByTestId('conversation-block'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(await screen.findByTestId('conversation-block'));
     const dialog = await screen.findByTestId('block-dialog');
     expect(dialog).toHaveTextContent(/Block Noé Verdun\?/);
-    fireEvent.press(within(dialog).getByTestId('block-dialog-cancel'));
+    await fireEvent.press(within(dialog).getByTestId('block-dialog-cancel'));
     expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(0);
 
-    fireEvent.press(screen.getByTestId('conversation-menu'));
-    fireEvent.press(await screen.findByTestId('conversation-block'));
-    fireEvent.press(await screen.findByTestId('block-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('conversation-menu'));
+    await fireEvent.press(await screen.findByTestId('conversation-block'));
+    await fireEvent.press(await screen.findByTestId('block-dialog-confirm'));
     expect(await screen.findByTestId('conversation-blocked-banner')).toHaveTextContent(
       /You blocked Noé Verdun/
     );
@@ -636,7 +638,7 @@ describe('Conversation', () => {
     expect(screen.getByTestId('conversation-status')).toHaveTextContent('Blocked');
     expect(screen.getByLabelText('Message').props.editable).toBe(false);
 
-    fireEvent.press(screen.getByTestId('conversation-banner-unblock'));
+    await fireEvent.press(screen.getByTestId('conversation-banner-unblock'));
     await waitFor(() =>
       expect(screen.queryByTestId('conversation-blocked-banner')).not.toBeOnTheScreen()
     );
@@ -653,11 +655,11 @@ describe('Conversation', () => {
         'GET /api/v1/conversations/{id}/messages': problem(404, 'NOT_FOUND', 'Not found'),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('conversation-not-found')).toHaveTextContent(
       /This conversation is not available/
     );
-    fireEvent.press(screen.getByText('Back to messages'));
+    await fireEvent.press(screen.getByText('Back to messages'));
     expect(mockRouter.navigate).toHaveBeenCalledWith('/messages');
   });
 
@@ -670,9 +672,9 @@ describe('Conversation', () => {
         ],
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('conversation-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
   });
 });

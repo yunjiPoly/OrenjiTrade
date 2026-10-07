@@ -74,7 +74,7 @@ describe('catalog hooks', () => {
       })
     );
     const { wrapper } = setup();
-    const { result } = renderHook(
+    const { result } = await renderHook(
       () => useCardSearch({ ...EMPTY_CARD_SEARCH, q: 'fox', game: 'pokemon', set: 'SVX' }),
       { wrapper }
     );
@@ -115,19 +115,21 @@ describe('catalog hooks', () => {
       })
     );
     const { wrapper } = setup();
-    const short = renderHook(() => useCardSuggestions('f'), { wrapper });
+    const short = await renderHook(() => useCardSuggestions('f'), { wrapper });
     expect(short.result.current.fetchStatus).toBe('idle');
-    const suggest = renderHook(() => useCardSuggestions('fox'), { wrapper });
+    const suggest = await renderHook(() => useCardSuggestions('fox'), { wrapper });
     await waitFor(() => expect(suggest.result.current.data).toHaveLength(1));
     expect(api.callsTo('GET /api/v1/cards/suggest')[0]?.query.get('q')).toBe('fox');
 
-    const card = renderHook(() => useCard('card-1'), { wrapper });
+    const card = await renderHook(() => useCard('card-1'), { wrapper });
     await waitFor(() => expect(card.result.current.data?.name).toBe('Emberfang Fox VMAX'));
 
-    const sets = renderHook(() => useSets('pokemon'), { wrapper });
+    const sets = await renderHook(() => useSets('pokemon'), { wrapper });
     await waitFor(() => expect(sets.result.current.data).toEqual(SETS));
     expect(api.callsTo('GET /api/v1/sets')[0]?.query.get('size')).toBe('100');
-    expect(renderHook(() => useSets(null), { wrapper }).result.current.fetchStatus).toBe('idle');
+    expect((await renderHook(() => useSets(null), { wrapper })).result.current.fetchStatus).toBe(
+      'idle'
+    );
   });
 });
 
@@ -135,7 +137,7 @@ describe('inventory hooks', () => {
   it('lists items for the filters and shows an item from the list at once', async () => {
     const api = mockApi(signedInRoutes());
     const { wrapper } = setup();
-    const list = renderHook(
+    const list = await renderHook(
       () => useInventoryItems({ ...DEFAULT_INVENTORY_FILTERS, binder: 'unfiled', sort: 'name' }),
       { wrapper }
     );
@@ -151,7 +153,7 @@ describe('inventory hooks', () => {
       'GET /api/v1/inventory/items/{id}': () =>
         new Promise((resolve) => setTimeout(() => resolve(ok(itemFixture({ quantity: 9 }))), 50)),
     });
-    const item = renderHook(() => useInventoryItem(ITEM_ID), { wrapper });
+    const item = await renderHook(() => useInventoryItem(ITEM_ID), { wrapper });
     // Placeholder from the cached list while the item itself loads, then the item.
     expect(item.result.current.data?.quantity).toBe(2);
     expect(item.result.current.isPlaceholderData).toBe(true);
@@ -167,10 +169,10 @@ describe('inventory hooks', () => {
       })
     );
     const { wrapper, queryClient } = setup();
-    const binders = renderHook(() => useMyBinders(), { wrapper });
+    const binders = await renderHook(() => useMyBinders(), { wrapper });
     await waitFor(() => expect(binders.result.current.data).toHaveLength(1));
 
-    const create = renderHook(() => useCreateInventoryItem(), { wrapper });
+    const create = await renderHook(() => useCreateInventoryItem(), { wrapper });
     await act(async () => {
       await create.result.current.mutateAsync({ printingId: 'p-1', quantity: 1 });
     });
@@ -181,7 +183,7 @@ describe('inventory hooks', () => {
     // The binder list was refreshed (item counts change).
     await waitFor(() => expect(api.callsTo('GET /api/v1/binders')).toHaveLength(2));
 
-    const remove = renderHook(() => useDeleteInventoryItem(), { wrapper });
+    const remove = await renderHook(() => useDeleteInventoryItem(), { wrapper });
     queryClient.setQueryData(meKeys.inventoryItem('uid-maika', ITEM_ID), itemFixture());
     await act(async () => {
       await remove.result.current.mutateAsync(ITEM_ID);
@@ -192,7 +194,7 @@ describe('inventory hooks', () => {
     // The deleted item is not refetched (it would answer 404 while its screen closes).
     expect(api.callsTo('GET /api/v1/inventory/items/{id}')).toHaveLength(0);
 
-    const bulk = renderHook(() => useBulkInventory(), { wrapper });
+    const bulk = await renderHook(() => useBulkInventory(), { wrapper });
     await act(async () => {
       await bulk.result.current.mutateAsync({
         action: 'MOVE_TO_BINDER',
@@ -223,7 +225,7 @@ describe('inventory hooks', () => {
     await renderHook(() => useMyBinders(), { wrapper }); // signs the session in
     await waitFor(() => expect(api.callsTo('GET /api/v1/binders')).toHaveLength(1));
     expect(await staleItemIds()).toEqual(['stale-1', 'hidden-1']);
-    const confirmAll = renderHook(() => useConfirmAllStale(), { wrapper });
+    const confirmAll = await renderHook(() => useConfirmAllStale(), { wrapper });
     await act(async () => {
       await confirmAll.result.current.mutateAsync();
     });
@@ -240,7 +242,7 @@ describe('inventory hooks', () => {
       })
     );
     const { wrapper, queryClient } = setup();
-    const resume = renderHook(() => useResumeListings(), { wrapper });
+    const resume = await renderHook(() => useResumeListings(), { wrapper });
     await act(async () => {
       await resume.result.current.mutateAsync();
     });
@@ -263,16 +265,16 @@ describe('binder hooks', () => {
       })
     );
     const { wrapper, queryClient } = setup();
-    const binders = renderHook(() => useMyBinders(), { wrapper });
+    const binders = await renderHook(() => useMyBinders(), { wrapper });
     await waitFor(() => expect(binders.result.current.data).toHaveLength(1));
 
-    const create = renderHook(() => useCreateBinder(), { wrapper });
+    const create = await renderHook(() => useCreateBinder(), { wrapper });
     await act(async () => {
       await create.result.current.mutateAsync({ name: 'New', kind: 'TRADE' });
     });
     expect(api.callsTo('POST /api/v1/binders')[0]?.body).toEqual({ name: 'New', kind: 'TRADE' });
 
-    const publish = renderHook(() => usePublishBinder(), { wrapper });
+    const publish = await renderHook(() => usePublishBinder(), { wrapper });
     await act(async () => {
       await publish.result.current.mutateAsync({ id: BINDER_ID, mode: 'ONE_DAY' });
     });
@@ -281,11 +283,11 @@ describe('binder hooks', () => {
       visibility: 'PUBLIC',
     });
 
-    const items = renderHook(() => useBinderItems(BINDER_ID, ' fox '), { wrapper });
+    const items = await renderHook(() => useBinderItems(BINDER_ID, ' fox '), { wrapper });
     await waitFor(() => expect(items.result.current.data?.pages[0]?.items).toHaveLength(1));
     expect(api.callsTo('GET /api/v1/binders/{id}/items')[0]?.query.get('query')).toBe('fox');
 
-    const remove = renderHook(() => useDeleteBinder(), { wrapper });
+    const remove = await renderHook(() => useDeleteBinder(), { wrapper });
     const before = api.callsTo('GET /api/v1/binders/{id}/items').length;
     await act(async () => {
       await remove.result.current.mutateAsync(BINDER_ID);
@@ -309,12 +311,12 @@ describe('binder hooks', () => {
       })
     );
     const { wrapper } = setup();
-    const binder = renderHook(() => usePublicBinder(BINDER_ID), { wrapper });
+    const binder = await renderHook(() => usePublicBinder(BINDER_ID), { wrapper });
     await waitFor(() => expect(binder.result.current.data?.owner.handle).toBe('collector1'));
     expect(api.callsTo('GET /api/v1/public/binders/{id}')[0]?.headers.get('Authorization')).toMatch(
       /^Bearer /
     );
-    const items = renderHook(
+    const items = await renderHook(
       () => usePublicBinderItems(BINDER_ID, { q: '', availability: 'SALE', game: null }),
       { wrapper }
     );

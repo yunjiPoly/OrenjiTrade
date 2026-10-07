@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 
 import type * as Leaflet from 'leaflet';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ViewInstance } from 'react-native';
 
 import { OSM_ATTRIBUTION, OSM_TILE_URL } from '@/src/components/map/leaflet/leafletShared';
 import {
@@ -56,7 +56,7 @@ export function CollectorMap({
   testID = 'collector-map',
 }: CollectorMapComponentProps) {
   const { palette } = useTheme();
-  const hostRef = useRef<View>(null);
+  const hostRef = useRef<ViewInstance>(null);
   const leafletRef = useRef<LeafletState | null>(null);
   const [state, setState] = useState<CollectorMapState>('loading');
   const [attempt, setAttempt] = useState(0);

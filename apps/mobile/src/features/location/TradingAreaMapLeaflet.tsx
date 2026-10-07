@@ -37,7 +37,9 @@ export function TradingAreaMapLeaflet({
   testID = 'trading-area-map',
 }: TradingAreaMapProps) {
   const { palette } = useTheme();
-  const webRef = useRef<WebView>(null);
+  // react-native-webview 14 declares `class WebView<P = undefined>` with `WebViewProps & P` props,
+  // so the default makes them `never`; `WebView<object>` is the plain WebView.
+  const webRef = useRef<WebView<object>>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<MapLoadState>('loading');
 
@@ -118,7 +120,7 @@ export function TradingAreaMapLeaflet({
     >
       {/* The wrapper carries the test id: a stable tap target for the Maestro flows. */}
       <View style={StyleSheet.absoluteFill} testID={testID} collapsable={false}>
-        <WebView
+        <WebView<object>
           key={page.attempt}
           ref={webRef}
           testID={`${testID}-webview`}

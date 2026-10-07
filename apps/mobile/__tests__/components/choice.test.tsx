@@ -11,9 +11,9 @@ function themed(ui: React.ReactElement) {
 }
 
 describe('choice controls', () => {
-  it('ChoiceChips is a radio group with one checked chip', () => {
+  it('ChoiceChips is a radio group with one checked chip', async () => {
     const onChange = jest.fn();
-    themed(
+    await themed(
       <ChoiceChips
         label="Condition"
         options={[
@@ -29,14 +29,14 @@ describe('choice controls', () => {
     expect(screen.getByTestId('condition').props.accessibilityRole).toBe('radiogroup');
     expect(screen.getByRole('radio', { name: 'Near Mint' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Lightly Played' })).not.toBeChecked();
-    fireEvent.press(screen.getByTestId('condition-LP'));
+    await fireEvent.press(screen.getByTestId('condition-LP'));
     expect(onChange).toHaveBeenCalledWith('LP');
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a condition.');
   });
 
-  it('SelectSheet opens its options and reports a new choice', () => {
+  it('SelectSheet opens its options and reports a new choice', async () => {
     const onChange = jest.fn();
-    themed(
+    await themed(
       <SelectSheet
         label="Sort"
         options={[
@@ -48,18 +48,18 @@ describe('choice controls', () => {
         testID="sort"
       />
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Sort: Recently updated' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sort: Recently updated' }));
     expect(screen.getByText('Alphabetical')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('sort-option-updated'));
+    await fireEvent.press(screen.getByTestId('sort-option-updated'));
     expect(onChange).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByTestId('sort'));
-    fireEvent.press(screen.getByTestId('sort-option-name'));
+    await fireEvent.press(screen.getByTestId('sort'));
+    await fireEvent.press(screen.getByTestId('sort-option-name'));
     expect(onChange).toHaveBeenCalledWith('name');
   });
 
-  it('Segmented switches views', () => {
+  it('Segmented switches views', async () => {
     const onChange = jest.fn();
-    themed(
+    await themed(
       <Segmented
         label="View"
         options={[
@@ -72,20 +72,20 @@ describe('choice controls', () => {
       />
     );
     expect(screen.getByRole('tab', { name: 'Cards' })).toBeSelected();
-    fireEvent.press(screen.getByTestId('view-binders'));
+    await fireEvent.press(screen.getByTestId('view-binders'));
     expect(onChange).toHaveBeenCalledWith('binders');
   });
 
-  it('ListFooter shows loading and retry', () => {
+  it('ListFooter shows loading and retry', async () => {
     const onRetry = jest.fn();
-    const { rerender } = themed(<ListFooter loading failed={false} onRetry={onRetry} />);
+    const { rerender } = await themed(<ListFooter loading failed={false} onRetry={onRetry} />);
     expect(screen.getByLabelText('Loading more')).toBeOnTheScreen();
-    rerender(
+    await rerender(
       <ThemeProvider scheme="light">
         <ListFooter loading={false} failed onRetry={onRetry} />
       </ThemeProvider>
     );
-    fireEvent.press(screen.getByTestId('list-footer-retry'));
+    await fireEvent.press(screen.getByTestId('list-footer-retry'));
     expect(onRetry).toHaveBeenCalled();
   });
 });

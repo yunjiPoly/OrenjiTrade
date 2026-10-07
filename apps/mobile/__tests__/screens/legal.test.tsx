@@ -27,7 +27,7 @@ beforeEach(() => {
 describe('Legal pages', () => {
   it('lists every document (the "Trading safely" page included) with the version the API publishes', async () => {
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    renderWithProviders(<LegalIndexScreen />);
+    await renderWithProviders(<LegalIndexScreen />);
     expect(screen.getByTestId('legal-draft-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('legal-translation-notice')).toBeNull();
     for (const document of LEGAL_DOCUMENT_LIST) {
@@ -36,7 +36,7 @@ describe('Legal pages', () => {
     expect(screen.getByTestId('legal-link-trading-safely')).toBeOnTheScreen();
     // Terms, privacy and cookies are published in the fixture.
     expect(await screen.findAllByText(/Current version 2026-09-01\./)).toHaveLength(3);
-    fireEvent.press(screen.getByRole('link', { name: 'Terms of Service' }));
+    await fireEvent.press(screen.getByRole('link', { name: 'Terms of Service' }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/legal/[key]',
       params: { key: 'terms' },
@@ -46,32 +46,32 @@ describe('Legal pages', () => {
   it('renders a document in-app with the version to accept, even when the API is down', async () => {
     mockParams.current = { key: 'terms' };
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    const { unmount } = renderWithProviders(<LegalDocumentScreen />);
+    const { unmount } = await renderWithProviders(<LegalDocumentScreen />);
     expect(screen.getByRole('header', { name: 'Terms of Service' })).toBeOnTheScreen();
     expect(await screen.findByTestId('legal-published-version')).toHaveTextContent(
       /Version to accept: 2026-09-01/
     );
-    unmount();
+    await unmount();
 
     mockApi({ 'GET /api/v1/public/legal/documents': problem(503, 'SERVICE_UNAVAILABLE', 'down') });
-    renderWithProviders(<LegalDocumentScreen />);
+    await renderWithProviders(<LegalDocumentScreen />);
     expect(screen.getByRole('header', { name: 'Terms of Service' })).toBeOnTheScreen();
     expect(screen.queryByTestId('legal-published-version')).toBeNull();
   });
 
-  it('handles an unknown document', () => {
+  it('handles an unknown document', async () => {
     mockParams.current = { key: 'nope' };
     mockApi({});
-    renderWithProviders(<LegalDocumentScreen />);
+    await renderWithProviders(<LegalDocumentScreen />);
     expect(screen.getByText('Unknown legal document')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Open legal index' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Open legal index' }));
     expect(mockRouter.replace).toHaveBeenCalledWith('/legal');
   });
 
   it('is French by default on a French device, with the draft banner and the translation marking', async () => {
     mockLocales('fr-CA');
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    renderWithProviders(<LegalIndexScreen />);
+    await renderWithProviders(<LegalIndexScreen />);
     expect(screen.getByText('Mentions légales')).toBeOnTheScreen();
     expect(screen.getByTestId('legal-draft-banner')).toHaveTextContent(
       /Ébauche — doit être révisée/
@@ -92,12 +92,12 @@ describe('Legal pages', () => {
     mockLocales('fr-CA');
     mockParams.current = { key: 'trading-safely' };
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
-    const { unmount } = renderWithProviders(<LegalDocumentScreen />);
+    const { unmount } = await renderWithProviders(<LegalDocumentScreen />);
     expect(screen.getByRole('header', { name: 'Échanger en toute sécurité' })).toBeOnTheScreen();
     expect(screen.getByText(/Date d’entrée en vigueur/)).toBeOnTheScreen();
     expect(screen.getByText('Nous joindre')).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByRole('radio', { name: 'English' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'English' }));
     expect(screen.getByRole('header', { name: 'Trading safely' })).toBeOnTheScreen();
     expect(screen.getByTestId('legal-draft-banner')).toHaveTextContent(/Draft — requires review/);
     expect(screen.queryByTestId('legal-translation-notice')).toBeNull();
@@ -107,12 +107,12 @@ describe('Legal pages', () => {
       state?: { choice?: string };
     };
     expect(stored.state?.choice).toBe('en');
-    unmount();
+    await unmount();
 
     // The explicit choice wins over the French device on the next screen.
-    renderWithProviders(<LegalIndexScreen />);
+    await renderWithProviders(<LegalIndexScreen />);
     expect(screen.getByText('Legal')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('radio', { name: 'Français' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Français' }));
     expect(screen.getByText('Mentions légales')).toBeOnTheScreen();
   });
 

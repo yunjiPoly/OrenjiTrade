@@ -30,9 +30,7 @@ const inject = () =>
 
 const webView = () => screen.getByTestId('trading-area-map-webview');
 const send = (message: unknown) =>
-  act(() => {
-    fireEvent(webView(), 'message', { nativeEvent: { data: JSON.stringify(message) } });
-  });
+  fireEvent(webView(), 'message', { nativeEvent: { data: JSON.stringify(message) } });
 /** The `apply` payloads injected so far (what the page draws). */
 const applied = () =>
   inject()
@@ -71,7 +69,7 @@ beforeEach(() => {
 
 describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', () => {
   it('loads the pinned Leaflet page and draws the chosen centre once it is ready', async () => {
-    renderWithProviders(<Harness location={locationFixture()} />, {
+    await renderWithProviders(<Harness location={locationFixture()} />, {
       port: new FakeAuthPort(testUser()),
     });
     expect(screen.getByTestId('trading-area-map-loading')).toBeOnTheScreen();
@@ -81,7 +79,7 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
     expect(webView().props.geolocationEnabled).toBe(false);
     expect(inject()).not.toHaveBeenCalled();
 
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     expect(screen.queryByTestId('trading-area-map-loading')).toBeNull();
     expect(applied()).toEqual([
       { area: { lat: 45.502, lng: -73.567, radiusKm: 10 }, disabled: false },
@@ -92,10 +90,10 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
     const api = mockApi(
       signedInRoutes({ 'PUT /api/v1/me/location/trading-area': echoTradingArea })
     );
-    renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
     await screen.findByTestId('trading-area-map-webview');
-    send({ type: 'ready' });
-    send({ type: 'pick', lat: 46.8261234, lng: -71.2345678 });
+    await send({ type: 'ready' });
+    await send({ type: 'pick', lat: 46.8261234, lng: -71.2345678 });
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: the point you chose on the map.'
     );
@@ -103,7 +101,7 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
       area: { lat: 46.826, lng: -71.235, radiusKm: 10 },
       disabled: false,
     });
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Trading area saved · Limoilou, Québec.'
     );
@@ -116,21 +114,21 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
   });
 
   it('moves the camera to a city and uses the map centre after a pan', async () => {
-    renderWithProviders(<Harness location={undefined} />, {
+    await renderWithProviders(<Harness location={undefined} />, {
       port: new FakeAuthPort(testUser()),
     });
-    send({ type: 'ready' });
-    fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
+    await send({ type: 'ready' });
+    await fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
     expect(focused().at(-1)).toEqual({ lat: 46.813, lng: -71.208, radiusKm: 15 });
     expect(applied().at(-1)).toEqual({
       area: { lat: 46.813, lng: -71.208, radiusKm: 15 },
       disabled: false,
     });
-    send({ type: 'viewport', lat: 46.8501234, lng: -71.3009876 });
+    await send({ type: 'viewport', lat: 46.8501234, lng: -71.3009876 });
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Québec city centre.'
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Use map centre' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Use map centre' }));
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: the point you chose on the map.'
     );
@@ -144,37 +142,39 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
     const device = locationFixture({
       tradingArea: { lat: 45.537, lng: -73.618, radiusKm: 3, source: 'DEVICE', label: 'Rosemont' },
     });
-    renderWithProviders(<Harness location={device} />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<Harness location={device} />, {
+      port: new FakeAuthPort(testUser()),
+    });
     const html = (webView().props.source as { html: string }).html;
     expect(html).toContain('"focus":{"lat":45.54,"lng":-73.62,"radiusKm":3}');
     expect(html).not.toContain('45.537');
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     expect(applied()).toEqual([{ area: null, disabled: false }]);
   });
 
   it('ignores picks while disabled and tells the page', async () => {
-    renderWithProviders(<Harness location={locationFixture()} disabled />, {
+    await renderWithProviders(<Harness location={locationFixture()} disabled />, {
       port: new FakeAuthPort(testUser()),
     });
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     expect(applied().at(-1)).toMatchObject({ disabled: true });
-    send({ type: 'pick', lat: 45.6, lng: -73.7 });
+    await send({ type: 'pick', lat: 45.6, lng: -73.7 });
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Montréal city centre.'
     );
   });
 
   it('ignores malformed or out-of-range messages', async () => {
-    renderWithProviders(<Harness location={locationFixture()} />, {
+    await renderWithProviders(<Harness location={locationFixture()} />, {
       port: new FakeAuthPort(testUser()),
     });
-    send({ type: 'ready' });
-    act(() => {
-      fireEvent(webView(), 'message', { nativeEvent: { data: 'not json' } });
+    await send({ type: 'ready' });
+    await act(async () => {
+      await fireEvent(webView(), 'message', { nativeEvent: { data: 'not json' } });
     });
-    send({ type: 'pick', lat: 123, lng: -73.7 });
-    send({ type: 'pick', lat: '45.6', lng: -73.7 });
-    send({ type: 'unknown' });
+    await send({ type: 'pick', lat: 123, lng: -73.7 });
+    await send({ type: 'pick', lat: '45.6', lng: -73.7 });
+    await send({ type: 'unknown' });
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Montréal city centre.'
     );
@@ -182,24 +182,24 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
 
   it('shows the error state when Leaflet cannot load, and reloads the page on retry', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    renderWithProviders(<Harness location={locationFixture()} />, {
+    await renderWithProviders(<Harness location={locationFixture()} />, {
       port: new FakeAuthPort(testUser()),
     });
-    send({ type: 'error', reason: 'leaflet' });
+    await send({ type: 'error', reason: 'leaflet' });
     const failure = screen.getByTestId('trading-area-map-error');
     expect(within(failure).getByText('The map could not load')).toBeOnTheScreen();
     // The quick picks keep working.
-    fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Laval city centre.'
     );
-    fireEvent.press(within(failure).getByRole('button', { name: 'Reload map' }));
+    await fireEvent.press(within(failure).getByRole('button', { name: 'Reload map' }));
     expect(screen.getByTestId('trading-area-map-loading')).toBeOnTheScreen();
     // The new page starts on the current centre.
     expect((webView().props.source as { html: string }).html).toContain(
       '"focus":{"lat":45.606,"lng":-73.712'
     );
-    send({ type: 'ready' });
+    await send({ type: 'ready' });
     await waitFor(() =>
       expect(screen.queryByTestId('trading-area-map-loading')).not.toBeOnTheScreen()
     );
@@ -213,11 +213,11 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
   it('gives up waiting for the page after a timeout', async () => {
     jest.useFakeTimers();
     try {
-      renderWithProviders(<Harness location={locationFixture()} />, {
+      await renderWithProviders(<Harness location={locationFixture()} />, {
         port: new FakeAuthPort(testUser()),
       });
       expect(screen.getByTestId('trading-area-map-loading')).toBeOnTheScreen();
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(MAP_READY_TIMEOUT_MS + 1);
       });
       expect(screen.getByTestId('trading-area-map-error')).toBeOnTheScreen();
@@ -229,7 +229,7 @@ describe('Trading-area picker on the Leaflet WebView map (Android in Expo Go)', 
 
 describe('WebView navigation', () => {
   it('keeps the page and opens links (the OpenStreetMap credit) in the browser', () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     expect(shouldStartLoad({ url: PAGE_BASE_URL, isTopFrame: true })).toBe(true);
     expect(shouldStartLoad({ url: 'about:blank', isTopFrame: true })).toBe(true);
     expect(

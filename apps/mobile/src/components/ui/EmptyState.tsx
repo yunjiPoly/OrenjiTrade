@@ -1,8 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 import { Button } from './Button';
 
@@ -14,7 +14,7 @@ export interface EmptyStateProps {
   icon?: IconName;
   actionLabel?: string;
   onAction?: () => void;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

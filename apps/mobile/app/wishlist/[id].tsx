@@ -167,7 +167,7 @@ export default function WishMatchesScreen() {
                 })
               }
             />
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={
           <View style={styles.footer}>

@@ -59,8 +59,10 @@ const render = () => renderWithProviders(<HoldersScreen />, { port: new FakeAuth
 describe('Card holders ("who has this near me" as a list)', () => {
   it('shows a skeleton, then the card, the count and the listings with their holders', async () => {
     const api = mockApi(routes());
-    render();
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('holders-loading')).toBeOnTheScreen();
+    release();
     await waitFor(() =>
       expect(screen.getByTestId('holders-title')).toHaveTextContent(
         'Who has Emberfang Fox VMAX near you'
@@ -96,32 +98,32 @@ describe('Card holders ("who has this near me" as a list)', () => {
 
   it('opens the holder profile, the binder, the map, the card and an offer', async () => {
     mockApi(routes());
-    render();
+    await render();
     const first = await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`);
-    fireEvent.press(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-collector`));
+    await fireEvent.press(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-collector`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'collector2' },
     });
-    fireEvent.press(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-binder`));
+    await fireEvent.press(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-binder`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: BINDER_ID, view: 'public' },
     });
-    fireEvent.press(within(first).getByRole('button', { name: /Make an offer/ }));
+    await fireEvent.press(within(first).getByRole('button', { name: /Make an offer/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/new',
       params: { item: HOLDER_ITEM_ID },
     });
     expect(offerTargetFor(HOLDER_ITEM_ID)?.seller.displayName).toBe('Noé Verdun');
-    fireEvent.press(screen.getByTestId('holders-map'));
+    await fireEvent.press(screen.getByTestId('holders-map'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
-    fireEvent.press(screen.getByTestId('holders-card'));
+    await fireEvent.press(screen.getByTestId('holders-card'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: CARD_ID },
     });
-    fireEvent.press(screen.getByTestId('holders-wishlist'));
+    await fireEvent.press(screen.getByTestId('holders-wishlist'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/wishlist/new',
       params: { cardId: CARD_ID, printingId: '' },
@@ -130,31 +132,31 @@ describe('Card holders ("who has this near me" as a list)', () => {
 
   it('applies every filter and the sort to the request, then clears them', async () => {
     const api = mockApi(routes());
-    render();
+    await render();
     await screen.findByTestId('holders-count');
     const last = () =>
       Object.fromEntries(api.callsTo('GET /api/v1/search/card-holders').at(-1)?.query ?? []);
 
-    fireEvent.press(screen.getByTestId('holders-sort'));
-    fireEvent.press(await screen.findByTestId('holders-sort-option-price'));
+    await fireEvent.press(screen.getByTestId('holders-sort'));
+    await fireEvent.press(await screen.findByTestId('holders-sort-option-price'));
     await waitFor(() => expect(last().sort).toBe('price'));
 
-    fireEvent.press(screen.getByTestId('holders-filters'));
+    await fireEvent.press(screen.getByTestId('holders-filters'));
     const sheet = await screen.findByTestId('holder-filters');
-    fireEvent.press(within(sheet).getByTestId('holder-availability-ACCEPTS_OFFERS'));
-    fireEvent.press(within(sheet).getByTestId('holder-condition-LIGHTLY_PLAYED'));
-    fireEvent.press(within(sheet).getByTestId('holder-freshness-ACTIVE'));
-    fireEvent.press(within(sheet).getByTestId('holder-edition-FIRST_EDITION'));
-    fireEvent.press(within(sheet).getByTestId('holder-language-fr'));
-    fireEvent.press(within(sheet).getByTestId('holder-accepts-offers'));
-    fireEvent.changeText(within(sheet).getByTestId('holder-min-price'), '10');
-    fireEvent.changeText(within(sheet).getByTestId('holder-max-price'), '5');
-    fireEvent(within(sheet).getByTestId('holder-max-price'), 'blur');
+    await fireEvent.press(within(sheet).getByTestId('holder-availability-ACCEPTS_OFFERS'));
+    await fireEvent.press(within(sheet).getByTestId('holder-condition-LIGHTLY_PLAYED'));
+    await fireEvent.press(within(sheet).getByTestId('holder-freshness-ACTIVE'));
+    await fireEvent.press(within(sheet).getByTestId('holder-edition-FIRST_EDITION'));
+    await fireEvent.press(within(sheet).getByTestId('holder-language-fr'));
+    await fireEvent.press(within(sheet).getByTestId('holder-accepts-offers'));
+    await fireEvent.changeText(within(sheet).getByTestId('holder-min-price'), '10');
+    await fireEvent.changeText(within(sheet).getByTestId('holder-max-price'), '5');
+    await fireEvent(within(sheet).getByTestId('holder-max-price'), 'blur');
     expect(within(sheet).getByTestId('holder-price-range-error')).toHaveTextContent(
       'The minimum price must not be above the maximum.'
     );
-    fireEvent.changeText(within(sheet).getByTestId('holder-max-price'), '99.5');
-    fireEvent(within(sheet).getByTestId('holder-max-price'), 'blur');
+    await fireEvent.changeText(within(sheet).getByTestId('holder-max-price'), '99.5');
+    await fireEvent(within(sheet).getByTestId('holder-max-price'), 'blur');
     await waitFor(() =>
       expect(last()).toEqual({
         cardId: CARD_ID,
@@ -171,11 +173,11 @@ describe('Card holders ("who has this near me" as a list)', () => {
         size: '20',
       })
     );
-    fireEvent.press(within(sheet).getByTestId('holder-filters-done'));
+    await fireEvent.press(within(sheet).getByTestId('holder-filters-done'));
     expect(await screen.findByRole('button', { name: 'Filters (8)' })).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('holders-filters'));
-    fireEvent.press(await screen.findByTestId('holder-filters-clear'));
+    await fireEvent.press(screen.getByTestId('holders-filters'));
+    await fireEvent.press(await screen.findByTestId('holder-filters-clear'));
     // Back to the sorted, unfiltered query (answered from the cache: it ran before).
     expect(await screen.findByRole('button', { name: 'Filters' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Sort: Lowest price' })).toBeOnTheScreen();
@@ -206,19 +208,19 @@ describe('Card holders ("who has this near me" as a list)', () => {
         },
       })
     );
-    render();
+    await render();
     const list = await screen.findByTestId('holders-list');
-    fireEvent(list, 'endReached');
+    await fireEvent(list, 'endReached');
     expect(await screen.findByTestId(`holder-${OTHER_ITEM}`)).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/search/card-holders').at(-1)?.query.get('page')).toBe('1');
 
-    fireEvent.press(screen.getByTestId('holders-filters'));
-    fireEvent.press(await screen.findByTestId('holder-accepts-offers'));
-    fireEvent.press(screen.getByTestId('holder-filters-done'));
+    await fireEvent.press(screen.getByTestId('holders-filters'));
+    await fireEvent.press(await screen.findByTestId('holder-accepts-offers'));
+    await fireEvent.press(screen.getByTestId('holder-filters-done'));
     expect(
       await screen.findByText('Nobody nearby lists this card with these filters')
     ).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('holders-empty-action'));
+    await fireEvent.press(screen.getByTestId('holders-empty-action'));
     expect(await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`)).toBeOnTheScreen();
   });
 
@@ -233,7 +235,7 @@ describe('Card holders ("who has this near me" as a list)', () => {
         ),
       })
     );
-    render();
+    await render();
     await waitFor(() =>
       expect(screen.getByTestId('holders-title')).toHaveTextContent(
         'Who has Emberfang Fox VMAX (SVX-001) near you'
@@ -246,7 +248,7 @@ describe('Card holders ("who has this near me" as a list)', () => {
       expect(query?.get('lat')).toBe('45.502');
       expect(query?.get('lng')).toBe('-73.567');
     });
-    fireEvent.press(screen.getByTestId('holders-map'));
+    await fireEvent.press(screen.getByTestId('holders-map'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({
       pathname: '/',
       params: { printing: PRINTING_A },
@@ -262,19 +264,19 @@ describe('Card holders ("who has this near me" as a list)', () => {
         ],
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('holders-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('holders-error-retry'));
+    await fireEvent.press(screen.getByTestId('holders-error-retry'));
     expect(await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`)).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/search/card-holders')).toHaveLength(2);
   });
 
-  it('asks for a card without one', () => {
+  it('asks for a card without one', async () => {
     mockParams.current = {};
     mockApi(routes());
-    render();
+    await render();
     expect(screen.getByTestId('holders-no-card')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('holders-no-card-action'));
+    await fireEvent.press(screen.getByTestId('holders-no-card-action'));
     expect(mockRouter.navigate).toHaveBeenCalledWith('/search');
   });
 });

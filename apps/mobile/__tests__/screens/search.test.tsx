@@ -33,13 +33,17 @@ function render() {
 
 describe('Search tab', () => {
   it('shows a skeleton, then the catalog with API pictures, and opens a card', async () => {
-    mockApi(signedInRoutes({ 'GET /api/v1/cards': ok(cardPage([FOX, OTTER], 0, 1, 2)) }));
-    render();
+    const api = mockApi(
+      signedInRoutes({ 'GET /api/v1/cards': ok(cardPage([FOX, OTTER], 0, 1, 2)) })
+    );
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('search-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('card-result-emberfang-fox-vmax')).toBeOnTheScreen();
     expect(screen.getByTestId('search-count')).toHaveTextContent('2 cards');
     expect(screen.getByText('1 printing')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('link', { name: 'Tidal Otterling' }));
+    await fireEvent.press(screen.getByRole('link', { name: 'Tidal Otterling' }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: OTTER.id },
@@ -53,22 +57,22 @@ describe('Search tab', () => {
           ok(request.query.get('query') === 'fox' ? cardPage([FOX]) : cardPage([FOX, OTTER])),
       })
     );
-    render();
+    await render();
     await screen.findByTestId('card-result-tidal-otterling');
-    fireEvent.changeText(screen.getByTestId('search-input'), 'fox');
+    await fireEvent.changeText(screen.getByTestId('search-input'), 'fox');
     await waitFor(() =>
       expect(screen.getByTestId('search-count')).toHaveTextContent('1 card for “fox”')
     );
     expect(screen.queryByTestId('card-result-tidal-otterling')).toBeNull();
     expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBe('fox');
 
-    fireEvent(screen.getByTestId('search-input'), 'submitEditing');
-    fireEvent.changeText(screen.getByTestId('search-input'), '');
+    await fireEvent(screen.getByTestId('search-input'), 'submitEditing');
+    await fireEvent.changeText(screen.getByTestId('search-input'), '');
     expect(await screen.findByTestId('recent-searches')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Search again for fox' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Search again for fox' }));
     await waitFor(() => expect(screen.getByTestId('search-count')).toHaveTextContent(/for “fox”/));
-    fireEvent.changeText(screen.getByTestId('search-input'), '');
-    fireEvent.press(await screen.findByRole('button', { name: 'Clear recent searches' }));
+    await fireEvent.changeText(screen.getByTestId('search-input'), '');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Clear recent searches' }));
     expect(screen.queryByTestId('recent-searches')).toBeNull();
   });
 
@@ -79,17 +83,17 @@ describe('Search tab', () => {
         'GET /api/v1/sets': ok({ items: SETS, page: 0, size: 100, totalItems: 2, totalPages: 1 }),
       })
     );
-    render();
+    await render();
     await screen.findByTestId('card-result-emberfang-fox-vmax');
-    fireEvent.press(screen.getByTestId('search-game-pokemon'));
+    await fireEvent.press(screen.getByTestId('search-game-pokemon'));
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('game')).toBe('pokemon')
     );
-    fireEvent.press(screen.getByTestId('search-filters'));
-    fireEvent.press(await screen.findByTestId('filter-set-SVX'));
-    fireEvent.press(screen.getByTestId('filter-language-fr'));
-    fireEvent.press(screen.getByTestId('filter-rarity-Ultra Rare'));
-    fireEvent.press(screen.getByTestId('filter-edition-UNLIMITED'));
+    await fireEvent.press(screen.getByTestId('search-filters'));
+    await fireEvent.press(await screen.findByTestId('filter-set-SVX'));
+    await fireEvent.press(screen.getByTestId('filter-language-fr'));
+    await fireEvent.press(screen.getByTestId('filter-rarity-Ultra Rare'));
+    await fireEvent.press(screen.getByTestId('filter-edition-UNLIMITED'));
     await waitFor(() => {
       const query = api.callsTo('GET /api/v1/cards').at(-1)?.query;
       expect(Object.fromEntries(query ?? [])).toMatchObject({
@@ -101,7 +105,7 @@ describe('Search tab', () => {
       });
     });
     expect(screen.getByRole('button', { name: 'Filters (4)' })).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('filters-clear'));
+    await fireEvent.press(screen.getByTestId('filters-clear'));
     // Back to the game alone (answered from the cache: that search ran before).
     expect(await screen.findByRole('button', { name: 'Filters' })).toBeOnTheScreen();
     expect(screen.getByTestId('search-game-pokemon')).toBeChecked();
@@ -110,7 +114,7 @@ describe('Search tab', () => {
   it('applies a link into the tab (a set from the card detail)', async () => {
     mockParams.current = { game: 'pokemon', set: 'SVX', q: '' };
     const api = mockApi(signedInRoutes({ 'GET /api/v1/cards': ok(cardPage([FOX])) }));
-    render();
+    await render();
     await screen.findByTestId('card-result-emberfang-fox-vmax');
     expect(api.callsTo('GET /api/v1/cards')[0]?.query.get('set')).toBe('SVX');
     expect(screen.getByRole('button', { name: 'Filters (1)' })).toBeOnTheScreen();
@@ -123,19 +127,19 @@ describe('Search tab', () => {
           ok(request.query.get('query') ? cardPage([]) : cardPage([FOX])),
       })
     );
-    render();
+    await render();
     await screen.findByTestId('card-result-emberfang-fox-vmax');
-    fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
+    await fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
     expect(await screen.findByText('No cards match')).toBeOnTheScreen();
     expect(screen.getByText(/Nothing matches “zzzz”/)).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('search-empty-action'));
+    await fireEvent.press(screen.getByTestId('search-empty-action'));
     expect(await screen.findByTestId('card-result-emberfang-fox-vmax')).toBeOnTheScreen();
   });
 
   it('shows the printing code match badge', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards': ok(cardPage([FOX])) }));
-    render();
-    fireEvent.changeText(screen.getByTestId('search-input'), 'SVX-001');
+    await render();
+    await fireEvent.changeText(screen.getByTestId('search-input'), 'SVX-001');
     expect(await screen.findByText('Printing code match')).toBeOnTheScreen();
   });
 
@@ -145,10 +149,10 @@ describe('Search tab', () => {
         'GET /api/v1/cards': [problem(500, 'INTERNAL_ERROR', 'boom'), ok(cardPage([FOX]))],
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('search-error')).toBeOnTheScreen();
     expect(screen.getByText('Cards could not load')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('search-error-retry'));
+    await fireEvent.press(screen.getByTestId('search-error-retry'));
     expect(await screen.findByTestId('card-result-emberfang-fox-vmax')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/cards')).toHaveLength(2);
   });
@@ -161,7 +165,7 @@ describe('Search tab', () => {
       }
       return new Response(JSON.stringify({}), { status: 404 });
     });
-    render();
+    await render();
     expect(await screen.findByText('You appear to be offline')).toBeOnTheScreen();
   });
 });

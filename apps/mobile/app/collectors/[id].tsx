@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
@@ -28,7 +28,7 @@ import { spacing, textStyle, useTheme } from '@/src/theme';
 export default function CollectorScreen() {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const account = useAccount();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const scrolledTo = useRef<string | null>(null);
   const onRatingsLayout = (y: number) => {
     if (tab === 'ratings' && scrolledTo.current !== id) {

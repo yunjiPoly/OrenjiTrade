@@ -1,10 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Linking, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { attributionFor, safeCardImageUrl } from '@/src/lib/cardImages';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 import { Skeleton } from './Skeleton';
 
@@ -26,7 +26,7 @@ export interface CardImageProps {
   /** Game slug, for the placeholder art. */
   game?: string | null;
   size?: CardImageSize;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }
 

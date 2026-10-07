@@ -238,7 +238,7 @@ export default function CommunityChannelScreen() {
               title="No posts yet"
               description="Be the first to post in this channel: what you are looking for, what you just listed, or a trade you want to make."
             />
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={
           posts.data && items.length > 0 ? (
@@ -254,7 +254,7 @@ export default function CommunityChannelScreen() {
                 You are all caught up.
               </Text>
             )
-          ) : null
+          ) : undefined
         }
       />
     );

@@ -76,15 +76,15 @@ describe('Item photos', () => {
         },
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
+    await renderWithProviders(<EditItemScreen />, { port: port() });
     const photos = await screen.findByTestId('item-photos');
     expect(photos).toHaveTextContent(/Up to 4 photos \(JPEG, PNG or WebP, 8 MB\)/);
-    fireEvent.press(within(photos).getByTestId('item-photo-add'));
+    await fireEvent.press(within(photos).getByTestId('item-photo-add'));
     expect(await screen.findByTestId(`item-photo-${PHOTO.id}`)).toBeOnTheScreen();
     const upload = api.callsTo('POST /api/v1/inventory/items/{id}/images')[0];
     expect(upload?.path).toBe(`/api/v1/inventory/items/${ITEM_ID}/images`);
     expect(upload?.headers.get('content-type')).toMatch(/multipart\/form-data/);
-    fireEvent.press(screen.getByRole('button', { name: 'Remove photo 1' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove photo 1' }));
     await waitFor(() => expect(screen.queryByTestId(`item-photo-${PHOTO.id}`)).toBeNull());
     expect(api.callsTo('DELETE /api/v1/inventory/items/{id}/images/{imageId}')[0]?.path).toBe(
       `/api/v1/inventory/items/${ITEM_ID}/images/${PHOTO.id}`
@@ -103,8 +103,8 @@ describe('Item photos', () => {
         'POST /api/v1/inventory/items/{id}/images': problem(409, 'CONFLICT', 'full'),
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('item-photo-add'));
+    await renderWithProviders(<EditItemScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('item-photo-add'));
     expect(await screen.findByTestId('item-photo-error')).toHaveTextContent(
       'Use a JPEG, PNG or WebP photo.'
     );
@@ -114,7 +114,7 @@ describe('Item photos', () => {
       canceled: false,
       assets: [{ uri: 'file:///b.png', mimeType: 'image/png', fileName: 'b.png', fileSize: 100 }],
     } as never);
-    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await fireEvent.press(screen.getByTestId('item-photo-add'));
     await waitFor(() =>
       expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
         'A card can have at most 4 photos.'
@@ -124,7 +124,7 @@ describe('Item photos', () => {
     picker.launchImageLibraryAsync.mockRejectedValue(
       new Error('Unsupported file type: text/plain. Only images and videos are supported.')
     );
-    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await fireEvent.press(screen.getByTestId('item-photo-add'));
     await waitFor(() =>
       expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
         'Use a JPEG, PNG or WebP photo.'
@@ -132,7 +132,7 @@ describe('Item photos', () => {
     );
     expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(1);
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
-    fireEvent.press(screen.getByTestId('item-photo-add'));
+    await fireEvent.press(screen.getByTestId('item-photo-add'));
     await waitFor(() =>
       expect(screen.getByTestId('item-photo-error')).toHaveTextContent(
         'Allow access to your photos to add one.'
@@ -150,7 +150,7 @@ describe('Item photos', () => {
         ),
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
+    await renderWithProviders(<EditItemScreen />, { port: port() });
     await screen.findByTestId('item-photo-p-3');
     expect(screen.queryByTestId('item-photo-add')).toBeNull();
   });
@@ -175,20 +175,20 @@ describe('Add a card', () => {
         'POST /api/v1/inventory/items': ok(itemFixture(), 201),
       })
     );
-    renderWithProviders(<AddItemScreen />, { port: port() });
+    await renderWithProviders(<AddItemScreen />, { port: port() });
     expect(screen.getByText('Step 1 of 3 · Find the card')).toBeOnTheScreen();
     expect(screen.getByTestId('card-picker-hint')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'ember');
+    await fireEvent.changeText(screen.getByTestId('card-picker-input'), 'ember');
     expect(await screen.findByTestId('suggestion-PRINTING-SVX-001')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId(`suggestion-CARD-${CARD_ID}`));
+    await fireEvent.press(screen.getByTestId(`suggestion-CARD-${CARD_ID}`));
 
     expect(await screen.findByText('Step 2 of 3 · Choose the printing')).toBeOnTheScreen();
     expect(await screen.findByTestId('add-item-printing-count')).toHaveTextContent(
       '2 printings. Pick the one you own.'
     );
     expect(screen.getByTestId('add-item-continue')).toBeDisabled();
-    fireEvent.press(screen.getByTestId(`printing-${PRINTING_B}`));
-    fireEvent.press(screen.getByTestId('add-item-continue'));
+    await fireEvent.press(screen.getByTestId(`printing-${PRINTING_B}`));
+    await fireEvent.press(screen.getByTestId('add-item-continue'));
 
     expect(await screen.findByText('Step 3 of 3 · Add details')).toBeOnTheScreen();
     // Defaults from the printing (French, reverse holo) and the game schema.
@@ -197,15 +197,15 @@ describe('Add a card', () => {
     expect(screen.getByTestId('item-condition-NEAR_MINT')).toBeChecked();
     expect(screen.getByTestId('item-visibility-PRIVATE')).toBeChecked();
 
-    fireEvent.changeText(screen.getByTestId('item-quantity'), '3');
-    fireEvent.press(screen.getByTestId('item-condition-LIGHTLY_PLAYED'));
-    fireEvent.press(screen.getByTestId('item-availability-SALE'));
-    fireEvent.press(screen.getByTestId('item-accepts-offers'));
-    fireEvent.changeText(screen.getByTestId('item-price'), '12.50');
-    fireEvent.press(screen.getByTestId('item-binder'));
-    fireEvent.press(await screen.findByTestId(`item-binder-option-${BINDER_ID}`));
-    fireEvent.changeText(screen.getByTestId('item-public-notes'), 'Sleeved since opening.');
-    fireEvent.press(screen.getByTestId('add-item-submit'));
+    await fireEvent.changeText(screen.getByTestId('item-quantity'), '3');
+    await fireEvent.press(screen.getByTestId('item-condition-LIGHTLY_PLAYED'));
+    await fireEvent.press(screen.getByTestId('item-availability-SALE'));
+    await fireEvent.press(screen.getByTestId('item-accepts-offers'));
+    await fireEvent.changeText(screen.getByTestId('item-price'), '12.50');
+    await fireEvent.press(screen.getByTestId('item-binder'));
+    await fireEvent.press(await screen.findByTestId(`item-binder-option-${BINDER_ID}`));
+    await fireEvent.changeText(screen.getByTestId('item-public-notes'), 'Sleeved since opening.');
+    await fireEvent.press(screen.getByTestId('add-item-submit'));
 
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/inventory/items')[0]?.body).toEqual({
@@ -231,20 +231,20 @@ describe('Add a card', () => {
   it('starts from a card detail with the printing preselected, and validates', async () => {
     mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A, binderId: BINDER_ID };
     const api = mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
-    renderWithProviders(<AddItemScreen />, { port: port() });
+    await renderWithProviders(<AddItemScreen />, { port: port() });
     expect(await screen.findByTestId(`printing-${PRINTING_A}`)).toBeChecked();
-    fireEvent.press(screen.getByTestId('add-item-continue'));
+    await fireEvent.press(screen.getByTestId('add-item-continue'));
     await screen.findByTestId('item-quantity');
-    fireEvent.changeText(screen.getByTestId('item-quantity'), '0');
-    fireEvent.changeText(screen.getByTestId('item-price'), '1.234');
-    fireEvent.press(screen.getByTestId('add-item-submit'));
+    await fireEvent.changeText(screen.getByTestId('item-quantity'), '0');
+    await fireEvent.changeText(screen.getByTestId('item-price'), '1.234');
+    await fireEvent.press(screen.getByTestId('add-item-submit'));
     expect(await screen.findByText('Check the highlighted fields.')).toBeOnTheScreen();
     expect(screen.getByText('At least 1 copy.')).toBeOnTheScreen();
     expect(screen.getByText('Use at most two decimals.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/inventory/items')).toHaveLength(0);
     // Back keeps what was typed for the same printing.
-    fireEvent.press(screen.getByTestId('add-item-back'));
-    fireEvent.press(await screen.findByTestId('add-item-continue'));
+    await fireEvent.press(screen.getByTestId('add-item-back'));
+    await fireEvent.press(await screen.findByTestId('add-item-continue'));
     expect((await screen.findByTestId('item-quantity')).props.value).toBe('0');
   });
 
@@ -260,11 +260,11 @@ describe('Add a card', () => {
         }),
       })
     );
-    renderWithProviders(<AddItemScreen />, { port: port() });
+    await renderWithProviders(<AddItemScreen />, { port: port() });
     expect(await screen.findByTestId(`printing-${PRINTING_A}`)).toBeChecked();
     expect(screen.getByTestId('add-item-continue')).toBeEnabled();
-    fireEvent.press(screen.getByTestId('add-item-continue'));
-    fireEvent.press(await screen.findByTestId('add-item-submit'));
+    await fireEvent.press(screen.getByTestId('add-item-continue'));
+    await fireEvent.press(await screen.findByTestId('add-item-submit'));
     expect(await screen.findByText('must be less than or equal to 9999')).toBeOnTheScreen();
     expect(screen.getByTestId('add-item-error')).toBeOnTheScreen();
   });
@@ -282,10 +282,10 @@ describe('Add a card', () => {
         }),
       })
     );
-    renderWithProviders(<AddItemScreen />, { port: port() });
+    await renderWithProviders(<AddItemScreen />, { port: port() });
     await screen.findByTestId(`printing-${PRINTING_A}`);
-    fireEvent.press(screen.getByTestId('add-item-continue'));
-    fireEvent.press(await screen.findByTestId('add-item-submit'));
+    await fireEvent.press(screen.getByTestId('add-item-continue'));
+    await fireEvent.press(await screen.findByTestId('add-item-submit'));
     expect(await screen.findByTestId('limit-reached-message')).toHaveTextContent(
       /You have used 100 of 100/
     );
@@ -298,10 +298,10 @@ describe('Add a card', () => {
           request.query.get('q') === 'zz' ? ok([]) : problem(500, 'INTERNAL_ERROR', 'boom'),
       })
     );
-    renderWithProviders(<AddItemScreen />, { port: port() });
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'zz');
+    await renderWithProviders(<AddItemScreen />, { port: port() });
+    await fireEvent.changeText(screen.getByTestId('card-picker-input'), 'zz');
     expect(await screen.findByText('No cards match “zz”.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'boom');
+    await fireEvent.changeText(screen.getByTestId('card-picker-input'), 'boom');
     expect(await screen.findByText('Suggestions are unavailable. Try again.')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/cards/suggest').length).toBeGreaterThanOrEqual(2);
   });
@@ -309,7 +309,7 @@ describe('Add a card', () => {
   it('shows an error when the card cannot load', async () => {
     mockParams.current = { cardId: CARD_ID };
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': problem(500, 'INTERNAL_ERROR', 'boom') }));
-    renderWithProviders(<AddItemScreen />, { port: port() });
+    await renderWithProviders(<AddItemScreen />, { port: port() });
     expect(await screen.findByText('This card could not load')).toBeOnTheScreen();
   });
 });
@@ -326,18 +326,18 @@ describe('Edit a card', () => {
         'PATCH /api/v1/inventory/items/{id}': ok(itemFixture({ quantity: 4, askingPrice: null })),
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
+    await renderWithProviders(<EditItemScreen />, { port: port() });
     expect(await screen.findByTestId('edit-item-name')).toHaveTextContent('Emberfang Fox VMAX');
     expect(screen.getByTestId('edit-item-visibility')).toHaveTextContent('Private');
     expect(screen.getByTestId('item-quantity').props.value).toBe('2');
     expect(screen.getByTestId('item-price').props.value).toBe('40');
 
-    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await fireEvent.press(screen.getByTestId('edit-item-save'));
     expect(await screen.findByText('No changes to save.')).toBeOnTheScreen();
 
-    fireEvent.changeText(screen.getByTestId('item-quantity'), '4');
-    fireEvent.changeText(screen.getByTestId('item-price'), '');
-    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await fireEvent.changeText(screen.getByTestId('item-quantity'), '4');
+    await fireEvent.changeText(screen.getByTestId('item-price'), '');
+    await fireEvent.press(screen.getByTestId('edit-item-save'));
     expect(await screen.findByText('Card saved.')).toBeOnTheScreen();
     expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
       quantity: 4,
@@ -353,16 +353,16 @@ describe('Edit a card', () => {
         'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
+    await renderWithProviders(<EditItemScreen />, { port: port() });
     await screen.findByTestId('edit-item-name');
-    fireEvent.press(screen.getByTestId('item-visibility-TEMPORARILY_PUBLIC'));
-    fireEvent.press(await screen.findByTestId('item-duration-1h'));
-    fireEvent.press(screen.getByTestId('item-binder'));
-    fireEvent.press(await screen.findByTestId(`item-binder-option-${BINDER_ID}`));
+    await fireEvent.press(screen.getByTestId('item-visibility-TEMPORARILY_PUBLIC'));
+    await fireEvent.press(await screen.findByTestId('item-duration-1h'));
+    await fireEvent.press(screen.getByTestId('item-binder'));
+    await fireEvent.press(await screen.findByTestId(`item-binder-option-${BINDER_ID}`));
     expect(
       screen.getByText('This binder is private: publish it to show its public cards.')
     ).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await fireEvent.press(screen.getByTestId('edit-item-save'));
     await waitFor(() => expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')).toHaveLength(1));
     const body = api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body as Record<
       string,
@@ -390,12 +390,12 @@ describe('Edit a card', () => {
         ),
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
+    await renderWithProviders(<EditItemScreen />, { port: port() });
     expect(await screen.findByTestId('edit-item-stale')).toHaveTextContent(
       /hidden from other collectors until you confirm/
     );
     expect(screen.getByText('Hidden until you confirm it is still available.')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('edit-item-confirm'));
+    await fireEvent.press(screen.getByTestId('edit-item-confirm'));
     expect(
       await screen.findByText('Confirmed: your card is listed as available again.')
     ).toBeOnTheScreen();
@@ -410,14 +410,14 @@ describe('Edit a card', () => {
         'DELETE /api/v1/inventory/items/{id}': noContent,
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
+    await renderWithProviders(<EditItemScreen />, { port: port() });
     await screen.findByTestId('edit-item-name');
-    fireEvent.press(screen.getByTestId('edit-item-delete'));
+    await fireEvent.press(screen.getByTestId('edit-item-delete'));
     expect(await screen.findByText('Delete Emberfang Fox VMAX?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('edit-item-delete-dialog-cancel'));
+    await fireEvent.press(screen.getByTestId('edit-item-delete-dialog-cancel'));
     expect(api.callsTo('DELETE /api/v1/inventory/items/{id}')).toHaveLength(0);
-    fireEvent.press(screen.getByTestId('edit-item-delete'));
-    fireEvent.press(await screen.findByTestId('edit-item-delete-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('edit-item-delete'));
+    await fireEvent.press(await screen.findByTestId('edit-item-delete-dialog-confirm'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('DELETE /api/v1/inventory/items/{id}')).toHaveLength(1);
     expect(
@@ -431,9 +431,9 @@ describe('Edit a card', () => {
         'GET /api/v1/inventory/items/{id}': problem(404, 'NOT_FOUND', 'Not found'),
       })
     );
-    const { unmount } = renderWithProviders(<EditItemScreen />, { port: port() });
+    const { unmount } = await renderWithProviders(<EditItemScreen />, { port: port() });
     expect(await screen.findByText('This card is no longer in your inventory')).toBeOnTheScreen();
-    unmount();
+    await unmount();
 
     mockApi(
       signedInRoutes({
@@ -443,8 +443,8 @@ describe('Edit a card', () => {
         ],
       })
     );
-    renderWithProviders(<EditItemScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('edit-item-error-retry'));
+    await renderWithProviders(<EditItemScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('edit-item-error-retry'));
     expect(await screen.findByTestId('edit-item-name')).toBeOnTheScreen();
   });
 });

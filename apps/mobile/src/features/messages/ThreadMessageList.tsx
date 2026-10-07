@@ -90,7 +90,7 @@ export function ThreadMessageList({
           >
             {other.displayName} is typing…
           </Text>
-        ) : null
+        ) : undefined
       }
       ListFooterComponent={
         hasOlder ? (

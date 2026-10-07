@@ -77,7 +77,7 @@ describe('Wishlist tab', () => {
         ),
       })
     );
-    renderWithProviders(<WishlistScreen />, { port: port() });
+    await renderWithProviders(<WishlistScreen />, { port: port() });
     expect(screen.getByTestId('wishlist-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
     expect(screen.getByTestId(`wish-criteria-${WISH_ID}`)).toHaveTextContent(
@@ -93,28 +93,28 @@ describe('Wishlist tab', () => {
     // Discoverable with a trading area: no readiness hint.
     expect(screen.queryByTestId('match-readiness')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('wishlist-filter-paused'));
+    await fireEvent.press(screen.getByTestId('wishlist-filter-paused'));
     expect(screen.queryByTestId(`wish-${WISH_ID}`)).toBeNull();
     expect(screen.getByTestId('wish-wish-paused')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('wishlist-filter-matches'));
+    await fireEvent.press(screen.getByTestId('wishlist-filter-matches'));
     expect(screen.getByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId(`wish-matches-${WISH_ID}`));
+    await fireEvent.press(screen.getByTestId(`wish-matches-${WISH_ID}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/wishlist/[id]',
       params: { id: WISH_ID },
     });
-    fireEvent.press(screen.getByTestId('wishlist-add'));
+    await fireEvent.press(screen.getByTestId('wishlist-add'));
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
 
   it('explains why matches cannot arrive yet', async () => {
     mockApi(routes({ 'GET /api/v1/me/location': ok(locationFixture({ discoverable: false })) }));
-    renderWithProviders(<WishlistScreen />, { port: port() });
+    await renderWithProviders(<WishlistScreen />, { port: port() });
     expect(await screen.findByTestId('match-readiness')).toHaveTextContent(
       /Show yourself on the map to get matches/
     );
-    fireEvent.press(screen.getByTestId('match-readiness-action'));
+    await fireEvent.press(screen.getByTestId('match-readiness-action'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
   });
 
@@ -128,9 +128,9 @@ describe('Wishlist tab', () => {
         'DELETE /api/v1/wishlist/{id}': noContent,
       })
     );
-    renderWithProviders(<WishlistScreen />, { port: port() });
+    await renderWithProviders(<WishlistScreen />, { port: port() });
     await screen.findByTestId(`wish-${WISH_ID}`);
-    fireEvent.press(screen.getByTestId(`wish-active-${WISH_ID}`));
+    await fireEvent.press(screen.getByTestId(`wish-active-${WISH_ID}`));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Alerts paused for Azure-Eyes Sky Dragon.'
     );
@@ -138,7 +138,7 @@ describe('Wishlist tab', () => {
     expect(screen.getByTestId(`wish-active-${WISH_ID}`).props.accessibilityState?.checked).toBe(
       false
     );
-    fireEvent.press(screen.getByTestId(`wish-active-${WISH_ID}`));
+    await fireEvent.press(screen.getByTestId(`wish-active-${WISH_ID}`));
     await waitFor(() =>
       expect(screen.getByTestId('snackbar')).toHaveTextContent(/Please try again in a moment/)
     );
@@ -148,11 +148,11 @@ describe('Wishlist tab', () => {
       )
     );
 
-    fireEvent.press(screen.getByTestId(`wish-menu-${WISH_ID}`));
-    fireEvent.press(await screen.findByTestId('wish-remove'));
+    await fireEvent.press(screen.getByTestId(`wish-menu-${WISH_ID}`));
+    await fireEvent.press(await screen.findByTestId('wish-remove'));
     const dialog = await screen.findByTestId('wish-remove-dialog');
     expect(dialog).toHaveTextContent(/Remove Azure-Eyes Sky Dragon\?/);
-    fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
+    await fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
     await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).not.toBeOnTheScreen());
     expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1);
   });
@@ -164,12 +164,12 @@ describe('Wishlist tab', () => {
         'GET /api/v1/me/location': ok(locationFixture({ tradingArea: undefined })),
       })
     );
-    renderWithProviders(<WishlistScreen />, { port: port() });
+    await renderWithProviders(<WishlistScreen />, { port: port() });
     expect(await screen.findByTestId('wishlist-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('wishlist-empty')).toHaveTextContent(/Your wishlist is empty/);
     expect(await screen.findByTestId('match-readiness')).toHaveTextContent(/Set your trading area/);
-    fireEvent.press(screen.getByText('Add a card'));
+    await fireEvent.press(screen.getByText('Add a card'));
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
 
@@ -182,11 +182,11 @@ describe('Wishlist tab', () => {
         'GET /api/v1/notifications/unread-count': ok({ count: 0 }),
       })
     );
-    renderWithProviders(<WishlistScreen />, { port: port(), realtime: rt.client });
+    await renderWithProviders(<WishlistScreen />, { port: port(), realtime: rt.client });
     expect(await screen.findByTestId(`wish-match-count-${WISH_ID}`)).toHaveTextContent('2 matches');
     await waitFor(() => expect(rt.client.state).toBe('connected'));
     matches = 3;
-    act(() => rt.current().push('/user/queue/notifications', notificationFixture()));
+    await act(() => rt.current().push('/user/queue/notifications', notificationFixture()));
     await waitFor(() =>
       expect(screen.getByTestId(`wish-match-count-${WISH_ID}`)).toHaveTextContent('3 matches')
     );
@@ -202,21 +202,21 @@ describe('Add and edit a wish', () => {
           ok(wishFixture({ ...(request.body as object), matchCount: 0 }), 201),
       })
     );
-    renderWithProviders(<NewWishScreen />, { port: port() });
+    await renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-card')).toHaveTextContent(/Emberfang Fox VMAX/);
     // The FREE plan caps the radius at 25 km: the stepper stops there.
     await waitFor(() => expect(screen.getByTestId('wish-radius-value')).toHaveTextContent('25 km'));
     expect(screen.getByTestId('wish-radius-increase')).toBeDisabled();
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
+    await fireEvent.press(screen.getByTestId('wish-radius-decrease'));
+    await fireEvent.press(screen.getByTestId('wish-radius-decrease'));
+    await fireEvent.press(screen.getByTestId('wish-radius-decrease'));
     expect(screen.getByTestId('wish-radius-value')).toHaveTextContent('10 km');
-    fireEvent.press(screen.getByTestId('wish-condition'));
-    fireEvent.press(await screen.findByTestId('wish-condition-option-LIGHTLY_PLAYED'));
-    fireEvent.changeText(screen.getByTestId('wish-max-price'), '25');
-    fireEvent.press(screen.getByTestId('wish-trade-TRADE'));
-    fireEvent.changeText(screen.getByTestId('wish-notes'), 'Fictional wish');
-    fireEvent.press(screen.getByTestId('wish-save'));
+    await fireEvent.press(screen.getByTestId('wish-condition'));
+    await fireEvent.press(await screen.findByTestId('wish-condition-option-LIGHTLY_PLAYED'));
+    await fireEvent.changeText(screen.getByTestId('wish-max-price'), '25');
+    await fireEvent.press(screen.getByTestId('wish-trade-TRADE'));
+    await fireEvent.changeText(screen.getByTestId('wish-notes'), 'Fictional wish');
+    await fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
       cardId: CARD_ID,
@@ -251,33 +251,33 @@ describe('Add and edit a wish', () => {
         ],
       })
     );
-    renderWithProviders(<NewWishScreen />, { port: port() });
+    await renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-card-step')).toHaveTextContent(
       /Which card are you looking for\?/
     );
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'AZR');
-    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-AZR-EN001'));
+    await fireEvent.changeText(screen.getByTestId('card-picker-input'), 'AZR');
+    await fireEvent.press(await screen.findByTestId('suggestion-PRINTING-AZR-EN001'));
     expect(await screen.findByTestId('wish-printing')).toHaveTextContent(/SVX-001/);
     expect(screen.queryByTestId('wish-rarity')).toBeNull();
     // Inline validation first.
-    fireEvent.changeText(screen.getByTestId('wish-max-price'), '1.234');
-    fireEvent.press(screen.getByTestId('wish-save'));
+    await fireEvent.changeText(screen.getByTestId('wish-max-price'), '1.234');
+    await fireEvent.press(screen.getByTestId('wish-save'));
     expect(await screen.findByText('Use at most two decimals.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/wishlist')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('wish-max-price'), '');
-    fireEvent.press(screen.getByTestId('wish-save'));
+    await fireEvent.changeText(screen.getByTestId('wish-max-price'), '');
+    await fireEvent.press(screen.getByTestId('wish-save'));
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
       /This card is already on your wishlist with the same filters\.$/
     );
     expect(
       (api.callsTo('POST /api/v1/wishlist')[0]?.body as { printingId?: string }).printingId
     ).toBe(PRINTING_A);
-    fireEvent.press(screen.getByTestId('wish-save'));
+    await fireEvent.press(screen.getByTestId('wish-save'));
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
       /Your wishlist is full: your plan allows 20 wishes\. Remove one or upgrade to add more\.$/
     );
     // Another card can be chosen.
-    fireEvent.press(screen.getByTestId('wish-change-card'));
+    await fireEvent.press(screen.getByTestId('wish-change-card'));
     expect(await screen.findByTestId('wish-card-step')).toBeOnTheScreen();
   });
 
@@ -286,10 +286,10 @@ describe('Add and edit a wish', () => {
     const api = mockApi(
       routes({ 'PATCH /api/v1/wishlist/{id}': ok(wishFixture({ radiusKm: 9 })) })
     );
-    renderWithProviders(<EditWishScreen />, { port: port() });
+    await renderWithProviders(<EditWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-radius-value')).toHaveTextContent('10 km');
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
-    fireEvent.press(screen.getByTestId('wish-save'));
+    await fireEvent.press(screen.getByTestId('wish-radius-decrease'));
+    await fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).toMatchObject({
       radiusKm: 9,
@@ -304,7 +304,7 @@ describe('Add and edit a wish', () => {
   it('says when the wish to edit no longer exists', async () => {
     mockParams.current = { id: 'gone' };
     mockApi(routes());
-    renderWithProviders(<EditWishScreen />, { port: port() });
+    await renderWithProviders(<EditWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-not-found')).toBeOnTheScreen();
   });
 });
@@ -332,7 +332,7 @@ describe('Matches of a wish', () => {
         'POST /api/v1/wishlist/matches/{id}/dismiss': noContent,
       })
     );
-    renderWithProviders(<WishMatchesScreen />, { port: port() });
+    await renderWithProviders(<WishMatchesScreen />, { port: port() });
     const match = matchFixture();
     expect(await screen.findByTestId(`match-${match.id}`)).toBeOnTheScreen();
     expect(screen.getByTestId('wish-matches-head')).toHaveTextContent(
@@ -344,12 +344,12 @@ describe('Matches of a wish', () => {
     // Nothing on screen carries a coordinate.
     expect(screen.toJSON()).not.toEqual(expect.stringContaining('45.458'));
 
-    fireEvent.press(screen.getByTestId(`match-on-map-${match.id}`));
+    await fireEvent.press(screen.getByTestId(`match-on-map-${match.id}`));
     expect(mockRouter.navigate).toHaveBeenCalledWith({
       pathname: '/',
       params: { printing: match.item.printing.id },
     });
-    fireEvent.press(screen.getByTestId(`match-message-${match.id}`));
+    await fireEvent.press(screen.getByTestId(`match-message-${match.id}`));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/messages/[id]',
@@ -361,14 +361,14 @@ describe('Matches of a wish', () => {
     });
 
     // The listing accepts offers: "Make an offer" opens the form with the card and its holder.
-    fireEvent.press(screen.getByTestId(`match-offer-${match.id}`));
+    await fireEvent.press(screen.getByTestId(`match-offer-${match.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/new',
       params: { item: match.item.id },
     });
     expect(offerTargetFor(match.item.id)?.seller.displayName).toBe(match.collector.displayName);
 
-    fireEvent.press(screen.getByTestId(`match-dismiss-${match.id}`));
+    await fireEvent.press(screen.getByTestId(`match-dismiss-${match.id}`));
     await waitFor(() => expect(screen.queryByTestId(`match-${match.id}`)).not.toBeOnTheScreen());
     expect(api.callsTo('POST /api/v1/wishlist/matches/{id}/dismiss')).toHaveLength(1);
     expect(await screen.findByTestId('wish-matches-empty')).toBeOnTheScreen();
@@ -376,17 +376,17 @@ describe('Matches of a wish', () => {
 
   it('shows no matches yet (with the map), a missing wish, and an error with retry', async () => {
     mockApi(routes({ 'GET /api/v1/wishlist/{id}/matches': ok(matchPage([])) }));
-    const first = renderWithProviders(<WishMatchesScreen />, { port: port() });
+    const first = await renderWithProviders(<WishMatchesScreen />, { port: port() });
     expect(await screen.findByTestId('wish-matches-empty')).toHaveTextContent(/No matches yet/);
-    fireEvent.press(screen.getByText('Who has it on the map'));
+    await fireEvent.press(screen.getByText('Who has it on the map'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
-    first.unmount();
+    await first.unmount();
 
     mockParams.current = { id: 'gone' };
     mockApi(routes({ 'GET /api/v1/wishlist/{id}/matches': problem(404, 'NOT_FOUND', 'Gone') }));
-    const second = renderWithProviders(<WishMatchesScreen />, { port: port() });
+    const second = await renderWithProviders(<WishMatchesScreen />, { port: port() });
     expect(await screen.findByTestId('wish-matches-not-found')).toBeOnTheScreen();
-    second.unmount();
+    await second.unmount();
 
     mockParams.current = { id: WISH_ID };
     mockApi(
@@ -397,9 +397,9 @@ describe('Matches of a wish', () => {
         ],
       })
     );
-    renderWithProviders(<WishMatchesScreen />, { port: port() });
+    await renderWithProviders(<WishMatchesScreen />, { port: port() });
     expect(await screen.findByTestId('wish-matches-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId(`match-${matchFixture().id}`)).toBeOnTheScreen();
   });
 });

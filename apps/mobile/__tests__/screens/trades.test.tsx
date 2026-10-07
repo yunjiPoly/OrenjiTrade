@@ -53,20 +53,22 @@ describe('Trades list', () => {
         ),
       })
     );
-    renderWithProviders(<TradesScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<TradesScreen />, { port: port() });
     expect(screen.getByTestId('trades-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId(`trade-row-next-${TRADE_ID}`)).toHaveTextContent(
       'Your move: meet and confirm'
     );
     expect(screen.getByTestId('trade-row-next-t-done')).toHaveTextContent('Completed');
     expect(screen.getByTestId('trade-row-t-done')).toHaveTextContent(/In-person meetup/);
     expect(api.callsTo('GET /api/v1/trades')[0]?.query.getAll('status')).toEqual([]);
-    fireEvent.press(screen.getByTestId(`trade-row-${TRADE_ID}`));
+    await fireEvent.press(screen.getByTestId(`trade-row-${TRADE_ID}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/trades/[id]',
       params: { id: TRADE_ID },
     });
-    fireEvent.press(screen.getByTestId('trades-filter-completed'));
+    await fireEvent.press(screen.getByTestId('trades-filter-completed'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ status: 'completed' });
   });
 
@@ -77,9 +79,9 @@ describe('Trades list', () => {
         'GET /api/v1/trades': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(tradePage([]))],
       })
     );
-    renderWithProviders(<TradesScreen />, { port: port() });
+    await renderWithProviders(<TradesScreen />, { port: port() });
     expect(await screen.findByTestId('trades-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('trades-empty-filter')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/trades')[0]?.query.getAll('status')).toContain('AGREED');
   });
@@ -103,8 +105,10 @@ describe('One trade', () => {
         'POST /api/v1/trades/{id}/meetup': ok(tradeFixture({ buyerMarkedMeetup: true })),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(screen.getByTestId('trade-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('trade-next-title')).toHaveTextContent(
       'Your move: meet and exchange the cards'
     );
@@ -118,15 +122,15 @@ describe('One trade', () => {
       )
     ).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('trade-meetup-button'));
+    await fireEvent.press(screen.getByTestId('trade-meetup-button'));
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /Marked as an in-person meetup\. Noé Verdun will be asked to agree\./
     );
     expect(api.callsTo('POST /api/v1/trades/{id}/meetup')).toHaveLength(1);
 
-    fireEvent.press(screen.getByTestId('trade-confirm'));
+    await fireEvent.press(screen.getByTestId('trade-confirm'));
     expect(screen.getByTestId('complete-dialog')).toHaveTextContent(/Confirm the exchange\?/);
-    fireEvent.press(screen.getByTestId('complete-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('complete-dialog-confirm'));
     await waitFor(() =>
       expect(screen.getByTestId('trade-notice')).toHaveTextContent(
         /You confirmed the exchange\. Waiting for Noé Verdun to confirm\./
@@ -145,13 +149,16 @@ describe('One trade', () => {
         ],
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('trade-cancel'));
-    fireEvent.press(screen.getByTestId('cancel-trade-dialog-confirm'));
+    await renderWithProviders(<TradeScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('trade-cancel'));
+    await fireEvent.press(screen.getByTestId('cancel-trade-dialog-confirm'));
     expect(await screen.findByText('Give a short reason.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/trades/{id}/cancel')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('cancel-trade-dialog-reason'), 'Card got damaged');
-    fireEvent.press(screen.getByTestId('cancel-trade-dialog-confirm'));
+    await fireEvent.changeText(
+      screen.getByTestId('cancel-trade-dialog-reason'),
+      'Card got damaged'
+    );
+    await fireEvent.press(screen.getByTestId('cancel-trade-dialog-confirm'));
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /This can no longer be done: it was already completed\./
     );
@@ -174,19 +181,19 @@ describe('One trade', () => {
         ),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-next-title')).toHaveTextContent('Trade completed');
-    fireEvent.press(await screen.findByTestId('trade-rate'));
+    await fireEvent.press(await screen.findByTestId('trade-rate'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
       params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun', kind: 'TRADE' },
     });
     expect(screen.getByTestId('trade-received')).toHaveTextContent(/Azure-Eyes Sky Dragon/);
-    fireEvent.press(screen.getByLabelText('Add Azure-Eyes Sky Dragon to my inventory'));
+    await fireEvent.press(screen.getByLabelText('Add Azure-Eyes Sky Dragon to my inventory'));
     expect(mockRouter.push).toHaveBeenCalledWith(
       expect.objectContaining({ pathname: '/items/new' })
     );
-    fireEvent.press(screen.getByTestId('trade-offer-link'));
+    await fireEvent.press(screen.getByTestId('trade-offer-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/[id]',
       params: { id: OFFER_ID },
@@ -207,7 +214,7 @@ describe('One trade', () => {
         ),
       })
     );
-    const view = renderWithProviders(<TradeScreen />, { port: port() });
+    const view = await renderWithProviders(<TradeScreen />, { port: port() });
     // Paying, shipping and disputes happen in the app (stage M6; see payments.test.tsx).
     expect(await screen.findByTestId('trade-next-title')).toHaveTextContent(
       'Your move: pay with payment protection'
@@ -215,10 +222,10 @@ describe('One trade', () => {
     expect(screen.queryByTestId('trade-protected-web')).not.toBeOnTheScreen();
     expect(screen.getByTestId('trade-meetup-button')).toHaveTextContent(/Meet in person instead/);
     expect(screen.getByTestId('step-paid')).toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/trades/{id}': problem(404, 'NOT_FOUND', 'Nope') }));
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-not-found')).toBeOnTheScreen();
   });
 });

@@ -42,9 +42,11 @@ const STALE = itemFixture({
 
 describe('Inventory tab', () => {
   it('shows a skeleton, then the cards with totals, and opens a card', async () => {
-    mockApi(signedInRoutes());
-    render();
+    const api = mockApi(signedInRoutes());
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('inventory-loading')).toBeOnTheScreen();
+    release();
     const row = await screen.findByTestId(`item-${ITEM_ID}`);
     expect(within(row).getByText('Emberfang Fox VMAX')).toBeOnTheScreen();
     expect(within(row).getByText('×2')).toBeOnTheScreen();
@@ -54,7 +56,7 @@ describe('Inventory tab', () => {
     expect(await screen.findByTestId('inventory-summary-totals')).toHaveTextContent(
       '1 card · 2 copies · 0 public now'
     );
-    fireEvent.press(screen.getByRole('button', { name: /^Emberfang Fox VMAX, SVX-001/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Emberfang Fox VMAX, SVX-001/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/items/[id]',
       params: { id: ITEM_ID },
@@ -63,32 +65,32 @@ describe('Inventory tab', () => {
 
   it('starts the add flow', async () => {
     mockApi(signedInRoutes());
-    render();
-    fireEvent.press(screen.getByTestId('inventory-add-card'));
+    await render();
+    await fireEvent.press(screen.getByTestId('inventory-add-card'));
     expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
   });
 
   it('filters by binder, game and intent, sorts and searches', async () => {
     const api = mockApi(signedInRoutes());
-    render();
+    await render();
     await screen.findByTestId(`item-${ITEM_ID}`);
     const last = () =>
       Object.fromEntries(api.callsTo('GET /api/v1/inventory/items').at(-1)?.query ?? []);
 
-    fireEvent.press(screen.getByTestId('inventory-filter-binder'));
-    fireEvent.press(await screen.findByTestId(`inventory-filter-binder-option-${BINDER_ID}`));
+    await fireEvent.press(screen.getByTestId('inventory-filter-binder'));
+    await fireEvent.press(await screen.findByTestId(`inventory-filter-binder-option-${BINDER_ID}`));
     await waitFor(() => expect(last().binderId).toBe(BINDER_ID));
     expect(screen.getByTestId('inventory-open-binder')).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('inventory-filter-game'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-game-option-pokemon'));
-    fireEvent.press(screen.getByTestId('inventory-filter-intent'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-intent-option-SALE'));
-    fireEvent.press(screen.getByTestId('inventory-filter-visibility'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-visibility-option-PUBLIC'));
-    fireEvent.press(screen.getByTestId('inventory-sort'));
-    fireEvent.press(await screen.findByTestId('inventory-sort-option-price-asc'));
-    fireEvent.changeText(screen.getByTestId('inventory-search'), 'fox');
+    await fireEvent.press(screen.getByTestId('inventory-filter-game'));
+    await fireEvent.press(await screen.findByTestId('inventory-filter-game-option-pokemon'));
+    await fireEvent.press(screen.getByTestId('inventory-filter-intent'));
+    await fireEvent.press(await screen.findByTestId('inventory-filter-intent-option-SALE'));
+    await fireEvent.press(screen.getByTestId('inventory-filter-visibility'));
+    await fireEvent.press(await screen.findByTestId('inventory-filter-visibility-option-PUBLIC'));
+    await fireEvent.press(screen.getByTestId('inventory-sort'));
+    await fireEvent.press(await screen.findByTestId('inventory-sort-option-price-asc'));
+    await fireEvent.changeText(screen.getByTestId('inventory-search'), 'fox');
     await waitFor(() =>
       expect(last()).toEqual({
         query: 'fox',
@@ -103,8 +105,8 @@ describe('Inventory tab', () => {
       })
     );
 
-    fireEvent.press(screen.getByTestId('inventory-filter-binder'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-binder-option-unfiled'));
+    await fireEvent.press(screen.getByTestId('inventory-filter-binder'));
+    await fireEvent.press(await screen.findByTestId('inventory-filter-binder-option-unfiled'));
     await waitFor(() => expect(last().unfiled).toBe('true'));
     expect(screen.getByRole('button', { name: 'Binder: Unfiled' })).toBeOnTheScreen();
   });
@@ -116,15 +118,15 @@ describe('Inventory tab', () => {
         'GET /api/v1/inventory/summary': ok(summaryFixture({ totalItems: 0, totalQuantity: 0 })),
       })
     );
-    render();
+    await render();
     expect(await screen.findByText('Your inventory is empty')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('inventory-empty-action'));
+    await fireEvent.press(screen.getByTestId('inventory-empty-action'));
     expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
 
-    fireEvent.changeText(screen.getByTestId('inventory-search'), 'nothing');
+    await fireEvent.changeText(screen.getByTestId('inventory-search'), 'nothing');
     expect(await screen.findByText('No cards match')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/inventory/items').at(-1)?.query.get('query')).toBe('nothing');
-    fireEvent.press(screen.getByTestId('inventory-empty-filtered-action'));
+    await fireEvent.press(screen.getByTestId('inventory-empty-filtered-action'));
     // Back to the unfiltered list (from the cache), with an empty search field.
     expect(await screen.findByText('Your inventory is empty')).toBeOnTheScreen();
     expect(screen.getByTestId('inventory-search').props.value).toBe('');
@@ -142,20 +144,20 @@ describe('Inventory tab', () => {
           }),
       })
     );
-    render();
+    await render();
     await screen.findByTestId(`item-${ITEM_ID}`);
     expect(screen.queryByTestId('bulk-bar')).toBeNull();
-    fireEvent.press(screen.getByTestId('inventory-select'));
+    await fireEvent.press(screen.getByTestId('inventory-select'));
     // Rows toggle their selection instead of opening the editor.
-    fireEvent.press(screen.getByRole('checkbox', { name: /^Emberfang Fox VMAX, SVX-001/ }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: /^Emberfang Fox VMAX, SVX-001/ }));
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(await screen.findByTestId('bulk-count')).toHaveTextContent('1 selected');
-    fireEvent.press(screen.getByTestId('bulk-select-all'));
+    await fireEvent.press(screen.getByTestId('bulk-select-all'));
     expect(screen.getByTestId('bulk-count')).toHaveTextContent('2 selected');
 
-    fireEvent.press(screen.getByTestId('bulk-visibility'));
-    fireEvent.press(await screen.findByTestId('bulk-visibility-TEMPORARILY_PUBLIC'));
-    fireEvent.press(await screen.findByTestId('bulk-duration-24h'));
+    await fireEvent.press(screen.getByTestId('bulk-visibility'));
+    await fireEvent.press(await screen.findByTestId('bulk-visibility-TEMPORARILY_PUBLIC'));
+    await fireEvent.press(await screen.findByTestId('bulk-duration-24h'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       '2 cards are now public for 24 hours.'
     );
@@ -170,8 +172,8 @@ describe('Inventory tab', () => {
     expect(first.itemIds).toEqual([ITEM_ID, 'stale-1']);
     expect(first.publicUntil).toMatch(/^\d{4}-/);
 
-    fireEvent.press(screen.getByTestId('bulk-availability'));
-    fireEvent.press(await screen.findByTestId('bulk-availability-SALE'));
+    await fireEvent.press(screen.getByTestId('bulk-availability'));
+    await fireEvent.press(await screen.findByTestId('bulk-availability-SALE'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body).toEqual({
         action: 'SET_AVAILABILITY',
@@ -179,8 +181,8 @@ describe('Inventory tab', () => {
         itemIds: [ITEM_ID, 'stale-1'],
       })
     );
-    fireEvent.press(screen.getByTestId('bulk-move'));
-    fireEvent.press(await screen.findByTestId(`bulk-binder-${BINDER_ID}`));
+    await fireEvent.press(screen.getByTestId('bulk-move'));
+    await fireEvent.press(await screen.findByTestId(`bulk-binder-${BINDER_ID}`));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body).toEqual({
         action: 'MOVE_TO_BINDER',
@@ -193,9 +195,9 @@ describe('Inventory tab', () => {
     );
 
     // Delete asks first, then clears the selection.
-    fireEvent.press(screen.getByTestId('bulk-delete'));
+    await fireEvent.press(screen.getByTestId('bulk-delete'));
     expect(await screen.findByText('Delete 2 cards?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('bulk-delete-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('bulk-delete-dialog-confirm'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body).toEqual({
         action: 'DELETE',
@@ -203,7 +205,7 @@ describe('Inventory tab', () => {
       })
     );
     await waitFor(() => expect(screen.queryByTestId('bulk-bar')).toBeNull());
-    fireEvent.press(screen.getByTestId('inventory-select'));
+    await fireEvent.press(screen.getByTestId('inventory-select'));
     expect(screen.queryByTestId('item-stale-1-checkbox')).toBeNull();
   });
 
@@ -216,12 +218,12 @@ describe('Inventory tab', () => {
       })
     );
     mockParams.current = { view: 'binders' };
-    render();
-    fireEvent.press(await screen.findByTestId('binders-reorder'));
+    await render();
+    await fireEvent.press(await screen.findByTestId('binders-reorder'));
     const sheet = await screen.findByTestId('reorder-binders');
     expect(within(sheet).getByTestId('reorder-save')).toBeDisabled();
-    fireEvent.press(within(sheet).getByTestId('reorder-b-2-up'));
-    fireEvent.press(within(sheet).getByTestId('reorder-save'));
+    await fireEvent.press(within(sheet).getByTestId('reorder-b-2-up'));
+    await fireEvent.press(within(sheet).getByTestId('reorder-save'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Binder order saved.');
     expect(api.callsTo('PUT /api/v1/binders/reorder')[0]?.body).toEqual({
       binderIds: ['b-2', BINDER_ID],
@@ -243,13 +245,13 @@ describe('Inventory tab', () => {
         'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
       })
     );
-    render();
+    await render();
     const row = await screen.findByTestId('item-stale-1');
     expect(within(row).getByLabelText('Freshness: Stale')).toBeOnTheScreen();
     expect(await screen.findByTestId('inventory-needs-confirmation')).toHaveTextContent(
       /1 card needs a confirmation/
     );
-    fireEvent.press(screen.getByTestId('inventory-confirm-all'));
+    await fireEvent.press(screen.getByTestId('inventory-confirm-all'));
     expect(await screen.findByText('1 card confirmed as still available.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/inventory/items/bulk')[0]?.body).toEqual({
       action: 'CONFIRM',
@@ -271,11 +273,11 @@ describe('Inventory tab', () => {
         'POST /api/v1/me/listings/resume': ok(listingStatusFixture()),
       })
     );
-    render();
+    await render();
     expect(await screen.findByText('Your public listings are paused')).toBeOnTheScreen();
     expect(screen.getByText(/3 conversations are waiting for your answer/)).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('listings-resume'));
-    fireEvent.press(await screen.findByTestId('listings-resume-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('listings-resume'));
+    await fireEvent.press(await screen.findByTestId('listings-resume-dialog-confirm'));
     expect(await screen.findByText('Your public listings are visible again.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/me/listings/resume')).toHaveLength(1);
     await waitFor(() => expect(screen.queryByTestId('listings-paused')).not.toBeOnTheScreen());
@@ -293,19 +295,19 @@ describe('Inventory tab', () => {
         ),
       })
     );
-    const { unmount } = render();
+    const { unmount } = await render();
     expect(
       await screen.findByText(/moderation team is reviewing your account until 2026-10-20/)
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('listings-resume')).toBeNull();
-    unmount();
+    await unmount();
 
     mockApi(
       signedInRoutes({
         'GET /api/v1/me/listings/status': ok(listingStatusFixture({ strikes: 1 })),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('listings-strikes')).toHaveTextContent(
       /1 conversation waiting for your answer/
     );
@@ -320,9 +322,9 @@ describe('Inventory tab', () => {
         ],
       })
     );
-    render();
+    await render();
     expect(await screen.findByText('Your cards could not load')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('inventory-error-retry'));
+    await fireEvent.press(screen.getByTestId('inventory-error-retry'));
     expect(await screen.findByTestId(`item-${ITEM_ID}`)).toBeOnTheScreen();
   });
 
@@ -343,23 +345,23 @@ describe('Inventory tab', () => {
         ]),
       })
     );
-    const { unmount } = render();
-    fireEvent.press(screen.getByTestId('inventory-view-binders'));
+    const { unmount } = await render();
+    await fireEvent.press(screen.getByTestId('inventory-view-binders'));
     expect(await screen.findByText('Trade binder')).toBeOnTheScreen();
     expect(screen.getByText(/For sale · 4 cards · 0 public/)).toBeOnTheScreen();
     expect(screen.getByText('Public · not visible')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('link', { name: /^Trade binder/ }));
+    await fireEvent.press(screen.getByRole('link', { name: /^Trade binder/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: BINDER_ID },
     });
-    fireEvent.press(screen.getByTestId('inventory-new-binder'));
+    await fireEvent.press(screen.getByTestId('inventory-new-binder'));
     expect(mockRouter.push).toHaveBeenCalledWith('/binders/new');
-    unmount();
+    await unmount();
 
     mockParams.current = { view: 'binders' };
     mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([]) }));
-    render();
+    await render();
     expect(await screen.findByText('No binders yet')).toBeOnTheScreen();
   });
 
@@ -370,9 +372,9 @@ describe('Inventory tab', () => {
         'GET /api/v1/binders': [problem(500, 'INTERNAL_ERROR', 'boom'), ok([binderFixture()])],
       })
     );
-    render();
+    await render();
     expect(await screen.findByText('Your binders could not load')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('binders-error-retry'));
+    await fireEvent.press(screen.getByTestId('binders-error-retry'));
     expect(await screen.findByText('Trade binder')).toBeOnTheScreen();
   });
 });

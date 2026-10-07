@@ -111,18 +111,20 @@ describe('Trading safety notice', () => {
   it('shows in a conversation with the guide link, Report and Block, and never blocks the composer', async () => {
     mockParams.current = { id: CONVERSATION_ID };
     mockApi(routes());
-    renderWithProviders(<ConversationScreen />, { port: port() });
+    await renderWithProviders(<ConversationScreen />, { port: port() });
     const notice = await screen.findByTestId('safety-notice');
     expect(within(notice).getByText('Trade safely')).toBeOnTheScreen();
     expect(within(notice).getByText(/Meet in a busy public place in daylight/)).toBeOnTheScreen();
     expect(screen.getByLabelText('Message')).toBeOnTheScreen();
 
-    fireEvent.press(within(notice).getByRole('link', { name: 'Read our trading safety advice' }));
+    await fireEvent.press(
+      within(notice).getByRole('link', { name: 'Read our trading safety advice' })
+    );
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/legal/[key]',
       params: { key: 'trading-safely' },
     });
-    fireEvent.press(within(notice).getByRole('button', { name: 'Report Noé Verdun' }));
+    await fireEvent.press(within(notice).getByRole('button', { name: 'Report Noé Verdun' }));
     expect(mockRouter.push).toHaveBeenLastCalledWith(
       expect.objectContaining({
         pathname: '/report',
@@ -132,11 +134,11 @@ describe('Trading safety notice', () => {
         }),
       })
     );
-    fireEvent.press(within(notice).getByRole('button', { name: 'Block Noé Verdun' }));
+    await fireEvent.press(within(notice).getByRole('button', { name: 'Block Noé Verdun' }));
     expect(
       within(screen.getByTestId('block-dialog')).getByText('Block Noé Verdun?')
     ).toBeOnTheScreen();
-    fireEvent.press(
+    await fireEvent.press(
       within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Cancel' })
     );
     expect(screen.getByTestId('safety-notice')).toBeOnTheScreen();
@@ -145,20 +147,22 @@ describe('Trading safety notice', () => {
   it('is dismissed once per collector and stays hidden after a restart (stored on the device)', async () => {
     mockParams.current = { id: CONVERSATION_ID };
     mockApi(routes());
-    const first = renderWithProviders(<ConversationScreen />, { port: port() });
+    const first = await renderWithProviders(<ConversationScreen />, { port: port() });
     const notice = await screen.findByTestId('safety-notice');
-    fireEvent.press(within(notice).getByRole('button', { name: 'Dismiss the safety notice' }));
+    await fireEvent.press(
+      within(notice).getByRole('button', { name: 'Dismiss the safety notice' })
+    );
     expect(screen.queryByTestId('safety-notice')).toBeNull();
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(SAFETY_NOTICE_STORAGE_KEY)).toContain(SELF_ID)
     );
-    first.unmount();
+    await first.unmount();
 
     await rehydrate();
-    const second = renderWithProviders(<ConversationScreen />, { port: port() });
+    const second = await renderWithProviders(<ConversationScreen />, { port: port() });
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
     expect(screen.queryByTestId('safety-notice')).toBeNull();
-    second.unmount();
+    await second.unmount();
 
     // Another collector on the same device sees it.
     mockApi(
@@ -166,7 +170,7 @@ describe('Trading safety notice', () => {
         'GET /api/v1/me': ok(meFixture({ id: '00000000-0000-4000-8000-0000000000ee' })),
       })
     );
-    renderWithProviders(<ConversationScreen />, {
+    await renderWithProviders(<ConversationScreen />, {
       port: new FakeAuthPort(testUser({ uid: 'uid-other', email: 'other@example.test' })),
     });
     expect(await screen.findByTestId('safety-notice')).toBeOnTheScreen();
@@ -175,23 +179,23 @@ describe('Trading safety notice', () => {
   it('shows on the offer screen (trade context) with Report and Block of the other collector', async () => {
     mockParams.current = { id: OFFER_ID };
     const api = mockApi(routes());
-    renderWithProviders(<OfferScreen />, { port: port() });
+    await renderWithProviders(<OfferScreen />, { port: port() });
     const notice = await screen.findByTestId('safety-notice');
     expect(within(notice).getByText(/Be wary of pressure/)).toBeOnTheScreen();
-    fireEvent.press(within(notice).getByRole('button', { name: /^Report / }));
+    await fireEvent.press(within(notice).getByRole('button', { name: /^Report / }));
     expect(mockRouter.push).toHaveBeenLastCalledWith(
       expect.objectContaining({
         pathname: '/report',
         params: expect.objectContaining({ source: 'PROFILE' }),
       })
     );
-    fireEvent.press(within(notice).getByRole('button', { name: /^Block / }));
+    await fireEvent.press(within(notice).getByRole('button', { name: /^Block / }));
     const dialog = screen.getByTestId('block-dialog');
-    fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
+    await fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
     await waitFor(() => expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(1));
     expect(screen.getByTestId('snackbar')).toHaveTextContent(/is blocked\./);
     // Dismissed in the trade context: the conversation context is untouched.
-    fireEvent.press(
+    await fireEvent.press(
       within(screen.getByTestId('safety-notice')).getByRole('button', {
         name: 'Dismiss the safety notice',
       })
@@ -205,11 +209,13 @@ describe('Trading safety notice', () => {
   it('shows on the trade screen until dismissed there', async () => {
     mockParams.current = { id: TRADE_ID };
     mockApi(routes());
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     const notice = await screen.findByTestId('safety-notice');
     expect(within(notice).getByText('Trade safely')).toBeOnTheScreen();
     expect(within(notice).getByRole('button', { name: /^Block / })).toBeOnTheScreen();
-    fireEvent.press(within(notice).getByRole('button', { name: 'Dismiss the safety notice' }));
+    await fireEvent.press(
+      within(notice).getByRole('button', { name: 'Dismiss the safety notice' })
+    );
     expect(screen.queryByTestId('safety-notice')).toBeNull();
   });
 });

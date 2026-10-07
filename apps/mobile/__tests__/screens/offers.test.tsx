@@ -82,8 +82,10 @@ describe('Offers inbox', () => {
         ),
       })
     );
-    renderWithProviders(<OffersScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<OffersScreen />, { port: port() });
     expect(screen.getByTestId('offers-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId(`offer-row-${OFFER_ID}`)).toBeOnTheScreen();
     expect(screen.getByTestId(`offer-row-terms-${OFFER_ID}`)).toHaveTextContent('$40.00');
     expect(screen.getByTestId(`offer-row-turn-${OFFER_ID}`)).toHaveTextContent(/Your turn/);
@@ -94,30 +96,30 @@ describe('Offers inbox', () => {
     );
     expect(api.callsTo('GET /api/v1/offers')[0]?.query.get('role')).toBe('seller');
 
-    fireEvent.press(screen.getByTestId(`offer-row-${OFFER_ID}`));
+    await fireEvent.press(screen.getByTestId(`offer-row-${OFFER_ID}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/[id]',
       params: { id: OFFER_ID },
     });
-    fireEvent.press(screen.getByTestId('offers-tab-sent'));
+    await fireEvent.press(screen.getByTestId('offers-tab-sent'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ tab: 'sent', status: 'all' });
-    fireEvent.press(screen.getByTestId('offers-filter-closed'));
+    await fireEvent.press(screen.getByTestId('offers-filter-closed'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ tab: 'received', status: 'closed' });
-    fireEvent.press(screen.getByTestId('offers-trades'));
+    await fireEvent.press(screen.getByTestId('offers-trades'));
     expect(mockRouter.push).toHaveBeenCalledWith('/trades');
-    fireEvent.press(screen.getByTestId('offers-settings'));
+    await fireEvent.press(screen.getByTestId('offers-settings'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/offers');
   });
 
   it('asks the API for the sent tab and a status, and shows its empty states', async () => {
     mockParams.current = { tab: 'sent', status: 'closed' };
     const api = mockApi(routes({ 'GET /api/v1/offers': ok(offerPage([])) }));
-    renderWithProviders(<OffersScreen />, { port: port() });
+    await renderWithProviders(<OffersScreen />, { port: port() });
     expect(await screen.findByTestId('offers-empty-filter')).toBeOnTheScreen();
     const query = api.callsTo('GET /api/v1/offers')[0]?.query;
     expect(query?.get('role')).toBe('buyer');
     expect(query?.getAll('status')).toEqual(['DECLINED', 'CANCELLED', 'EXPIRED']);
-    fireEvent.press(screen.getByText('Show all offers'));
+    await fireEvent.press(screen.getByText('Show all offers'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ tab: 'sent', status: 'all' });
   });
 
@@ -126,9 +128,9 @@ describe('Offers inbox', () => {
     mockApi(
       routes({ 'GET /api/v1/offers': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(offerPage([]))] })
     );
-    renderWithProviders(<OffersScreen />, { port: port() });
+    await renderWithProviders(<OffersScreen />, { port: port() });
     expect(await screen.findByTestId('offers-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('offers-empty-sent')).toHaveTextContent(
       /You have not made any offer yet/
     );
@@ -136,10 +138,10 @@ describe('Offers inbox', () => {
 });
 
 describe('Make an offer', () => {
-  it('explains that the card has to be chosen again after a reload', () => {
+  it('explains that the card has to be chosen again after a reload', async () => {
     mockParams.current = { item: ITEM.id };
     mockApi(routes());
-    renderWithProviders(<NewOfferScreen />, { port: port() });
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
     expect(screen.getByTestId('offer-new-missing')).toHaveTextContent(/Choose the card again/);
   });
 
@@ -147,23 +149,23 @@ describe('Make an offer', () => {
     useOfferTargets.getState().put(TARGET);
     mockParams.current = { item: ITEM.id };
     const api = mockApi(routes());
-    renderWithProviders(<NewOfferScreen />, { port: port() });
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
     expect(screen.getByTestId('offer-target-name')).toHaveTextContent('Azure-Eyes Sky Dragon');
     expect(screen.getByText('Asking $45.00')).toBeOnTheScreen();
     // TRADE_OR_SALE accepts the three kinds.
     expect(screen.getByTestId('offer-kind-CASH')).toBeChecked();
     expect(screen.getByTestId('offer-kind-MIXED')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     expect(await screen.findByText('Enter the amount you offer.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('offer-amount'), '40.555');
+    await fireEvent.changeText(screen.getByTestId('offer-amount'), '40.555');
     expect(screen.getByText('Use at most 2 decimals.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
-    fireEvent.press(screen.getByTestId('offer-expiry-24'));
-    fireEvent.changeText(screen.getByTestId('offer-message'), 'Café on Saturday?');
+    await fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
+    await fireEvent.press(screen.getByTestId('offer-expiry-24'));
+    await fireEvent.changeText(screen.getByTestId('offer-message'), 'Café on Saturday?');
     expect(screen.getByTestId('offer-summary')).toHaveTextContent(
       /You offer \$40\.00 for Azure-Eyes Sky Dragon/
     );
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     await waitFor(() =>
       expect(mockRouter.replace).toHaveBeenCalledWith({
         pathname: '/offers/[id]',
@@ -192,18 +194,18 @@ describe('Make an offer', () => {
         'POST /api/v1/offers': ok(offerFixture({ protectionRequested: true }), 201),
       })
     );
-    renderWithProviders(<NewOfferScreen />, { port: port() });
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
     expect(await screen.findByTestId('protection-option')).toHaveTextContent(
       /Noé Verdun is paid only once you confirm it arrived/
     );
-    fireEvent.press(screen.getByTestId('offer-protection'));
-    fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
+    await fireEvent.press(screen.getByTestId('offer-protection'));
+    await fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
     expect(screen.getByTestId('offer-summary')).toHaveTextContent(/with payment protection/);
     // A trade offer has no cash part: no protection.
-    fireEvent.press(screen.getByTestId('offer-kind-TRADE'));
+    await fireEvent.press(screen.getByTestId('offer-kind-TRADE'));
     expect(screen.queryByTestId('protection-option')).not.toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('offer-kind-CASH'));
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId('offer-kind-CASH'));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     await waitFor(() => expect(api.callsTo('POST /api/v1/offers')).toHaveLength(1));
     expect(api.callsTo('POST /api/v1/offers')[0]?.body).toMatchObject({
       kind: 'CASH',
@@ -216,7 +218,7 @@ describe('Make an offer', () => {
     useOfferTargets.getState().put(TARGET);
     mockParams.current = { item: ITEM.id };
     mockApi(routes({ 'GET /api/v1/public/feature-flags': ok({ protectedPayments: false }) }));
-    renderWithProviders(<NewOfferScreen />, { port: port() });
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
     expect(await screen.findByTestId('offer-amount')).toBeOnTheScreen();
     await waitFor(() => expect(screen.queryByTestId('protection-option')).not.toBeOnTheScreen());
   });
@@ -225,16 +227,16 @@ describe('Make an offer', () => {
     useOfferTargets.getState().put({ ...TARGET, availability: 'TRADE' });
     mockParams.current = { item: ITEM.id };
     const api = mockApi(routes());
-    renderWithProviders(<NewOfferScreen />, { port: port() });
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
     expect(screen.getByTestId('offer-kind-single')).toHaveTextContent(/this card is for trade/);
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     expect(await screen.findByTestId('cards-error')).toHaveTextContent(
       'Pick at least one of your cards to trade.'
     );
-    fireEvent.press(await screen.findByTestId(`offer-pick-${BUYER_ITEM_ID}`));
+    await fireEvent.press(await screen.findByTestId(`offer-pick-${BUYER_ITEM_ID}`));
     expect(screen.getByTestId(`offer-line-${BUYER_ITEM_ID}`)).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId(`offer-line-quantity-${BUYER_ITEM_ID}-increase`));
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId(`offer-line-quantity-${BUYER_ITEM_ID}-increase`));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     await waitFor(() => expect(api.callsTo('POST /api/v1/offers')).toHaveLength(1));
     expect(api.callsTo('POST /api/v1/offers')[0]?.body).toMatchObject({
       kind: 'TRADE',
@@ -250,14 +252,14 @@ describe('Make an offer', () => {
         'POST /api/v1/offers': [problem(409, 'OFFER_ALREADY_OPEN', 'Open', { offerId: OFFER_ID })],
       })
     );
-    renderWithProviders(<NewOfferScreen />, { port: port() });
-    fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
+    await fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     expect(await screen.findByTestId('offer-error')).toHaveTextContent(
       /already have an open offer on this card/
     );
     expect(screen.getByTestId('offer-submit')).toBeDisabled();
-    fireEvent.press(screen.getByTestId('offer-error-open'));
+    await fireEvent.press(screen.getByTestId('offer-error-open'));
     expect(mockRouter.replace).toHaveBeenCalledWith({
       pathname: '/offers/[id]',
       params: { id: OFFER_ID },
@@ -280,13 +282,13 @@ describe('Make an offer', () => {
         ],
       })
     );
-    renderWithProviders(<NewOfferScreen />, { port: port() });
-    fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await renderWithProviders(<NewOfferScreen />, { port: port() });
+    await fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     expect(await screen.findByTestId('offer-error')).toHaveTextContent(
       /You have used 10 of 10 offers today on the Free plan/
     );
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     expect(
       await screen.findByText(/does not accept mixed offers\. Try another kind/)
     ).toBeOnTheScreen();
@@ -303,8 +305,10 @@ describe('One offer', () => {
         ),
       })
     );
-    renderWithProviders(<OfferScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<OfferScreen />, { port: port() });
     expect(screen.getByTestId('offer-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('offer-eyebrow')).toHaveTextContent(
       'Your offer to Noé Verdun'
     );
@@ -320,10 +324,10 @@ describe('One offer', () => {
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('offer-accept')).not.toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('offer-withdraw'));
+    await fireEvent.press(screen.getByTestId('offer-withdraw'));
     expect(screen.getByTestId('withdraw-dialog')).toHaveTextContent(/Withdraw your offer\?/);
-    fireEvent.changeText(screen.getByTestId('withdraw-dialog-reason'), 'Found another copy');
-    fireEvent.press(screen.getByTestId('withdraw-dialog-confirm'));
+    await fireEvent.changeText(screen.getByTestId('withdraw-dialog-reason'), 'Found another copy');
+    await fireEvent.press(screen.getByTestId('withdraw-dialog-confirm'));
     expect(await screen.findByTestId('offer-notice')).toHaveTextContent(
       /Offer withdrawn\. Noé Verdun was notified\./
     );
@@ -347,19 +351,19 @@ describe('One offer', () => {
         }),
       })
     );
-    renderWithProviders(<OfferScreen />, { port: port() });
+    await renderWithProviders(<OfferScreen />, { port: port() });
     expect(await screen.findByTestId('offer-turn')).toHaveTextContent('Your turn to answer');
     expect(screen.getByTestId('offer-eyebrow')).toHaveTextContent('Offer from Noé Verdun');
-    fireEvent.press(screen.getByTestId('offer-accept'));
+    await fireEvent.press(screen.getByTestId('offer-accept'));
     expect(screen.getByTestId('accept-dialog')).toHaveTextContent(
       /You agree to trade Azure-Eyes Sky Dragon for \$40\.00 with Noé Verdun/
     );
-    fireEvent.press(screen.getByTestId('accept-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('accept-dialog-confirm'));
     expect(await screen.findByTestId('offer-notice')).toHaveTextContent(
       /Offer accepted\. The trade is open/
     );
     expect(api.callsTo('POST /api/v1/offers/{id}/accept')[0]?.body).toEqual({ version: 0 });
-    fireEvent.press(screen.getByTestId('offer-trade-link-action'));
+    await fireEvent.press(screen.getByTestId('offer-trade-link-action'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/trades/[id]',
       params: { id: TRADE_ID },
@@ -378,14 +382,14 @@ describe('One offer', () => {
         }),
       })
     );
-    renderWithProviders(<OfferScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('offer-counter'));
+    await renderWithProviders(<OfferScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('offer-counter'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/counter',
       params: { id: OFFER_ID },
     });
-    fireEvent.press(screen.getByTestId('offer-decline'));
-    fireEvent.press(screen.getByTestId('decline-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('offer-decline'));
+    await fireEvent.press(screen.getByTestId('decline-dialog-confirm'));
     expect(await screen.findByTestId('offer-notice')).toHaveTextContent(/Offer declined/);
     expect(api.callsTo('POST /api/v1/offers/{id}/decline')[0]?.body).toEqual({ version: 0 });
     expect(screen.getByTestId('offer-turn')).toHaveTextContent('This negotiation is closed');
@@ -401,9 +405,9 @@ describe('One offer', () => {
         }),
       })
     );
-    renderWithProviders(<OfferScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('offer-accept'));
-    fireEvent.press(screen.getByTestId('accept-dialog-confirm'));
+    await renderWithProviders(<OfferScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('offer-accept'));
+    await fireEvent.press(screen.getByTestId('accept-dialog-confirm'));
     expect(await screen.findByTestId('offer-notice')).toHaveTextContent(
       /This offer changed while you were looking at it/
     );
@@ -419,14 +423,14 @@ describe('One offer', () => {
         ),
       })
     );
-    const view = renderWithProviders(<OfferScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('offer-superseded-action'));
+    const view = await renderWithProviders(<OfferScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('offer-superseded-action'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ id: COUNTERED_ID });
     expect(screen.queryByTestId('offer-action-bar')).not.toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/offers/{id}': problem(404, 'NOT_FOUND', 'Nope') }));
-    renderWithProviders(<OfferScreen />, { port: port() });
+    await renderWithProviders(<OfferScreen />, { port: port() });
     expect(await screen.findByTestId('offer-not-found')).toBeOnTheScreen();
   });
 });
@@ -441,20 +445,20 @@ describe('Counter-offer', () => {
         'POST /api/v1/offers/{id}/counter': ok(counter),
       })
     );
-    renderWithProviders(<CounterOfferScreen />, { port: port() });
+    await renderWithProviders(<CounterOfferScreen />, { port: port() });
     expect(await screen.findByTestId('current-proposal')).toHaveTextContent(
       /Current proposal: \$40\.00/
     );
     // The buyer offered no cards: a seller can only answer with cash.
     expect(screen.getByTestId('offer-kind-single')).toHaveTextContent(/the buyer offered no cards/);
     expect(screen.getByTestId('offer-amount').props.value).toBe('40');
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     expect(await screen.findByTestId('offer-error')).toHaveTextContent(
       /A counter-offer must change the amount or the cards/
     );
     expect(api.callsTo('POST /api/v1/offers/{id}/counter')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('offer-amount'), '44');
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await fireEvent.changeText(screen.getByTestId('offer-amount'), '44');
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     await waitFor(() =>
       expect(mockRouter.replace).toHaveBeenCalledWith({
         pathname: '/offers/[id]',
@@ -479,9 +483,9 @@ describe('Counter-offer', () => {
         'POST /api/v1/offers/{id}/counter': problem(409, 'NOT_YOUR_TURN', 'Not your turn'),
       })
     );
-    renderWithProviders(<CounterOfferScreen />, { port: port() });
-    fireEvent.changeText(await screen.findByTestId('offer-amount'), '50');
-    fireEvent.press(screen.getByTestId('offer-submit'));
+    await renderWithProviders(<CounterOfferScreen />, { port: port() });
+    await fireEvent.changeText(await screen.findByTestId('offer-amount'), '50');
+    await fireEvent.press(screen.getByTestId('offer-submit'));
     await waitFor(() =>
       expect(mockRouter.replace).toHaveBeenCalledWith({
         pathname: '/offers/[id]',
@@ -494,7 +498,7 @@ describe('Counter-offer', () => {
   it('refuses to counter when it is not the caller’s turn', async () => {
     mockParams.current = { id: OFFER_ID };
     mockApi(routes());
-    renderWithProviders(<CounterOfferScreen />, { port: port() });
+    await renderWithProviders(<CounterOfferScreen />, { port: port() });
     expect(await screen.findByTestId('counter-not-allowed')).toBeOnTheScreen();
   });
 });
@@ -502,10 +506,10 @@ describe('Counter-offer', () => {
 describe('Offer settings', () => {
   it('saves the mixed offers switch at once', async () => {
     const api = mockApi(routes());
-    renderWithProviders(<OfferSettingsScreen />, { port: port() });
+    await renderWithProviders(<OfferSettingsScreen />, { port: port() });
     const toggle = await screen.findByTestId('offer-settings-mixed');
     expect(toggle).toBeChecked();
-    fireEvent.press(toggle);
+    await fireEvent.press(toggle);
     await waitFor(() =>
       expect(api.callsTo('PUT /api/v1/me/settings/offers')[0]?.body).toEqual({
         acceptsMixed: false,

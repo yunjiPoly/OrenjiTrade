@@ -2,21 +2,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useRef } from 'react';
-import {
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { recordAdImpression, useAds } from '@/src/api/hooks/billing';
 import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import type { Ad, AdPlacement } from '@/src/api/types';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme, type ViewStyleProp } from '@/src/theme';
 
 import { adClickUrl, adImageUrl } from './adLinks';
 
@@ -147,7 +139,7 @@ export function SponsoredSlot({
   placement: AdPlacement;
   game?: string | null;
   variant?: 'card' | 'compact';
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
 }) {
   const account = useAccount();
   const advertising = useFeature(FEATURE.advertising);

@@ -49,7 +49,7 @@ describe('Own binder', () => {
 
   it('shows the binder, its status and its cards', async () => {
     mockApi(ownRoutes());
-    renderWithProviders(<BinderScreen />, { port: port() });
+    await renderWithProviders(<BinderScreen />, { port: port() });
     expect(screen.getByTestId('binder-resolving')).toBeOnTheScreen();
     expect(await screen.findByTestId('binder-title')).toHaveTextContent('Trade binder');
     expect(screen.getByTestId('binder-counts')).toHaveTextContent('Trade binder · 1 card');
@@ -58,7 +58,7 @@ describe('Own binder', () => {
     expect(await screen.findByTestId(`item-${ITEM_ID}`)).toBeOnTheScreen();
     expect(screen.queryByTestId('binder-unpublish')).toBeNull();
     expect(screen.queryByTestId('binder-public-page')).toBeNull();
-    fireEvent.press(screen.getByTestId('binder-edit'));
+    await fireEvent.press(screen.getByTestId('binder-edit'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/edit',
       params: { id: BINDER_ID },
@@ -86,18 +86,18 @@ describe('Own binder', () => {
         },
       })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('binder-publish'));
-    fireEvent.press(await screen.findByTestId('binder-publish-ONE_DAY'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('binder-publish'));
+    await fireEvent.press(await screen.findByTestId('binder-publish-ONE_DAY'));
     expect(await screen.findByText('“Trade binder” is public for 24 hours.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/binders/{id}/publish')[0]?.body).toEqual({ mode: 'ONE_DAY' });
     expect(await screen.findByTestId('binder-public-page')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('binder-public-page'));
+    await fireEvent.press(screen.getByTestId('binder-public-page'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: BINDER_ID, view: 'public' },
     });
-    fireEvent.press(screen.getByTestId('binder-unpublish'));
+    await fireEvent.press(screen.getByTestId('binder-unpublish'));
     expect(await screen.findByText('“Trade binder” is private now.')).toBeOnTheScreen();
   });
 
@@ -127,8 +127,8 @@ describe('Own binder', () => {
         'POST /api/v1/binders/{id}/confirm': ok(binderFixture()),
       })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('binder-confirm'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('binder-confirm'));
     expect(
       await screen.findByText('“Trade binder” and its cards are confirmed as still available.')
     ).toBeOnTheScreen();
@@ -137,8 +137,8 @@ describe('Own binder', () => {
 
   it('removes a card from the binder (it becomes unfiled)', async () => {
     const api = mockApi(ownRoutes({ 'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()) }));
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId(`binder-remove-${ITEM_ID}`));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId(`binder-remove-${ITEM_ID}`));
     expect(
       await screen.findByText('Emberfang Fox VMAX removed from “Trade binder”. It is unfiled now.')
     ).toBeOnTheScreen();
@@ -152,15 +152,15 @@ describe('Own binder', () => {
         'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
       })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('binder-add-cards'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('binder-add-cards'));
     const sheet = await screen.findByTestId('add-items-sheet');
     // Cards already in this binder are not offered.
     expect(await within(sheet).findByTestId('add-items-item-2')).toBeOnTheScreen();
     expect(within(sheet).queryByTestId(`add-items-${ITEM_ID}`)).toBeNull();
     expect(within(sheet).getByTestId('add-items-submit')).toBeDisabled();
-    fireEvent.press(within(sheet).getByTestId('add-items-item-2'));
-    fireEvent.press(within(sheet).getByTestId('add-items-submit'));
+    await fireEvent.press(within(sheet).getByTestId('add-items-item-2'));
+    await fireEvent.press(within(sheet).getByTestId('add-items-submit'));
     expect(await screen.findByText('1 card added to “Trade binder”.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/inventory/items/bulk')[0]?.body).toEqual({
       action: 'MOVE_TO_BINDER',
@@ -171,12 +171,12 @@ describe('Own binder', () => {
 
   it('offers a new card for the binder', async () => {
     mockApi(ownRoutes({ 'GET /api/v1/inventory/items': ok(inventoryPage([FILED])) }));
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('binder-add-cards'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('binder-add-cards'));
     expect(await screen.findByTestId('add-items-empty')).toHaveTextContent(
       /already in this binder/
     );
-    fireEvent.press(screen.getByTestId('add-items-new-card'));
+    await fireEvent.press(screen.getByTestId('add-items-new-card'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/items/new',
       params: { binderId: BINDER_ID },
@@ -185,25 +185,25 @@ describe('Own binder', () => {
 
   it('deletes the binder after a confirmation', async () => {
     const api = mockApi(ownRoutes({ 'DELETE /api/v1/binders/{id}': noContent }));
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('binder-delete'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('binder-delete'));
     expect(
       await screen.findByText(/Its 1 card stay in your inventory as unfiled cards/)
     ).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('binder-delete-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('binder-delete-dialog-confirm'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('DELETE /api/v1/binders/{id}')).toHaveLength(1);
   });
 
   it('explains an empty binder and an item error', async () => {
     mockApi(ownRoutes({ 'GET /api/v1/binders/{id}/items': ok(inventoryPage([])) }));
-    const { unmount } = renderWithProviders(<BinderScreen />, { port: port() });
+    const { unmount } = await renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText('This binder is empty')).toBeOnTheScreen();
-    unmount();
+    await unmount();
     mockApi(
       ownRoutes({ 'GET /api/v1/binders/{id}/items': problem(500, 'INTERNAL_ERROR', 'boom') })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
+    await renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText('The cards could not load')).toBeOnTheScreen();
   });
 });
@@ -229,7 +229,7 @@ describe('Public binder', () => {
 
   it('shows someone else’s binder: owner area, distance bucket and public cards only', async () => {
     const api = mockApi(publicRoutes());
-    renderWithProviders(<BinderScreen />, { port: port() });
+    await renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByTestId('public-binder-title')).toHaveTextContent(
       'Yu-Gi-Oh! trade binder'
     );
@@ -241,13 +241,13 @@ describe('Public binder', () => {
     // No owner actions, no coordinates.
     expect(screen.queryByTestId('binder-publish')).toBeNull();
     expect(screen.queryByText(/-?\d{1,3}\.\d{3,}/)).toBeNull();
-    fireEvent.press(screen.getByTestId('public-binder-owner'));
+    await fireEvent.press(screen.getByTestId('public-binder-owner'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'collector1' },
     });
-    fireEvent.press(screen.getByTestId('public-binder-availability'));
-    fireEvent.press(await screen.findByTestId('public-binder-availability-option-SALE'));
+    await fireEvent.press(screen.getByTestId('public-binder-availability'));
+    await fireEvent.press(await screen.findByTestId('public-binder-availability-option-SALE'));
     await waitFor(() =>
       expect(
         api.callsTo('GET /api/v1/public/binders/{id}/items').at(-1)?.query.get('availability')
@@ -257,8 +257,8 @@ describe('Public binder', () => {
 
   it('reports the owner and makes an offer on a card of someone else’s binder', async () => {
     mockApi(publicRoutes());
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('public-binder-report'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('public-binder-report'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/report',
       params: {
@@ -270,7 +270,7 @@ describe('Public binder', () => {
       },
     });
     const item = publicItemFixture();
-    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
+    await fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/new',
       params: { item: item.id },
@@ -280,7 +280,7 @@ describe('Public binder', () => {
   it('opens the owner’s own binder as the public sees it', async () => {
     mockParams.current = { id: BINDER_ID, view: 'public' };
     mockApi(publicRoutes());
-    renderWithProviders(<BinderScreen />, { port: port() });
+    await renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByTestId('public-binder-title')).toBeOnTheScreen();
     expect(screen.queryByTestId('binder-title')).toBeNull();
   });
@@ -289,9 +289,9 @@ describe('Public binder', () => {
     mockApi(
       publicRoutes({ 'GET /api/v1/public/binders/{id}': problem(404, 'NOT_FOUND', 'Not found') })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
+    await renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText('This binder is not available')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('public-binder-not-found-action'));
+    await fireEvent.press(screen.getByTestId('public-binder-not-found-action'));
     expect(mockRouter.navigate).toHaveBeenCalledWith('/');
   });
 
@@ -307,7 +307,7 @@ describe('Public binder', () => {
         }),
       })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
+    await renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText("You reached today's binder views")).toBeOnTheScreen();
     expect(screen.getByText(/You have used 30 of 30 public binder views today/)).toBeOnTheScreen();
   });
@@ -321,8 +321,8 @@ describe('Public binder', () => {
         ],
       })
     );
-    renderWithProviders(<BinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('public-binder-error-retry'));
+    await renderWithProviders(<BinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('public-binder-error-retry'));
     expect(await screen.findByTestId('public-binder-title')).toBeOnTheScreen();
   });
 });
@@ -334,17 +334,17 @@ describe('Binder form', () => {
         'POST /api/v1/binders': ok(binderFixture({ id: 'b-new', name: 'Holos' }), 201),
       })
     );
-    renderWithProviders(<NewBinderScreen />, { port: port() });
+    await renderWithProviders(<NewBinderScreen />, { port: port() });
     expect(
       screen.getByText('New binders are private. Fill them first, then publish when you are ready.')
     ).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('binder-save'));
+    await fireEvent.press(screen.getByTestId('binder-save'));
     expect(await screen.findByText('Give your binder a name.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/binders')).toHaveLength(0);
 
-    fireEvent.changeText(screen.getByTestId('binder-name'), '  Holos ');
-    fireEvent.press(screen.getByTestId('binder-kind-SALE'));
-    fireEvent.press(screen.getByTestId('binder-save'));
+    await fireEvent.changeText(screen.getByTestId('binder-name'), '  Holos ');
+    await fireEvent.press(screen.getByTestId('binder-kind-SALE'));
+    await fireEvent.press(screen.getByTestId('binder-save'));
     await waitFor(() =>
       expect(mockRouter.replace).toHaveBeenCalledWith({
         pathname: '/binders/[id]',
@@ -366,9 +366,9 @@ describe('Binder form', () => {
         }),
       })
     );
-    renderWithProviders(<NewBinderScreen />, { port: port() });
-    fireEvent.changeText(screen.getByTestId('binder-name'), 'Sixth');
-    fireEvent.press(screen.getByTestId('binder-save'));
+    await renderWithProviders(<NewBinderScreen />, { port: port() });
+    await fireEvent.changeText(screen.getByTestId('binder-name'), 'Sixth');
+    await fireEvent.press(screen.getByTestId('binder-save'));
     expect(
       await screen.findByText('You reached the number of binders your plan allows')
     ).toBeOnTheScreen();
@@ -386,11 +386,11 @@ describe('Binder form', () => {
         'PATCH /api/v1/binders/{id}': ok(binderFixture({ name: 'Trades 2026' })),
       })
     );
-    renderWithProviders(<EditBinderScreen />, { port: port() });
+    await renderWithProviders(<EditBinderScreen />, { port: port() });
     const name = await screen.findByTestId('binder-name');
     expect(name.props.value).toBe('Trade binder');
-    fireEvent.changeText(name, 'Trades 2026');
-    fireEvent.press(screen.getByTestId('binder-save'));
+    await fireEvent.changeText(name, 'Trades 2026');
+    await fireEvent.press(screen.getByTestId('binder-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('PATCH /api/v1/binders/{id}')[0]?.body).toEqual({
       name: 'Trades 2026',
@@ -407,10 +407,10 @@ describe('Binder form', () => {
         'PATCH /api/v1/binders/{id}': problem(500, 'INTERNAL_ERROR', 'boom'),
       })
     );
-    const { unmount } = renderWithProviders(<EditBinderScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('binder-save'));
+    const { unmount } = await renderWithProviders(<EditBinderScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('binder-save'));
     expect(await screen.findByTestId('binder-error')).toBeOnTheScreen();
-    unmount();
+    await unmount();
 
     mockApi(
       signedInRoutes({
@@ -418,7 +418,7 @@ describe('Binder form', () => {
         'GET /api/v1/binders/{id}': problem(404, 'NOT_FOUND', 'Not found'),
       })
     );
-    renderWithProviders(<EditBinderScreen />, { port: port() });
+    await renderWithProviders(<EditBinderScreen />, { port: port() });
     expect(await screen.findByText('Binder not found')).toBeOnTheScreen();
   });
 });

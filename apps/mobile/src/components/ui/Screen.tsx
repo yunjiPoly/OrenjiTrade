@@ -5,12 +5,11 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  type StyleProp,
-  type ViewStyle,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { spacing, useTheme } from '@/src/theme';
+import { spacing, useTheme, type ViewStyleProp, type ViewStyleObject } from '@/src/theme';
 
 export interface ScreenProps {
   children: ReactNode;
@@ -20,10 +19,10 @@ export interface ScreenProps {
   edgeToEdge?: boolean;
   /** Apply the bottom safe-area inset (screens without a tab bar). */
   safeBottom?: boolean;
-  style?: StyleProp<ViewStyle>;
-  contentContainerStyle?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
+  contentContainerStyle?: ViewStyleProp;
   /** The scroll view of a `scroll` screen (to scroll to a section). */
-  scrollRef?: Ref<ScrollView>;
+  scrollRef?: Ref<ScrollViewInstance>;
   testID?: string;
 }
 
@@ -41,7 +40,7 @@ export function Screen({
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const padding: ViewStyle = edgeToEdge
+  const padding: ViewStyleObject = edgeToEdge
     ? { paddingBottom: safeBottom ? insets.bottom : 0 }
     : {
         paddingHorizontal: spacing[4],

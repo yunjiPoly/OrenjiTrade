@@ -67,9 +67,11 @@ const render = (port = new FakeAuthPort(testUser())) =>
 
 describe('Collector profile', () => {
   it('shows a skeleton, then the public profile with a label, a bucket and a 3 km zone', async () => {
-    mockApi(routes());
-    render();
+    const api = mockApi(routes());
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('collector-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
     expect(screen.getByText('@collector2')).toBeOnTheScreen();
     expect(screen.getByTestId('collector-location')).toHaveTextContent('Near Verdun, Montréal');
@@ -101,25 +103,25 @@ describe('Collector profile', () => {
 
   it('lists the public binders and cards and opens the first binder', async () => {
     mockApi(routes());
-    render();
+    await render();
     const binder = await screen.findByTestId(`collector-binder-${PUBLIC_BINDER_ID}`);
     expect(binder).toHaveTextContent(/Magic trades/);
     expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
     const view = screen.getByTestId('collector-view-binder');
     await waitFor(() => expect(view).not.toBeDisabled());
-    fireEvent.press(view);
+    await fireEvent.press(view);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
       params: { id: PUBLIC_BINDER_ID },
     });
-    fireEvent.press(binder);
+    await fireEvent.press(binder);
     expect(mockRouter.push).toHaveBeenCalledTimes(2);
   });
 
   it('reports the collector and makes an offer on a public card', async () => {
     mockApi(routes());
-    render();
-    fireEvent.press(await screen.findByTestId('collector-report'));
+    await render();
+    await fireEvent.press(await screen.findByTestId('collector-report'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/report',
       params: {
@@ -130,7 +132,7 @@ describe('Collector profile', () => {
       },
     });
     const item = publicItemFixture();
-    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
+    await fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/offers/new',
       params: { item: item.id },
@@ -148,7 +150,7 @@ describe('Collector profile', () => {
         'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
     expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
   });
@@ -160,10 +162,10 @@ describe('Collector profile', () => {
         'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
       })
     );
-    render();
+    await render();
     const failed = await screen.findByTestId('collector-binders-error');
     expect(screen.getByTestId('collector-view-binder')).toBeDisabled();
-    fireEvent.press(within(failed).getByRole('button', { name: 'Retry' }));
+    await fireEvent.press(within(failed).getByRole('button', { name: 'Retry' }));
     expect(await screen.findByTestId('collector-binders-empty')).toHaveTextContent(
       /When Noé Verdun publishes a binder/
     );
@@ -190,13 +192,13 @@ describe('Collector profile', () => {
           ),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
     expect(screen.getByTestId('rating-count')).toHaveTextContent('12 ratings');
     expect(screen.getByText('Smooth trade at the café.')).toBeOnTheScreen();
     expect(screen.getByText('Communication')).toBeOnTheScreen();
     expect(await screen.findByText('“Fair and friendly trader.”')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('ratings-more'));
+    await fireEvent.press(screen.getByTestId('ratings-more'));
     expect(await screen.findByText('Quick answers.')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/collectors/{handle}/ratings')[1]?.query.get('cursor')).toBe(
       'c2'
@@ -213,17 +215,17 @@ describe('Collector profile', () => {
         'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture({ items: [] })),
       })
     );
-    render();
+    await render();
     const failed = await screen.findByTestId('ratings-error');
-    fireEvent.press(within(failed).getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(within(failed).getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('ratings-empty')).toHaveTextContent(/No ratings yet/);
     expect(screen.getByTestId('references-empty')).toHaveTextContent('No references yet.');
   });
 
   it('starts or opens the conversation when the collector accepts messages', async () => {
     const api = mockApi(routes({ 'POST /api/v1/conversations': ok(conversationFixture()) }));
-    render();
-    fireEvent.press(await screen.findByTestId('collector-message'));
+    await render();
+    await fireEvent.press(await screen.findByTestId('collector-message'));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/messages/[id]',
@@ -235,18 +237,18 @@ describe('Collector profile', () => {
 
   it('respects the messaging permission and blocks', async () => {
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok({ ...OTHER, canMessage: false }) }));
-    const first = render();
+    const first = await render();
     expect(await screen.findByTestId('collector-message')).toBeDisabled();
     expect(screen.getByTestId('collector-message-reason')).toHaveTextContent(
       'Noé Verdun does not accept messages from you.'
     );
-    first.unmount();
+    await first.unmount();
     mockApi(
       routes({
         'GET /api/v1/collectors/{handle}': ok({ ...OTHER, canMessage: false, isBlocked: true }),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('collector-message-reason')).toHaveTextContent(
       /because of a block/
     );
@@ -265,7 +267,7 @@ describe('Collector profile', () => {
         ]),
       })
     );
-    const first = render();
+    const first = await render();
     const section = await screen.findByTestId('collector-wishlist');
     expect(section).toHaveTextContent(/2 cards Noé Verdun is looking for/);
     const dragon = within(section).getByTestId(
@@ -278,15 +280,15 @@ describe('Collector profile', () => {
     expect(fox).toHaveTextContent(/SVX-001 · Stellar Vortex/);
     // Never prices, radii or notes.
     expect(section).not.toHaveTextContent(/km|CA\$/);
-    fireEvent.press(fox);
+    await fireEvent.press(fox);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: 'c2', printing: PRINTING_A },
     });
-    first.unmount();
+    await first.unmount();
 
     mockApi(routes());
-    render();
+    await render();
     await screen.findByTestId('collector-binders');
     await waitFor(() => expect(screen.queryByTestId('collector-wishlist')).toBeNull());
   });
@@ -294,17 +296,17 @@ describe('Collector profile', () => {
   it('is the public preview of the own profile (edit, no Message)', async () => {
     mockParams.current = { id: 'maika' };
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
-    render();
+    await render();
     expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-message')).toBeNull();
     expect(screen.queryByTestId('collector-report')).toBeNull();
-    fireEvent.press(screen.getByTestId('collector-edit-profile'));
+    await fireEvent.press(screen.getByTestId('collector-edit-profile'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
   });
 
   it('says when a collector is not on the map', async () => {
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok({ ...OTHER, location: undefined }) }));
-    render();
+    await render();
     expect(await screen.findByTestId('collector-location')).toHaveTextContent('Not on the map');
     expect(screen.getByTestId('collector-area-hidden')).toHaveTextContent(
       'Noé Verdun is not visible on the map.'
@@ -316,24 +318,24 @@ describe('Collector profile', () => {
 describe('Collector profile visibility (like the web)', () => {
   it('PRIVATE (or unknown, suspended, deleted): "not available", whatever the reason', async () => {
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': problem(404, 'NOT_FOUND', 'Not found') }));
-    render();
+    await render();
     const empty = await screen.findByTestId('collector-not-found');
     expect(empty).toHaveTextContent(/This collector is not available/);
     expect(empty).toHaveTextContent(/does not exist, is private, or is no longer active/);
-    fireEvent.press(within(empty).getByRole('button', { name: 'Back to the map' }));
+    await fireEvent.press(within(empty).getByRole('button', { name: 'Back to the map' }));
     expect(mockRouter.navigate).toHaveBeenCalledWith('/');
   });
 
   it('MEMBERS while signed out: sign-in required, nothing is requested', async () => {
     const api = mockApi(routes());
-    render(new FakeAuthPort());
+    await render(new FakeAuthPort());
     expect(await screen.findByTestId('collector-members-only')).toHaveTextContent(
       /Collector profiles are for members/
     );
     expect(api.callsTo('GET /api/v1/collectors/{handle}')).toHaveLength(0);
-    fireEvent.press(screen.getByTestId('collector-sign-in'));
+    await fireEvent.press(screen.getByTestId('collector-sign-in'));
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-in');
-    fireEvent.press(screen.getByTestId('collector-sign-up'));
+    await fireEvent.press(screen.getByTestId('collector-sign-up'));
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-up');
   });
 
@@ -342,12 +344,12 @@ describe('Collector profile visibility (like the web)', () => {
       routes({ 'GET /api/v1/collectors/{handle}': problem(401, 'UNAUTHENTICATED', 'Sign in') })
     );
     const port = new FakeAuthPort(testUser());
-    render(port);
+    await render(port);
     expect(await screen.findByTestId('collector-members-only')).toBeOnTheScreen();
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
     expect(useSessionNotice.getState().ended).toBe(true);
     // Signed out now: the buttons open the auth screens.
-    fireEvent.press(screen.getByTestId('collector-sign-in'));
+    await fireEvent.press(screen.getByTestId('collector-sign-in'));
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-in');
   });
 
@@ -360,7 +362,7 @@ describe('Collector profile visibility (like the web)', () => {
         }),
       })
     );
-    render();
+    await render();
     const map = await screen.findByTestId('collector-area-view');
     expect(zoomOfRegion(map.props.initialRegion, Dimensions.get('window').width)).toBeCloseTo(
       12,
@@ -374,16 +376,16 @@ describe('Collector profile visibility (like the web)', () => {
         'GET /api/v1/collectors/{handle}': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(OTHER)],
       })
     );
-    render();
+    await render();
     expect(await screen.findByText('We could not load this profile')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
     expect(api.callsTo('GET /api/v1/collectors/{handle}')).toHaveLength(2);
   });
 
   it('shows the offline error when the network is down', async () => {
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': problem(0, 'NETWORK_ERROR', 'offline') }));
-    render();
+    await render();
     expect(await screen.findByTestId('collector-error')).toBeOnTheScreen();
   });
 });
@@ -397,14 +399,14 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
         'DELETE /api/v1/users/{id}/block': { status: 204 },
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
     expect(screen.getByTestId('collector-report')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
     const dialog = screen.getByTestId('block-dialog');
     expect(within(dialog).getByText('Block Noé Verdun?')).toBeOnTheScreen();
     expect(within(dialog).getByText(/Settings → Blocked users/)).toBeOnTheScreen();
-    fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
+    await fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
     await waitFor(() => expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(1));
     expect(api.callsTo('POST /api/v1/users/{id}/block')[0]?.path).toBe(
       '/api/v1/users/00000000-0000-4000-8000-0000000000b1/block'
@@ -412,7 +414,7 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is blocked.');
     // The profile is read again: blocked now, Unblock in place of Block.
     expect(await screen.findByRole('button', { name: 'Unblock Noé Verdun' })).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
     await waitFor(() => expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1));
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
   });
@@ -420,7 +422,7 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
   it("never offers Block on the collector's own profile", async () => {
     // The fixture's default is the signed-in collector's own profile.
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
-    render();
+    await render();
     expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-block')).toBeNull();
     expect(screen.queryByTestId('collector-report')).toBeNull();

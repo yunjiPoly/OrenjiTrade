@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { Button, type ButtonVariant } from '@/src/components/ui/Button';
-import { spacing } from '@/src/theme';
+import { spacing, type ViewStyleProp } from '@/src/theme';
 
 import { canOfferOn, type OfferTarget } from './offerTarget';
 import { useOfferTargets } from './offerTargetStore';
@@ -26,7 +26,7 @@ export function MakeOfferButton({
   variant?: ButtonVariant;
   beforeOpen?: () => void;
   inCard?: boolean;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyleProp;
   testID?: string;
 }) {
   const router = useRouter();

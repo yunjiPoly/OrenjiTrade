@@ -70,9 +70,11 @@ const render = (realtime?: FakeRealtime) =>
 
 describe('Messages tab: inbox', () => {
   it('lists conversations, most recent first, with previews, unread and muted marks', async () => {
-    mockApi(routes());
-    render();
+    const api = mockApi(routes());
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('inbox-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('conversation-row-collector3')).toBeOnTheScreen();
     const rows = screen.getAllByTestId(/^conversation-row-/);
     expect(rows.map((row) => row.props.testID)).toEqual([
@@ -87,7 +89,7 @@ describe('Messages tab: inbox', () => {
     expect(screen.getByTestId('conversation-row-collector3').props.accessibilityLabel).toBe(
       'Devon Okafor, online, 2 unread messages, Card: Lantern Fox'
     );
-    fireEvent.press(screen.getByTestId('conversation-row-collector2'));
+    await fireEvent.press(screen.getByTestId('conversation-row-collector2'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/messages/[id]',
       params: { id: CONVERSATION_ID },
@@ -103,24 +105,24 @@ describe('Messages tab: inbox', () => {
         ],
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('inbox-error')).toHaveTextContent(
       /Conversations could not load/
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('inbox-empty')).toHaveTextContent(/No conversations yet/);
-    fireEvent.press(screen.getByText('Open the map'));
+    await fireEvent.press(screen.getByText('Open the map'));
     expect(mockRouter.navigate).toHaveBeenCalledWith('/');
   });
 
   it('stays live: a pushed message moves its conversation up with one more unread', async () => {
     const rt = fakeRealtime();
     const api = mockApi(routes());
-    render(rt);
+    await render(rt);
     await screen.findByTestId('conversation-row-collector2');
     await waitFor(() => expect(rt.client.state).toBe('connected'));
     expect(await screen.findByTestId('realtime-status')).toHaveTextContent('Live');
-    act(() =>
+    await act(() =>
       rt
         .current()
         .push(
@@ -138,7 +140,7 @@ describe('Messages tab: inbox', () => {
 
     // A message of a conversation the inbox does not hold yet re-reads the inbox.
     const before = api.callsTo('GET /api/v1/conversations').length;
-    act(() =>
+    await act(() =>
       rt.current().push(
         '/user/queue/messages',
         messageFixture({
@@ -153,7 +155,7 @@ describe('Messages tab: inbox', () => {
     );
 
     // The caller read a conversation on another device: its count clears.
-    act(() =>
+    await act(() =>
       rt.current().push('/user/queue/receipts', {
         conversationId: 'conv-devon',
         userId: SELF_ID,
@@ -170,9 +172,9 @@ describe('Messages tab: inbox', () => {
 describe('Messages tab: community', () => {
   it('switches to the public channels, grouped, with their activity of the day', async () => {
     mockApi(routes());
-    render();
+    await render();
     await screen.findByTestId('conversation-row-collector2');
-    fireEvent.press(screen.getByTestId('messages-view-community'));
+    await fireEvent.press(screen.getByTestId('messages-view-community'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ view: 'community' });
     expect(await screen.findByTestId('channel-montreal-pokemon')).toBeOnTheScreen();
     expect(screen.getByText('Montréal')).toBeOnTheScreen();
@@ -180,11 +182,11 @@ describe('Messages tab: community', () => {
     expect(screen.getByTestId('channel-count-montreal-pokemon')).toHaveTextContent('3');
     expect(screen.queryByTestId('channel-count-yugioh')).toBeNull();
     // Filtering by a game keeps the topics.
-    fireEvent.press(screen.getByTestId('community-game-yugioh'));
+    await fireEvent.press(screen.getByTestId('community-game-yugioh'));
     expect(screen.queryByTestId('channel-montreal-pokemon')).toBeNull();
     expect(screen.getByTestId('channel-yugioh')).toBeOnTheScreen();
     expect(screen.getByTestId('channel-looking-for')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('channel-looking-for'));
+    await fireEvent.press(screen.getByTestId('channel-looking-for'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/community/[slug]',
       params: { slug: 'looking-for' },
@@ -198,11 +200,11 @@ describe('Messages tab: community', () => {
         'GET /api/v1/community/channels': problem(403, 'FEATURE_DISABLED', 'Disabled'),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('community-disabled')).toHaveTextContent(
       /The community is closed right now/
     );
-    fireEvent.press(screen.getByText('Open messages'));
+    await fireEvent.press(screen.getByText('Open messages'));
     expect(await screen.findByTestId('conversation-row-collector2')).toBeOnTheScreen();
   });
 
@@ -213,9 +215,9 @@ describe('Messages tab: community', () => {
         'GET /api/v1/community/channels': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(CHANNELS)],
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('community-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('channel-looking-for')).toBeOnTheScreen();
   });
 });

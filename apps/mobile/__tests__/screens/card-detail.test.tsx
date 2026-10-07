@@ -23,9 +23,11 @@ function render() {
 
 describe('Card detail', () => {
   it('shows a skeleton, then the card, its attributes, printings and price', async () => {
-    mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
-    render();
+    const api = mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
+    const release = api.hold();
+    await render();
     expect(screen.getByTestId('card-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByTestId('card-name')).toHaveTextContent('Emberfang Fox VMAX');
     expect(screen.getByText('Pokémon · VMAX')).toBeOnTheScreen();
     expect(screen.getByTestId('card-text')).toHaveTextContent('A fictional Fire creature.');
@@ -43,16 +45,16 @@ describe('Card detail', () => {
 
   it('selects a printing from the list', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
-    render();
+    await render();
     await screen.findByTestId('card-name');
-    fireEvent.press(screen.getByTestId(`printing-${PRINTING_B}`));
+    await fireEvent.press(screen.getByTestId(`printing-${PRINTING_B}`));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ printing: PRINTING_B });
   });
 
   it('shows the printing from the link, without a market price', async () => {
     mockParams.current = { id: CARD_ID, printing: PRINTING_B };
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
-    render();
+    await render();
     expect(await screen.findByText('No market price for this printing yet.')).toBeOnTheScreen();
     expect(screen.getByTestId(`printing-${PRINTING_B}`)).toBeChecked();
     expect(screen.getByText('French')).toBeOnTheScreen();
@@ -60,21 +62,21 @@ describe('Card detail', () => {
 
   it('opens the add flow, the holders list, the map and the set', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
-    render();
+    await render();
     await screen.findByTestId('card-name');
-    fireEvent.press(screen.getByTestId('card-add-to-inventory'));
+    await fireEvent.press(screen.getByTestId('card-add-to-inventory'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/items/new',
       params: { cardId: CARD_ID, printingId: PRINTING_A },
     });
-    fireEvent.press(screen.getByTestId('card-holders'));
+    await fireEvent.press(screen.getByTestId('card-holders'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/holders',
       params: { card: CARD_ID },
     });
-    fireEvent.press(screen.getByTestId('card-who-has-it'));
+    await fireEvent.press(screen.getByTestId('card-who-has-it'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
-    fireEvent.press(screen.getByTestId('card-set-link'));
+    await fireEvent.press(screen.getByTestId('card-set-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/sets/[id]',
       params: { id: '00000000-0000-4000-8a20-000000000001' },
@@ -83,19 +85,19 @@ describe('Card detail', () => {
 
   it('adds the card to the wishlist: any printing, or the printing of the link', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
-    const first = render();
+    const first = await render();
     await screen.findByTestId('card-name');
-    fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
+    await fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/wishlist/new',
       params: { cardId: CARD_ID, printingId: '' },
     });
-    first.unmount();
+    await first.unmount();
 
     mockParams.current = { id: CARD_ID, printing: PRINTING_B };
-    render();
+    await render();
     await screen.findByTestId('card-name');
-    fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
+    await fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
     expect(mockRouter.push).toHaveBeenLastCalledWith({
       pathname: '/wishlist/new',
       params: { cardId: CARD_ID, printingId: PRINTING_B },
@@ -108,7 +110,7 @@ describe('Card detail', () => {
         'GET /api/v1/cards/{id}': ok(cardDetailFixture({ game: 'yugioh', metadata: {} })),
       })
     );
-    render();
+    await render();
     expect(await screen.findByTestId('card-data-credit')).toBeOnTheScreen();
     expect(screen.getByText('No attributes recorded for this card.')).toBeOnTheScreen();
   });
@@ -117,9 +119,9 @@ describe('Card detail', () => {
     mockApi(
       signedInRoutes({ 'GET /api/v1/cards/{id}': problem(404, 'NOT_FOUND', 'Card not found') })
     );
-    render();
+    await render();
     expect(await screen.findByText('Card not found')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('card-not-found-action'));
+    await fireEvent.press(screen.getByTestId('card-not-found-action'));
     expect(mockRouter.navigate).toHaveBeenCalledWith('/search');
   });
 
@@ -129,16 +131,16 @@ describe('Card detail', () => {
         'GET /api/v1/cards/{id}': [problem(503, 'UNAVAILABLE', 'down'), ok(cardDetailFixture())],
       })
     );
-    render();
+    await render();
     expect(await screen.findByText('This card could not load')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('card-error-retry'));
+    await fireEvent.press(screen.getByTestId('card-error-retry'));
     expect(await screen.findByTestId('card-name')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/cards/{id}')).toHaveLength(2);
   });
 
   it('handles a card without printings', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture({ printings: [] })) }));
-    render();
+    await render();
     expect(
       await screen.findByText('No printings are recorded for this card yet.')
     ).toBeOnTheScreen();

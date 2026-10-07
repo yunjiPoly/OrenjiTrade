@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
-import type { ReactTestInstance } from 'react-test-renderer';
+import type { TestInstance } from 'test-renderer';
 
 import MapScreen from '@/app/(tabs)/index';
 import CollectorScreen from '@/app/collectors/[id]';
@@ -142,8 +142,8 @@ describe('map privacy contract', () => {
 
   /** Props of every element rendered by the map engines (MapView, Circle, Marker). */
   function mapProps(): unknown[] {
-    const nodes = screen.UNSAFE_root.findAll(
-      (node: ReactTestInstance) =>
+    const nodes = screen.container.queryAll(
+      (node: TestInstance) =>
         typeof node.props.testID === 'string' &&
         /^(collector-map-view|collector-area-view|zone-|cluster-)/.test(node.props.testID)
     );
@@ -152,20 +152,21 @@ describe('map privacy contract', () => {
 
   it('hands react-native-maps 3-decimal points only (zones, clusters, regions)', async () => {
     const api = mockApi(mapRoutes());
-    renderWithProviders(<MapScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<MapScreen />, { port: new FakeAuthPort(testUser()) });
     await waitFor(() => expect(screen.getAllByTestId(/^zone-/).length).toBeGreaterThan(0));
     // Pan with a raw, very precise native region: nothing precise flows back into the map, and
     // the next query sends 2 decimals.
     const raw = regionForCamera({ lat: 45.523_456_7, lng: -73.581_234_5 }, 9, WINDOW, 20);
-    act(() =>
-      fireEvent(screen.getByTestId('collector-map-view'), 'regionChangeComplete', {
-        ...raw,
-        latitude: 45.523_456_7,
-        longitude: -73.581_234_5,
-      })
+    await act(
+      async () =>
+        await fireEvent(screen.getByTestId('collector-map-view'), 'regionChangeComplete', {
+          ...raw,
+          latitude: 45.523_456_7,
+          longitude: -73.581_234_5,
+        })
     );
     await waitFor(() => expect(screen.queryAllByTestId(/^cluster-/).length).toBeGreaterThan(0));
-    fireEvent.press(screen.getAllByTestId(/^cluster-/)[0]!);
+    await fireEvent.press(screen.getAllByTestId(/^cluster-/)[0]!);
     const maps = jest.requireMock('react-native-maps') as { mockAnimateToRegion: jest.Mock };
     await waitFor(() => expect(maps.mockAnimateToRegion).toHaveBeenCalled());
 
@@ -187,10 +188,12 @@ describe('map privacy contract', () => {
     mockEngine = 'leaflet';
     const webview = jest.requireMock('react-native-webview') as { mockInjectJavaScript: jest.Mock };
     mockApi(mapRoutes());
-    renderWithProviders(<MapScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<MapScreen />, { port: new FakeAuthPort(testUser()) });
     const page = await screen.findByTestId('collector-map');
-    act(() => {
-      fireEvent(page, 'message', { nativeEvent: { data: JSON.stringify({ type: 'ready' }) } });
+    await act(async () => {
+      await fireEvent(page, 'message', {
+        nativeEvent: { data: JSON.stringify({ type: 'ready' }) },
+      });
     });
     await waitFor(() => expect(webview.mockInjectJavaScript).toHaveBeenCalled());
     const html = (page.props.source as { html: string }).html;
@@ -213,7 +216,7 @@ describe('map privacy contract', () => {
         'GET /api/v1/collectors/{handle}': ok(FIXTURES.profile),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<CollectorScreen />, { port: new FakeAuthPort(testUser()) });
     await screen.findByTestId('zone-area');
     expect(findings(mapProps())).toEqual([]);
     expect(screen.queryByText(/\d{2}\.\d{3,}/)).toBeNull();

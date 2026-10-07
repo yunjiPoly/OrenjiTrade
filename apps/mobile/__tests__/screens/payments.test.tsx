@@ -73,7 +73,7 @@ describe('Trade with payment protection', () => {
         ],
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-next-title')).toHaveTextContent(
       'Your move: pay with payment protection'
     );
@@ -82,13 +82,13 @@ describe('Trade with payment protection', () => {
     expect(screen.queryByTestId('trade-protected-web')).not.toBeOnTheScreen();
     expect(screen.getByTestId('trade-meetup-button')).toHaveTextContent(/Meet in person instead/);
 
-    fireEvent.press(pay);
+    await fireEvent.press(pay);
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /Noé Verdun has not set up payouts yet/
     );
     expect(mockRouter.push).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByTestId('trade-pay'));
+    await fireEvent.press(screen.getByTestId('trade-pay'));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/checkout/fake/[ref]',
@@ -102,16 +102,16 @@ describe('Trade with payment protection', () => {
     mockApi(
       routes({ 'GET /api/v1/public/feature-flags': ok(flags({ protectedPayments: false })) })
     );
-    const view = renderWithProviders(<TradeScreen />, { port: port() });
+    const view = await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-protection-paused')).toHaveTextContent(
       /Payment protection is not available right now/
     );
     expect(screen.queryByTestId('trade-pay')).not.toBeOnTheScreen();
     expect(screen.getByTestId('step-paid')).toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/trades/{id}': problem(404, 'NOT_FOUND', 'Nope') }));
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-not-found')).toBeOnTheScreen();
   });
 
@@ -129,7 +129,7 @@ describe('Trade with payment protection', () => {
         ),
       })
     );
-    const view = renderWithProviders(<TradeScreen />, { port: port() });
+    const view = await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /Payment secured\. The payment provider holds it until you confirm receipt; Noé Verdun was asked to ship\./
     );
@@ -141,7 +141,7 @@ describe('Trade with payment protection', () => {
     expect(screen.getByTestId('payment-seller-amount')).toHaveTextContent(
       /Seller receives.*\$38\.00/
     );
-    view.unmount();
+    await view.unmount();
 
     mockParams.current = { id: TRADE_ID, payment: 'failed' };
     mockApi(
@@ -151,7 +151,7 @@ describe('Trade with payment protection', () => {
         ),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /The payment did not go through\. Nothing was charged/
     );
@@ -173,12 +173,12 @@ describe('Trade with payment protection', () => {
         'GET /api/v1/me/seller-account': ok(sellerAccountFixture()),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('payout-setup')).toHaveTextContent(
       /Noé Verdun can pay with payment protection as soon as your payout account is ready/
     );
     expect(screen.queryByTestId('trade-pay')).not.toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('payout-setup-open'));
+    await fireEvent.press(screen.getByTestId('payout-setup-open'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/settings/payouts',
       params: { returnTo: `/trades/${TRADE_ID}` },
@@ -211,20 +211,20 @@ describe('Trade with payment protection', () => {
         'POST /api/v1/trades/{id}/ship': ok(shipped),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('trade-ship'));
+    await renderWithProviders(<TradeScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('trade-ship'));
     const dialog = screen.getByTestId('ship-dialog');
     expect(dialog).toHaveTextContent(/Ship Azure-Eyes Sky Dragon to Noé Verdun/);
     expect(screen.getByTestId('ship-tip')).toHaveTextContent(/Without tracking/);
-    fireEvent.changeText(screen.getByTestId('ship-carrier'), ' Canada Post ');
-    fireEvent.changeText(screen.getByTestId('ship-tracking'), 'CP123456789CA');
+    await fireEvent.changeText(screen.getByTestId('ship-carrier'), ' Canada Post ');
+    await fireEvent.changeText(screen.getByTestId('ship-tracking'), 'CP123456789CA');
     expect(screen.queryByTestId('ship-tip')).not.toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('ship-notes'), 'x'.repeat(501));
-    fireEvent.press(screen.getByTestId('ship-dialog-confirm'));
+    await fireEvent.changeText(screen.getByTestId('ship-notes'), 'x'.repeat(501));
+    await fireEvent.press(screen.getByTestId('ship-dialog-confirm'));
     expect(screen.getByText('Keep the note under 500 characters.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/trades/{id}/ship')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('ship-notes'), '');
-    fireEvent.press(screen.getByTestId('ship-dialog-confirm'));
+    await fireEvent.changeText(screen.getByTestId('ship-notes'), '');
+    await fireEvent.press(screen.getByTestId('ship-dialog-confirm'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/trades/{id}/ship')[0]?.body).toEqual({
         carrier: 'Canada Post',
@@ -265,16 +265,16 @@ describe('Trade with payment protection', () => {
         ),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('trade-next-title')).toHaveTextContent(
       'Your move: confirm you received the card'
     );
     expect(screen.getByTestId('trade-next-description')).toHaveTextContent(/Open a dispute before/);
-    fireEvent.press(screen.getByTestId('trade-confirm-receipt'));
+    await fireEvent.press(screen.getByTestId('trade-confirm-receipt'));
     expect(screen.getByTestId('receipt-dialog')).toHaveTextContent(
       /The payout \(\$38\.00\) is released to Noé Verdun/
     );
-    fireEvent.press(screen.getByTestId('receipt-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('receipt-dialog-confirm'));
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /Receipt confirmed: the payout was released to Noé Verdun/
     );
@@ -304,23 +304,23 @@ describe('Trade with payment protection', () => {
         ],
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('trade-open-dispute'));
+    await renderWithProviders(<TradeScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('trade-open-dispute'));
     expect(screen.getByTestId('dispute-dialog')).toHaveTextContent(
       /The payout to Noé Verdun goes on hold/
     );
-    fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
     expect(screen.getByTestId('dispute-reason-error')).toHaveTextContent('Choose what went wrong.');
     expect(screen.getByText('Describe what is wrong so an admin can review it.')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('dispute-reason-DAMAGED'));
-    fireEvent.changeText(screen.getByTestId('dispute-description'), 'Bent');
-    fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('dispute-reason-DAMAGED'));
+    await fireEvent.changeText(screen.getByTestId('dispute-description'), 'Bent');
+    await fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
     expect(screen.getByText('Add a few more details (at least 10 characters).')).toBeOnTheScreen();
-    fireEvent.changeText(
+    await fireEvent.changeText(
       screen.getByTestId('dispute-description'),
       ' The card arrived with a crease across the art. '
     );
-    fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
     expect(await screen.findByTestId('trade-notice')).toHaveTextContent(
       /The dispute window closed on .*Message Noé Verdun or contact OrenjiTrade support/
     );
@@ -329,10 +329,13 @@ describe('Trade with payment protection', () => {
       description: 'The card arrived with a crease across the art.',
     });
 
-    fireEvent.press(screen.getByTestId('trade-open-dispute'));
-    fireEvent.press(screen.getByTestId('dispute-reason-NOT_AS_DESCRIBED'));
-    fireEvent.changeText(screen.getByTestId('dispute-description'), 'Wrong printing entirely.');
-    fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
+    await fireEvent.press(screen.getByTestId('trade-open-dispute'));
+    await fireEvent.press(screen.getByTestId('dispute-reason-NOT_AS_DESCRIBED'));
+    await fireEvent.changeText(
+      screen.getByTestId('dispute-description'),
+      'Wrong printing entirely.'
+    );
+    await fireEvent.press(screen.getByTestId('dispute-dialog-confirm'));
     await waitFor(() =>
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/disputes/[id]',
@@ -361,10 +364,10 @@ describe('Trade with payment protection', () => {
         ),
       })
     );
-    renderWithProviders(<TradeScreen />, { port: port() });
+    await renderWithProviders(<TradeScreen />, { port: port() });
     expect(await screen.findByTestId('dispute-card')).toHaveTextContent(/Damaged in transit/);
     expect(screen.getByTestId('payment-hold')).toHaveTextContent(/The payout is on hold/);
-    fireEvent.press(screen.getByTestId('trade-view-dispute'));
+    await fireEvent.press(screen.getByTestId('trade-view-dispute'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/disputes/[id]',
       params: { id: DISPUTE_ID },
@@ -387,7 +390,7 @@ describe('Fake payment checkout', () => {
         'POST /api/v1/payments/fake/{ref}/confirm': ok({ received: true }, 202),
       })
     );
-    renderWithProviders(<CheckoutScreen />, { port: port() });
+    await renderWithProviders(<CheckoutScreen />, { port: port() });
     expect(screen.getByTestId('local-payment-banner')).toHaveTextContent(/Local test payment/);
     expect(await screen.findByTestId('checkout-amount')).toHaveTextContent('$40.00');
     expect(screen.getByTestId('checkout-heading')).toHaveTextContent(
@@ -395,7 +398,7 @@ describe('Fake payment checkout', () => {
     );
     expect(screen.getByTestId('checkout-status')).toHaveTextContent(/Waiting for payment/);
     expect(screen.getByTestId('protection-explainer-steps')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('checkout-pay'));
+    await fireEvent.press(screen.getByTestId('checkout-pay'));
     await waitFor(() =>
       expect(mockRouter.dismissTo).toHaveBeenCalledWith({
         pathname: '/trades/[id]',
@@ -417,8 +420,8 @@ describe('Fake payment checkout', () => {
         'POST /api/v1/payments/fake/{ref}/confirm': ok({ received: true }, 202),
       })
     );
-    renderWithProviders(<CheckoutScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('checkout-decline'));
+    await renderWithProviders(<CheckoutScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('checkout-decline'));
     await waitFor(() =>
       expect(mockRouter.dismissTo).toHaveBeenCalledWith({
         pathname: '/trades/[id]',
@@ -434,17 +437,17 @@ describe('Fake payment checkout', () => {
     mockApi(
       routes({ 'GET /api/v1/payments/fake/{ref}': ok(fakeCheckoutFixture({ status: 'SECURED' })) })
     );
-    let view = renderWithProviders(<CheckoutScreen />, { port: port() });
+    let view = await renderWithProviders(<CheckoutScreen />, { port: port() });
     expect(await screen.findByTestId('checkout-outcome')).toHaveTextContent(
       /This payment is secured/
     );
     expect(screen.queryByTestId('checkout-pay')).not.toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/payments/fake/{ref}': problem(404, 'NOT_FOUND', 'Nope') }));
-    view = renderWithProviders(<CheckoutScreen />, { port: port() });
+    view = await renderWithProviders(<CheckoutScreen />, { port: port() });
     expect(await screen.findByTestId('checkout-not-found')).toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(
       routes({
@@ -454,8 +457,8 @@ describe('Fake payment checkout', () => {
         ],
       })
     );
-    renderWithProviders(<CheckoutScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
+    await renderWithProviders(<CheckoutScreen />, { port: port() });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('checkout-pay')).toBeOnTheScreen();
   });
 });
@@ -500,7 +503,7 @@ describe('Dispute', () => {
         },
       })
     );
-    renderWithProviders(<DisputeScreen />, { port: port() });
+    await renderWithProviders(<DisputeScreen />, { port: port() });
     expect(await screen.findByTestId('dispute-notice')).toHaveTextContent(
       /Dispute opened\. The payout to Noé Verdun is on hold/
     );
@@ -518,11 +521,11 @@ describe('Dispute', () => {
       )
     ).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('evidence-mode-statement'));
-    fireEvent.press(screen.getByTestId('evidence-add'));
+    await fireEvent.press(screen.getByTestId('evidence-mode-statement'));
+    await fireEvent.press(screen.getByTestId('evidence-add'));
     expect(screen.getByText('Write what you want the admin to know.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('evidence-statement'), 'The sleeve was empty.');
-    fireEvent.press(screen.getByTestId('evidence-add'));
+    await fireEvent.changeText(screen.getByTestId('evidence-statement'), 'The sleeve was empty.');
+    await fireEvent.press(screen.getByTestId('evidence-add'));
     expect(await screen.findByTestId('dispute-notice')).toHaveTextContent(
       /Statement added\. Noé Verdun and OrenjiTrade can see it\./
     );
@@ -531,10 +534,13 @@ describe('Dispute', () => {
       body: 'The sleeve was empty.',
     });
 
-    fireEvent.press(screen.getByTestId('dispute-message-send'));
+    await fireEvent.press(screen.getByTestId('dispute-message-send'));
     expect(screen.getByText('Write a message first.')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('dispute-message-input'), 'Here is what I received.');
-    fireEvent.press(screen.getByTestId('dispute-message-send'));
+    await fireEvent.changeText(
+      screen.getByTestId('dispute-message-input'),
+      'Here is what I received.'
+    );
+    await fireEvent.press(screen.getByTestId('dispute-message-send'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/disputes/{id}/messages')[0]?.body).toEqual({
         body: 'Here is what I received.',
@@ -566,12 +572,12 @@ describe('Dispute', () => {
         }),
       })
     );
-    renderWithProviders(<DisputeScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('evidence-pick'));
+    await renderWithProviders(<DisputeScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('evidence-pick'));
     expect(await screen.findByTestId('evidence-preview')).toHaveTextContent(/crease\.jpg/);
     expect(screen.getByTestId('evidence-preview')).toHaveTextContent(/234 KB/);
-    fireEvent.changeText(screen.getByTestId('evidence-caption'), 'Crease under a lamp');
-    fireEvent.press(screen.getByTestId('evidence-add'));
+    await fireEvent.changeText(screen.getByTestId('evidence-caption'), 'Crease under a lamp');
+    await fireEvent.press(screen.getByTestId('evidence-add'));
     expect(await screen.findByTestId('dispute-notice')).toHaveTextContent(
       /You already added 10 pieces of evidence/
     );
@@ -581,8 +587,8 @@ describe('Dispute', () => {
   it('refuses unsupported photos and a denied permission', async () => {
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
     mockApi(routes({ 'GET /api/v1/disputes/{id}': ok(disputeFixture()) }));
-    renderWithProviders(<DisputeScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId('evidence-pick'));
+    await renderWithProviders(<DisputeScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId('evidence-pick'));
     expect(await screen.findByTestId('evidence-problem')).toHaveTextContent(
       /Allow access to your photos to add one\./
     );
@@ -591,7 +597,7 @@ describe('Dispute', () => {
       canceled: false,
       assets: [{ uri: 'file:///a.gif', mimeType: 'image/gif', fileName: 'a.gif', fileSize: 100 }],
     } as never);
-    fireEvent.press(screen.getByTestId('evidence-pick'));
+    await fireEvent.press(screen.getByTestId('evidence-pick'));
     await waitFor(() =>
       expect(screen.getByTestId('evidence-problem')).toHaveTextContent(
         /Use a photo \(JPEG, PNG or WebP\)\./
@@ -607,12 +613,12 @@ describe('Dispute', () => {
         ),
       })
     );
-    let view = renderWithProviders(<DisputeScreen />, { port: port() });
+    let view = await renderWithProviders(<DisputeScreen />, { port: port() });
     expect(await screen.findByTestId('dispute-hold')).toBeOnTheScreen();
     expect(screen.getByTestId('dispute-evidence-closed')).toHaveTextContent(/on hold/);
     expect(screen.getByTestId('dispute-thread-closed')).toHaveTextContent(/on hold/);
     expect(screen.queryByTestId('evidence-composer')).not.toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockApi(
       routes({
@@ -628,15 +634,15 @@ describe('Dispute', () => {
         ),
       })
     );
-    view = renderWithProviders(<DisputeScreen />, { port: port() });
+    view = await renderWithProviders(<DisputeScreen />, { port: port() });
     expect(await screen.findByTestId('dispute-decision')).toHaveTextContent(
       /Resolved for the buyer.*Refund to the buyer: \$40\.00.*The photos show transit damage/
     );
     expect(screen.getByTestId('dispute-thread-closed')).toHaveTextContent(/decided/);
-    view.unmount();
+    await view.unmount();
 
     mockApi(routes({ 'GET /api/v1/disputes/{id}': problem(404, 'NOT_FOUND', 'Nope') }));
-    renderWithProviders(<DisputeScreen />, { port: port() });
+    await renderWithProviders(<DisputeScreen />, { port: port() });
     expect(await screen.findByTestId('dispute-not-found')).toBeOnTheScreen();
   });
 });
@@ -653,10 +659,10 @@ describe('Settings → Payouts', () => {
         }),
       })
     );
-    const view = renderWithProviders(<PayoutSettingsScreen />, { port: port() });
+    const view = await renderWithProviders(<PayoutSettingsScreen />, { port: port() });
     expect(await screen.findByTestId('payout-status')).toHaveTextContent(/Not set up/);
     expect(screen.getByTestId('payouts-local')).toHaveTextContent(/Local test provider/);
-    fireEvent.press(screen.getByTestId('payouts-start'));
+    await fireEvent.press(screen.getByTestId('payouts-start'));
     await waitFor(() =>
       expect(mockRouter.setParams).toHaveBeenCalledWith({
         returnTo: `/trades/${TRADE_ID}`,
@@ -668,7 +674,7 @@ describe('Settings → Payouts', () => {
     });
     expect(await screen.findByTestId('payout-status')).toHaveTextContent(/Ready for payouts/);
     expect(screen.queryByTestId('payouts-start')).not.toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
 
     mockParams.current = { returnTo: `/trades/${TRADE_ID}`, onboarding: 'complete' };
     mockApi(
@@ -678,9 +684,9 @@ describe('Settings → Payouts', () => {
         ),
       })
     );
-    renderWithProviders(<PayoutSettingsScreen />, { port: port() });
+    await renderWithProviders(<PayoutSettingsScreen />, { port: port() });
     expect(await screen.findByTestId('payouts-complete')).toHaveTextContent(/Payouts are set up/);
-    fireEvent.press(screen.getByTestId('payouts-back-to-trade'));
+    await fireEvent.press(screen.getByTestId('payouts-back-to-trade'));
     expect(mockRouter.dismissTo).toHaveBeenCalledWith(`/trades/${TRADE_ID}`);
   });
 
@@ -690,9 +696,9 @@ describe('Settings → Payouts', () => {
         'GET /api/v1/me/seller-account': problem(404, 'FEATURE_DISABLED', 'Off'),
       })
     );
-    const view = renderWithProviders(<PayoutSettingsScreen />, { port: port() });
+    const view = await renderWithProviders(<PayoutSettingsScreen />, { port: port() });
     expect(await screen.findByTestId('payouts-disabled')).toHaveTextContent(/nothing to set up/);
-    view.unmount();
+    await view.unmount();
 
     mockApi(
       routes({
@@ -702,20 +708,20 @@ describe('Settings → Payouts', () => {
         ],
       })
     );
-    renderWithProviders(<PayoutSettingsScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
+    await renderWithProviders(<PayoutSettingsScreen />, { port: port() });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('payouts-start')).toHaveTextContent(/Continue the setup/);
   });
 
   it('lists Payouts in Settings only while payment protection is on', async () => {
     mockApi(routes());
-    const view = renderWithProviders(<SettingsScreen />, { port: port() });
+    const view = await renderWithProviders(<SettingsScreen />, { port: port() });
     expect(await screen.findByTestId('settings-link-payouts')).toBeOnTheScreen();
-    view.unmount();
+    await view.unmount();
     mockApi(
       routes({ 'GET /api/v1/public/feature-flags': ok(flags({ protectedPayments: false })) })
     );
-    renderWithProviders(<SettingsScreen />, { port: port() });
+    await renderWithProviders(<SettingsScreen />, { port: port() });
     expect(await screen.findByTestId('settings-link-offers')).toBeOnTheScreen();
     expect(screen.queryByTestId('settings-link-payouts')).not.toBeOnTheScreen();
   });

@@ -100,7 +100,7 @@ export function CollectorList({
             Showing the {result.collectors.length} nearest of {result.total} collectors. Zoom in or
             add filters to see the others.
           </Text>
-        ) : null
+        ) : undefined
       }
     />
   );

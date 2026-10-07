@@ -67,32 +67,34 @@ describe('Onboarding', () => {
         'GET /api/v1/me/profile': [problem(503, 'SERVICE_UNAVAILABLE', 'down'), ok(freshProfile)],
       })
     );
-    renderWithProviders(<OnboardingScreen />, {
+    const release = api.hold();
+    await renderWithProviders(<OnboardingScreen />, {
       port: new FakeAuthPort(testUser({ displayName: 'Maïka from sign-up' })),
     });
     expect(screen.getByTestId('onboarding-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByText('We could not load your profile')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/me/profile').length).toBeGreaterThanOrEqual(2);
   });
 
   it('walks profile → interests → trading area with validation and the map opt-in off by default', async () => {
     const api = mockApi(onboardingRoutes());
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
 
     // Step 1: profile.
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 3 · Profile')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByLabelText('Display name'), '');
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.changeText(screen.getByLabelText('Display name'), '');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText('Enter a display name.')).toBeOnTheScreen();
     expect(api.callsTo('PUT /api/v1/me/profile')).toHaveLength(0);
 
-    fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka');
-    fireEvent.changeText(screen.getByLabelText('Handle'), 'Maika_QC');
-    fireEvent.changeText(screen.getByLabelText('Bio'), 'Vintage binders.');
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka');
+    await fireEvent.changeText(screen.getByLabelText('Handle'), 'Maika_QC');
+    await fireEvent.changeText(screen.getByLabelText('Bio'), 'Vintage binders.');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
     // Step 2: interests (at least one game or tag).
     expect(await screen.findByText('What do you collect?')).toBeOnTheScreen();
@@ -103,15 +105,15 @@ describe('Onboarding', () => {
       games: [],
       languages: [],
     });
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByTestId('interests-missing')).toHaveTextContent(
       /Choose at least one game or one tag\./
     );
 
-    fireEvent.press(await screen.findByRole('checkbox', { name: 'Pokémon' }));
-    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Local pickup' }));
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Pokémon' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add tag Local pickup' }));
     expect(screen.getByTestId('tag-count')).toHaveTextContent('1 / 12');
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
     // Step 3: trading area.
     expect(await screen.findByText('Where do you trade?')).toBeOnTheScreen();
@@ -124,13 +126,13 @@ describe('Onboarding', () => {
     expect(optIn).not.toBeChecked();
 
     // A city quick pick sets its public centre and suggested radius (10 km), like the web.
-    fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
     expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
       'Centre: Laval city centre.'
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
-    fireEvent.press(optIn);
-    fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    await fireEvent.press(optIn);
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
 
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
     expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
@@ -150,10 +152,10 @@ describe('Onboarding', () => {
 
   it('maps a taken handle onto the field', async () => {
     mockApi(onboardingRoutes({ 'PUT /api/v1/me/profile': problem(409, 'HANDLE_TAKEN', 'taken') }));
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByLabelText('Handle'), 'collector1');
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.changeText(screen.getByLabelText('Handle'), 'collector1');
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(
       await screen.findByText('That handle is already taken. Try another one.')
     ).toBeOnTheScreen();
@@ -170,9 +172,9 @@ describe('Onboarding', () => {
         ),
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Where do you trade?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Skip for now' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Skip for now' }));
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
     expect(api.callsTo('PUT /api/v1/me/location/trading-area')).toHaveLength(0);
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(0);
@@ -194,8 +196,8 @@ describe('Onboarding', () => {
         ),
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
 
     expect(await screen.findByTestId('area-device-message')).toHaveTextContent(
       /Trading area set near Ville-Marie, Montréal\./
@@ -228,8 +230,8 @@ describe('Onboarding', () => {
         ),
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
     expect(await screen.findByTestId('area-device-message')).toHaveTextContent(
       /Location permission was denied/
     );
@@ -253,21 +255,21 @@ describe('Onboarding age step (18+ rule)', () => {
         'POST /api/v1/me/consents': noContent,
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
     expect(screen.queryByLabelText('Handle')).toBeNull();
     expect(screen.getByText('Je confirme avoir 18 ans ou plus')).toBeOnTheScreen();
 
     // The terms are readable from the step.
-    fireEvent.press(screen.getByTestId('onboarding-age-terms'));
+    await fireEvent.press(screen.getByTestId('onboarding-age-terms'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/legal/[key]',
       params: { key: 'terms' },
     });
 
     // Unticked: nothing is recorded.
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(
       screen.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.')
     ).toBeOnTheScreen();
@@ -275,8 +277,8 @@ describe('Onboarding age step (18+ rule)', () => {
 
     // The gate remembered where the collector was sent to onboarding from.
     usePendingLink.getState().set('/collectors/collector5');
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     // The remembered link replaces onboarding (back leads to the tabs), the tabs otherwise.
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
@@ -298,11 +300,11 @@ describe('Onboarding age step (18+ rule)', () => {
         'POST /api/v1/me/consents': noContent,
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 2 of 4 · Profile')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(1);
@@ -320,15 +322,15 @@ describe('Onboarding age step (18+ rule)', () => {
         'POST /api/v1/me/consents': problem(429, 'RATE_LIMITED', 'slow down'),
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port });
+    await renderWithProviders(<OnboardingScreen />, { port });
     usePendingLink.getState().set('/collectors/collector5');
-    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText(/Too many requests in a short time/)).toBeOnTheScreen();
     // Nothing recorded: the collector stays, and the remembered link waits for the retry.
     expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(usePendingLink.getState().href).toBe('/collectors/collector5');
-    fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });
 
@@ -345,10 +347,10 @@ describe('Onboarding age step (18+ rule)', () => {
         ],
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('We could not load the confirmation')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('checkbox', { name: AGE_LABEL })).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/public/legal/documents')).toHaveLength(2);
   });
@@ -363,7 +365,7 @@ describe('Onboarding age step (18+ rule)', () => {
         ),
       })
     );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    await renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 3 · Profile')).toBeOnTheScreen();
     expect(screen.queryByText('Are you 18 or older?')).toBeNull();

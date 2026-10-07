@@ -45,7 +45,8 @@
     "audit:gate": "node scripts/audit-gate.mjs"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.5"
+    "@grpc/grpc-js": "^1.14.5",
+    "react-native": "0.88.0-rc.3"
   },
   "devDependencies": {
     "@babel/generator": "7.29.8",

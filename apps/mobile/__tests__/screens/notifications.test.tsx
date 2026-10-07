@@ -56,30 +56,32 @@ const port = () => new FakeAuthPort(testUser());
 describe('Notification centre', () => {
   it('groups notifications by day with their kind, and filters unread ones', async () => {
     const api = mockApi(routes());
-    renderWithProviders(<NotificationsScreen />, { port: port() });
+    const release = api.hold();
+    await renderWithProviders(<NotificationsScreen />, { port: port() });
     expect(screen.getByTestId('notifications-loading')).toBeOnTheScreen();
+    release();
     expect(await screen.findByText(match.title)).toBeOnTheScreen();
     expect(screen.getByText('Today')).toBeOnTheScreen();
     expect(screen.getByText('Older')).toBeOnTheScreen();
     expect(screen.getByText('Wishlist match')).toBeOnTheScreen();
     expect(screen.getAllByTestId('notification-unread-dot')).toHaveLength(2);
     expect(await screen.findByText('Unread (2)')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('notifications-view-unread'));
+    await fireEvent.press(screen.getByTestId('notifications-view-unread'));
     await waitFor(() => expect(screen.queryByText(message.title)).not.toBeOnTheScreen());
     expect(api.callsTo('GET /api/v1/notifications').at(-1)?.query.get('unreadOnly')).toBe('true');
   });
 
   it('opens a notification on its screen and marks it read', async () => {
     const api = mockApi(routes());
-    renderWithProviders(<NotificationsScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId(`notification-${match.id}`));
+    await renderWithProviders(<NotificationsScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId(`notification-${match.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith(`/wishlist/${WISH_ID}`);
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1)
     );
     expect(await screen.findByText('Unread (1)')).toBeOnTheScreen();
     // A read notification opens without a second mark.
-    fireEvent.press(screen.getByTestId(`notification-${message.id}`));
+    await fireEvent.press(screen.getByTestId(`notification-${message.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/messages/conv-1');
     expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1);
   });
@@ -124,39 +126,39 @@ describe('Notification centre', () => {
         ),
       })
     );
-    renderWithProviders(<NotificationsScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId(`notification-${offer.id}`));
+    await renderWithProviders(<NotificationsScreen />, { port: port() });
+    await fireEvent.press(await screen.findByTestId(`notification-${offer.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/offers/o1');
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/notifications/{id}/read')[0]?.path).toBe(
         `/api/v1/notifications/${offer.id}/read`
       )
     );
-    fireEvent.press(screen.getByTestId(`notification-${trade.id}`));
+    await fireEvent.press(screen.getByTestId(`notification-${trade.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/trades/t1');
-    fireEvent.press(screen.getByTestId(`notification-${decision.id}`));
+    await fireEvent.press(screen.getByTestId(`notification-${decision.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
-    fireEvent.press(screen.getByTestId(`notification-${rating.id}`));
+    await fireEvent.press(screen.getByTestId(`notification-${rating.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/collectors/maika?tab=ratings');
-    fireEvent.press(screen.getByTestId(`notification-${dispute.id}`));
+    await fireEvent.press(screen.getByTestId(`notification-${dispute.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/disputes/d1');
-    fireEvent.press(screen.getByTestId(`notification-read-${match.id}`));
+    await fireEvent.press(screen.getByTestId(`notification-read-${match.id}`));
     await waitFor(() => expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0));
   });
 
   it('marks all as read and opens the preferences', async () => {
     const api = mockApi(routes());
-    renderWithProviders(<NotificationsScreen />, { port: port() });
+    await renderWithProviders(<NotificationsScreen />, { port: port() });
     await screen.findByText(match.title);
     await screen.findByText('Unread (2)');
-    fireEvent.press(screen.getByTestId('notifications-mark-all'));
+    await fireEvent.press(screen.getByTestId('notifications-mark-all'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       '2 notifications marked as read.'
     );
     expect(api.callsTo('POST /api/v1/notifications/read-all')).toHaveLength(1);
     expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0);
     expect(screen.getByTestId('notifications-mark-all')).toBeDisabled();
-    fireEvent.press(screen.getByTestId('notifications-preferences'));
+    await fireEvent.press(screen.getByTestId('notifications-preferences'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
   });
 
@@ -170,13 +172,13 @@ describe('Notification centre', () => {
         'GET /api/v1/notifications/unread-count': ok({ count: 0 }),
       })
     );
-    renderWithProviders(<NotificationsScreen />, { port: port() });
+    await renderWithProviders(<NotificationsScreen />, { port: port() });
     expect(await screen.findByTestId('notifications-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('notifications-empty')).toHaveTextContent(
       /No notifications yet/
     );
-    fireEvent.press(screen.getByTestId('notifications-view-unread'));
+    await fireEvent.press(screen.getByTestId('notifications-view-unread'));
     expect(await screen.findByTestId('notifications-caught-up')).toHaveTextContent(
       /You're all caught up/
     );
@@ -185,7 +187,7 @@ describe('Notification centre', () => {
   it('receives pushed notifications live (counted once) at the top of the list', async () => {
     const rt = fakeRealtime();
     mockApi(routes());
-    renderWithProviders(<NotificationsScreen />, { port: port(), realtime: rt.client });
+    await renderWithProviders(<NotificationsScreen />, { port: port(), realtime: rt.client });
     await screen.findByText(match.title);
     await screen.findByText('Unread (2)');
     await waitFor(() => expect(rt.client.state).toBe('connected'));
@@ -194,8 +196,8 @@ describe('Notification centre', () => {
       title: 'Wishlist match: Lantern Fox',
       createdAt: new Date().toISOString(),
     });
-    act(() => rt.current().push('/user/queue/notifications', pushed));
-    act(() => rt.current().push('/user/queue/notifications', pushed));
+    await act(() => rt.current().push('/user/queue/notifications', pushed));
+    await act(() => rt.current().push('/user/queue/notifications', pushed));
     expect(await screen.findByText('Wishlist match: Lantern Fox')).toBeOnTheScreen();
     expect(screen.getByText('Unread (3)')).toBeOnTheScreen();
   });
@@ -204,18 +206,18 @@ describe('Notification centre', () => {
 describe('Notification bell', () => {
   it('shows the live unread badge and opens the centre', async () => {
     mockApi(routes({ 'GET /api/v1/notifications/unread-count': ok({ count: 120 }) }));
-    renderWithProviders(<NotificationBell />, { port: port() });
+    await renderWithProviders(<NotificationBell />, { port: port() });
     expect(await screen.findByTestId('notification-bell-badge')).toHaveTextContent('99+');
     expect(screen.getByTestId('notification-bell').props.accessibilityLabel).toBe(
       'Notifications, 120 unread'
     );
-    fireEvent.press(screen.getByTestId('notification-bell'));
+    await fireEvent.press(screen.getByTestId('notification-bell'));
     expect(mockRouter.push).toHaveBeenCalledWith('/notifications');
   });
 
   it('is hidden while signed out', async () => {
     mockApi({});
-    renderWithProviders(<NotificationBell />, { port: new FakeAuthPort(null) });
+    await renderWithProviders(<NotificationBell />, { port: new FakeAuthPort(null) });
     await waitFor(() => expect(screen.queryByTestId('notification-bell')).not.toBeOnTheScreen());
   });
 });

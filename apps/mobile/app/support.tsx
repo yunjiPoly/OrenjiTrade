@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { useMyDonations, useStartDonationCheckout, useSupporters } from '@/src/api/hooks/billing';
@@ -40,7 +40,7 @@ export default function SupportScreen() {
     currency: string | null;
   } | null>(null);
 
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const thanks = donation === 'thanks';
 
   // Back from the checkout (this screen may still be scrolled down to the form): show the
