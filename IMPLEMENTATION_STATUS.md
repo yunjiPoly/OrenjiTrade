@@ -1461,9 +1461,10 @@ compliance: the legal texts stay drafts (banner kept on both languages)._
 ## Expo SDK 58 upgrade (mobile, 2026-10-06)
 
 _Branch `feature/expo-sdk-58` (worktree) from `feature/launch-readiness` (8c859d6, PR #52 with
-mobile stage M8; #52 merged into `main` on 2026-10-07 as 7420905, whose tree is 8c859d6's, so the
-branch needs no merge from `main`), builder done (started 2026-10-06, paused by the owner, resumed
-and verified 2026-10-07); not pushed. Owner decision 2026-10-05: one coordinated Expo SDK
+mobile stage M8; #52 merged into `main` on 2026-10-07 as 7420905, whose tree is 8c859d6's: the
+branch merged `main` before the push and its tree did not change), builder done (started
+2026-10-06, paused by the owner, resumed and verified 2026-10-07); pushed and opened as a PR
+against `main` on 2026-10-07. Owner decision 2026-10-05: one coordinated Expo SDK
 57 → 58 upgrade of `apps/mobile` (every Expo module, React Native and React together with
 `npx expo install expo@^58 --fix`), verified like every mobile stage, in a single PR (ADR 0006,
 amendment 2026-10-06). SDK 58 is still npm's `next` release (`expo` 58.0.6; `latest` 57.0.27,
@@ -1504,7 +1505,10 @@ installed on the emulator by Expo CLI, no EAS, no Expo account, no Maestro Cloud
   skeleton tests hold the fake API's answers (`mockApi().hold()`) because `render` now waits for
   what the first render asks for. `npm run lint` now also lints `__tests__` and `jest.setup.ts`, with
   `@typescript-eslint/no-floating-promises` (an un-awaited Testing Library call is an error). Same
-  748 tests in 85 suites; none removed or skipped.
+  748 tests in 85 suites; none removed or skipped. The community channel test waits for a post's
+  reply count after a reply is added or deleted (the reply list and the post are separate React
+  Query caches whose re-renders can land in different ticks; the single read failed 2 times in 16
+  runs of the file); the expected text is unchanged.
 - [x] **Harnesses:** `@expo/cli` 58 no longer ships `build/bin/cli`, so the web E2E harness and
   the Maestro harness start `expo/bin/cli` (what `npx expo` runs). Expo Go 58 draws the app
   edge-to-edge under the status bar and floats its tools button over the right end of the
@@ -1541,7 +1545,9 @@ installed on the emulator by Expo CLI, no EAS, no Expo account, no Maestro Cloud
   empty, no `ReactNativeJS` error or warning, no token, no coordinate; only Expo Go's own host
   messages (its headless app loader, its update loader trying an on-disk update before Metro, a
   `ReactNoCrashSoftException` from Expo Go's `ExponentPackage` at each app start). Metro, the API
-  and the emulator were stopped afterwards.
+  and the emulator were stopped afterwards. Ship step (2026-10-07, after merging `main` and the
+  reply-count wait): `npx expo-doctor` 20/20, `npm run test:mobile` (748/748), `npm run
+  test:mobile:e2e` (60/60, no retry) and `npm run test:web` (674/674) green again.
 - **Dependabot:** superseded by this PR: #14 (expo-router 58), #26 (expo-constants 58), #27
   (expo-camera 58), #21 (`@testing-library/react-native` 14.0.1), #15 (Jest and `@types/jest` 30);
   not covered: #23 (AsyncStorage 3.1.1: SDK 58 still pins 2.2.0, so it stays open or is closed as
@@ -2285,8 +2291,8 @@ EAS, Expo publish or Maestro Cloud). Phase 11 (ML card recognition) is on hold.
 > 19.3.0), Jest 30, Testing Library 14 with every test call awaited, the strict React Native types,
 > the harnesses on `expo/bin/cli`, the Maestro flows turning off Expo Go 58's floating tools button;
 > ADR 0006 amended, `CLAUDE.md` says SDK 58. Same 748 jest tests, 60 Playwright specs and 24 Maestro
-> flows (24/24 in one run on Expo Go 58, 2026-10-07). Committed, not pushed. **Next:** push the
-> branch, open its PR against `main` and merge it when CI is green, then close the Dependabot PRs it
+> flows (24/24 in one run on Expo Go 58, 2026-10-07). Pushed, PR opened against `main` on
+> 2026-10-07. **Next:** merge it when CI is green, then close the Dependabot PRs it
 > supersedes (#14 expo-router, #15 Jest, #21 Testing Library, #26 expo-constants, #27 expo-camera);
 > #23 (AsyncStorage 3) is not part of SDK 58 (it pins 2.2.0). When SDK 58 is stable, rerun
 > `npx expo install expo@^58 --fix` and drop the `react-native` override.
@@ -2323,8 +2329,8 @@ merged:**
 1. **Done (2026-10-07):** PR #52 (launch readiness parts 1–5 + mobile stage M8) merged into `main`
    (7420905).
 2. The Expo SDK 58 upgrade (owner-approved 2026-10-05): **done** on branch `feature/expo-sdk-58`
-   (see "Expo SDK 58 upgrade (mobile)"; its base 8c859d6 is the tree of `main` at 7420905). Push
-   it, open its PR against `main`, merge when CI is green (the mobile job, the mobile browser suite
+   (see "Expo SDK 58 upgrade (mobile)"; `main` at 7420905 merged in, tree unchanged). Pushed and
+   its PR opened against `main` (2026-10-07); merge when CI is green (the mobile job, the mobile browser suite
    and the web jobs on the shared lockfile), then close the superseded Dependabot PRs #14, #15,
    #21, #26 and #27 (#23, AsyncStorage 3, is not covered: SDK 58 pins 2.2.0). The checks to repeat
    for an independent verification: `npx expo-doctor` (20/20: SDK 58 has no 21st check),
