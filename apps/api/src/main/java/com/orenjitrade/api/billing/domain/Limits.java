@@ -115,9 +115,9 @@ public class Limits {
     }
 
     /**
-     * Checks a requested value against a cap (for example a map radius against {@code
-     * map.radius.max_km}); {@code used} of the decision is the requested value. Callers throw
-     * {@link LimitReachedException} when it is not allowed.
+     * Checks a requested value against a cap (a {@code CAP} usage limit; none is seeded since the
+     * map radius was removed, ADR 0017); {@code used} of the decision is the requested value.
+     * Callers throw {@link LimitReachedException} when it is not allowed.
      */
     public LimitDecision checkValue(UUID userId, String limitKey, long requested) {
         Resolved resolved = resolve(userId, limitKey);
@@ -127,7 +127,7 @@ public class Limits {
 
     /**
      * {@link #checkValue} for a signed-out caller: the FREE plan's rule applies (no entitlements),
-     * e.g. the map radius of anonymous discovery requests.
+     * e.g. a cap on an anonymous request.
      */
     public LimitDecision checkValueForAnonymous(String limitKey, long requested) {
         PlanRules free =

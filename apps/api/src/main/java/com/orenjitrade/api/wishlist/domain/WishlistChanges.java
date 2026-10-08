@@ -21,7 +21,6 @@ public final class WishlistChanges {
      * @param language required language
      * @param maxPrice maximum asking price
      * @param currency currency of the maximum price (default CAD)
-     * @param radiusKm matching radius (default 25 km, lowered to the plan cap)
      * @param tradePreference default ANY
      * @param notes private notes
      * @param active default true
@@ -35,7 +34,6 @@ public final class WishlistChanges {
             @Nullable String language,
             @Nullable BigDecimal maxPrice,
             @Nullable String currency,
-            @Nullable Integer radiusKm,
             @Nullable TradePreference tradePreference,
             @Nullable String notes,
             @Nullable Boolean active) {}
@@ -52,7 +50,6 @@ public final class WishlistChanges {
      * @param language language or {@code null}
      * @param maxPrice maximum price or {@code null}
      * @param currency currency (not null)
-     * @param radiusKm radius (not null)
      * @param tradePreference trade preference (not null)
      * @param notes notes ({@code null} clears)
      * @param active active flag (not null)
@@ -66,7 +63,6 @@ public final class WishlistChanges {
             @Nullable String language,
             @Nullable BigDecimal maxPrice,
             @Nullable String currency,
-            @Nullable Integer radiusKm,
             @Nullable TradePreference tradePreference,
             @Nullable String notes,
             @Nullable Boolean active) {

@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * @param name display name
  * @param kind kind
  * @param game game slug
- * @param regionLabel city of region channels
+ * @param regionLabel platform region code of region channels (ADR 0017)
  * @param description description
  * @param status ACTIVE or ARCHIVED
  * @param postRateLimitPerHour posts per member per hour

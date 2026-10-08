@@ -3,7 +3,6 @@ package com.orenjitrade.api.wishlist.api;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.inventory.api.InventoryResponses.PublicInventoryItemResponse;
-import com.orenjitrade.api.location.domain.DistanceBucket;
 import com.orenjitrade.api.search.api.SearchResponses.CollectorMarkerResponse;
 import com.orenjitrade.api.wishlist.domain.TradePreference;
 import com.orenjitrade.api.wishlist.domain.WishlistItemRow;
@@ -18,8 +17,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Response DTOs of the wishlist (Phase 6 contract). Matches carry the public item and the owner's
- * map marker (public point, 3 decimals) and a distance bucket, never a trading-area centre or raw
- * distance (ADR 0004); the public summary never carries notes, prices or radii.
+ * marker (state/province and country, never a city or a distance; ADR 0017); the public summary
+ * never carries notes or prices.
  */
 public final class WishlistResponses {
 
@@ -69,11 +68,6 @@ public final class WishlistResponses {
             @Schema(nullable = true, example = "60.00") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable BigDecimal maxPrice,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "CAD") String currency,
-            @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
-                            example = "25",
-                            description = "Matching radius (km), capped by the plan")
-                    int radiusKm,
             @Schema(requiredMode = RequiredMode.REQUIRED) TradePreference tradePreference,
             @Schema(requiredMode = RequiredMode.REQUIRED, description = "Private to the caller")
                     String notes,
@@ -102,7 +96,6 @@ public final class WishlistResponses {
                     row.language(),
                     row.maxPrice(),
                     row.currency(),
-                    row.radiusKm(),
                     row.tradePreference(),
                     row.notes(),
                     row.active(),
@@ -120,12 +113,6 @@ public final class WishlistResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID wishlistItemId,
             @Schema(requiredMode = RequiredMode.REQUIRED) PublicInventoryItemResponse item,
             @Schema(requiredMode = RequiredMode.REQUIRED) CollectorMarkerResponse collector,
-            @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
-                            description =
-                                    "Approximate distance between the two collectors' public"
-                                            + " points when the item matched")
-                    DistanceBucket distanceBucket,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant matchedAt,
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean dismissed) {
 
@@ -135,7 +122,6 @@ public final class WishlistResponses {
                     view.wishlistItemId(),
                     PublicInventoryItemResponse.from(view.item(), now),
                     CollectorMarkerResponse.from(view.collector()),
-                    view.distanceBucket(),
                     view.matchedAt(),
                     view.dismissed());
         }

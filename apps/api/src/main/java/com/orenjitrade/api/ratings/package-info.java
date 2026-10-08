@@ -7,7 +7,7 @@
  * recorded here from the messaging module's {@code MessageSent}), {@code RatingService}
  * (eligibility, ratings editable for 14 days, {@code rating_summary} maintenance, RATING_RECEIVED
  * notifications, moderator hide/unhide), {@code ReferenceService}; implements the profiles module's
- * {@code RatingSummaryProvider} (profiles, map markers, previews, nearby ranking). Publishes {@code
+ * {@code RatingSummaryProvider} (profiles, search results and their ranking). Publishes {@code
  * RatingSubmitted}.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
@@ -101,14 +103,39 @@ public abstract class AbstractIntegrationTest {
     }
 
     /**
-     * Provisions an account that has accepted every required document and confirmed being 18 or
-     * older (the state of a collector who finished sign-up and onboarding).
+     * Provisions an account that has accepted every required document, confirmed being 18 or older
+     * and declared a location ({@link #DEFAULT_COUNTRY} / {@link #DEFAULT_SUBDIVISION}, no city):
+     * the state of a collector who finished sign-up and onboarding, so it may become discoverable.
      */
     protected UUID provisionCompliant(String uid) {
+        UUID id = provisionCompliantWithoutLocation(uid);
+        testUsers.setLocation(id, DEFAULT_COUNTRY, DEFAULT_SUBDIVISION, null, true);
+        return id;
+    }
+
+    /** Like {@link #provisionCompliant} without a location (it cannot become discoverable). */
+    protected UUID provisionCompliantWithoutLocation(String uid) {
         UUID id = provision(uid);
         testUsers.acceptAllRequiredConsents(id);
         testUsers.confirmAge(id);
         return id;
+    }
+
+    /** Country of the accounts of {@link #provisionCompliant} (Americas (North)). */
+    protected static final String DEFAULT_COUNTRY = "CA";
+
+    /** Subdivision of the accounts of {@link #provisionCompliant}. */
+    protected static final String DEFAULT_SUBDIVISION = "CA-QC";
+
+    /** Sets the caller's location through {@code PUT /api/v1/me/location} (200 expected). */
+    protected JsonNode setLocation(
+            String uid, String countryCode, String subdivisionCode, @Nullable String city) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("countryCode", countryCode);
+        body.put("subdivisionCode", subdivisionCode);
+        body.put("city", city);
+        body.put("showCity", true);
+        return callJson(HttpMethod.PUT, "/api/v1/me/location", uid, body, 200);
     }
 
     /** Provisions an account that accepted the terms but never confirmed its age. */

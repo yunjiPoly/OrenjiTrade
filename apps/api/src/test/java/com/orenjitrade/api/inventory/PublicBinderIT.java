@@ -48,16 +48,11 @@ class PublicBinderIT extends AbstractIntegrationTest {
         planService.invalidate();
     }
 
-    /** A discoverable collector with a trading area and a public binder; returns ids. */
+    /** A discoverable collector with a location and a public binder; returns ids. */
     private Fixture publicCollector(String uid) {
         provisionCompliant(uid);
+        setLocation(uid, "CA", "CA-MB", "Brandon");
         callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, privacy(true, "MEMBERS"), 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                uid,
-                Map.of("lat", 45.52341, "lng", -73.58127, "radiusKm", 5),
-                200);
         String handle = me(uid).path("handle").asString();
         String binderId =
                 callJson(
@@ -109,11 +104,10 @@ class PublicBinderIT extends AbstractIntegrationTest {
         assertThat(binder.path("games").toString()).isEqualTo("[\"pokemon\"]");
         assertThat(binder.path("freshness").path("state").asString()).isEqualTo("ACTIVE");
         assertThat(binder.path("owner").path("handle").asString()).isEqualTo(fixture.handle());
-        assertThat(binder.path("owner").path("location").path("publicLabel").asString())
-                .isNotBlank();
-        assertThat(binder.path("owner").path("location").path("distanceBucket").isNull())
-                .as("anonymous callers get no distance")
-                .isTrue();
+        assertThat(binder.path("owner").path("place").path("label").asString())
+                .isEqualTo("Manitoba, Canada");
+        assertThat(binder.path("owner").has("location")).isFalse();
+        assertThat(binder.toString()).as("never the city").doesNotContain("Brandon");
         assertNoPrivateData(binder);
 
         JsonNode items =
@@ -153,15 +147,9 @@ class PublicBinderIT extends AbstractIntegrationTest {
         assertThat(binders.get(0).path("itemCount").asLong()).isEqualTo(1);
         assertNoPrivateData(binders);
 
-        // A signed-in viewer with a trading area gets a distance bucket, still no coordinates.
+        // A signed-in viewer sees the same place, never a distance.
         String viewer = uniqueUid("pub-viewer");
         provisionCompliant(viewer);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                viewer,
-                Map.of("lat", 45.50884, "lng", -73.58781, "radiusKm", 10),
-                200);
         JsonNode seen =
                 callJson(
                         HttpMethod.GET,
@@ -169,10 +157,10 @@ class PublicBinderIT extends AbstractIntegrationTest {
                         viewer,
                         null,
                         200);
-        assertThat(seen.path("owner").path("location").path("distanceBucket").asString())
-                .isNotBlank();
+        assertThat(seen.path("owner").path("place").path("label").asString())
+                .isEqualTo("Manitoba, Canada");
+        assertThat(seen.path("owner").has("distanceBucket")).isFalse();
         assertNoPrivateData(seen);
-        assertThat(seen.toString()).doesNotContain("45.50884").doesNotContain("-73.58781");
 
         JsonNode profile =
                 callJson(
@@ -261,6 +249,10 @@ class PublicBinderIT extends AbstractIntegrationTest {
         assertThat(text).doesNotContain(SECRET);
         assertThat(text).doesNotContain("\"notes\"");
         assertThat(text).doesNotContain("\"lat\"").doesNotContain("\"lng\"");
-        assertThat(text).doesNotContain("publicPoint").doesNotContain("tradingArea");
+        assertThat(text)
+                .doesNotContain("publicPoint")
+                .doesNotContain("tradingArea")
+                .doesNotContain("distanceBucket")
+                .doesNotContain("Brandon");
     }
 }

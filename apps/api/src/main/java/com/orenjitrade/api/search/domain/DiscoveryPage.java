@@ -9,9 +9,9 @@ import java.util.List;
  * @param rows ranked rows
  * @param total matching collectors
  */
-public record NearbyPage(List<MarkerRow> rows, long total) {
+public record DiscoveryPage(List<MarkerRow> rows, long total) {
 
-    public NearbyPage {
+    public DiscoveryPage {
         rows = List.copyOf(rows);
     }
 }

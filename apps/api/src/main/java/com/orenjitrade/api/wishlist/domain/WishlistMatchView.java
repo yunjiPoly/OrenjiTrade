@@ -1,20 +1,18 @@
 package com.orenjitrade.api.wishlist.domain;
 
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
-import com.orenjitrade.api.location.domain.DistanceBucket;
 import com.orenjitrade.api.search.domain.CollectorMarker;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A match as the wishlist owner sees it: the public item (never private notes) and its owner's map
- * marker (public point only, ADR 0004).
+ * A match as the wishlist owner sees it: the public item (never private notes) and its owner's
+ * marker (state/province and country only, ADR 0017).
  *
  * @param id match id
  * @param wishlistItemId wishlist item
  * @param item the public inventory item
  * @param collector the item owner's marker for the viewer
- * @param distanceBucket bucketed distance between the two public points at match time
  * @param matchedAt when it matched
  * @param dismissed dismissed by the wishlist owner
  */
@@ -23,6 +21,5 @@ public record WishlistMatchView(
         UUID wishlistItemId,
         InventoryItemView item,
         CollectorMarker collector,
-        DistanceBucket distanceBucket,
         Instant matchedAt,
         boolean dismissed) {}

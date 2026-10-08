@@ -28,7 +28,9 @@ public record NotificationView(
                 String title,
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,
-                        example = "Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away")
+                        example =
+                                "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in"
+                                        + " Quebec, Canada.")
                 String body,
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,

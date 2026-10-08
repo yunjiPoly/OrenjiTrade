@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * A public inventory item matched a wishlist item (analytics {@code wishlist_matched}). Geography
- * is the distance bucket only (ADR 0004).
+ * is the platform region of the match only (ADR 0017).
  *
  * @param matchId the match
  * @param wishlistItemId wishlist item
@@ -13,7 +13,7 @@ import java.util.UUID;
  * @param inventoryItemId the matching item
  * @param itemOwnerId owner of the item
  * @param game game slug
- * @param distanceBucket bucketed distance between the two public points
+ * @param regionCode the platform region both collectors are in
  * @param notified whether a notification was created
  * @param matchedAt when
  */
@@ -24,6 +24,6 @@ public record WishlistMatched(
         UUID inventoryItemId,
         UUID itemOwnerId,
         String game,
-        String distanceBucket,
+        String regionCode,
         boolean notified,
         Instant matchedAt) {}

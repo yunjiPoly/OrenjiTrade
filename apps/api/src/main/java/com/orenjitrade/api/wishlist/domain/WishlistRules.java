@@ -1,7 +1,6 @@
 package com.orenjitrade.api.wishlist.domain;
 
 import com.orenjitrade.api.inventory.domain.Availability;
-import com.orenjitrade.api.location.domain.DistanceBucket;
 import java.math.BigDecimal;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -72,17 +71,5 @@ public final class WishlistRules {
             return true;
         }
         return wishCurrency.equals(itemCurrency) && askingPrice.compareTo(maxPrice) <= 0;
-    }
-
-    /** Human wording of a distance bucket for notification texts ("~5-10 km away"). */
-    public static String distanceText(DistanceBucket bucket) {
-        return switch (bucket) {
-            case LT_1KM -> "less than 1 km away";
-            case KM_1_5 -> "~1-5 km away";
-            case KM_5_10 -> "~5-10 km away";
-            case KM_10_25 -> "~10-25 km away";
-            case KM_25_50 -> "~25-50 km away";
-            case GT_50KM -> "more than 50 km away";
-        };
     }
 }

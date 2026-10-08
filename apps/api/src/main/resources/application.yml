@@ -201,10 +201,9 @@ orenji:
     # profiles: the application refuses to start without it.
     actor-salt: ${ANALYTICS_ACTOR_SALT:}
   search:
-    # Phase 4 map discovery and search. The plan-dependent radius cap is data (usage_limit
-    # map.radius.max_km, ADR 0014); these are technical defaults.
-    default-radius-km: 10
-    nearby-cache-ttl: 60s
+    # Region search and the map (ADR 0017): technical defaults. Regions, countries and
+    # subdivisions are data (GET /regions, /admin/regions).
+    discovery-cache-ttl: 60s
     matching-items-per-collector: 5
   storage:
     # local | gcs
@@ -255,12 +254,6 @@ orenji:
       # Raw JSON snapshots per database version (git-ignored), reused while the version is unchanged.
       snapshot-dir: ${PROVIDER_DATA_DIR:./.local-dev/provider-data}/ygoprodeck
       snapshot-only: ${YGOPRODECK_SNAPSHOT_ONLY:false}
-  location:
-    # HMAC-SHA256 key seeding the deterministic public-point jitter (ADR 0004). No default outside
-    # the local and test profiles: the application refuses to start without it.
-    jitter-secret: ${LOCATION_JITTER_SECRET:}
-    # Approximate label of a public point comes from the static region table (StaticRegionGeocoder).
-    geocoder: static
   account:
     # A deletion request needs an ID token whose auth_time is younger than this (401 otherwise).
     reauth-window: 5m
@@ -416,8 +409,6 @@ orenji:
       require-mfa: false
   firebase:
     auth-emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:9099}
-  location:
-    jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
   analytics:
     actor-salt: ${ANALYTICS_ACTOR_SALT:local-analytics-salt}
   seed:
@@ -521,8 +512,6 @@ orenji:
     internal-invokers: scheduler@orenjitrade-test.iam.gserviceaccount.com
   firebase:
     auth-emulator-host: ""
-  location:
-    jitter-secret: ${LOCATION_JITTER_SECRET:local-jitter-secret}
   analytics:
     actor-salt: ${ANALYTICS_ACTOR_SALT:local-analytics-salt}
   storage:

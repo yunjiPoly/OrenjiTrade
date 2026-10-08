@@ -1,7 +1,5 @@
 package com.orenjitrade.api.wishlist.domain;
 
-import com.orenjitrade.api.billing.domain.LimitDecision;
-import com.orenjitrade.api.billing.domain.LimitReachedException;
 import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.cards.domain.CardSummary;
 import com.orenjitrade.api.cards.domain.CatalogService;
@@ -55,20 +53,17 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The caller's wishlist (Phase 6 contract): items for a card (any printing) or one printing, with
  * rarity / condition / edition / language filters validated against the game's {@code GameSchema},
- * a maximum price, a radius capped by the plan ({@code map.radius.max_km}, 429 LIMIT_REACHED) and a
- * trade preference; {@code wishlist.items.max} limits the number of items (429); exact duplicates
- * are 409. Creating or editing an item matches it against the current public inventory right away
+ * a maximum price and a trade preference; {@code wishlist.items.max} limits the number of items
+ * (429); exact duplicates are 409. Matching compares platform regions (ADR 0017): no radius, no
+ * distance. Creating or editing an item matches it against the current public inventory right away
  * (no notification); new publications are matched by {@link WishlistMatcher}. Matches are served
- * with the public item and the owner's map marker only (ADR 0004). The public summary of {@code GET
- * /collectors/{handle}/wishlist} follows {@link PrivacyPolicyService#canSeeWishlist}.
+ * with the public item and the owner's marker (state/province and country) only. The public summary
+ * of {@code GET /collectors/{handle}/wishlist} follows {@link PrivacyPolicyService#canSeeWishlist}.
  */
 @Service
 public class WishlistService {
 
     public static final String ITEMS_MAX = "wishlist.items.max";
-    public static final String RADIUS_LIMIT = "map.radius.max_km";
-    public static final int DEFAULT_RADIUS_KM = 25;
-    public static final int MAX_RADIUS_INPUT_KM = 20_000;
     public static final int NOTES_MAX = 500;
     public static final int MATCHES_DEFAULT_LIMIT = 20;
     public static final int MATCHES_MAX_LIMIT = 50;
@@ -88,7 +83,6 @@ public class WishlistService {
                     "language",
                     "maxPrice",
                     "currency",
-                    "radiusKm",
                     "tradePreference",
                     "active");
 
@@ -159,12 +153,6 @@ public class WishlistService {
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable Target target = target(input.cardId(), input.printingId(), errors);
         String currency = currency(input.currency(), errors);
-        @Nullable Integer radius = input.radiusKm();
-        if (radius != null && (radius < 1 || radius > MAX_RADIUS_INPUT_KM)) {
-            errors.add(
-                    new ProblemFieldError(
-                            "radiusKm", "must be between 1 and " + MAX_RADIUS_INPUT_KM));
-        }
         String notes = notes(input.notes(), errors);
         validatePrice(input.maxPrice(), errors);
         @Nullable Filters filters =
@@ -180,7 +168,6 @@ public class WishlistService {
         if (!errors.isEmpty() || target == null || filters == null) {
             throw ApiException.validation("Validation failed", errors);
         }
-        int radiusKm = radius != null ? checkRadius(ownerId, radius) : defaultRadius(ownerId);
         Values values =
                 new Values(
                         ownerId,
@@ -193,7 +180,6 @@ public class WishlistService {
                         filters.language(),
                         input.maxPrice(),
                         currency,
-                        radiusKm,
                         input.tradePreference() == null
                                 ? TradePreference.ANY
                                 : input.tradePreference(),
@@ -216,7 +202,6 @@ public class WishlistService {
                         ownerId,
                         values.gameSlug(),
                         values.printingId() != null ? "printing" : "card",
-                        values.radiusKm(),
                         values.maxPrice() != null,
                         values.tradePreference().name(),
                         now));
@@ -246,15 +231,6 @@ public class WishlistService {
         }
         String currency =
                 patch.has("currency") ? currency(patch.currency(), errors) : row.currency();
-        int radius = row.radiusKm();
-        if (patch.has("radiusKm") && patch.radiusKm() != null) {
-            radius = patch.radiusKm();
-            if (radius < 1 || radius > MAX_RADIUS_INPUT_KM) {
-                errors.add(
-                        new ProblemFieldError(
-                                "radiusKm", "must be between 1 and " + MAX_RADIUS_INPUT_KM));
-            }
-        }
         @Nullable BigDecimal maxPrice = patch.has("maxPrice") ? patch.maxPrice() : row.maxPrice();
         validatePrice(maxPrice, errors);
         String notes = patch.has("notes") ? notes(patch.notes(), errors) : row.notes();
@@ -274,9 +250,6 @@ public class WishlistService {
         if (!errors.isEmpty() || filters == null) {
             throw ApiException.validation("Validation failed", errors);
         }
-        if (patch.has("radiusKm") && radius != row.radiusKm()) {
-            radius = checkRadius(ownerId, radius);
-        }
         Values values =
                 new Values(
                         ownerId,
@@ -289,7 +262,6 @@ public class WishlistService {
                         filters.language(),
                         maxPrice,
                         currency,
-                        radius,
                         patch.has("tradePreference") && patch.tradePreference() != null
                                 ? patch.tradePreference()
                                 : row.tradePreference(),
@@ -324,7 +296,7 @@ public class WishlistService {
 
     /**
      * {@code GET /wishlist/{id}/matches}: newest first; items that stopped being public and owners
-     * blocked in either direction or no longer on the map are left out.
+     * blocked in either direction or no longer discoverable are left out.
      */
     @Transactional(readOnly = true)
     public CursorPage<WishlistMatchView> matches(
@@ -362,7 +334,6 @@ public class WishlistService {
                             row.wishlistItemId(),
                             item,
                             marker,
-                            row.distanceBucket(),
                             row.matchedAt(),
                             row.dismissed()));
         }
@@ -438,7 +409,6 @@ public class WishlistService {
             entry.put("language", row.language());
             entry.put("maxPrice", row.maxPrice());
             entry.put("currency", row.currency());
-            entry.put("radiusKm", row.radiusKm());
             entry.put("tradePreference", row.tradePreference().name());
             entry.put("notes", row.notes());
             entry.put("active", row.active());
@@ -600,24 +570,6 @@ public class WishlistService {
         } else if (price.stripTrailingZeros().scale() > 2) {
             errors.add(new ProblemFieldError("maxPrice", "at most 2 decimals"));
         }
-    }
-
-    /** The requested radius when the plan allows it, otherwise {@code 429 LIMIT_REACHED}. */
-    private int checkRadius(UUID ownerId, int radius) {
-        LimitDecision decision = limits.checkValue(ownerId, RADIUS_LIMIT, radius);
-        if (!decision.allowed()) {
-            throw new LimitReachedException(decision);
-        }
-        return radius;
-    }
-
-    /** {@value #DEFAULT_RADIUS_KM} km, lowered to the plan cap. */
-    private int defaultRadius(UUID ownerId) {
-        LimitDecision decision = limits.checkValue(ownerId, RADIUS_LIMIT, DEFAULT_RADIUS_KM);
-        if (!decision.allowed() && decision.limit() != null) {
-            return Math.max(1, decision.limit());
-        }
-        return DEFAULT_RADIUS_KM;
     }
 
     private static @Nullable String upper(@Nullable String value) {

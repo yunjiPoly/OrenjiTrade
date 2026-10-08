@@ -2,8 +2,6 @@ package com.orenjitrade.api.search.domain;
 
 import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
-import com.orenjitrade.api.location.domain.DistanceBucket;
-import com.orenjitrade.api.location.domain.PublicPoint;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
 import com.orenjitrade.api.profiles.domain.CollectorProfileService;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket;
@@ -28,11 +26,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Turns cached {@link MarkerRow}s into {@link CollectorMarker}s for one viewer through the privacy
- * matrix of the profiles module ({@link PrivacyPolicyService}): distance buckets only for signed-in
- * viewers and collectors who show distances, last activity and presence per the collector's
- * switches (hidden from signed-out visitors of MEMBERS profiles), ratings and presence from the
- * optional provider beans, avatar URLs resolved per request. Also filters blocked collectors and
- * applies the rating part of the ranking.
+ * matrix of the profiles module ({@link PrivacyPolicyService}): last activity and presence per the
+ * collector's switches (hidden from signed-out visitors of MEMBERS profiles), ratings and presence
+ * from the optional provider beans, avatar URLs resolved per request. Also filters blocked
+ * collectors and applies the rating part of the ranking.
  */
 @Component
 public class MarkerAssembler {
@@ -57,8 +54,8 @@ public class MarkerAssembler {
     }
 
     /**
-     * Rows the viewer may see (no block in either direction), ranked (freshness, distance bucket,
-     * rating, distance), as markers.
+     * Rows the viewer may see (no block in either direction), ranked (freshness, rating, handle),
+     * as markers.
      */
     public List<CollectorMarker> visibleMarkers(
             List<MarkerRow> rows, @Nullable UUID viewerId, Instant now) {
@@ -105,10 +102,6 @@ public class MarkerAssembler {
             MarkerRow row, ViewerContext viewer, Instant now, RatingSummary rating) {
         PrivacySettingsView privacy = privacyOf(row);
         UUID id = row.id();
-        @Nullable DistanceBucket distance = null;
-        if (row.distanceMetres() != null && privacyPolicy.canSeeDistance(viewer, id, privacy)) {
-            distance = DistanceBucket.ofKm(row.distanceMetres() / 1000.0);
-        }
         LastActiveBucket lastActive =
                 privacyPolicy.canSeeLastActive(viewer, id, privacy)
                         ? CollectorProfileService.lastActiveBucket(row.lastActiveAt(), now)
@@ -126,9 +119,7 @@ public class MarkerAssembler {
                 row.handle(),
                 row.displayName(),
                 row.avatarKey() == null ? null : storage.publicUrl(row.avatarKey()),
-                new PublicPoint(row.publicLat(), row.publicLng()),
-                row.publicLabel(),
-                distance,
+                row.place(),
                 rating,
                 row.tags(),
                 games(row),
@@ -144,7 +135,6 @@ public class MarkerAssembler {
     public static PrivacySettingsView privacyOf(MarkerRow row) {
         return new PrivacySettingsView(
                 true,
-                row.showDistance(),
                 row.showOnlineStatus(),
                 row.showLastActive(),
                 row.profileVisibility(),

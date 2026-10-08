@@ -1,7 +1,6 @@
 package com.orenjitrade.api.search.domain;
 
 import com.orenjitrade.api.delisting.domain.FreshnessState;
-import com.orenjitrade.api.location.domain.SearchCentre;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -9,13 +8,11 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A validated discovery request (the collector engine behind {@code GET /collectors/nearby}, the
- * collectors of {@code GET /search}). Independent of the viewer, so its results are cacheable per
- * {@link #cacheKey()}; viewer-specific rules (distance buckets, last active, blocks) are applied
- * afterwards.
+ * A validated discovery request (the collector engine behind the collectors of {@code GET /search}
+ * and the wishlist matches). Independent of the viewer, so its results are cacheable per {@link
+ * #cacheKey()}; viewer-specific rules (last active, blocks) are applied afterwards.
  *
- * @param centre snapped centre, {@code null} for a non-geographic search (no distance)
- * @param radiusKm radius (ignored without a centre)
+ * @param region platform region the collectors' country belongs to (ADR 0017)
  * @param game game slug: the collector plays it or lists items of it
  * @param availability the collector lists an item offered that way
  * @param freshness best freshness of the collector's public items (ACTIVE or AGING)
@@ -25,9 +22,8 @@ import org.jspecify.annotations.Nullable;
  * @param query name, handle or tag text (collectors who allow name search only)
  * @param limit maximum markers
  */
-public record NearbyCriteria(
-        @Nullable SearchCentre centre,
-        double radiusKm,
+public record DiscoveryCriteria(
+        String region,
         @Nullable String game,
         @Nullable SearchAvailability availability,
         @Nullable FreshnessState freshness,
@@ -37,7 +33,7 @@ public record NearbyCriteria(
         @Nullable String query,
         int limit) {
 
-    public NearbyCriteria {
+    public DiscoveryCriteria {
         tags = tags.stream().sorted().distinct().toList();
     }
 
@@ -66,18 +62,10 @@ public record NearbyCriteria(
         return names;
     }
 
-    /**
-     * Canonical form of every input (the Redis key is a hash of it, so no centre ever appears in a
-     * key in clear).
-     */
+    /** Canonical form of every input (the Redis key is a hash of it). */
     public String cacheKey() {
-        StringBuilder key = new StringBuilder("v1");
-        if (centre != null) {
-            key.append("|c=")
-                    .append(String.format(Locale.ROOT, "%.2f,%.2f", centre.lat(), centre.lng()))
-                    .append("|r=")
-                    .append(String.format(Locale.ROOT, "%.1f", radiusKm));
-        }
+        StringBuilder key = new StringBuilder("v2");
+        key.append("|r=").append(region);
         key.append("|g=").append(game == null ? "" : game);
         key.append("|a=").append(availability == null ? "" : availability.name());
         key.append("|f=").append(freshness == null ? "" : freshness.name());

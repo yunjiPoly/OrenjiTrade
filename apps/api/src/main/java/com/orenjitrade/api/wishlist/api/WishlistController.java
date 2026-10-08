@@ -53,7 +53,7 @@ import tools.jackson.databind.JsonNode;
 @RestController
 @Validated
 @RequestMapping(path = "/api/v1/wishlist", produces = MediaType.APPLICATION_JSON_VALUE)
-@Tag(name = "wishlist", description = "The caller's wishlist and its matches nearby")
+@Tag(name = "wishlist", description = "The caller's wishlist and its matches in their region")
 public class WishlistController {
 
     static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
@@ -68,7 +68,6 @@ public class WishlistController {
                     "language",
                     "maxPrice",
                     "currency",
-                    "radiusKm",
                     "tradePreference",
                     "notes",
                     "active");
@@ -96,15 +95,15 @@ public class WishlistController {
             summary = "Add a card to the wishlist",
             description =
                     "cardId (any printing) or printingId is required. The new item is matched at"
-                        + " once against the public inventory nearby (no notification; see"
-                        + " matchCount and GET /wishlist/{id}/matches); later publications notify"
-                        + " (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED"
-                        + " beyond wishlist.items.max (FREE 20, PREMIUM 500) or a radius beyond"
-                        + " map.radius.max_km.")
+                        + " once against the public inventory of collectors in the caller's"
+                        + " platform region (no notification; see matchCount and GET"
+                        + " /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH)."
+                        + " 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond"
+                        + " wishlist.items.max (FREE 20, PREMIUM 500).")
     @ApiResponse(responseCode = "201", description = "The new item")
     @ApiResponse(
             responseCode = "400",
-            description = "VALIDATION_FAILED (target, vocabularies, price, radius, notes)",
+            description = "VALIDATION_FAILED (target, vocabularies, price, notes)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -118,7 +117,7 @@ public class WishlistController {
                             schema = @Schema(ref = PROBLEM_REF)))
     @ApiResponse(
             responseCode = "429",
-            description = "LIMIT_REACHED (wishlist.items.max or map.radius.max_km)",
+            description = "LIMIT_REACHED (wishlist.items.max)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -166,19 +165,12 @@ public class WishlistController {
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(ref = PROBLEM_REF)))
-    @ApiResponse(
-            responseCode = "429",
-            description = "LIMIT_REACHED (radius beyond map.radius.max_km)",
-            content =
-                    @Content(
-                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                            schema = @Schema(ref = PROBLEM_REF)))
     public WishlistItemResponse update(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PathVariable UUID id,
             @RequestBody JsonNode body) {
         PartialUpdate patch =
-                PartialUpdate.of(body).notNull("currency", "radiusKm", "tradePreference", "active");
+                PartialUpdate.of(body).notNull("currency", "tradePreference", "active");
         Set<String> present = new HashSet<>();
         for (String field : PATCH_FIELDS) {
             if (patch.has(field)) {
@@ -195,7 +187,6 @@ public class WishlistController {
                         patch.text("language"),
                         patch.decimal("maxPrice"),
                         patch.text("currency"),
-                        patch.integer("radiusKm"),
                         patch.enumValue("tradePreference", TradePreference.class),
                         patch.text("notes"),
                         patch.bool("active"));
@@ -229,10 +220,10 @@ public class WishlistController {
             summary = "Public items matching a wishlist item (newest first)",
             description =
                     "Cursor-paginated. Each match carries the public item (never private notes),"
-                        + " the owner's map marker at the derived public point and the distance"
-                        + " bucket between the two collectors' public points. Items that stopped"
-                        + " being public and collectors blocked in either direction are left out;"
-                        + " dismissed matches only with includeDismissed=true.")
+                        + " the owner's marker (state/province and country, never a city or a"
+                        + " distance). Items that stopped being public and collectors blocked in"
+                        + " either direction are left out; dismissed matches only with"
+                        + " includeDismissed=true.")
     @ApiResponse(responseCode = "200", description = "One slice of matches")
     @ApiResponse(
             responseCode = "400",

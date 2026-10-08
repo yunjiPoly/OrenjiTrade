@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.billing.AbstractPhase10IT;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
-import com.orenjitrade.api.location.domain.ApproximateLocationService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,11 +24,11 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Phase 10 ad targeting: only public context is used (the viewer's public grid cell and region
- * label, never the trading-area centre or the home point; verified by behaviour and by scanning the
- * ads module's sources), the ads.enabled entitlement and the PREMIUM plan hide ads, PLAN rules
- * separate members from signed-out visitors, and every ad says "Sponsored". Each test targets its
- * own random game slug so campaigns of other tests and the seed never interfere.
+ * Phase 10 ad targeting: only public codes are used (the page's platform region, the viewer's
+ * country and state/province, never the city; verified by behaviour and by scanning the ads
+ * module's sources; ADR 0017), the ads.enabled entitlement and the PREMIUM plan hide ads, PLAN
+ * rules separate members from signed-out visitors, and every ad says "Sponsored". Each test targets
+ * its own random game slug so campaigns of other tests and the seed never interfere.
  */
 class AdsTargetingIT extends AbstractPhase10IT {
 
@@ -54,53 +53,55 @@ class AdsTargetingIT extends AbstractPhase10IT {
     }
 
     @Test
-    void targetingOnlyUsesThePublicPointNeverTheCentreOrTheHomePoint() {
+    void targetingUsesTheRegionCountryAndSubdivisionNeverTheCity() {
         Member viewer = member("ads-viewer");
+        setLocation(viewer.uid(), "CA", "CA-ON", "Ottawa");
         callJson(
                 HttpMethod.PUT,
                 "/api/v1/me/settings/privacy",
                 viewer.uid(),
                 InventoryTestSupport.privacy(true, "MEMBERS"),
                 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                viewer.uid(),
-                Map.of("lat", 45.522, "lng", -73.581, "radiusKm", 5),
-                200);
-        Map<String, Object> stored = testUsers.locationOf(viewer.id());
-        String publicCell = stored.get("grid_cell").toString();
-        String publicLabel = stored.get("public_label").toString();
-        assertThat(publicLabel).contains("Montréal");
-        // The private centre moves to Toronto and a home point to Vancouver; the public point
-        // stays.
-        testUsers.update(
-                "UPDATE user_location SET trading_area_center ="
-                        + " ST_SetSRID(ST_MakePoint(-79.383, 43.653), 4326)::geography,"
-                        + " home_point = ST_SetSRID(ST_MakePoint(-123.121, 49.283),"
-                        + " 4326)::geography WHERE user_id = ?",
-                viewer.id());
-        String centreCell = ApproximateLocationService.cellOf(43.653, -79.383).id();
-        String homeCell = ApproximateLocationService.cellOf(49.283, -123.121).id();
-        assertThat(centreCell).isNotEqualTo(publicCell);
 
-        String publicAd = campaign("SEARCH_SPONSORED", rules("GEO_CELL", publicCell, "GAME", game));
-        String centreAd = campaign("SEARCH_SPONSORED", rules("GEO_CELL", centreCell, "GAME", game));
-        String homeAd = campaign("SEARCH_SPONSORED", rules("GEO_CELL", homeCell, "GAME", game));
-        String torontoAd =
-                campaign("SEARCH_SPONSORED", rules("REGION_LABEL", "Toronto", "GAME", game));
-        String montrealAd =
-                campaign("COLLECTOR_PROFILE", rules("REGION_LABEL", "Montréal", "GAME", game));
+        String ontarioAd =
+                campaign("SEARCH_SPONSORED", rules("SUBDIVISION", "CA-ON", "GAME", game));
+        String quebecAd = campaign("SEARCH_SPONSORED", rules("SUBDIVISION", "CA-QC", "GAME", game));
+        String canadaAd = campaign("SEARCH_SPONSORED", rules("COUNTRY", "CA", "GAME", game));
+        String northAd =
+                campaign("COLLECTOR_PROFILE", rules("REGION", "americas-north", "GAME", game));
+        String europeAd = campaign("COLLECTOR_PROFILE", rules("REGION", "europe", "GAME", game));
 
         List<String> served = served(viewer.uid(), "SEARCH_SPONSORED", null);
-        assertThat(served).contains(publicAd).doesNotContain(centreAd, homeAd, torontoAd);
-        assertThat(served(viewer.uid(), "COLLECTOR_PROFILE", null)).contains(montrealAd);
-        // A signed-out visitor has no location: no cell or label rule matches.
-        assertThat(served(null, "SEARCH_SPONSORED", null)).doesNotContain(publicAd, centreAd);
-        // An explicit public grid cell of the map view targets like the viewer's own cell.
-        assertThat(served(null, "SEARCH_SPONSORED", centreCell))
-                .contains(centreAd)
-                .doesNotContain(publicAd);
+        assertThat(served).contains(ontarioAd, canadaAd).doesNotContain(quebecAd);
+        assertThat(served(viewer.uid(), "COLLECTOR_PROFILE", null))
+                .contains(northAd)
+                .doesNotContain(europeAd);
+        // A signed-out visitor has no location: no country or subdivision rule matches; the page's
+        // region targets REGION rules.
+        assertThat(served(null, "SEARCH_SPONSORED", null)).doesNotContain(ontarioAd, canadaAd);
+        assertThat(served(null, "COLLECTOR_PROFILE", "europe"))
+                .contains(europeAd)
+                .doesNotContain(northAd);
+        // Browsing another region: the viewer's own country no longer targets.
+        assertThat(served(viewer.uid(), "SEARCH_SPONSORED", "europe"))
+                .doesNotContain(ontarioAd, canadaAd);
+
+        // Admin validation of the new kinds; the old geography kinds are gone.
+        String campaignId = campaignOf(ontarioAd);
+        for (List<Map<String, String>> invalid :
+                List.of(
+                        rules("REGION", "Montréal"),
+                        rules("COUNTRY", "Canada"),
+                        rules("SUBDIVISION", "45.5,-73.5"),
+                        rules("GEO_CELL", "r5058c-5438"),
+                        rules("REGION_LABEL", "Montréal"))) {
+            callJson(
+                    HttpMethod.PUT,
+                    "/api/v1/admin/ads/campaigns/" + campaignId + "/targeting",
+                    admin,
+                    Map.of("rules", invalid),
+                    400);
+        }
 
         JsonNode ads = ads(viewer.uid(), "SEARCH_SPONSORED", null);
         for (JsonNode ad : ads) {
@@ -112,8 +113,17 @@ class AdsTargetingIT extends AbstractPhase10IT {
         assertThat(ads.toString())
                 .doesNotContain("\"lat\"")
                 .doesNotContain("\"lng\"")
-                .doesNotContain("publicPoint")
+                .doesNotContain("Ottawa")
                 .doesNotContain(viewer.id().toString());
+    }
+
+    /** Campaign id of a creative (admin campaign list). */
+    private String campaignOf(String creativeId) {
+        return testUsers
+                .query("SELECT campaign_id FROM ad_creative WHERE id = ?::uuid", creativeId)
+                .get(0)
+                .get("campaign_id")
+                .toString();
     }
 
     @Test
@@ -126,13 +136,10 @@ class AdsTargetingIT extends AbstractPhase10IT {
                 String source = Files.readString(file, StandardCharsets.UTF_8);
                 for (String forbidden :
                         List.of(
-                                "home_point",
-                                "trading_area_center",
                                 "user_location",
-                                "searchCentreOf",
-                                "distanceFrom",
-                                "centreLat",
-                                "centreLng",
+                                "profileCityOf",
+                                "city()",
+                                "getMine",
                                 "StoredLocation",
                                 "UserLocationRepository")) {
                     if (source.contains(forbidden)) {
@@ -197,12 +204,7 @@ class AdsTargetingIT extends AbstractPhase10IT {
         // Validation of the request.
         callJson(HttpMethod.GET, "/api/v1/ads?placement=NOWHERE", null, null, 400);
         callJson(HttpMethod.GET, "/api/v1/ads", null, null, 400);
-        callJson(
-                HttpMethod.GET,
-                "/api/v1/ads?placement=MAP_PANEL&geoCell=45.5,-73.5",
-                null,
-                null,
-                400);
+        callJson(HttpMethod.GET, "/api/v1/ads?placement=MAP_PANEL&region=mars", null, null, 400);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -254,19 +256,19 @@ class AdsTargetingIT extends AbstractPhase10IT {
         return rules;
     }
 
-    JsonNode ads(@Nullable String uid, String placement, @Nullable String geoCell) {
+    JsonNode ads(@Nullable String uid, String placement, @Nullable String region) {
         String path =
                 "/api/v1/ads?placement="
                         + placement
-                        + (geoCell == null
+                        + (region == null
                                 ? "&game=" + game
-                                : "&game=" + game + "&geoCell=" + geoCell);
+                                : "&game=" + game + "&region=" + region);
         return callJson(HttpMethod.GET, path, uid, null, 200);
     }
 
-    List<String> served(@Nullable String uid, String placement, @Nullable String geoCell) {
+    List<String> served(@Nullable String uid, String placement, @Nullable String region) {
         List<String> ids = new ArrayList<>();
-        ads(uid, placement, geoCell).forEach(ad -> ids.add(ad.path("creativeId").asString()));
+        ads(uid, placement, region).forEach(ad -> ids.add(ad.path("creativeId").asString()));
         return ids;
     }
 }

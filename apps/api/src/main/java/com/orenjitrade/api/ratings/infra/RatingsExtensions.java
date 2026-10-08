@@ -18,8 +18,8 @@ import org.springframework.core.annotation.Order;
 
 /**
  * The ratings module's implementations of other modules' extension points: the profiles module's
- * {@link RatingSummaryProvider} (collector profiles, map markers, previews and the nearby ranking
- * read {@code rating_summary}), the export section {@code ratings} and the deletion participant.
+ * {@link RatingSummaryProvider} (collector profiles, search results and their ranking read {@code
+ * rating_summary}), the export section {@code ratings} and the deletion participant.
  */
 @Configuration(proxyBeanMethods = false)
 public class RatingsExtensions {

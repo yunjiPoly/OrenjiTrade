@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** {@code GET /api/v1/collectors/{handle}/wishlist}: a collector's public wishlist summary. */
 @RestController
-@Tag(name = "wishlist", description = "The caller's wishlist and its matches nearby")
+@Tag(name = "wishlist", description = "The caller's wishlist and its matches in their region")
 public class CollectorWishlistController {
 
     private final WishlistService wishlistService;

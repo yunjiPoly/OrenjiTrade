@@ -37,7 +37,6 @@ import com.orenjitrade.api.moderation.domain.ModerationService;
 import com.orenjitrade.api.profiles.domain.MemberCard;
 import com.orenjitrade.api.profiles.domain.MemberDirectory;
 import com.orenjitrade.api.users.domain.ConsentService;
-import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -45,7 +44,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -101,8 +99,6 @@ public class CommunityService {
     static final Pattern SLUG = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
 
     private static final Logger log = LoggerFactory.getLogger(CommunityService.class);
-    private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
-    private static final Pattern NON_SLUG = Pattern.compile("[^a-z0-9]+");
 
     private final ChannelRepository channels;
     private final PostRepository posts;
@@ -647,73 +643,6 @@ public class CommunityService {
             String channelSlug,
             @Nullable Instant removedAt,
             @Nullable String reason) {}
-
-    /**
-     * Creates the region channel of the city of a {@code public_label} unless one exists (region
-     * channels "are created per public_label city as users appear"). Labels without a city ("Near
-     * X", "Approximate area") create nothing.
-     *
-     * @return the slug of a newly created channel
-     */
-    @Transactional
-    public Optional<String> ensureRegionChannel(@Nullable String publicLabel) {
-        @Nullable String city = cityOf(publicLabel);
-        if (city == null || channels.regionExists(city)) {
-            return Optional.empty();
-        }
-        String slug = regionSlug(city);
-        if (slug.length() <= "region-".length()) {
-            return Optional.empty();
-        }
-        boolean inserted =
-                channels.insert(
-                        new ChannelRepository.NewChannel(
-                                UUID.randomUUID(),
-                                slug,
-                                city.length() > 80 ? city.substring(0, 80) : city,
-                                ChannelKind.REGION.name(),
-                                null,
-                                city,
-                                "Collectors and players around " + city + ".",
-                                DEFAULT_POST_RATE_PER_HOUR,
-                                200),
-                        null,
-                        timeProvider.now());
-        if (inserted) {
-            log.info("Region channel {} created", slug);
-            return Optional.of(slug);
-        }
-        return Optional.empty();
-    }
-
-    /** The city of a public label ({@code "Plateau-Mont-Royal, Montréal"} → Montréal). */
-    static @Nullable String cityOf(@Nullable String publicLabel) {
-        if (publicLabel == null || publicLabel.isBlank()) {
-            return null;
-        }
-        String label = publicLabel.trim();
-        if (label.startsWith("Near ") || label.equalsIgnoreCase("Approximate area")) {
-            return null;
-        }
-        int comma = label.lastIndexOf(',');
-        String city = comma >= 0 ? label.substring(comma + 1).trim() : label;
-        if (city.startsWith("Downtown ")) {
-            city = city.substring("Downtown ".length()).trim();
-        }
-        return city.isEmpty() || city.length() > 120 ? null : city;
-    }
-
-    /** {@code region-<city slug>}, e.g. {@code region-trois-rivieres}. */
-    static String regionSlug(String city) {
-        String ascii =
-                DIACRITICS
-                        .matcher(Normalizer.normalize(city, Normalizer.Form.NFD))
-                        .replaceAll("")
-                        .toLowerCase(Locale.ROOT);
-        String slug = NON_SLUG.matcher(ascii).replaceAll("-").replaceAll("^-+|-+$", "");
-        String full = "region-" + slug;
-        return full.length() <= 64 ? full : full.substring(0, 64).replaceAll("-+$", "");
-    }
 
     // ---------------------------------------------------------------------------------------
     // Account data

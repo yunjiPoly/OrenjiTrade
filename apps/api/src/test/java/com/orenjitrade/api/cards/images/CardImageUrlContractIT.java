@@ -118,12 +118,6 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                 owner,
                 InventoryTestSupport.privacy(true, "PUBLIC"),
                 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                owner,
-                Map.of("lat", 45.50884, "lng", -73.56125, "radiusKm", 5),
-                200);
         String handle = me(owner).path("handle").asString();
         callJson(
                 HttpMethod.PUT,
@@ -234,11 +228,11 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
         UUID dragon = cardId("900000001");
         String dragonPicture = "^http://localhost:[0-9]+" + CARD_IMAGES + dragonImage + "$";
 
-        // A seller and a collector 1 km away who wishes for the dragon (any printing).
+        // A seller and a collector of the same region who wishes for the dragon (any printing).
         String seller = uniqueUid("img-seller");
-        UUID sellerId = collector(seller, 45.50884, -73.56125);
+        UUID sellerId = collector(seller);
         String wisher = uniqueUid("img-wisher");
-        collector(wisher, 45.51784, -73.56125);
+        collector(wisher);
         callJson(
                 HttpMethod.POST,
                 "/api/v1/wishlist",
@@ -305,7 +299,7 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
     }
 
     /** A discoverable collector with a profile and a trading area; returns the account id. */
-    private UUID collector(String uid, double lat, double lng) {
+    private UUID collector(String uid) {
         UUID id = provisionCompliant(uid);
         String handle = me(uid).path("handle").asString();
         callJson(
@@ -319,12 +313,6 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                 "/api/v1/me/settings/privacy",
                 uid,
                 InventoryTestSupport.privacy(true, "PUBLIC"),
-                200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                uid,
-                Map.of("lat", lat, "lng", lng, "radiusKm", 5),
                 200);
         return id;
     }

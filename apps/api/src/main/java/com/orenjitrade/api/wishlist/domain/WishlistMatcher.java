@@ -2,7 +2,6 @@ package com.orenjitrade.api.wishlist.domain;
 
 import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.location.domain.DistanceBucket;
 import com.orenjitrade.api.notifications.domain.NotificationCards;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationService;
@@ -77,8 +76,7 @@ public class WishlistMatcher {
         int notified = 0;
         @Nullable Map<UUID, String> pictures = null;
         for (Candidate candidate : candidates) {
-            DistanceBucket bucket = DistanceBucket.ofKm(candidate.distanceMetres() / 1000.0);
-            Optional<UUID> matchId = matches.insert(candidate, bucket, now);
+            Optional<UUID> matchId = matches.insert(candidate, now);
             if (matchId.isEmpty()) {
                 continue;
             }
@@ -92,14 +90,13 @@ public class WishlistMatcher {
                             request(
                                     candidate,
                                     matchId.get(),
-                                    bucket,
                                     pictures.get(candidate.printingId())));
             boolean delivered = result.delivered();
             if (delivered) {
                 matches.markNotified(matchId.get());
                 notified++;
             }
-            events.publishEvent(matched(candidate, matchId.get(), bucket, delivered, now));
+            events.publishEvent(matched(candidate, matchId.get(), delivered, now));
         }
         return new MatchRun(candidates.size(), created, notified);
     }
@@ -115,11 +112,10 @@ public class WishlistMatcher {
         boolean gained = false;
         for (Candidate candidate : matches.candidatesForWishlistItem(wishlistItemId, now)) {
             matching.add(candidate.itemId());
-            DistanceBucket bucket = DistanceBucket.ofKm(candidate.distanceMetres() / 1000.0);
-            Optional<UUID> matchId = matches.insert(candidate, bucket, now);
+            Optional<UUID> matchId = matches.insert(candidate, now);
             if (matchId.isPresent()) {
                 gained = true;
-                events.publishEvent(matched(candidate, matchId.get(), bucket, false, now));
+                events.publishEvent(matched(candidate, matchId.get(), false, now));
             }
         }
         if (gained) {
@@ -136,17 +132,21 @@ public class WishlistMatcher {
     }
 
     /**
-     * The notification of a new match ("Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km..."), with
-     * the card's name, game and picture ({@code imageUrl} from the cards module, {@code null} when
-     * the printing has none) in its data.
+     * The notification of a new match ("Azure-Eyes Sky Dragon AZR-EN001 was listed by @handle in
+     * Quebec, Canada."), with the card's name, game and picture ({@code imageUrl} from the cards
+     * module, {@code null} when the printing has none) in its data. The place is the item owner's
+     * state/province and country, never a city or a distance (ADR 0017).
      */
     static NotificationRequest request(
-            Candidate candidate, UUID matchId, DistanceBucket bucket, @Nullable String imageUrl) {
+            Candidate candidate, UUID matchId, @Nullable String imageUrl) {
         StringBuilder body = new StringBuilder(candidate.cardName());
         if (candidate.printingCode() != null) {
             body.append(' ').append(candidate.printingCode());
         }
-        body.append(" was listed ").append(WishlistRules.distanceText(bucket));
+        body.append(" was listed by @")
+                .append(candidate.itemOwnerHandle())
+                .append(" in ")
+                .append(candidate.itemOwnerPlace().label());
         if (candidate.askingPrice() != null) {
             body.append(" for ")
                     .append(candidate.askingPrice().toPlainString())
@@ -160,7 +160,7 @@ public class WishlistMatcher {
         data.put("inventoryItemId", candidate.itemId().toString());
         data.put("collectorId", candidate.itemOwnerId().toString());
         NotificationCards.put(data, candidate.cardName(), candidate.game(), imageUrl);
-        data.put("distanceBucket", bucket.name());
+        data.put("regionCode", candidate.itemOwnerPlace().regionCode());
         data.put("deepLink", "/wishlist/" + candidate.wishlistItemId());
         return new NotificationRequest(
                 candidate.wisherId(),
@@ -172,11 +172,7 @@ public class WishlistMatcher {
     }
 
     private static WishlistMatched matched(
-            Candidate candidate,
-            UUID matchId,
-            DistanceBucket bucket,
-            boolean notified,
-            Instant now) {
+            Candidate candidate, UUID matchId, boolean notified, Instant now) {
         return new WishlistMatched(
                 matchId,
                 candidate.wishlistItemId(),
@@ -184,7 +180,7 @@ public class WishlistMatcher {
                 candidate.itemId(),
                 candidate.itemOwnerId(),
                 candidate.game(),
-                bucket.name(),
+                candidate.itemOwnerPlace().regionCode(),
                 notified,
                 now);
     }

@@ -89,18 +89,6 @@ public class ChannelRepository {
                 > 0;
     }
 
-    /** Whether a region channel of the city exists (any status). */
-    public boolean regionExists(String regionLabel) {
-        return jdbc.sql(
-                                "SELECT count(*) FROM community_channel WHERE kind = 'REGION' AND"
-                                        + " lower(unaccent_immutable(region_label)) ="
-                                        + " lower(unaccent_immutable(:region))")
-                        .param("region", regionLabel)
-                        .query(Long.class)
-                        .single()
-                > 0;
-    }
-
     /** Inserts a channel; returns whether it was inserted ({@code false} when the slug exists). */
     public boolean insert(NewChannel channel, @Nullable UUID createdBy, Instant now) {
         return jdbc.sql(

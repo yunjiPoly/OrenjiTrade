@@ -43,8 +43,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 testUsers.count(
                         "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
                                 + " '00000000-0000-4000-8c00-%'");
-        assertThat(binders).isEqualTo(10);
-        assertThat(items).isEqualTo(36);
+        assertThat(binders).isEqualTo(11);
+        assertThat(items).isEqualTo(39);
         seedDataRunner.seedAll();
         assertThat(
                         testUsers.count(
@@ -124,7 +124,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM wishlist_item WHERE owner_id = ? AND"
-                                        + " radius_km = 25 AND active",
+                                        + " active",
                                 collector2))
                 .isEqualTo(3);
         assertThat(
@@ -413,7 +413,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "user accounts",
                         "auth emulator users",
                         "profiles",
-                        "trading areas",
+                        "locations",
                         "catalog",
                         "inventory",
                         "real-catalog-demo",

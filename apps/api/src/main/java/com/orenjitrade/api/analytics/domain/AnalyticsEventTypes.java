@@ -9,7 +9,7 @@ public final class AnalyticsEventTypes {
     /** Same attributes as {@link #SEARCH_PERFORMED}, emitted when nothing was found. */
     public static final String SEARCH_NO_RESULTS = "search_no_results";
 
-    /** A collector's profile or map preview was opened by someone else. */
+    /** A collector's profile was opened by someone else. */
     public static final String COLLECTOR_VIEWED = "collector_viewed";
 
     /** A public binder was opened by someone other than its owner. */
@@ -24,10 +24,10 @@ public final class AnalyticsEventTypes {
     /** A community post was published (channel slug and link flags only; never the text). */
     public static final String COMMUNITY_POST_CREATED = "community_post_created";
 
-    /** A card was added to a wishlist (game, target kind, radius, filters; never notes). */
+    /** A card was added to a wishlist (game, target kind, filters; never notes). */
     public static final String WISHLIST_ITEM_CREATED = "wishlist_item_created";
 
-    /** A public item matched a wishlist item (game, distance bucket, whether notified). */
+    /** A public item matched a wishlist item (game, region, whether notified). */
     public static final String WISHLIST_MATCHED = "wishlist_matched";
 
     /** A rating was written or edited (interaction kind, score; never the comment or ids). */

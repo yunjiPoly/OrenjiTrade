@@ -23,14 +23,14 @@ class OnboardingServiceTest {
                         List.of(
                                 check(OnboardingFlag.PROFILE_COMPLETE, false),
                                 check(OnboardingFlag.PROFILE_COMPLETE, true),
-                                check(OnboardingFlag.TRADING_AREA_SET, true),
-                                check(OnboardingFlag.TRADING_AREA_SET, false),
+                                check(OnboardingFlag.LOCATION_SET, true),
+                                check(OnboardingFlag.LOCATION_SET, false),
                                 check(OnboardingFlag.AGE_CONFIRMED, true)));
 
         OnboardingStatus status = service.statusOf(USER);
 
         assertThat(status.profileComplete()).isTrue();
-        assertThat(status.tradingAreaSet()).isTrue();
+        assertThat(status.locationSet()).isTrue();
         assertThat(status.interestsSet()).isFalse();
         assertThat(status.ageConfirmed()).isTrue();
     }

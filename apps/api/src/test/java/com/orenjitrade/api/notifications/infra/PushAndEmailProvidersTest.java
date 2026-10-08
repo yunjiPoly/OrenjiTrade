@@ -37,7 +37,7 @@ class PushAndEmailProvidersTest {
                     UUID.fromString("00000000-0000-4000-8000-000000000002"),
                     NotificationType.WISHLIST_MATCH,
                     "Wishlist match: Azure-Eyes Sky Dragon",
-                    "Azure-Eyes Sky Dragon AZR-EN001 was listed ~1-5 km away.",
+                    "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec, Canada.",
                     Map.of("deepLink", "/wishlist/x", "type", "WISHLIST_MATCH"));
 
     @Test

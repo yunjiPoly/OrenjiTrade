@@ -24,9 +24,6 @@ public class PrivacySettings {
     @Column(name = "discoverable", nullable = false)
     private boolean discoverable;
 
-    @Column(name = "show_distance", nullable = false)
-    private boolean showDistance;
-
     @Column(name = "show_online_status", nullable = false)
     private boolean showOnlineStatus;
 
@@ -68,7 +65,6 @@ public class PrivacySettings {
 
     public void apply(PrivacySettingsView view, Instant now) {
         this.discoverable = view.discoverable();
-        this.showDistance = view.showDistance();
         this.showOnlineStatus = view.showOnlineStatus();
         this.showLastActive = view.showLastActive();
         this.profileVisibility = view.profileVisibility();
@@ -81,7 +77,6 @@ public class PrivacySettings {
     public PrivacySettingsView toView() {
         return new PrivacySettingsView(
                 discoverable,
-                showDistance,
                 showOnlineStatus,
                 showLastActive,
                 profileVisibility,

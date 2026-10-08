@@ -26,14 +26,16 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@code ygo-p001a} (Azure-Eyes Sky Dragon AZR-EN001) at least LIGHTLY_PLAYED, up to 60 CAD:
  *       collector1 lists it publicly, so the seed runs the matcher for that item and collector2
  *       gets a WISHLIST_MATCH notification (through the normal pipeline, dedup-keyed);
- *   <li>{@code pkm-p002a}, any condition, radius 25 km: collector1 keeps it in a private unfiled
- *       lot, so publishing it locally triggers a fresh match and notification;
+ *   <li>{@code pkm-p002a}, any condition: collector1 keeps it in a private unfiled lot, so
+ *       publishing it locally triggers a fresh match and notification;
  *   <li>the card of {@code mtg-p005b}, any printing, for trade: collector5 lists it (matched at
  *       once, without notification, like a wish created from the web).
  * </ul>
  *
- * The first run also makes collector2's wishlist visible on their profile. Items are inserted once
- * ({@code ON CONFLICT DO NOTHING}); later runs leave local edits alone.
+ * Collectors 1, 2 and 5 are all in Americas (North) (db/seed/locations.json): matches never cross
+ * platform regions (ADR 0017). The first run also makes collector2's wishlist visible on their
+ * profile. Items are inserted once ({@code ON CONFLICT DO NOTHING}); later runs leave local edits
+ * alone.
  */
 @Component
 public class WishlistSeedContributor implements SeedContributor {
@@ -87,7 +89,7 @@ public class WishlistSeedContributor implements SeedContributor {
                             "LIGHTLY_PLAYED",
                             new BigDecimal("60.00"),
                             "ANY",
-                            "For my Azure-Eyes deck; happy to meet in Verdun or on the Plateau.",
+                            "For my Azure-Eyes deck; happy to meet at a local game store.",
                             created);
         }
         Optional<Printing> promo = printing("pkm-p002a");
@@ -143,10 +145,10 @@ public class WishlistSeedContributor implements SeedContributor {
         return jdbc.sql(
                         """
                         INSERT INTO wishlist_item (id, owner_id, game_slug, card_id, printing_id,
-                               condition_min, max_price, currency, radius_km, trade_preference,
+                               condition_min, max_price, currency, trade_preference,
                                notes, active, created_at, updated_at)
                         VALUES (:id, :owner, :game, :cardId, :printingId, :condition, :maxPrice,
-                                'CAD', 25, :trade, :notes, true, :at, :at)
+                                'CAD', :trade, :notes, true, :at, :at)
                         ON CONFLICT (id) DO NOTHING
                         """)
                 .param("id", id)

@@ -90,8 +90,8 @@ public final class AdRequests {
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description =
-                                    "GAME/TAG slug, REGION_LABEL text (never coordinates),"
-                                            + " GEO_CELL id r<row>c<col>, PLAN code or ANONYMOUS",
+                                    "GAME/TAG slug, REGION code (americas-north), COUNTRY"
+                                            + " (CA), SUBDIVISION (CA-QC), PLAN code or ANONYMOUS",
                             example = "pokemon",
                             maxLength = 120)
                     @NotBlank

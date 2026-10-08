@@ -12,20 +12,21 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Event-driven wishlist matching (Phase 6 contract "Matching pipeline"): a publication nearby
- * creates one match and one WISHLIST_MATCH notification; publications that are too far, from a
- * blocked collector, over the maximum price, in another currency, below the minimum condition, of
- * the wrong language / edition / rarity / availability or the wisher's own never match; a
- * re-publication or the nightly rematch never matches or notifies twice; dismissed matches stay
- * dismissed; blocks hide existing matches; the rematch job recovers a lost publication.
+ * Event-driven wishlist matching (Phase 6 contract "Matching pipeline", ADR 0017): a publication in
+ * the wisher's platform region creates one match and one WISHLIST_MATCH notification naming the
+ * seller's state/province and country; publications from another region, from a blocked collector,
+ * over the maximum price, in another currency, below the minimum condition, of the wrong language /
+ * edition / rarity / availability or the wisher's own never match; a re-publication or the nightly
+ * rematch never matches or notifies twice; dismissed matches stay dismissed; blocks hide existing
+ * matches; the rematch job recovers a lost publication.
  */
 class WishlistMatchingIT extends AbstractWishlistIT {
 
     @Test
-    void aPublicationNearbyMatchesAndNotifiesTheWisher() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-wisher", centre);
-        Collector seller = collector("wm-seller", centre.offset(3, 0));
+    void aPublicationInTheRegionMatchesAndNotifiesTheWisher() {
+        Place place = americasNorth();
+        Collector wisher = collector("wm-wisher", place);
+        Collector seller = collector("wm-seller", place);
         UUID azure = printing(AZURE);
         Map<String, Object> body = wish(azure, true);
         body.put("conditionMin", "LIGHTLY_PLAYED");
@@ -49,15 +50,10 @@ class WishlistMatchingIT extends AbstractWishlistIT {
         assertThat(match.path("collector").path("handle").asString()).isEqualTo(seller.handle());
         assertThat(match.path("dismissed").asBoolean()).isFalse();
         assertThat(match.path("matchedAt").asString()).isNotBlank();
-        String bucket = match.path("distanceBucket").asString();
-        assertThat(bucket).isIn("LT_1KM", "KM_1_5", "KM_5_10");
-
-        // ADR 0004: the only point is the seller's stored public point; nothing private leaks.
-        List<double[]> points = coordinatePairs(match);
-        assertThat(points).hasSize(1);
-        double[] sellerPoint = publicPoint(seller.id());
-        assertThat(points.get(0)[0]).isEqualTo(sellerPoint[0]);
-        assertThat(points.get(0)[1]).isEqualTo(sellerPoint[1]);
+        assertThat(match.has("distanceBucket")).isFalse();
+        assertThat(match.path("collector").path("place").path("label").asString())
+                .isEqualTo("Quebec, Canada");
+        assertThat(match.path("collector").has("publicPoint")).isFalse();
         assertAtMostThreeDecimals(page, "matches");
         assertThat(page.toString())
                 .doesNotContain("Seller private note")
@@ -78,20 +74,26 @@ class WishlistMatchingIT extends AbstractWishlistIT {
         List<JsonNode> notified = notificationsOfType(wisher, "WISHLIST_MATCH");
         assertThat(notified).hasSize(1);
         JsonNode notification = notified.get(0);
-        assertThat(notification.path("title").asString())
-                .isEqualTo("Wishlist match: Azure-Eyes Sky Dragon");
+        String name = cardNameOf(azure);
+        assertThat(notification.path("title").asString()).isEqualTo("Wishlist match: " + name);
         assertThat(notification.path("body").asString())
-                .startsWith("Azure-Eyes Sky Dragon AZR-EN001 was listed ")
-                .contains("km away")
-                .endsWith("for 45.00 CAD.");
+                .isEqualTo(
+                        name
+                                + " "
+                                + codeOf(azure)
+                                + " was listed by @"
+                                + seller.handle()
+                                + " in Quebec, Canada for 45.00 CAD.")
+                .doesNotContain("km");
         JsonNode data = notification.path("data");
         assertThat(data.path("wishlistItemId").asString()).isEqualTo(wishId);
         assertThat(data.path("inventoryItemId").asString()).isEqualTo(itemId);
         assertThat(data.path("matchId").asString()).isEqualTo(match.path("id").asString());
         assertThat(data.path("collectorId").asString()).isEqualTo(seller.id().toString());
-        assertThat(data.path("distanceBucket").asString()).isEqualTo(bucket);
+        assertThat(data.has("distanceBucket")).isFalse();
+        assertThat(data.path("regionCode").asString()).isEqualTo("americas-north");
         assertThat(data.path("deepLink").asString()).isEqualTo("/wishlist/" + wishId);
-        assertCardPicture(notification, "Azure-Eyes Sky Dragon");
+        assertCardPicture(notification, name);
         assertThat(notification.path("readAt").isNull()).isTrue();
         assertAtMostThreeDecimals(notification, "notification");
         assertThat(notification.toString())
@@ -104,13 +106,13 @@ class WishlistMatchingIT extends AbstractWishlistIT {
     }
 
     @Test
-    void farBlockedOverPricedWrongConditionAndOwnPublicationsDoNotMatch() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-strict", centre);
-        Collector near = collector("wm-near", centre.offset(2, 2));
-        Collector far = collector("wm-far", centre.offset(60, 0));
-        Collector blocked = collector("wm-blocked", centre.offset(-2, 0));
-        Collector blocker = collector("wm-blocker", centre.offset(0, -2));
+    void otherRegionBlockedOverPricedWrongConditionAndOwnPublicationsDoNotMatch() {
+        Place place = americasNorth();
+        Collector wisher = collector("wm-strict", place);
+        Collector near = collector("wm-near", place);
+        Collector far = collector("wm-far", europe());
+        Collector blocked = collector("wm-blocked", place);
+        Collector blocker = collector("wm-blocker", place);
         callJson(
                 HttpMethod.POST,
                 "/api/v1/users/" + blocked.id() + "/block",
@@ -166,9 +168,9 @@ class WishlistMatchingIT extends AbstractWishlistIT {
 
     @Test
     void tradePreferenceLanguageEditionAndRarityFiltersApply() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-filters", centre);
-        Collector seller = collector("wm-filter-seller", centre.offset(1, 3));
+        Place place = americasNorth();
+        Collector wisher = collector("wm-filters", place);
+        Collector seller = collector("wm-filter-seller", place);
         UUID azure = printing(AZURE);
         UUID french = printing(AZURE_FR);
         UUID card = cardOf(azure);
@@ -201,10 +203,10 @@ class WishlistMatchingIT extends AbstractWishlistIT {
 
     @Test
     void republicationAndRematchNeverMatchOrNotifyTwiceAndDismissedMatchesStayDismissed() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-idem", centre);
-        Collector seller = collector("wm-idem-seller", centre.offset(0, 4));
-        Collector stranger = collector("wm-idem-stranger", centre.offset(0, -4));
+        Place place = americasNorth();
+        Collector wisher = collector("wm-idem", place);
+        Collector seller = collector("wm-idem-seller", place);
+        Collector stranger = collector("wm-idem-stranger", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
         String itemId = publicItem(seller, azure, offered("NEAR_MINT", "30.00", "SALE"));
@@ -272,9 +274,9 @@ class WishlistMatchingIT extends AbstractWishlistIT {
 
     @Test
     void wishesMatchTheCurrentInventoryAtOnceWithoutNotificationAndFollowEdits() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-late", centre);
-        Collector seller = collector("wm-late-seller", centre.offset(-3, 1));
+        Place place = americasNorth();
+        Collector wisher = collector("wm-late", place);
+        Collector seller = collector("wm-late-seller", place);
         UUID azure = printing(AZURE);
         String itemId = publicItem(seller, azure, offered("NEAR_MINT", "30.00", "SALE"));
         awaitEventsProcessed(itemId);
@@ -326,9 +328,9 @@ class WishlistMatchingIT extends AbstractWishlistIT {
 
     @Test
     void blocksHideExistingMatches() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-hide", centre);
-        Collector seller = collector("wm-hide-seller", centre.offset(2, -2));
+        Place place = americasNorth();
+        Collector wisher = collector("wm-hide", place);
+        Collector seller = collector("wm-hide-seller", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
         String itemId = publicItem(seller, azure, offered("NEAR_MINT", "30.00", "SALE"));
@@ -359,9 +361,9 @@ class WishlistMatchingIT extends AbstractWishlistIT {
 
     @Test
     void theRematchJobRecoversALostPublicationAndNeedsServiceCredentials() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("wm-lost", centre);
-        Collector seller = collector("wm-lost-seller", centre.offset(4, 4));
+        Place place = americasNorth();
+        Collector wisher = collector("wm-lost", place);
+        Collector seller = collector("wm-lost-seller", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
         String itemId = publicItem(seller, azure, offered("NEAR_MINT", "30.00", "SALE"));

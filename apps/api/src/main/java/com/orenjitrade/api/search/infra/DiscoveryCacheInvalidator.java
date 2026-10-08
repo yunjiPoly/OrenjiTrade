@@ -5,9 +5,13 @@ import com.orenjitrade.api.binders.events.BinderPublished;
 import com.orenjitrade.api.binders.events.BinderUnpublished;
 import com.orenjitrade.api.inventory.events.InventoryItemPublished;
 import com.orenjitrade.api.inventory.events.InventoryItemUnpublished;
+import com.orenjitrade.api.location.events.LocationChangedEvent;
 import com.orenjitrade.api.location.events.LocationRemovedEvent;
-import com.orenjitrade.api.location.events.TradingAreaChangedEvent;
+import com.orenjitrade.api.location.events.RegionsChangedEvent;
 import com.orenjitrade.api.profiles.events.PrivacySettingsChangedEvent;
+import com.orenjitrade.api.users.events.AccountDeletedEvent;
+import com.orenjitrade.api.users.events.AccountDeletionCancelledEvent;
+import com.orenjitrade.api.users.events.AccountDeletionRequestedEvent;
 import com.orenjitrade.api.users.events.UserSuspendedEvent;
 import com.orenjitrade.api.users.events.UserUnsuspendedEvent;
 import org.springframework.context.event.EventListener;
@@ -16,20 +20,21 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Invalidates the nearby cache when what the map shows changes: an item or binder is published or
- * unpublished (the inventory module emits these once per effective-visibility flip, including
- * suspensions, deletions and freshness hiding), a binder's freshness changes, a trading area or
- * public point changes, a location is removed, privacy settings are saved, or an account is
- * suspended or reinstated. Plain listeners that defer the invalidation until the surrounding
- * transaction commits (so a concurrent request cannot re-cache the old state); they are not stored
- * in the event publication registry. Idempotent: an extra invalidation only costs a cache miss.
+ * Invalidates the discovery cache when what discovery shows changes: an item or binder is published
+ * or unpublished (the inventory module emits these once per effective-visibility flip, including
+ * suspensions, deletions and freshness hiding), a binder's freshness changes, a location is set,
+ * changed or removed, an admin moves a country to another region, privacy settings are saved, an
+ * account is suspended or reinstated, or its deletion is requested, cancelled or carried out. Plain
+ * listeners that defer the invalidation until the surrounding transaction commits (so a concurrent
+ * request cannot re-cache the old state); they are not stored in the event publication registry.
+ * Idempotent: an extra invalidation only costs a cache miss.
  */
 @Component
-public class NearbyCacheInvalidator {
+public class DiscoveryCacheInvalidator {
 
-    private final NearbyCache cache;
+    private final DiscoveryCache cache;
 
-    public NearbyCacheInvalidator(NearbyCache cache) {
+    public DiscoveryCacheInvalidator(DiscoveryCache cache) {
         this.cache = cache;
     }
 
@@ -59,7 +64,12 @@ public class NearbyCacheInvalidator {
     }
 
     @EventListener
-    void on(TradingAreaChangedEvent event) {
+    void on(LocationChangedEvent event) {
+        invalidateAfterCommit();
+    }
+
+    @EventListener
+    void on(RegionsChangedEvent event) {
         invalidateAfterCommit();
     }
 
@@ -80,6 +90,21 @@ public class NearbyCacheInvalidator {
 
     @EventListener
     void on(UserUnsuspendedEvent event) {
+        invalidateAfterCommit();
+    }
+
+    @EventListener
+    void on(AccountDeletionRequestedEvent event) {
+        invalidateAfterCommit();
+    }
+
+    @EventListener
+    void on(AccountDeletionCancelledEvent event) {
+        invalidateAfterCommit();
+    }
+
+    @EventListener
+    void on(AccountDeletedEvent event) {
         invalidateAfterCommit();
     }
 

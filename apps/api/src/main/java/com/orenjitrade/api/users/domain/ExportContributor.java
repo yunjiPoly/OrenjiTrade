@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Extension point of {@code GET /api/v1/me/export}: every module holding personal data contributes
  * one section of the owner's export document. Sections must only contain data the owner may see
- * about themselves (never other users' private data, never {@code home_point}).
+ * about themselves (never other users' private data).
  */
 public interface ExportContributor {
 

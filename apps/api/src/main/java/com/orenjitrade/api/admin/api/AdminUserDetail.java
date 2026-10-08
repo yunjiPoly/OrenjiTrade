@@ -25,7 +25,7 @@ public record AdminUserDetail(
         @Schema(requiredMode = RequiredMode.REQUIRED) List<ConsentSummary> consents,
         @Schema(
                         nullable = true,
-                        description = "Public trading-area label; coordinates are never exposed")
+                        description = "State/province and country (never the city or a coordinate)")
                 @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable String locationLabel,
         @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)

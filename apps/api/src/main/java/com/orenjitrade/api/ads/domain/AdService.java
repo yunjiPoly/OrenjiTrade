@@ -15,7 +15,8 @@ import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlagView;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.location.domain.LocationService;
-import com.orenjitrade.api.location.domain.PublicLocation;
+import com.orenjitrade.api.location.domain.PublicPlace;
+import com.orenjitrade.api.location.domain.RegionCatalog;
 import com.orenjitrade.api.profiles.domain.ProfileService;
 import com.orenjitrade.api.profiles.domain.TagView;
 import java.time.Instant;
@@ -32,10 +33,10 @@ import org.springframework.stereotype.Service;
  * Member-facing advertising (Phase 10 contract "Advertising framework"; feature flag {@code
  * advertising}). {@link #ads} answers an empty list while the flag is off for the caller or the
  * caller's effective {@code ads.enabled} feature is false (PREMIUM, or an entitlement); otherwise
- * it builds a public {@link AdContext} (requested game and grid cell, the viewer's public grid cell
- * and region label from {@link LocationService#publicLocationOf}, interest games and tags, plan)
- * and asks the {@link AdProvider}. Private locations are never read. Every served ad carries a
- * signed {@link AdToken}; impressions and clicks are recorded once per token.
+ * it builds a public {@link AdContext} (requested game and platform region, the viewer's country
+ * and state/province from {@link LocationService#publicPlaceOf}, interest games and tags, plan) and
+ * asks the {@link AdProvider}. Cities are never read (ADR 0017). Every served ad carries a signed
+ * {@link AdToken}; impressions and clicks are recorded once per token.
  */
 @Service
 public class AdService {
@@ -52,6 +53,7 @@ public class AdService {
     private final Entitlements entitlements;
     private final PlanService plans;
     private final LocationService locations;
+    private final RegionCatalog regions;
     private final ProfileService profiles;
     private final ActorHasher actorHasher;
     private final TimeProvider timeProvider;
@@ -63,6 +65,7 @@ public class AdService {
             Entitlements entitlements,
             PlanService plans,
             LocationService locations,
+            RegionCatalog regions,
             ProfileService profiles,
             ActorHasher actorHasher,
             TimeProvider timeProvider) {
@@ -72,6 +75,7 @@ public class AdService {
         this.entitlements = entitlements;
         this.plans = plans;
         this.locations = locations;
+        this.regions = regions;
         this.profiles = profiles;
         this.actorHasher = actorHasher;
         this.timeProvider = timeProvider;
@@ -90,9 +94,12 @@ public class AdService {
             @Nullable UUID viewerId,
             PlacementKey placement,
             @Nullable String game,
-            @Nullable String geoCell) {
+            @Nullable String region) {
         @Nullable String cleanGame = normaliseGame(game);
-        @Nullable String cleanCell = normaliseCell(geoCell);
+        @Nullable String cleanRegion =
+                region == null || region.isBlank()
+                        ? null
+                        : regions.requireRegion(region, "region").code();
         if (!featureFlags.isEnabled(FeatureFlagKeys.ADVERTISING, viewerId)) {
             return List.of();
         }
@@ -107,7 +114,8 @@ public class AdService {
                             placement,
                             cleanGame,
                             Set.of(),
-                            cleanCell,
+                            cleanRegion,
+                            null,
                             null,
                             Set.of(),
                             AdContext.ANONYMOUS,
@@ -117,19 +125,22 @@ public class AdService {
             if (!entitlements.has(viewerId, ADS_FEATURE)) {
                 return List.of();
             }
-            Optional<PublicLocation> location = locations.publicLocationOf(viewerId);
+            Optional<PublicPlace> place = locations.publicPlaceOf(viewerId);
+            @Nullable String contextRegion =
+                    cleanRegion != null
+                            ? cleanRegion
+                            : place.map(PublicPlace::regionCode).orElse(null);
+            Optional<PublicPlace> placeInRegion =
+                    place.filter(own -> own.regionCode().equals(contextRegion));
             Optional<ProfileService.PublicProfileParts> parts = profiles.publicPartsOf(viewerId);
             context =
                     new AdContext(
                             placement,
                             cleanGame,
                             parts.map(p -> Set.copyOf(p.games())).orElse(Set.of()),
-                            cleanCell != null
-                                    ? cleanCell
-                                    : location.map(PublicLocation::gridCell).orElse(null),
-                            location.map(PublicLocation::label)
-                                    .filter(label -> !label.isBlank())
-                                    .orElse(null),
+                            contextRegion,
+                            placeInRegion.map(PublicPlace::countryCode).orElse(null),
+                            placeInRegion.map(PublicPlace::subdivisionCode).orElse(null),
                             parts.map(
                                             p ->
                                                     p.tags().stream()
@@ -148,7 +159,8 @@ public class AdService {
                                         tokens.issue(
                                                 ad.creativeId(),
                                                 placement,
-                                                context.geoCell(),
+                                                context.regionCode(),
+                                                context.subdivisionCode(),
                                                 context.userHash(),
                                                 now)))
                 .toList();
@@ -199,7 +211,8 @@ public class AdService {
                 serve.creativeId(),
                 serve.placement(),
                 serve.userHash(),
-                serve.geoCell(),
+                serve.regionCode(),
+                serve.subdivisionCode(),
                 now);
     }
 
@@ -232,20 +245,5 @@ public class AdService {
                     "Validation failed", List.of(new ProblemFieldError("game", "unknown game")));
         }
         return slug;
-    }
-
-    private static @Nullable String normaliseCell(@Nullable String geoCell) {
-        if (geoCell == null || geoCell.isBlank()) {
-            return null;
-        }
-        String cell = geoCell.trim().toLowerCase(Locale.ROOT);
-        if (!Targeting.GEO_CELL.matcher(cell).matches()) {
-            throw ApiException.validation(
-                    "Validation failed",
-                    List.of(
-                            new ProblemFieldError(
-                                    "geoCell", "must be a public grid cell id (r<row>c<col>)")));
-        }
-        return cell;
     }
 }

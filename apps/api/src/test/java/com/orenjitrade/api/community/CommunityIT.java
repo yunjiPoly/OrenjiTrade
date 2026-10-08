@@ -2,7 +2,6 @@ package com.orenjitrade.api.community;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.TestDomainEventsConfiguration.RecordedDomainEvents;
@@ -12,7 +11,6 @@ import com.orenjitrade.api.community.events.CommunityPostCreated;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
 import com.orenjitrade.api.moderation.domain.ModerationService;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,16 +27,15 @@ import tools.jackson.databind.JsonNode;
  * replies, edits and deletions with their authorization, the publicChat feature flag (404
  * FEATURE_DISABLED), duplicate detection (409), the per-channel rate limit (429), moderation (422
  * POST_BLOCKED, FLAGGED posts), audited moderator removals and channel management, block hiding and
- * region channels created as collectors appear.
+ * one region channel per platform region (ADR 0017; the old city channels are archived).
  */
 class CommunityIT extends AbstractIntegrationTest {
 
     static final List<String> SEEDED =
             List.of(
-                    "montreal-yugioh",
-                    "montreal-pokemon",
-                    "montreal-magic",
-                    "montreal-riftbound",
+                    "americas-north",
+                    "americas-south",
+                    "europe",
                     "looking-for",
                     "new-listings",
                     "trades",
@@ -86,19 +83,20 @@ class CommunityIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void theEightLaunchChannelsAreListedAndFilterable() {
+    void theLaunchChannelsAreListedAndFilterable() {
         Member viewer = member("chan-view");
         JsonNode channels =
                 callJson(HttpMethod.GET, "/api/v1/community/channels", viewer.uid(), null, 200);
         List<String> slugs = new ArrayList<>();
         channels.forEach(channel -> slugs.add(channel.path("slug").asString()));
         assertThat(slugs).containsSubsequence(SEEDED);
-        JsonNode pokemon = channels.get(slugs.indexOf("montreal-pokemon"));
-        assertThat(pokemon.path("name").asString()).isEqualTo("Montréal / Pokémon");
-        assertThat(pokemon.path("kind").asString()).isEqualTo("REGION");
-        assertThat(pokemon.path("game").asString()).isEqualTo("pokemon");
-        assertThat(pokemon.path("regionLabel").asString()).isEqualTo("Montréal");
-        assertThat(pokemon.path("postCount24h").isInt()).isTrue();
+        assertThat(slugs).doesNotContain("montreal-pokemon");
+        JsonNode north = channels.get(slugs.indexOf("americas-north"));
+        assertThat(north.path("name").asString()).isEqualTo("Americas (North)");
+        assertThat(north.path("kind").asString()).isEqualTo("REGION");
+        assertThat(north.path("game").isNull()).isTrue();
+        assertThat(north.path("regionLabel").asString()).isEqualTo("americas-north");
+        assertThat(north.path("postCount24h").isInt()).isTrue();
         JsonNode general = channels.get(slugs.indexOf("general"));
         assertThat(general.path("kind").asString()).isEqualTo("GENERAL");
         assertThat(general.path("game").isNull()).isTrue();
@@ -106,27 +104,21 @@ class CommunityIT extends AbstractIntegrationTest {
         JsonNode byGame =
                 callJson(
                         HttpMethod.GET,
-                        "/api/v1/community/channels?game=pokemon",
+                        "/api/v1/community/channels?game=yugioh",
                         viewer.uid(),
                         null,
                         200);
-        assertThat(byGame).isNotEmpty();
-        byGame.forEach(channel -> assertThat(channel.path("game").asString()).isEqualTo("pokemon"));
+        byGame.forEach(channel -> assertThat(channel.path("game").asString()).isEqualTo("yugioh"));
         JsonNode byRegion =
                 callJson(
                         HttpMethod.GET,
-                        "/api/v1/community/channels?region=montreal",
+                        "/api/v1/community/channels?region=americas-south",
                         viewer.uid(),
                         null,
                         200);
         List<String> regional = new ArrayList<>();
         byRegion.forEach(channel -> regional.add(channel.path("slug").asString()));
-        assertThat(regional)
-                .containsExactly(
-                        "montreal-yugioh",
-                        "montreal-pokemon",
-                        "montreal-magic",
-                        "montreal-riftbound");
+        assertThat(regional).containsExactly("americas-south");
         assertThat(
                         call(HttpMethod.GET, "/api/v1/community/channels", null, null)
                                 .getStatus()
@@ -573,32 +565,30 @@ class CommunityIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void regionChannelsAppearWithCollectors() {
-        Member collector = member("region-tr");
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                collector.uid(),
-                Map.of("lat", 46.3432, "lng", -72.5429, "radiusKm", 10),
-                200);
+    void regionChannelsAreThePlatformRegionsAndLocationsCreateNone() {
+        int regionChannels =
+                testUsers.count("SELECT count(*) FROM community_channel WHERE kind = 'REGION'");
+        Member collector = member("region-loc");
+        setLocation(collector.uid(), "CA", "CA-QC", "Trois-Rivières");
         callJson(
                 HttpMethod.PUT,
                 "/api/v1/me/settings/privacy",
                 collector.uid(),
                 InventoryTestSupport.privacy(true, "MEMBERS"),
                 200);
-        await().atMost(Duration.ofSeconds(15))
-                .until(
-                        () ->
-                                testUsers.count(
-                                                "SELECT count(*) FROM community_channel WHERE kind"
-                                                        + " = 'REGION' AND region_label ="
-                                                        + " 'Trois-Rivières'")
-                                        == 1);
+        assertThat(testUsers.count("SELECT count(*) FROM community_channel WHERE kind = 'REGION'"))
+                .as("no channel is created from a location (ADR 0017)")
+                .isEqualTo(regionChannels);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM community_channel WHERE slug LIKE"
+                                        + " 'montreal-%' AND status = 'ARCHIVED'"))
+                .as("the old city channels are archived, not deleted")
+                .isEqualTo(4);
         JsonNode channels =
                 callJson(
                         HttpMethod.GET,
-                        "/api/v1/community/channels?region=trois-rivieres",
+                        "/api/v1/community/channels?region=europe",
                         collector.uid(),
                         null,
                         200);
@@ -606,30 +596,10 @@ class CommunityIT extends AbstractIntegrationTest {
                 .singleElement()
                 .satisfies(
                         channel -> {
-                            assertThat(channel.path("slug").asString())
-                                    .isEqualTo("region-trois-rivieres");
-                            assertThat(channel.path("name").asString()).isEqualTo("Trois-Rivières");
+                            assertThat(channel.path("slug").asString()).isEqualTo("europe");
+                            assertThat(channel.path("name").asString()).isEqualTo("Europe");
                             assertThat(channel.path("kind").asString()).isEqualTo("REGION");
                         });
-        // A second collector of the same city does not create another channel.
-        Member neighbour = member("region-tr2");
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                neighbour.uid(),
-                Map.of("lat", 46.35, "lng", -72.55, "radiusKm", 10),
-                200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/settings/privacy",
-                neighbour.uid(),
-                InventoryTestSupport.privacy(true, "MEMBERS"),
-                200);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM community_channel WHERE region_label ="
-                                        + " 'Trois-Rivières'"))
-                .isEqualTo(1);
     }
 
     private static JsonNode find(JsonNode page, String id) {

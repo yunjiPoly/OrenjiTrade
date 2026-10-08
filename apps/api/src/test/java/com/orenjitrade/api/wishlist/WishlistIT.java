@@ -15,9 +15,9 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Wishlist CRUD (Phase 6 contract): card or printing target with GameSchema-validated filters,
- * defaults, partial updates, duplicates (409), the {@code wishlist.items.max} limit and the plan's
- * radius cap (429), owner-only access (404 for others, 401 anonymous), the public wishlist summary
- * gated by {@code wishlistVisible} and blocks, and the owner's export.
+ * defaults, partial updates, duplicates (409), the {@code wishlist.items.max} limit (429), no
+ * radius any more (ADR 0017), owner-only access (404 for others, 401 anonymous), the public
+ * wishlist summary gated by {@code wishlistVisible} and blocks, and the owner's export.
  */
 class WishlistIT extends AbstractWishlistIT {
 
@@ -25,7 +25,7 @@ class WishlistIT extends AbstractWishlistIT {
 
     @Test
     void createListUpdateAndDeleteItems() {
-        Collector owner = collector("wl-crud", randomCentre());
+        Collector owner = collector("wl-crud", americasNorth());
         UUID azure = printing(AZURE);
         UUID card = cardOf(azure);
 
@@ -38,13 +38,14 @@ class WishlistIT extends AbstractWishlistIT {
         String id = created.path("id").asString();
         assertThat(created.path("game").asString()).isEqualTo("yugioh");
         assertThat(created.path("card").path("id").asString()).isEqualTo(card.toString());
-        assertThat(created.path("card").path("name").asString()).isEqualTo("Azure-Eyes Sky Dragon");
+        assertThat(created.path("card").path("name").asString()).isEqualTo(cardNameOf(azure));
         assertThat(created.path("printing").path("id").asString()).isEqualTo(azure.toString());
-        assertThat(created.path("printing").path("printingCode").asString()).isEqualTo("AZR-EN001");
+        assertThat(created.path("printing").path("printingCode").asString())
+                .isEqualTo(codeOf(azure));
         assertThat(created.path("conditionMin").asString()).isEqualTo("LIGHTLY_PLAYED");
         assertThat(created.path("maxPrice").decimalValue()).isEqualByComparingTo("60.00");
         assertThat(created.path("currency").asString()).isEqualTo("CAD");
-        assertThat(created.path("radiusKm").asInt()).isEqualTo(25);
+        assertThat(created.has("radiusKm")).as("no radius any more").isFalse();
         assertThat(created.path("tradePreference").asString()).isEqualTo("SALE");
         assertThat(created.path("notes").asString()).isEqualTo("For my Azure deck");
         assertThat(created.path("active").asBoolean()).isTrue();
@@ -57,14 +58,14 @@ class WishlistIT extends AbstractWishlistIT {
         anyPrinting.put("language", "FR");
         anyPrinting.put("edition", "unlimited");
         anyPrinting.put("rarity", "Ultra Rare");
-        anyPrinting.put("radiusKm", 10);
+        anyPrinting.put("radiusKm", 10); // ignored: unknown member
         JsonNode second = createWish(owner, anyPrinting);
         assertThat(second.path("printing").isNull()).isTrue();
         assertThat(second.path("card").path("id").asString()).isEqualTo(card.toString());
         assertThat(second.path("language").asString()).isEqualTo("fr");
         assertThat(second.path("edition").asString()).isEqualTo("UNLIMITED");
         assertThat(second.path("rarity").asString()).isEqualTo("Ultra Rare");
-        assertThat(second.path("radiusKm").asInt()).isEqualTo(10);
+        assertThat(second.has("radiusKm")).isFalse();
         assertThat(second.path("tradePreference").asString()).isEqualTo("ANY");
 
         JsonNode list = callJson(HttpMethod.GET, "/api/v1/wishlist", owner.uid(), null, 200);
@@ -77,14 +78,12 @@ class WishlistIT extends AbstractWishlistIT {
         Map<String, Object> patch = new LinkedHashMap<>();
         patch.put("conditionMin", null);
         patch.put("maxPrice", new BigDecimal("55.5"));
-        patch.put("radiusKm", 20);
         patch.put("notes", "Still looking");
         patch.put("active", false);
         JsonNode updated =
                 callJson(HttpMethod.PATCH, "/api/v1/wishlist/" + id, owner.uid(), patch, 200);
         assertThat(updated.path("conditionMin").isNull()).isTrue();
         assertThat(updated.path("maxPrice").decimalValue()).isEqualByComparingTo("55.50");
-        assertThat(updated.path("radiusKm").asInt()).isEqualTo(20);
         assertThat(updated.path("notes").asString()).isEqualTo("Still looking");
         assertThat(updated.path("active").asBoolean()).isFalse();
         assertThat(updated.path("tradePreference").asString()).isEqualTo("SALE");
@@ -121,7 +120,7 @@ class WishlistIT extends AbstractWishlistIT {
 
     @Test
     void invalidItemsAreRejected() {
-        Collector owner = collector("wl-invalid", randomCentre());
+        Collector owner = collector("wl-invalid", americasNorth());
         UUID azure = printing(AZURE);
         UUID card = cardOf(azure);
         UUID otherCardPrinting = printing("ygo-p002a");
@@ -143,7 +142,6 @@ class WishlistIT extends AbstractWishlistIT {
                 owner, with(wish(azure, true), "maxPrice", new BigDecimal("-1")), "maxPrice");
         assertValidation(
                 owner, with(wish(azure, true), "maxPrice", new BigDecimal("1.234")), "maxPrice");
-        assertValidation(owner, with(wish(azure, true), "radiusKm", 0), "radiusKm");
         assertValidation(owner, with(wish(azure, true), "notes", "x".repeat(501)), "notes");
         callJson(
                 HttpMethod.POST,
@@ -177,9 +175,9 @@ class WishlistIT extends AbstractWishlistIT {
                 owner.uid(),
                 Map.of("printingId", otherCardPrinting.toString()),
                 400);
-        Map<String, Object> nullRadius = new LinkedHashMap<>();
-        nullRadius.put("radiusKm", null);
-        callJson(HttpMethod.PATCH, "/api/v1/wishlist/" + other, owner.uid(), nullRadius, 400);
+        Map<String, Object> nullCurrency = new LinkedHashMap<>();
+        nullCurrency.put("currency", null);
+        callJson(HttpMethod.PATCH, "/api/v1/wishlist/" + other, owner.uid(), nullCurrency, 400);
         callJson(
                 HttpMethod.PATCH,
                 "/api/v1/wishlist/" + other,
@@ -189,38 +187,25 @@ class WishlistIT extends AbstractWishlistIT {
     }
 
     @Test
-    void radiusIsCappedByThePlanAndItemsByTheLimit() {
-        Collector owner = collector("wl-limits", randomCentre());
+    void itemsAreLimitedByThePlanAndNoRadiusExists() {
+        Collector owner = collector("wl-limits", americasNorth());
         UUID azure = printing(AZURE);
 
-        JsonNode radius =
-                callJson(
-                        HttpMethod.POST,
-                        "/api/v1/wishlist",
-                        owner.uid(),
-                        with(wish(azure, true), "radiusKm", 26),
-                        429);
-        assertThat(radius.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
-        assertThat(radius.path("limitKey").asString()).isEqualTo("map.radius.max_km");
-        assertThat(radius.path("limit").asInt()).isEqualTo(25);
-        String id =
-                createWish(owner, with(wish(azure, true), "radiusKm", 25)).path("id").asString();
+        // A radius is no member any more: ignored (never a 429 or a stored value).
+        JsonNode created = createWish(owner, with(wish(azure, true), "radiusKm", 26));
+        assertThat(created.has("radiusKm")).isFalse();
+        String id = created.path("id").asString();
         callJson(
                 HttpMethod.PATCH,
                 "/api/v1/wishlist/" + id,
                 owner.uid(),
                 Map.of("radiusKm", 100),
-                429);
+                200);
 
-        // Premium: 100 km.
-        Collector premium = collector("wl-premium", randomCentre());
+        Collector premium = collector("wl-premium", americasNorth());
         testUsers.update(
                 "UPDATE user_account SET plan_code = 'PREMIUM' WHERE id = ?", premium.id());
-        assertThat(
-                        createWish(premium, with(wish(azure, true), "radiusKm", 100))
-                                .path("radiusKm")
-                                .asInt())
-                .isEqualTo(100);
+        createWish(premium, wish(azure, true));
 
         // wishlist.items.max (FREE 20 by default; lowered to 2 for the test).
         setFreeItemsMax(2);
@@ -253,9 +238,9 @@ class WishlistIT extends AbstractWishlistIT {
 
     @Test
     void itemsAndMatchesBelongToTheirOwnerOnly() {
-        Centre centre = randomCentre();
-        Collector owner = collector("wl-owner", centre);
-        Collector other = collector("wl-other", centre.offset(1, 1));
+        Place place = americasNorth();
+        Collector owner = collector("wl-owner", place);
+        Collector other = collector("wl-other", place);
         String id = createWish(owner, wish(printing(AZURE), true)).path("id").asString();
 
         callJson(
@@ -301,9 +286,9 @@ class WishlistIT extends AbstractWishlistIT {
 
     @Test
     void publicSummaryFollowsWishlistVisibilityAndBlocks() {
-        Centre centre = randomCentre();
-        Collector owner = collector("wl-public", centre);
-        Collector viewer = collector("wl-viewer", centre.offset(2, 0));
+        Place place = americasNorth();
+        Collector owner = collector("wl-public", place);
+        Collector viewer = collector("wl-viewer", place);
         UUID azure = printing(AZURE);
         Map<String, Object> body = with(wish(azure, true), "conditionMin", "NEAR_MINT");
         body.put("maxPrice", new BigDecimal("70.00"));
@@ -321,7 +306,7 @@ class WishlistIT extends AbstractWishlistIT {
         JsonNode entries = callJson(HttpMethod.GET, summary, viewer.uid(), null, 200);
         assertThat(entries).as("active items only").hasSize(1);
         JsonNode entry = entries.get(0);
-        assertThat(entry.path("card").path("name").asString()).isEqualTo("Azure-Eyes Sky Dragon");
+        assertThat(entry.path("card").path("name").asString()).isEqualTo(cardNameOf(azure));
         assertThat(entry.path("printing").path("id").asString()).isEqualTo(azure.toString());
         assertThat(entry.path("conditionMin").asString()).isEqualTo("NEAR_MINT");
         assertThat(entries.toString())

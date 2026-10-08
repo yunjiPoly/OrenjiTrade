@@ -19,16 +19,16 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Helpers of the Phase 7 integration tests (ratings, reports, moderation, delisting, admin
- * console): collectors around a random centre (from {@link AbstractWishlistIT}), staff accounts,
+ * console): collectors in Americas (North) (from {@link AbstractWishlistIT}), staff accounts,
  * conversations, interactions, ratings, reports and audit rows.
  */
 public abstract class AbstractPhase7IT extends AbstractWishlistIT {
 
     @Autowired protected InteractionService interactionService;
 
-    /** A discoverable collector with a complete profile somewhere far from other tests. */
+    /** A discoverable collector with a complete profile in Americas (North). */
     protected Collector member(String prefix) {
-        return collector(prefix, randomCentre());
+        return collector(prefix, americasNorth());
     }
 
     /** A compliant account holding {@code role} (plus USER); returns its token uid. */

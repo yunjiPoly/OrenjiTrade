@@ -3,6 +3,7 @@ package com.orenjitrade.api.location.infra;
 import com.orenjitrade.api.admin.domain.AdminUserDetailContributor;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.MyLocationView;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
 import com.orenjitrade.api.users.domain.OnboardingCheck;
@@ -16,24 +17,24 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
 /**
- * The location module's implementations of other modules' extension points: the {@code
- * tradingAreaSet} onboarding flag, the admin location label (never coordinates), the deletion
- * participant and the owner's export section.
+ * The location module's implementations of other modules' extension points: the {@code locationSet}
+ * onboarding flag, the admin location label (state/province + country, never the city), the
+ * deletion participant and the owner's export section (the only export of the city).
  */
 @Configuration(proxyBeanMethods = false)
 public class LocationExtensions {
 
     @Bean
-    OnboardingCheck tradingAreaSetCheck(LocationService locationService) {
+    OnboardingCheck locationSetCheck(LocationService locationService) {
         return new OnboardingCheck() {
             @Override
             public OnboardingFlag flag() {
-                return OnboardingFlag.TRADING_AREA_SET;
+                return OnboardingFlag.LOCATION_SET;
             }
 
             @Override
             public boolean isSatisfied(UUID userId) {
-                return locationService.hasTradingArea(userId);
+                return locationService.hasLocation(userId);
             }
         };
     }
@@ -48,6 +49,10 @@ public class LocationExtensions {
         };
     }
 
+    /**
+     * Account deletion: nothing to hide while it is pending (discovery queries skip accounts
+     * pending deletion), the row is deleted by the purge.
+     */
     @Bean
     @Order(300)
     DeletionParticipant locationDeletionParticipant(LocationService locationService) {
@@ -55,16 +60,6 @@ public class LocationExtensions {
             @Override
             public String name() {
                 return "location";
-            }
-
-            @Override
-            public void onDeletionRequested(UUID userId) {
-                locationService.hidePublicPoint(userId);
-            }
-
-            @Override
-            public void onDeletionCancelled(UUID userId) {
-                locationService.refreshPublicPoint(userId);
             }
 
             @Override
@@ -86,12 +81,18 @@ public class LocationExtensions {
             @Override
             public @Nullable Object export(UUID userId) {
                 MyLocationView mine = locationService.getMine(userId);
-                if (mine.tradingArea() == null) {
+                @Nullable PublicPlace place = mine.place();
+                if (place == null) {
                     return null;
                 }
                 Map<String, @Nullable Object> data = new LinkedHashMap<>();
-                data.put("tradingArea", mine.tradingArea());
-                data.put("publicPoint", mine.publicPoint());
+                data.put("regionCode", place.regionCode());
+                data.put("countryCode", place.countryCode());
+                data.put("countryName", place.countryName());
+                data.put("subdivisionCode", place.subdivisionCode());
+                data.put("subdivisionName", place.subdivisionName());
+                data.put("city", mine.city());
+                data.put("showCity", mine.showCity());
                 data.put("discoverable", mine.discoverable());
                 return data;
             }

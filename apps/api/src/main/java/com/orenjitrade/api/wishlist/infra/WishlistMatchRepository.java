@@ -3,7 +3,7 @@ package com.orenjitrade.api.wishlist.infra;
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
-import com.orenjitrade.api.location.domain.DistanceBucket;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.wishlist.domain.WishlistRules;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -22,10 +22,11 @@ import org.springframework.stereotype.Repository;
  * Wishlist matching SQL (Phase 6 contract "Matching pipeline") and the {@code wishlist_match}
  * table. The candidate query is the contract's: active wishlist items of other collectors for the
  * printing (or the card when no printing is wished), condition rank, edition, language, rarity,
- * price, trade preference, {@code ST_DWithin} between the two stored <b>public points</b> (ADR
- * 0004; trading-area centres are never read) within the wishlist radius, and no block in either
- * direction. The item must be effectively public right now ({@link InventoryItemRepository#LISTED},
- * the live Phase 3 rule) and fresh (ACTIVE or AGING); the wishlist owner must be active.
+ * price, trade preference, the two collectors in the <b>same platform region</b> (ADR 0017: the
+ * item owner discoverable with a location, the wishlist owner with a location; no coordinates or
+ * distances exist), and no block in either direction. The item must be effectively public right now
+ * ({@link InventoryItemRepository#LISTED}, the live Phase 3 rule) and fresh (ACTIVE or AGING); the
+ * wishlist owner must be active.
  */
 @Repository
 public class WishlistMatchRepository {
@@ -36,7 +37,9 @@ public class WishlistMatchRepository {
                    i.printing_id, i.owner_id AS item_owner_id, c.name AS card_name,
                    p.printing_code,
                    i.asking_price, i.currency, g.slug AS game,
-                   ST_Distance(ul.public_point, ol.public_point) AS distance_m
+                   u.handle AS item_owner_handle, oc.region_code,
+                   osd.code AS subdivision_code, osd.name AS subdivision_name,
+                   osd.whole_country, oc.name AS country_name
               FROM inventory_item i
               JOIN card_printing p ON p.id = i.printing_id
               JOIN card c ON c.id = p.card_id
@@ -49,18 +52,22 @@ public class WishlistMatchRepository {
                          SELECT ARRAY(SELECT jsonb_array_elements_text(g.schema -> 'conditions'))
                                 AS conditions) gc
                      JOIN user_location ol ON ol.user_id = i.owner_id
+                     JOIN country oc ON oc.code = ol.country_code
+                     JOIN subdivision osd ON osd.code = ol.subdivision_code
                      JOIN wishlist_item w
                        ON w.active AND w.owner_id <> i.owner_id
                       AND (w.printing_id = i.printing_id
                            OR (w.printing_id IS NULL AND w.card_id = p.card_id))
                      JOIN user_location ul ON ul.user_id = w.owner_id
+                     JOIN country uc ON uc.code = ul.country_code
                      JOIN user_account wu ON wu.id = w.owner_id
                     WHERE\
                     """
                     + InventoryItemRepository.LISTED
                     + """
                     AND i.freshness_state IN ('ACTIVE', 'AGING')
-                    AND ol.public_point IS NOT NULL AND ul.public_point IS NOT NULL
+                    AND COALESCE(ps.discoverable, false)
+                    AND oc.region_code = uc.region_code
                     AND (wu.status = 'ACTIVE' OR (wu.status = 'SUSPENDED'
                          AND wu.suspended_until IS NOT NULL AND wu.suspended_until <= :now))
                     AND\
@@ -76,7 +83,6 @@ public class WishlistMatchRepository {
                     + " AND "
                     + WishlistRules.TRADE_SQL
                     + """
-                       AND ST_DWithin(ul.public_point, ol.public_point, w.radius_km * 1000.0)
                        AND NOT EXISTS (SELECT 1 FROM user_block ub
                                         WHERE (ub.blocker_id = w.owner_id AND ub.blocked_id = i.owner_id)
                                            OR (ub.blocker_id = i.owner_id AND ub.blocked_id = w.owner_id))
@@ -112,11 +118,12 @@ public class WishlistMatchRepository {
                 .list();
     }
 
-    /** Public inventory items matching one wishlist item right now (closest first, bounded). */
+    /** Public inventory items matching one wishlist item right now (freshest first, bounded). */
     public List<Candidate> candidatesForWishlistItem(UUID wishlistItemId, Instant now) {
         return jdbc.sql(
                         CANDIDATES
-                                + " AND w.id = :wishlistItemId ORDER BY distance_m, i.id LIMIT "
+                                + " AND w.id = :wishlistItemId ORDER BY i.confirmed_at DESC, i.id"
+                                + " LIMIT "
                                 + MAX_CANDIDATES)
                 .param("wishlistItemId", wishlistItemId)
                 .param("now", Timestamp.from(now))
@@ -125,19 +132,18 @@ public class WishlistMatchRepository {
     }
 
     /** Inserts a match unless the pair exists (idempotent); the new id, or empty. */
-    public Optional<UUID> insert(Candidate candidate, DistanceBucket bucket, Instant now) {
+    public Optional<UUID> insert(Candidate candidate, Instant now) {
         return jdbc.sql(
                         """
                         INSERT INTO wishlist_match (id, wishlist_item_id, inventory_item_id,
-                                                    matched_at, distance_bucket)
-                        VALUES (gen_random_uuid(), :wishlistItemId, :itemId, :now, :bucket)
+                                                    matched_at)
+                        VALUES (gen_random_uuid(), :wishlistItemId, :itemId, :now)
                         ON CONFLICT (wishlist_item_id, inventory_item_id) DO NOTHING
                         RETURNING id
                         """)
                 .param("wishlistItemId", candidate.wishlistItemId())
                 .param("itemId", candidate.itemId())
                 .param("now", Timestamp.from(now))
-                .param("bucket", bucket.name())
                 .query(UUID.class)
                 .optional();
     }
@@ -175,7 +181,7 @@ public class WishlistMatchRepository {
                 new StringBuilder(
                                 "SELECT m.id, m.wishlist_item_id, m.inventory_item_id,"
                                         + " i.owner_id AS item_owner_id, m.matched_at,"
-                                        + " m.distance_bucket, m.dismissed, m.notified")
+                                        + " m.dismissed, m.notified")
                         .append(SERVED)
                         .append(" AND m.wishlist_item_id = :wishlistItemId");
         if (!includeDismissed) {
@@ -238,7 +244,14 @@ public class WishlistMatchRepository {
                 rs.getBigDecimal("asking_price"),
                 rs.getString("currency").trim(),
                 rs.getString("game"),
-                rs.getDouble("distance_m"));
+                rs.getString("item_owner_handle"),
+                new PublicPlace(
+                        rs.getString("region_code"),
+                        rs.getString("subdivision_code").substring(0, 2),
+                        rs.getString("country_name"),
+                        rs.getString("subdivision_code"),
+                        rs.getString("subdivision_name"),
+                        rs.getBoolean("whole_country")));
     }
 
     private static MatchRow mapMatch(ResultSet rs, int rowNum) throws SQLException {
@@ -248,14 +261,12 @@ public class WishlistMatchRepository {
                 rs.getObject("inventory_item_id", UUID.class),
                 rs.getObject("item_owner_id", UUID.class),
                 rs.getTimestamp("matched_at").toInstant(),
-                DistanceBucket.valueOf(rs.getString("distance_bucket")),
                 rs.getBoolean("dismissed"),
                 rs.getBoolean("notified"));
     }
 
     /**
-     * A wishlist item and a public inventory item that match. The distance between the two public
-     * points stays on the server (only its bucket is stored).
+     * A wishlist item and a public inventory item that match (same platform region; ADR 0017).
      *
      * @param wishlistItemId wishlist item
      * @param wisherId owner of the wishlist item
@@ -267,7 +278,8 @@ public class WishlistMatchRepository {
      * @param askingPrice asking price
      * @param currency currency of the price
      * @param game game slug
-     * @param distanceMetres distance between the public points
+     * @param itemOwnerHandle handle of the item owner
+     * @param itemOwnerPlace state/province and country of the item owner (never a city)
      */
     public record Candidate(
             UUID wishlistItemId,
@@ -280,7 +292,8 @@ public class WishlistMatchRepository {
             @Nullable BigDecimal askingPrice,
             String currency,
             String game,
-            double distanceMetres) {}
+            String itemOwnerHandle,
+            PublicPlace itemOwnerPlace) {}
 
     /**
      * A stored match.
@@ -290,7 +303,6 @@ public class WishlistMatchRepository {
      * @param inventoryItemId inventory item
      * @param itemOwnerId owner of the inventory item
      * @param matchedAt when it matched
-     * @param distanceBucket bucketed distance
      * @param dismissed dismissed by the wishlist owner
      * @param notified whether a notification was created
      */
@@ -300,7 +312,6 @@ public class WishlistMatchRepository {
             UUID inventoryItemId,
             UUID itemOwnerId,
             Instant matchedAt,
-            DistanceBucket distanceBucket,
             boolean dismissed,
             boolean notified) {}
 }

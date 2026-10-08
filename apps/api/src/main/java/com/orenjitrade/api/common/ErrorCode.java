@@ -121,6 +121,11 @@ public enum ErrorCode {
      * requiredConsents} extension names the confirmation to record with {@code POST /me/consents}.
      */
     AGE_CONFIRMATION_REQUIRED(HttpStatus.FORBIDDEN, "Age confirmation required"),
+    /**
+     * Becoming discoverable needs a self-declared location with a country and a state/province
+     * ({@code PUT /me/location} first; ADR 0017).
+     */
+    LOCATION_REQUIRED(HttpStatus.CONFLICT, "Location required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
     /**
      * A freemium usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used},

@@ -23,8 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Public binder views (permitAll GET, privacy enforced): {@code GET /collectors/{handle}/binders}
- * and {@code GET /public/binders/{id}}. A bearer token is optional; with one, distance buckets and
- * the daily binder-view limit apply.
+ * and {@code GET /public/binders/{id}}. A bearer token is optional; with one, blocks and the daily
+ * binder-view limit apply.
  */
 @RestController
 @Tag(name = "public-binders", description = "Public binders of collectors (no auth required)")
@@ -75,11 +75,11 @@ public class PublicBinderController {
             summary = "A public binder (auth optional)",
             description =
                     "404 unless the binder is public right now (visibility, expiry, freshness, the"
-                        + " owner's account state and privacy settings). The owner block carries a"
-                        + " region label and, for signed-in callers with a trading area, a distance"
-                        + " bucket; never coordinates. Signed-in callers other than the owner"
-                        + " consume `binder.views.per_day` once per binder and UTC day (429"
-                        + " LIMIT_REACHED beyond the plan limit).")
+                        + " owner's account state and privacy settings). The owner block carries"
+                        + " their state/province and country while they are discoverable; never a"
+                        + " city or coordinates. Signed-in callers other than the owner consume"
+                        + " `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED"
+                        + " beyond the plan limit).")
     @ApiResponse(responseCode = "200", description = "The binder")
     @ApiResponse(
             responseCode = "404",
