@@ -78,7 +78,7 @@ public class CommunitySeedContributor implements SeedContributor {
                                 1,
                                 "11",
                                 "01",
-                                "Anyone going to the Friday locals in Montréal? I will bring my"
+                                "Anyone going to the Friday locals? I will bring my"
                                         + " trade binder, happy to trade before the tournament.",
                                 20 * 60,
                                 null,
@@ -88,7 +88,7 @@ public class CommunitySeedContributor implements SeedContributor {
                                 "05",
                                 "02",
                                 "Looking for this printing in near mint. I can trade Magic rares or"
-                                        + " pay cash in Toronto.",
+                                        + " pay cash.",
                                 10 * 60,
                                 "ygo-p005a",
                                 null),
