@@ -9879,15 +9879,15 @@ export interface components {
         CommunityChannel: {
             /** Format: uuid */
             id: string;
-            /** @example montreal-pokemon */
+            /** @example americas-north */
             slug: string;
-            /** @example Montréal / Pokémon */
+            /** @example Americas (North) */
             name: string;
             /** @enum {string} */
             kind: "GAME" | "REGION" | "LOOKING_FOR" | "NEW_LISTINGS" | "TRADES" | "GENERAL";
             /** @example pokemon */
             game?: string | null;
-            /** @example Montréal */
+            /** @example americas-north */
             regionLabel?: string | null;
             description: string;
             /** Format: int32 */

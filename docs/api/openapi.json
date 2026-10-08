@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OrenjiTrade API",
-    "description": "REST API of OrenjiTrade, the geographic discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
+    "description": "REST API of OrenjiTrade, the regional discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
     "license": {
       "name": "Proprietary",
       "url": "https://www.orenjitrade.com/legal/terms"
@@ -39793,11 +39793,11 @@
           },
           "slug": {
             "type": "string",
-            "example": "montreal-pokemon"
+            "example": "americas-north"
           },
           "name": {
             "type": "string",
-            "example": "Montréal / Pokémon"
+            "example": "Americas (North)"
           },
           "kind": {
             "type": "string",
@@ -39822,7 +39822,7 @@
               "string",
               "null"
             ],
-            "example": "Montréal"
+            "example": "americas-north"
           },
           "description": {
             "type": "string"

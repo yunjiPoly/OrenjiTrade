@@ -1,6 +1,6 @@
 # @
 
-REST API of OrenjiTrade, the geographic discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.
+REST API of OrenjiTrade, the regional discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.
 
 The version of the OpenAPI document: 0.1.0
 
