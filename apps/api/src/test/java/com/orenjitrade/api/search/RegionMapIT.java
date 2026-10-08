@@ -3,8 +3,11 @@ package com.orenjitrade.api.search;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.auth.domain.AccountStatus;
+import com.orenjitrade.api.auth.domain.Role;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -18,9 +21,10 @@ import tools.jackson.databind.JsonNode;
 /**
  * The map's data (ADR 0017): public binders per state/province of a region and the binders of one
  * state/province. Only effectively public binders holding a public item of discoverable, active
- * collectors with a location count; blocked collectors are left out for the viewer; no collector,
- * city or coordinate is ever returned. Counts are compared as deltas (the regions are shared by the
- * whole suite); the lists use subdivisions no other test uses.
+ * collectors with a location count (paused listings, suspended accounts and collectors who are not
+ * discoverable are left out); blocked collectors are left out for the viewer; no collector, city or
+ * coordinate is ever returned. Counts are compared as deltas (the regions are shared by the whole
+ * suite); the lists use subdivisions no other test uses.
  */
 class RegionMapIT extends AbstractSearchIT {
 
@@ -187,6 +191,52 @@ class RegionMapIT extends AbstractSearchIT {
                 404);
         callJson(HttpMethod.GET, path + "?cursor=not-a-cursor", null, null, 400);
         callJson(HttpMethod.GET, path + "?limit=51", null, null, 400);
+    }
+
+    @Test
+    void pausedAndSuspendedCollectorsLeaveTheCountsAndTheSubdivisionList() {
+        String saskatchewan = "CA-SK";
+        String path = "/api/v1/regions/americas-north/subdivisions/CA-SK/binders";
+        String viewer = uniqueUid("map-pause-viewer");
+        provisionCompliant(viewer);
+        Collector listed = collector("map-listed", "CA", saskatchewan);
+        String kept = binderWithItem(listed, token() + " kept");
+        Collector paused = collector("map-paused", "CA", saskatchewan);
+        String pausedBinder = binderWithItem(paused, token() + " paused");
+        Collector suspended = collector("map-suspended-list", "CA", saskatchewan);
+        String suspendedBinder = binderWithItem(suspended, token() + " suspended");
+        Collector hidden = collector("map-hidden-list", "CA", saskatchewan, false, "PUBLIC");
+        String hiddenBinder = binderWithItem(hidden, token() + " not discoverable");
+
+        // Signed-in answers are computed live (no cache): every listed collector counts.
+        long before = count(viewer, "americas-north", saskatchewan);
+        assertThat(ids(callJson(HttpMethod.GET, path, viewer, null, 200)))
+                .contains(kept, pausedBinder, suspendedBinder)
+                .doesNotContain(hiddenBinder);
+
+        // An admin pauses one collector's public listings; another account is suspended.
+        String admin = uniqueUid("map-pause-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + paused.id() + "/pause-listings",
+                admin,
+                Map.of("reason", "Fictional pause for the map test"),
+                200);
+        testUsers.setStatus(
+                suspended.id(), AccountStatus.SUSPENDED, Instant.now().plus(3, ChronoUnit.DAYS));
+
+        assertThat(ids(callJson(HttpMethod.GET, path, viewer, null, 200))).containsExactly(kept);
+        assertThat(count(viewer, "americas-north", saskatchewan)).isEqualTo(before - 2);
+        // Signed out too (the pause re-evaluates the listings after commit).
+        await().atMost(Duration.ofSeconds(20))
+                .untilAsserted(
+                        () -> {
+                            assertThat(ids(callJson(HttpMethod.GET, path, null, null, 200)))
+                                    .containsExactly(kept);
+                            assertThat(count(null, "americas-north", saskatchewan))
+                                    .isEqualTo(before - 2);
+                        });
     }
 
     private String provisionedId(String uid) {
