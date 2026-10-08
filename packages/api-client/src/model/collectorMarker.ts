@@ -8,31 +8,26 @@
  * Do not edit the class manually.
  */
 import { MatchingItem } from './matchingItem';
-import { PublicPoint } from './publicPoint';
 import { CollectorRating } from './collectorRating';
+import { Place } from './place';
 
 
 /**
- * A collector on the map at the derived public point (never the real location)
+ * A discoverable collector with their state/province and country (never a city, a coordinate or a distance)
  */
 export interface CollectorMarker { 
     id: string;
     handle: string;
     displayName: string;
     avatarUrl?: string | null;
-    publicPoint: PublicPoint;
-    publicLabel: string;
-    /**
-     * Distance class from the search centre; null for signed-out callers and collectors who hide distances
-     */
-    distanceBucket?: CollectorMarkerDistanceBucketEnum | null;
+    place: Place;
     rating: CollectorRating;
     tags: Array<string>;
     games: Array<string>;
     lastActiveBucket: CollectorMarkerLastActiveBucketEnum;
     onlineStatus: CollectorMarkerOnlineStatusEnum;
     /**
-     * Best freshness of the public listings (ACTIVE or AGING on the map); null without public listings
+     * Best freshness of the public listings (ACTIVE or AGING in search); null without public listings
      */
     binderFreshness?: CollectorMarkerBinderFreshnessEnum | null;
     publicBinderCount: number;
@@ -42,14 +37,6 @@ export interface CollectorMarker {
      */
     matchingItems: Array<MatchingItem>;
 }
-export enum CollectorMarkerDistanceBucketEnum {
-    Lt1Km = 'LT_1KM',
-    Km15 = 'KM_1_5',
-    Km510 = 'KM_5_10',
-    Km1025 = 'KM_10_25',
-    Km2550 = 'KM_25_50',
-    Gt50Km = 'GT_50KM'
-};
 export enum CollectorMarkerLastActiveBucketEnum {
     Today = 'TODAY',
     ThisWeek = 'THIS_WEEK',

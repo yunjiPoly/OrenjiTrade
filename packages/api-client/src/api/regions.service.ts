@@ -17,52 +17,43 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
-import { CollectorProfileResponse } from '../model/collectorProfileResponse';
-// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { RegionsResponse } from '../model/regionsResponse';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
 import { Configuration }                                     from '../configuration';
 import { BaseService } from '../api.base.service';
 import {
-    CollectorsServiceInterface,
-    GetCollectorRequestParams
-} from './collectors.serviceInterface';
+    RegionsServiceInterface
+} from './regions.serviceInterface';
 
 
 
 @Injectable({
   providedIn: 'root'
 })
-export class CollectorsService extends BaseService implements CollectorsServiceInterface {
+export class RegionsService extends BaseService implements RegionsServiceInterface {
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
     }
 
     /**
-     * Public profile of a collector
-     * Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). &#x60;location&#x60; (state/province + country) is null unless the collector is discoverable and set a location; its &#x60;city&#x60; is the collector\&#39;s own optional city, present only while they show it on their profile. The only response with another collector\&#39;s city; no coordinates or distances anywhere (ADR 0017).
-     * @endpoint get /api/v1/collectors/{handle}
-     * @param requestParameters
+     * Platform regions with their countries and subdivisions (public)
+     * The three platform regions (ADR 0017) in display order, each with its active countries (ISO 3166-1 alpha-2) and their first-level subdivisions (ISO 3166-2; a country without usable subdivisions has one pseudo-subdivision coded with its alpha-2 code, &#x60;wholeCountry&#x60; true). The codes match the web map\&#39;s boundary assets. Data, not code: admins move countries between regions through /admin/regions. Cached server-side 60 s.
+     * @endpoint get /api/v1/regions
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getCollector(requestParameters: GetCollectorRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CollectorProfileResponse>;
-    public getCollector(requestParameters: GetCollectorRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CollectorProfileResponse>>;
-    public getCollector(requestParameters: GetCollectorRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CollectorProfileResponse>>;
-    public getCollector(requestParameters: GetCollectorRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        const handle = requestParameters?.handle;
-        if (handle === null || handle === undefined) {
-            throw new Error('Required parameter handle was null or undefined when calling getCollector.');
-        }
+    public listRegions(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<RegionsResponse>;
+    public listRegions(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RegionsResponse>>;
+    public listRegions(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RegionsResponse>>;
+    public listRegions(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
-
-        // authentication (bearerAuth) required
-        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
             'application/json',
@@ -88,9 +79,9 @@ export class CollectorsService extends BaseService implements CollectorsServiceI
             }
         }
 
-        let localVarPath = `/api/v1/collectors/${this.configuration.encodeParam({name: "handle", value: handle, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}`;
+        let localVarPath = `/api/v1/regions`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<CollectorProfileResponse>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<RegionsResponse>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

@@ -9,11 +9,8 @@
  */
 
 
-/**
- * Centre of a geographic search, snapped to 0.01° (about 1 km): the given lat/lng or the caller\'s own trading area
- */
-export interface SearchCentre { 
-    lat: number;
-    lng: number;
+export interface SubdivisionBinderCount { 
+    code: string;
+    binderCount: number;
 }
 

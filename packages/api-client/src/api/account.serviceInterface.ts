@@ -43,7 +43,7 @@ export interface AccountServiceInterface {
 
     /**
      * Download the caller\&#39;s data
-     * JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, trading area, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.
+     * JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, location, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.
      * @endpoint get /api/v1/me/export
 */
     exportMyData(extraHttpRequestParams?: any): Observable<AccountExport>;

@@ -10,7 +10,7 @@
 
 
 /**
- * cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game\'s GameSchema. radiusKm defaults to 25 km (lowered to the plan cap); beyond the plan\'s map.radius.max_km it is 429 LIMIT_REACHED.
+ * cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game\'s GameSchema. Matching compares platform regions (no radius, no distance; ADR 0017).
  */
 export interface CreateWishlistItemRequest { 
     cardId?: string;
@@ -21,7 +21,6 @@ export interface CreateWishlistItemRequest {
     language?: string;
     maxPrice?: number;
     currency?: string;
-    radiusKm?: number;
     tradePreference?: CreateWishlistItemRequestTradePreferenceEnum;
     notes?: string;
     active?: boolean;

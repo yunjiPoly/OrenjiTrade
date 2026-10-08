@@ -7,17 +7,14 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { MyLocation } from './myLocation';
 
 
-/**
- * The caller\'s own location settings
- */
-export interface MyLocationResponse { 
+export interface RegionSubdivision { 
+    code: string;
+    name: string;
     /**
-     * Null while no location is set
+     * Stands for the whole country (its code is the alpha-2 code)
      */
-    location?: MyLocation;
-    discoverable: boolean;
+    wholeCountry: boolean;
 }
 

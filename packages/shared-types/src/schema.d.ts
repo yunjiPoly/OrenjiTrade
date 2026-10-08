@@ -38,7 +38,7 @@ export interface paths {
         get: operations["getPrivacySettings"];
         /**
          * Replace the caller's privacy settings
-         * @description Full replacement (every field required). Switching `discoverable` on derives the public map point from the trading area; switching it off removes the collector from the map immediately.
+         * @description Full replacement (every field required). `discoverable` lists the collector (state/province + country, never the city) in region search, card holder lists and the map's state binder lists; switching it on needs the 18+ confirmation (403 AGE_CONFIRMATION_REQUIRED) and a country and state/province (`PUT /me/location`, 409 LOCATION_REQUIRED); switching it off removes the collector immediately.
          */
         put: operations["updatePrivacySettings"];
         post?: never;
@@ -140,21 +140,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/location/trading-area": {
+    "/api/v1/me/location": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /**
-         * Set the caller's trading area
-         * @description Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km grid cell and offsets it with a deterministic per-user jitter to derive `publicPoint` (3 decimals) and its region label.
+         * The caller's location
+         * @description Country, state/province, optional city and the show-city switch. `location` is null while none is set (the caller cannot be discoverable then).
          */
-        put: operations["updateMyTradingArea"];
+        get: operations["getMyLocation"];
+        /**
+         * Set the caller's location
+         * @description `countryCode` must be an active country and `subdivisionCode` one of its subdivisions (`GET /regions`); unknown codes are 400 VALIDATION_FAILED. `city` is optional free text (trimmed, at most 80 characters, moderated, never geocoded) shown only on the caller's own public profile while `showCity` is true (default). Everywhere else other collectors see the state/province and the country only.
+         */
+        put: operations["updateMyLocation"];
         post?: never;
-        delete?: never;
+        /**
+         * Remove the caller's location
+         * @description Deletes the location; discoverability is turned off with it (it needs a country and a state/province).
+         */
+        delete: operations["deleteMyLocation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -233,6 +241,26 @@ export interface paths {
          * @description The code cannot change. Audited (`card_set.update`).
          */
         put: operations["updateSet"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/countries/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move a country to another region or (de)activate it (ADMIN, SUPER_ADMIN)
+         * @description Inactive countries cannot be chosen any more (existing locations keep them). A moved country is listed and searched in its new region at once; the map draws it only in the boundary asset of the region it was seeded in until the assets are regenerated. Audited (`region.country.update`).
+         */
+        put: operations["updateAdminRegionCountry"];
         post?: never;
         delete?: never;
         options?: never;
@@ -541,7 +569,7 @@ export interface paths {
         get?: never;
         /**
          * Replace a campaign's targeting rules (ADMIN)
-         * @description Kinds GAME, REGION_LABEL, GEO_CELL, TAG and PLAN only (never coordinates): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).
+         * @description Kinds GAME, REGION, COUNTRY, SUBDIVISION, TAG and PLAN only (never a city): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).
          */
         put: operations["replaceAdminAdTargeting"];
         post?: never;
@@ -900,7 +928,7 @@ export interface paths {
         put?: never;
         /**
          * Add a card to the wishlist
-         * @description cardId (any printing) or printingId is required. The new item is matched at once against the public inventory nearby (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500) or a radius beyond map.radius.max_km.
+         * @description cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller's platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).
          */
         post: operations["createWishlistItem"];
         delete?: never;
@@ -3002,7 +3030,7 @@ export interface paths {
         };
         /**
          * Public items matching a wishlist item (newest first)
-         * @description Cursor-paginated. Each match carries the public item (never private notes), the owner's map marker at the derived public point and the distance bucket between the two collectors' public points. Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.
+         * @description Cursor-paginated. Each match carries the public item (never private notes), the owner's marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.
          */
         get: operations["listWishlistMatches"];
         put?: never;
@@ -3122,7 +3150,7 @@ export interface paths {
         };
         /**
          * Unified search (auth optional)
-         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems` (nearby when a centre is known: `lat`/`lng` or the signed-in caller's trading area); otherwise collectors matching the text. Binders carry their owner block. `radiusKm` beyond the plan cap → 429 LIMIT_REACHED. Emits the analytics events search_performed / search_no_results.
+         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems`; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of `region` (default: the caller's home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.
          */
         get: operations["search"];
         put?: never;
@@ -3142,7 +3170,7 @@ export interface paths {
         };
         /**
          * Mixed autocomplete (auth optional)
-         * @description Printing codes and cards, collectors on the map who allow name search (closest first when `lat`/`lng` or the caller's trading area is known), sets, public binders and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.
+         * @description Printing codes and cards, discoverable collectors of `region` who allow name search, sets, public binders of the region and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.
          */
         get: operations["suggestSearch"];
         put?: never;
@@ -3161,10 +3189,70 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Collectors near you holding a card (auth optional)
-         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by collectors on the map within `radiusKm` of the centre (`lat`/`lng`, else the signed-in caller's trading area; required when signed out). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: distance (default), price, freshness. Each row pairs the holder's marker with the public item.
+         * Collectors of a region holding a card (auth optional)
+         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.
          */
         get: operations["searchCardHolders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform regions with their countries and subdivisions (public)
+         * @description The three platform regions (ADR 0017) in display order, each with its active countries (ISO 3166-1 alpha-2) and their first-level subdivisions (ISO 3166-2; a country without usable subdivisions has one pseudo-subdivision coded with its alpha-2 code, `wholeCountry` true). The codes match the web map's boundary assets. Data, not code: admins move countries between regions through /admin/regions. Cached server-side 60 s.
+         */
+        get: operations["listRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions/{region}/subdivisions/{code}/binders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public binders of a state/province (auth optional)
+         * @description Public binders of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update) and owner block (handle, display name, avatar, state/province + country; never a city). 404 when the region is unknown or the subdivision is not one of its own.
+         */
+        get: operations["listSubdivisionBinders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions/{region}/binder-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public binders per state/province of a region (auth optional)
+         * @description Effectively public binders holding at least one public item whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+         */
+        get: operations["getRegionBinderCounts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3339,7 +3427,7 @@ export interface paths {
         };
         /**
          * A public binder (auth optional)
-         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries a region label and, for signed-in callers with a trading area, a distance bucket; never coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
+         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
          */
         get: operations["getPublicBinder"];
         put?: never;
@@ -3621,30 +3709,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/location": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The caller's trading area and public point
-         * @description The only endpoint that returns the caller's chosen centre. `publicPoint` is what other collectors see and is null while not discoverable.
-         */
-        get: operations["getMyLocation"];
-        put?: never;
-        post?: never;
-        /**
-         * Remove the caller's location
-         * @description Deletes every location row; the collector disappears from the map.
-         */
-        delete: operations["deleteMyLocation"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/me/listings/status": {
         parameters: {
             query?: never;
@@ -3674,7 +3738,7 @@ export interface paths {
         };
         /**
          * Download the caller's data
-         * @description JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, trading area, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.
+         * @description JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, location, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.
          */
         get: operations["exportMyData"];
         put?: never;
@@ -3891,7 +3955,7 @@ export interface paths {
         };
         /**
          * Public profile of a collector
-         * @description Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` is null unless the collector is discoverable; `distanceBucket` needs a trading area on the caller's side and `showDistance` on the collector's. Coordinates are the derived public point only (3 decimals).
+         * @description Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` (state/province + country) is null unless the collector is discoverable and set a location; its `city` is the collector's own optional city, present only while they show it on their profile. The only response with another collector's city; no coordinates or distances anywhere (ADR 0017).
          */
         get: operations["getCollector"];
         put?: never;
@@ -3962,26 +4026,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/collectors/{handle}/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Map preview card of a collector (auth optional)
-         * @description The marker payload of one collector on the map plus `canMessage` and `isBlocked`. 404 unless the collector is on the map (unknown, suspended, pending deletion, not discoverable or PRIVATE profile). `distanceBucket` is measured from `lat`/`lng` when given, else from the signed-in caller's trading area; null for signed-out callers.
-         */
-        get: operations["getCollectorPreview"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/collectors/{handle}/inventory": {
         parameters: {
             query?: never;
@@ -4014,26 +4058,6 @@ export interface paths {
          * @description Only binders that are public right now and hold at least one public item, in the owner's order. 404 when the collector is suspended, pending deletion, deleted, has a PRIVATE profile or a block exists. Empty when the collector is neither discoverable nor has a PUBLIC profile.
          */
         get: operations["listCollectorBinders"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/collectors/nearby": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Collectors on the map around a centre (auth optional)
-         * @description Discoverable collectors (ACTIVE account, profile not PRIVATE) whose derived public point is within `radiusKm` of the centre (`ST_DWithin` on the public point). The centre is `lat`/`lng` snapped to 0.01° or, when omitted, the signed-in caller's own trading area; signed-out callers must pass it. `radiusKm` defaults to 10 (lowered to the plan cap); beyond the caller's `map.radius.max_km` (FREE 25, PREMIUM 100; signed-out: FREE) → 429 LIMIT_REACHED. Filters: `game` (plays it or lists it), `availability` (TRADE, SALE, TRADE_OR_SALE, ACCEPTS_OFFERS), `freshness` (ACTIVE or AGING), `tags` (any), `hasPrintingId` / `hasCardId` (lists it publicly), `query` (handle, display name or tag text of collectors who allow name search). Collectors whose public listings are all stale never appear; STALE and HIDDEN items never match. Ranking: freshness (ACTIVE > AGING > no listings), distance, rating. Signed-out callers get no distance buckets. Cached 60 s per rounded centre, radius and filters.
-         */
-        get: operations["listNearbyCollectors"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4171,7 +4195,7 @@ export interface paths {
         };
         /**
          * Sponsored ads for a placement (public)
-         * @description Targeting uses the requested game and grid cell and, for signed-in callers, their public grid cell and region label, interest games, tags and plan (never a precise location). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
+         * @description Targeting uses the requested game and platform region and, for signed-in callers, their country and state/province, interest games, tags and plan (never a city or a coordinate). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
          */
         get: operations["listAds"];
         put?: never;
@@ -4448,6 +4472,23 @@ export interface paths {
          * @description Reporter, reported collector, context, notes and history (recent reports, ratings received, posts removed, suspensions, listing pauses, open flags). Private messages only when the report names a conversation between the two, and then that conversation only (access audited as `report.conversation.view`).
          */
         get: operations["getReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Regions with every country, inactive ones included (ADMIN, SUPER_ADMIN) */
+        get: operations["listAdminRegions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5193,10 +5234,8 @@ export interface components {
         };
         /** @description Privacy settings of the caller */
         PrivacySettings: {
-            /** @description Appear on the map / in nearby searches (default false) */
+            /** @description Appear in region search, card holder lists and the state binder lists of the map (default false); needs a country and a state/province, 409 LOCATION_REQUIRED otherwise */
             discoverable: boolean;
-            /** @description Default true */
-            showDistance: boolean;
             /** @description Default false */
             showOnlineStatus: boolean;
             /** @description Default true */
@@ -5342,72 +5381,51 @@ export interface components {
             /** @description Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug */
             customLabels?: string[];
         };
-        UpdateTradingAreaRequest: {
+        UpdateLocationRequest: {
             /**
-             * Format: double
-             * @description Centre latitude (stored rounded to 3 decimals)
-             * @example 45.52
+             * @description ISO 3166-1 alpha-2 code of an active country of GET /regions
+             * @example CA
              */
-            lat: number;
+            countryCode: string;
             /**
-             * Format: double
-             * @description Centre longitude (stored rounded to 3 decimals)
-             * @example -73.58
+             * @description A subdivision code of that country (GET /regions)
+             * @example CA-QC
              */
-            lng: number;
+            subdivisionCode: string;
             /**
-             * Format: int32
-             * @example 5
+             * @description Optional city, at most 80 characters after trimming; never geocoded. Null or blank clears it
+             * @example Montréal
              */
-            radiusKm: number;
-            /**
-             * @description MANUAL (default) or DEVICE; DEVICE only records where the centre came from, the server still snaps it
-             * @enum {string|null}
-             */
-            source?: "MANUAL" | "DEVICE" | null;
+            city?: string | null;
+            /** @description Show the city on the public profile (default true) */
+            showCity?: boolean | null;
+        };
+        /** @description Country, state/province and optional city */
+        MyLocation: {
+            /** @example americas-north */
+            regionCode: string;
+            /** @example Americas (North) */
+            regionName: string;
+            /** @example CA */
+            countryCode: string;
+            /** @example Canada */
+            countryName: string;
+            /** @example CA-QC */
+            subdivisionCode: string;
+            /** @example Quebec */
+            subdivisionName: string;
+            /** @example Quebec, Canada */
+            label: string;
+            /** @example Montréal */
+            city?: string | null;
+            /** @description Show the city on the public profile */
+            showCity: boolean;
         };
         /** @description The caller's own location settings */
         MyLocationResponse: {
-            /** @description The chosen trading area (owner only) */
-            tradingArea?: components["schemas"]["TradingAreaResponse"];
-            /** @description The derived point other collectors see; null while not discoverable */
-            publicPoint?: components["schemas"]["PublicPoint"];
+            /** @description Null while no location is set */
+            location?: components["schemas"]["MyLocation"];
             discoverable: boolean;
-        };
-        /** @description Approximate public position (about 1 km grid + deterministic jitter, 3 decimals); never the collector's real location */
-        PublicPoint: {
-            /**
-             * Format: double
-             * @example 45.522
-             */
-            lat: number;
-            /**
-             * Format: double
-             * @example -73.581
-             */
-            lng: number;
-        };
-        /** @description Trading area chosen by the owner */
-        TradingAreaResponse: {
-            /**
-             * Format: double
-             * @example 45.52
-             */
-            lat: number;
-            /**
-             * Format: double
-             * @example -73.58
-             */
-            lng: number;
-            /**
-             * Format: int32
-             * @example 5
-             */
-            radiusKm: number;
-            /** @enum {string} */
-            source: "MANUAL" | "DEVICE";
-            /** @example Plateau-Mont-Royal, Montréal */
-            label?: string | null;
         };
         /** @description New order of the caller's binders */
         ReorderBindersRequest: {
@@ -5559,6 +5577,30 @@ export interface components {
             series?: string;
             /** Format: int32 */
             printingCount?: number;
+        };
+        CountryRegionRequest: {
+            /** @example americas-north */
+            regionCode: string;
+            active: boolean;
+        };
+        RegionCountry: {
+            /** @example CA */
+            code: string;
+            /** @example Canada */
+            name: string;
+            /** @example americas-north */
+            regionCode: string;
+            /** @description Inactive countries are listed to admins only */
+            active: boolean;
+            subdivisions: components["schemas"]["RegionSubdivision"][];
+        };
+        RegionSubdivision: {
+            /** @example CA-QC */
+            code: string;
+            /** @example Quebec */
+            name: string;
+            /** @description Stands for the whole country (its code is the alpha-2 code) */
+            wholeCountry: boolean;
         };
         /** @description Printing creation or change */
         AdminPrintingRequest: {
@@ -6186,7 +6228,7 @@ export interface components {
         /** @description A targeting rule */
         AdTargeting: {
             /** @enum {string} */
-            kind?: "GAME" | "REGION_LABEL" | "GEO_CELL" | "TAG" | "PLAN";
+            kind?: "GAME" | "REGION" | "COUNTRY" | "SUBDIVISION" | "TAG" | "PLAN";
             value?: string;
         };
         /** @description An ad campaign (admin view) */
@@ -6232,9 +6274,9 @@ export interface components {
         };
         AdTargetingRule: {
             /** @enum {string} */
-            kind: "GAME" | "REGION_LABEL" | "GEO_CELL" | "TAG" | "PLAN";
+            kind: "GAME" | "REGION" | "COUNTRY" | "SUBDIVISION" | "TAG" | "PLAN";
             /**
-             * @description GAME/TAG slug, REGION_LABEL text (never coordinates), GEO_CELL id r<row>c<col>, PLAN code or ANONYMOUS
+             * @description GAME/TAG slug, REGION code (americas-north), COUNTRY (CA), SUBDIVISION (CA-QC), PLAN code or ANONYMOUS
              * @example pokemon
              */
             value: string;
@@ -6553,7 +6595,7 @@ export interface components {
             /** @description false when this click already converted with this kind */
             recorded?: boolean;
         };
-        /** @description cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. radiusKm defaults to 25 km (lowered to the plan cap); beyond the plan's map.radius.max_km it is 429 LIMIT_REACHED. */
+        /** @description cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. Matching compares platform regions (no radius, no distance; ADR 0017). */
         CreateWishlistItemRequest: {
             /** Format: uuid */
             cardId?: string;
@@ -6568,11 +6610,6 @@ export interface components {
             maxPrice?: number;
             /** @example CAD */
             currency?: string;
-            /**
-             * Format: int32
-             * @example 25
-             */
-            radiusKm?: number;
             /** @enum {string} */
             tradePreference?: "ANY" | "TRADE" | "SALE";
             notes?: string;
@@ -6612,12 +6649,6 @@ export interface components {
             maxPrice?: number | null;
             /** @example CAD */
             currency: string;
-            /**
-             * Format: int32
-             * @description Matching radius (km), capped by the plan
-             * @example 25
-             */
-            radiusKm: number;
             /** @enum {string} */
             tradePreference: "ANY" | "TRADE" | "SALE";
             /** @description Private to the caller */
@@ -6769,7 +6800,7 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
-        /** @description A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, a region label with a distance bucket */
+        /** @description A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, their state/province and country */
         OfferParty: {
             /** Format: uuid */
             id: string;
@@ -6778,8 +6809,8 @@ export interface components {
             displayName: string;
             /** Format: uri */
             avatarUrl?: string | null;
-            /** @description Null unless the collector is discoverable */
-            location?: components["schemas"]["PublicOwnerLocation"];
+            /** @description State/province and country; null unless the collector is discoverable with a location */
+            place?: components["schemas"]["Place"];
             rating: components["schemas"]["CollectorRating"];
         };
         /** @description An offer as one of its two parties sees it */
@@ -6934,6 +6965,27 @@ export interface components {
             /** Format: date-time */
             refundedAt?: string | null;
         };
+        /** @description State/province and country of a collector; never a city or a coordinate */
+        Place: {
+            /** @example americas-north */
+            regionCode: string;
+            /** @example CA */
+            countryCode: string;
+            /** @example Canada */
+            countryName: string;
+            /**
+             * @description ISO 3166-2 code, or the country's alpha-2 code for a whole-country pseudo-subdivision
+             * @example CA-QC
+             */
+            subdivisionCode: string;
+            /** @example Quebec */
+            subdivisionName: string;
+            /**
+             * @description State/province + country, or the country alone
+             * @example Quebec, Canada
+             */
+            label: string;
+        };
         /** @description A public inventory item */
         PublicInventoryItem: {
             /** Format: uuid */
@@ -6965,16 +7017,6 @@ export interface components {
             publicNotes: string;
             images: components["schemas"]["InventoryItemImage"][];
             freshness: components["schemas"]["Freshness"];
-        };
-        /** @description Approximate location (never a point) */
-        PublicOwnerLocation: {
-            /** @example Plateau-Mont-Royal, Montréal */
-            publicLabel: string;
-            /**
-             * @description Null unless the request is signed in, the caller has a trading area and the owner shows distances
-             * @enum {string|null}
-             */
-            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
         };
         /** @description Shipping confirmation of a protected trade */
         ShipmentSummary: {
@@ -7368,7 +7410,7 @@ export interface components {
             type: "WISHLIST_MATCH" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
             /** @example Wishlist match: Azure-Eyes */
             title: string;
-            /** @example Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away */
+            /** @example Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec, Canada. */
             body: string;
             /** @description Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_MATCH, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes) */
             data: {
@@ -8865,8 +8907,6 @@ export interface components {
             language?: string | null;
             maxPrice?: number | null;
             currency?: string;
-            /** Format: int32 */
-            radiusKm?: number;
             /** @enum {string} */
             tradePreference?: "ANY" | "TRADE" | "SALE";
             notes?: string | null;
@@ -8978,7 +9018,7 @@ export interface components {
             directory: string;
             status: components["schemas"]["CardImageCacheStatus"];
         };
-        /** @description A collector on the map at the derived public point (never the real location) */
+        /** @description A discoverable collector with their state/province and country (never a city, a coordinate or a distance) */
         CollectorMarker: {
             /** Format: uuid */
             id: string;
@@ -8988,14 +9028,7 @@ export interface components {
             displayName: string;
             /** Format: uri */
             avatarUrl?: string | null;
-            publicPoint: components["schemas"]["PublicPoint"];
-            /** @example Plateau-Mont-Royal, Montréal */
-            publicLabel: string;
-            /**
-             * @description Distance class from the search centre; null for signed-out callers and collectors who hide distances
-             * @enum {string|null}
-             */
-            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
+            place: components["schemas"]["Place"];
             rating: components["schemas"]["CollectorRating"];
             /**
              * @example [
@@ -9015,7 +9048,7 @@ export interface components {
             /** @enum {string} */
             onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
             /**
-             * @description Best freshness of the public listings (ACTIVE or AGING on the map); null without public listings
+             * @description Best freshness of the public listings (ACTIVE or AGING in search); null without public listings
              * @enum {string|null}
              */
             binderFreshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN" | null;
@@ -9076,11 +9109,6 @@ export interface components {
             wishlistItemId: string;
             item: components["schemas"]["PublicInventoryItem"];
             collector: components["schemas"]["CollectorMarker"];
-            /**
-             * @description Approximate distance between the two collectors' public points when the item matched
-             * @enum {string}
-             */
-            distanceBucket: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM";
             /** Format: date-time */
             matchedAt: string;
             dismissed: boolean;
@@ -9199,8 +9227,8 @@ export interface components {
             displayName: string;
             /** Format: uri */
             avatarUrl?: string | null;
-            /** @description Null unless the collector is discoverable */
-            location?: components["schemas"]["PublicOwnerLocation"];
+            /** @description State/province and country; null unless the collector is discoverable with a location */
+            place?: components["schemas"]["Place"];
         };
         /** @description Public binder of a collector */
         PublicBinderSummary: {
@@ -9241,7 +9269,12 @@ export interface components {
             cards: components["schemas"]["CardSummary"][];
             printings: components["schemas"]["PrintingSummary"][];
             sets: components["schemas"]["SetSummary"][];
-            /** @description Holders of the resolved printing/card (with matchingItems), otherwise collectors matching the text */
+            /**
+             * @description Platform region the collectors and binders were searched in
+             * @example americas-north
+             */
+            region: string;
+            /** @description Holders of the resolved printing/card in the region (with matchingItems), otherwise collectors of the region matching the text */
             collectors: components["schemas"]["CollectorMarker"][];
             /** @description Public binders, each with its owner block */
             binders: components["schemas"]["PublicBinderSummary"][];
@@ -9269,7 +9302,7 @@ export interface components {
              */
             cardId?: string | null;
         };
-        /** @description A collector near you holding the card */
+        /** @description A collector of the region holding the card */
         CardHolderResult: {
             collector: components["schemas"]["CollectorMarker"];
             item: components["schemas"]["PublicInventoryItem"];
@@ -9302,6 +9335,48 @@ export interface components {
              * @example 7
              */
             totalPages?: number;
+        };
+        PlatformRegion: {
+            /** @example americas-north */
+            code: string;
+            /** @example Americas (North) */
+            name: string;
+            /** @description The default region of signed-out visitors */
+            isDefault: boolean;
+            countries: components["schemas"]["RegionCountry"][];
+        };
+        RegionsResponse: {
+            regions: components["schemas"]["PlatformRegion"][];
+        };
+        /** @description Cursor-paginated list */
+        CursorPagePublicBinderSummary: {
+            /** @description Items of the current slice */
+            items?: components["schemas"]["PublicBinderSummary"][];
+            /** @description Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data */
+            nextCursor?: string | null;
+            /** @description Whether another slice exists */
+            hasMore?: boolean;
+        };
+        /** @description Public binders per state/province */
+        RegionBinderCounts: {
+            /** @example americas-north */
+            region: string;
+            /**
+             * Format: int64
+             * @description Public binders in all
+             */
+            total: number;
+            /** @description Subdivisions holding at least one public binder */
+            subdivisions: components["schemas"]["SubdivisionBinderCount"][];
+        };
+        SubdivisionBinderCount: {
+            /** @example CA-QC */
+            code: string;
+            /**
+             * Format: int64
+             * @example 3
+             */
+            binderCount: number;
         };
         RatingEligibility: {
             /** @description At least one interaction is not rated yet */
@@ -9549,7 +9624,8 @@ export interface components {
         /** @description Which onboarding steps the user completed */
         OnboardingStatus: {
             profileComplete: boolean;
-            tradingAreaSet: boolean;
+            /** @description Whether a country and a state/province are set (required to be discoverable; ADR 0017) */
+            locationSet: boolean;
             interestsSet: boolean;
             /** @description Whether the collector confirmed being 18 years of age or older (AGE_CONFIRMATION consent). Added 2026-10-05; optional so older clients keep working. */
             ageConfirmed?: boolean;
@@ -9821,17 +9897,6 @@ export interface components {
             /** @description Whether another slice exists */
             hasMore?: boolean;
         };
-        /** @description Approximate location (never precise) */
-        CollectorLocation: {
-            /** @example Plateau-Mont-Royal, Montréal */
-            publicLabel: string;
-            publicPoint: components["schemas"]["PublicPoint"];
-            /**
-             * @description Null unless the caller has a trading area and the collector shows distances
-             * @enum {string|null}
-             */
-            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
-        };
         /** @description Public collector profile */
         CollectorProfileResponse: {
             /** Format: uuid */
@@ -9850,8 +9915,8 @@ export interface components {
              */
             games: string[];
             tags: components["schemas"]["CollectorTag"][];
-            /** @description Null unless the collector is discoverable */
-            location?: components["schemas"]["CollectorLocation"];
+            /** @description Null unless the collector is discoverable and set a location */
+            location?: components["schemas"]["ProfileLocation"];
             /**
              * Format: date
              * @example 2026-09-01
@@ -9873,6 +9938,26 @@ export interface components {
             slug: string;
             /** @example Trader */
             label: string;
+        };
+        /** @description State/province and country of a collector, plus the city they show on their profile; never a coordinate */
+        ProfileLocation: {
+            /** @example americas-north */
+            regionCode: string;
+            /** @example CA */
+            countryCode: string;
+            /** @example Canada */
+            countryName: string;
+            /** @example CA-QC */
+            subdivisionCode: string;
+            /** @example Quebec */
+            subdivisionName: string;
+            /** @example Quebec, Canada */
+            label: string;
+            /**
+             * @description Null unless the collector shows their city on their profile
+             * @example Montréal
+             */
+            city?: string | null;
         };
         /** @description A card a collector is looking for (public wishlist) */
         WishlistSummaryEntry: {
@@ -9916,73 +10001,6 @@ export interface components {
             shipping?: number | null;
             /** Format: double */
             meetupReliability?: number | null;
-        };
-        /** @description Map preview card of a collector */
-        CollectorPreview: {
-            /** Format: uuid */
-            id: string;
-            /** @example maika */
-            handle: string;
-            displayName: string;
-            /** Format: uri */
-            avatarUrl?: string | null;
-            publicPoint: components["schemas"]["PublicPoint"];
-            publicLabel: string;
-            /**
-             * @description Distance class from the given centre or the caller's trading area; null for signed-out callers
-             * @enum {string|null}
-             */
-            distanceBucket?: "LT_1KM" | "KM_1_5" | "KM_5_10" | "KM_10_25" | "KM_25_50" | "GT_50KM" | null;
-            rating: components["schemas"]["CollectorRating"];
-            tags: string[];
-            games: string[];
-            /** @enum {string} */
-            lastActiveBucket: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "LONGER_AGO" | "HIDDEN";
-            /** @enum {string} */
-            onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
-            /**
-             * @description Null without public listings
-             * @enum {string|null}
-             */
-            binderFreshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN" | null;
-            /** Format: int32 */
-            publicBinderCount: number;
-            /** Format: int64 */
-            publicItemCount: number;
-            /** @description Whether the caller may start a conversation */
-            canMessage: boolean;
-            isBlocked: boolean;
-        };
-        /** @description Collectors on the map around a centre */
-        NearbyCollectorsResponse: {
-            center: components["schemas"]["SearchCentre"];
-            /**
-             * Format: double
-             * @description Radius used (plan-capped, 0.1 km steps)
-             * @example 10
-             */
-            radiusKm: number;
-            collectors: components["schemas"]["CollectorMarker"][];
-            /**
-             * Format: int64
-             * @description Matching collectors
-             */
-            total: number;
-            /** @description Whether more collectors match than returned (`limit`) */
-            truncated: boolean;
-        };
-        /** @description Centre of a geographic search, snapped to 0.01° (about 1 km): the given lat/lng or the caller's own trading area */
-        SearchCentre: {
-            /**
-             * Format: double
-             * @example 45.52
-             */
-            lat: number;
-            /**
-             * Format: double
-             * @example -73.58
-             */
-            lng: number;
         };
         /** @description Offset-paginated list */
         PageResponseCardSummary: {
@@ -10121,7 +10139,7 @@ export interface components {
             /** Format: date-time */
             deletedAt?: string | null;
             consents: components["schemas"]["ConsentSummary"][];
-            /** @description Public trading-area label; coordinates are never exposed */
+            /** @description State/province and country (never the city or a coordinate) */
             locationLabel?: string | null;
             deletionRequest?: components["schemas"]["DeletionRequestSummary"];
             recentAuditEntries: components["schemas"]["AuditLogEntry"][];
@@ -10901,7 +10919,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -11674,18 +11692,14 @@ export interface operations {
             };
         };
     };
-    updateMyTradingArea: {
+    getMyLocation: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTradingAreaRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -11695,6 +11709,147 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MyLocationResponse"];
                 };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateMyLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLocationRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved location */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLocationResponse"];
+                };
+            };
+            /** @description Unknown country or subdivision, or an invalid city */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteMyLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unauthenticated (missing or invalid token) */
             401: {
@@ -11974,6 +12129,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SetSummary"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateAdminRegionCountry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountryRegionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionCountry"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -14444,7 +14670,7 @@ export interface operations {
                     "application/json": components["schemas"]["WishlistItemResponse"];
                 };
             };
-            /** @description VALIDATION_FAILED (target, vocabularies, price, radius, notes) */
+            /** @description VALIDATION_FAILED (target, vocabularies, price, notes) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -14489,7 +14715,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description LIMIT_REACHED (wishlist.items.max or map.radius.max_km) */
+            /** @description LIMIT_REACHED (wishlist.items.max) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -23242,7 +23468,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description LIMIT_REACHED (radius beyond map.radius.max_km) */
+            /** @description Rate limited (`Retry-After` header) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -24532,9 +24758,8 @@ export interface operations {
                 types?: string[];
                 /** @description Game slug */
                 game?: string;
-                lat?: number;
-                lng?: number;
-                radiusKm?: number;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
                 limit?: number;
             };
             header?: never;
@@ -24552,7 +24777,7 @@ export interface operations {
                     "application/json": components["schemas"]["UnifiedSearchResponse"];
                 };
             };
-            /** @description Invalid query, type, game or centre */
+            /** @description Invalid query, type, game or region */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -24561,7 +24786,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED */
+            /** @description RATE_LIMITED */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -24588,8 +24813,8 @@ export interface operations {
                 q: string;
                 /** @description Game slug */
                 game?: string;
-                lat?: number;
-                lng?: number;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
                 limit?: number;
             };
             header?: never;
@@ -24607,7 +24832,7 @@ export interface operations {
                     "application/json": components["schemas"]["SearchSuggestion"][];
                 };
             };
-            /** @description Invalid query or centre */
+            /** @description Invalid query or region */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -24641,9 +24866,8 @@ export interface operations {
             query?: {
                 printingId?: string;
                 cardId?: string;
-                lat?: number;
-                lng?: number;
-                radiusKm?: number;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
                 availability?: "TRADE" | "SALE" | "TRADE_OR_SALE" | "ACCEPTS_OFFERS";
                 /** @description Condition code, e.g. NEAR_MINT */
                 condition?: string;
@@ -24656,8 +24880,8 @@ export interface operations {
                 /** @description ISO 639-1 code */
                 language?: string;
                 acceptsOffers?: boolean;
-                /** @description distance, price or freshness */
-                sort?: "distance" | "price" | "freshness";
+                /** @description freshness (newest listing first) or price */
+                sort?: "freshness" | "price";
                 page?: number;
                 size?: number;
             };
@@ -24676,7 +24900,7 @@ export interface operations {
                     "application/json": components["schemas"]["PageResponseCardHolderResult"];
                 };
             };
-            /** @description Invalid filter, sort or centre */
+            /** @description Invalid filter, sort or region */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -24685,7 +24909,148 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED */
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionsResponse"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listSubdivisionBinders: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor of the previous page */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                region: string;
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of binders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CursorPagePublicBinderSummary"];
+                };
+            };
+            /** @description Unknown region or subdivision */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getRegionBinderCounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Binder counts per subdivision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionBinderCounts"];
+                };
+            };
+            /** @description Unknown region */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -26013,134 +26378,6 @@ export interface operations {
             };
         };
     };
-    getMyLocation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyLocationResponse"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    deleteMyLocation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     getMyListingStatus: {
         parameters: {
             query?: never;
@@ -27241,60 +27478,6 @@ export interface operations {
             };
         };
     };
-    getCollectorPreview: {
-        parameters: {
-            query?: {
-                /** @description Centre latitude for the distance bucket */
-                lat?: number;
-                /** @description Centre longitude for the distance bucket */
-                lng?: number;
-            };
-            header?: never;
-            path: {
-                handle: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Preview card */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CollectorPreview"];
-                };
-            };
-            /** @description Collector not on the map */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     listCollectorInventory: {
         parameters: {
             query?: {
@@ -27382,74 +27565,6 @@ export interface operations {
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listNearbyCollectors: {
-        parameters: {
-            query?: {
-                /** @description Centre latitude (required when signed out) */
-                lat?: number;
-                /** @description Centre longitude (required when signed out) */
-                lng?: number;
-                /** @description Radius in km (default 10, capped by the plan) */
-                radiusKm?: number;
-                /** @description Game slug */
-                game?: string;
-                availability?: "TRADE" | "SALE" | "TRADE_OR_SALE" | "ACCEPTS_OFFERS";
-                /** @description ACTIVE or AGING */
-                freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
-                /** @description Tag slugs (any), repeated or comma separated */
-                tags?: string[];
-                /** @description Collectors listing this printing publicly */
-                hasPrintingId?: string;
-                /** @description Collectors listing a printing of this card publicly */
-                hasCardId?: string;
-                /** @description Handle, display name or tag text */
-                query?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Markers around the centre */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NearbyCollectorsResponse"];
-                };
-            };
-            /** @description Invalid filter, partial centre, or no centre for a signed-out caller */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -27822,10 +27937,10 @@ export interface operations {
                  */
                 game?: string;
                 /**
-                 * @description Public grid cell of the map view
-                 * @example r5058c-5438
+                 * @description Platform region of the page (GET /regions)
+                 * @example americas-north
                  */
-                geoCell?: string;
+                region?: string;
             };
             header?: never;
             path?: never;
@@ -27842,7 +27957,7 @@ export interface operations {
                     "application/json": components["schemas"]["Ad"][];
                 };
             };
-            /** @description VALIDATION_FAILED (placement, game or geoCell) */
+            /** @description VALIDATION_FAILED (placement, game or region) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -28816,6 +28931,71 @@ export interface operations {
             };
             /** @description Unknown report */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listAdminRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionsResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

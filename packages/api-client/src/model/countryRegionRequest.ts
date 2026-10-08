@@ -9,11 +9,8 @@
  */
 
 
-/**
- * Approximate public position (about 1 km grid + deterministic jitter, 3 decimals); never the collector\'s real location
- */
-export interface PublicPoint { 
-    lat: number;
-    lng: number;
+export interface CountryRegionRequest { 
+    regionCode: string;
+    active: boolean;
 }
 

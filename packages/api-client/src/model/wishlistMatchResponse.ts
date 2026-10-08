@@ -19,21 +19,7 @@ export interface WishlistMatchResponse {
     wishlistItemId: string;
     item: PublicInventoryItem;
     collector: CollectorMarker;
-    /**
-     * Approximate distance between the two collectors\' public points when the item matched
-     */
-    distanceBucket: WishlistMatchResponseDistanceBucketEnum;
     matchedAt: string;
     dismissed: boolean;
 }
-export enum WishlistMatchResponseDistanceBucketEnum {
-    Lt1Km = 'LT_1KM',
-    Km15 = 'KM_1_5',
-    Km510 = 'KM_5_10',
-    Km1025 = 'KM_10_25',
-    Km2550 = 'KM_25_50',
-    Gt50Km = 'GT_50KM'
-};
-
-
 

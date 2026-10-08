@@ -23,7 +23,7 @@ export interface AdminUserDetail {
     deletedAt?: string | null;
     consents: Array<ConsentSummary>;
     /**
-     * Public trading-area label; coordinates are never exposed
+     * State/province and country (never the city or a coordinate)
      */
     locationLabel?: string | null;
     deletionRequest?: DeletionRequestSummary;
