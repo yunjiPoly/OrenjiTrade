@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
 **Last updated:** 2026-10-06 (mobile stage M7: the web-vs-mobile parity gaps closed on the Expo app — Google sign-in and sign-up (proven against the Auth emulator only), the Search tab's Collectors and Binders segments, the card holders list with the web's sort and filters, "Looking for" on profiles, Settings → Blocked users, inventory owner photos and multi-select bulk actions, the visibility filter, binder reordering, the map's freshness / tags filters and search box, set pages; every acceptance row's mobile half completed; the M1–M6 verification caveats replaced with their merged PRs — branch `feature/mobile-m7` on top of `feature/mobile-m6` with `origin/main` (#49, #51) merged in, builder done; see "Mobile app (stage M7)"); 2026-10-05 (mobile stage M6: Phases 9 and 10 on the Expo app — payment protection on the trade (pay on the app's fake checkout, ship, confirm receipt, disputes with statements and photos, payouts), Premium through the fake billing checkout, credits, voluntary donations through the fake donation checkout, "Sponsored" placements, "See Premium" on every reached limit, the mobile half of the acceptance tracker, app-store purchase rules recorded as an open owner question in ADR 0011 — branch `feature/mobile-m6` on top of `feature/mobile-m5`, builder done; see "Mobile app (stage M6)"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Last updated:** 2026-10-05 (launch readiness parts 4 and 5: the launch configuration — every money feature flag off by migration (V105), the last Premium entry points of the web hidden while `premiumPlans` is off, `LaunchConfigurationIT`, the `launch-config` Playwright project — the "Launch configuration" runbook section, the Quebec Law 25 operating docs (confidentiality incident register and procedure, requests from police and courts, owner account security checklist with the actual admin-MFA value per profile), and the full-UI-translation plan recorded as the next task — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 4 and 5"); 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
@@ -82,6 +83,9 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 - [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT, BinderViewLimitIT (3, stage 4: FREE visitors consume one view per binder and day, owner/signed-out views never count, PREMIUM and entitled visitors unlimited) + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web flow tests: Playwright `inventory.spec.ts` (4); mobile (stage M2): jest (`inventory.test.tsx`, `items.test.tsx`, `binders.test.tsx`, `itemForm.test.ts`, inventory / binder hooks), Playwright `inventory.spec.ts` (2) and `binders.spec.ts` (3), Maestro `inventory-add-edit-delete.yaml` and `binder-create-add-item.yaml`
 
 ## Phase 4 — Map + Geographic Search (flagship)
+
+> **Reworked by stage S1 (ADR 0017, 2026-10-08):** no positions or distances any more; the items
+> below describe the original Phase 4. See "Platform regions and the self-declared location (stage S1)".
 
 _Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 463 API tests / 77 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (86 paths, previously 81; every contract route present; no path or schema lost, only `PublicBinderSummary` gains an optional `owner`); clients regenerated; live check on `.local-dev/api-snapshots/api-phase4.jar` with an emulator token). Migration V030 only (range V030–V039). Web `/map` and `/search` complete (workflow `web-mvp-local` stage 5, independently re-verified: 247 web unit tests / 51 files, lint + format clean, production build 841.71 kB initial with no warnings, 32/32 Playwright specs against `.local-dev/api-snapshots/api-phase5.jar`, 0 skipped); mobile: stage M3 (2026-10-05, see "Mobile app (stage M3)"). Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 4 contract"; the contract document itself is not edited): the caller's own marker stays in `nearby`; collectors without public listings appear (`binderFreshness: null`, ranked after AGING), all-STALE collectors never do; ranking freshness → distance bucket → rating → distance; `center` snapped to 2 decimals; additive `MatchingItem`/`suggest` fields; `card-holders` needs a centre (400 for signed-out callers without `lat`/`lng`); the plan cap key is `map.radius.max_km` (V011) where the contract says `map.radius.max`; `nearby` is a reserved handle. Since Phase 5 blocks are real (`BlockRelationProvider.blockedAmong`, one lookup per page) but still applied after the cached page is read, so `total` may count blocked collectors beyond the limit (debt: join blocks into the discovery SQL)._
 
@@ -1944,6 +1948,134 @@ mobile strings; recommendation **runtime translation library** (Transloco on the
 nothing shared with React Native); effort ≈ 9–11 weeks web + mobile, 6–7 weeks consumer web
 only. The plan as the exact next task is in NEXT TASK.
 
+## Platform regions and the self-declared location (stage S1, ADR 0017, 2026-10-08)
+
+_Branch `feature/regions-geography` (from `main` at `7420905`, V105). Stage S1 of the owner's
+2026-10-08 product change (six stages, one PR each): spec sections 1 and 3 plus everything the
+removal of coordinates forces elsewhere. Builder done; not pushed (the ship step pushes)._
+
+**Decision.** OrenjiTrade stops handling positions: no coordinates, distances, radii, GPS, IP
+geolocation, geocoding or map provider anywhere ([ADR 0017](docs/architecture/adr/0017-platform-regions-instead-of-geolocation.md),
+supersedes ADR 0004, amends ADR 0010). Collectors declare a country, an ISO 3166-2 state or
+province and an optional city; discovery is scoped to a platform region (`americas-north`
+default, `americas-south`, `europe`).
+
+- [x] **Regions model** — V106 (`platform_region`, `country`, `subdivision`), V107 (3 regions, 104
+  countries, 1,259 subdivisions, generated by `scripts/regions/build.mjs` from Natural Earth
+  5.1.1 with mapshaper 0.7.59; provenance in `docs/development/regions-boundaries.md`).
+  `RegionCatalog` (Redis `regions:v1` 60 s + 10 s memo), `GET /api/v1/regions` (public),
+  `PUT /api/v1/admin/regions/countries/{code}` (ADMIN, audited `region.country.update`), web
+  `/admin/regions`. Tests: RegionsIT, LocationIT, `scripts/lib/regions.test.mjs`.
+- [x] **Self-declared location** — V108 drops the old `user_location` (centre, radius, public
+  point, label, grid cell, GiST index) and `privacy_settings.show_distance`, recreates
+  `user_location(country_code, subdivision_code, city ≤ 80, show_city)`; every collector becomes
+  not discoverable until they declare a location (seed accounts get theirs back from
+  `db/seed/locations.json`). `GET/PUT/DELETE /api/v1/me/location` (unknown codes 400; city
+  moderated, never geocoded); discoverable needs a location (409 `LOCATION_REQUIRED`); `GET /me`
+  gains `homeRegion` (users SPI `HomeRegionProvider`) and `onboarding.locationSet`.
+  Removed: `ApproximateLocationService`, `StaticRegionGeocoder`, `LOCATION_JITTER_SECRET` (code,
+  `.env.example`, CI, Terraform), `DistanceBucket`, the radius logic, `/collectors/nearby` and
+  the collector preview.
+- [x] **Region-scoped discovery** — `region` on `/search`, `/search/suggest`,
+  `/search/card-holders`, `/ads`; the map's `GET /regions/{region}/binder-counts` and
+  `GET /regions/{region}/subdivisions/{code}/binders` (cursor pages); `DiscoveryCache`
+  (`orenji:cache:discovery:*`). Holders sort `freshness` / `price`. Every collector block
+  carries `place` (state or province + country); the city appears only on its owner's profile
+  while shown.
+- [x] **Forced elsewhere** — wishlist matcher compares platform regions (V109 drops
+  `wishlist_item.radius_km`, `wishlist_match.distance_bucket`, the matches and match alerts);
+  analytics carry `region_code` / `subdivision_code` (BigQuery schema too; `city`, `distance*`,
+  `radius*`, `grid_cell`, `geo_cell` refused); ads target `REGION` / `COUNTRY` / `SUBDIVISION`
+  (V109); community: one REGION channel per platform region, the city channels archived (V110),
+  the admin channel endpoints refuse a non-region label; the `map.radius.max_km` limit, its
+  entitlements, the `map_radius_day` credit product and the "wider map" copy are gone.
+- [x] **Privacy contract** — `GeoPrivacyContractTest` signs in as every seed account (and signed
+  out) over every public and member surface: no coordinate / distance / radius key, no number with
+  more than 3 decimals, no "km away", each city only on its owner's profile, nothing
+  coordinate-like in the logs. Web acceptance PrivacyScanner and the mobile Playwright privacy
+  fixture fail on the same keys and on any map provider request.
+- [x] **Web** — region switcher top left (signed in: home region; signed out: `localStorage`,
+  else `americas-north`; every scoped call sends `region`); onboarding "Where are you?" and
+  Settings → Location (`LocationFieldsComponent`), a gentle prompt; `/map` is one Leaflet vector
+  map of the bundled boundaries (lazy per region, no tiles), states shaded by binder counts, an
+  accessible state list, a state panel with cursor pages, skeleton, empty state, error with
+  retry and `/map?region=&subdivision=`. Removed: Google Maps and its adapter, the `MapAdapter`
+  abstraction, markers, the preview, the trading-area picker, city presets, distance and
+  approximate-area wording. Initial bundle 899.83 kB (900 kB warning budget); Leaflet in the
+  lazy `leaflet-src` chunk.
+- [x] **Mobile (Expo SDK 57)** — location step and Settings → Location with pickers fed by
+  `GET /regions`; region-scoped calls send the home region (default `americas-north`); no
+  distance text anywhere; the Map tab is a placeholder (names the home region, leads to search);
+  `expo-location` removed (package, plugin, permission strings); `react-native-maps` stays
+  installed (plugin without a key); persisted store v4 drops the distance unit.
+- [x] **Seeds** — the 12 seed accounts are spread over the three regions
+  (`docs/development/test-accounts.md`); the deck-box ad targets Quebec.
+- [x] **Infra** — nginx CSP without map or tile hosts, `Permissions-Policy: geolocation=()`;
+  Cloudflare's edge rate limit covers `/api/v1/regions` instead of the removed nearby route.
+- [x] **Docs** — ADR 0017 (new), ADR 0004 superseded, ADR 0010 and 0016 amended, ADR index,
+  CLAUDE.md (privacy rule, Maps row), README, local setup, test accounts, seed data, schema,
+  API README + `docs/api/contracts/s1-regions-location.md` (phase contracts point to it),
+  architecture, product overview, deployment, security, incident register, law-enforcement
+  guide; legal drafts (EN and FR, still drafts) no longer mention map tiles; `npm run sync:legal`.
+
+**Migrations:** V106 `platform_regions`, V107 `platform_regions_seed`, V108
+`self_declared_location`, V109 `remove_distance_features`, V110 `platform_region_channels`.
+The owner's local database migrates on the next `npm run dev` and **loses its trading areas by
+design** (every collector declares a location again).
+
+**Checks (2026-10-08):**
+- `npm run test:api` (Spotless + `check`): 779 tests in 159 classes plus 12 in the separate
+  `catalogTest` task (the catalog fixture suites run in their own JVM), 0 failures, 0 skipped.
+- `./gradlew exportOpenApi` then `npm run generate:api`: the working tree stays clean.
+- `npm run test:web`: lint clean, 136 files / 630 tests. `npm run build -w apps/web-angular`:
+  initial 899.83 kB (214.47 kB transfer) against the 900 kB warning budget (1.5 MB error);
+  Leaflet in the lazy `leaflet-src` chunk (149.42 kB).
+- `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky (every spec, isolated stack :8180 / :4300).
+- `npm run test:mobile`: typecheck, lint, 76 suites / 647 jest tests, 28 harness guard tests.
+  `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` (74 static
+  routes) succeed (output in the session scratchpad); neither carries a map provider URL.
+- `npm run test:mobile:e2e`: 51 passed, 0 skipped. Maestro on the Pixel_6_API_34 emulator
+  (Android 14, Expo Go, SDK 57): 24/24 flows in one full run (1 h 3 min); a manual walk (sign-in,
+  onboarding → "Where are you?" → Map tab placeholder) with screenshots, the saved place
+  confirmed on the API; Metro, the API and the emulator shut down afterwards.
+- `npm run infra:validate` (fmt + validate of dev / staging / prod and Cloudflare),
+  `npm run audit:gate` (OK; the two allow-listed advisories unchanged), `npm run test:scripts`
+  (64/64), `node scripts/sync-legal.mjs --check` in `apps/mobile` (up to date); there is no
+  `i18n:check` script.
+- Fresh database (`orenjitrade_regions_check`, migrated by the API to V110, then dropped): no
+  geometry or geography column and no point / lat / lng / latitude / longitude / radius /
+  grid_cell column outside PostGIS's own tables; PostGIS 3.5.2 still installed; 3 regions, 104
+  countries, 1,259 subdivisions, 12 seeded locations. Live walk on API :8480 / web :4480 (Redis
+  db 5): region tree, binder counts and state lists, unknown region 404 / 400, the removed
+  `/collectors/nearby` 404, the city only on profiles, no coordinate key in any answer and no
+  map provider request (processes stopped, Redis db 5 flushed).
+
+**Removed settings and perks:** the `showDistance` privacy switch; the trading area (centre,
+radius, device location); the wishlist radius; the `map.radius.max_km` plan limit (FREE 25 /
+PREMIUM 100), its entitlements and the `map_radius_day` credit product ("Wider map for a day");
+the Premium "wider map radius" copy; `LOCATION_JITTER_SECRET`, `GOOGLE_MAPS_API_KEY` /
+`GOOGLE_MAPS_MAP_ID` (web) and `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (mobile); the city community
+channels (archived).
+
+**Mobile follow-ups (not in S1):** draw the boundary map in the Map tab (the same bundled
+GeoJSON; `react-native-maps` polygons or the web map in a WebView); a region switcher on mobile
+(today the home region is browsed); remove `react-native-webview` if nothing else needs it (the
+Leaflet page was its only user); the wishlist matches screens are interim until S2 removes
+matches.
+
+**Known gaps:**
+- Mobile: the Map tab does not draw the boundary map yet and there is no region switcher (the
+  home region is browsed); see the follow-ups above.
+- The web initial bundle is 0.17 kB under its 900 kB warning budget: the next feature on the
+  initial path needs a deferral or a budget decision.
+- `card-images.spec.ts` (picture loading) timed out once under the parallel load of a full run
+  and passed on retry and in the final run; not related to S1, watch for it.
+- Region-scoped answers list the whole platform region: specs isolate by region, handle or item,
+  and wishlist matching can pair collectors far apart in a large state or across a region.
+- Anonymous region-map answers are CDN-cacheable only without an `Authorization` header; the
+  Cloudflare cache rules were not changed for them (no cloud deployment yet).
+- The admin channel list still shows the raw region code of REGION channels (admin-only).
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -2005,7 +2137,7 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 1 | Register and log in | PASS | acceptance `registration.spec.ts` (consents → emulator e-mail verification → sign out → sign in), `auth.spec.ts`; AuthenticationIT; walkthrough sign-in (emulator ID token → `GET /me`, anonymous 401); mobile (M1): `auth.spec.ts` (sign-up with the legal documents → emulator verification → onboarding → tabs → sign-out; a seed sign-in with session restore; friendly errors; consent screen; password reset), Maestro `sign-up-onboarding.yaml`, `sign-in.yaml`, `sign-out.yaml`; mobile (M7): `google.spec.ts` (Google sign-up through the Auth emulator's simulated account: the fake OAuth credential checked, consent → onboarding → tabs, Google the only sign-in method; the chooser dismissed; Google with the e-mail of a verified password account signs in to it and links Google, an unverified one is taken over — Firebase's trusted-provider rule, as on the web), Maestro `google-sign-in.yaml`, jest `auth/google`, `screens/auth`, `screens/settings`. Difference: mobile Google sign-in is proven only against the emulator (the web build's pop-up and the device flow through expo-auth-session need the Firebase project's OAuth client ids, DEFERRED.md item 4); mobile (M8, launch readiness): the bilingual 18+ checkbox at sign-up and on the consent screen, the onboarding "Age" step for an existing account with the remembered link (`auth.spec.ts`, `age-confirmation.spec.ts`, Maestro `sign-up-onboarding.yaml`, `age-step-existing-account.yaml`, jest `screens/auth`, `screens/account-states`, `screens/onboarding`, `account/ageConfirmation`, `app/auth-gate`), every consent recorded with the language shown |
 | 2 | Create/edit profile | PASS | acceptance `registration.spec.ts` (profile step), `settings.spec.ts` (edits shown on the public profile); ProfileIT, TagIT; mobile (M1): `auth.spec.ts` (profile step), `profile.spec.ts` (edit, validation, tags, public preview), Maestro `profile-edit.yaml` |
 | 3 | Configure privacy settings | PASS | `settings.spec.ts` (discoverability saved, public label only); acceptance `map.spec.ts` / `privacy.spec.ts` (discoverable collectors); SettingsIT, PrivacyPolicyServiceTest; mobile (M1): `account.spec.ts` (privacy switches saved, notification preferences), `location.spec.ts` (map opt-in, off by default, public label only), Maestro `discoverability.yaml`; mobile (M7): Settings → Blocked users (`blocked.spec.ts`, Maestro `blocked-users.yaml`), "Show my wishlist on my profile" shown on profiles (`collector-wishlist.spec.ts`) |
-| 4 | Choose approximate trading location | PASS | acceptance `registration.spec.ts` (approximate area on the Leaflet map), `auth.spec.ts`, `settings.spec.ts`; LocationIT, ApproximateLocationServiceTest, GeoPrivacyContractTest; mobile (M1): `location.spec.ts` (city quick pick, a tap on the map, a dragged pin, `PUT` body MANUAL with 3 decimals), `auth.spec.ts` (map tap at onboarding), `leaflet-page.spec.ts`, Maestro `discoverability.yaml` (centre checked on the API), `sign-up-onboarding.yaml` |
+| 4 | Choose approximate trading location → **declare a location (ADR 0017)** | PASS (S1) | acceptance `registration.spec.ts` (region, country, state and city pickers; no map, no GPS), `auth.spec.ts`, `settings.spec.ts`; LocationIT, RegionsIT, GeoPrivacyContractTest; mobile (S1): `location.spec.ts`, `auth.spec.ts` (pickers), Maestro `sign-up-onboarding.yaml`, `discoverability.yaml` (+ `scripts/check-location.js`) |
 | 5 | Select TCG interests | PASS | acceptance `registration.spec.ts` (interests step), `auth.spec.ts`; ProfileIT, TagIT; mobile (M1): `auth.spec.ts` (interests step), `profile.spec.ts`, Maestro `sign-up-onboarding.yaml`, `profile-edit.yaml` |
 | 6 | Open dedicated inventory page | PASS | acceptance `inventory.spec.ts`, `inventory.spec.ts`, `smoke.spec.ts`; walkthrough `/inventory`; mobile (M2): Inventory tab, `inventory.spec.ts` (2), Maestro `inventory-add-edit-delete.yaml`; mobile (M7): owner photos on a card (`item-photos.spec.ts`), multi-select bulk actions (`bulk-actions.spec.ts`), the visibility filter and binder reordering (jest `screens/inventory`) — the web's inventory extras |
 | 7 | Create private inventory | PASS | acceptance `inventory.spec.ts` (card added Private by default); InventoryIT (owner-only reads, others 404); mobile (M2): `inventory.spec.ts` (cards added private by default, edit, delete), Maestro `inventory-add-edit-delete.yaml` (checked on the API), jest `screens/items` |
@@ -2013,19 +2145,19 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 9 | Move cards between binders | PASS | acceptance `inventory.spec.ts` (card moved into a binder), `inventory.spec.ts` (bulk move); BulkOperationsIT `MOVE_TO_BINDER`, InventoryIT; mobile (M2): `binders.spec.ts` (a card added to a binder and removed), Maestro `binder-create-add-item.yaml` ("Add cards", checked on the API), jest `screens/binders` / `screens/items` (move to a binder) |
 | 10 | Toggle private/public visibility | PASS | acceptance `inventory.spec.ts` (made public), `inventory.spec.ts` (bulk public 24 h / private); VisibilityIT, BulkOperationsIT; mobile (M2): `binders.spec.ts` (publish for 24 hours → make private), jest `screens/items` / `features/itemForm` (card visibility), Maestro `binder-create-add-item.yaml` (temporarily public, checked on the API); mobile (M7): `bulk-actions.spec.ts` (bulk public, temporarily public for 24 h, private with the skipped card explained) |
 | 11 | Publish a binder | PASS | acceptance `inventory.spec.ts` (publish → another collector sees it); BinderIT, PublicBinderIT; walkthrough (publish → second collector opens the public binder); mobile (M2): `binders.spec.ts` (publish → another collector's view of it), Maestro `binder-create-add-item.yaml` |
-| 12 | Another user opens the map | PASS | acceptance `map.spec.ts`, `map.spec.ts`, `smoke.spec.ts`; NearbyCollectorsIT; walkthrough `/map` (13 collectors within 10 km); mobile (M3): Map tab, `map.spec.ts` (3), Maestro `map-preview-profile.yaml`; mobile (M7): the web map's freshness and tags filters and its search box (jest `screens/map`, `features/mapDiscovery`) |
-| 13 | Public collectors at approximate positions | PASS | acceptance `map.spec.ts` + `privacy.spec.ts` (derived public points, never a stored centre), `map.spec.ts`; NearbyCollectorsIT, GeoPrivacyContractTest `mapAndSearchResponsesOnlyEverCarryPublicPoints`; walkthrough (`publicPoint` 3 decimals, bucketed distance); mobile (M3): `map.spec.ts` (zones of radius 1500 m, never markers, zoom capped at 14, no tile beyond 14), `collector-map-page.spec.ts` (the WebView page), Maestro `map-preview-profile.yaml` (zones on OpenStreetMap), jest `privacy/mapPrivacy` |
-| 14 | Click collector marker | PASS | acceptance `map.spec.ts` (marker click), `map.spec.ts` (marker + keyboard list); mobile (M3): `map.spec.ts` (a tap inside a zone and the list open the preview), Maestro `map-preview-profile.yaml` (a tap inside the zone) |
-| 15 | Collector preview appears | PASS | acceptance `map.spec.ts`, `map.spec.ts`; NearbyCollectorsIT `previewCarriesMessagingStateAndNoPreciseLocation`; walkthrough `GET /collectors/{handle}/preview`; mobile (M3): `map.spec.ts` (preview bottom sheet: place, bucket, listings, Message), Maestro `map-preview-profile.yaml` |
-| 16 | Open full profile | PASS | acceptance `map.spec.ts` (preview → profile → binder); CollectorProfileIT; walkthrough `/collectors/collector5`; mobile (M3): `map.spec.ts` (preview → profile with its approximate area), Maestro `map-preview-profile.yaml`; mobile (M7): "Looking for" on the profile (`collector-wishlist.spec.ts`: condition only, never price or radius; nothing when hidden), a profile from a collector search (`search-segments.spec.ts`), Maestro `collector-search-looking-for.yaml` |
-| 17 | View public binder | PASS | acceptance `map.spec.ts` / `inventory.spec.ts`, `inventory.spec.ts` (region label + distance bucket only, no private notes); PublicBinderIT; mobile (M2/M5): `binders.spec.ts` (another collector's public binder: public cards and notes only, region label and bucket), `offers.spec.ts`, `payments.spec.ts` (offers from a public binder), Maestro `offer-trade-rating.yaml`, `payment-protection.yaml` (public binder by deep link) |
+| 12 | Another user opens the map | PASS (S1) | acceptance `map.spec.ts` (boundary map of the browsed region, states shaded by binder counts, region switcher), `map.spec.ts`, `smoke.spec.ts`; RegionMapIT; mobile (S1): the Map tab is a placeholder naming the home region (`map.spec.ts`, Maestro `map-placeholder-profile.yaml`); drawing the map on mobile is a follow-up |
+| 13 | Public collectors at approximate positions → **per state or province (ADR 0017)** | PASS (S1) | no position exists: acceptance `map.spec.ts` + `privacy.spec.ts` (states only, no coordinate or distance key, no map provider request, cities only on profiles); GeoPrivacyContractTest; mobile: `placePrivacy.test.tsx`, Playwright privacy fixture |
+| 14 | Click collector marker → **choose a state** | PASS (S1) | markers are gone by design (ADR 0017): acceptance `map.spec.ts` (click or keyboard on a state, the accessible state list, `/map?region=&subdivision=`); mobile: follow-up with the boundary map |
+| 15 | Collector preview appears → **state panel** | PASS (S1) | the preview is removed (ADR 0017); the state panel lists the state's public binders in cursor pages with skeleton, empty state and error with retry (acceptance `map.spec.ts`, `map.spec.ts`; RegionMapIT); mobile: follow-up |
+| 16 | Open full profile | PASS (S1) | acceptance `map.spec.ts` (state panel → binder → profile), `registration.spec.ts` (the city on the profile only while discoverable and shown); CollectorProfileIT; mobile (S1): `map.spec.ts` (profile with the state and the shown city), `holders.spec.ts`, Maestro `map-placeholder-profile.yaml` |
+| 17 | View public binder | PASS | acceptance `map.spec.ts` / `inventory.spec.ts`, `inventory.spec.ts` (the owner's state only, no private notes); PublicBinderIT; mobile (M2/M5/S1): `binders.spec.ts` (another collector's public binder: public cards, the owner's state, never the city), Maestro `binder-create-add-item.yaml` |
 | 18 | Search for a card | PASS | acceptance `search.spec.ts` (top-bar search), `catalog.spec.ts` (autocomplete, filters, printing codes); CatalogSearchIT; walkthrough `/search`, `/cards`; mobile (M2): Search tab, `catalog.spec.ts` (filters, card detail, printing codes), Maestro `search-card-detail.yaml`; mobile (M7): the Search tab's Collectors and Binders segments on `GET /search` like the web's `/search` tabs (`search-segments.spec.ts`: by name or handle with the distance bucket, opted-out collectors absent, recent searches per segment; public binders by name with their owner), set pages `sets/[id]` (jest `screens/sets`) |
-| 19 | Nearby collectors with that card | PASS | acceptance `search.spec.ts` ("Who has this near me" → holders list + marker → card-holders view), `map.spec.ts`; SearchIT, CardHoldersIT; walkthrough `GET /search/card-holders`; mobile (M3/M7): `holders.spec.ts` ("Who has this near me" from a card: the holders list on `GET /search/card-holders`, the web's endpoint, with sort, availability, condition, price range, freshness, edition, language and accepts-offers filters, paged, down to the empty state and "Clear filters"; the holder's profile; "Show on the map" the alternative view), `map.spec.ts` (the map filtered by the card), Maestro `holders-filters.yaml`, `card-who-near-me.yaml`, jest `screens/holders`, `features/searchSegments` — matches the web's holders view |
-| 20 | Exact coordinates never exposed | PASS | GeoPrivacyContractTest over every Phase 1–10 response family + logs; acceptance privacy fixture on every acceptance test (HTTP + STOMP; > 3 decimals, stored centres, raw distances) and `privacy.spec.ts` (planted-leak detection + sweep of every geo surface); AnalyticsEventTest/AnalyticsIT, AdsTargetingIT; walkthrough scans (36 API steps, 28 UI pages) found none; mobile (M1–M7): the privacy fixture of every mobile spec (54: no lat/lng with more than 3 decimals, no `homePoint` / raw distance fields, no request to the developer API), `location.spec.ts` (the `PUT` body has 3 decimals), `map.spec.ts` (zones only, zoom ≤ 14), jest `privacy/coordinateLiterals` + `privacy/mapPrivacy`, Maestro `discoverability.yaml` and `map-preview-profile.yaml`, logcat scans of every native check (no coordinates) |
+| 19 | Nearby collectors with that card → **holders in my region** | PASS (S1) | acceptance `search.spec.ts` ("Who has this in my region" → card holders of the browsed region with the holder's state; another region does not list them), `map.spec.ts`; SearchIT, CardHoldersIT; mobile (S1): `holders.spec.ts`, Maestro `card-holders-region.yaml`, `holders-filters.yaml` |
+| 20 | Exact coordinates never exposed | PASS (S1: nothing to expose) | no coordinate is stored (fresh-database check: no geometry/geography or coordinate-named column); GeoPrivacyContractTest over every response family as every seed account + logs; acceptance PrivacyScanner (coordinate / distance / radius keys, cities outside profiles, map provider requests) on every acceptance test; mobile `placePrivacy.test.tsx`, `coordinateLiterals.test.ts`, the Playwright privacy fixture |
 | 21 | Private messaging | PASS | acceptance `messaging.spec.ts` (realtime delivery, unread badge, "Seen", live answer), `messaging.spec.ts` (blocks, photos); ConversationIT, MessagingAuthorizationIT, RealtimeIT; walkthrough (third collector gets 404); mobile (stage M4): `apps/mobile/e2e/messages.spec.ts`, Maestro `messages-inbox-thread.yaml`; mobile (M7): block → Settings → Blocked users → unblock (`blocked.spec.ts`, Maestro `blocked-users.yaml`) |
 | 22 | Public community chat | PASS | acceptance `community.spec.ts`, `community.spec.ts` (moderation); CommunityIT, ModerationIT; mobile (stage M4): `apps/mobile/e2e/community.spec.ts`, Maestro `community-post.yaml` |
-| 23 | Create wishlist | PASS | acceptance `wishlist.spec.ts`, `wishlist.spec.ts` (duplicate 409, FREE limit dialog); WishlistIT; walkthrough (wish with a 25 km radius); mobile (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` |
-| 24 | New public inventory triggers match | PASS | acceptance `wishlist.spec.ts`, `wishlist.spec.ts`; WishlistMatchingIT; walkthrough (match with `KM_1_5` bucket); mobile (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (live match count) |
+| 23 | Create wishlist | PASS | acceptance `wishlist.spec.ts`, `wishlist.spec.ts` (duplicate 409, FREE limit dialog; no radius since ADR 0017); WishlistIT; mobile (M4/S1): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` |
+| 24 | New public inventory triggers match | PASS (S1: same region) | acceptance `wishlist.spec.ts` (Americas South pair), `wishlist.spec.ts`; WishlistMatchingIT (region match, no distance); mobile (M4/S1): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (S2 replaces matches) |
 | 25 | In-app/push notification received | PASS (in-app + log push) · DEFERRED-CLOUD (real FCM) · DEFERRED-MOBILE (device push: needs an EAS project and a real FCM sender, owner cost rule) | acceptance `wishlist.spec.ts` (live STOMP notification), `wishlist.spec.ts` (bell, `/notifications`); NotificationCentreIT, NotificationRealtimeIT, PushDeliveryIT (log push provider); walkthrough (`WISHLIST_MATCH`, unread 0 → 1); mobile in-app (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (live bell badge, notification → matches) |
 | 26 | Send offers | PASS | acceptance `offers.spec.ts` (create → counter → accept → decline), `offers.spec.ts`, `payments.spec.ts`; OfferStateMachineIT, OfferAuthorizationIT, TradeLifecycleIT; walkthrough (offer → counter → accept → trade); mobile (stage M5): `apps/mobile/e2e/offers.spec.ts`, Maestro `offer-trade-rating.yaml` |
 | 27 | Eligible users can rate | PASS | acceptance `rating.spec.ts` (no rating without interaction, unrelated 403), `rating.spec.ts`; RatingEligibilityIT, RatingRulesTest; mobile (stage M5): `apps/mobile/e2e/offers.spec.ts` (rate from the completed trade, a reference), Maestro `offer-trade-rating.yaml`, jest `screens/ratings` (no interaction: no rating, the reason explained) |
@@ -2049,7 +2181,7 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 
 ### Remaining gaps (after the final verification)
 
-- **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `LOCATION_JITTER_SECRET` / `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
+- **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
 - **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), iOS runs (no macOS), fonts; EAS stays unused (project id placeholder).
 - **ML (on hold):** Phase 11 card recognition and scanning.
 - **Legal:** counsel review of the 9 draft legal pages and validation of their French translation (criterion 38); the `[to confirm]` placeholders of the Privacy Policy (privacy officer, data locations).
@@ -2060,6 +2192,23 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 ---
 
 ## NEXT TASK
+
+> **Stage S1 — geography (2026-10-08, branch `feature/regions-geography`, not pushed):** builder
+> done (see "Platform regions and the self-declared location (stage S1)"): ADR 0017, V106–V110,
+> API, web, mobile, seeds, docs and every suite listed there. The owner's local database
+> migrates on the next `npm run dev` and loses its trading areas by design.
+>
+> **Exact next task: stage S2 — simplified wishlist and removal of matches (spec section 4 of
+> the 2026-10-08 product change), on a new branch from `main` once the S1 PR is merged.** S1
+> already removed the wishlist radius and the distance bucket and made matching compare platform
+> regions (V109); S2 drops `wishlist_match` and the matches features (API, web drawer, mobile
+> matches screen, WISHLIST_MATCH notifications) and simplifies the wish itself, keeping
+> `wishlist_visible` for the public "Looking for". The remaining stages: S3 search / card page /
+> have-want / search history (sections 2 and 2b), S4 community photos (section 5), S5 YDK +
+> Collectr import (section 6), S6 final docs and the definition-of-done walkthrough (sections
+> 8–9). Mobile follow-ups of S1 (boundary map in the Map tab, a mobile region switcher) are listed
+> in the S1 section.
+
 
 > **Web MVP complete locally (2026-09-30).** Workflow `web-mvp-local` / `web-mvp-local-continue`
 > (run `wf_7e879796-9e0`) delivered stages 1–12: Phases 1–10 backend + web, local environment
