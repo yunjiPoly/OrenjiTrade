@@ -45,6 +45,14 @@ export const ADMIN_ROUTES: Routes = [
           import('./games/admin-games-page.component').then((m) => m.AdminGamesPageComponent),
       },
       {
+        path: 'regions',
+        title: 'Regions · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./regions/admin-regions-page.component').then((m) => m.AdminRegionsPageComponent),
+      },
+      {
         path: 'cards',
         title: 'Cards · Admin',
         canActivate: [adminGuard],

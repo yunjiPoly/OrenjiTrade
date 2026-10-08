@@ -56,7 +56,7 @@ const SPLIT_QUERY = '(min-width: 840px)';
         <app-empty-state
           icon="lock_person"
           title="Messages are for members"
-          description="Sign in to talk privately with collectors near you."
+          description="Sign in to talk privately with collectors."
         >
           <a
             actions

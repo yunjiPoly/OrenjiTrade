@@ -13,25 +13,18 @@ interface Hint {
 }
 
 const HINTS: Partial<Record<MatchReadiness, Hint>> = {
-  'no-area': {
+  'no-location': {
     icon: 'location_off',
-    title: 'Set your trading area to get matches',
-    text: 'Matches are collectors near your approximate trading area. Choose it once (a neighbourhood is enough) and new listings nearby will reach you.',
-    action: 'Set trading area',
-    link: '/settings/trading-area',
-  },
-  hidden: {
-    icon: 'visibility_off',
-    title: 'Show yourself on the map to get matches',
-    text: 'Distances are measured between approximate public areas, and yours only exists while you are discoverable. Your exact location is never shown.',
-    action: 'Privacy settings',
-    link: '/settings/privacy',
+    title: 'Choose your location to get matches',
+    text: 'Matches are listings of collectors in your region. Pick your country and state or province once and new listings of your region will reach you.',
+    action: 'Choose my location',
+    link: '/settings/location',
   },
 };
 
 /**
- * Explains why no match can arrive yet (no trading area, or not discoverable) with a link to the
- * setting that fixes it. Renders nothing when matching works.
+ * Explains why no match can arrive yet (no location) with a link to the setting that fixes it.
+ * Renders nothing when matching works.
  */
 @Component({
   selector: 'app-match-readiness',

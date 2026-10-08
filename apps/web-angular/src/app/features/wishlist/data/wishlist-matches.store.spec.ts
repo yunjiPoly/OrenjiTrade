@@ -21,7 +21,6 @@ function match(id: string): WishlistMatchResponse {
       id: `user-${id}`,
       displayName: `Collector ${id}`,
     } as WishlistMatchResponse['collector'],
-    distanceBucket: 'KM_1_5' as WishlistMatchResponse['distanceBucket'],
     matchedAt: '2026-09-30T10:00:00Z',
     dismissed: false,
   };
@@ -32,7 +31,7 @@ function push(wishlistItemId: string): NotificationResponse {
     id: `n-${wishlistItemId}-${Math.random()}`,
     type: Type.WishlistMatch,
     title: 'Wishlist match',
-    body: 'Listed nearby',
+    body: 'Listed in Quebec, Canada',
     data: { wishlistItemId },
     createdAt: '2026-09-30T10:00:00Z',
   };

@@ -63,13 +63,14 @@ describe('search params', () => {
       printing: 'nope',
       minPrice: '-4',
       maxPrice: '9999999',
-      sort: 'rating',
+      sort: 'distance',
       page: '-2',
       language: 'french',
     });
     expect(params.tab).toBe('cards');
     expect(params.printing).toBeNull();
     expect(params.filters).toEqual(DEFAULT_HOLDER_FILTERS);
+    expect(params.filters.sort).toBe('freshness');
     expect(parsePrice('')).toBeNull();
     expect(parsePrice(12.3456)).toBe(12.35);
   });
@@ -82,13 +83,14 @@ describe('search params', () => {
       ...DEFAULT_HOLDER_FILTERS,
       maxPrice: 50,
       acceptsOffers: true,
-      sort: 'freshness' as const,
+      sort: 'price' as const,
     };
     expect(holderFiltersToQuery(filters)).toMatchObject({
       maxPrice: '50',
       offers: 'true',
-      sort: 'freshness',
+      sort: 'price',
     });
+    expect(holderFiltersToQuery(DEFAULT_HOLDER_FILTERS)['sort']).toBeNull();
     expect(activeHolderFilterCount(filters)).toBe(2);
     expect(sameHolderFilters(filters, { ...filters })).toBe(true);
     expect(sameHolderFilters(filters, DEFAULT_HOLDER_FILTERS)).toBe(false);
@@ -100,7 +102,7 @@ describe('search params', () => {
     expect(priceRangeError(null, 10)).toBeNull();
   });
 
-  it('builds the card-holders request (own area or a public centre)', () => {
+  it('builds the card-holders request in a platform region (never a centre)', () => {
     const filters = {
       ...DEFAULT_HOLDER_FILTERS,
       availability: 'TRADE' as const,
@@ -108,20 +110,20 @@ describe('search params', () => {
       language: 'en',
       page: 1,
     };
-    expect(cardHoldersRequest({ kind: 'printing', id: PRINTING }, filters, null)).toEqual({
+    expect(
+      cardHoldersRequest({ kind: 'printing', id: PRINTING }, filters, 'americas-north'),
+    ).toEqual({
+      region: 'americas-north',
       printingId: PRINTING,
       availability: 'TRADE',
       minPrice: 5,
       language: 'en',
-      sort: 'distance',
+      sort: 'freshness',
       page: 1,
       size: 20,
     });
     expect(
-      cardHoldersRequest({ kind: 'card', id: CARD }, DEFAULT_HOLDER_FILTERS, {
-        lat: 45.50219,
-        lng: -73.56711,
-      }),
-    ).toEqual({ cardId: CARD, lat: 45.502, lng: -73.567, sort: 'distance', page: 0, size: 20 });
+      cardHoldersRequest({ kind: 'card', id: CARD }, DEFAULT_HOLDER_FILTERS, 'europe'),
+    ).toEqual({ region: 'europe', cardId: CARD, sort: 'freshness', page: 0, size: 20 });
   });
 });

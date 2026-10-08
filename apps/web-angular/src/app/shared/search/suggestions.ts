@@ -72,7 +72,7 @@ export function suggestionKindLabel(type: string): string {
   }
 }
 
-/** Card entries (a card or one of its printings): they open the "holders near you" views. */
+/** Card entries (a card or one of its printings): they open the "holders in my region" views. */
 export function isCardSuggestion(item: SearchSuggestion): boolean {
   return item.type === 'CARD' || item.type === 'PRINTING';
 }

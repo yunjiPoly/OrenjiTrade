@@ -20,7 +20,6 @@ function wish(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     conditionMin: 'LIGHTLY_PLAYED',
     maxPrice: 60,
     currency: 'CAD',
-    radiusKm: 25,
     tradePreference: Trade.Trade,
     notes: 'For my deck',
     active: true,
@@ -63,7 +62,6 @@ describe('WishCardComponent', () => {
     expect(chips).toEqual([
       'verified Lightly Played or better',
       'payments Up to $60.00',
-      'near_me Within 25 km',
       'swap_horiz Trade only',
     ]);
     expect(element.querySelector('.wc__notes')?.textContent).toContain('For my deck');

@@ -5,7 +5,7 @@ import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/featur
 import type { WishUsage } from '../data/wishlist.store';
 
 /**
- * The wishlist at a glance: number of wishes, wishes with matches nearby, matches in total and
+ * The wishlist at a glance: number of wishes, wishes with matches, matches in total and
  * the plan usage (`wishlist.items.max`) as a meter with a link to Premium when it is close
  * (only while the `premiumPlans` flag is on: nothing offers a subscription otherwise).
  */
@@ -24,7 +24,7 @@ import type { WishUsage } from '../data/wishlist.store';
           <dd>{{ matched() }}</dd>
         </div>
         <div class="ws__stat ws__stat--hot">
-          <dt>Matches nearby</dt>
+          <dt>With matches</dt>
           <dd data-testid="wishlist-total-matches">{{ totalMatches() }}</dd>
         </div>
       </dl>

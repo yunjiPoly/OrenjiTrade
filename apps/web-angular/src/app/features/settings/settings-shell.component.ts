@@ -17,7 +17,7 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
   { path: 'profile', label: 'Profile', icon: 'person' },
   { path: 'privacy', label: 'Privacy', icon: 'shield_person' },
   { path: 'notifications', label: 'Notifications', icon: 'notifications' },
-  { path: 'trading-area', label: 'Trading area', icon: 'location_on' },
+  { path: 'location', label: 'Location', icon: 'location_on' },
   { path: 'offers', label: 'Offers', icon: 'local_offer' },
   {
     path: 'payouts',

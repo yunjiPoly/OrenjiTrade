@@ -4,14 +4,12 @@ import {
   MyLocationResponse,
   PrivacySettings,
   SettingsService,
-  UpdateTradingAreaRequestSourceEnum,
 } from '@orenji/api-client';
 import { Observable, firstValueFrom } from 'rxjs';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
 import { silentErrors } from '../../core/http/http-context';
-import { roundCoordinate } from '../domain/location-labels';
-import { TradingAreaValue } from './trading-area-picker/trading-area-picker.component';
+import { RegionContext } from '../../core/region/region-context.service';
 
 async function call<T>(request: Observable<T>): Promise<T> {
   try {
@@ -21,15 +19,28 @@ async function call<T>(request: Observable<T>): Promise<T> {
   }
 }
 
+/** What the collector declares (ADR 0017): no coordinate, ever. */
+export interface LocationDraft {
+  countryCode: string;
+  subdivisionCode: string;
+  /** Optional; shown only on the collector's own public profile while `showCity` is on. */
+  city: string;
+  showCity: boolean;
+}
+
+/** Longest city the API accepts (after trimming). */
+export const CITY_MAX_LENGTH = 80;
+
 /**
- * The collector's own trading area (`/me/location`) and privacy settings, shared by onboarding
- * and settings. Writes reject with an {@link ApiError}.
+ * The collector's own location (`/me/location`: country, state/province, optional city) and
+ * privacy settings, shared by onboarding and settings. Writes reject with an {@link ApiError}.
  */
 @Injectable({ providedIn: 'root' })
 export class MyLocationStore {
   private readonly locationApi = inject(LocationService);
   private readonly settingsApi = inject(SettingsService);
   private readonly session = inject(SessionService);
+  private readonly region = inject(RegionContext);
 
   private readonly locationState = signal<MyLocationResponse | null>(null);
   private readonly privacyState = signal<PrivacySettings | null>(null);
@@ -61,15 +72,16 @@ export class MyLocationStore {
     }
   }
 
-  async saveTradingArea(area: TradingAreaValue): Promise<MyLocationResponse> {
-    const location = await call(
-      this.locationApi.updateMyTradingArea(
+  async saveLocation(draft: LocationDraft): Promise<MyLocationResponse> {
+    const city = draft.city.trim();
+    const saved = await call(
+      this.locationApi.updateMyLocation(
         {
-          updateTradingAreaRequest: {
-            lat: roundCoordinate(area.lat),
-            lng: roundCoordinate(area.lng),
-            radiusKm: area.radiusKm,
-            source: area.source as UpdateTradingAreaRequestSourceEnum,
+          updateLocationRequest: {
+            countryCode: draft.countryCode,
+            subdivisionCode: draft.subdivisionCode,
+            city: city === '' ? null : city,
+            showCity: draft.showCity,
           },
         },
         'body',
@@ -77,14 +89,21 @@ export class MyLocationStore {
         { context: silentErrors() },
       ),
     );
-    this.locationState.set(location);
+    this.locationState.set(saved);
+    this.region.applyHome(saved.location?.regionCode ?? null);
     void this.session.load();
-    return location;
+    return saved;
   }
 
+  /** Removes the location; the server also turns discoverability off. */
   async removeLocation(): Promise<void> {
     await call(this.locationApi.deleteMyLocation('body', false, { context: silentErrors() }));
-    this.locationState.set({ discoverable: this.privacyState()?.discoverable ?? false });
+    this.locationState.set({ discoverable: false });
+    const privacy = this.privacyState();
+    if (privacy) {
+      this.privacyState.set({ ...privacy, discoverable: false });
+    }
+    this.region.applyHome(null);
     void this.session.load();
   }
 
@@ -96,13 +115,47 @@ export class MyLocationStore {
       }),
     );
     this.privacyState.set(saved);
-    // Discoverability changes the public point; refresh what the owner sees.
-    const location = await call(
-      this.locationApi.getMyLocation('body', false, { context: silentErrors() }),
-    ).catch(() => null);
+    const location = this.locationState();
     if (location) {
-      this.locationState.set(location);
+      this.locationState.set({ ...location, discoverable: saved.discoverable });
     }
     return saved;
   }
+}
+
+/** The draft of a saved location, or null without one. */
+export function draftOf(response: MyLocationResponse | null): LocationDraft | null {
+  const location = response?.location;
+  if (!location) {
+    return null;
+  }
+  return {
+    countryCode: location.countryCode,
+    subdivisionCode: location.subdivisionCode,
+    city: location.city ?? '',
+    showCity: location.showCity,
+  };
+}
+
+/** Same declared location (city compared after trimming). */
+export function sameLocation(a: LocationDraft | null, b: LocationDraft | null): boolean {
+  if (!a || !b) {
+    return a === b;
+  }
+  return (
+    a.countryCode === b.countryCode &&
+    a.subdivisionCode === b.subdivisionCode &&
+    a.city.trim() === b.city.trim() &&
+    a.showCity === b.showCity
+  );
+}
+
+/** Complete enough to save: a country, one of its subdivisions and a short enough city. */
+export function isCompleteDraft(draft: LocationDraft | null): draft is LocationDraft {
+  return (
+    !!draft &&
+    draft.countryCode !== '' &&
+    draft.subdivisionCode !== '' &&
+    draft.city.trim().length <= CITY_MAX_LENGTH
+  );
 }

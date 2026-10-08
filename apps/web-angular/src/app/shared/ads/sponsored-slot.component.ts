@@ -16,6 +16,7 @@ import { SessionService } from '../../core/auth/session.service';
 import { AppConfigService } from '../../core/config/app-config.service';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { silentErrors } from '../../core/http/http-context';
+import { RegionContext } from '../../core/region/region-context.service';
 import { adClickHref, adImageSrc } from './ad-links';
 import { AdTrackingService } from './ad-tracking.service';
 import { SponsoredAdComponent } from './sponsored-ad.component';
@@ -92,6 +93,7 @@ export class SponsoredSlotComponent {
   private readonly session = inject(SessionService);
   private readonly config = inject(AppConfigService);
   private readonly flags = inject(FeatureFlagsService);
+  private readonly region = inject(RegionContext);
   protected readonly tracking = inject(AdTrackingService);
 
   readonly placement = input.required<AdPlacement>();
@@ -122,7 +124,11 @@ export class SponsoredSlotComponent {
 
   constructor() {
     effect(() => {
-      const params: ListAdsRequestParams = { placement: this.placement() };
+      // The browsed platform region (ADR 0017) targets REGION/COUNTRY/SUBDIVISION campaigns.
+      const params: ListAdsRequestParams = {
+        placement: this.placement(),
+        region: this.region.current(),
+      };
       const game = this.game();
       if (game) {
         params.game = game;

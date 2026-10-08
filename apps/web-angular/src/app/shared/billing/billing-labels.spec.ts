@@ -49,14 +49,15 @@ describe('billing labels', () => {
     expect(durationLabel(72)).toBe('3 days');
     expect(durationLabel(1)).toBe('1 hour');
     expect(creditReasonLabel('REFERRAL')).toBe('Referral reward');
-    expect(creditReasonLabel('FEATURE_UNLOCK', 'Wider map for a day')).toBe('Wider map for a day');
+    expect(creditReasonLabel('FEATURE_UNLOCK', 'Advanced filters for a day')).toBe(
+      'Advanced filters for a day',
+    );
     expect(creditReasonLabel('SOMETHING_NEW')).toBe('Something new');
   });
 
   it('names entitlements', () => {
     expect(entitlementLabel('filters.advanced', 'true')).toBe('Advanced search filters');
     expect(entitlementLabel('binder.views.per_day', 'unlimited')).toBe('Unlimited binder views');
-    expect(entitlementLabel('map.radius.max_km', '100')).toBe('Map radius up to 100 km');
     expect(entitlementLabel('saved_searches.max', '10')).toBe('Saved searches max: 10');
   });
 

@@ -104,7 +104,7 @@ describe('usageRows', () => {
     const rows = usageRows(
       [
         { key: 'binders.max', kind: 'COUNTER', limit: 5, used: 5, allowed: false },
-        { key: 'map.radius.max_km', kind: 'CAP', limit: 25, used: 0, allowed: true },
+        { key: 'test.cap', kind: 'CAP', limit: 25, used: 0, allowed: true },
         { key: 'binder.views.per_day', kind: 'COUNTER', used: 3, overridden: true },
         { key: 'saved_searches.max', kind: 'COUNTER', limit: 0, used: 0, allowed: false },
       ] as never,
@@ -116,7 +116,7 @@ describe('usageRows', () => {
       percent: 100,
       full: true,
     });
-    expect(rows[1]).toMatchObject({ value: 'Up to 25 km', percent: null });
+    expect(rows[1]).toMatchObject({ value: 'Up to 25', percent: null });
     expect(rows[2]).toMatchObject({ value: '3 used · Unlimited', percent: null, boosted: true });
     expect(rows[3]).toMatchObject({ value: '0 / 0', percent: null });
   });

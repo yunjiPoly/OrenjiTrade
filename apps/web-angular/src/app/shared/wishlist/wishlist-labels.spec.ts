@@ -25,7 +25,6 @@ function wish(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     game: 'yugioh',
     card: { id: 'c1', name: 'Azure-Eyes Sky Dragon', imageUrl: null },
     currency: 'CAD',
-    radiusKm: 25,
     tradePreference: Trade.Any,
     notes: '',
     active: true,
@@ -45,11 +44,8 @@ describe('wishlist labels', () => {
     expect(isTradePreference('BUY')).toBe(false);
   });
 
-  it('lists only the criteria that are set, radius and trade preference always', () => {
-    expect(wishCriteriaChips(wish()).map((chip) => chip.label)).toEqual([
-      'Within 25 km',
-      'Trade or buy',
-    ]);
+  it('lists only the criteria that are set, the trade preference always (no radius)', () => {
+    expect(wishCriteriaChips(wish()).map((chip) => chip.label)).toEqual(['Trade or buy']);
     const chips = wishCriteriaChips(
       wish({
         conditionMin: 'LIGHTLY_PLAYED',
@@ -57,7 +53,6 @@ describe('wishlist labels', () => {
         language: 'fr',
         rarity: 'Ultra Rare',
         maxPrice: 60,
-        radiusKm: 10,
         tradePreference: Trade.Trade,
       }),
     );
@@ -67,7 +62,6 @@ describe('wishlist labels', () => {
       'language',
       'rarity',
       'price',
-      'radius',
       'trade',
     ]);
     expect(chips.map((chip) => chip.label)).toEqual([
@@ -76,7 +70,6 @@ describe('wishlist labels', () => {
       'French',
       'Ultra Rare',
       'Up to $60.00',
-      'Within 10 km',
       'Trade only',
     ]);
   });

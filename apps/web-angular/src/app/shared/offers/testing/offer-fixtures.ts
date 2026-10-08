@@ -47,7 +47,14 @@ export function party(id: string, displayName: string): OfferParty {
     handle: displayName.toLowerCase().replace(/\W+/g, '_'),
     displayName,
     avatarUrl: null,
-    location: { publicLabel: 'Plateau-Mont-Royal, Montréal', distanceBucket: 'KM_1_5' },
+    place: {
+      regionCode: 'americas-north',
+      countryCode: 'CA',
+      countryName: 'Canada',
+      subdivisionCode: 'CA-QC',
+      subdivisionName: 'Quebec',
+      label: 'Quebec, Canada',
+    },
     rating: { average: null, count: 0 },
   } as OfferParty;
 }

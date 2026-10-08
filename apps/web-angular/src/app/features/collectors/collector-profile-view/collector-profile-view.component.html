@@ -24,14 +24,12 @@
           @if (p.location; as location) {
             <li class="collector__fact" data-testid="collector-public-label">
               <mat-icon aria-hidden="true">location_on</mat-icon>
-              {{ location.publicLabel }}
+              @if (location.city) {
+                <span data-testid="collector-city">{{ location.city }}</span
+                >,
+              }
+              {{ location.label }}
             </li>
-            @if (distanceLabel(); as distance) {
-              <li class="collector__fact">
-                <mat-icon aria-hidden="true">near_me</mat-icon>
-                {{ distance }}
-              </li>
-            }
           } @else {
             <li class="collector__fact collector__fact--muted">
               <mat-icon aria-hidden="true">location_off</mat-icon>
@@ -175,14 +173,26 @@
 
     <div class="collector__side">
       <section class="collector__card" aria-labelledby="collector-area">
-        <h2 id="collector-area">Trading area</h2>
+        <h2 id="collector-area">Location</h2>
         @if (p.location; as location) {
-          <app-approximate-area-map [point]="location.publicPoint" [label]="location.publicLabel" />
+          <p class="collector__place">
+            <mat-icon aria-hidden="true">location_on</mat-icon>
+            <span>
+              @if (location.city) {
+                {{ location.city }},
+              }
+              {{ location.label }}
+            </span>
+          </p>
           <p class="collector__muted collector__note">
             <mat-icon aria-hidden="true">shield_person</mat-icon>
-            Approximate area (about 3 km) around {{ location.publicLabel }}. Exact locations are
-            never shown.
+            Collectors choose their state or province; OrenjiTrade never knows or shows an exact
+            location.
           </p>
+          <a matButton routerLink="/map" [queryParams]="mapLink(location)">
+            <mat-icon aria-hidden="true">map</mat-icon>
+            Binders in {{ location.subdivisionName }}
+          </a>
         } @else {
           <p class="collector__muted">
             {{ isOwn() ? 'You are' : p.displayName + ' is' }} not visible on the map.
@@ -242,7 +252,7 @@
             title="No public binders yet"
             [description]="
               isOwn()
-                ? 'Publish a binder so collectors nearby can see what you trade.'
+                ? 'Publish a binder so collectors of your region can see what you trade.'
                 : 'When ' + p.displayName + ' publishes a binder, it will show up here.'
             "
           />

@@ -12,7 +12,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSliderModule } from '@angular/material/slider';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import type { GameSchema, PrintingSummary } from '@orenji/api-client';
 import { editionLabel, languageLabel } from '../catalog/catalog-labels';
@@ -32,8 +31,8 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
 /**
  * Every criterion of a wish (add/edit dialog): printing or any, minimum condition, edition,
  * language and rarity from the game's `GameSchema`, maximum price and currency, what the
- * collector accepts (trade / buy), the matching radius bounded by the plan, private notes and
- * the alert switch. Inline validation messages.
+ * collector accepts (trade / buy), private notes and the alert switch. Matches come from
+ * collectors of the same platform region (ADR 0017). Inline validation messages.
  */
 @Component({
   selector: 'app-wish-criteria-fields',
@@ -44,7 +43,6 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
     MatIconModule,
     MatInputModule,
     MatSelectModule,
-    MatSliderModule,
     MatSlideToggleModule,
   ],
   template: `
@@ -157,30 +155,6 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
       </fieldset>
 
       <fieldset class="wcf__group">
-        <legend class="wcf__legend">Distance</legend>
-        <div class="wcf__radius">
-          <span id="wish-radius-label">Collectors within</span>
-          <strong data-testid="wish-radius-value">{{ radius() }} km</strong>
-        </div>
-        <mat-slider
-          class="wcf__slider"
-          [min]="1"
-          [max]="radiusMax()"
-          [step]="1"
-          discrete
-          [displayWith]="kmLabel"
-        >
-          <input
-            matSliderThumb
-            formControlName="radiusKm"
-            aria-label="Distance in kilometres"
-            [attr.aria-valuetext]="radius() + ' kilometres'"
-          />
-        </mat-slider>
-        <p class="wcf__hint">{{ radiusHint() }}</p>
-      </fieldset>
-
-      <fieldset class="wcf__group">
         <legend class="wcf__legend">Notes and alerts</legend>
         <mat-form-field appearance="outline" class="wcf__wide">
           <mat-label>Private notes</mat-label>
@@ -196,7 +170,7 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
         <p class="wcf__hint">
           {{
             active()
-              ? 'We notify you when a collector nearby lists a match.'
+              ? 'We notify you when a collector of your region lists a match.'
               : 'Paused: this wish does not match or notify until you turn it back on.'
           }}
         </p>
@@ -258,21 +232,6 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
       color: var(--color-text-muted);
       font-size: var(--font-size-sm);
     }
-    .wcf__radius {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: var(--spacing-2);
-      font-size: var(--font-size-sm);
-    }
-    .wcf__radius strong {
-      color: var(--color-primary);
-      font-size: var(--font-size-lg);
-    }
-    .wcf__slider {
-      width: calc(100% - 16px);
-      margin: 0 8px;
-    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -280,10 +239,6 @@ export class WishCriteriaFieldsComponent {
   readonly form = input.required<WishForm>();
   readonly schema = input<GameSchema | null>(null);
   readonly printings = input<readonly PrintingSummary[]>([]);
-  /** Upper bound of the slider (plan cap, at most 100 km). */
-  readonly radiusMax = input(25);
-  /** The plan's `map.radius.max_km` (`null` = unlimited, `undefined` = not known yet). */
-  readonly radiusCap = input<number | null | undefined>(undefined);
 
   protected readonly any = ANY;
   protected readonly tradeOptions = TRADE_PREFERENCES;
@@ -292,25 +247,14 @@ export class WishCriteriaFieldsComponent {
   protected readonly editionText = editionLabel;
   protected readonly languageText = languageLabel;
   protected readonly optionLabel = printingOptionLabel;
-  protected readonly kmLabel = (value: number): string => `${value} km`;
 
   /** The form's current value as a signal (drives the hints and conditional fields). */
   private readonly value = linkedSignal(() => this.form().getRawValue());
   protected readonly anyPrinting = computed(() => !this.value().printingId);
-  protected readonly radius = computed(() => this.value().radiusKm);
   protected readonly active = computed(() => this.value().active);
   protected readonly tradeHint = computed(
     () => tradePreferenceInfo(this.value().tradePreference).hint,
   );
-  protected readonly radiusHint = computed(() => {
-    const cap = this.radiusCap();
-    if (cap === undefined) {
-      return 'Distances are measured between approximate public locations.';
-    }
-    return cap === null
-      ? 'Distances are measured between approximate public locations.'
-      : `Your plan matches collectors up to ${cap} km away. Distances are approximate.`;
-  });
 
   protected readonly conditions = computed(() =>
     withCurrent(this.schema()?.conditions, this.form().controls.conditionMin.value),

@@ -206,6 +206,14 @@
   font-size: var(--font-size-sm);
 }
 
+.collector__place {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+}
+
 .collector__note {
   display: flex;
   gap: var(--spacing-2);

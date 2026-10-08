@@ -268,13 +268,11 @@ import { matchCountLabel, wishCriteriaChips } from '../../../shared/wishlist/wis
       font-size: 14px;
       color: var(--color-text-muted);
     }
-    .wc__chip[data-kind='price'],
-    .wc__chip[data-kind='radius'] {
+    .wc__chip[data-kind='price'] {
       background: var(--color-accent-container);
       color: var(--color-on-accent-container);
     }
-    .wc__chip[data-kind='price'] mat-icon,
-    .wc__chip[data-kind='radius'] mat-icon {
+    .wc__chip[data-kind='price'] mat-icon {
       color: inherit;
     }
     .wc__notes {

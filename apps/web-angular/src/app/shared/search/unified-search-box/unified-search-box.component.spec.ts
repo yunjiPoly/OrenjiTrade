@@ -17,7 +17,7 @@ const SUGGESTIONS: SearchSuggestion[] = [
     type: 'COLLECTOR' as never,
     id: 'u1',
     label: 'Maïka Tremblay',
-    sublabel: '@maika · Plateau-Mont-Royal, Montréal',
+    sublabel: '@maika · Quebec, Canada',
     slug: 'maika',
   },
   {
@@ -84,13 +84,14 @@ describe('UnifiedSearchBoxComponent', () => {
     expect(input.getAttribute('aria-label')).toBe('Search the map');
   });
 
-  it('asks /search/suggest around a public centre with 3 decimals at most', async () => {
-    fixture.componentRef.setInput('centre', { lat: 45.502194, lng: -73.567119 });
+  it('asks /search/suggest in the given platform region, never with coordinates', async () => {
+    fixture.componentRef.setInput('region', 'europe');
     await type('lan');
     const req = backend.expectOne((r) => r.url === `${API}/api/v1/search/suggest`);
     expect(req.request.params.get('q')).toBe('lan');
-    expect(req.request.params.get('lat')).toBe('45.502');
-    expect(req.request.params.get('lng')).toBe('-73.567');
+    expect(req.request.params.get('region')).toBe('europe');
+    expect(req.request.params.has('lat')).toBe(false);
+    expect(req.request.params.has('lng')).toBe(false);
     req.flush(SUGGESTIONS);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -105,10 +106,10 @@ describe('UnifiedSearchBoxComponent', () => {
     expect(texts[1]).toContain('@maika');
   });
 
-  it('lets the server use the trading area when there is no centre', async () => {
+  it('uses the browsed region when none is given', async () => {
     await type('lan');
     const req = backend.expectOne((r) => r.url === `${API}/api/v1/search/suggest`);
-    expect(req.request.params.has('lat')).toBe(false);
+    expect(req.request.params.get('region')).toBe('americas-north');
     req.flush([]);
     fixture.detectChanges();
     expect(options()[0].textContent).toContain('Nothing matches');

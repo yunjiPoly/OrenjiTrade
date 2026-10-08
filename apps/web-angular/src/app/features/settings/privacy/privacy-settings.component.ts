@@ -49,10 +49,8 @@ export class PrivacySettingsComponent {
   protected readonly draft = signal<PrivacySettings | null>(null);
   protected readonly loaded = signal(false);
   protected readonly saveState = signal<SaveState>('idle');
-  protected readonly publicLabel = computed(
-    () => this.store.location()?.tradingArea?.label ?? null,
-  );
-  protected readonly hasArea = computed(() => !!this.store.location()?.tradingArea);
+  protected readonly publicLabel = computed(() => this.store.location()?.location?.label ?? null);
+  protected readonly hasLocation = computed(() => !!this.store.location()?.location);
 
   private lastSaved: PrivacySettings | null = null;
   private queue: Promise<void> = Promise.resolve();

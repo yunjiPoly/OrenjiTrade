@@ -140,7 +140,7 @@ import { OfferSummaryRowComponent } from './offer-summary-row.component';
                     <app-empty-state
                       icon="local_offer"
                       title="You have not made any offer yet"
-                      description="Find a card near you on the map or in search, then press “Make an offer”."
+                      description="Find a card of your region on the map or in search, then press “Make an offer”."
                     >
                       <a actions matButton="filled" routerLink="/map">Explore the map</a>
                     </app-empty-state>
@@ -148,7 +148,7 @@ import { OfferSummaryRowComponent } from './offer-summary-row.component';
                     <app-empty-state
                       icon="move_to_inbox"
                       title="No offers on your cards yet"
-                      description="Publish cards that accept offers: collectors nearby can then make you one."
+                      description="Publish cards that accept offers: collectors of your region can then make you one."
                     >
                       <a actions matButton="filled" routerLink="/inventory">Open my inventory</a>
                     </app-empty-state>
@@ -189,7 +189,7 @@ import { OfferSummaryRowComponent } from './offer-summary-row.component';
         <app-empty-state
           icon="lock_person"
           title="Offers are for members"
-          description="Sign in to make offers on cards near you and answer the ones you receive."
+          description="Sign in to make offers on cards of your region and answer the ones you receive."
         >
           <a
             actions

@@ -26,7 +26,7 @@ export const VISIBILITY_INFO: Record<Visibility, VisibilityInfo> = {
   PUBLIC: {
     label: 'Public',
     icon: 'public',
-    hint: 'Collectors near you can find it on the map and in search.',
+    hint: 'Collectors of your region can find it on the map and in search.',
   },
   TEMPORARILY_PUBLIC: {
     label: 'Temporarily public',

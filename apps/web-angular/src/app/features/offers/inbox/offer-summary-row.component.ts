@@ -16,7 +16,7 @@ import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 
 /**
- * One negotiation of the inbox: the card, the other collector (approximate place only), the
+ * One negotiation of the inbox: the card, the other collector (state/province only), the
  * live terms, status, whose turn it is and the expiry. The whole row opens the offer page.
  */
 @Component({
@@ -59,7 +59,7 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
             [decorative]="true"
           />
           {{ o.viewerRole === 'SELLER' ? 'From' : 'To' }} {{ o.counterparty.displayName }}
-          @if (o.counterparty.location?.publicLabel; as place) {
+          @if (o.counterparty.place?.label; as place) {
             <span class="row__muted">· {{ place }}</span>
           }
         </span>

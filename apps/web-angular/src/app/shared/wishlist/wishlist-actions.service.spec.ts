@@ -14,7 +14,6 @@ function wish(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     game: 'pokemon',
     card: { id: 'c1', name: 'Emberfang Fox' },
     currency: 'CAD',
-    radiusKm: 25,
     tradePreference: Trade.Any,
     notes: '',
     active: true,
@@ -50,10 +49,10 @@ describe('WishlistActions', () => {
 
   it('words the confirmation after the matches found at once', () => {
     expect(addedMessage(wish())).toBe(
-      "Emberfang Fox is on your wishlist. We'll tell you when a collector nearby lists it.",
+      "Emberfang Fox is on your wishlist. We'll tell you when a collector of your region lists it.",
     );
     expect(addedMessage(wish({ matchCount: 3 }))).toBe(
-      'Emberfang Fox is on your wishlist: 3 matches nearby already.',
+      'Emberfang Fox is on your wishlist: 3 matches in your region already.',
     );
     expect(addedMessage(wish({ active: false }))).toBe(
       'Emberfang Fox is on your wishlist (alerts paused).',
@@ -78,7 +77,7 @@ describe('WishlistActions', () => {
       expect.objectContaining({ data: { mode: 'create', cardId: 'c1', printingId: 'p1' } }),
     );
     expect(snackBar.open).toHaveBeenCalledWith(
-      'Emberfang Fox is on your wishlist: 2 matches nearby already.',
+      'Emberfang Fox is on your wishlist: 2 matches in your region already.',
       'View',
       { duration: 6000 },
     );

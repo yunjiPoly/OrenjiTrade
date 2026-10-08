@@ -1,5 +1,5 @@
 // App-level custom properties and styles for DOM rendered outside Angular's view encapsulation
-// (Leaflet markers, Material overlays). Component styles stay in their components.
+// (the Leaflet region map, Material overlays). Component styles stay in their components.
 
 // Accent colours of the four games (decorative card art, game chips). Mid-tone values that keep
 // white text readable on light and dark surfaces.
@@ -10,123 +10,8 @@ html {
   --game-riftbound: #0284c7;
 }
 
-// Map pins drawn by the Leaflet adapter (L.divIcon with these classes).
-.orenji-map-pin {
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0;
-}
-
-.orenji-map-pin__dot {
-  display: block;
-  width: 22px;
-  height: 22px;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  background: var(--color-primary);
-  border: 3px solid #fff;
-  box-shadow: 0 4px 10px rgb(0 0 0 / 0.35);
-}
-
-.orenji-map-pin--collector .orenji-map-pin__dot {
-  background: var(--color-accent);
-}
-
-.orenji-map-pin--self .orenji-map-pin__dot {
-  background: var(--color-ink);
-}
-
-.leaflet-marker-draggable {
-  cursor: grab;
-}
-
-// Collector markers on /map: round avatars with a freshness ring, and cluster bubbles.
-.orenji-map-pin--avatar,
-.orenji-map-pin--cluster {
-  border-radius: 50%;
-  transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
-
-  &:hover,
-  &:focus-visible {
-    transform: scale(1.12);
-  }
-
-  &:focus-visible {
-    outline: var(--focus-width) solid var(--color-focus-ring);
-    outline-offset: 2px;
-  }
-}
-
-.orenji-map-avatar {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 3px;
-  border-radius: 50%;
-  background: var(--color-surface);
-  box-shadow:
-    0 0 0 3px var(--marker-ring, var(--color-border-strong)),
-    0 6px 14px rgb(0 0 0 / 0.3);
-  overflow: hidden;
-}
-
-.orenji-map-avatar--fresh {
-  --marker-ring: var(--color-status-fresh);
-}
-
-.orenji-map-avatar--aging {
-  --marker-ring: var(--color-status-aging);
-}
-
-.orenji-map-avatar__img,
-.orenji-map-avatar__initials {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.orenji-map-avatar__initials {
-  display: grid;
-  place-items: center;
-  background: var(--color-accent);
-  color: #fff;
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-}
-
-.orenji-map-pin--selected {
-  transform: scale(1.18);
-
-  .orenji-map-avatar {
-    box-shadow:
-      0 0 0 3px var(--color-surface),
-      0 0 0 6px var(--color-primary),
-      0 8px 18px rgb(0 0 0 / 0.35);
-  }
-}
-
-.orenji-map-cluster {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-family: var(--font-display);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  box-shadow:
-    0 0 0 6px color-mix(in srgb, var(--color-primary) 30%, transparent),
-    0 6px 14px rgb(0 0 0 / 0.3);
-}
-
-// Leaflet containers take the token font and a focus ring consistent with the app.
+// Leaflet containers take the token font and a focus ring consistent with the app. The region
+// map has no tiles (ADR 0017): the container colour is the sea.
 .leaflet-container {
   font-family: var(--font-body);
   background: var(--color-surface-variant);
@@ -135,6 +20,25 @@ html {
     outline: var(--focus-width) solid var(--color-focus-ring);
     outline-offset: calc(var(--focus-width) * -1);
   }
+}
+
+// Tooltips of the region map's states and provinces.
+.leaflet-tooltip.orenji-boundary-tooltip {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface-elevated);
+  color: var(--color-ink);
+  box-shadow: var(--elevation-menu);
+  font-size: var(--font-size-sm);
+}
+
+.leaflet-tooltip.orenji-boundary-tooltip::before {
+  display: none;
+}
+
+.leaflet-interactive.orenji-boundary:focus {
+  outline: none;
 }
 
 // Dialog widths used by feature dialogs.

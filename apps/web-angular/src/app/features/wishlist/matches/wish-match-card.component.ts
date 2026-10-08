@@ -10,7 +10,6 @@ import { ratingLabel } from '../../../shared/discovery/discovery-labels';
 import {
   LAST_ACTIVE_LABELS,
   LastActiveBucket,
-  distanceBucketLabel,
   lastActiveTone,
 } from '../../../shared/domain/location-labels';
 import {
@@ -27,10 +26,10 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 
 /**
- * One match of a wish: the collector (marker data: name, approximate place, distance bucket,
- * rating, activity) and the matching public item (picture, printing, condition / availability /
- * offers chips, price, freshness, public note), with Message, View binder, On the map and
- * Dismiss. Never a coordinate: places and distances are the server's approximations.
+ * One match of a wish: the collector (marker data: name, state/province and country, rating,
+ * activity) and the matching public item (picture, printing, condition / availability / offers
+ * chips, price, freshness, public note), with Message, View binder, "Binders in <state>" (the
+ * map) and Dismiss. Never a city, a coordinate or a distance (ADR 0017).
  */
 @Component({
   selector: 'app-wish-match-card',
@@ -63,10 +62,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
           }}</a>
           <p class="mc__place">
             <mat-icon aria-hidden="true">location_on</mat-icon>
-            <span>{{ c.publicLabel }}</span>
-            @if (distance(); as distance) {
-              <span class="mc__distance" data-testid="match-distance">{{ distance }}</span>
-            }
+            <span data-testid="match-place">{{ c.place.label }}</span>
           </p>
           <p class="mc__facts">
             <span><mat-icon aria-hidden="true">star</mat-icon>{{ rating() }}</span>
@@ -144,7 +140,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
         }
         <a matButton routerLink="/map" [queryParams]="mapQuery()" (click)="navigate.emit()">
           <mat-icon aria-hidden="true">map</mat-icon>
-          On the map
+          Binders in {{ c.place.subdivisionName }}
         </a>
       </div>
       <p class="mc__when">
@@ -216,14 +212,6 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
       margin-right: 2px;
       font-size: 16px;
       vertical-align: -3px;
-    }
-    .mc__distance {
-      padding: 1px var(--spacing-2);
-      border-radius: var(--radius-pill);
-      background: var(--color-accent-container);
-      color: var(--color-on-accent-container);
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-semibold);
     }
     .mc__active {
       display: inline-flex;
@@ -321,9 +309,6 @@ export class WishMatchCardComponent {
   /** A link inside the card was followed (the drawer closes). */
   readonly navigate = output<void>();
 
-  protected readonly distance = computed(() =>
-    distanceBucketLabel(this.match().distanceBucket ?? this.match().collector.distanceBucket),
-  );
   protected readonly rating = computed(() => ratingLabel(this.match().collector.rating));
   protected readonly lastActive = computed(() => {
     const bucket = this.match().collector.lastActiveBucket;
@@ -347,10 +332,9 @@ export class WishMatchCardComponent {
   );
   protected readonly freshness = computed(() => badgeFreshness(this.match().item.freshness.state));
   /** Holders of this printing on the map (the list shows who they are). */
+  /** `/map` on the holder's state or province. */
   protected readonly mapQuery = computed(() => {
-    const item = this.match().item;
-    return item.printing.id
-      ? { printing: item.printing.id, view: 'list' }
-      : { card: item.card.id, view: 'list' };
+    const place = this.match().collector.place;
+    return { region: place.regionCode, subdivision: place.subdivisionCode };
   });
 }

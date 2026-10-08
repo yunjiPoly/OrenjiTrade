@@ -27,7 +27,7 @@ function me(overrides: Partial<MeResponse> = {}): MeResponse {
     roles: ['USER'] as unknown as MeResponse['roles'],
     status: 'ACTIVE' as MeResponse['status'],
     createdAt: '2026-09-01T00:00:00Z',
-    onboarding: { profileComplete: true, tradingAreaSet: true, interestsSet: true },
+    onboarding: { profileComplete: true, locationSet: true, interestsSet: true },
     requiredConsents: [],
     plan: 'FREE',
     ...overrides,
@@ -94,7 +94,7 @@ describe('SessionService', () => {
     await signInAndAnswer(
       me({
         roles: ['USER', 'MODERATOR'] as unknown as MeResponse['roles'],
-        onboarding: { profileComplete: false, tradingAreaSet: false, interestsSet: false },
+        onboarding: { profileComplete: false, locationSet: false, interestsSet: false },
       }),
     );
     expect(session.status()).toBe('ready');
@@ -112,7 +112,7 @@ describe('SessionService', () => {
       me({
         onboarding: {
           profileComplete: true,
-          tradingAreaSet: true,
+          locationSet: true,
           interestsSet: true,
           ageConfirmed: false,
         },
@@ -128,7 +128,7 @@ describe('SessionService', () => {
       me({
         onboarding: {
           profileComplete: true,
-          tradingAreaSet: true,
+          locationSet: true,
           interestsSet: true,
           ageConfirmed: true,
         },

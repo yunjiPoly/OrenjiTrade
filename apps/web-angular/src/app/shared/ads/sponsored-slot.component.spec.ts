@@ -94,7 +94,7 @@ describe('SponsoredSlotComponent', () => {
   it('labels every ad "Sponsored", links through the click route and records impressions once', async () => {
     await create([ad('c-1', { label: 'Promoted' })]);
     expect(api['listAds']).toHaveBeenCalledWith(
-      { placement: 'MAP_PANEL' },
+      { placement: 'MAP_PANEL', region: 'americas-north' },
       'body',
       false,
       expect.anything(),

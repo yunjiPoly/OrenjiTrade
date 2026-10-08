@@ -2,6 +2,13 @@
   <mat-toolbar class="top-bar__toolbar">
     <app-wordmark class="top-bar__wordmark" />
 
+    <!-- The switcher's menu is a lazy chunk; the placeholder already names the browsed region. -->
+    @defer (on idle) {
+      <app-region-switcher class="top-bar__region" />
+    } @placeholder {
+      <span class="top-bar__region top-bar__region--placeholder">{{ regionName() }}</span>
+    }
+
     <nav class="top-bar__nav" aria-label="Primary">
       @for (link of navLinks(); track link.path) {
         <a

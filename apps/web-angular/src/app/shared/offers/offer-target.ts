@@ -9,7 +9,7 @@ import { allowedOfferKinds } from './offer-labels';
 
 /**
  * What the "Make an offer" dialog shows about the seller: identity and, when known, the
- * approximate place (region label only; never a point).
+ * state/province and country (never a city or a point, ADR 0017).
  */
 export interface OfferSeller {
   id: string;
@@ -88,7 +88,7 @@ export function sellerFromMarker(collector: CollectorMarker): OfferSeller {
     displayName: collector.displayName,
     handle: collector.handle,
     avatarUrl: collector.avatarUrl ?? null,
-    placeLabel: collector.publicLabel,
+    placeLabel: collector.place.label,
   };
 }
 
@@ -99,7 +99,7 @@ export function sellerFromParty(party: OfferParty): OfferSeller {
     displayName: party.displayName,
     handle: party.handle,
     avatarUrl: party.avatarUrl ?? null,
-    placeLabel: party.location?.publicLabel ?? null,
+    placeLabel: party.place?.label ?? null,
   };
 }
 

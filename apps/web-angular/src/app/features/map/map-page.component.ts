@@ -12,130 +12,77 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
-import {
-  CollectorPreview,
-  ConversationSummary,
-  MatchingItem,
-  ProfileService,
-  SearchSuggestion,
-} from '@orenji/api-client';
+import { Router, RouterLink } from '@angular/router';
+import { SearchSuggestion } from '@orenji/api-client';
 import { map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { SessionService } from '../../core/auth/session.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
-import { silentErrors } from '../../core/http/http-context';
-import { GamesStore } from '../../shared/catalog/games.store';
-import { tagLabel } from '../../shared/discovery/discovery-labels';
-import { gameInfo } from '../../shared/domain/games';
-import { CityPreset, DEFAULT_TRADING_CENTER } from '../../shared/location/city-presets';
-import { MapCircle, MapViewport } from '../../shared/map/map-adapter';
-import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
-import { ReportActionsService } from '../../shared/reports/report-actions.service';
+import { RegionContext } from '../../core/region/region-context.service';
+import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
+import { REGION_CODE, RegionsStore, subdivisionLabel } from '../../shared/regions/regions.store';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
-import { WishlistActions } from '../../shared/wishlist/wishlist-actions.service';
-import { AreaPromptComponent } from './area-prompt/area-prompt.component';
-import { CollectorPreviewCardComponent } from './collector-preview/collector-preview-card.component';
-import { MapDiscoveryStore } from './data/map-discovery.store';
-import { buildCollectorMarkers, handleFromMarkerId } from './data/map-markers';
-import { MapParams, mapParamsToQuery, parseMapParams } from './data/map-params';
-import { DiscoveryPanelComponent } from './discovery-panel/discovery-panel.component';
-import { MapCanvasComponent } from './map-canvas/map-canvas.component';
-import {
-  FilterOption,
-  MapFilterChange,
-  MapFiltersBarComponent,
-} from './map-filters-bar/map-filters-bar.component';
-import { MapLegendComponent } from './map-legend/map-legend.component';
+import { BoundaryMapComponent } from './boundary-map/boundary-map.component';
+import { SHADE_LEGEND, binderCountLabel } from './data/boundaries';
+import { RegionMapStore } from './data/region-map.store';
 import { MessagesPanelComponent } from './messages-panel.component';
-import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
+import { SubdivisionListComponent } from './subdivision-list/subdivision-list.component';
+import { SubdivisionPanelComponent } from './subdivision-panel/subdivision-panel.component';
 
 /** Design-system `md` breakpoint: the messages panel docks to the side from here. */
 const WIDE_QUERY = '(min-width: 960px)';
+/** ISO 3166-2 first-level code or a whole-country alpha-2 code. */
+const SUBDIVISION_CODE = /^[A-Z]{2}(-[A-Z0-9]{1,3})?$/;
 
 /**
- * `/map`, the flagship discovery page (Phase 4 contract, "Web /map page"): a full-height map of
- * collectors at their approximate public positions, the unified search (a card or printing
- * switches to "holders of X"), a list alternative, the preview card, the filter bar and the
- * Messages panel (conversations and threads, Phase 5; "Message" in the preview opens the
- * conversation there). Filters live in the URL; the map position never does.
+ * `/map?region=&subdivision=` (ADR 0017): the browsed platform region as a map of its states and
+ * provinces shaded by public binders, the accessible list of the same places, and the binders of
+ * the chosen one (`subdivision`), plus the unified search and the Messages panel. No collector
+ * positions exist: the map is drawn from bundled boundary files.
  */
 @Component({
   selector: 'app-map-page',
   imports: [
+    RouterLink,
     MatSidenavModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressBarModule,
     MatTooltipModule,
-    AreaPromptComponent,
-    CollectorPreviewCardComponent,
-    DiscoveryPanelComponent,
-    MapCanvasComponent,
-    MapFiltersBarComponent,
-    MapLegendComponent,
+    BoundaryMapComponent,
     MessagesPanelComponent,
     SponsoredSlotComponent,
+    SubdivisionListComponent,
+    SubdivisionPanelComponent,
     UnifiedSearchBoxComponent,
   ],
-  providers: [MapDiscoveryStore],
+  providers: [RegionMapStore],
   templateUrl: './map-page.component.html',
   styleUrl: './map-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MapPageComponent {
-  protected readonly store = inject(MapDiscoveryStore);
+  protected readonly store = inject(RegionMapStore);
+  protected readonly regions = inject(RegionsStore);
+  protected readonly context = inject(RegionContext);
   private readonly router = inject(Router);
   private readonly breakpoints = inject(BreakpointObserver);
-  private readonly gamesStore = inject(GamesStore);
-  private readonly profileApi = inject(ProfileService);
-  private readonly starter = inject(ConversationStarterService);
-  private readonly reports = inject(ReportActionsService);
-  private readonly wishlist = inject(WishlistActions);
-
-  /** Signed in: the Messages panel shows the collector's conversations. */
-  protected readonly signedIn = inject(AuthService).isAuthenticated;
-  /** Conversation opened from the preview's Message button (handed to the panel). */
-  protected readonly panelConversation = signal<ConversationSummary | null>(null);
-  /** A conversation with the previewed collector is being opened. */
-  protected readonly messaging = computed(() => {
-    const preview = this.store.preview();
-    return preview.kind === 'ready' && this.starter.starting() === preview.preview.id;
-  });
+  private readonly session = inject(SessionService);
 
   // Query parameters (withComponentInputBinding).
-  readonly game = input<string | undefined>();
-  readonly availability = input<string | undefined>();
-  readonly freshness = input<string | undefined>();
-  readonly tags = input<string | undefined>();
-  readonly radius = input<string | undefined>();
-  readonly card = input<string | undefined>();
-  readonly printing = input<string | undefined>();
-  readonly view = input<string | undefined>();
+  readonly region = input<string | undefined>();
+  readonly subdivision = input<string | undefined>();
 
-  protected readonly params = computed<MapParams>(() =>
-    parseMapParams({
-      game: this.game(),
-      availability: this.availability(),
-      freshness: this.freshness(),
-      tags: this.tags(),
-      radius: this.radius(),
-      card: this.card(),
-      printing: this.printing(),
-      view: this.view(),
-    }),
-  );
-
-  protected readonly fallbackCentre = DEFAULT_TRADING_CENTER;
+  protected readonly legend = SHADE_LEGEND;
+  /** Signed in: the Messages panel shows the collector's conversations. */
+  protected readonly signedIn = inject(AuthService).isAuthenticated;
   protected readonly isWide = toSignal(
     this.breakpoints.observe(WIDE_QUERY).pipe(map((state) => state.matches)),
     { initialValue: this.breakpoints.isMatched(WIDE_QUERY) },
   );
-  /** Open by default on wide screens; the user can collapse it. */
-  protected readonly panelOpened = signal(this.isWide());
+  protected readonly panelOpened = signal(false);
   protected readonly panelMode = computed(() => (this.isWide() ? 'side' : 'over'));
   /** Unread messages of the signed-in collector (badge on the panel toggle). */
   protected readonly unreadMessages = signal(0);
@@ -145,240 +92,129 @@ export class MapPageComponent {
     return unread > 0 ? `${label}, ${unread} unread` : label;
   });
 
-  protected readonly listOpen = computed(() => this.params().view === 'list');
-  protected readonly holdersMode = computed(() => this.store.holders() !== null);
-  /** Holders mode: the previewed collector's listings of the card (from their marker). */
-  protected readonly previewMatchingItems = computed<readonly MatchingItem[]>(() => {
-    if (!this.holdersMode()) {
-      return [];
+  protected readonly regionCode = this.context.current;
+  protected readonly regionName = computed(() => this.regions.regionName(this.regionCode()));
+  protected readonly platformRegion = computed(() => this.regions.region(this.regionCode()));
+  /** Map tooltips and the panel title: "Quebec, Canada" per subdivision code. */
+  protected readonly names = computed(() => {
+    const names = new Map<string, string>();
+    for (const entry of this.regions.subdivisionsOf(this.regionCode())) {
+      names.set(entry.subdivision.code, subdivisionLabel(entry));
     }
-    const handle = this.store.selectedHandle();
-    return (
-      this.store.collectors().find((collector) => collector.handle === handle)?.matchingItems ?? []
-    );
+    return names;
   });
-  protected readonly holdersQuery = computed<Record<string, string>>(() => {
-    const target = this.store.holders();
-    return target ? { [target.kind]: target.id } : {};
+  protected readonly selected = computed(() => this.store.binders()?.code ?? null);
+  protected readonly selectedTitle = computed(() => {
+    const code = this.selected();
+    return code ? (this.names().get(code) ?? code) : '';
   });
-  protected readonly markerSet = computed(() =>
-    buildCollectorMarkers(
-      this.store.collectors(),
-      this.store.zoom(),
-      this.store.selectedHandle(),
-      this.store.selfId(),
-    ),
-  );
-  /** The dashed search radius under the collectors' approximate-area discs. */
-  protected readonly circles = computed<readonly MapCircle[]>(() => {
-    const result = this.store.result();
-    const search: MapCircle[] = result
-      ? [
-          {
-            id: 'search-radius',
-            center: result.center,
-            radiusMeters: this.store.radiusKm() * 1000,
-            variant: 'search',
-          },
-        ]
-      : [];
-    return [...search, ...this.markerSet().areas];
+  protected readonly selectedSubtitle = computed(() => {
+    const code = this.selected();
+    return code ? binderCountLabel(this.store.countByCode().get(code)) : '';
   });
-  protected readonly showAreaPrompt = computed(() => this.store.origin() === 'city');
-  /** Suggestions are ranked around the shown city; own areas are known to the server. */
-  protected readonly searchCentre = computed(() =>
-    this.store.origin() === 'city' ? this.store.city().center : null,
-  );
   protected readonly statusLabel = computed(() => {
-    const result = this.store.result();
-    if (!result) {
-      return this.store.error() ? 'Collectors could not load' : 'Finding collectors…';
+    if (this.store.countsError()) {
+      return 'Binder counts could not load';
     }
-    const count = result.total;
-    const radius = Math.round(result.radiusKm * 10) / 10;
-    if (count === 0) {
-      return this.holdersMode()
-        ? `Nobody lists this card within ${radius} km yet`
-        : `No collectors within ${radius} km yet`;
+    if (!this.store.counts()) {
+      return 'Counting binders…';
     }
-    const noun = count === 1 ? 'collector' : 'collectors';
-    const scope = this.holdersMode() ? `${noun} with this card` : noun;
-    return `${count} ${scope} within ${radius} km`;
+    return `${binderCountLabel(this.store.total())} in ${this.regionName()}`;
   });
-  protected readonly errorMessage = computed(() => {
-    const error = this.store.error();
+  protected readonly countsErrorMessage = computed(() => {
+    const error = this.store.countsError();
     return error ? friendlyMessage(error) : '';
   });
-  protected readonly previewIsSelf = computed(() => {
-    const preview = this.store.preview();
-    return preview.kind === 'ready' && preview.preview.id === this.store.selfId();
-  });
-
-  protected readonly gameOptions = computed<FilterOption[]>(() =>
-    (this.gamesStore.games() ?? [])
-      .filter((game) => !!game.slug)
-      .map((game) => ({
-        value: game.slug ?? '',
-        label: game.name ?? gameInfo(game.slug ?? '').label,
-      })),
+  /** Gentle prompt: a signed-in collector who has not said where they are yet. */
+  protected readonly promptDismissed = signal(false);
+  protected readonly showLocationPrompt = computed(
+    () =>
+      !this.promptDismissed() &&
+      this.session.status() === 'ready' &&
+      this.session.me()?.onboarding.locationSet === false,
   );
-  private readonly knownTags = signal<ReadonlyMap<string, string>>(new Map());
-  private tagsLoaded = false;
-  protected readonly tagOptions = computed<FilterOption[]>(() => {
-    const labels = this.knownTags();
-    const slugs = new Set<string>(labels.keys());
-    for (const collector of this.store.collectors()) {
-      for (const tag of collector.tags) {
-        slugs.add(tag);
-      }
-    }
-    return [...slugs]
-      .map((slug) => ({ value: slug, label: tagLabel(slug, labels) }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  });
+  protected readonly mapLabel = computed(
+    () =>
+      `Map of ${this.regionName()}: states and provinces shaded by their number of public binders`,
+  );
+
+  /** Last `?region=` applied to the region context (a stale URL never overrides the switcher). */
+  private appliedRequest: string | null = null;
 
   constructor() {
+    void this.regions.load();
+    effect(() => this.panelOpened.set(this.isWide() && this.signedIn()));
+    // The URL's region (a shared link, back/forward) selects the region once; the switcher's
+    // choice is then mirrored back into the URL.
     effect(() => {
-      const params = this.params();
-      untracked(() => this.store.setParams(params));
+      const requested = this.region();
+      const current = this.context.current();
+      untracked(() => {
+        if (requested && requested !== this.appliedRequest && REGION_CODE.test(requested)) {
+          this.appliedRequest = requested;
+          if (requested !== current) {
+            this.context.select(requested);
+            return;
+          }
+        }
+        this.store.setRegion(current);
+        if (requested !== current) {
+          this.appliedRequest = current;
+          this.navigate(current, null, true);
+        }
+      });
     });
-    effect(() => this.panelOpened.set(this.isWide()));
-    void this.gamesStore.load();
-    void this.store.init();
+    effect(() => {
+      const code = this.subdivision()?.toUpperCase() ?? null;
+      const region = this.store.region();
+      untracked(() => {
+        if (region && code && SUBDIVISION_CODE.test(code)) {
+          this.store.openSubdivision(code);
+        } else {
+          this.store.closeSubdivision();
+        }
+      });
+    });
   }
 
-  /** "Message" in the preview: open (or create) the conversation in the Messages panel. */
-  protected async onMessage(preview: CollectorPreview): Promise<void> {
-    const conversation = await this.starter.start(preview.id);
-    if (!conversation) {
-      return;
-    }
-    this.panelConversation.set(conversation);
-    this.panelOpened.set(true);
-    if (!this.isWide()) {
-      // On phones and tablets the panel covers the map: the preview would sit behind it.
-      this.store.select(null);
-    }
+  protected openSubdivision(code: string): void {
+    this.navigate(this.regionCode(), code, false);
   }
 
-  /** "Report" in the preview: the Report collector modal (the preview is a profile view). */
-  protected async onReport(preview: CollectorPreview): Promise<void> {
-    await this.reports.report(
-      {
-        id: preview.id,
-        displayName: preview.displayName,
-        handle: preview.handle,
-        avatarUrl: preview.avatarUrl,
-      },
-      { source: 'PROFILE' },
-    );
+  protected closeSubdivision(): void {
+    this.navigate(this.regionCode(), null, false);
   }
 
   protected togglePanel(): void {
     this.panelOpened.update((opened) => !opened);
   }
 
-  protected toggleList(): void {
-    this.navigate({ ...this.params(), view: this.listOpen() ? 'map' : 'list' });
-  }
-
-  protected closeList(): void {
-    this.navigate({ ...this.params(), view: 'map' });
-  }
-
-  protected clearHolders(): void {
-    this.navigate({ ...this.params(), card: null, printing: null, view: 'map' }, false);
-  }
-
-  /** Holders mode: put the card (or printing) on the wishlist. */
-  protected addHoldersToWishlist(): void {
-    const target = this.store.holders();
-    if (target) {
-      void this.wishlist.add(
-        target.kind === 'card' ? { cardId: target.id } : { printingId: target.id },
-      );
-    }
-  }
-
-  protected onViewport(viewport: MapViewport): void {
-    this.store.viewportChanged(viewport);
-  }
-
-  protected onMarker(id: string): void {
-    const handle = handleFromMarkerId(id);
-    if (handle) {
-      this.store.select(handle);
-      return;
-    }
-    const bounds = this.markerSet().clusters.get(id);
-    if (bounds) {
-      this.store.zoomTo(bounds);
-    }
-  }
-
-  protected onFilters(change: MapFilterChange): void {
-    this.navigate({ ...this.params(), ...change });
-  }
-
-  protected onCity(city: CityPreset): void {
-    this.store.chooseCity(city);
-  }
-
   /** A choice in the map's search box. */
   protected onPicked(suggestion: SearchSuggestion): void {
     const holders = holdersParams(suggestion);
     if (holders) {
-      this.store.select(null);
-      this.navigate(
-        {
-          ...this.params(),
-          card: holders['card'] ?? null,
-          printing: holders['printing'] ?? null,
-          view: 'list',
-        },
-        false,
-      );
-      return;
-    }
-    if (suggestion.type === 'COLLECTOR' && suggestion.slug) {
-      this.store.select(suggestion.slug);
-      return;
-    }
-    if (suggestion.type === 'TAG') {
-      const slug = suggestion.slug ?? suggestion.id;
-      const tags = this.params().tags.includes(slug) ? this.params().tags : [slug];
-      this.navigate({ ...this.params(), tags });
+      void this.router.navigate(['/search'], { queryParams: holders });
       return;
     }
     const page = suggestionPage(suggestion);
     if (page) {
       void this.router.navigate(page);
+      return;
     }
+    void this.router.navigate(['/search'], {
+      queryParams: { q: suggestion.label ?? suggestion.slug ?? '' },
+    });
   }
 
   protected onSubmitted(text: string): void {
     void this.router.navigate(['/search'], { queryParams: { q: text } });
   }
 
-  private navigate(params: MapParams, replaceUrl = true): void {
+  private navigate(region: string, subdivision: string | null, replaceUrl: boolean): void {
     void this.router.navigate(['/map'], {
-      queryParams: mapParamsToQuery(params),
+      queryParams: { region, subdivision },
+      queryParamsHandling: 'merge',
       replaceUrl,
     });
-  }
-
-  /** Tag labels (`GET /tags`, signed-in only) are loaded the first time the tag list opens. */
-  protected onTagsRequested(): void {
-    if (this.tagsLoaded || !this.store.signedIn()) {
-      return;
-    }
-    this.tagsLoaded = true;
-    this.profileApi
-      .searchTags({ limit: 40 }, 'body', false, { context: silentErrors() })
-      .subscribe({
-        next: (tags) =>
-          this.knownTags.set(new Map((tags ?? []).map((tag) => [tag.slug, tag.label] as const))),
-        error: () => (this.tagsLoaded = false),
-      });
   }
 }

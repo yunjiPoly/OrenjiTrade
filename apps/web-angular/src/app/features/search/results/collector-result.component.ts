@@ -3,7 +3,6 @@ import { RouterLink } from '@angular/router';
 import type { CollectorMarker, MatchingItem } from '@orenji/api-client';
 import { CardPictures, pictureFor } from '../../../shared/catalog/card-pictures';
 import { listingsLabel, ratingLabel, tagLabel } from '../../../shared/discovery/discovery-labels';
-import { distanceBucketLabel } from '../../../shared/domain/location-labels';
 import { badgeFreshness, formatPrice } from '../../../shared/inventory/inventory-labels';
 import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-chips.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
@@ -12,7 +11,7 @@ import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.compon
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /**
- * A collector in search results: avatar, name (profile link), approximate place and distance,
+ * A collector in search results: avatar, name (profile link), state/province and country,
  * listing freshness, games and tags, and, for card searches, their listings of the card.
  */
 @Component({
@@ -33,12 +32,7 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
         <h3 class="cr__name">
           <a class="cr__link" [routerLink]="['/collectors', c.handle]">{{ c.displayName }}</a>
         </h3>
-        <p class="cr__meta">
-          &#64;{{ c.handle }} · {{ c.publicLabel }}
-          @if (distance(); as distance) {
-            · {{ distance }}
-          }
-        </p>
+        <p class="cr__meta">&#64;{{ c.handle }} · {{ c.place.label }}</p>
         <p class="cr__meta">{{ rating() }}</p>
         <div class="cr__badges">
           <app-freshness-badge compact [state]="freshness()" [label]="listings()" />
@@ -146,9 +140,6 @@ export class CollectorResultComponent {
   /** Pictures of the searched card (listing thumbnails); `null` shows the placeholder art. */
   readonly pictures = input<CardPictures | null>(null);
 
-  protected readonly distance = computed(() =>
-    this.signedIn() ? distanceBucketLabel(this.collector().distanceBucket) : null,
-  );
   protected readonly rating = computed(() => ratingLabel(this.collector().rating));
   protected readonly freshness = computed(() => badgeFreshness(this.collector().binderFreshness));
   protected readonly listings = computed(() => listingsLabel(this.collector()));

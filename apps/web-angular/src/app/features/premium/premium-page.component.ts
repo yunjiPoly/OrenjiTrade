@@ -63,7 +63,7 @@ import { UsageMetersComponent } from './usage-meters.component';
     <div class="page premium">
       <app-page-header
         title="Premium"
-        subtitle="More binder views and alerts, a wider map radius, advanced filters and no ads."
+        subtitle="More binder views and alerts, advanced filters and no ads."
       />
 
       @if (welcome()) {
@@ -350,7 +350,7 @@ export class PremiumPageComponent {
         : {
             title: 'Cancel Premium now?',
             message:
-              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist, map radius and ads).',
+              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist and ads).',
             confirmLabel: 'Cancel now',
             cancelLabel: 'Keep Premium',
             tone: 'danger',

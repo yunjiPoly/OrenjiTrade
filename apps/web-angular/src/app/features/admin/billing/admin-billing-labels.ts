@@ -19,7 +19,7 @@ export const CAMPAIGN_STATUSES = ['DRAFT', 'ACTIVE', 'PAUSED', 'ENDED'] as const
 export const CREATIVE_STATUSES = ['DRAFT', 'ACTIVE', 'PAUSED', 'ARCHIVED'] as const;
 export const ADVERTISER_STATUSES = ['ACTIVE', 'PAUSED', 'ARCHIVED'] as const;
 export const PRICING_MODELS = ['CPM', 'CPC', 'FLAT'] as const;
-export const TARGETING_KINDS = ['GAME', 'REGION_LABEL', 'GEO_CELL', 'TAG', 'PLAN'] as const;
+export const TARGETING_KINDS = ['GAME', 'REGION', 'COUNTRY', 'SUBDIVISION', 'TAG', 'PLAN'] as const;
 export const GRANT_REASONS = ['ADMIN', 'PROMO', 'REWARD', 'CORRECTION'] as const;
 
 /** API bounds (`AdRequests`, `CreditRequests`, `UpdatePlanRequest`). */
@@ -54,11 +54,12 @@ export function placementLabel(key: string | null | undefined): string {
 
 const TARGETING_LABELS: Record<string, { label: string; hint: string }> = {
   GAME: { label: 'Game', hint: 'A game slug, e.g. pokemon' },
-  REGION_LABEL: {
-    label: 'Region',
-    hint: 'A public region label, e.g. Montréal (never coordinates)',
+  REGION: { label: 'Platform region', hint: 'americas-north, americas-south or europe' },
+  COUNTRY: { label: 'Country', hint: 'An ISO 3166-1 alpha-2 code, e.g. CA' },
+  SUBDIVISION: {
+    label: 'State or province',
+    hint: 'An ISO 3166-2 code, e.g. CA-QC (never a city or coordinates)',
   },
-  GEO_CELL: { label: 'Grid cell', hint: 'A public ~1 km grid cell id, e.g. r5058c-5728' },
   TAG: { label: 'Tag', hint: 'A profile tag slug' },
   PLAN: { label: 'Plan', hint: 'FREE, PREMIUM or ANONYMOUS (signed-out visitors)' },
 };
@@ -84,7 +85,7 @@ export function targetingValueError(kind: string, value: string): string | null 
     return `Keep it under ${LIMITS.targetingValue} characters.`;
   }
   if (/-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}/.test(text)) {
-    return 'Coordinates are never used for targeting: use a region label or a grid cell.';
+    return 'Coordinates are never used for targeting: use a region, country or state code.';
   }
   switch (kind) {
     case 'GAME':
@@ -92,8 +93,14 @@ export function targetingValueError(kind: string, value: string): string | null 
       return /^[a-z0-9][a-z0-9-]{0,63}$/.test(text)
         ? null
         : 'Use a lower-case slug (letters, digits, dashes).';
-    case 'GEO_CELL':
-      return /^r-?\d+c-?\d+$/.test(text) ? null : 'Use a grid cell id like r5058c-5728.';
+    case 'REGION':
+      return /^[a-z]+(-[a-z]+)*$/.test(text) ? null : 'Use a region code like americas-north.';
+    case 'COUNTRY':
+      return /^[A-Za-z]{2}$/.test(text) ? null : 'Use a two-letter country code like CA.';
+    case 'SUBDIVISION':
+      return /^[A-Za-z]{2}(-[A-Za-z0-9]{1,3})?$/.test(text)
+        ? null
+        : 'Use an ISO 3166-2 code like CA-QC.';
     case 'PLAN':
       return /^[A-Z_]{2,32}$/.test(text)
         ? null

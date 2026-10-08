@@ -19,7 +19,6 @@ import { ReactiveFormsModule } from '@angular/forms';
 import {
   CardDetail,
   CatalogService,
-  PlansService,
   PrintingSummary,
   WishlistItemResponse,
   WishlistService,
@@ -37,14 +36,11 @@ import { SkeletonComponent } from '../ui/skeleton/skeleton.component';
 import { PickedCard, WishCardPickerComponent } from './wish-card-picker.component';
 import { WishCriteriaFieldsComponent } from './wish-criteria-fields.component';
 import {
-  RADIUS_LIMIT_KEY,
   WISH_ITEMS_LIMIT_KEY,
   WishForm,
   applyServerErrors,
-  clampRadius,
   createWishForm,
   newWishDefaults,
-  radiusSliderMax,
   toCreateWishRequest,
   toUpdateWishRequest,
   wishFormFromItem,
@@ -78,8 +74,8 @@ export function openWishlistDialog(
 /**
  * The add/edit wish dialog: card autocomplete (`GET /cards/suggest`) → optional printing →
  * criteria (condition minimum, edition, language, rarity from the game's schema, maximum price
- * and currency, radius bounded by the plan's `map.radius.max_km` from `GET /me/plan`, trade
- * preference, notes). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish
+ * and currency, trade preference, notes). Matches come from collectors of the same platform
+ * region (ADR 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish
  * (409) and plan limits (429, the limit dialog opens too) are explained inline.
  */
 @Component({
@@ -131,13 +127,7 @@ export function openWishlistDialog(
         </div>
         @if (form(); as form) {
           <form id="wish-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-            <app-wish-criteria-fields
-              [form]="form"
-              [schema]="schema()"
-              [printings]="printings()"
-              [radiusMax]="radiusMax()"
-              [radiusCap]="radiusCap()"
-            />
+            <app-wish-criteria-fields [form]="form" [schema]="schema()" [printings]="printings()" />
           </form>
         }
       } @else if (loadingCard()) {
@@ -147,7 +137,7 @@ export function openWishlistDialog(
         </div>
       } @else {
         <p class="wd__lead">
-          Which card are you looking for? We'll tell you when a collector nearby lists it.
+          Which card are you looking for? We'll tell you when a collector of your region lists it.
         </p>
         <app-wish-card-picker (picked)="pick($event)" />
       }
@@ -231,7 +221,6 @@ export class WishlistItemDialogComponent {
   private readonly dialogRef =
     inject<MatDialogRef<WishlistItemDialogComponent, WishlistItemResponse>>(MatDialogRef);
   private readonly catalog = inject(CatalogService);
-  private readonly plansApi = inject(PlansService);
   private readonly wishlistApi = inject(WishlistService);
   private readonly games = inject(GamesStore);
 
@@ -243,17 +232,10 @@ export class WishlistItemDialogComponent {
   protected readonly form = signal<WishForm | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
-  /** `map.radius.max_km` of the caller's plan: `undefined` until known, `null` = unlimited. */
-  protected readonly radiusCap = signal<number | null | undefined>(undefined);
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
   protected readonly schema = computed(() => this.games.schema(this.card()?.game));
   protected readonly cardImage = computed(() => this.card()?.primaryImageUrl ?? null);
-  protected readonly radiusMax = computed(() => {
-    const cap = this.radiusCap();
-    // Until the plan answers, the FREE cap of the API default keeps the slider honest.
-    return cap === undefined ? 25 : radiusSliderMax(cap);
-  });
   protected readonly saveLabel = computed(() => {
     if (this.saving()) {
       return 'Saving…';
@@ -266,7 +248,6 @@ export class WishlistItemDialogComponent {
 
   constructor() {
     void this.games.load();
-    void this.loadRadiusCap();
     inject(DestroyRef).onDestroy(() => this.cardSubscription?.unsubscribe());
     if (this.data.mode === 'edit') {
       const item = this.data.item;
@@ -349,8 +330,6 @@ export class WishlistItemDialogComponent {
             ? `Your wishlist is full: your plan allows ${info.limit} wishes. Remove one or upgrade to add more.`
             : 'Your wishlist is full on your current plan. Remove a wish or upgrade to add more.',
         );
-      } else if (info.limitKey === RADIUS_LIMIT_KEY) {
-        this.error.set('This distance is beyond what your plan allows. Choose a smaller radius.');
       } else {
         this.error.set(friendlyMessage(error));
       }
@@ -368,23 +347,6 @@ export class WishlistItemDialogComponent {
         ? `${friendlyError(error).message} (${unmapped.join('; ')})`
         : friendlyError(error).message,
     );
-  }
-
-  private async loadRadiusCap(): Promise<void> {
-    try {
-      const plan = await firstValueFrom(
-        this.plansApi.getMyPlan('body', false, { context: silentErrors() }),
-      );
-      const status = plan.limits?.find((entry) => entry.key === RADIUS_LIMIT_KEY);
-      this.radiusCap.set(status?.limit ?? null);
-    } catch {
-      this.radiusCap.set(undefined);
-    }
-    const form = this.form();
-    if (form && this.radiusCap() !== undefined) {
-      const control = form.controls.radiusKm;
-      control.setValue(clampRadius(control.value, this.radiusMax()));
-    }
   }
 
   /** Loads the card (from a printing id when only that is known) and prepares the form. */
@@ -409,9 +371,7 @@ export class WishlistItemDialogComponent {
           this.card.set(card);
           if (!this.form()) {
             const known = (card.printings ?? []).some((printing) => printing.id === printingId);
-            this.form.set(
-              createWishForm(newWishDefaults(known ? printingId : null, this.radiusMax())),
-            );
+            this.form.set(createWishForm(newWishDefaults(known ? printingId : null)));
           }
         },
         error: (error: unknown) => {
