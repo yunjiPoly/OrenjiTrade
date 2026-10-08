@@ -116,8 +116,13 @@ export function LocationFields({ value, onChange, showErrors, disabled }: Locati
         disabled={disabled}
         testID="location-show-city"
       />
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-        Others only see your state or province and your country.
+      <Text
+        style={[textStyle('sm'), { color: palette.textMuted }]}
+        testID="location-show-city-hint"
+      >
+        {value.showCity
+          ? 'Your city appears on your profile only. Everywhere else, others see your state or province and your country.'
+          : 'Your city stays private. Others see your state or province and your country.'}
       </Text>
       {missing ? <FormMessage testID="location-missing">{missing}</FormMessage> : null}
     </View>

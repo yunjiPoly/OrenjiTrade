@@ -158,6 +158,14 @@ describe('Settings → Location and discoverability', () => {
     const save = screen.getByRole('button', { name: 'Save location' });
     expect(save).toBeDisabled();
     expect(screen.queryByTestId('collector-map-view')).toBeNull();
+    // The hint under "Show my city on my profile" says where the city appears.
+    const hint = screen.getByTestId('location-show-city-hint');
+    expect(hint).toHaveTextContent(/^Your city appears on your profile only\. Everywhere else/);
+    fireEvent.press(screen.getByRole('switch', { name: 'Show my city on my profile' }));
+    expect(screen.getByTestId('location-show-city-hint')).toHaveTextContent(
+      'Your city stays private. Others see your state or province and your country.'
+    );
+    fireEvent.press(screen.getByRole('switch', { name: 'Show my city on my profile' }));
 
     fireEvent.press(screen.getByTestId('location-subdivision'));
     fireEvent.press(await screen.findByTestId('location-subdivision-option-CA-ON'));
