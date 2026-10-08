@@ -39,7 +39,8 @@ public class ChannelRepository {
 
     /**
      * Channels ordered by sort order and name. {@code activeOnly} hides archived ones; {@code game}
-     * and {@code region} filter by game slug and (accent- and case-insensitive) city.
+     * and {@code region} filter by game slug and (accent- and case-insensitive) region label: the
+     * platform region code of region channels (ADR 0017).
      */
     public List<ChannelRow> list(
             boolean activeOnly, @Nullable String game, @Nullable String region, Instant now) {

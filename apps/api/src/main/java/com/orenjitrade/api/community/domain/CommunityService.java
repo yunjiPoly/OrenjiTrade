@@ -28,6 +28,7 @@ import com.orenjitrade.api.community.infra.ReplyRepository.ReplyRow;
 import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.games.domain.GameService;
+import com.orenjitrade.api.location.domain.RegionCatalog;
 import com.orenjitrade.api.messaging.domain.BlockService;
 import com.orenjitrade.api.moderation.domain.ContentModerationState;
 import com.orenjitrade.api.moderation.domain.FlagSubjectType;
@@ -44,6 +45,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -112,6 +114,7 @@ public class CommunityService {
     private final CatalogService catalog;
     private final PublicBinderService publicBinders;
     private final GameService games;
+    private final RegionCatalog regions;
     private final AuditService auditService;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
@@ -130,6 +133,7 @@ public class CommunityService {
             CatalogService catalog,
             PublicBinderService publicBinders,
             GameService games,
+            RegionCatalog regions,
             AuditService auditService,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
@@ -146,6 +150,7 @@ public class CommunityService {
         this.catalog = catalog;
         this.publicBinders = publicBinders;
         this.games = games;
+        this.regions = regions;
         this.auditService = auditService;
         this.events = events;
         this.timeProvider = timeProvider;
@@ -156,7 +161,10 @@ public class CommunityService {
     // Channels
     // ---------------------------------------------------------------------------------------
 
-    /** {@code GET /community/channels}: active channels, optionally by game and city. */
+    /**
+     * {@code GET /community/channels}: active channels, optionally by game and by platform region
+     * code (the region channels, ADR 0017).
+     */
     @Transactional(readOnly = true)
     public List<ChannelView> channels(
             AuthenticatedUser viewer, @Nullable String game, @Nullable String region) {
@@ -830,16 +838,22 @@ public class CommunityService {
         return slug;
     }
 
-    private static @Nullable String validateRegion(
+    /**
+     * The region of a region channel: a platform region code (ADR 0017: one channel per platform
+     * region, never a city). Blank means none; anything else that is not a code is refused.
+     */
+    private @Nullable String validateRegion(
             @Nullable String region, List<ProblemFieldError> errors) {
         if (region == null || region.isBlank()) {
             return null;
         }
-        String label = region.trim();
-        if (label.length() > 120) {
-            errors.add(new ProblemFieldError("regionLabel", "must be at most 120 characters"));
+        String code = region.trim().toLowerCase(Locale.ROOT);
+        if (regions.region(code).isEmpty()) {
+            errors.add(
+                    new ProblemFieldError(
+                            "regionLabel", "must be a platform region code (GET /regions)"));
         }
-        return label;
+        return code;
     }
 
     private static String requireText(String field, @Nullable String raw, int max) {

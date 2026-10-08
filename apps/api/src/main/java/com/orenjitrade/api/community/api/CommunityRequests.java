@@ -74,7 +74,10 @@ public final class CommunityRequests {
             @Schema(requiredMode = RequiredMode.REQUIRED) @NotNull ChannelKind kind,
             @Schema(description = "Game slug", example = "pokemon") @Size(max = 32)
                     @Nullable String game,
-            @Schema(description = "City of region channels", example = "Québec") @Size(max = 120)
+            @Schema(
+                            description = "Platform region code of region channels (GET /regions)",
+                            example = "americas-north")
+                    @Size(max = 120)
                     @Nullable String regionLabel,
             @Size(max = 500) @Nullable String description,
             @Schema(description = "Posts per member per hour (default 10)") @Min(1) @Max(1000)
@@ -92,6 +95,7 @@ public final class CommunityRequests {
             @Min(0) @Max(100_000) @Nullable Integer sortOrder,
             @Schema(description = "Game slug; blank removes it") @Size(max = 32)
                     @Nullable String game,
-            @Schema(description = "City; blank removes it") @Size(max = 120)
+            @Schema(description = "Platform region code (GET /regions); blank removes it")
+                    @Size(max = 120)
                     @Nullable String regionLabel) {}
 }

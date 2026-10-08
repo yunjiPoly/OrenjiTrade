@@ -3935,7 +3935,7 @@ export interface paths {
         };
         /**
          * Community channels
-         * @description Active channels ordered for display. `game` filters by game slug, `region` by city (accent- and case-insensitive). 404 FEATURE_DISABLED while the publicChat flag is off.
+         * @description Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.
          */
         get: operations["listCommunityChannels"];
         put?: never;
@@ -8820,8 +8820,8 @@ export interface components {
              */
             game?: string;
             /**
-             * @description City of region channels
-             * @example Québec
+             * @description Platform region code of region channels (GET /regions)
+             * @example americas-north
              */
             regionLabel?: string;
             description?: string;
@@ -8973,7 +8973,7 @@ export interface components {
             sortOrder?: number;
             /** @description Game slug; blank removes it */
             game?: string;
-            /** @description City; blank removes it */
+            /** @description Platform region code (GET /regions); blank removes it */
             regionLabel?: string;
         };
         CardImageCacheGameStatus: {
@@ -27099,7 +27099,7 @@ export interface operations {
             query?: {
                 /** @description Game slug */
                 game?: string;
-                /** @description City, e.g. Montréal */
+                /** @description Platform region code (GET /regions), e.g. americas-north */
                 region?: string;
             };
             header?: never;

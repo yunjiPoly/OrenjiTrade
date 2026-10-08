@@ -490,14 +490,14 @@ class CommunityIT extends AbstractIntegrationTest {
     void moderatorsManageChannelsWithAnAudit() {
         Member moderator = member("chan-mod", Role.MODERATOR);
         Member collector = member("chan-user");
-        String slug = "quebec-pokemon-" + UUID.randomUUID().toString().substring(0, 6);
+        String slug = "europe-pokemon-" + UUID.randomUUID().toString().substring(0, 6);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("slug", slug);
-        body.put("name", "Québec / Pokémon");
+        body.put("name", "Europe / Pokémon");
         body.put("kind", "REGION");
         body.put("game", "pokemon");
-        body.put("regionLabel", "Québec");
-        body.put("description", "Pokémon around Québec City");
+        body.put("regionLabel", "Europe");
+        body.put("description", "Pokémon across Europe");
         callJson(HttpMethod.POST, "/api/v1/admin/community/channels", collector.uid(), body, 403);
         JsonNode created =
                 callJson(
@@ -510,6 +510,19 @@ class CommunityIT extends AbstractIntegrationTest {
         assertThat(created.path("status").asString()).isEqualTo("ACTIVE");
         assertThat(created.path("postRateLimitPerHour").asInt()).isEqualTo(10);
         callJson(HttpMethod.POST, "/api/v1/admin/community/channels", moderator.uid(), body, 409);
+        assertThat(created.path("regionLabel").asString()).isEqualTo("europe");
+        // A region channel names a platform region, never a city (ADR 0017).
+        Map<String, Object> city = new LinkedHashMap<>(body);
+        city.put("slug", slug + "-city");
+        city.put("regionLabel", "Québec");
+        JsonNode refused =
+                callJson(
+                        HttpMethod.POST,
+                        "/api/v1/admin/community/channels",
+                        moderator.uid(),
+                        city,
+                        400);
+        assertThat(refused.toString()).contains("regionLabel");
         Map<String, Object> badGame = new LinkedHashMap<>(body);
         badGame.put("slug", slug + "-x");
         badGame.put("game", "chess");

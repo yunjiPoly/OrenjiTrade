@@ -20797,7 +20797,7 @@
           "community"
         ],
         "summary": "Community channels",
-        "description": "Active channels ordered for display. `game` filters by game slug, `region` by city (accent- and case-insensitive). 404 FEATURE_DISABLED while the publicChat flag is off.",
+        "description": "Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.",
         "operationId": "listCommunityChannels",
         "parameters": [
           {
@@ -20814,7 +20814,7 @@
           {
             "name": "region",
             "in": "query",
-            "description": "City, e.g. Montréal",
+            "description": "Platform region code (GET /regions), e.g. americas-north",
             "required": false,
             "schema": {
               "type": "string",
@@ -36985,8 +36985,8 @@
           },
           "regionLabel": {
             "type": "string",
-            "description": "City of region channels",
-            "example": "Québec",
+            "description": "Platform region code of region channels (GET /regions)",
+            "example": "americas-north",
             "maxLength": 120,
             "minLength": 0
           },
@@ -37491,7 +37491,7 @@
           },
           "regionLabel": {
             "type": "string",
-            "description": "City; blank removes it",
+            "description": "Platform region code (GET /regions); blank removes it",
             "maxLength": 120,
             "minLength": 0
           }
