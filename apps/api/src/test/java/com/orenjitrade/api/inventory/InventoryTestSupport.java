@@ -117,7 +117,8 @@ public final class InventoryTestSupport {
                         + " card_printing WHERE id = ?",
                 printingId,
                 cardId,
-                code.substring(code.indexOf('-') + 1) + code.substring(1, 4),
+                // Every letter of the code's token: three letters (26^3) collided across the suite.
+                code.substring(code.indexOf('-') + 1) + code.substring(1, code.indexOf('-')),
                 language,
                 code,
                 source);
