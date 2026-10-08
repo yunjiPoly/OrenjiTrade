@@ -107,7 +107,7 @@ console.log(
     ['@example.test accounts in the database (not deleted yet)', plan.accounts],
     ['  active / suspended / deletion requested', `${plan.active} / ${plan.suspended} / ${plan.deletionRequested}`],
     ['  their locations (user_location rows)', plan.locations],
-    ['    discoverable (public point set)', plan.discoverable],
+    ['    discoverable (on the region map)', plan.discoverable],
     ['  their binders', plan.binders],
     ['  their inventory items', plan.items],
     ['@example.test accounts in the Auth emulator', emulatorPlan],

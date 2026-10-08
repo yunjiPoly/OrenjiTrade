@@ -53,7 +53,7 @@ jobs:
       # Random per-run values (masked in the logs): never the local defaults, never real secrets.
       - name: Generate CI-only secrets
         run: |
-          for name in SERVICE_TOKEN LOCATION_JITTER_SECRET CONSENT_IP_SALT; do
+          for name in SERVICE_TOKEN CONSENT_IP_SALT; do
             value="ci-$(openssl rand -hex 24)"
             echo "::add-mask::$value"
             echo "$name=$value" >> "$GITHUB_ENV"
@@ -112,7 +112,7 @@ jobs:
           EMAIL_PROVIDER: log
           CORS_ALLOWED_ORIGINS: http://localhost:4300
           ADS_WEB_BASE_URL: http://localhost:4300
-        # SERVICE_TOKEN, LOCATION_JITTER_SECRET and CONSENT_IP_SALT come from $GITHUB_ENV. The
+        # SERVICE_TOKEN and CONSENT_IP_SALT come from $GITHUB_ENV. The
         # identity block under /actuator/info is what the suite's global setup checks.
         run: |
           export STORAGE_LOCAL_ROOT="$RUNNER_TEMP/e2e/media"
@@ -212,7 +212,7 @@ jobs:
 
       - name: Generate CI-only secrets
         run: |
-          for name in SERVICE_TOKEN LOCATION_JITTER_SECRET CONSENT_IP_SALT; do
+          for name in SERVICE_TOKEN CONSENT_IP_SALT; do
             value="ci-$(openssl rand -hex 24)"
             echo "::add-mask::$value"
             echo "$name=$value" >> "$GITHUB_ENV"

@@ -433,8 +433,6 @@ export function webRuntimeConfig({ apiUrl, emulatorHost = 'localhost:9099' }) {
       appId: '',
     },
     firebaseAuthEmulatorHost: emulatorHost,
-    googleMapsApiKey: '',
-    googleMapsMapId: '',
     environment: 'local',
   };
 }

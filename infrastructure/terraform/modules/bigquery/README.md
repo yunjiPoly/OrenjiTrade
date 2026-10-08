@@ -2,7 +2,7 @@
 
 Dataset `orenjitrade_analytics` and table `events` with the fixed analytics schema
 (`event_id`, `event_type`, `event_version`, `occurred_at TIMESTAMP`, `actor_hash`,
-`region_label`, `geo_cell`, `payload JSON`), partitioned by day on `occurred_at` and clustered
+`region_code`, `subdivision_code`, `payload JSON`), partitioned by day on `occurred_at` and clustered
 by `event_type`. Grants the Pub/Sub service agent `bigquery.dataEditor` on the table and
 `bigquery.metadataViewer` on the dataset so a BigQuery subscription can write.
 
