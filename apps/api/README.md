@@ -564,7 +564,8 @@ entitled visitors are not limited; a refused view consumes nothing.
   several printings of one card, an exact card name, or a single card hit resolves the card.
 - Collector text matching is substring-only (handle, display name, tag label or slug); fuzzy
   matching is kept for `suggest`.
-- `nearby` is a reserved handle (the route `/collectors/nearby` shadows it).
+- `nearby` is a reserved handle (it was shadowed by the route `/collectors/nearby`, removed by
+  ADR 0017; it stays reserved so old links never land on a collector).
 - Phase 4 adds no seed data: discovery reads the Phase 1 to 3 seed (profiles, trading areas,
   binders, items).
 

@@ -89,9 +89,11 @@ location). `GET/PUT/DELETE /api/v1/me/location`:
 - The map is a **choropleth of binder counts per state/province** (`GET
   /api/v1/regions/{region}/binder-counts`) and a **list of public binders per state/province**
   (`GET /api/v1/regions/{region}/subdivisions/{code}/binders`, cursor pages of 1–50). Both are
-  public; anonymous answers are cached (the discovery cache, invalidated by publications, location,
-  privacy, account-state and region changes) and may be cached by a CDN only when no
-  `Authorization` header is sent; signed-in answers apply blocks and are never cached.
+  public; anonymous answers are cached server side (the Redis discovery cache, 60 s, invalidated
+  by publications, location, privacy, account-state and region changes); signed-in answers apply
+  blocks and are computed live. Like every other API answer outside the card images and media,
+  they carry `Cache-Control: no-cache, no-store`, so no browser or CDN stores them; edge caching
+  of anonymous answers would be a separate decision.
 - The collector map endpoints (`/collectors/nearby`, `/collectors/{handle}/preview`) are removed.
 
 ### Map rendering (amends ADR 0010)

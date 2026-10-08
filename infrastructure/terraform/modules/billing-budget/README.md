@@ -27,5 +27,5 @@ unset (`null`) in tfvars used by other operators. Requires `billingbudgets.googl
 (enabled by the project-services module).
 
 A budget never stops spending by itself; it only notifies. The hard limits are the sizing
-variables (max instances, Cloud SQL tier) and the Maps JavaScript API quota set in the
-console.
+variables (max instances, Cloud SQL tier). There is no Maps API to cap any more: the map draws
+bundled boundary files (ADR 0017).

@@ -40,7 +40,9 @@ Admin: `PUT /api/v1/admin/regions/countries/{code}` (ADMIN) body `{ "regionCode"
   → `MyLocationResponse`. 400 `VALIDATION_FAILED` for an unknown or inactive country, a
   subdivision of another country, or a city that is longer than 80 characters, uses other
   characters than letters, digits, spaces and `.,'’()&-`, looks like a coordinate or breaks the
-  profile text rules. The city is never geocoded.
+  profile text rules. The city is never geocoded. Like every request body of the API, unknown
+  properties (for instance an old client's `lat`, `lng` or `radiusKm`) are ignored and never
+  stored: `user_location` has no column that could hold them.
 - `DELETE /api/v1/me/location` → 204; discoverability is turned off.
 - `PUT /api/v1/me/settings/privacy` with `discoverable: true` and no location → 409
   `LOCATION_REQUIRED`. `showDistance` is gone from the privacy settings.
@@ -69,10 +71,18 @@ it). Nothing else ever carries a city.
   "subdivisions": [ { "code": "CA-QC", "binderCount": 5 } ] }` (public binders of discoverable
   collectors per subdivision; 404 for an unknown region).
 - `GET /api/v1/regions/{region}/subdivisions/{code}/binders?cursor=&limit=` → cursor page of
-  `PublicBinderSummary` (1–50 per page; 404 for a subdivision outside the region).
+  `PublicBinderSummary` (1–50 per page; 404 for a subdivision outside the region). Every row's
+  `owner` carries `place` (state/province + country, never the city); the web panel shows it on
+  each row.
 
-Both are public. Anonymous answers are cached and may be cached by a CDN; answers to a request
-with an `Authorization` header apply blocks and are never cached.
+Both are public. Anonymous answers are cached **server side only** (the Redis discovery cache,
+60 s, invalidated by publications, location, privacy, account-state and region changes); answers
+to a request with an `Authorization` header apply blocks and are computed live. Like `/meta`,
+`/cards`, `/search` and `/public/binders`, every answer carries Spring Security's
+`Cache-Control: no-cache, no-store, max-age=0, must-revalidate`, so neither browsers nor Cloudflare
+store them (the Cloudflare cache rules cover only `/api/v1/public/card-images`,
+`/placeholder-images` and `/media`). Making the anonymous answers edge-cacheable would be a
+separate change (a `public` `Cache-Control` on anonymous answers only plus a cache rule).
 
 ## Wishlist, community, ads, plans
 

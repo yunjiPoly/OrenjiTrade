@@ -2057,11 +2057,21 @@ the Premium "wider map radius" copy; `LOCATION_JITTER_SECRET`, `GOOGLE_MAPS_API_
 `GOOGLE_MAPS_MAP_ID` (web) and `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (mobile); the city community
 channels (archived).
 
-**Mobile follow-ups (not in S1):** draw the boundary map in the Map tab (the same bundled
-GeoJSON; `react-native-maps` polygons or the web map in a WebView); a region switcher on mobile
-(today the home region is browsed); remove `react-native-webview` if nothing else needs it (the
-Leaflet page was its only user); the wishlist matches screens are interim until S2 removes
-matches.
+**Mobile follow-ups (not in S1, owner spec section 7; record of what the app still lacks):**
+1. A region switcher on mobile (today the app browses the collector's home region, else
+   `americas-north`).
+2. The state/province binder list (the web's `/map` panel: `GET /regions/{region}/binder-counts`
+   and `GET /regions/{region}/subdivisions/{code}/binders`) and the boundary map in the Map tab
+   (the same bundled GeoJSON; `react-native-maps` polygons or a WebView); the tab shows placeholder
+   copy until then.
+3. The printing picker of the card page (S3: "Any printing", per-printing rows with rarity and
+   holder counts, rarity/set/edition/language filters).
+4. The have/want lists of the card page ("Who has it" / "Who wants it", S3 section 2b) and
+   "Wanted by N" on inventory items.
+5. Remove `react-native-maps` once the Map tab no longer needs it (kept installed in S1 by the
+   owner's instruction), and `react-native-webview` if nothing else needs it (the Leaflet page was
+   its only user).
+6. The wishlist matches screens are interim until S2 removes matches.
 
 **Known gaps:**
 - Mobile: the Map tab does not draw the boundary map yet and there is no region switcher (the
@@ -2072,8 +2082,10 @@ matches.
   and passed on retry and in the final run; not related to S1, watch for it.
 - Region-scoped answers list the whole platform region: specs isolate by region, handle or item,
   and wishlist matching can pair collectors far apart in a large state or across a region.
-- Anonymous region-map answers are CDN-cacheable only without an `Authorization` header; the
-  Cloudflare cache rules were not changed for them (no cloud deployment yet).
+- Region-map answers are cached server side only (Redis discovery cache, 60 s); like `/meta`,
+  `/cards` and `/search` they carry `Cache-Control: no-cache, no-store`, so no browser or CDN
+  stores them. Edge caching of the anonymous answers would be a separate change (a `public`
+  header on anonymous answers plus a Cloudflare cache rule).
 - The admin channel list still shows the raw region code of REGION channels (admin-only).
 
 ## Phase 11 — ML

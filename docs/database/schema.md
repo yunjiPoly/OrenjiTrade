@@ -396,7 +396,7 @@ A missing row means the safe defaults below.
 | Column | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `user_id` | `uuid` | | PK, FK → `user_account.id` (cascade) |
-| `discoverable` | `boolean` | `false` | opt-in to the map; while `false`, `user_location.public_point` is `NULL` |
+| `discoverable` | `boolean` | `false` | opt-in to the map, search and holder lists; needs a declared country and state/province (`user_location`, ADR 0017: `409 LOCATION_REQUIRED` without them) and is turned off when the location is removed |
 | `show_online_status` | `boolean` | `false` | presence (Phase 5) |
 | `show_last_active` | `boolean` | `true` | bucketed last activity on the public profile |
 | `profile_visibility` | `text` | `MEMBERS` | `PUBLIC`, `MEMBERS`, `PRIVATE` (404 for everyone but the owner) |
