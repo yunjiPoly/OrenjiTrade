@@ -1,9 +1,9 @@
-# Wishlist + notifications (mobile Phase 6): Wren (fresh, fictional, discoverable around a random
-# rural point) adds Emberfang Fox to her wishlist through the app; Hal, about 1.5 km away, lists
-# it publicly (host script scripts/wishlist.js). The matcher notifies Wren over the realtime
-# channel: the bell's badge and the wish's match count rise without a reload; the notification
-# opens the wish's matches (Hal's place and distance bucket, never a coordinate), and Message
-# opens a conversation with Hal.
+# Wishlist + notifications (mobile Phase 6, ADR 0017): Wren (fresh, fictional, discoverable, in
+# Montevideo: Americas (South), a region no other flow uses) adds Emberfang Fox to her wishlist
+# through the app; Hal, in the same region, lists it publicly (host script scripts/wishlist.js).
+# The matcher pairs the region: it notifies Wren over the realtime channel, the bell's badge and
+# the wish's match count rise without a reload; the notification opens the wish's matches (Hal's
+# state, never a distance or a position), and Message opens a conversation with Hal.
 appId: host.exp.exponent
 name: Wishlist match, notification and deep link
 tags:
@@ -34,7 +34,7 @@ tags:
 - tapOn:
     id: 'wishlist-empty-action'
 
-# The wish: card autocomplete, then the radius (the FREE plan stops at 25 km).
+# The wish: card autocomplete, then save (no radius: the wish matches the region).
 - extendedWaitUntil:
     visible:
       id: 'card-picker-input'
@@ -53,22 +53,8 @@ tags:
     visible:
       id: 'wish-card'
     timeout: 60000
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'wish-radius-decrease'
-- assertVisible:
-    id: 'wish-radius-value'
-    text: '25 km'
-- tapOn:
-    id: 'wish-radius-decrease'
-- tapOn:
-    id: 'wish-radius-decrease'
-- tapOn:
-    id: 'wish-radius-decrease'
-- assertVisible:
-    id: 'wish-radius-value'
-    text: '10 km'
+- assertNotVisible:
+    id: 'wish-radius'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -86,10 +72,9 @@ tags:
       ACTION: expect-wish
       EMAIL: ${output.wren.email}
       PASSWORD: ${output.wren.password}
-      EXPECT_RADIUS: '10'
 - takeScreenshot: wishlist-wish
 
-# Hal lists the card nearby: the bell and the match count follow live.
+# Hal lists the card in the region: the bell and the match count follow live.
 - runScript:
     file: scripts/wishlist.js
     env:
@@ -124,8 +109,11 @@ tags:
       id: 'wish-matches-head'
     timeout: 60000
 - assertVisible: 'Hal Maestro'
-# The place and the distance bucket (nested text: on Android one line, no id of its own).
-- assertVisible: '.* · .*km away'
+# Hal's state, never a distance.
+- assertVisible:
+    id: 'match-place'
+    text: 'Montevideo, Uruguay'
+- assertNotVisible: '.*km away.*'
 - takeScreenshot: wishlist-matches
 
 # Message Hal from the match.

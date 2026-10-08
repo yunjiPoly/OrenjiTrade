@@ -4,10 +4,10 @@ import {
   apiPublicBinder,
   apiUpdatePrivacy,
   createOnboardedCollector,
-  nearArea,
   openTab,
+  PLACE_LABELS,
+  PLACES,
   printingIdOf,
-  randomRuralArea,
   requireStack,
   screen,
   signInThroughUi,
@@ -20,33 +20,37 @@ function word(): string {
 
 /**
  * The Search tab's Collectors and Binders segments (stage M7, the web's `/search` tabs on
- * `GET /search`): collectors on the map who allow name search, by name or handle, with the API's
- * distance bucket only; public binders by name with their owner; recent searches per segment; the
- * rows open the existing profile and public binder screens. The request never carries the
- * viewer's position (the server uses their trading area).
+ * `GET /search`): collectors on the map who allow name search, by name or handle, with their
+ * state or province only; public binders by name with their owner; recent searches per segment;
+ * the rows open the existing profile and public binder screens. The request names the home
+ * region (ADR 0017), never a position; collectors of another region are never listed.
  */
 test.describe('mobile search segments', () => {
   requireStack();
 
-  test('collectors by name or handle with approximate distances, public binders by name, recent searches per segment', async ({
+  test('collectors by name or handle with their state, public binders by name, recent searches per segment', async ({
     page,
     request,
   }) => {
     test.setTimeout(180_000);
-    const area = randomRuralArea();
     const token = word();
     const neighbour = await createOnboardedCollector(request, 'sneigh', `${token} Neighbour`, {
-      area: nearArea(area),
+      location: PLACES.ontario,
       discoverable: true,
     });
     // On the map, but opted out of name search: never a result.
     const hidden = await createOnboardedCollector(request, 'shid', `${token} Hidden`, {
-      area: nearArea(area),
+      location: PLACES.ontario,
       discoverable: true,
     });
     await apiUpdatePrivacy(request, hidden.idToken, { searchDiscoverable: false });
+    // On the map of another region: never a result of the viewer's region.
+    const abroad = await createOnboardedCollector(request, 'sabroad', `${token} Abroad`, {
+      location: PLACES.brittany,
+      discoverable: true,
+    });
     const viewer = await createOnboardedCollector(request, 'sview', 'Mobile Seeker', {
-      area,
+      location: PLACES.quebec,
       discoverable: true,
     });
     const binderId = await apiPublicBinder(request, neighbour, `${token} trade binder`);
@@ -63,9 +67,9 @@ test.describe('mobile search segments', () => {
     const search = screen(page, 'search');
     await search.getByRole('tab', { name: 'Collectors' }).click();
     await expect(search.getByTestId('search-collectors-idle')).toBeVisible({ timeout: 30_000 });
-    await expect(search.getByText('Who trades near you?')).toBeVisible();
+    await expect(search.getByText('Who trades in your region?')).toBeVisible();
 
-    // By name: the request carries the text and no position.
+    // By name: the request carries the text and the home region, never a position.
     const asked = page.waitForRequest(
       (candidate) =>
         candidate.url().includes('/api/v1/search?') && candidate.url().includes('types=collectors')
@@ -73,16 +77,18 @@ test.describe('mobile search segments', () => {
     await search.getByLabel('Find a collector').fill(token);
     const url = new URL((await asked).url());
     expect(url.searchParams.get('q')).toBe(token);
+    expect(url.searchParams.get('region')).toBe('americas-north');
     expect(url.searchParams.has('lat')).toBe(false);
     expect(url.searchParams.has('lng')).toBe(false);
     const row = search.getByTestId(`collector-result-${neighbour.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
     const count = search.getByTestId('search-collectors-count');
     await expect(count).toContainText(`1 collector for “${token}”`);
-    await expect(count).toContainText('Locations are approximate (about 3 km)');
     await expect(row).toContainText(`@${neighbour.handle}`);
-    await expect(row).toContainText(/km/);
+    await expect(row).toContainText(PLACE_LABELS.ontario);
+    await expect(row).not.toContainText(/\bkm\b|away/);
     await expect(search.getByTestId(`collector-result-${hidden.handle}`)).toHaveCount(0);
+    await expect(search.getByTestId(`collector-result-${abroad.handle}`)).toHaveCount(0);
 
     // By handle; a submitted search is remembered (a typed one only once a row is opened).
     await search.getByLabel('Find a collector').fill(neighbour.handle);

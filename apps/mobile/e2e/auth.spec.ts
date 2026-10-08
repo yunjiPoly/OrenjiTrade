@@ -90,7 +90,7 @@ test.describe('mobile accounts', () => {
     await verifyEmailInEmulator(request, email);
     await verify.getByRole('button', { name: 'I have verified my email' }).click();
 
-    // Onboarding: profile (a taken handle first), interests, trading area.
+    // Onboarding: profile (a taken handle first), interests, location.
     const onboarding = screen(page, 'onboarding');
     await expect(
       onboarding.getByRole('heading', { name: "Let's set up your collector profile" })
@@ -119,29 +119,26 @@ test.describe('mobile accounts', () => {
     await expect(onboarding.getByTestId('tag-count')).toHaveText('1 / 12');
     await onboarding.getByRole('button', { name: 'Continue' }).click();
 
-    await expect(onboarding.getByRole('heading', { name: 'Where do you trade?' })).toBeVisible();
-    // The trading area: the launch city by default, moved by a tap on the map (Leaflet on web).
-    const summary = onboarding.getByTestId('area-centre-summary');
-    await expect(summary).toHaveText('Centre: Montréal city centre.');
-    const map = onboarding.getByTestId('trading-area-map');
-    await expect(map.locator('.leaflet-pane').first()).toBeAttached({ timeout: 30_000 });
-    await map.scrollIntoViewIfNeeded();
-    const box = await map.boundingBox();
-    if (!box) {
-      throw new Error('The trading-area map has no box.');
-    }
-    await map.click({ position: { x: box.width / 2 - 40, y: box.height / 2 - 40 } });
-    await expect(summary).toHaveText('Centre: the point you chose on the map.');
+    // Where are you? Pickers fed by GET /regions: no map, no GPS (ADR 0017).
+    await expect(onboarding.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await expect(page.locator('.leaflet-container')).toHaveCount(0);
+    await onboarding.getByTestId('location-country').click();
+    await page.getByTestId('location-country-option-CA').click();
+    await onboarding.getByTestId('location-subdivision').click();
+    await page.getByTestId('location-subdivision-option-CA-QC').click();
     const discoverable = onboarding.getByRole('switch', { name: 'Show me on the map' });
     await expect(discoverable).toHaveAttribute('aria-checked', 'false');
     const put = page.waitForRequest(
-      (request) =>
-        request.method() === 'PUT' && request.url().endsWith('/api/v1/me/location/trading-area')
+      (request) => request.method() === 'PUT' && request.url().endsWith('/api/v1/me/location')
     );
     await onboarding.getByRole('button', { name: 'Finish' }).click();
-    const sent = (await put).postDataJSON() as { lat: number; lng: number; source: string };
-    expect(sent.source).toBe('MANUAL');
-    expect([sent.lat, sent.lng]).not.toEqual([45.502, -73.567]);
+    const sent = (await put).postDataJSON() as Record<string, unknown>;
+    expect(sent).toEqual({
+      countryCode: 'CA',
+      subdivisionCode: 'CA-QC',
+      city: null,
+      showCity: true,
+    });
 
     // The tabs; the profile shows the new identity and the default (hidden) visibility.
     await expect(snackbar(page)).toHaveText('Welcome to OrenjiTrade! Your profile is ready.', {
@@ -151,7 +148,7 @@ test.describe('mobile accounts', () => {
     const profile = screen(page, 'profile');
     await expect(profile.getByTestId('profile-name')).toHaveText('Mobile Newbie');
     await expect(profile.getByTestId('profile-handle-label')).toHaveText(`@${handle}`);
-    await expect(profile.getByTestId('profile-area')).toContainText('5 km radius');
+    await expect(profile.getByTestId('profile-area')).toHaveText('Quebec, Canada');
     await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
 
     await profile.getByRole('button', { name: 'Sign out' }).click();

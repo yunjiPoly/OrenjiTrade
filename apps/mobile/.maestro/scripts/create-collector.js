@@ -2,7 +2,7 @@
 // through the local Firebase Auth emulator and the isolated mobile E2E API (:8090, database
 // orenjitrade_mobile_e2e), like the web E2E helper `createOnboardedCollector`: accepted terms, a
 // saved profile with one game (onboarding complete), the 18+ confirmation (unless
-// CONFIRM_AGE=false), no trading area, not discoverable. Seed accounts are never modified.
+// CONFIRM_AGE=false), no location, not discoverable. Seed accounts are never modified.
 //
 // The email is `m-<RUN_ID>-maestro-<PREFIX>-<suffix>@mobile-e2e.test`, so
 // `npm run test:mobile:maestro` deletes exactly the accounts of its run from the emulator at the

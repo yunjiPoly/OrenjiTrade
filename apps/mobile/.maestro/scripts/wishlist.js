@@ -1,19 +1,20 @@
 // Maestro runScript (runs on the host): the two collectors of the wishlist flow, through the
 // local Firebase Auth emulator and the isolated mobile E2E API (:8090). Both are fresh, fictional
-// `@mobile-e2e.test` accounts of this run, around a random rural point of Québec (no other flow
-// or spec uses it, so listings of earlier runs never match).
+// `@mobile-e2e.test` accounts of this run, both in Montevideo (Americas (South), ADR 0017: the
+// matcher pairs a platform region; no other flow or spec uses that region, so listings of other
+// flows never match).
 //
-// ACTION=setup creates Wren (the app user: trading area, discoverable) and Hal (about 1.5 km
-//   away, discoverable, with a public binder).
+// ACTION=setup creates Wren (the app user: a location, discoverable) and Hal (in the same region,
+//   discoverable, with a public binder).
 //   Outputs: output.wren.{email, password, displayName}, output.hal.{email, password,
 //            displayName, binderId}
 // ACTION=list lists one public copy of PFT-002 (Emberfang Fox) in Hal's binder (EMAIL /
 //   PASSWORD = Hal's, BINDER): the matcher then notifies Wren.
-// ACTION=expect-wish checks, as Wren, that the wishlist holds one Emberfang Fox wish with
-//   EXPECT_RADIUS km.
+// ACTION=expect-wish checks, as Wren, that the wishlist holds one Emberfang Fox wish (with no
+//   radius: wishes match the collector's region).
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
-// BINDER, EXPECT_RADIUS.
+// BINDER.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -75,13 +76,9 @@ function signIn(email, password) {
   ).idToken;
 }
 
-/** 3 decimals, never ending in 0 (like a hand-picked centre). */
-function pick(min, span) {
-  var value = Math.round((min + Math.random() * span) * 1000);
-  return (value % 10 === 0 ? value + 3 : value) / 1000;
-}
+var MONTEVIDEO = { countryCode: 'UY', subdivisionCode: 'UY-MO' };
 
-function createCollector(prefix, displayName, lat, lng) {
+function createCollector(prefix, displayName, place) {
   var suffix = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   var email = 'm-' + runId + '-maestro-' + prefix + '-' + suffix + '@mobile-e2e.test';
   var password = 'Maestro-Pass-42';
@@ -122,11 +119,16 @@ function createCollector(prefix, displayName, lat, lng) {
     'PUT /me/profile'
   );
   check(
-    http.put(api + '/api/v1/me/location/trading-area', {
+    http.put(api + '/api/v1/me/location', {
       headers: jsonHeaders(token),
-      body: JSON.stringify({ lat: lat, lng: lng, radiusKm: 5, source: 'MANUAL' }),
+      body: JSON.stringify({
+        countryCode: place.countryCode,
+        subdivisionCode: place.subdivisionCode,
+        city: null,
+        showCity: true,
+      }),
     }),
-    'PUT /me/location/trading-area'
+    'PUT /me/location'
   );
   var privacy = check(
     http.get(api + '/api/v1/me/settings/privacy', { headers: jsonHeaders(token) }),
@@ -144,15 +146,8 @@ function createCollector(prefix, displayName, lat, lng) {
 }
 
 if (action === 'setup') {
-  var lat = pick(47.1, 1.3);
-  var lng = pick(-78.8, 7.8);
-  var wren = createCollector('wren', 'Wren Maestro', lat, lng);
-  var hal = createCollector(
-    'hal',
-    'Hal Maestro',
-    Math.round((lat + 0.011) * 1000) / 1000,
-    Math.round((lng - 0.014) * 1000) / 1000
-  );
+  var wren = createCollector('wren', 'Wren Maestro', MONTEVIDEO);
+  var hal = createCollector('hal', 'Hal Maestro', MONTEVIDEO);
   var binder = check(
     http.post(api + '/api/v1/binders', {
       headers: jsonHeaders(hal.token),
@@ -217,8 +212,8 @@ if (action === 'setup') {
   if (wishes.length !== 1 || !wishes[0].card || wishes[0].card.name !== 'Emberfang Fox') {
     throw new Error('Expected one Emberfang Fox wish, got ' + wishes.length + '.');
   }
-  if (String(wishes[0].radiusKm) !== String(EXPECT_RADIUS)) {
-    throw new Error('Expected a radius of ' + EXPECT_RADIUS + ' km, got ' + wishes[0].radiusKm);
+  if ('radiusKm' in wishes[0]) {
+    throw new Error('A wish still carries a radius: wishes match the region (ADR 0017).');
   }
 } else {
   throw new Error('Unknown ACTION ' + action);

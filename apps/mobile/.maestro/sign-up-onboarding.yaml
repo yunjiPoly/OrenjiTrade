@@ -1,8 +1,8 @@
 # Sign up -> verification -> onboarding -> tabs (Phase 1): a new fictional collector
 # (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) accepts the versioned legal documents and the
 # 18+ confirmation (its own checkbox, never ticked by "Accept all"), verifies the email through
-# the local Auth emulator, completes the three onboarding steps with a manual trading area and
-# stays hidden from the map (discoverability defaults to off).
+# the local Auth emulator, completes the three onboarding steps (the location step with the
+# pickers: Canada, Quebec) and stays hidden from the map (discoverability defaults to off).
 appId: host.exp.exponent
 name: Sign up and onboarding
 tags:
@@ -128,29 +128,39 @@ tags:
 - tapOn:
     id: 'onboarding-interests-continue'
 
-# Step 3: a manual trading area on the map (the Québec quick pick: its public centre and suggested
-# radius); the map opt-in stays off. Edge swipes only: a swipe over the map would pan it.
+# Step 3: where are you? The pickers fed by GET /regions (Canada, then Quebec): no map, no GPS
+# (ADR 0017); the map opt-in stays off.
 - extendedWaitUntil:
     visible:
-      id: 'onboarding-area'
+      id: 'onboarding-location'
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      id: 'trading-area-map'
+      id: 'location-country'
     timeout: 30000
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'area-city-quebec'
 - tapOn:
-    id: 'area-city-quebec'
-- runFlow:
-    file: subflows/scroll-up-to.yaml
-    env:
-      ID: 'area-centre-summary'
-- assertVisible:
-    id: 'area-centre-summary'
-    text: 'Centre: Québec city centre.'
+    id: 'location-country'
+- scrollUntilVisible:
+    element:
+      id: 'location-country-option-CA'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'location-country-option-CA'
+- extendedWaitUntil:
+    visible:
+      id: 'location-subdivision'
+    timeout: 15000
+- tapOn:
+    id: 'location-subdivision'
+- scrollUntilVisible:
+    element:
+      id: 'location-subdivision-option-CA-QC'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'location-subdivision-option-CA-QC'
+- takeScreenshot: sign-up-location-step
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -183,7 +193,7 @@ tags:
       ID: 'profile-visibility'
 - assertVisible:
     id: 'profile-area'
-    text: '.*Québec.*15 km radius'
+    text: 'Quebec, Canada'
 - assertVisible:
     id: 'profile-visibility'
     text: 'Hidden from the map.'

@@ -32,7 +32,6 @@ test.describe('mobile collector wishlist', () => {
       conditionMin: 'LIGHTLY_PLAYED',
       maxPrice: 30,
       currency: 'CAD',
-      radiusKm: 15,
     });
     await apiAddWish(request, closed, cardId);
     await apiUpdatePrivacy(request, open.idToken, { wishlistVisible: true });
@@ -49,8 +48,8 @@ test.describe('mobile collector wishlist', () => {
     await expect(profile.getByTestId('collector-name')).toHaveText('Open Wisher', {
       timeout: 30_000,
     });
-    // The public entry carries the card, the printing and the condition; never the price or
-    // the radius of the wish.
+    // The public entry carries the card, the printing and the condition; never the price (and
+    // wishes have no radius since ADR 0017).
     const body = (await (await shown).json()) as Record<string, unknown>[];
     expect(body).toHaveLength(1);
     expect(body[0]).not.toHaveProperty('maxPrice');

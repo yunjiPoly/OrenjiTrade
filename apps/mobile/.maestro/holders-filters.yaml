@@ -1,9 +1,10 @@
-# Card holders with filters (mobile stage M7): Ada (fresh, fictional, a trading area around a
-# random rural point) opens Emberfang Fox, which Ben (about 1.5 km away; scripts/parity.js) lists
-# twice in a public binder, presses "Who has this near me" and gets the holders as a list: both
-# copies with their prices, sorted by price, then narrowed to the Lightly Played copy, then every
-# copy again; "Show on the map" is the alternative view. (The availability filter "Sale" also
-# matches "trade or sale" copies, like the map's intent filter, so the condition narrows here.)
+# Card holders with filters (mobile stage M7, ADR 0017): Ada (fresh, fictional, in Quebec) opens
+# Emberfang Fox, which Ben (in Wyoming, the same platform region; scripts/parity.js) lists twice in
+# a public binder, presses "Who has this in my region" and gets the holders as a list: both copies
+# with their prices and Ben's state (never a distance), sorted by price, then narrowed to the
+# Lightly Played copy, then every copy again. The whole region is listed, so the flow follows
+# Ben's two copies (never counts). (The availability filter "Sale" also matches "trade or sale"
+# copies, so the condition narrows here.)
 appId: host.exp.exponent
 name: Card holders list with sort and filters
 tags:
@@ -40,22 +41,24 @@ tags:
 - tapOn:
     id: 'card-holders'
 
-# The list: both copies, Ben's place and distance bucket only.
+# The list: both copies, Ben's state only.
 - extendedWaitUntil:
     visible:
-      id: 'holders-count'
-      text: '2 listings near you'
+      id: 'holders-title'
+      text: 'Who has ${output.card.name} in your region'
     timeout: 60000
-- assertVisible:
-    id: 'holders-title'
-    text: 'Who has ${output.card.name} near you'
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: 'holder-${output.items.offers}'
+    direction: DOWN
     timeout: 60000
 - assertVisible:
     id: 'holder-${output.items.offers}-price'
     text: '.*45.*'
+- assertVisible:
+    id: 'holder-${output.items.offers}-collector'
+    text: '.*Wyoming, United States.*'
+- assertNotVisible: '.*km away.*'
 - takeScreenshot: holders-list
 
 # Sorted by price: the 20 CAD copy comes first.
@@ -67,13 +70,18 @@ tags:
     timeout: 30000
 - tapOn:
     id: 'holders-sort-option-price'
-- extendedWaitUntil:
-    visible:
+# The cheaper copy may now sit above the scrolled list: look up first, then down.
+- scrollUntilVisible:
+    element:
       id: 'holder-${output.items.cheap}'
+    direction: UP
+    timeout: 15000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: 'holder-${output.items.cheap}'
+    direction: DOWN
     timeout: 60000
-- assertVisible:
-    id: 'holders-count'
-    text: '2 listings near you'
 
 # Narrowed to the Lightly Played copy: the 20 CAD copy stays.
 - tapOn:
@@ -86,18 +94,23 @@ tags:
     id: 'holder-condition-LIGHTLY_PLAYED'
 - tapOn:
     id: 'holder-filters-done'
-- extendedWaitUntil:
-    visible:
-      id: 'holders-count'
-      text: '1 listing near you'
+# The cheaper copy may now sit above the scrolled list: look up first, then down.
+- scrollUntilVisible:
+    element:
+      id: 'holder-${output.items.cheap}'
+    direction: UP
+    timeout: 15000
+    optional: true
+- scrollUntilVisible:
+    element:
+      id: 'holder-${output.items.cheap}'
+    direction: DOWN
     timeout: 60000
-- assertVisible:
-    id: 'holder-${output.items.cheap}'
 - assertNotVisible:
     id: 'holder-${output.items.offers}'
 - takeScreenshot: holders-filtered
 
-# Cleared: every copy again; the map stays the alternative view.
+# Cleared: every copy again.
 - tapOn:
     id: 'holders-filters'
 - extendedWaitUntil:
@@ -108,20 +121,11 @@ tags:
     id: 'holder-filters-clear'
 - tapOn:
     id: 'holder-filters-done'
-- extendedWaitUntil:
-    visible:
-      id: 'holders-count'
-      text: '2 listings near you'
+- scrollUntilVisible:
+    element:
+      id: 'holder-${output.items.offers}'
+    direction: DOWN
     timeout: 60000
-- tapOn:
+- assertNotVisible:
     id: 'holders-map'
-- extendedWaitUntil:
-    visible:
-      id: 'map-holders'
-    timeout: 60000
-- extendedWaitUntil:
-    visible:
-      id: 'map-status'
-      text: '\d+ collectors? with this card within 10 km'
-    timeout: 60000
-- takeScreenshot: holders-map
+- takeScreenshot: holders-cleared

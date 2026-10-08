@@ -11,113 +11,82 @@ import {
 } from './support/stack';
 
 /**
- * Settings → Location and discoverability (ADR 0004): a manual trading area chosen by the same
- * mechanism as the web picker (city quick pick, tap on the map, dragged pin, radius), the opt-in
- * to the map (off by default), the public label, and no precise coordinate in any answer (the
- * `privacy` fixture scans every API response).
+ * Settings → Location and discoverability (ADR 0017): the collector says where they are with
+ * pickers fed by `GET /regions` (region, country, state or province, an optional city and "show
+ * my city on my profile"); no map, no GPS, no coordinate anywhere (the `privacy` fixture scans
+ * every API answer for coordinate, radius and distance fields). The map opt-in is off by default
+ * and needs a location; the public profile shows the state and, when shown, the city.
  */
 test.describe('mobile location and discoverability', () => {
   requireStack();
 
-  test('a collector sets a manual trading area and opts into the map', async ({
+  test('a collector declares a place with pickers and opts into the map', async ({
     page,
     request,
     privacy,
   }) => {
     test.setTimeout(150_000);
-    const collector = await createOnboardedCollector(request, 'area', 'Mobile Mapper');
+    const collector = await createOnboardedCollector(request, 'area', 'Mobile Placer');
     await signInThroughUi(page, collector.email, collector.password);
 
     await openTab(page, 'Profile');
     const profile = screen(page, 'profile');
-    await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.', {
+    await expect(profile.getByTestId('profile-area')).toHaveText('No location yet.', {
       timeout: 30_000,
     });
+    await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
     await profile.getByRole('link', { name: 'Location and discoverability' }).click();
 
     const settings = screen(page, 'settings-location');
-    await expect(settings.getByTestId('area-public-label')).toHaveText(
-      'No trading area saved yet.',
-      {
-        timeout: 30_000,
-      }
-    );
+    await expect(settings.getByTestId('location-none')).toBeVisible({ timeout: 30_000 });
     await expect(settings.getByTestId('location-visibility')).toContainText(
-      'You have no trading area yet'
+      'You have not chosen a location yet'
     );
+    await expect(page.locator('.leaflet-container')).toHaveCount(0);
     const discoverable = settings.getByRole('switch', { name: 'Show me on the map' });
     await expect(discoverable).toHaveAttribute('aria-checked', 'false');
 
-    // A manual area, chosen the way the web picker does it: jump to a city, then tap the map and
-    // drag the pin (Leaflet + OpenStreetMap on web, tiles stubbed), then widen the radius.
-    const summary = settings.getByTestId('area-centre-summary');
-    await expect(summary).toHaveText('Centre: Montréal city centre.');
-    const map = settings.getByTestId('trading-area-map');
-    await expect(map.locator('.leaflet-container, .leaflet-pane').first()).toBeAttached({
+    // Saving without a state says what is missing; nothing is sent.
+    const save = settings.getByRole('button', { name: 'Save location' });
+    await settings.getByTestId('location-country').click();
+    await page.getByTestId('location-country-option-CA').click();
+    await save.click();
+    await expect(settings.getByTestId('location-missing')).toContainText(
+      'Choose your state or province.'
+    );
+
+    // Another region lists its own countries; back to Canada, Ontario, a city shown on the profile.
+    await settings.getByTestId('location-region').click();
+    await page.getByTestId('location-region-option-europe').click();
+    await settings.getByTestId('location-country').click();
+    await expect(page.getByTestId('location-country-option-FR')).toBeVisible();
+    await expect(page.getByTestId('location-country-option-CA')).toHaveCount(0);
+    await page.getByTestId('location-country-option-FR').click();
+    await settings.getByTestId('location-region').click();
+    await page.getByTestId('location-region-option-americas-north').click();
+    await settings.getByTestId('location-country').click();
+    await page.getByTestId('location-country-option-CA').click();
+    await settings.getByTestId('location-subdivision').click();
+    await page.getByTestId('location-subdivision-option-CA-ON').click();
+    await settings.getByLabel('City (optional)').fill('Ottawa');
+
+    const put = page.waitForRequest(
+      (candidate) => candidate.method() === 'PUT' && candidate.url().endsWith('/api/v1/me/location')
+    );
+    await save.click();
+    const sent = (await put).postDataJSON() as Record<string, unknown>;
+    expect(sent).toEqual({
+      countryCode: 'CA',
+      subdivisionCode: 'CA-ON',
+      city: 'Ottawa',
+      showCity: true,
+    });
+    await expect(snackbar(page)).toContainText('Location saved · Ontario, Canada.', {
       timeout: 30_000,
     });
-    await settings.getByRole('button', { name: 'Québec' }).click();
-    await expect(summary).toHaveText('Centre: Québec city centre.');
-    await expect(settings.getByTestId('area-radius-value')).toHaveText('15 km');
-
-    // Wait for the camera to settle on Québec (the pin back in the middle of the map).
-    const pin = settings.getByTestId('trading-area-pin');
-    await map.scrollIntoViewIfNeeded();
-    const mapBox = await map.boundingBox();
-    if (!mapBox) {
-      throw new Error('The trading-area map has no box.');
-    }
-    /** Screen position of the pin's tip (32 px icon anchored at its bottom centre). */
-    const pinTip = async () => {
-      const box = await pin.boundingBox();
-      return box ? { x: box.x + 16, y: box.y + 30 } : { x: -1000, y: -1000 };
-    };
-    await expect
-      .poll(async () => Math.abs((await pinTip()).x - (mapBox.x + mapBox.width / 2)))
-      .toBeLessThanOrEqual(3);
-
-    // A tap on the map moves the centre there.
-    const tap = { x: mapBox.x + 56, y: mapBox.y + 64 };
-    await page.mouse.click(tap.x, tap.y);
-    await expect(summary).toHaveText('Centre: the point you chose on the map.');
-    await expect.poll(async () => Math.abs((await pinTip()).x - tap.x)).toBeLessThanOrEqual(3);
-    expect(Math.abs((await pinTip()).y - tap.y)).toBeLessThanOrEqual(3);
-
-    // Dragging the pin moves it again.
-    const grab = { x: tap.x, y: tap.y - 16 };
-    const drop = { x: mapBox.x + mapBox.width - 64, y: grab.y + 80 };
-    await page.mouse.move(grab.x, grab.y);
-    await page.mouse.down();
-    await page.mouse.move(grab.x + 10, grab.y + 5, { steps: 3 });
-    await page.mouse.move(drop.x, drop.y, { steps: 12 });
-    await page.mouse.up();
-    await expect.poll(async () => Math.abs((await pinTip()).x - drop.x)).toBeLessThanOrEqual(4);
-    await expect(summary).toHaveText('Centre: the point you chose on the map.');
-
-    await settings.getByRole('button', { name: 'Increase trading radius' }).click();
-    await expect(settings.getByTestId('area-radius-value')).toHaveText('20 km');
-    const put = page.waitForRequest(
-      (request) =>
-        request.method() === 'PUT' && request.url().endsWith('/api/v1/me/location/trading-area')
+    await expect(settings.getByTestId('location-label')).toHaveText(
+      'Ontario, Canada · Americas (North)'
     );
-    await settings.getByRole('button', { name: 'Save trading area' }).click();
-    const sent = (await put).postDataJSON() as {
-      lat: number;
-      lng: number;
-      radiusKm: number;
-      source: string;
-    };
-    expect(sent.source).toBe('MANUAL');
-    expect(sent.radiusKm).toBe(20);
-    for (const value of [sent.lat, sent.lng]) {
-      expect(String(value).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(3);
-    }
-    // Neither the city centre nor the default: the point the pin was dragged to.
-    expect([sent.lat, sent.lng]).not.toEqual([46.813, -71.208]);
-    expect([sent.lat, sent.lng]).not.toEqual([45.502, -73.567]);
-    await expect(snackbar(page)).toContainText('Trading area saved', { timeout: 30_000 });
-    await expect(settings.getByTestId('area-public-label')).toContainText('20 km radius');
-    await expect(summary).toHaveText(/^Centre: your saved point/);
     await expect(settings.getByTestId('location-visibility')).toContainText(
       'You are hidden from the map.'
     );
@@ -126,48 +95,43 @@ test.describe('mobile location and discoverability', () => {
     await discoverable.click();
     await expect(snackbar(page)).toHaveText('You now appear on the map.', { timeout: 30_000 });
     await expect(discoverable).toHaveAttribute('aria-checked', 'true');
-    await expect(settings.getByTestId('location-visibility')).toContainText(
-      'Collectors see you near'
+    await expect(settings.getByTestId('location-visibility')).toHaveText(
+      'Collectors see you in Ontario, Canada.'
     );
 
-    // The API agrees, and only ever exposes an approximate, 3-decimal public point.
+    // The API agrees: codes, names and the city only, never a coordinate.
     const location = await request.get(`${API_URL}/api/v1/me/location`, {
       headers: authHeader(collector.idToken),
     });
     expect(location.ok()).toBeTruthy();
     const body = (await location.json()) as {
       discoverable: boolean;
-      tradingArea?: { radiusKm: number; source: string; label?: string };
+      location?: { subdivisionCode: string; label: string; city?: string | null };
     };
     expect(body.discoverable).toBe(true);
-    expect(body.tradingArea).toMatchObject({ radiusKm: 20, source: 'MANUAL' });
+    expect(body.location).toMatchObject({
+      subdivisionCode: 'CA-ON',
+      label: 'Ontario, Canada',
+      city: 'Ottawa',
+    });
     privacy.scan(`${API_URL}/api/v1/me/location`, body);
 
-    const publicProfile = await request.get(`${API_URL}/api/v1/collectors/${collector.handle}`, {
-      headers: authHeader(collector.idToken),
-    });
-    const publicBody = (await publicProfile.json()) as { location?: { publicLabel?: string } };
-    expect(publicBody.location?.publicLabel).toBeTruthy();
-    privacy.scan(`${API_URL}/api/v1/collectors/${collector.handle}`, publicBody);
-
-    // The profile tab reflects it; then opting out again hides the collector.
+    // The profile tab reflects it; the public preview shows the state and the shown city.
     await page.goBack();
     const refreshed = screen(page, 'profile');
     await expect(refreshed.getByTestId('profile-visibility')).toHaveText(
-      'Visible on the map at an approximate position.',
+      'Visible on the map in Ontario, Canada.',
       { timeout: 30_000 }
     );
-    await expect(refreshed.getByTestId('profile-area')).toContainText('20 km radius');
-    await expect(refreshed.getByText(/\d+\.\d{4,}/)).toHaveCount(0);
-
+    await expect(refreshed.getByTestId('profile-area')).toHaveText('Ottawa, Ontario, Canada');
     await refreshed.getByRole('button', { name: 'Public preview' }).click();
-    const publicLabel = publicBody.location?.publicLabel ?? '';
     await expect(screen(page, 'collector').getByTestId('collector-location')).toHaveText(
-      /^approximate area$/i.test(publicLabel) ? 'Approximate area' : `Near ${publicLabel}`,
+      'Ottawa, Ontario, Canada',
       { timeout: 30_000 }
     );
     await page.goBack();
 
+    // Opting out again hides the collector; removing the location clears it.
     await screen(page, 'profile').getByTestId('profile-settings').click();
     await screen(page, 'settings')
       .getByRole('link', { name: 'Location and discoverability' })
@@ -175,6 +139,10 @@ test.describe('mobile location and discoverability', () => {
     const again = screen(page, 'settings-location');
     await again.getByRole('switch', { name: 'Show me on the map' }).click();
     await expect(snackbar(page)).toHaveText('You are hidden from the map.', { timeout: 30_000 });
+    await again.getByRole('button', { name: 'Remove location' }).click();
+    await page.getByTestId('confirm-dialog-confirm').click();
+    await expect(snackbar(page)).toHaveText('Your location was removed.', { timeout: 30_000 });
+    await expect(again.getByTestId('location-none')).toBeVisible();
     expect(privacy.responses).toBeGreaterThan(0);
   });
 });

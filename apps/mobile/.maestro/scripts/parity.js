@@ -1,15 +1,16 @@
 // Maestro runScript (runs on the host): the data of the stage M7 flows, through the local
 // Firebase Auth emulator and the isolated mobile E2E API (:8090, database orenjitrade_mobile_e2e),
 // like the Playwright specs' API helpers. Only fresh, fictional `@mobile-e2e.test` accounts of
-// this run are created or used; seed accounts are never touched. Both collectors of a flow live
-// around a random rural point of Québec (no other flow or spec uses it).
+// this run are created or used; seed accounts are never touched. Collectors declare a place
+// (ADR 0017: country and state or province, no coordinate): the app user in Quebec, the other
+// collector in Wyoming, both in the platform region Americas (North).
 //
-// ACTION=looking-for creates Wren (the app user, discoverable) and Hal (about 1.5 km away,
+// ACTION=looking-for creates Wren (the app user, discoverable) and Hal (in Wyoming,
 //   discoverable, name search allowed, "Show my wishlist on my profile" on, one Emberfang Fox
-//   wish with a private price and radius).
+//   wish with a private price).
 //   Outputs: output.wren.{email, password, displayName}, output.hal.{handle, displayName},
 //            output.card.{id, name}
-// ACTION=holders creates Ada (the app user) and Ben (about 1.5 km away, discoverable, a public
+// ACTION=holders creates Ada (the app user) and Ben (in Wyoming, discoverable, a public
 //   binder with two PFT-002 copies: Near Mint for trade or sale at 45 CAD accepting offers, and
 //   Lightly Played for sale at 20 CAD not accepting offers).
 //   Outputs: output.ada.{email, password, displayName}, output.ben.{handle, displayName},
@@ -83,22 +84,11 @@ function signIn(email, password) {
   ).idToken;
 }
 
-/** 3 decimals, never ending in 0 (like a hand-picked centre). */
-function pick(min, span) {
-  var value = Math.round((min + Math.random() * span) * 1000);
-  return (value % 10 === 0 ? value + 3 : value) / 1000;
-}
+var QUEBEC = { countryCode: 'CA', subdivisionCode: 'CA-QC' };
+var WYOMING = { countryCode: 'US', subdivisionCode: 'US-WY' };
 
-/** A point about 1.5 km from `area`. */
-function near(area) {
-  return {
-    lat: Math.round((area.lat + 0.011) * 1000) / 1000,
-    lng: Math.round((area.lng - 0.014) * 1000) / 1000,
-  };
-}
-
-/** A fresh onboarded collector with a MANUAL trading area; `privacy` merges into the settings. */
-function createCollector(prefix, displayName, area, privacy) {
+/** A fresh onboarded collector with a declared place; `privacy` merges into the settings. */
+function createCollector(prefix, displayName, place, privacy) {
   var suffix = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   var email = 'm-' + runId + '-maestro-' + prefix + '-' + suffix + '@mobile-e2e.test';
   var password = 'Maestro-Pass-42';
@@ -139,11 +129,16 @@ function createCollector(prefix, displayName, area, privacy) {
     'PUT /me/profile'
   );
   check(
-    http.put(api + '/api/v1/me/location/trading-area', {
+    http.put(api + '/api/v1/me/location', {
       headers: jsonHeaders(token),
-      body: JSON.stringify({ lat: area.lat, lng: area.lng, radiusKm: 5, source: 'MANUAL' }),
+      body: JSON.stringify({
+        countryCode: place.countryCode,
+        subdivisionCode: place.subdivisionCode,
+        city: null,
+        showCity: true,
+      }),
     }),
-    'PUT /me/location/trading-area'
+    'PUT /me/location'
   );
   var settings = check(
     http.get(api + '/api/v1/me/settings/privacy', { headers: jsonHeaders(token) }),
@@ -190,9 +185,8 @@ function printingOf(token, code) {
 }
 
 if (action === 'looking-for') {
-  var centre = { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) };
-  var wren = createCollector('wren', 'Wren Maestro', centre, null);
-  var hal = createCollector('hal', 'Hal Maestro', near(centre), {
+  var wren = createCollector('wren', 'Wren Maestro', QUEBEC, null);
+  var hal = createCollector('hal', 'Hal Maestro', WYOMING, {
     searchDiscoverable: true,
     wishlistVisible: true,
   });
@@ -205,7 +199,6 @@ if (action === 'looking-for') {
         conditionMin: 'LIGHTLY_PLAYED',
         maxPrice: 30,
         currency: 'CAD',
-        radiusKm: 15,
         tradePreference: 'ANY',
       }),
     }),
@@ -215,9 +208,8 @@ if (action === 'looking-for') {
   output.hal = { handle: hal.handle, displayName: hal.displayName };
   output.card = { id: wanted.cardId, name: wanted.cardName };
 } else if (action === 'holders') {
-  var area = { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) };
-  var ada = createCollector('ada', 'Ada Maestro', area, null);
-  var ben = createCollector('ben', 'Ben Maestro', near(area), null);
+  var ada = createCollector('ada', 'Ada Maestro', QUEBEC, null);
+  var ben = createCollector('ben', 'Ben Maestro', WYOMING, null);
   var listed = printingOf(ben.token, 'PFT-002');
   var binder = check(
     http.post(api + '/api/v1/binders', {

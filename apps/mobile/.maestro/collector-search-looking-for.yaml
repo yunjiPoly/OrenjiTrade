@@ -1,8 +1,8 @@
-# Collector search and "Looking for" (mobile stage M7): Wren (fresh, fictional, discoverable around
-# a random rural point) searches the Collectors segment of the Search tab for Hal (about 1.5 km
-# away, name search allowed, wishlist shown on his profile; scripts/parity.js), opens his profile
-# from the result (place and distance bucket only) and reads what he is looking for; the wish opens
-# the card.
+# Collector search and "Looking for" (mobile stage M7, ADR 0017): Wren (fresh, fictional,
+# discoverable, in Quebec) searches the Collectors segment of the Search tab for Hal (in Wyoming,
+# the same platform region; name search allowed, wishlist shown on his profile; scripts/parity.js),
+# opens his profile from the result (his state only, never a distance) and reads what he is
+# looking for; the wish opens the card.
 appId: host.exp.exponent
 name: Collector search, profile and Looking for
 tags:
@@ -36,7 +36,7 @@ tags:
       id: 'search-collectors-idle'
     timeout: 60000
 
-# By name: Hal, with the approximate location note and a distance bucket.
+# By name: Hal, with his state and country.
 - tapOn:
     id: 'search-collectors-input'
 - inputText: ${output.hal.displayName}
@@ -48,10 +48,10 @@ tags:
 - assertVisible:
     id: 'search-collectors-count'
     text: '1 collector for .*'
-- assertVisible: '.*Locations are approximate \(about 3 km\).*'
 - assertVisible:
     id: 'collector-result-${output.hal.handle}'
-    text: '.*km.*'
+    text: '.*Wyoming, United States.*'
+- assertNotVisible: '.*km away.*'
 - takeScreenshot: search-collectors
 
 # His profile, then "Looking for" with the Emberfang Fox wish (condition only, no price, no radius).

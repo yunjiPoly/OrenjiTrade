@@ -3,53 +3,33 @@ import { expect, test as base, type Page } from '@playwright/test';
 import { DEV_API_PORT } from './isolation';
 import { API_URL } from './stack';
 
-/** Recursively yields every numeric `lat`/`lng` value in a JSON document. */
-export function* coordinates(
-  value: unknown,
-  path = '$'
-): Generator<{ path: string; value: number }> {
+/**
+ * Keys that describe a position, a radius or a distance: none may reach a client since ADR 0017
+ * (collectors declare a country, a state or province and an optional city).
+ */
+const COORDINATE_OR_DISTANCE_KEY =
+  /^(lat|lng|lon|latitude|longitude|point|publicPoint|homePoint|home_point|exactLocation|tradingArea|trading_area|center|centre|radius|radiusKm|radius_km|distance|distanceBucket|distance_bucket|distanceMeters|distance_m|gridCell|grid_cell)$/i;
+
+/** Recursively yields the path of every coordinate, radius or distance key in a JSON document. */
+export function* coordinateKeys(value: unknown, path = '$'): Generator<string> {
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      yield* coordinates(value[i], `${path}[${i}]`);
+      yield* coordinateKeys(value[i], `${path}[${i}]`);
     }
   } else if (value && typeof value === 'object') {
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
       const childPath = `${path}.${key}`;
-      if (/^(lat|lng|latitude|longitude)$/i.test(key) && typeof child === 'number') {
-        yield { path: childPath, value: child };
-      } else {
-        yield* coordinates(child, childPath);
+      if (COORDINATE_OR_DISTANCE_KEY.test(key)) {
+        yield childPath;
       }
+      yield* coordinateKeys(child, childPath);
     }
   }
 }
 
-/** Number of decimals of a JSON number as serialised. */
-export function decimalsOf(value: number): number {
-  const text = String(value);
-  if (text.includes('e')) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return text.includes('.') ? (text.split('.')[1]?.length ?? 0) : 0;
-}
-
-/** Keys that must never reach a client (ADR 0004). */
-const FORBIDDEN_KEYS = /^(homePoint|home_point|exactLocation|distanceMeters|distance_m)$/i;
-
-function* forbiddenKeys(value: unknown, path = '$'): Generator<string> {
-  if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) {
-      yield* forbiddenKeys(value[i], `${path}[${i}]`);
-    }
-  } else if (value && typeof value === 'object') {
-    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      if (FORBIDDEN_KEYS.test(key)) {
-        yield `${path}.${key}`;
-      }
-      yield* forbiddenKeys(child, `${path}.${key}`);
-    }
-  }
-}
+/** Hosts of map providers and geocoders: the app talks to none of them (ADR 0017). */
+const MAP_PROVIDER_HOST =
+  /(^|\.)(openstreetmap\.org|maps\.googleapis\.com|maps\.gstatic\.com|mapbox\.com|arcgis\.com|arcgisonline\.com)$/i;
 
 export interface PrivacyFinding {
   url: string;
@@ -58,9 +38,9 @@ export interface PrivacyFinding {
 }
 
 /**
- * Scans every JSON answer the app receives from the API for precise coordinates (more than 3
- * decimals) and for fields that must never leave the server. Attached to every test: a finding
- * fails the test (privacy overrides everything, CLAUDE.md).
+ * Scans every JSON answer the app receives from the API for coordinate, radius and distance
+ * fields, and every request for a map provider or the developer API. Attached to every test: a
+ * finding fails the test (privacy overrides everything, CLAUDE.md).
  */
 export class PrivacyScanner {
   readonly findings: PrivacyFinding[] = [];
@@ -68,21 +48,16 @@ export class PrivacyScanner {
 
   scan(url: string, body: unknown): void {
     this.responses++;
-    for (const { path, value } of coordinates(body)) {
-      if (decimalsOf(value) > 3) {
-        this.findings.push({ url, path, detail: `${value} has more than 3 decimals` });
-      }
-    }
-    for (const path of forbiddenKeys(body)) {
-      this.findings.push({ url, path, detail: 'forbidden field' });
+    for (const path of coordinateKeys(body)) {
+      this.findings.push({ url, path, detail: 'coordinate, radius or distance field' });
     }
   }
 
   watch(page: Page): void {
-    // The app must only ever talk to the isolated API: a request to the developer API (:8080)
-    // would write into the developer's database.
     page.on('request', (request) => {
       const url = new URL(request.url());
+      // The app must only ever talk to the isolated API: a request to the developer API (:8080)
+      // would write into the developer's database.
       if (
         url.port === String(DEV_API_PORT) &&
         /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)
@@ -92,6 +67,9 @@ export class PrivacyScanner {
           path: '-',
           detail: 'request to the developer API',
         });
+      }
+      if (MAP_PROVIDER_HOST.test(url.hostname)) {
+        this.findings.push({ url: request.url(), path: '-', detail: 'request to a map provider' });
       }
     });
     page.on('response', (response) => {
@@ -110,22 +88,15 @@ export class PrivacyScanner {
   }
 }
 
-/** A transparent 1×1 PNG standing in for map tiles (same stub as the web suite). */
-const STUB_TILE_PNG =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
-export const test = base.extend<{ privacy: PrivacyScanner; mapTiles: void }>({
-  // OpenStreetMap tiles of the trading-area map (Leaflet on web) are served from memory: the OSM
-  // tile policy discourages automated loads, and the specs never assert on imagery (the pin, the
-  // circle and the map's click handling are DOM drawn by Leaflet regardless of the tiles).
-  mapTiles: [
+export const test = base.extend<{ privacy: PrivacyScanner; mapProviders: void }>({
+  // Map providers and tile servers are aborted (the app draws no map, ADR 0017; the privacy
+  // scanner records any attempt). The route also keeps Playwright's request interception on, which
+  // Chromium needs to expose the bodies the specs read with `postDataJSON()`.
+  mapProviders: [
     async ({ page }, use) => {
-      await page.route('https://tile.openstreetmap.org/**', (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: 'image/png',
-          body: Buffer.from(STUB_TILE_PNG, 'base64'),
-        })
+      await page.route(
+        (url) => MAP_PROVIDER_HOST.test(url.hostname),
+        (route) => route.abort()
       );
       await use();
     },
@@ -136,7 +107,7 @@ export const test = base.extend<{ privacy: PrivacyScanner; mapTiles: void }>({
       const scanner = new PrivacyScanner();
       scanner.watch(page);
       await use(scanner);
-      expect(scanner.findings, 'precise coordinates or private fields in API answers').toEqual([]);
+      expect(scanner.findings, 'coordinates, distances or map providers').toEqual([]);
     },
     { auto: true },
   ],

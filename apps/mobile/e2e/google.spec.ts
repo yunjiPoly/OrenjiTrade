@@ -129,8 +129,9 @@ test.describe('mobile Google sign-in', () => {
     await expect(onboarding.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
     await onboarding.getByRole('checkbox', { name: 'Pokémon' }).click();
     await onboarding.getByRole('button', { name: 'Continue' }).click();
-    await expect(onboarding.getByRole('heading', { name: 'Where do you trade?' })).toBeVisible();
-    await onboarding.getByRole('button', { name: 'Finish' }).click();
+    // Where are you? Skipping is allowed (no location yet, hidden from the map).
+    await expect(onboarding.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await onboarding.getByRole('button', { name: 'Skip for now' }).click();
     await expect(snackbar(page)).toHaveText('Welcome to OrenjiTrade! Your profile is ready.', {
       timeout: 30_000,
     });
