@@ -1,5 +1,5 @@
 [
-  { "nn": "01", "bio": "Yu-Gi-Oh and Pokémon binders, always up for a meetup in Montréal. Trades in French or English.", "games": ["yugioh", "pokemon"], "languages": ["fr", "en"], "tags": ["collector", "trader", "local-meetups", "french", "english"], "discoverable": true },
+  { "nn": "01", "bio": "Yu-Gi-Oh and Pokémon binders, always up for a meetup. Trades in French or English.", "games": ["yugioh", "pokemon"], "languages": ["fr", "en"], "tags": ["collector", "trader", "local-meetups", "french", "english"], "discoverable": true },
   { "nn": "02", "bio": "Competitive Magic player looking for staples; happy to ship across Canada.", "games": ["mtg"], "languages": ["en"], "tags": ["player", "competitive", "shipping"], "discoverable": true },
   { "nn": "03", "bio": "Vintage Yu-Gi-Oh collector, mostly early sets and graded copies.", "games": ["yugioh"], "languages": ["en", "fr"], "tags": ["collector", "vintage", "high-end"], "discoverable": true },
   { "nn": "04", "bio": "Casual Riftbound player. Kitchen-table games welcome.", "games": ["riftbound"], "languages": ["fr", "en"], "tags": ["player", "casual"], "discoverable": true },
