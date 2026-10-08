@@ -44,7 +44,7 @@ export const MOBILE_E2E_API_PORT = 8090;
 /** Port of the Expo web build served for the Playwright specs. */
 export const MOBILE_E2E_WEB_PORT = 19006;
 /**
- * Redis logical database of the mobile E2E API: 0 is the developer's (rate limits, nearby cache,
+ * Redis logical database of the mobile E2E API: 0 is the developer's (rate limits, discovery cache,
  * presence), 2 the web E2E harness's.
  */
 export const MOBILE_E2E_REDIS_DB = 1;

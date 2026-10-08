@@ -180,7 +180,7 @@ per-route policies; `docs/security/README.md`).
 
 | Name | Expression | Rate | Action |
 | --- | --- | --- | --- |
-| `api` | `starts_with(http.request.uri.path, "/api/v1/auth") or starts_with(http.request.uri.path, "/api/v1/me") or starts_with(http.request.uri.path, "/api/v1/conversations") or starts_with(http.request.uri.path, "/api/v1/community") or starts_with(http.request.uri.path, "/api/v1/search") or starts_with(http.request.uri.path, "/api/v1/collectors/nearby") or starts_with(http.request.uri.path, "/api/v1/cards")` | 60 req / 10 s per IP | Block 10 s |
+| `api` | `starts_with(http.request.uri.path, "/api/v1/auth") or starts_with(http.request.uri.path, "/api/v1/me") or starts_with(http.request.uri.path, "/api/v1/conversations") or starts_with(http.request.uri.path, "/api/v1/community") or starts_with(http.request.uri.path, "/api/v1/search") or starts_with(http.request.uri.path, "/api/v1/regions") or starts_with(http.request.uri.path, "/api/v1/cards")` | 60 req / 10 s per IP | Block 10 s |
 
 What the merge dropped compared with the former `auth` (20/10 s), `messaging` (POST only,
 20/10 s) and `search` (60/10 s) rules: the tighter per-group thresholds, the POST-only

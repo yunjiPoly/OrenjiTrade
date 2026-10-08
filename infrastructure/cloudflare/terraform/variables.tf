@@ -167,7 +167,7 @@ variable "rate_limit_path_prefixes" {
     "/api/v1/conversations",
     "/api/v1/community",
     "/api/v1/search",
-    "/api/v1/collectors/nearby",
+    "/api/v1/regions",
     "/api/v1/cards",
   ]
 
