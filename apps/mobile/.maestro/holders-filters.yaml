@@ -47,20 +47,18 @@ tags:
       id: 'holders-title'
       text: 'Who has ${output.card.name} in your region'
     timeout: 60000
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.offers}'
-    direction: DOWN
-    timeout: 60000
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.offers}'
 - assertVisible:
     id: 'holder-${output.items.offers}-price'
     text: '.*45.*'
 # The holder line sits at the bottom of the card: bring it on screen before reading it.
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.offers}-collector'
-    direction: DOWN
-    timeout: 30000
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.offers}-collector'
 - assertVisible:
     id: 'holder-${output.items.offers}-collector'
     text: '.*Wyoming, United States.*'
@@ -76,18 +74,11 @@ tags:
     timeout: 30000
 - tapOn:
     id: 'holders-sort-option-price'
-# The cheaper copy may now sit above the scrolled list: look up first, then down.
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.cheap}'
-    direction: UP
-    timeout: 15000
-    optional: true
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.cheap}'
-    direction: DOWN
-    timeout: 60000
+# The cheaper copy may now sit above or below the scrolled part of the list.
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.cheap}'
 
 # Narrowed to the Lightly Played copy: the 20 CAD copy stays.
 - tapOn:
@@ -100,18 +91,11 @@ tags:
     id: 'holder-condition-LIGHTLY_PLAYED'
 - tapOn:
     id: 'holder-filters-done'
-# The cheaper copy may now sit above the scrolled list: look up first, then down.
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.cheap}'
-    direction: UP
-    timeout: 15000
-    optional: true
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.cheap}'
-    direction: DOWN
-    timeout: 60000
+# The cheaper copy may now sit above or below the scrolled part of the list.
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.cheap}'
 - assertNotVisible:
     id: 'holder-${output.items.offers}'
 - takeScreenshot: holders-filtered
@@ -127,11 +111,10 @@ tags:
     id: 'holder-filters-clear'
 - tapOn:
     id: 'holder-filters-done'
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.items.offers}'
-    direction: DOWN
-    timeout: 60000
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.offers}'
 - assertNotVisible:
     id: 'holders-map'
 - takeScreenshot: holders-cleared

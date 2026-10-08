@@ -56,11 +56,10 @@ tags:
 - assertVisible:
     id: 'holders-subtitle'
     text: 'Collectors of Americas \(North\).*'
-- scrollUntilVisible:
-    element:
-      id: 'holder-${output.card.itemId}'
-    direction: DOWN
-    timeout: 60000
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.card.itemId}-collector'
 - assertVisible:
     id: 'holder-${output.card.itemId}-collector'
     text: '.*Quebec, Canada.*'
