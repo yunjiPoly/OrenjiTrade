@@ -283,7 +283,12 @@ export class BoundaryMapComponent {
     path.on('click', () => this.subdivisionSelected.emit(code));
     path.on('mouseover', () => path.setStyle({ weight: 2 }));
     path.on('mouseout', () => this.restyleCode(code));
-    path.on('add', () => path.getElement()?.classList.add('orenji-boundary'));
+    // The subdivision code (never a coordinate) identifies the shape for styles and tests.
+    path.on('add', () => {
+      const element = path.getElement();
+      element?.classList.add('orenji-boundary');
+      element?.setAttribute('data-code', code);
+    });
   }
 
   private tooltip(code: string): string {

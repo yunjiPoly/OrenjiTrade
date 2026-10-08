@@ -168,8 +168,8 @@ import { UsageMetersComponent } from './usage-meters.component';
             <mat-icon aria-hidden="true">toll</mat-icon>
             <p>
               <strong>Only need it for a day?</strong>
-              Unlock advanced filters, unlimited binder views or a wider map for 24 hours with your
-              OrenjiTrade credits.
+              Unlock advanced filters or unlimited binder views for 24 hours with your OrenjiTrade
+              credits.
             </p>
             <a matButton="tonal" routerLink="/credits">Use credits</a>
           </aside>

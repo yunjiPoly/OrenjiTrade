@@ -17,6 +17,8 @@ import type { CreatePostRequest } from '@orenji/api-client';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
+import { RegionContext } from '../../core/region/region-context.service';
+import { PLATFORM_REGION_NAMES } from '../../shared/regions/regions.store';
 import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
@@ -55,6 +57,7 @@ export class CommunityPageComponent {
   protected readonly auth = inject(AuthService);
   protected readonly session = inject(SessionService);
   private readonly router = inject(Router);
+  private readonly region = inject(RegionContext);
   private readonly snackBar = inject(MatSnackBar);
   private readonly composer = viewChild(PostComposerComponent);
 
@@ -65,6 +68,8 @@ export class CommunityPageComponent {
   /** Narrow screens: the channel list replaces the feed while open. */
   protected readonly channelsOpen = signal(false);
   protected readonly channelIcon = channelIcon;
+  /** "Europe" for a region channel's code; an archived city channel keeps its city label. */
+  protected readonly regionName = (label: string): string => PLATFORM_REGION_NAMES[label] ?? label;
   protected readonly channelsErrorMessage = computed(() => {
     const error = this.store.channelsError();
     return error ? friendlyMessage(error) : '';
@@ -107,7 +112,7 @@ export class CommunityPageComponent {
     }
     let fallback: string | null;
     if (this.channelsLoaded) {
-      fallback = defaultChannel(this.store.channels())?.slug ?? null;
+      fallback = defaultChannel(this.store.channels(), this.region.current())?.slug ?? null;
     } else {
       fallback = await this.store.loadChannels();
       this.channelsLoaded = this.store.channelsStatus() === 'ready';

@@ -39,6 +39,21 @@ async function settle(): Promise<void> {
   }
 }
 
+/**
+ * Waits until the map drew `count` paths: Leaflet is a lazy `import()`, which can take longer than
+ * a few ticks while the whole suite runs in parallel.
+ */
+async function drawn(fixture: ComponentFixture<BoundaryMapComponent>, count: number) {
+  await vi.waitFor(
+    () => {
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(count);
+    },
+    { timeout: 10_000, interval: 20 },
+  );
+}
+
 /** The real Leaflet in the test DOM, drawing a fake region file: no tiles, no provider. */
 describe('BoundaryMapComponent', () => {
   let fixture: ComponentFixture<BoundaryMapComponent>;
@@ -70,8 +85,7 @@ describe('BoundaryMapComponent', () => {
     fixture.componentInstance.subdivisionSelected.subscribe((code) => selected.push(code));
     element = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
-    await settle();
-    fixture.detectChanges();
+    await drawn(fixture, 3);
   });
 
   afterEach(() => {
@@ -86,6 +100,7 @@ describe('BoundaryMapComponent', () => {
   it('draws the bundled boundaries without any tile, with the Natural Earth credit', () => {
     expect(load).toHaveBeenCalledWith('americas-north');
     expect(paths()).toHaveLength(3);
+    expect(paths().map((path) => path.getAttribute('data-code'))).toEqual(['CA-QC', 'CA-ON', null]);
     expect(element.querySelectorAll('.leaflet-tile-pane img')).toHaveLength(0);
     expect(element.querySelector('.leaflet-control-attribution')?.textContent).toContain(
       'Made with Natural Earth',
@@ -126,9 +141,7 @@ describe('BoundaryMapComponent', () => {
       'The map could not be drawn',
     );
     element.querySelector<HTMLButtonElement>('[role="alert"] button')!.click();
-    await settle();
-    fixture.detectChanges();
+    await drawn(fixture, 3);
     expect(element.querySelector('[role="alert"]')).toBeNull();
-    expect(paths()).toHaveLength(3);
   });
 });

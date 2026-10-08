@@ -523,7 +523,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'third-parties',
         heading: 'Services de tiers',
         clauses: [
-          'Les tuiles de carte (Google Maps ou OpenStreetMap) et les polices Web sont chargées depuis leurs fournisseurs, qui peuvent déposer leurs propres témoins selon leurs propres politiques.',
+          'Les polices Web sont chargées depuis leur fournisseur, qui peut déposer ses propres témoins selon ses propres politiques. La carte est dessinée à partir de données de frontières intégrées à OrenjiTrade (Natural Earth)\u00a0: aucun fournisseur de cartes ou de tuiles n’est contacté.',
           'Lorsque les paiements protégés sont activés, le Fournisseur de paiement dépose les témoins nécessaires à la prévention de la fraude.',
         ],
       },

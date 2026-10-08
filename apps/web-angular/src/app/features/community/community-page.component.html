@@ -94,8 +94,8 @@
                     }
                     @if (channel.regionLabel) {
                       <span class="channel-head__pill">
-                        <mat-icon aria-hidden="true">location_on</mat-icon>
-                        {{ channel.regionLabel }}
+                        <mat-icon aria-hidden="true">public</mat-icon>
+                        {{ regionName(channel.regionLabel) }}
                       </span>
                     }
                     <span class="channel-head__activity" data-testid="channel-activity">

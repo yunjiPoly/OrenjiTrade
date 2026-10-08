@@ -16,7 +16,7 @@ export interface ChannelGroup {
 const TOPIC_KINDS = new Set(['LOOKING_FOR', 'NEW_LISTINGS', 'TRADES', 'GENERAL']);
 
 const KIND_ICONS: Readonly<Record<string, string>> = {
-  REGION: 'location_city',
+  REGION: 'public',
   GAME: 'playing_cards',
   LOOKING_FOR: 'travel_explore',
   NEW_LISTINGS: 'new_releases',
@@ -30,15 +30,15 @@ export function channelIcon(kind: string): string {
 }
 
 /**
- * Sidebar sections: one per region (its game channels, e.g. "Montréal"), then game-wide channels,
- * then the topic channels (looking for, new listings, trades, general). Server order is kept inside
- * a section. `game` narrows region and game channels to one game; topics always stay.
+ * Sidebar sections: the platform region channels (one per region, ADR 0017), then game-wide
+ * channels, then the topic channels (looking for, new listings, trades, general). Server order is
+ * kept inside a section. `game` narrows game-specific channels to one game; topics always stay.
  */
 export function groupChannels(
   channels: readonly CommunityChannel[],
   game: string | null = null,
 ): ChannelGroup[] {
-  const regions = new Map<string, CommunityChannel[]>();
+  const regions: CommunityChannel[] = [];
   const games: CommunityChannel[] = [];
   const topics: CommunityChannel[] = [];
   for (const channel of channels) {
@@ -47,17 +47,17 @@ export function groupChannels(
       continue;
     }
     if (channel.kind === 'REGION') {
-      const label = channel.regionLabel || 'Regions';
-      regions.set(label, [...(regions.get(label) ?? []), channel]);
+      regions.push(channel);
     } else if (channel.kind === 'GAME') {
       games.push(channel);
     } else {
       topics.push(channel);
     }
   }
-  const groups: ChannelGroup[] = [...regions.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, items]) => ({ key: `region:${label}`, label, channels: items }));
+  const groups: ChannelGroup[] = [];
+  if (regions.length) {
+    groups.push({ key: 'regions', label: 'Regions', channels: regions });
+  }
   if (games.length) {
     groups.push({ key: 'games', label: 'Games', channels: games });
   }
@@ -67,9 +67,22 @@ export function groupChannels(
   return groups;
 }
 
-/** The channel to open when none is chosen: the first regional one, else the first. */
-export function defaultChannel(channels: readonly CommunityChannel[]): CommunityChannel | null {
-  return channels.find((channel) => channel.kind === 'REGION') ?? channels[0] ?? null;
+/**
+ * The channel to open when none is chosen: the channel of the browsed platform region (its
+ * `regionLabel` is the region code), else the first regional one, else the first.
+ */
+export function defaultChannel(
+  channels: readonly CommunityChannel[],
+  region: string | null = null,
+): CommunityChannel | null {
+  return (
+    (region
+      ? channels.find((channel) => channel.kind === 'REGION' && channel.regionLabel === region)
+      : undefined) ??
+    channels.find((channel) => channel.kind === 'REGION') ??
+    channels[0] ??
+    null
+  );
 }
 
 /** "in 12 minutes" / "in 40 seconds". */

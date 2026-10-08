@@ -143,7 +143,7 @@ export class MapPageComponent {
 
   constructor() {
     void this.regions.load();
-    effect(() => this.panelOpened.set(this.isWide() && this.signedIn()));
+    effect(() => this.panelOpened.set(this.isWide()));
     // The URL's region (a shared link, back/forward) selects the region once; the switcher's
     // choice is then mirrored back into the URL.
     effect(() => {

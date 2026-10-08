@@ -56,7 +56,7 @@ export interface ChannelFormValue {
   sortOrder: number;
 }
 
-/** Only region and game channels belong to a game; only region channels to a city. */
+/** Only region and game channels belong to a game; only region channels to a platform region. */
 export function usesGame(kind: string): boolean {
   return kind === 'REGION' || kind === 'GAME';
 }
@@ -81,7 +81,7 @@ export function createChannelRequest(value: ChannelFormValue): CreateCommunityCh
 }
 
 /**
- * The changed fields only (PATCH keeps absent fields). A blank game or city removes it, as the
+ * The changed fields only (PATCH keeps absent fields). A blank game or region removes it, as the
  * API documents.
  */
 export function updateChannelRequest(

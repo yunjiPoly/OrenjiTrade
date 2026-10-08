@@ -542,7 +542,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'third-parties',
         heading: 'Third-party services',
         clauses: [
-          'Map tiles (Google Maps or OpenStreetMap) and web fonts are loaded from their providers, who may set their own cookies under their own policies.',
+          'Web fonts are loaded from their provider, who may set its own cookies under its own policies. The map is drawn from boundary data bundled with OrenjiTrade (Natural Earth): no map or tile provider is contacted.',
           'Where protected payments are enabled, the Payment provider sets cookies required for fraud prevention.',
         ],
       },
