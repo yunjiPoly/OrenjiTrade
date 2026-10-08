@@ -24,7 +24,7 @@ import type { WishUsage } from '../data/wishlist.store';
           <dd>{{ matched() }}</dd>
         </div>
         <div class="ws__stat ws__stat--hot">
-          <dt>With matches</dt>
+          <dt>Matches</dt>
           <dd data-testid="wishlist-total-matches">{{ totalMatches() }}</dd>
         </div>
       </dl>
