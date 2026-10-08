@@ -9620,6 +9620,11 @@ export interface components {
             requiredConsents: components["schemas"]["RequiredConsent"][];
             /** @example FREE */
             plan: string;
+            /**
+             * @description Platform region of the collector's declared location (ADR 0017); null without a location. Clients browse it by default
+             * @example americas-north
+             */
+            homeRegion?: string | null;
         };
         /** @description Which onboarding steps the user completed */
         OnboardingStatus: {

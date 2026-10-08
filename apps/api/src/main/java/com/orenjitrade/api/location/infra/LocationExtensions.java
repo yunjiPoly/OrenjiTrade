@@ -6,6 +6,7 @@ import com.orenjitrade.api.location.domain.MyLocationView;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
+import com.orenjitrade.api.users.domain.HomeRegionProvider;
 import com.orenjitrade.api.users.domain.OnboardingCheck;
 import com.orenjitrade.api.users.domain.OnboardingFlag;
 import java.util.LinkedHashMap;
@@ -17,12 +18,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
 /**
- * The location module's implementations of other modules' extension points: the {@code locationSet}
- * onboarding flag, the admin location label (state/province + country, never the city), the
- * deletion participant and the owner's export section (the only export of the city).
+ * The location module's implementations of other modules' extension points: the home region and the
+ * {@code locationSet} onboarding flag of {@code GET /me}, the admin location label (state/province
+ * + country, never the city), the deletion participant and the owner's export section (the only
+ * export of the city).
  */
 @Configuration(proxyBeanMethods = false)
 public class LocationExtensions {
+
+    @Bean
+    HomeRegionProvider homeRegionProvider(LocationService locationService) {
+        return userId -> locationService.homeRegionOf(userId).orElse(null);
+    }
 
     @Bean
     OnboardingCheck locationSetCheck(LocationService locationService) {

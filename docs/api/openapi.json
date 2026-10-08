@@ -39185,6 +39185,14 @@
           "plan": {
             "type": "string",
             "example": "FREE"
+          },
+          "homeRegion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Platform region of the collector's declared location (ADR 0017); null without a location. Clients browse it by default",
+            "example": "americas-north"
           }
         },
         "required": [

@@ -37,6 +37,7 @@ class LocationIT extends AbstractIntegrationTest {
         assertThat(empty.path("location").isNull()).isTrue();
         assertThat(empty.path("discoverable").asBoolean()).isFalse();
         assertThat(me(uid).path("onboarding").path("locationSet").asBoolean()).isFalse();
+        assertThat(me(uid).path("homeRegion").isNull()).as("no location, no home region").isTrue();
 
         Map<String, Object> body = location("ca", " ca-qc ", "  Saint-Jean-sur-Richelieu  ");
         body.put("showCity", false);
@@ -60,6 +61,7 @@ class LocationIT extends AbstractIntegrationTest {
                 .containsEntry("city", "Saint-Jean-sur-Richelieu")
                 .containsEntry("show_city", false);
         assertThat(me(uid).path("onboarding").path("locationSet").asBoolean()).isTrue();
+        assertThat(me(uid).path("homeRegion").asString()).isEqualTo("americas-north");
 
         // A whole-country pseudo-subdivision; a blank city clears it; showCity defaults to true.
         JsonNode territory =
@@ -91,6 +93,7 @@ class LocationIT extends AbstractIntegrationTest {
                                 .isNull())
                 .isTrue();
         assertThat(testUsers.locationOf(id)).isEmpty();
+        assertThat(me(uid).path("homeRegion").isNull()).isTrue();
     }
 
     @Test

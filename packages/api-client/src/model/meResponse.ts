@@ -31,6 +31,10 @@ export interface MeResponse {
      */
     requiredConsents: Array<RequiredConsent>;
     plan: string;
+    /**
+     * Platform region of the collector\'s declared location (ADR 0017); null without a location. Clients browse it by default
+     */
+    homeRegion?: string | null;
 }
 export enum MeResponseRolesEnum {
     User = 'USER',
