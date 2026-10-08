@@ -1,5 +1,5 @@
 import { APIRequestContext, Browser, Page, expect, test } from '@playwright/test';
-import { tooPrecise, watchCoordinates } from './support/inventory';
+import { coordinateLeaks, watchCoordinates } from './support/inventory';
 import {
   API_URL,
   OnboardedCollector,
@@ -211,7 +211,7 @@ test.describe('ratings and references', () => {
     expect(received[0].body).not.toContain(comment);
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+    expect(coordinateLeaks(watcher.samples), 'lat/lng in a JSON answer').toEqual([]);
     await page.context().close();
 
     // --- An unrelated collector --------------------------------------------------------------

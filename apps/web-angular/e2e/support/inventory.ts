@@ -1,5 +1,5 @@
 import { APIRequestContext, Page, Response, expect } from '@playwright/test';
-import { API_URL, authHeader, coordinates, decimalsOf } from './stack';
+import { API_URL, authHeader, coordinates } from './stack';
 
 /**
  * Inventory helpers for specs that prepare state through the real API (Phase 3 contract):
@@ -97,8 +97,8 @@ export interface CoordinateSample {
 }
 
 /**
- * Records every `lat`/`lng` of every JSON response the page receives (ADR 0004: exact collector
- * coordinates are never exposed; at most 3 decimals). Call `settle()` before asserting.
+ * Records every `lat`/`lng` of every JSON response the page receives (ADR 0017: the API never
+ * returns a coordinate, so a spec expects none). Call `settle()` before asserting.
  */
 export function watchCoordinates(page: Page): {
   samples: CoordinateSample[];
@@ -128,6 +128,7 @@ export function watchCoordinates(page: Page): {
   return { samples, settle: async () => void (await Promise.all(pending.map(bounded))) };
 }
 
-export function tooPrecise(samples: readonly CoordinateSample[]): CoordinateSample[] {
-  return samples.filter((sample) => decimalsOf(sample.value) > 3);
+/** Every recorded coordinate: since ADR 0017 any `lat`/`lng` in an answer is a leak. */
+export function coordinateLeaks(samples: readonly CoordinateSample[]): CoordinateSample[] {
+  return [...samples];
 }

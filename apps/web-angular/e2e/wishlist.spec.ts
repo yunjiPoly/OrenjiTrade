@@ -5,7 +5,6 @@ import {
   apiPublishBinder,
   apiUpdatePrivacy,
   printingIdOf,
-  tooPrecise,
   watchCoordinates,
 } from './support/inventory';
 import {
@@ -16,44 +15,26 @@ import {
   requireStack,
   signInThroughUi,
   stubCardImages,
-  stubMapTiles,
+  forbidMapProviders,
 } from './support/stack';
 
 /**
  * Wishlist, matching and notifications (Phase 6) against the real local stack, with two
  * collectors: A adds "Emberfang Fox" to their wishlist through the dialog (card autocomplete,
- * minimum condition, maximum price, radius slider bounded by the plan) and checks that an
- * identical wish is refused inline (409) and that a wish can be removed. B, nearby, publishes the
- * card: the matcher notifies A, whose bell badge rises over STOMP without a reload; the
- * notification opens `/wishlist/<id>` with the matches drawer (B's approximate place, distance
- * bucket, price); a second copy arrives live in the open drawer and is dismissed; A messages B
- * from the drawer; `/notifications` filters unread ones and marks all read. A second test fills a
- * FREE wishlist (20 wishes) and checks the limit dialog on the 21st. Every JSON response is
- * checked for ADR 0004 (≤ 3 decimals).
+ * minimum condition, maximum price; no radius, ADR 0017) and checks that an identical wish is
+ * refused inline (409) and that a wish can be removed. B, of the same platform region, publishes
+ * the card: the matcher notifies A, whose bell badge rises over STOMP without a reload; the
+ * notification opens `/wishlist/<id>` with the matches drawer (B's state and country, price); a
+ * second copy arrives live in the open drawer and is dismissed; A messages B from the drawer;
+ * `/notifications` filters unread ones and marks all read. A second test fills a FREE wishlist
+ * (20 wishes) and checks the limit dialog on the 21st. No JSON response carries a coordinate.
  *
- * The collectors live around a random rural point of Québec (a region no other spec uses), and
- * B's listing is unpublished at the end so later runs never match it.
+ * A and B live in Uruguay (Americas (South), which no other spec lists cards in), and B's listing
+ * is unpublished at the end so later runs never match it.
  */
 
-interface Point {
-  lat: number;
-  lng: number;
-}
-
-function randomArea(): Point {
-  const pick = (min: number, span: number) => {
-    const value = Math.round((min + Math.random() * span) * 1000);
-    return (value % 10 === 0 ? value + 3 : value) / 1000;
-  };
-  return { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) };
-}
-
-function near(point: Point): Point {
-  return {
-    lat: Math.round((point.lat + 0.011) * 1000) / 1000,
-    lng: Math.round((point.lng - 0.014) * 1000) / 1000,
-  };
-}
+/** Montevideo, Uruguay: Americas (South). */
+const SOUTH = { countryCode: 'UY', subdivisionCode: 'UY-MO' };
 
 function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
@@ -67,7 +48,7 @@ async function openSignedIn(browser: Browser, collector: OnboardedCollector): Pr
   const context = await browser.newContext();
   const page = await context.newPage();
   await stubCardImages(page);
-  await stubMapTiles(page);
+  await forbidMapProviders(page);
   await signInThroughUi(page, collector.email, collector.password);
   return page;
 }
@@ -108,22 +89,22 @@ async function listCopy(
 test.describe('wishlist and notifications', () => {
   requireStack();
 
-  test('A wishes a card, B lists it nearby: A is notified live and messages B from the matches', async ({
+  test('A wishes a card, B of the same region lists it: A is notified live and messages B from the matches', async ({
     browser,
     request,
   }) => {
     test.setTimeout(180_000);
-    const area = randomArea();
     const a = await createOnboardedCollector(request, 'wisha', {
-      area: { ...area, radiusKm: 5 },
+      location: SOUTH,
       displayName: `Wren Wisher ${suffix()}`,
     });
     const b = await createOnboardedCollector(request, 'wishb', {
-      area: { ...near(area), radiusKm: 5 },
+      location: SOUTH,
       displayName: `Hal Holder ${suffix()}`,
     });
-    // Matching measures the distance between approximate public points, which exist only for
-    // discoverable collectors: both opt in to the map. A also shows the wishlist on the profile.
+    expect(b.placeLabel).toBe('Montevideo, Uruguay');
+    // Matching pairs a wish with listings of discoverable collectors of the same platform region
+    // (ADR 0017): B opts in to the map. A also shows the wishlist on the profile.
     await apiUpdatePrivacy(request, a.idToken, { discoverable: true, wishlistVisible: true });
     await apiUpdatePrivacy(request, b.idToken, { discoverable: true });
     const binder = await apiCreateBinder(request, b.idToken, {
@@ -158,16 +139,8 @@ test.describe('wishlist and notifications', () => {
       await dialog.getByRole('combobox', { name: 'Minimum condition' }).click();
       await page.getByRole('option', { name: 'Lightly Played or better' }).click();
       await dialog.getByRole('spinbutton', { name: 'Maximum price' }).fill('25');
-      // The slider stops at the FREE plan's 25 km; 10 km is fifteen steps below (a small radius
-      // keeps parallel runs in the same region from matching each other's listings).
-      const slider = dialog.getByRole('slider', { name: 'Distance in kilometres' });
-      await slider.focus();
-      await page.keyboard.press('End');
-      await expect(dialog.getByTestId('wish-radius-value')).toHaveText('25 km');
-      for (let step = 0; step < 15; step++) {
-        await page.keyboard.press('ArrowLeft');
-      }
-      await expect(dialog.getByTestId('wish-radius-value')).toHaveText('10 km');
+      // No distance slider any more: wishes match collectors of the same region.
+      await expect(dialog.getByRole('slider')).toHaveCount(0);
       await dialog.getByRole('textbox', { name: 'Private notes' }).fill('Fictional E2E wish.');
       await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
       await expect(dialog).toBeHidden();
@@ -178,7 +151,7 @@ test.describe('wishlist and notifications', () => {
       const criteria = wish.getByRole('list', { name: `What you want for ${WISHED_CARD}` });
       await expect(criteria).toContainText('Lightly Played or better');
       await expect(criteria).toContainText('Up to $25.00');
-      await expect(criteria).toContainText('Within 10 km');
+      await expect(criteria).not.toContainText(/\bkm\b/);
       await expect(criteria).toContainText('Trade or buy');
       await expect(wish).toContainText('Any printing');
       await expect(wish.getByTestId('wish-matches')).toHaveText(/No matches yet/);
@@ -215,7 +188,7 @@ test.describe('wishlist and notifications', () => {
         () => ((window as unknown as { e2eNoReload: boolean }).e2eNoReload = true),
       );
 
-      // B lists a Near Mint copy for 20 CAD nearby: A's badge and match count rise live.
+      // B lists a Near Mint copy for 20 CAD in the region: A's badge and match count rise live.
       await listCopy(request, b, binder.id, printingId, { condition: 'NEAR_MINT', price: 20 });
       await expect(page.getByTestId('notification-badge')).toHaveText('1', { timeout: 20_000 });
       await expect(bell).toHaveAccessibleName('Notifications, 1 unread');
@@ -228,6 +201,7 @@ test.describe('wishlist and notifications', () => {
         name: new RegExp(`Wishlist match: ${WISHED_CARD}`),
       });
       await expect(entry).toContainText(`${WISHED_CARD} ${WISHED_PRINTING} was listed`);
+      await expect(entry).toContainText(`by @${b.handle} in Montevideo, Uruguay`);
       await expect(entry).toContainText('20.00 CAD');
       await entry.click();
       await expect(page).toHaveURL(/\/wishlist\/[0-9a-f-]{36}$/);
@@ -238,8 +212,8 @@ test.describe('wishlist and notifications', () => {
       await expect(matches).toHaveCount(1);
       const first = matches.first();
       await expect(first).toContainText(b.displayName);
-      await expect(first).toContainText(b.areaLabel ?? '');
-      await expect(first.getByTestId('match-distance')).toHaveText(/km away/);
+      await expect(first.getByTestId('match-place')).toHaveText('Montevideo, Uruguay');
+      await expect(first).not.toContainText(/\bkm\b/);
       await expect(first.getByTestId('match-price')).toHaveText('$20.00');
       await expect(first.getByLabel('Condition: Near Mint')).toBeVisible();
       await expect(first.getByRole('link', { name: 'View binder' })).toHaveAttribute(
@@ -303,7 +277,7 @@ test.describe('wishlist and notifications', () => {
       await expect(lookingFor).not.toContainText('25.00');
 
       await watcher.settle();
-      expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+      expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
       await page.context().close();
     } finally {
       // Later runs must never match B's listing.
@@ -346,10 +320,13 @@ test.describe('wishlist and notifications', () => {
     await page.goto('/wishlist');
     await expect(page.locator('[data-wish]')).toHaveCount(20);
     await expect(page.getByText('20 of 20 wishes')).toBeVisible();
-    // Without a trading area no match can arrive: the page says so and links to the setting.
+    // Without a location no match can arrive: the page says so and links to the setting.
     await expect(page.getByTestId('match-readiness')).toContainText(
-      'Set your trading area to get matches',
+      'Choose your location to get matches',
     );
+    await expect(
+      page.getByTestId('match-readiness').getByRole('link', { name: 'Choose my location' }),
+    ).toHaveAttribute('href', '/settings/location');
     await expect(page.getByRole('link', { name: 'Need more room? See Premium' })).toBeVisible();
 
     // Alerts can be paused from the list (PATCH active) and the filter finds the paused wish.
@@ -380,6 +357,6 @@ test.describe('wishlist and notifications', () => {
     await expect(page.locator('[data-wish]')).toHaveCount(20);
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+    expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
   });
 });

@@ -37,7 +37,7 @@ test.describe('card catalog', () => {
     test.setTimeout(120_000);
     const collector = await createOnboardedCollector(request, 'browse');
     await signInThroughUi(page, collector.email, collector.password);
-    await expect(page).toHaveURL(/\/map$/);
+    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/);
     const search = topSearch(page);
     // Specific enough to rank the fictional card first when the real Yu-Gi-Oh! catalog is
     // imported locally (it has an "Azure-Eyes Silver Dragon").
@@ -84,10 +84,10 @@ test.describe('card catalog', () => {
     await expect(page.getByTestId('selected-price')).toContainText('$33.60');
     await expect(selected).toContainText('Unlimited');
 
-    // "Who has this near me" opens the map in holders mode (Phase 4).
-    await expect(page.getByRole('link', { name: 'Who has this near me' })).toHaveAttribute(
+    // "Who has this in my region" opens the card holders of the browsed region (ADR 0017).
+    await expect(page.getByRole('link', { name: 'Who has this in my region' })).toHaveAttribute(
       'href',
-      /^\/map\?card=[0-9a-f-]{36}&view=list$/,
+      /^\/search\?card=[0-9a-f-]{36}$/,
     );
     // "Add to wishlist" (Phase 6) opens the wishlist dialog on this card and the chosen printing.
     await page.getByRole('button', { name: 'Add to wishlist' }).click();

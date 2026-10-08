@@ -1,5 +1,6 @@
 import {
   TEST_PASSWORD,
+  chooseOption,
   emulatorSignIn,
   openAccountMenu,
   requireStack,
@@ -8,18 +9,20 @@ import {
   verifyEmailInEmulator,
 } from '../support/stack';
 import { expect, signIn, test } from './support/fixtures';
+import { cityToken } from './support/places';
 
 /**
  * Acceptance — registration (spec § 50): a visitor registers with the required legal consents,
  * verifies the email address (Auth emulator out-of-band code), creates the collector profile,
- * chooses interests and an approximate trading area on the Leaflet map, signs out and signs in
- * again straight into the app. The chosen centre is registered with the privacy scanner once
- * the server stored it: afterwards no answer other than the owner's own `/me/location` may carry it.
+ * chooses interests and says where they are (region, country, state and an optional city with
+ * simple pickers: no map, no GPS, ADR 0017), signs out and signs in again straight into the app,
+ * in their home region. The city is registered with the privacy scanner: no answer other than the
+ * owner's own profile and `/me/location` may carry it.
  */
 test.describe('acceptance: registration', () => {
   requireStack();
 
-  test('register, verify, create the profile, set an approximate area, sign in again', async ({
+  test('register, verify, create the profile, say where you are, sign in again', async ({
     page,
     request,
     api,
@@ -69,40 +72,42 @@ test.describe('acceptance: registration', () => {
     await expect(pokemon).toHaveAttribute('aria-pressed', 'true');
     await next.filter({ visible: true }).click();
 
-    // --- Approximate trading area on the map -----------------------------------------------------
-    await expect(page.getByRole('heading', { name: 'Where do you trade?' })).toBeVisible();
-    const map = page.getByTestId('trading-area-map');
-    await expect(map.locator('.leaflet-container, .leaflet-pane').first()).toBeAttached({
-      timeout: 20_000,
-    });
-    const pin = page.locator('.orenji-map-pin--centre');
-    await expect(pin).toBeVisible();
-    const before = await pin.boundingBox();
-    const box = await map.boundingBox();
-    expect(box).not.toBeNull();
-    await map.click({ position: { x: box!.width * 0.62, y: box!.height * 0.41 } });
-    await expect.poll(async () => (await pin.boundingBox())?.x).not.toBe(before?.x);
-    const slider = page.getByRole('slider', { name: 'Trading radius' });
-    await slider.focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(page.locator('output').filter({ hasText: 'km' })).toContainText('6 km');
+    // --- Where are you? -------------------------------------------------------------------------
+    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await expect(page.locator('.leaflet-container')).toHaveCount(0);
+    const city = cityToken();
+    privacy.registerCity(handle, city);
+    await chooseOption(page, 'Region', 'Europe');
+    await chooseOption(page, 'Country', 'France');
+    await chooseOption(page, 'State or province', 'Brittany');
+    await page.getByLabel('City (optional)').fill(city);
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/\/map$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
-    // The server stored the centre (3 decimals) and derived a public label for it.
+    // The server stored the declared place (codes and the city text only, never a coordinate).
     const token = await emulatorSignIn(request, email, TEST_PASSWORD);
     const location = await api.ok<{
       discoverable: boolean;
-      publicPoint: unknown;
-      tradingArea: { lat: number; lng: number; radiusKm: number; label: string | null };
+      location: {
+        regionCode: string;
+        countryCode: string;
+        subdivisionCode: string;
+        label: string;
+        city: string | null;
+        showCity: boolean;
+      };
     }>('GET', '/api/v1/me/location', { token });
-    expect(location.tradingArea.radiusKm).toBe(6);
     expect(location.discoverable).toBe(false);
-    expect(location.publicPoint ?? null).toBeNull();
-    privacy.registerCentre(`@${handle}`, location.tradingArea);
-    const label = location.tradingArea.label ?? '';
-    expect(label).not.toBe('');
+    expect(location.location).toMatchObject({
+      regionCode: 'europe',
+      countryCode: 'FR',
+      subdivisionCode: 'FR-BRE',
+      label: 'Brittany, France',
+      city,
+      showCity: true,
+    });
+    const label = location.location.label;
 
     // --- Sign out, then sign in again: straight into the app ---------------------------------
     await openAccountMenu(page);
@@ -111,16 +116,31 @@ test.describe('acceptance: registration', () => {
     await expect(page.getByText('You are signed out. See you soon!')).toBeVisible();
 
     await signIn(page, { email, password: TEST_PASSWORD });
-    await expect(page).toHaveURL(/\/map$/);
+    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/);
+    // Signed in: the home region is browsed.
+    await page.goto('/map');
+    await expect(page).toHaveURL(/\/map\?region=europe$/);
+    await expect(page.getByTestId('region-switcher')).toContainText('Europe');
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-handle')).toHaveText(`@${handle}`);
     await page.keyboard.press('Escape');
 
-    // The trading-area settings show the approximate public label, never coordinates.
-    await page.goto('/settings/trading-area');
-    await expect(page.getByTestId('area-public-label')).toHaveText(label);
+    // The location settings show the public label, never coordinates.
+    await page.goto('/settings/location');
+    await expect(page.getByTestId('location-label')).toHaveText(new RegExp(label));
+    // Not discoverable yet (the default): the profile shows no place at all.
     await page.goto(`/collectors/${handle}`);
     await expect(page.getByRole('heading', { level: 1, name: displayName })).toBeVisible();
     await expect(page.getByRole('list', { name: 'Games' })).toContainText('Pokémon');
+    await expect(page.getByRole('list', { name: 'Collector details' })).toContainText(
+      'Not on the map',
+    );
+    await expect(page.getByTestId('collector-city')).toHaveCount(0);
+
+    // Discoverable: the profile shows the state and, with "show my city" on, the city.
+    await api.updatePrivacy(token, { discoverable: true });
+    await page.reload();
+    await expect(page.getByTestId('collector-public-label')).toContainText(label);
+    await expect(page.getByTestId('collector-city')).toHaveText(city);
   });
 });

@@ -8,13 +8,14 @@ import {
   signIn,
   test,
 } from './support/fixtures';
-import { besides, randomCentre } from './support/places';
+import { cityToken, placeOf } from './support/places';
 
 /**
- * Acceptance — wishlist (spec § 50): collector A wants a card (added to the wishlist from the card
- * page with a 10 km radius); collector B, nearby, publishes a binder holding that card from the
- * inventory page in another browser; the matcher finds the match and A is notified live (the bell
- * badge rises over STOMP without a reload) and sees B in the matches drawer.
+ * Acceptance — wishlist (spec § 50, ADR 0017): collector A wants a card (added to the wishlist from
+ * the card page; no radius exists); collector B, of the same platform region, publishes a binder
+ * holding that card from the inventory page in another browser; the matcher finds the match and A
+ * is notified live (the bell badge rises over STOMP without a reload) and sees B, by state and
+ * country, in the matches drawer. Both live in Lisbon (Europe), where no other spec lists cards.
  */
 
 const CARD = 'Galecrest Owl';
@@ -23,22 +24,20 @@ const CODE = 'SVX-049';
 test.describe('acceptance: wishlist', () => {
   requireStack();
 
-  test('A wants a card, B publishes it nearby, the match notifies A', async ({
+  test('A wants a card, B of the same region publishes it, the match notifies A', async ({
     page,
     api,
     actors,
   }) => {
     test.setTimeout(180_000);
-    const area = randomCentre('wishlist');
+    const place = placeOf('wishlist');
     const a = await api.collector('acc-wisha', {
-      area,
-      radiusKm: 5,
+      place,
       discoverable: true,
       displayName: `Wren Wanter ${suffix()}`,
     });
     const b = await api.collector('acc-wishb', {
-      area: besides(area),
-      radiusKm: 5,
+      place: placeOf('wishlist', cityToken()),
       discoverable: true,
       displayName: `Hal Holder ${suffix()}`,
     });
@@ -63,14 +62,7 @@ test.describe('acceptance: wishlist', () => {
     await page.getByRole('button', { name: 'Add to wishlist' }).click();
     const dialog = await dialogReady(page.getByRole('dialog', { name: 'Add to wishlist' }));
     await expect(dialog.getByTestId('wish-card')).toContainText(CARD);
-    const slider = dialog.getByRole('slider', { name: 'Distance in kilometres' });
-    await slider.focus();
-    await page.keyboard.press('End');
-    await expect(dialog.getByTestId('wish-radius-value')).toHaveText('25 km');
-    for (let step = 0; step < 15; step++) {
-      await page.keyboard.press('ArrowLeft');
-    }
-    await expect(dialog.getByTestId('wish-radius-value')).toHaveText('10 km');
+    await expect(dialog.getByRole('slider')).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByText(`${CARD} is on your wishlist`)).toBeVisible();
@@ -102,13 +94,16 @@ test.describe('acceptance: wishlist', () => {
     const entry = page
       .getByRole('menu', { name: 'Notifications' })
       .getByRole('menuitem', { name: new RegExp(`Wishlist match: ${escapeRegExp(CARD)}`) });
-    await expect(entry).toContainText(`${CARD} ${CODE} was listed`);
+    await expect(entry).toContainText(
+      `${CARD} ${CODE} was listed by @${b.handle} in ${place.label}`,
+    );
     await entry.click();
     await expect(page).toHaveURL(/\/wishlist\/[0-9a-f-]{36}$/);
     const sheet = page.getByRole('dialog', { name: `Matches for ${CARD}` });
     const match = sheet.locator('[data-match]').filter({ hasText: b.displayName });
     await expect(match).toHaveCount(1);
-    await expect(match.getByTestId('match-distance')).toHaveText(/km away/);
+    await expect(match.getByTestId('match-place')).toHaveText(place.label);
+    await expect(match).not.toContainText(/\bkm\b/);
     await expect(match.getByTestId('match-price')).toHaveText('$20.00');
     await expect(match.getByRole('link', { name: 'View binder' })).toHaveAttribute(
       'href',

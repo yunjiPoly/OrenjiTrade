@@ -1,44 +1,40 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
-import { escapeRegExp, expect, mapMarker, signIn, test } from './support/fixtures';
-import { besides, randomCentre } from './support/places';
-import { Point } from './support/privacy';
+import { escapeRegExp, expect, signIn, test } from './support/fixtures';
+import { cityToken, placeOf } from './support/places';
 
 /**
- * Acceptance — search (spec § 50): a collector searches a card from the top bar, opens it and asks
- * "Who has this near me": the nearby holder appears in the map's holders list and on the map, in
- * the card-holders view with its price, and in the unified search by printing code. Exact
- * coordinates are never exposed: every holder's point is its derived public point (the privacy
- * scanner also checks every response for > 3 decimals and stored centres).
+ * Acceptance — search (spec § 50, ADR 0017): a collector searches a card from the top bar, opens
+ * it and asks "Who has this in my region": the holder of the same platform region appears in the
+ * card-holders view with its price and its state (never a city or a distance), and in the unified
+ * search by printing code. Another region does not list it. The privacy scanner checks every
+ * response for coordinates, distances and the holder's city.
  */
 
 const CARD = 'Tidecaller Mermaid';
 const CODE = 'SHV-EN013';
 
 interface HoldersPage {
-  items: { collector?: { handle?: string; publicPoint?: Point } }[];
+  items: { collector?: { handle?: string; place?: { label?: string } } }[];
 }
 
 test.describe('acceptance: search', () => {
   requireStack();
 
-  test('card search finds the nearby collector without exposing exact coordinates', async ({
+  test('card search finds the holder of the region by state, never a city or a distance', async ({
     page,
     api,
     privacy,
   }) => {
     test.setTimeout(150_000);
-    const area = randomCentre('search');
+    const place = placeOf('search', cityToken());
     const { collector: holder, binder } = await api.seller(
       'acc-holder',
-      area,
+      place,
       [{ code: CODE, extra: { availability: 'SALE', askingPrice: 17.5 } }],
       { displayName: `Hana Holder ${suffix()}` },
     );
-    const searcher = await api.collector('acc-searcher', {
-      area: besides(area, 2, 17),
-      radiusKm: 10,
-    });
+    const searcher = await api.collector('acc-searcher', { place: placeOf('registration') });
 
     const holdersAnswers: HoldersPage[] = [];
     page.on('response', (response) => {
@@ -61,54 +57,48 @@ test.describe('acceptance: search', () => {
     await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();
 
-    // "Who has this near me" → the map's holders list and the holder's marker.
-    await page.getByRole('link', { name: 'Who has this near me' }).click();
-    await expect(page).toHaveURL(/\/map\?card=[0-9a-f-]{36}&view=list$/);
-    const holders = page.getByRole('list', { name: `Holders of ${CARD}` });
-    await expect(
-      holders.getByRole('button', { name: holder.displayName, exact: true }),
-    ).toBeVisible({ timeout: 20_000 });
-    const listing = holders.getByRole('list', { name: `Listings of ${holder.displayName}` });
-    await expect(listing).toContainText(CODE);
-    await expect(listing).toContainText('$17.50');
-    await expect(mapMarker(page, holder.displayName)).toBeVisible();
-
-    // The card-holders view with every filter.
-    await page.getByRole('link', { name: 'All filters' }).click();
+    // "Who has this in my region" → the card-holders view with every filter.
+    await page.getByRole('link', { name: 'Who has this in my region' }).click();
     await expect(page).toHaveURL(/\/search\?card=[0-9a-f-]{36}$/);
     const row = page
-      .getByRole('list', { name: 'Card holders near you' })
+      .getByRole('list', { name: 'Card holders in your region' })
       .getByRole('article', { name: new RegExp(`^${escapeRegExp(holder.displayName)}`) });
-    await expect(row).toContainText('$17.50');
-    await expect(row).toContainText(/km/);
+    await expect(row).toContainText('$17.50', { timeout: 20_000 });
+    await expect(row).toContainText(place.label);
+    await expect(row).not.toContainText(/\bkm\b/);
+    await expect(row).not.toContainText(place.city ?? '');
     await expect(row.getByRole('link', { name: 'View binder' })).toHaveAttribute(
       'href',
       `/binders/${binder.id}`,
     );
 
-    // Unified search by printing code resolves the card and lists the nearby holder.
+    // Another region does not list the holder.
+    await page.getByTestId('region-switcher').click();
+    await page.getByRole('menuitemradio', { name: 'Europe' }).click();
+    await expect(page.getByText('Collectors in Europe, freshest listings first.')).toBeVisible();
+    await expect(row).toBeHidden();
+
+    // Unified search by printing code (back in the home region) lists the holder.
+    await page.getByTestId('region-switcher').click();
+    await page.getByRole('menuitemradio', { name: /Americas \(North\)/ }).click();
     await page.goto(`/search?q=${CODE}`);
     await expect(page.getByRole('heading', { name: new RegExp(`Who has ${CARD}`) })).toBeVisible();
     await expect(
       page
-        .getByRole('list', { name: 'Nearby holders' })
+        .getByRole('list', { name: 'Holders in your region' })
         .getByRole('link', { name: holder.displayName }),
     ).toBeVisible();
 
-    // The holder was located by the derived public point only.
+    // The holder was described by state and country only.
     const seen = holdersAnswers
       .flatMap((answer) => answer.items)
       .map((item) => item.collector)
       .filter((collector) => collector?.handle === holder.handle);
     expect(seen.length, 'the card-holders answer listed the holder').toBeGreaterThan(0);
     for (const collector of seen) {
-      if (collector?.publicPoint) {
-        expect(collector.publicPoint).not.toEqual(area);
-      }
+      expect(collector?.place?.label).toBe(place.label);
     }
     await privacy.settle();
-    expect(privacy.checkedCoordinates, 'the search delivered coordinates to check').toBeGreaterThan(
-      0,
-    );
+    expect(privacy.checkedPlaces, 'the search delivered public places to check').toBeGreaterThan(0);
   });
 });

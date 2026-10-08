@@ -1,5 +1,5 @@
 import { APIRequestContext, Page, expect, test } from '@playwright/test';
-import { tooPrecise, watchCoordinates } from './support/inventory';
+import { coordinateLeaks, watchCoordinates } from './support/inventory';
 import {
   API_URL,
   authHeader,
@@ -9,7 +9,7 @@ import {
   requireStack,
   signInThroughUi,
   stubCardImages,
-  stubMapTiles,
+  forbidMapProviders,
   WEB_URL,
 } from './support/stack';
 
@@ -29,7 +29,7 @@ import {
  * 4. An admin grants credits to a member and creates, edits, targets and ends an ad campaign;
  *    the audit log lists every write.
  *
- * Every JSON response is checked for ADR 0004: at most 3 decimals for any lat/lng.
+ * No JSON response carries a coordinate (ADR 0017).
  */
 
 function suffix(): string {
@@ -120,7 +120,9 @@ test.describe('credits, ads and donations', () => {
     // Spend the credits on "Advanced search for a day" (50 credits, 24 hours).
     const product = page.locator('[data-product="premium_search_day"]');
     await expect(
-      page.locator('[data-product="map_radius_day"]').getByRole('button', { name: /^Unlock for/ }),
+      page
+        .locator('[data-product="binder_views_day"]')
+        .getByRole('button', { name: /^Unlock for/ }),
     ).toBeEnabled();
     await product.getByRole('button', { name: 'Unlock for 50 credits' }).click();
     const dialog = page.getByRole('dialog', { name: /^Unlock .+\?$/ });
@@ -133,9 +135,11 @@ test.describe('credits, ads and donations', () => {
     await expect(page.getByTestId('active-boost')).toContainText('Unlocked with credits');
     await expect(history.getByTestId('ledger-amount').first()).toHaveText('−50');
     await expect(
-      page.locator('[data-product="map_radius_day"]').getByRole('button', { name: /^Unlock for/ }),
+      page
+        .locator('[data-product="binder_views_day"]')
+        .getByRole('button', { name: /^Unlock for/ }),
     ).toBeDisabled();
-    await expect(page.locator('[data-product="map_radius_day"]')).toContainText(
+    await expect(page.locator('[data-product="binder_views_day"]')).toContainText(
       'You need 30 credits more.',
     );
 
@@ -151,7 +155,7 @@ test.describe('credits, ads and donations', () => {
     expect(body).toMatchObject({ balance: 100, withdrawable: false, transferable: false });
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples)).toEqual([]);
+    expect(coordinateLeaks(watcher.samples)).toEqual([]);
   });
 
   test('sponsored placements are labelled, click through, and disappear with Premium', async ({
@@ -160,15 +164,15 @@ test.describe('credits, ads and donations', () => {
   }) => {
     test.setTimeout(150_000);
     const watcher = watchCoordinates(page);
-    await stubMapTiles(page);
+    await forbidMapProviders(page);
 
-    // Signed out: the map list panel carries the house ad, labelled "Sponsored".
+    // Signed out: the map's side panel carries the house ad, labelled "Sponsored".
     const impression = page.waitForResponse(
       (response) =>
         /\/api\/v1\/ads\/[\w-]+\/impression$/.test(response.url()) &&
         response.request().method() === 'POST',
     );
-    await page.goto('/map?view=list');
+    await page.goto('/map');
     const mapAd = page.locator('[data-slot="MAP_PANEL"] [data-testid="sponsored-ad"]').first();
     await expect(mapAd).toBeVisible();
     await expect(mapAd.getByTestId('sponsored-label')).toHaveText('Sponsored');
@@ -221,7 +225,7 @@ test.describe('credits, ads and donations', () => {
     await expect(page.getByText('Sponsored', { exact: true })).toHaveCount(0);
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples)).toEqual([]);
+    expect(coordinateLeaks(watcher.samples)).toEqual([]);
   });
 
   test('a voluntary donation through the fake checkout thanks the donor publicly', async ({
@@ -278,7 +282,7 @@ test.describe('credits, ads and donations', () => {
     expect(text).not.toContain('25.00');
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples)).toEqual([]);
+    expect(coordinateLeaks(watcher.samples)).toEqual([]);
   });
 
   test('an admin grants credits and edits an ad campaign; the audit log lists both', async ({

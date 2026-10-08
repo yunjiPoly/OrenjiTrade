@@ -5,7 +5,7 @@ import {
   apiPublishBinder,
   apiUpdatePrivacy,
   printingIdOf,
-  tooPrecise,
+  coordinateLeaks,
   watchCoordinates,
 } from './support/inventory';
 import {
@@ -223,7 +223,7 @@ test.describe('collector reporting', () => {
       expect(kinds).toContain('MODERATION_WARNING');
 
       await watcher.settle();
-      expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+      expect(coordinateLeaks(watcher.samples), 'lat/lng in a JSON answer').toEqual([]);
       await page.context().close();
     } finally {
       await moderator.demote();
@@ -241,7 +241,7 @@ test.describe('collector reporting', () => {
     });
     const other = await createOnboardedCollector(request, 'other', {
       displayName: `Otto Other ${suffix()}`,
-      tradingArea: true,
+      location: true,
     });
     // A conversation, a community post and a public binder of the other collector.
     const started = await request.post(`${API_URL}/api/v1/conversations`, {
@@ -256,10 +256,10 @@ test.describe('collector reporting', () => {
     });
     expect(sent.ok(), 'POST message').toBeTruthy();
     const postText = `Trading my spare Azure-Eyes, message me ${suffix()}`;
-    const posted = await request.post(
-      `${API_URL}/api/v1/community/channels/montreal-pokemon/posts`,
-      { headers: authHeader(other.idToken), data: { body: postText } },
-    );
+    const posted = await request.post(`${API_URL}/api/v1/community/channels/americas-north/posts`, {
+      headers: authHeader(other.idToken),
+      data: { body: postText },
+    });
     expect(posted.status(), 'POST community post').toBe(201);
     const postId = ((await posted.json()) as { id: string }).id;
     await apiUpdatePrivacy(request, other.idToken, { discoverable: true });
@@ -297,7 +297,7 @@ test.describe('collector reporting', () => {
       await expect(dialog).toBeHidden();
 
       // Community post menu.
-      await page.goto('/community/montreal-pokemon');
+      await page.goto('/community/americas-north');
       const post = page.locator(`article[data-post-id="${postId}"]`);
       await expect(post).toContainText(postText);
       await post.getByRole('button', { name: /^Post options/ }).click();

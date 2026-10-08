@@ -1,7 +1,7 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { dialogReady, expect, test } from './support/fixtures';
-import { randomCentre } from './support/places';
+import { placeOf } from './support/places';
 
 /**
  * Acceptance — stale listings (spec § 60 rows 31–32): a collector's public card was last confirmed
@@ -29,7 +29,7 @@ test.describe('acceptance: stale listings', () => {
     const card = 'Frostbite Sorceress';
     const { collector: seller, items } = await api.seller(
       'acc-stale',
-      randomCentre('staleListings'),
+      placeOf('staleListings'),
       [{ code: 'AZR-EN031', extra: { visibility: 'PUBLIC', askingPrice: 18 } }],
       { displayName: `Stan Stale ${suffix()}` },
     );

@@ -5,7 +5,7 @@ import {
   apiPublishBinder,
   apiUpdatePrivacy,
   printingIdOf,
-  tooPrecise,
+  coordinateLeaks,
   watchCoordinates,
 } from './support/inventory';
 import {
@@ -32,22 +32,8 @@ import {
  *    the dispute on hold, adds an internal note and resolves it for the buyer with a refund; the
  *    buyer sees the decision and the refund, and the audit log lists every admin action.
  *
- * Every JSON response is checked for ADR 0004: at most 3 decimals for any lat/lng.
+ * No JSON response carries a coordinate (ADR 0017).
  */
-
-interface Point {
-  lat: number;
-  lng: number;
-}
-
-/** A random point of rural Québec (a region no other spec uses, so maps stay uncrowded). */
-function randomArea(): Point {
-  const pick = (min: number, span: number) => {
-    const value = Math.round((min + Math.random() * span) * 1000);
-    return (value % 10 === 0 ? value + 3 : value) / 1000;
-  };
-  return { lat: pick(49.6, 0.6), lng: pick(-74.9, 1.8) };
-}
 
 function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
@@ -74,7 +60,7 @@ async function sellerWithCard(
   askingPrice: number,
 ): Promise<{ collector: OnboardedCollector; binderId: string; itemId: string; card: string }> {
   const collector = await createOnboardedCollector(api, prefix, {
-    area: { ...randomArea(), radiusKm: 5 },
+    location: true,
     displayName: name,
   });
   await apiUpdatePrivacy(api, collector.idToken, { discoverable: true });
@@ -298,7 +284,7 @@ test.describe('payment protection and disputes', () => {
 
     for (const watch of [watchS, watchB]) {
       await watch.settle();
-      expect(tooPrecise(watch.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+      expect(coordinateLeaks(watch.samples), 'lat/lng in a JSON answer').toEqual([]);
     }
     await pageS.context().close();
     await pageB.context().close();
@@ -472,7 +458,7 @@ test.describe('payment protection and disputes', () => {
 
       for (const watch of [watchA, watchB]) {
         await watch.settle();
-        expect(tooPrecise(watch.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+        expect(coordinateLeaks(watch.samples), 'lat/lng in a JSON answer').toEqual([]);
       }
       await pageA.context().close();
       await pageB.context().close();

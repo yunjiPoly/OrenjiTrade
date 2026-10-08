@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { expect, test } from './support/fixtures';
-import { besides, randomCentre } from './support/places';
+import { placeOf } from './support/places';
 
 /**
  * Acceptance — messaging (spec § 50): collector B waits on the Messages page in one browser;
@@ -24,15 +24,12 @@ test.describe('acceptance: messaging', () => {
 
   test('A messages B, B receives it in realtime and answers', async ({ api, actors }) => {
     test.setTimeout(150_000);
-    const area = randomCentre('messaging');
     const a = await api.collector('acc-msga', {
-      area,
-      radiusKm: 5,
+      place: placeOf('messaging'),
       displayName: `Ari Sender ${suffix()}`,
     });
     const b = await api.collector('acc-msgb', {
-      area: besides(area),
-      radiusKm: 5,
+      place: placeOf('messaging'),
       discoverable: true,
       displayName: `Bea Receiver ${suffix()}`,
     });
