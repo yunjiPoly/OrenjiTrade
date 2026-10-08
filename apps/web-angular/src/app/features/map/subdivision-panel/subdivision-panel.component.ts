@@ -21,8 +21,8 @@ import { SubdivisionBinders } from '../data/region-map.store';
 
 /**
  * Public binders of one state/province (ADR 0017), opened from the map or the list: a cursor list
- * with skeleton, empty and error states, "Show more" and a sponsored slot (`[sponsored]`). Owners
- * show their handle and state/province only.
+ * with skeleton, empty and error states, "Show more" and a sponsored slot (`[sponsored]`). Each
+ * binder names its owner (handle) and the owner's state/province + country, never a city.
  */
 @Component({
   selector: 'app-subdivision-panel',
@@ -77,16 +77,24 @@ import { SubdivisionBinders } from '../data/region-map.store';
             <li class="sdp__item">
               <app-public-binder-card [binder]="binder" />
               @if (binder.owner; as owner) {
-                <a class="sdp__owner" [routerLink]="['/collectors', owner.handle]">
-                  <app-avatar
-                    size="xs"
-                    [src]="owner.avatarUrl"
-                    [name]="owner.displayName"
-                    [decorative]="true"
-                  />
-                  <span class="sdp__owner-name">{{ owner.displayName }}</span>
-                  <span class="sdp__owner-handle">&#64;{{ owner.handle }}</span>
-                </a>
+                <div class="sdp__owner-row">
+                  <a class="sdp__owner" [routerLink]="['/collectors', owner.handle]">
+                    <app-avatar
+                      size="xs"
+                      [src]="owner.avatarUrl"
+                      [name]="owner.displayName"
+                      [decorative]="true"
+                    />
+                    <span class="sdp__owner-name">{{ owner.displayName }}</span>
+                    <span class="sdp__owner-handle">&#64;{{ owner.handle }}</span>
+                  </a>
+                  @if (owner.place; as place) {
+                    <span class="sdp__owner-place" data-testid="binder-owner-place">
+                      <mat-icon aria-hidden="true">location_on</mat-icon>
+                      {{ place.label }}
+                    </span>
+                  }
+                </div>
               }
             </li>
           }
@@ -172,6 +180,25 @@ import { SubdivisionBinders } from '../data/region-map.store';
     }
     .sdp__owner-handle {
       color: var(--color-text-muted);
+    }
+    .sdp__owner-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: var(--spacing-3);
+      row-gap: var(--spacing-1);
+    }
+    .sdp__owner-place {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-1);
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .sdp__owner-place mat-icon {
+      width: 1rem;
+      height: 1rem;
+      font-size: 1rem;
     }
     .sdp__more {
       align-self: center;

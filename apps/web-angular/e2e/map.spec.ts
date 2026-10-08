@@ -160,6 +160,7 @@ test.describe('region map and search', () => {
     await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeFocused();
     const card = panel.getByRole('listitem').filter({ hasText: seller.binder.name });
     await expect(card).toContainText(`@${a.handle}`);
+    await expect(card.getByTestId('binder-owner-place')).toContainText('Yukon, Canada');
     // The city is never shown outside the owner's profile.
     await expect(panel).not.toContainText('Zqcity');
     await panel.getByRole('button', { name: 'Back to the list' }).click();

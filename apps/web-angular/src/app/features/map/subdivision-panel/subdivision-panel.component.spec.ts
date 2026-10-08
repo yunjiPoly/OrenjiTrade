@@ -86,6 +86,9 @@ describe('SubdivisionPanelComponent', () => {
     expect(items).toHaveLength(2);
     expect(items[0].textContent).toContain('Trade binder 1');
     expect(items[0].textContent).toContain('@owner1');
+    expect(items[0].querySelector('[data-testid="binder-owner-place"]')?.textContent).toContain(
+      'Quebec, Canada',
+    );
     expect(element.textContent).not.toMatch(/km|Montréal/);
     const more = Array.from(element.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Show more binders'),
