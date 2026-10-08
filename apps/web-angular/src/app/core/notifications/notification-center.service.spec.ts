@@ -26,7 +26,7 @@ function notification(
     id,
     type: Type.WishlistMatch,
     title: `Wishlist match ${id}`,
-    body: 'Emberfang Fox PFT-002 was listed ~1-5 km away.',
+    body: 'Emberfang Fox PFT-002 was listed by @collector5 in California, United States.',
     data: { deepLink: `/wishlist/w-${id}` },
     createdAt: '2026-09-30T10:00:00Z',
     readAt: null,

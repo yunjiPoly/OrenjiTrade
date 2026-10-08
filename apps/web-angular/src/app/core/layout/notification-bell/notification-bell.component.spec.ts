@@ -12,7 +12,7 @@ function notification(id: string, readAt: string | null = null): NotificationRes
     id,
     type: Type.WishlistMatch,
     title: `Wishlist match: Card ${id}`,
-    body: `Card ${id} was listed ~1-5 km away.`,
+    body: `Card ${id} was listed by @collector5 in California, United States.`,
     data: { deepLink: `/wishlist/w-${id}` },
     createdAt: new Date().toISOString(),
     readAt,

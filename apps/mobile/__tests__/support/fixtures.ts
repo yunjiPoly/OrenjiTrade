@@ -935,7 +935,7 @@ export function notificationFixture(
     id: '00000000-0000-4000-9b00-000000000001',
     type: 'WISHLIST_MATCH',
     title: 'Wishlist match: Azure-Eyes Sky Dragon',
-    body: 'Azure-Eyes Sky Dragon was listed ~1-5 km away for 45.00 CAD.',
+    body: 'Azure-Eyes Sky Dragon was listed by @collector2 in Ontario, Canada for 45.00 CAD.',
     data: { wishlistItemId: WISH_ID, deepLink: `/wishlist/${WISH_ID}` },
     createdAt: new Date().toISOString(),
     readAt: null,
@@ -1195,7 +1195,7 @@ export function searchBinderFixture(
 
 export const HOLDER_ITEM_ID = '00000000-0000-4000-8c00-000000030303';
 
-/** One "who near me has this card" result: a public copy and its holder (a map marker). */
+/** One "who in my region has this card" result: a public copy and its holder (state/province only). */
 export function cardHolderFixture(overrides: Partial<CardHolderResult> = {}): CardHolderResult {
   return {
     collector: markerFixture(),

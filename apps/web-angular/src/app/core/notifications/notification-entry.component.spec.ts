@@ -7,7 +7,7 @@ function notification(data: Record<string, unknown>): NotificationResponse {
     id: 'n-1',
     type: 'WISHLIST_MATCH',
     title: 'Wishlist match: Azure-Eyes Sky Dragon',
-    body: 'Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km away.',
+    body: 'Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector2 in Ontario, Canada.',
     data,
     createdAt: '2026-10-01T10:00:00Z',
     readAt: null,
