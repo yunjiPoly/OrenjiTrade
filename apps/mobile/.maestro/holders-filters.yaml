@@ -55,6 +55,12 @@ tags:
 - assertVisible:
     id: 'holder-${output.items.offers}-price'
     text: '.*45.*'
+# The holder line sits at the bottom of the card: bring it on screen before reading it.
+- scrollUntilVisible:
+    element:
+      id: 'holder-${output.items.offers}-collector'
+    direction: DOWN
+    timeout: 30000
 - assertVisible:
     id: 'holder-${output.items.offers}-collector'
     text: '.*Wyoming, United States.*'

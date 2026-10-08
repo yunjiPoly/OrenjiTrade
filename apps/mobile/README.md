@@ -19,8 +19,8 @@ notifications, account with data export and deletion, appearance, legal).
 Phases 2 and 3 (stage M2) are implemented on the same API as the web: the **Search** tab (card
 catalog across games, live typo-tolerant search, game / set / rarity / language / edition filters,
 infinite results, recent searches), the **card detail** (`cards/[id]`: picture with the provider
-credit, attributes, printings and market prices, "Add to inventory", "Who has this near me" opens
-the Map tab), the **Inventory** tab (cards with search, binder / game / intent filters and sorting,
+credit, attributes, printings and market prices, "Add to inventory", "Who has this in my region"
+opens the card holders), the **Inventory** tab (cards with search, binder / game / intent filters and sorting,
 totals, stale or hidden cards with "Confirm all", paused listings with "Resume"; binders), adding a
 card (`items/new`: catalog search → printing → details), editing and deleting one (`items/[id]`),
 and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
@@ -28,13 +28,12 @@ and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, 
 anyone's public binder). Freemium limits (`binders.max`, binder views per day) are explained where
 they happen.
 
-Phase 4 (stage M3) is implemented on the discovery API the web map uses: the **Map** tab shows
-collectors near the viewer only as zones about 3 km wide (radius 1500 m) around their public
-points, never pins, with every map capped at zoom 14 (ADR 0004, owner rule 2026-10-04); game /
-intent / distance filters, "Who has this near me" from a card, a list view, the **preview bottom
-sheet** (View profile, View public binder, Message, Show on map), and the **collector profile**
-(`collectors/[id]`: place, distance bucket, approximate-area map, ratings and references, public
-binders and cards). "Message" opens or starts the conversation (`POST /conversations`) in a
+Phase 4 (stage M3, reworked by stage S1 / ADR 0017 on 2026-10-08): there are no positions or
+distances any more. The **Map** tab is a placeholder that names the home region and leads to
+region-scoped search until it draws the web's boundary map (follow-up); "Who has this in my
+region" lists the card holders of the home region; the **collector profile** (`collectors/[id]`)
+shows the state or province and, when its owner shows it, the city, with ratings and references,
+public binders and cards. "Message" opens or starts the conversation (`POST /conversations`) in a
 thread (`messages/[id]`).
 
 Phases 5 and 6 (stage M4) are implemented on the same API and realtime channel as the web: a
@@ -43,8 +42,8 @@ signed in, paused in the background, reconnecting with backoff), the **Messages*
 Community: the inbox with unread counts and previews, the full conversation with card / binder /
 offer links, photos, read markers, typing, "Seen", mute / archive / block; the public community
 channels with posts, replies and own edits), the **Wishlist** tab (wishes with the API's criteria,
-a radius bounded by the plan, matches nearby with the card picture and a distance bucket, Message
-/ profile / map; "Add to wishlist" on the card detail) and the **notification centre** (a bell
+matches in the home region with the card picture and the holder's state, Message / profile /
+"Who has it in my region"; "Add to wishlist" on the card detail) and the **notification centre** (a bell
 with a live unread badge on every tab, the list, mark read, a deep link per notification kind).
 Device push is not wired (it needs an EAS project and a real FCM sender): notifications arrive in
 the app. An ended session leads to the sign-in screen with an explanation, and a link opened while
@@ -93,11 +92,11 @@ fake OAuth credential; proven only against the emulator, see below; a Google sig
 legal consent like the web and skips the e-mail verification; an existing e-mail/password account
 of the same verified e-mail is linked; Settings → Account names the sign-in methods; deleting an
 account without a password re-authenticates with Google), the **Search** tab's Cards | Collectors
-| Binders segments (collectors by name or handle with the API's distance bucket and the 3 km rule,
+| Binders segments (collectors by name or handle with their state or province,
 public binders by name with their owner, recent searches per segment), the **card holders list**
-(`holders`: "Who has this near me" from a card as a list with sort, availability, condition, price
-range, freshness, edition, language and accepts-offers filters, paged; "Show on the map" stays the
-alternative view), **"Looking for"** on a collector's profile (the public wishlist of a collector
+(`holders`: "Who has this in my region" from a card as a list with sort (freshness or price),
+availability, condition, price range, freshness, edition, language and accepts-offers filters,
+paged), **"Looking for"** on a collector's profile (the public wishlist of a collector
 who enabled "Show my wishlist on my profile"), **Settings → Blocked users** (list and unblock;
 linked from Settings, from a blocked profile's Message reason, from the block dialog and from the
 settings deep links), inventory **owner photos** on a card (view, add from the library, remove;
@@ -170,7 +169,6 @@ only to override a default.
 | `EXPO_PUBLIC_FIREBASE_PROJECT_ID`         | Firebase project id                                                                                                                                                                                     | `orenjitrade-local`                                |
 | `EXPO_PUBLIC_FIREBASE_APP_ID`             | Firebase app id                                                                                                                                                                                         | empty                                              |
 | `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | Auth emulator `host:port`; `off` for a real project                                                                                                                                                     | `10.0.2.2:9099` (Android), else `localhost:9099`   |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`         | Android Google Maps key (app-restricted, development/store builds only); without it, and always in Expo Go, Android maps use Leaflet + OpenStreetMap; iOS uses Apple Maps                               | empty                                              |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`        | Google sign-in OAuth client id of the web build (public; from the Firebase project, deferred); empty locally: against the Auth emulator "Continue with Google" signs in with a simulated Google account | empty                                              |
 | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`    | Google sign-in OAuth client id of the Android app (expo-auth-session, redirect `com.orenjitrade.app:/oauthredirect`); without it a device build says Google sign-in is not configured                   | empty                                              |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`        | Google sign-in OAuth client id of the iOS app                                                                                                                                                           | empty                                              |
@@ -192,12 +190,12 @@ app/                       expo-router routes
   (auth)/                  sign-in, sign-up, reset-password (guests only)
   (account)/               verify-email, consent, suspended / deletion pending, unavailable
   onboarding.tsx           (age, for an account that never confirmed being 18+) -> profile ->
-                           interests -> trading area (+ map opt-in, off by default)
+                           interests -> "Where are you?" (+ map opt-in, off by default)
   (tabs)/                  Map | Inventory | Search | Messages | Wishlist | Profile
   settings/                profile, location, privacy, notifications, account, delete-account,
                            appearance (screens of the root stack, no nested stack)
   legal/                   index + [key] (versioned documents read in-app, EN / FR switch)
-  (tabs)/index.tsx         the Map tab (collector zones, filters, list, preview sheet)
+  (tabs)/index.tsx         the Map tab (a placeholder: the home region, search; ADR 0017)
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
@@ -235,8 +233,6 @@ src/
                            language rule (legalLanguage, expo-localization + AsyncStorage), the
                            EN / FR switch, the draft banner, the 18+ checkbox (ageConfirmation)
   features/safety/         the "Trade safely" notice and its per-collector dismissal store
-  components/map/          CollectorMap on three engines (react-native-maps, Leaflet in a
-                           WebView, Leaflet on web), the WebView pages, the engine choice
   features/offers/         offer vocabulary and rules (offerLabels, offerForm, offerProblems,
                            offerTarget + the in-memory target store), the editor, the deal, the
                            history, the action bar; features/trades/: trade labels, steps,
@@ -249,8 +245,7 @@ src/
                            features/ads/: SponsoredSlot (label, impression, click route)
   realtime/                STOMP 1.2 codec + connection, RealtimeClient, RealtimeProvider
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
-  lib/                     pure helpers (3-decimal coordinates, distance buckets, card picture URLs,
-                           approximate-area rules, map geometry)
+  lib/                     pure helpers (places and region names, card picture URLs, dates, ...)
   theme/                   tokens.ts (generated from packages/design-tokens), palette, ThemeProvider
 ```
 
@@ -281,48 +276,20 @@ Conventions later stages reuse:
 - **Card pictures**: `CardImage` (expo-image) renders only API picture URLs
   (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of the web;
   anything else (for example a YGOPRODeck URL) shows the placeholder.
-- **Maps** (`src/components/map/mapEngine.ts`, ADR 0010 amendment 2026-10-05): the web rule
-  "Google with a key, Leaflet otherwise". `native` = react-native-maps (Apple Maps on iOS; Google
-  Maps on Android only in a development/store build with `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`);
-  `leaflet` = Leaflet 1.9.4 + OpenStreetMap in a `react-native-webview` page
-  (`src/components/map/leaflet/`, Leaflet from a pinned CDN URL with Subresource Integrity, no
-  geolocation, links open in the browser) on Android without that key and always in Expo Go, whose
-  bundled Google key the Maps SDK refuses ("Authorization failure": an empty grey map). The web
-  build uses Leaflet directly (`*.web.tsx`).
-- **Collector maps** (`src/components/map/CollectorMap`, Map tab and profile; ADR 0004 owner rule
-  2026-10-04, ADR 0010 amendment of stage M3): other collectors are only ever soft zones of radius
-  1500 m around their public point (`src/lib/approximateArea.ts`: `APPROXIMATE_AREA_RADIUS_M`,
-  `COLLECTOR_MAP_MAX_ZOOM = 14`, "Locations are approximate (about 3 km)"), never a `Marker` or pin
-  at the point; count bubbles (above 60 collectors, at the 3-decimal average of a group) are the
-  only markers and clustering stops at 14. Every engine stops at 14: `maxZoomLevel` / Leaflet
-  `maxZoom`, every camera request clamped (`src/lib/mapGeometry.ts`, cluster expansion and "Show on
-  map" included) and a guard that pulls back anything past the cap. Taps are matched to the
-  nearest zone in JS (`zoneAt`); no coordinate handed to a map has more than 3 decimals, the
-  viewport only sizes the next query (its centre sent with 2 decimals) and is never stored. The
-  own trading area is the server's: the Map tab sends no centre for it, and no device location is
-  read on the map (like the web map).
-- **Discovery** (`src/features/map/`): `useCollectorDiscovery` mirrors the web's
-  `MapDiscoveryStore` (own area or a city, debounced viewport queries only when leaving the covered
-  circle, the plan's `map.radius.max_km`, 429 -> the cap, 400 -> the city, the last answer kept
-  offline); `collectorLayer.ts` builds zones and clusters; `discovery.ts` holds the query rules
-  and the wording. The preview sheet and the profile offer "Message" only when the API's
-  `canMessage` allows it (otherwise the web's reason: a block, or the collector's messaging
-  permission).
-- **Trading area** (`src/features/location/TradingAreaPicker.tsx`, onboarding step 3 and Settings →
-  Location): the web picker's mechanism. A map (`TradingAreaMap`, engine as above) where a tap or
-  a dragged pin (a long-press first on Google/Apple maps) moves the centre, "Use map centre" after
-  panning, a 1–50 km radius drawn as a circle, "Jump to a city" quick picks (public centre +
-  suggested radius) and "Use my current location". Hand-picked centres are rounded to 3 decimals
-  and saved with source `MANUAL`; the map shows the loading skeleton and an error state with
-  "Reload map" while the quick picks keep working.
-- **Privacy**: the app never shows coordinates as text, only the API's public labels and distance
-  buckets; generic labels ("Approximate area") never end up in "near …" sentences. "Use my current location" reads the device once at reduced accuracy
-  (`expo-location`, `Accuracy.Low`; a last-known fix up to 10 min old, at most 10 s to get one,
-  like the web's `maximumAge` / `timeout`), rounds it to 3 decimals exactly like the web
-  (`roundCoordinate`) and sends it straight to `PUT /me/location/trading-area`; it is never
-  rendered, stored, persisted or logged, and a saved device-derived centre is never drawn as a pin
-  or circle (the map only looks at its neighbourhood, rounded to 2 decimals). Discoverability
-  defaults to off.
+- **Places (ADR 0017)**: the app handles no coordinates, distances or GPS. Collectors declare a
+  region, country, state or province and an optional city (`src/features/location/`:
+  `LocationFields` with SelectSheet pickers fed by `GET /regions` through `useRegions`,
+  `locationDraft.ts` for the draft rules), in onboarding ("Where are you?") and Settings →
+  Location (`PUT` / `DELETE /me/location`). Others see a collector's state or province
+  (`src/lib/place.ts`); a profile adds the city only when the API sends it (its owner shows it).
+  Region-scoped calls (search, card holders, ads) send the home region of `GET /me`
+  (`useHomeRegion`, `americas-north` without a location). `expo-location` is not installed and no
+  location permission is requested; `react-native-maps` stays installed (its config plugin runs
+  without a key) for the follow-up boundary map. The jest suite scans `src/` and `app/` for
+  coordinate identifiers and location modules (`__tests__/privacy/coordinateLiterals.test.ts`) and
+  checks every answer and request of the place screens (`__tests__/privacy/placePrivacy.test.tsx`).
+- **Map tab**: a placeholder (`app/(tabs)/index.tsx`) that names the home region, leads to search
+  and invites a collector without a location to choose one. Discoverability defaults to off.
 - **Realtime** (`src/realtime/`, the web's `core/realtime`): `RealtimeProvider` connects while a
   ready account is signed in, subscribes only to the caller's own queues
   (`/user/queue/messages|receipts|typing|presence|notifications`) and sends only `/app/typing`.
@@ -444,26 +411,23 @@ npm run test:mobile:e2e -- --reuse-running --skip-build e2e/profile.spec.ts
 
 Specs: `auth.spec.ts` (sign-up -> verification -> onboarding -> tabs -> sign-out, seed sign-in with
 session restore, friendly errors, consent screen, password reset), `profile.spec.ts` (edit,
-validation, tags, public preview), `location.spec.ts` (manual trading area: city quick pick, a tap
-on the map, a dragged pin, the `PUT` body checked for `MANUAL` and 3 decimals; map opt-in; no
-precise coordinates), `account.spec.ts` (export, deletion request and cancel, privacy and notification
-settings), `leaflet-page.spec.ts` (the Android WebView map page in
-Chromium: taps, pin drag, apply, focus, a 0 x 0 first layout, Leaflet load failure; no stack
-needed), `catalog.spec.ts` (search -> game and language filters -> card detail -> printings, every
+validation, tags, public preview), `location.spec.ts` (the pickers: region, country, state,
+city; what is missing; the `PUT /me/location` body; map opt-in; the city on the profile only;
+removal), `account.spec.ts` (export, deletion request and cancel, privacy and notification
+settings), `catalog.spec.ts` (search -> game and language filters -> card detail -> printings, every
 picture an API URL; printing-code match, an unknown card), `inventory.spec.ts` (add a card through
 search -> printing -> details, edit it (only the changed fields are sent), delete it with a
 confirmation; add from a card detail, intent / game filters and sorting), `binders.spec.ts`
 (create a binder -> add a card -> publish for 24 hours -> make private -> remove the card -> rename
 -> delete; the `binders.max` limit; another collector's public binder: public cards and notes
-only), `map.spec.ts` (a seed collector sees the neighbours as 1500 m zones without markers, the
-"+" button and the wheel stop at 14 and no tile beyond 14 loads, list -> preview -> "Show on map"
--> a tap in the zone -> the profile with its area; "Message" opens the seed conversation and
-sends; "Who has this near me" from a card filters the map), `messages.spec.ts` (a second
+only; the owner's state, never their city), `map.spec.ts` (the Map tab placeholder with the
+home region and no map provider request, the invitation for a collector without a location, a
+profile with the state and the shown city, "Message" opens the conversation and sends), `messages.spec.ts` (a second
 collector writes over the API: the inbox badge, the thread, live delivery, a reply, "Seen", a
 photo; a card link, mute and a block both ways), `community.spec.ts` (channels with their
-activity, post, edit, reply, delete), `wishlist.spec.ts` (a wish, then a listing nearby: the bell
-and the match count rise live, the notification opens the matches with a distance bucket only,
-Message), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
+activity, post, edit, reply, delete), `wishlist.spec.ts` (two collectors of Americas (South): a wish
+without a radius, then a listing: the bell and the match count rise live, the notification opens
+the matches with the holder's state only, Message), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
 leads to sign-in with the notice), `reports.spec.ts` (report a collector from the profile with
 the API's reasons -> "Report sent" -> My reports with the status; a second open report refused
 (409); a report from a conversation's options), `offers.spec.ts` (a cash offer from a public
@@ -477,29 +441,26 @@ arrive live, marks the card as shipped with tracking and sees the payout; a disp
 the trade with a reason, a statement, a photo from the library (shown through the authenticated
 route) and messages both ways, a stranger gets 404), `billing.spec.ts` (`binders.max` -> "See
 Premium" -> the fake billing checkout declines then succeeds -> the sixth binder, no ads ->
-"Cancel now"; a referral code redeemed, a feature unlocked for a day with credits, both in the
+"Cancel now"; a referral code redeemed, unlimited binder views unlocked for a day with credits, both in the
 ledger; a voluntary donation through the fake donation checkout and the supporters; a FREE
 collector's "Sponsored" search result: one impression (204), the click route's 302 to the landing
 page), `google.spec.ts` (a Google sign-up through the emulator's simulated account: the fake OAuth
 credential checked, consent -> onboarding -> tabs, Google as the only sign-in method; the chooser
 dismissed; Google with the e-mail of a verified password account signs in to it and links Google,
 the password still works; an unverified one is taken over, Firebase's rule), `search-segments.spec.ts`
-(collectors by name or handle with the distance bucket and no position in the request, a collector
-who opted out of name search never appears, recent searches per segment, the profile from a row;
+(collectors by name or handle with their state, the home region in the request, a collector
+who opted out of name search or lives in another region never appears, recent searches per segment, the profile from a row;
 public binders by name with their owner, the public binder from a row), `holders.spec.ts` ("Who has
-this near me" from a card: both copies with prices and the holder's bucket, sort by price, accepts
-offers, a validated price range, availability and condition filters down to the empty state, "Clear
-filters", the holder's profile, "Show on the map"), `collector-wishlist.spec.ts` ("Looking for" on
-a profile with the condition only, never the price or radius; nothing for a collector who hides it,
+this in my region" from a card: the request names the region, both copies with prices and the
+holder's state, sort by price, accepts offers, a validated price range, availability and condition
+filters, "Clear filters", the holder's profile with the city it shows), `collector-wishlist.spec.ts` ("Looking for" on
+a profile with the condition only, never the price; nothing for a collector who hides it,
 404), `blocked.spec.ts` (block from a conversation -> the blocked profile's Message reason links to
 Blocked users -> Unblock, checked on the API and on what the other collector can send),
 `item-photos.spec.ts` (a text file refused before any upload, a PNG uploaded and served through the
 API's media route, removed), `bulk-actions.spec.ts` (select two cards -> public, select all ->
 private with the skipped one explained, temporarily public for 24 hours, an availability, delete
-after a confirmation),
-`collector-map-page.spec.ts` (the
-Android WebView collector page in Chromium: zone size at 14, zoom cap, taps, clusters, a static
-profile map, a 0 x 0 first layout, Leaflet failure), `age-confirmation.spec.ts` (an account from
+after a confirmation), `age-confirmation.spec.ts` (an account from
 before the 18+ rule, created with `confirmAge: false`, is asked for the confirmation alone on its
 next sign-in, a link opened meanwhile is remembered and reopened after it, the consent checked on
 the API; Sign out from the step), `legal-french.spec.ts` (French by default for a `fr-CA` browser,
@@ -537,27 +498,27 @@ The harness starts (or reuses) the isolated API, starts Metro on :8082 with
 (Expo CLI installs Expo Go when it is missing; the harness waits up to 6 minutes for that install),
 checks that the Android bundle targets the isolated API, then runs the flows with
 `APP_URL=exp://10.0.2.2:8082`. Flows: `sign-in.yaml`,
-`sign-up-onboarding.yaml`, `profile-edit.yaml`, `discoverability.yaml` (city quick pick, a tap on
-the map, save, `scripts/check-area.js` checks on the host that the API holds a `MANUAL` centre with
-3 decimals; pan + "Use map centre"; map opt-in), `sign-out.yaml` (session restore after a
+`sign-up-onboarding.yaml` (the location step with the pickers), `profile-edit.yaml`,
+`discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
+`scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
+carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a
 relaunch, then sign-out), `search-card-detail.yaml` (search, a schema language filter, card
 detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
 details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
 `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
-"Add cards", publish for 24 hours, checked on the API), `map-preview-profile.yaml` (a seed
-collector sees the neighbours' 3 km zones on OpenStreetMap without a Google key, list -> preview ->
-"Show on map" -> a tap inside the zone -> the profile's area; screenshots of the zones),
-`card-who-near-me.yaml` (a card collector1 lists, read on the host by `scripts/public-card.js`,
-opened by deep link -> "Who has this near me" -> the filtered map, list and preview -> every
-collector again), `messages-inbox-thread.yaml` (a second collector set up and driven on the host by
+"Add cards", publish for 24 hours, checked on the API), `map-placeholder-profile.yaml` (a seed
+collector's Map tab placeholder with the home region, "Search your region", then a profile with
+the state and the shown city), `card-holders-region.yaml` (a card collector1 lists, read on the
+host by `scripts/public-card.js`, opened by deep link -> "Who has this in my region" -> collector1's
+copy with the state), `messages-inbox-thread.yaml` (a second collector set up and driven on the host by
 `scripts/messaging.js`: the conversation reaches the inbox with its unread badge over the
 realtime channel ("Live"), opening it marks it read, a reply shows "Sent" and is checked on the
 API with the read marker, the other collector's answer appears live in the open thread),
 `community-post.yaml` (Messages ->
 Community -> General, a post and a reply checked on the API by `scripts/community.js`; the texts
 carry the run's handle because the channel keeps earlier runs' posts),
-`wishlist-match-notification.yaml` (a wish made in the app, a listing nearby by a second collector
-(`scripts/wishlist.js`): the bell's badge and the match count rise live, the notification opens
+`wishlist-match-notification.yaml` (a wish made in the app, a listing by a second collector of the
+same region (`scripts/wishlist.js`, both in Montevideo): the bell's badge and the match count rise live, the notification opens
 the matches, then a conversation), `offer-trade-rating.yaml` (a cash offer on a public card
 opened by deep link, the seller's counter-offer from the host (`scripts/offers.js`) followed live,
 accept, the trade, both confirmations and the live completion, a rating checked on the API),
@@ -571,10 +532,10 @@ plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again), `goo
 (a fresh password collector continues with Google under the same e-mail through the emulator's
 simulated account: the chooser dismissed, then the sign-in lands on the tabs of that account and
 Settings -> Account names both methods), `collector-search-looking-for.yaml` (the Collectors
-segment finds a neighbour set up by `scripts/parity.js`, with the approximate note and a distance
-bucket; his profile and "Looking for" with the condition only; the wish opens the card),
-`holders-filters.yaml` (a card listed twice by a neighbour: the holders list with both prices,
-sorted by price, narrowed to the copies for sale, cleared, then the map), `blocked-users.yaml`
+segment finds a collector of the region set up by `scripts/parity.js`, with his state; his profile and "Looking for" with the condition only; the wish opens the card),
+`holders-filters.yaml` (a card listed twice by a collector of the region: the holders list with
+both prices and the holder's state, sorted by price, narrowed to the Lightly Played copy,
+cleared), `blocked-users.yaml`
 (block from a conversation -> Settings -> Blocked users -> Unblock, checked on the API; the other
 collector can write again), `age-step-existing-account.yaml` (a collector created on the host
 without the 18+ confirmation (`CONFIRM_AGE=false`) signs in, sees the "Age" step alone, is refused
@@ -583,15 +544,15 @@ consent on the API, a relaunch never asks again), `legal-french.yaml` (from the 
 the legal index, FR with the French banner and the translation marking, "Trading safely" in French
 then in English, the choice kept across a relaunch), `safety-notice.yaml` (Ada's first conversation
 shows the "Trade safely" notice, the guide opens in-app, the composer keeps working, Dismiss, gone
-after a relaunch). The seed flows (`sign-in.yaml`, `map-preview-profile.yaml`) first record the
+after a relaunch). The seed flows (`sign-in.yaml`, `map-placeholder-profile.yaml`) first record the
 seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
-that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the edge-swipe subflows: a swipe in the middle of
-the screen would pan the map instead of the page. Shared steps are in `.maestro/subflows/` (cleared
+that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the edge-swipe subflows (a slow swipe in the middle can start on a text
+field); option lists of the pickers scroll with `scrollUntilVisible`. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
 text field, which Android turns into a text-selection long press) and host-side helpers in
 `.maestro/scripts/` (create a fictional collector through the emulator and the API, verify an
-email with the emulator's code, check a saved trading area, add a card, check an inventory, the
+email with the emulator's code, check a declared location, add a card, check an inventory, the
 collectors of the stage M7 flows and the blocks of an account in `parity.js`).
 Screenshots and reports: `.local-dev/mobile-e2e/maestro/`. Edit nothing in the repository while
 flows run (Metro re-crawls the workspace and Expo Go may lose the packager) and restart a kept
