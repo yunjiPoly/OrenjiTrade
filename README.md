@@ -1,9 +1,11 @@
 # OrenjiTrade
 
-**A geographic discovery network for trading cards.** OrenjiTrade answers one question:
-*Who near me owns, trades, sells, wants, or accepts offers for this card?* Collectors publish
-binders, and other collectors find them on a map at deliberately approximate positions, then
-message, offer, trade and rate each other. Multi-game by design (Yu-Gi-Oh!, Pokémon, Magic: The
+**A regional discovery network for trading cards.** OrenjiTrade answers one question:
+*Who in my region owns, trades, sells, wants, or accepts offers for this card?* Collectors say
+which country and state or province they are in (never a position: ADR 0017), publish binders,
+and other collectors of the same platform region (Americas North, Americas South, Europe) find
+them by state or province on a map of binder counts, then message, offer, trade and rate each
+other. Multi-game by design (Yu-Gi-Oh!, Pokémon, Magic: The
 Gathering, Riftbound, and future TCGs) with one generic catalog model.
 
 - Web: https://www.orenjitrade.com (admin at `/admin`)
@@ -68,7 +70,7 @@ OrenjiTrade/
 | Terraform | 1.9+ | optional: `npm run infra:validate` only |
 | Python | 3.12+ | optional: ML service (on hold), `python` on Windows |
 
-No Google Cloud, Stripe, Firebase, FCM, e-mail or Google Maps credentials are required locally:
+No Google Cloud, Stripe, Firebase, FCM, e-mail or map credentials are required locally:
 every provider has a local fake or log implementation selected by default.
 
 ## Quick start (local)
@@ -123,7 +125,9 @@ under the `local` profile at every API start (idempotent). Clean slate: `npm run
 ### Web
 
 Runtime configuration is read from `apps/web-angular/public/config.json` (API URL, Firebase web
-config, optional Google Maps key). Without a Maps key the map uses Leaflet/OpenStreetMap.
+config). The map needs no key: it draws the bundled Natural Earth boundaries of
+`apps/web-angular/public/boundaries/` (no tiles, no map provider; provenance in
+[docs/development/regions-boundaries.md](docs/development/regions-boundaries.md)).
 
 ### Mobile (deferred)
 

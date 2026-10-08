@@ -1,7 +1,14 @@
 # ADR 0004 — Collector location privacy model
 
-**Status:** Accepted · **Date:** 2026-09-29 · **Non-negotiable** · Amended 2026-10-03 (client
-rendering) and 2026-10-04 (3 km zones on web and mobile)
+**Status:** Superseded by [ADR 0017](0017-platform-regions-instead-of-geolocation.md) on
+2026-10-08 · **Date:** 2026-09-29 · Amended 2026-10-03 (client rendering) and 2026-10-04 (3 km
+zones on web and mobile)
+
+> **Superseded.** Since 2026-10-08 OrenjiTrade stores no coordinates at all: collectors declare a
+> country and a state or province (and an optional city shown only on their profile), discovery
+> is scoped to a platform region, and the map counts binders per state or province. The trading
+> area, the private and public points, the grid and jitter (and `LOCATION_JITTER_SECRET`), the
+> distance buckets and the zoom rules below are removed (V108). This record is kept for history.
 
 ## Context
 The map is the product's centrepiece, yet collectors trade from home. Exposing exact or

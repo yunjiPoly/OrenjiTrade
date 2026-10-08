@@ -1,5 +1,9 @@
 # Phase 6 contract — wishlist, matching, notifications, push
 
+> **ADR 0017 (2026-10-08):** wishes have no `radiusKm` and matches no `distanceBucket`; the
+> matcher pairs a public listing with the wishes of collectors in the same platform region (no
+> `ST_DWithin`). See [s1-regions-location.md](s1-regions-location.md).
+
 All under `/api/v1`, authenticated. Matching is deterministic SQL over public inventory —
 never binder-to-binder, never ML.
 

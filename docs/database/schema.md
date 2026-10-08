@@ -12,7 +12,9 @@ update it in the same change.
   `updated_at`. Soft-delete columns are named `deleted_at`.
 - Enumerations are `text` columns with `CHECK` constraints (easier to evolve than PG enums).
 - Money: `numeric(12,2)` + `currency char(3)`. Never floats.
-- Geography: `geography(Point, 4326)` with GiST indexes. Distances in metres via `ST_DWithin`.
+- Geography: **none** (ADR 0017). No application table has a geometry, geography, coordinate,
+  radius, distance or grid-cell column; places are ISO codes (`country`, `subdivision`). PostGIS
+  stays installed (V001) for future, non-personal use only.
 - Game-specific data: `jsonb` with GIN indexes when filtered.
 - Search: generated `tsvector` columns + `pg_trgm` GIN indexes.
 - Migration naming: `V<NNN>__<snake_case_description>.sql`, three-digit zero padded. Repeatable
@@ -24,9 +26,8 @@ update it in the same change.
 
 | Table.column | Sensitivity | Rule |
 | --- | --- | --- |
-| `user_location.home_point` | Precise location | Never read outside `location` module, never serialised, logged or exported; not written by the Phase 1 API |
-| `user_location.trading_area_center` | Approximate, user-chosen (stored at 3 decimals) | Private: returned only to the owner (`GET /me/location`, `GET /me/export`); never logged, never in events |
-| `user_location.public_point` | Derived imprecise | The only geography public queries may use; `NULL` while not discoverable |
+| `user_location.country_code`, `.subdivision_code` | Self-declared place (ADR 0017) | Public as "state or province, country" only while the collector is discoverable; read through the location module |
+| `user_location.city` | Optional free text, never geocoded | Returned to its owner (`GET /me/location`, `GET /me/export`) and shown **only** on the owner's public profile while `show_city`; never in lists, search, binders, offers, messages, notifications, admin lists, events, analytics or logs |
 | `account_deletion_request.reason` | Free text from the owner | Never copied into the audit log; cleared when the deletion completes |
 | `user_account.email` | PII | Only owner + admins; hashed in analytics |
 | `message.body`, `message.payload`, `message_attachment`, `conversation.last_message_preview`, `image_upload` | Private content | Participants only (+ moderators acting on a report, Phase 7); never logged, never in events or analytics; export lists only the owner's own sent messages |
@@ -45,7 +46,6 @@ update it in the same change.
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
 | `wishlist_item.notes` | Private owner notes | Owner only (`GET /wishlist`, `GET /me/export`); never in the public wishlist summary, matches, notifications, events, analytics or logs |
 | `wishlist_item` (rows) | What a collector is looking for | Owner only; others see card, printing and minimum condition through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block |
-| `wishlist_match.distance_bucket` | Derived distance class | Computed from the two stored **public points** only; the metres are never stored or returned |
 | `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
 | `push_token.token` | Device secret | Never returned by the API (export lists platform and dates only), never logged (the log provider logs the device count) |
 | `collector_report.details`, `moderator_note.body`, `collector_report.resolution_note` | Reporter and moderator free text | Moderators and admins only (`/admin/reports/**`); never returned to the reporter or the reported collector, never in events or analytics (`collector_reported` carries reason and context source only); report details of decided reports are erased when the reporter's account is deleted |
@@ -61,11 +61,11 @@ update it in the same change.
 | `credit_ledger_entry` (rows) | Credit history | Append-only (trigger refuses UPDATE, DELETE, TRUNCATE); owner and admins only; kept with the anonymised account after a purge |
 | `credit_ledger_entry.note` | Admin free text | Admin ledger view only; never returned to the owner (`GET /me/credits` and the export omit it) |
 | `advertiser.contact_email` | Business contact | Admin console only; never in ad responses |
-| `ad_impression.user_hash`, `ad_click.user_hash`, `ad_conversion.user_hash` | Pseudonymous viewer id | HMAC of the account id (analytics actor hash); never an account id, never returned by the API; ad targeting reads public grid cells and region labels only, never `user_location` |
+| `ad_impression.user_hash`, `ad_click.user_hash`, `ad_conversion.user_hash` | Pseudonymous viewer id | HMAC of the account id (analytics actor hash); never an account id, never returned by the API; ad targeting reads the platform region and the viewer's country and subdivision codes (through the location module), never a city |
 | `donation.message` | Donor free text | Admins and the donor's own export only; never public; erased on purge |
 | `donation.public_thanks` | Opt-in | Only opted-in, active donors' display names (and month) are listed publicly; never amounts |
 | `card_image.source_url` | Provider image URL | Server-side only (ADR 0015): never returned to members or visitors for `REHOST_REQUIRED` providers such as YGOPRODeck (clients get `/api/v1/public/card-images/{id}`) |
-| Search centres (Phase 4, not stored) | Client-supplied or the caller's own trading-area centre | Snapped to 0.01° (`SearchCentre`) before any query, cache key or response; the nearby cache key is a SHA-256 of the snapped request; never logged; analytics get its grid cell and region label only |
+| Search region (not stored) | Platform region code of a scoped request | Validated against `platform_region`; never authorization; analytics get the region and subdivision codes only |
 
 ## Entity overview
 
@@ -164,6 +164,11 @@ Detailed column lists are appended per phase below as migrations land.
 | V103 | `V103__age_confirmation.sql` | Launch readiness (18+ rule): `legal_document.document_type` accepts `AGE_CONFIRMATION` (named constraint `ck_legal_document_type` replaces the unnamed V003 check) and the attestation row `AGE_CONFIRMATION` / `2026-10-05` (`required_at_registration = false`, `url = '/legal#age-confirmation'`) is inserted; confirmations are ordinary `user_consent` rows |
 | V104 | `V104__consent_language.sql` | Launch readiness (French legal pages): `user_consent.language` (`en` / `fr`, default `en`, `ck_user_consent_language`) records which translation was shown when the consent was given; one `legal_document` version covers both languages |
 | V105 | `V105__launch_money_flags_off.sql` | Launch configuration ("discovery + messaging only"): `feature_flag` rows `premiumPlans` and `credits` switched off as data (V010 had created them enabled); rows an admin already edited (`updated_by` set) are left alone; the local/dev seed switches them back on |
+| V106 | `V106__platform_regions.sql` | ADR 0017: `platform_region`, `country`, `subdivision` (reference data of the location module, admin-editable country region / active flag) |
+| V107 | `V107__platform_regions_seed.sql` | ADR 0017: 3 regions (default `americas-north`), 104 countries, 1,259 ISO 3166-2 subdivisions; generated by `scripts/regions/build.mjs` (see `docs/development/regions-boundaries.md`) |
+| V108 | `V108__self_declared_location.sql` | ADR 0017: `user_location` dropped (private centre, radius, public point, label, grid cell, GiST index) and recreated as country + subdivision + optional city + `show_city`; every collector becomes not discoverable; `privacy_settings.show_distance` dropped |
+| V109 | `V109__remove_distance_features.sql` | ADR 0017: `wishlist_item.radius_km` and `wishlist_match.distance_bucket` dropped (matches and match alerts deleted), the `map.radius.max_km` limit, entitlements and `map_radius_day` credit product deleted, plan copy updated, ad targeting by `REGION` / `COUNTRY` / `SUBDIVISION` (no `REGION_LABEL` / `GEO_CELL`), `ad_impression` / `ad_click` record `region_code` and `subdivision_code` instead of `geo_cell` |
+| V110 | `V110__platform_region_channels.sql` | ADR 0017: the city REGION channels are archived; one REGION channel per platform region (`americas-north`, `americas-south`, `europe`) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -175,7 +180,7 @@ prepared.
 
 | Object | Purpose |
 | --- | --- |
-| extension `postgis` | `geography(Point, 4326)` columns, `ST_DWithin`, GiST indexes (collector search) |
+| extension `postgis` | installed only (ADR 0017): no application column uses it since V108 |
 | extension `pg_trgm` | trigram GIN indexes for fuzzy card / collector name search |
 | extension `unaccent` | accent-insensitive search (`Pokémon` matches `Pokemon`) |
 | extension `pgcrypto` | `gen_random_uuid()` primary keys, `digest()` |
@@ -392,7 +397,6 @@ A missing row means the safe defaults below.
 | --- | --- | --- | --- |
 | `user_id` | `uuid` | | PK, FK → `user_account.id` (cascade) |
 | `discoverable` | `boolean` | `false` | opt-in to the map; while `false`, `user_location.public_point` is `NULL` |
-| `show_distance` | `boolean` | `true` | others see a bucketed distance |
 | `show_online_status` | `boolean` | `false` | presence (Phase 5) |
 | `show_last_active` | `boolean` | `true` | bucketed last activity on the public profile |
 | `profile_visibility` | `text` | `MEMBERS` | `PUBLIC`, `MEMBERS`, `PRIVATE` (404 for everyone but the owner) |
@@ -404,7 +408,11 @@ A missing row means the safe defaults below.
 Index: `ix_privacy_settings_discoverable` (partial, `WHERE discoverable`). The rules built on these
 switches live in `PrivacyPolicyService` (profiles module).
 
-### V005 — `user_location` (ADR 0004)
+### V005 — `user_location` (ADR 0004, replaced by V108)
+
+> **Historical.** V108 (ADR 0017) dropped this table with its data and recreated `user_location`
+> without any coordinate; see "V106–V108 — platform regions and the self-declared location"
+> below. The original layout is kept here for reference only.
 
 Read and written only by the location module (`UserLocationRepository`, explicit PostGIS SQL).
 
@@ -422,6 +430,22 @@ Read and written only by the location module (`UserLocationRepository`, explicit
 
 Indexes: `ix_user_location_public_point` (GiST, partial `WHERE public_point IS NOT NULL`, nearby
 search in Phase 4), `ix_user_location_grid_cell` (partial).
+
+### V106–V108 — platform regions and the self-declared location (ADR 0017)
+
+Reference data and the declared place, owned by the location module (`RegionRepository`,
+`UserLocationRepository`, plain SQL); read elsewhere only through `RegionCatalog`,
+`LocationService` and the SPIs it implements. No coordinate of any kind.
+
+| Table | Columns | Notes |
+| --- | --- | --- |
+| `platform_region` | `code` PK (`^[a-z]+(-[a-z]+)*$`), `name`, `sort_order`, `is_default`, `updated_at` | at most one default (`uq_platform_region_default`); `americas-north`, `americas-south`, `europe` |
+| `country` | `code` PK (ISO 3166-1 alpha-2, `XK` for Kosovo), `name`, `region_code` FK, `active`, `sort_order`, `updated_by`, `updated_at` | admins move a country to another region or deactivate it (`PUT /admin/regions/countries/{code}`, audited `region.country.update`); inactive countries cannot be chosen, existing locations keep them |
+| `subdivision` | (`country_code`, `code`) PK (ISO 3166-2, or the alpha-2 code of a whole-country pseudo-subdivision), `name`, `whole_country` | 1,259 rows (V107) |
+| `user_location` | `user_id` PK/FK (cascade), `country_code` FK, `subdivision_code` (FK with the country), `city` (1-80 chars, trimmed, `ck_user_location_city`), `show_city` (default true), `created_at`, `updated_at` | `ix_user_location_subdivision`, `ix_user_location_country`; the city is never geocoded, logged or put into events |
+
+The catalogue is cached in Redis (`regions:v1`, 60 s) with a 10 s in-process memo, evicted after
+every admin write (`RegionsChangedEvent`).
 
 ### V006 — `notification_preferences`
 
@@ -540,8 +564,8 @@ Seeded: FREE `filters.advanced=false`, `ads.enabled=true`; PREMIUM `filters.adva
 
 Index: `ix_usage_limit_key`. Seeded limits (FREE / PREMIUM): `binder.views.per_day` 30 / unlimited,
 `wishlist.alerts.per_day` 5 / unlimited, `wishlist.items.max` 20 / 500 (TOTAL),
-`map.radius.max_km` 25 / 100 (CAP), `binders.max` 5 / 50 (TOTAL), `saved_searches.max` 0 / 50
-(TOTAL), `offers.per_day` 20 / 100.
+`binders.max` 5 / 50 (TOTAL), `saved_searches.max` 0 / 50 (TOTAL), `offers.per_day` 20 / 100
+(`map.radius.max_km` 25 / 100 (CAP) existed until V109 deleted it, ADR 0017).
 
 #### `usage_counter`
 
@@ -837,7 +861,16 @@ Append-only trail of freshness transitions (audit + notification de-duplication,
 Indexes: `ix_inventory_freshness_event_item`, `ix_inventory_freshness_event_binder` (partial),
 `ix_inventory_freshness_event_owner`.
 
-### Phase 4 — map discovery and search reads (V030)
+### Phase 4 — map discovery and search reads (V030; region-scoped since ADR 0017)
+
+> Since V108 (ADR 0017) discovery is scoped to a platform region: the search module joins
+> `user_location` → `country` (`region_code`) through SQL, never reads `user_location.city`, and
+> counts and lists public binders per subdivision for the map (`GET /regions/{region}/binder-counts`,
+> `GET /regions/{region}/subdivisions/{code}/binders`). The radius scan, the public point and the
+> distance buckets described below are gone; answers are cached under
+> `orenji:cache:discovery:<generation>:<sha256>` (generation key
+> `orenji:search:discovery:generation`, bumped by inventory, binder, location, privacy, account
+> and region events). The paragraph is kept for history.
 
 No table is added: the search module reads, read-only and through SQL, `user_location.public_point`
 (never `trading_area_center` or `home_point`), `privacy_settings` (`discoverable`,
@@ -859,7 +892,7 @@ after commit by inventory, binder, location, privacy and account-state events).
 | --- | --- | --- |
 | `ix_inventory_item_owner_discovery` | `inventory_item (owner_id, freshness_state, availability) WHERE deleted_at IS NULL AND visibility <> 'PRIVATE'` | per-collector marker statistics (public item count, best freshness, games, public binders) and the `hasPrintingId` / `hasCardId` / `availability` / `game` EXISTS filters |
 | `ix_inventory_item_printing_discovery` | `inventory_item (printing_id, freshness_state, asking_price) WHERE deleted_at IS NULL AND visibility <> 'PRIVATE'` | `GET /search/card-holders` (by printing, or by the printings of a card through `ix_card_printing_card_id`), price sort |
-| `ix_privacy_settings_map` | `privacy_settings (user_id) WHERE discoverable AND profile_visibility <> 'PRIVATE'` | join partner of the GiST radius scan |
+| `ix_privacy_settings_map` | `privacy_settings (user_id) WHERE discoverable AND profile_visibility <> 'PRIVATE'` | collectors that may appear in region search and the state binder lists |
 | `ix_binder_name_trgm` | GIN `lower(unaccent_immutable(binder.name)) gin_trgm_ops` | public binder search (`LIKE '%…%'` next to `search_vector @@ …`) and autocomplete |
 
 Collector name search uses the existing `ix_user_account_handle_trgm` (V004) and
@@ -971,7 +1004,7 @@ Index: `ix_user_block_blocked (blocked_id)` (contract; checks in both directions
 | `name` | `text` | 1-80 |
 | `kind` | `text` | `GAME`, `REGION`, `LOOKING_FOR`, `NEW_LISTINGS`, `TRADES`, `GENERAL` |
 | `game_slug` | `text` | FK → `game.slug` (`ON UPDATE CASCADE`, `ON DELETE SET NULL`) |
-| `region_label` | `text` | city of region channels (from `user_location.public_label`, never a coordinate) |
+| `region_label` | `text` | platform region code of REGION channels (V110, validated by the API); archived city channels keep their old city label; never a coordinate |
 | `description` | `text` | ≤ 500 |
 | `status` | `text` | `ACTIVE`, `ARCHIVED` (hidden from members, read-only) |
 | `post_rate_limit_per_hour` | `integer` | 1-1000, default 10 (ADR 0014: data, edited through `/admin/community/channels`) |
@@ -1043,9 +1076,9 @@ Redis keys of this phase (not tables): `rt:user:{userId}` (pub/sub channel of th
 ### Phase 6 — wishlist, matching, notifications (V050–V051)
 
 Wishlist rows never carry a location. Matching (`WishlistMatcher`, event-driven on
-`InventoryItemPublished`, plus the nightly `wishlist-rematch` job) measures `ST_DWithin` between
-the stored `user_location.public_point` of the wishlist owner and of the item owner (ADR 0004);
-trading-area centres are never read. Both collectors therefore need a public point (discoverable).
+`InventoryItemPublished`, plus the nightly `wishlist-rematch` job) pairs a public listing with the
+wishes of collectors **in the same platform region** (ADR 0017, since V109; the item owner must be
+discoverable, the wish owner needs a location). No distance is measured or stored.
 The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, FREE 5 / PREMIUM
 unlimited) is counted through the `Limits` service in `usage_counter` (window = UTC day, Redis
 mirror); there is no separate notification rate-limit table.
@@ -1066,7 +1099,7 @@ mirror); there is no separate notification rate-limit table.
 | `edition`, `language` | `text` | optional exact filters (upper-case code / ISO 639-1) |
 | `max_price` | `numeric(12,2)` | optional, ≥ 0; items priced in another currency never meet it; unpriced items pass |
 | `currency` | `char(3)` | default `CAD` |
-| `radius_km` | `integer` | 1-20000, default 25; capped by the API at the plan's `map.radius.max_km` (429 `LIMIT_REACHED`) |
+| `radius_km` | `integer` | **dropped by V109** (ADR 0017): a wish matches listings of the collector's platform region |
 | `trade_preference` | `text` | `ANY`, `TRADE` (item TRADE or TRADE_OR_SALE), `SALE` (SALE or TRADE_OR_SALE) |
 | `notes` | `text` | **PRIVATE**, ≤ 500 |
 | `active` | `boolean` | inactive items are kept but never matched |
@@ -1087,7 +1120,7 @@ active` (rematch job).
 | `wishlist_item_id` | `uuid` | FK → `wishlist_item.id` (cascade) |
 | `inventory_item_id` | `uuid` | FK → `inventory_item.id` (cascade) |
 | `matched_at` | `timestamptz` | keyset cursor with `id` |
-| `distance_bucket` | `text` | `LT_1KM`, `KM_1_5`, `KM_5_10`, `KM_10_25`, `KM_25_50`, `GT_50KM` between the two public points at match time |
+| `distance_bucket` | `text` | **dropped by V109** (ADR 0017): matches pair collectors of the same platform region |
 | `notified` | `boolean` | a WISHLIST_MATCH notification exists (false for matches found when the wish was created or edited, suppressed by preferences or beyond the daily limit) |
 | `dismissed` | `boolean` | dismissed by the owner; never served by default, never re-created |
 
@@ -1311,7 +1344,7 @@ Phase 5 moderation windows `mod:rate:REPORT:<ruleId>:<reporterId>` (reports per 
 ### Phase 8 — offers and trades (V070–V071)
 
 No table of this phase stores a location: the parties are shown with the owner block of the binders
-module (region label of the derived public point and a distance bucket, ADR 0004). Money is
+module (their state or province and country, ADR 0017; never a city or a distance). Money is
 `numeric(12,2)` + ISO currency. Every transition appends an event row (append-only) inside the same
 transaction as the state change; notifications, SYSTEM messages and analytics follow after commit
 from `OfferCreated` / `OfferUpdated` / `TradeUpdated` (Spring Modulith registry). Configurable
@@ -1740,9 +1773,9 @@ each committed entry); the hourly `credits-reconcile` job compares cache, sum an
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `key` | `text` | PK (`premium_search_day`, `binder_views_day`, `map_radius_day`) |
+| `key` | `text` | PK (`premium_search_day`, `binder_views_day`; `map_radius_day` deleted by V109) |
 | `name`, `description` | `text` | display |
-| `feature_key`, `feature_value` | `text` | entitlement granted (`filters.advanced` = `true`, `binder.views.per_day` = `unlimited`, `map.radius.max_km` = `100`), source `CREDIT_PURCHASE` |
+| `feature_key`, `feature_value` | `text` | entitlement granted (`filters.advanced` = `true`, `binder.views.per_day` = `unlimited`), source `CREDIT_PURCHASE` |
 | `cost` | `integer` | 1–100000 credits (50, 30, 30) |
 | `duration_hours` | `integer` | 1–720 (24); a new purchase starts when an active one of the same key ends |
 | `active`, `sort_order` | | |
@@ -1767,8 +1800,8 @@ audited `credits.settings.update`, cached ≤ 60 s).
 | `ad_placement` | `id`, `key` unique (`SEARCH_SPONSORED`, `MAP_PANEL`, `INVENTORY_SIDEBAR`, `COLLECTOR_PROFILE`, `MOBILE_FEED`), `name`, `active`, `max_ads` (1–5; 2 for SEARCH_SPONSORED), `updated_by`, `updated_at` | seeded by the migration |
 | `ad_campaign` | `id`, `advertiser_id`, `name`, `status` DRAFT/ACTIVE/PAUSED/ENDED, `start_at`, `end_at`, `budget_total`, `budget_daily` (≤ total), `spent`, `currency`, `pricing` CPM/CPC/FLAT, `bid_amount` (> 0 for CPM/CPC), `priority` 0–100, `frequency_cap_per_day` 1–100, `created_by`, `created_at`, `updated_at`, `version` | money `numeric(12,2)`; `spent` derived from the daily counters after each impression and click; `ix_ad_campaign_serving (status, start_at, end_at)` |
 | `ad_creative` | `id`, `campaign_id` (cascade), `placement_id`, `headline` ≤ 80, `body` ≤ 200, `image_url`, `cta_label` ≤ 30, `landing_url` (https or a site path; CHECKs), `status` DRAFT/ACTIVE/PAUSED/ARCHIVED | `ix_ad_creative_placement (placement_id, status)` |
-| `ad_targeting_rule` | `id`, `campaign_id` (cascade), `kind` GAME/REGION_LABEL/GEO_CELL/TAG/PLAN, `value` (GEO_CELL pattern-checked `r<row>c<col>`) | unique per campaign, kind and value; never a coordinate (the API also refuses coordinate-like region labels) |
-| `ad_impression` | `id`, `serve_id` **unique** (nonce of the signed serve token), `creative_id`, `campaign_id`, `placement_key`, **`user_hash`** (HMAC of the viewer's account id, the analytics actor hash; NULL signed out), `geo_cell` (public grid cell of the context), `created_at` | `ix_ad_impression_campaign`, `ix_ad_impression_frequency (campaign_id, user_hash, created_at)` for frequency caps |
+| `ad_targeting_rule` | `id`, `campaign_id` (cascade), `kind` GAME/REGION/COUNTRY/SUBDIVISION/TAG/PLAN (V109; REGION_LABEL and GEO_CELL removed), `value` (pattern-checked per kind, `ck_ad_targeting_rule_place`) | unique per campaign, kind and value; never a coordinate or a city |
+| `ad_impression` | `id`, `serve_id` **unique** (nonce of the signed serve token), `creative_id`, `campaign_id`, `placement_key`, **`user_hash`** (HMAC of the viewer's account id, the analytics actor hash; NULL signed out), `region_code`, `subdivision_code` (V109, replace `geo_cell`), `created_at` | `ix_ad_impression_campaign`, `ix_ad_impression_frequency (campaign_id, user_hash, created_at)` for frequency caps |
 | `ad_click` | as `ad_impression` + `impression_id` (set null) | one click per serve (`uq_ad_click_serve`) |
 | `ad_conversion` | `id`, `click_id` (cascade), `creative_id`, `campaign_id`, `kind` SIGNUP/PURCHASE/OTHER, `value` + `currency` (together), `user_hash`, `created_at` | once per click and kind |
 | `ad_campaign_daily` | PK (`campaign_id`, `day`), `impressions`, `clicks`, `conversions` | UTC day counters: pacing and admin statistics |

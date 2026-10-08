@@ -31,12 +31,11 @@ legal power to compel and an emergency; this document keeps us inside those case
    accounts it names. Never a whole table, never "everything about this user", never other users'
    data (the counterpart of a conversation is another person: only the lines the order covers).
    Push back on over-broad orders through the lawyer.
-5. **Precise locations stay out** unless an order specifically compels them. OrenjiTrade's
-   public data is the approximate `public_point` (1 km grid plus deterministic jitter) and a
-   region label; the private trading-area centre and optional `home_point` are Restricted
-   (ADR 0004) and are not part of any admin screen or export. If an order compels them, the lawyer
-   decides, and the extraction is done inside the `location` module by the owner, logged, and
-   delivered through a protected channel.
+5. **Locations: there is nothing precise to give.** Since ADR 0017 OrenjiTrade holds no
+   coordinates, GPS fixes or IP-derived positions: only the country and state or province a
+   collector declared and an optional free-text city. The city is not part of any admin list or
+   export to others; if an order compels it, the lawyer decides, and the extraction is done
+   inside the `location` module by the owner, logged, and delivered through a protected channel.
 6. **Tell the user** when the law allows it and the order does not forbid it, after the
    disclosure `[to confirm policy with the lawyer]`; never when doing so would obstruct the
    investigation named in the order or endanger someone.
@@ -51,8 +50,8 @@ legal power to compel and an emergency; this document keeps us inside those case
 | --- | --- | --- |
 | Account (e-mail, handle, display name, roles, status, creation and last-active dates) | `user_account`; identity (password hash, phone for staff MFA) at Firebase | `/admin > Users` detail (`GET /api/v1/admin/users/{id}`, audited); Firebase console for identity data |
 | Profile, interests, privacy settings, consents (type, version, language, date, salted IP hash — the raw IP is not stored) | `profile`, `privacy_settings`, `user_consent` | Admin user detail; data export (`AccountExportService`, audited) |
-| Approximate location: `public_point` (≤ 3 decimals) and region label | `user_location` | Admin user detail (approximate only) |
-| Precise location: trading-area centre, `home_point` | `user_location` (Restricted – location, encrypted at rest in Cloud SQL) | **Not exposed by any screen or export**; see rule 5 |
+| Declared location: country and state or province | `user_location` | Admin user detail |
+| Optional city (free text, never geocoded) | `user_location.city` (Confidential – location) | The collector's own export; **not in admin lists or exports to others**; see rule 5 |
 | Messages, conversations, attachments | `conversation`, `message`, media bucket | Moderation tools show reported content; a full conversation extract needs a one-off query by the owner, limited to the ordered period, logged |
 | Offers, trades, ratings, reports, blocks | `offer`, `trade`, `rating`, `collector_report`, `user_block` | Admin consoles (`/admin > Reports`, offers / trades detail) |
 | Payments (only once `protectedPayments` is on) | provider references in `payment`, `payout`; card data at Stripe only | `/admin > Payments`; card data must be requested from Stripe |

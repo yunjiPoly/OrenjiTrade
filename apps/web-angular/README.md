@@ -133,8 +133,8 @@ error` (error = retryable; the shell shows a banner with Retry). Exposes roles,
 Routes: `/auth/sign-in`, `/auth/sign-up` (required legal documents from
 `GET /public/legal/documents`, consents recorded, verification email), `/auth/verify-email`,
 `/auth/reset-password`, `/auth/consent`, `/auth/suspended` (suspension or pending deletion with
-cancel + export), `/onboarding` (profile, interests, trading area), `/settings/{profile,
-privacy, notifications, trading-area, account, appearance}`, `/collectors/:handle`,
+cancel + export), `/onboarding` (profile, interests, "Where are you?"), `/settings/{profile,
+privacy, notifications, location, account, appearance}` (`/settings/trading-area` redirects), `/collectors/:handle`,
 `/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
 `/cards`, `/cards/:id`, `/sets/:id`, `/premium`, `/admin/games`, `/admin/cards[/:id]`,
 `/admin/feature-flags`, `/admin/usage-limits`.
@@ -213,8 +213,8 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
     (drag and drop or arrow buttons to reorder, inline rename, publish/make private, delete,
     create).
 - **`/binders/:id`** (`features/binders`): public binder (`GET /public/binders/{id}` + items, sent
-  with the ID token when signed in so `binder.views.per_day` counts and a distance bucket is
-  returned). Owner card with region label and distance bucket only, game pills, search and
+  with the ID token when signed in so `binder.views.per_day` counts and blocks apply). Owner
+  card with the owner's state or province only (ADR 0017), game pills, search and
   availability filter in the URL, public item cards (condition, availability, price, offers,
   public notes; never private notes). States: not available (404), daily view limit (429),
   error with retry.
@@ -222,63 +222,43 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
   (`GET /collectors/{handle}/binders`) and a preview of public cards
   (`GET /collectors/{handle}/inventory`) are listed.
 
-## Map discovery and search (Phase 4)
+## Map discovery and search (Phase 4, platform regions since ADR 0017)
 
-Contract: `docs/api/contracts/phase4-map-search.md` ("Web /map page"). Generated client only
-(`DiscoveryService`, `SearchService`, `PublicBindersService`, `CatalogService`, `PlansService`).
+Contracts: `docs/api/contracts/phase4-map-search.md` and `docs/api/contracts/s1-regions-location.md`.
+Generated client only (`RegionsService`, `SearchService`, `PublicBindersService`, `CatalogService`).
 
-- **`/map`** (`features/map`), the flagship page: a full-height map through the `MapAdapter`
-  (Leaflet/OpenStreetMap; zoom buttons bottom right). The container (`MapPageComponent`) keeps the
-  filters in the URL (`?game=&availability=&freshness=&tags=&radius=&card=|printing=&view=list`,
-  `data/map-params.ts`) but never the map position, and provides `MapDiscoveryStore`
-  (`data/map-discovery.store.ts`):
-  - Centre: signed-in collectors with a trading area send no `lat`/`lng` (the server uses their
-    area and answers with its 2-decimal snapped centre; the client never reads the private
-    centre, so `GET /me/location` is not called here); signed-out visitors and collectors
-    without an area browse around Montréal (city picker + "Sign in" / "Set my area" prompt).
-  - `GET /collectors/nearby` with the visible radius (half the viewport diagonal, never more than
-    the chosen radius, 2-decimal centre). Pans and zooms are debounced (400 ms) and re-query only
-    when the view leaves the circle the last answer covered (`data/map-query.ts`); filters and the
-    radius always re-query. The radius slider is bounded by `map.radius.max_km` (`GET /me/plan`,
-    FREE plan of `GET /plans` when signed out); a 429 `LIMIT_REACHED` opens the global
-    limit-reached dialog and the store continues at the plan's cap.
-  - Markers: round avatars at `publicPoint` with a freshness ring (`data/map-markers.ts`),
-    grouped into count bubbles when more than 60 collectors are loaded (screen-space grid,
-    `data/marker-clusters.ts`; the selected collector never hides in a cluster; clicking a
-    cluster zooms in). Markers are keyboard-focusable buttons (Enter/Space activate) with
-    "Name, public label" as accessible name; the viewer's own marker reads "You (...)".
-  - `CollectorPreviewCardComponent` (`GET /collectors/{handle}/preview`, first public binder from
-    `GET /collectors/{handle}/binders`): name, avatar, approximate distance (never for signed-out
-    visitors), rating, tags, last activity, listing freshness, games; View profile, View public
-    binder, Message (Phase 5: opens or starts the conversation in the Messages panel when the
-    collector accepts messages from the viewer; otherwise disabled with the reason; signed-out
-    visitors get "Sign in to message"). Non-modal dialog: focus moves in, Escape closes and
-    returns focus. Bottom sheet on phones.
-  - "List" toggle (`view=list`): `DiscoveryPanelComponent` + `CollectorListComponent`, the same
-    collectors as an accessible list (keyboard alternative to the markers).
-  - Top search: `UnifiedSearchBoxComponent` (`shared/search`, `GET /search/suggest`, grouped
-    cards / collectors / binders / sets / tags). A card or printing switches to "holders of X"
-    (`hasCardId` / `hasPrintingId`: markers filtered, the list shows each holder's listings with
-    condition / availability / offers chips and prices, "All filters" leads to `/search`); a
-    collector opens their preview; a tag filters; sets and binders open their pages; Enter
-    searches `/search?q=`. The top bar's card autocomplete (Phase 2) is unchanged.
-  - Bottom `MapFiltersBarComponent` (game, radius slider, availability, freshness, tags from
-    `GET /tags` when signed in plus the tags of the loaded collectors), `MapLegendComponent`
-    ("Positions are approximate to protect privacy" + marker key), `AreaPromptComponent`, and the
-    right-hand Messages panel (Phase 5, below).
+- **Region switcher** (top left, `core/region/region-context.service.ts`): every region-scoped call
+  (search, suggestions, card holders, ads, the map) sends `region`. Signed in: the home region of
+  `GET /me` (`homeRegion`); signed out: the last choice kept in `localStorage`, else
+  `americas-north`. Changing it updates `?region=` on `/map`.
+- **`/map`** (`features/map`): one Leaflet vector map (`boundary-map`, Leaflet 1.9.4 lazy-loaded,
+  its non-injected `leaflet.css` added on first use) of the bundled Natural Earth boundaries
+  `public/boundaries/<region>.json` (`data/boundaries.ts`, fetched lazily per region; no tiles, no
+  map provider), states shaded by public binder counts (`GET /regions/{region}/binder-counts`,
+  `data/region-map.store.ts`), with "Made with Natural Earth" credit. Beside it
+  `SubdivisionListComponent`, an accessible list of every state with its count (keyboard and
+  screen-reader alternative). Choosing a state (click, Enter, or the list) opens
+  `SubdivisionPanelComponent` and the URL `/map?region=..&subdivision=..`: the state's public
+  binders in cursor pages (`GET /regions/{region}/subdivisions/{code}/binders`, "Load more"), with a
+  skeleton, an empty state, an error with retry; states listed but not drawn (too small or newer
+  than the data) are reachable from the list. The right-hand Messages panel (Phase 5) stays.
+- **Location** (`shared/location`): `LocationFieldsComponent` (region, country and state pickers
+  fed by `GET /regions`, optional city ≤ 80 characters, "Show my city on my profile") in onboarding
+  ("Where are you?") and Settings → Location (`PUT/DELETE /me/location`); a gentle prompt invites
+  collectors without a location. No GPS, no geolocation API (the CSP's `Permissions-Policy` denies
+  it), no map picker.
 - **`/search`** (`features/search`, the mobile Search tab), all state in the URL
   (`data/search-params.ts`):
   - `?q=&tab=cards|collectors|binders`: `GET /search` in tabs (cards + printings + sets,
     collectors with their matching listings, public binders with their owner block). When the
-    query resolves to a card or printing, a banner lists the nearby holders with "All holders and
-    prices" and "Show on the map".
+    query resolves to a card or printing, a banner lists the holders of the region with "All
+    holders and prices".
   - `?card=|printing=` + `availability`, `condition`, `minPrice`, `maxPrice`, `freshness`,
-    `edition`, `language`, `offers`, `sort=distance|price|freshness`, `page`: the card-holders
-    view (`GET /search/card-holders`) with `HolderFiltersComponent` (reactive form; prices
-    validated inline, min <= max) and paginated `HolderRowComponent`s (listing + holder with
-    approximate place and distance, View binder).
-  - Signed-out visitors (and collectors without an area) search around Montréal
-    (`shared/discovery/discovery-centre.ts`).
+    `edition`, `language`, `offers`, `sort=freshness|price`, `page`: the card-holders view
+    (`GET /search/card-holders` in the browsed region) with `HolderFiltersComponent` (reactive
+    form; prices validated inline, min <= max) and paginated `HolderRowComponent`s (listing +
+    holder with their state or province, View binder).
+  - Every search sends the browsed region (the region switcher); there is no centre or distance.
 
 ## Messaging, realtime and community (Phase 5)
 
@@ -371,32 +351,32 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   `WishlistStore` (`GET /wishlist`, alerts on/off with an optimistic `PATCH {active}`,
   `DELETE` with confirmation, plan usage of `wishlist.items.max`, match readiness from
   `GET /me/location`, quiet re-read on a pushed WISHLIST_MATCH and on reconnection) → summary
-  (wishes, with matches, matches nearby, usage meter with a Premium link from 80 %), filter
+  (wishes, with matches, matches, usage meter with a Premium link from 80 %), filter
   (All / With matches / Paused), `WishCardComponent` (card art, printing or "Any printing",
   criteria chips, private note, matches button, alerts switch, menu: edit, see matches,
-  remove) and `MatchReadinessComponent` (explains that matches need a trading area and
-  discoverability, with a link to the setting). `/wishlist/:id` (the notification deep link)
+  remove) and `MatchReadinessComponent` (explains that matches need a location, with a link to
+  the setting). `/wishlist/:id` (the notification deep link)
   opens `WishlistMatchesSheetComponent` in a side sheet: `WishlistMatchesStore`
   (`GET /wishlist/{id}/matches` cursor pages, new matches pushed for this wish arrive live,
   optimistic dismiss `POST /wishlist/matches/{id}/dismiss`) → `WishMatchCardComponent`
-  (collector: avatar, approximate place, distance bucket, rating, activity; listing: picture,
-  printing, condition / availability / offers chips, price, freshness, public note; Message
-  through `ConversationStarterService`, View binder, On the map, Dismiss). Closing the sheet goes
+  (collector: avatar, state or province, rating, activity; listing: picture, printing,
+  condition / availability / offers chips, price, freshness, public note; Message through
+  `ConversationStarterService`, View binder, "Binders in <state>" on the map, Dismiss). Closing the sheet goes
   back to `/wishlist`.
 - **Add/edit dialog** (`shared/wishlist`, a lazy chunk opened by `WishlistActions` from the
   wishlist page, card detail, the card holders view and the map's holders panel; signed-out
   visitors go to sign in first): card autocomplete (`GET /cards/suggest`; a printing suggestion
   preselects it) → printing or "Any printing" → minimum condition, edition, language, rarity
-  (any printing only) from the game's `GameSchema`, maximum price + currency, radius slider
-  bounded by `map.radius.max_km` (`GET /me/plan`, at most 100 km), trade preference, private
+  (any printing only) from the game's `GameSchema`, maximum price + currency (no radius: a wish
+  matches the collector's platform region, ADR 0017), trade preference, private
   notes, alerts switch (`wishlist-form.ts`: form, defaults, create/PATCH bodies, messages).
   Inline errors: 409 identical wish, 429 `LIMIT_REACHED` (the limit dialog opens as well), field
   errors of a 400. A new wish is confirmed with its matches found at once.
 - **Collector page**: "Looking for" (`GET /collectors/{handle}/wishlist`, only when the collector
   shows it; 404 hides the section).
-- **Limitation (API)**: matching measures distances between stored public points, which exist
-  only for discoverable collectors with a trading area, so a wisher who is not on the map gets no
-  match; the page says so (`MatchReadinessComponent`).
+- **Matching (API)**: a public listing matches the wishes of collectors in the same platform
+  region; a wisher without a location gets no match, and the page says so
+  (`MatchReadinessComponent`).
 
 ## Ratings, collector reports and the admin console (Phase 7)
 
@@ -489,8 +469,8 @@ Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviat
   offer".
 - **Offer page** `/offers/:id` (`features/offers/detail`, `OfferDetailStore`): the card, the deal
   side by side (`DealSummaryComponent`: the seller's card against cash and/or the buyer's cards
-  with copies, the proposer's note), both parties (`OfferPartyCardComponent`: region label,
-  distance bucket, rating; never a point), the chain's history (`OfferHistoryComponent`:
+  with copies, the proposer's note), both parties (`OfferPartyCardComponent`: state or
+  province, rating; never a city or a distance), the chain's history (`OfferHistoryComponent`:
   proposals with terms and notes, reasons, the other party's latest "viewed") and
   `OfferActionBarComponent` with only the `allowedActions`: Accept (confirmation, opens the
   trade), Counter (the same dialog in counter mode: the current proposal; a seller can only keep,
@@ -670,17 +650,11 @@ available. Wording and refusals live in `shared/billing/billing-labels.ts`.
 
 ## Maps
 
-Feature code uses `MapAdapter` (`shared/map/map-adapter.ts`: view, markers (pins, avatar and
-cluster variants with escaped HTML), circles (trading area or dashed search radius),
-`fitBounds`, click / marker click / drag / viewport callbacks, zoom-control corner) created by
-`MapAdapterFactory`.
-The factory lazy-loads the **Leaflet + OpenStreetMap** adapter by default and only uses the
-Google Maps adapter when `googleMapsApiKey` is configured (falling back to Leaflet if Google
-fails). Leaflet's stylesheet is a non-injected global bundle (`leaflet.css`) added on first use;
-markers are CSS `divIcon`s (`src/styles/_app-extras.scss`). `TradingAreaPickerComponent`
-(`shared/location`) edits a trading area (draggable centre, 1–50 km radius, browser
-geolocation, city presets) and rounds coordinates to 3 decimals; the server derives the public
-point (ADR 0004).
+One map, no provider (ADR 0017, amending ADR 0010): `features/map/boundary-map` draws the bundled
+GeoJSON boundary files of `public/boundaries/` with Leaflet (lazy chunk `leaflet-src`, about 150 kB
+raw); there is no `MapAdapter`, no Google Maps, no OpenStreetMap tiles and no key. The files and
+their provenance (Natural Earth 5.1.1, public domain, built with mapshaper 0.7.59) are described in
+`docs/development/regions-boundaries.md`.
 
 ## Theming and design tokens
 
@@ -721,7 +695,7 @@ src/app/
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, trading-area, offers, payouts, blocked
+    settings/   shell + profile, privacy, notifications, location, offers, payouts, blocked
                 users, my reports, account, appearance
     offers/     /offers inbox (tabs, status filter, summary rows) and /offers/:id (action bar,
                 history); data/ (OffersInboxStore, OfferDetailStore)
@@ -778,9 +752,9 @@ src/app/
     ads/        SponsoredSlot, sponsored ad card, impression directive and tracking, safe links
     discovery/  discovery labels (filters, ratings, listings), DiscoveryCentreService
     search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
-    domain/     games, distance / last-active labels, coordinate rounding
-    location/   TradingAreaPicker, city presets, MyLocationStore
-    map/        MapAdapter, Leaflet + Google adapters, factory, approximate-area map
+    domain/     games, place / last-active labels
+    location/   LocationFields (region, country, state pickers, city), MyLocationStore
+    regions/    RegionsStore (GET /regions), platform region names
     profile/    profile form, game / language / tag pickers, MyProfileStore
     links/      card / binder link pickers (autocomplete), shared link card
     messaging/  ConversationStarterService, BlockActionsService
@@ -833,8 +807,8 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
 - Unit (`npm test`): Angular's Vitest runner (jsdom). Covered: app shell, `ThemeService`,
   HTTP interceptors (ProblemDetail to `ApiError`, toast rules, request id, bearer token + single
   retry, Accept widening), `AuthService` (fake Firebase port), `SessionService` (status
-  mapping, 428/403 handling, consents), guards, roles, friendly errors, map adapter factory
-  (Leaflet default, Google with key, fallback), trading-area picker (fake adapter), profile
+  mapping, 428/403 handling, consents), guards, roles, friendly errors, the boundary map
+  (real Leaflet in jsdom, no tiles), the location fields and region pickers, profile
   form rules, avatar validation, admin helpers, sign-in page, `relativeTime`, freshness,
   `AppConfigService`, legal pages; Phase 2: feature flags (deferral on account pages, reload on
   sign-in, guard), limit-reached parsing/interceptor/dialog, card search box, catalog labels,
@@ -893,9 +867,9 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
     local stack** and create fresh fictional users through the UI or the emulator REST API:
     sign-up with consents, email verification through the emulator's oob codes, onboarding
-    (including clicking the Leaflet map), sign-out / sign-in, the 428 consent page,
-    discoverability with a check that every JSON response carries at most 3 decimals for
-    `lat`/`lng`, JSON export download, profile edits, deletion with re-authentication and
+    (the "Where are you?" pickers), sign-out / sign-in, the 428 consent page,
+    discoverability with a check that no JSON response carries a coordinate, JSON export
+    download, profile edits, deletion with re-authentication and
     cancel, admin suspend/unsuspend and the audit log, moderator/collector restrictions.
   - `e2e/catalog.spec.ts` (autocomplete to card detail with keyboard, printings and set page,
     filters in the URL, printing-code search, not-found) and `e2e/admin-rules.spec.ts` (super
@@ -907,19 +881,16 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     it public and change its condition in the edit panel, publish the binder until disabled (and
     the privacy notice); bulk temporary publication for 24 hours, the visibility segmented
     control, bulk availability with a skipped card and its reason, bulk move and make private; a
-    second collector opens the public binder from the owner's profile (region label, distance
-    bucket, chips, no private notes, game filter, every JSON response ≤ 3 decimals); the
-    `binders.max` limit-reached dialog.
-  - `e2e/map.spec.ts`: a collector publishes a card and another collector (both at a random
-    rural point, so earlier runs never crowd the map) finds them on `/map` (avatar marker),
-    clicks the marker, sees the preview, uses the keyboard List toggle, opens the profile and the
-    public binder; card search in the map's search box switches to "holders of" (markers + list
-    with price and chips), then the card-holders view (price range validation, max price and
-    availability filters in the URL) and the unified search (`?q=AZR-EN011` banner, Collectors
-    tab). Every JSON response has at most 3 decimals for `lat`/`lng` and never contains a stored
-    trading-area centre.
-  - `e2e/messaging.spec.ts` (two browser contexts): A finds B on the map and presses Message in
-    the preview; the panel opens the new conversation; A sends text and a card through the
+    second collector opens the public binder from the owner's profile (the owner's state, chips,
+    no private notes, game filter, no coordinate in any JSON response); the `binders.max`
+    limit-reached dialog.
+  - `e2e/map.spec.ts` (ADR 0017): the boundary map of a region with states shaded by binder
+    counts (no tile or map provider request), the accessible state list, choosing a state by
+    click and keyboard opens its binder panel and `/map?region=&subdivision=` (cursor pages,
+    empty state, error with retry), the region switcher changes the map; card holders and the
+    unified search in the browsed region. No JSON response carries a coordinate or distance.
+  - `e2e/messaging.spec.ts` (two browser contexts): A finds B's binder in B's state on the map
+    (`/map?region=americas-north&subdivision=US-WY`) and presses Message on B's profile; the panel opens the new conversation; A sends text and a card through the
     autocomplete; B, waiting on `/messages`, receives the conversation live (no reload) with two
     unread messages, opens it (card link to the catalog) and A sees "Seen"; B's typing indicator,
     answer and a photo reach A live; A blocks B from the thread menu (which also offers
@@ -927,20 +898,19 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     `MESSAGING_BLOCKED`; A unblocks B in Settings → Blocked users. A second test starts a
     conversation from a profile (full page), rejects a text file, sends a photo, shows the 422
     moderation refusal inline and reopens the conversation from the list by keyboard.
-  - `e2e/wishlist.spec.ts` (two collectors at a random rural point no other spec uses): A adds
-    a wish through the dialog (autocomplete, minimum condition, maximum price, radius slider
-    bounded by the FREE plan), sees its chips, adds a second wish from the card page and gets the
-    identical one refused inline (409), removes it with confirmation; B lists the card nearby:
-    A's bell badge and match count rise live without a reload, the bell menu entry opens
-    `/wishlist/<id>` with the matches drawer (B's approximate place, distance bucket, price,
-    binder link), a second copy arrives live in the open drawer and is dismissed, A messages B
+  - `e2e/wishlist.spec.ts` (two collectors of Americas (South), a region no other spec uses):
+    A adds a wish through the dialog (autocomplete, minimum condition, maximum price; no radius),
+    sees its chips, adds a second wish from the card page and gets the identical one refused
+    inline (409), removes it with confirmation; B of the same region lists the card: A's bell
+    badge and match count rise live without a reload, the bell menu entry opens
+    `/wishlist/<id>` with the matches drawer (B's state, price, binder link), a second copy arrives live in the open drawer and is dismissed, A messages B
     from the match, `/notifications` filters unread ones and marks all read, A's profile shows the
     public wishlist; B's binder is unpublished afterwards. A second test fills a FREE wishlist
-    (20 wishes), pauses alerts and filters, sees the trading-area hint and gets the limit dialog
-    (429 `wishlist.items.max`) with the inline explanation. Every JSON response has at most 3
-    decimals for `lat`/`lng`.
-  - `e2e/community.spec.ts`: `/community` opens the first regional channel; a collector moves to
-    Montréal / Pokémon, posts with a card link, is refused a duplicate (409) and a banned term
+    (20 wishes), pauses alerts and filters, sees the location hint and gets the limit dialog
+    (429 `wishlist.items.max`) with the inline explanation. No JSON response carries a
+    coordinate.
+  - `e2e/community.spec.ts`: `/community` opens the channel of the browsed platform region (the
+    former city channels show as archived); a collector posts with a card link, is refused a duplicate (409) and a banned term
     (422) inline, edits the post; a second collector replies inline; the author sees the reply
     after a reload and deletes the post. A moderator removes a post with a required reason, then
     resolves the flag a banned-term post raised in Admin → Community.
@@ -960,7 +930,7 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     update, the rating is edited within its window and a reference is written; the rated
     collector gets RATING_RECEIVED without the comment; an unrelated collector sees no rate or
     reference action and the API refuses their rating (403 `RATING_NOT_ELIGIBLE`).
-  - `e2e/offers.spec.ts` (fresh collectors; the sellers live at a random rural point): B makes
+  - `e2e/offers.spec.ts` (fresh collectors; the sellers declare a place): B makes
     a cash offer on A's public binder card through the dialog (amount required, a second offer on
     the card refused inline with a link to the open one) and shares it from the message composer;
     A has the OFFER_RECEIVED notification and sees the SYSTEM message and the OFFER_LINK card in
@@ -972,9 +942,9 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     trade offer with two copies of a private card from A's profile; A's decline on a proposal
     that another device countered meanwhile gets 409 `STALE_OFFER` and the page moves to the live
     proposal; B declines the counter-offer with a reason and withdraws a cash offer on a
-    sale-only card; the inbox status filter; a stranger gets the not-found state and 404. Every
-    JSON response has at most 3 decimals for `lat`/`lng`.
-  - `e2e/payments.spec.ts` (fake payment provider, fresh collectors at a random rural point):
+    sale-only card; the inbox status filter; a stranger gets the not-found state and 404. No
+    JSON response carries a coordinate.
+  - `e2e/payments.spec.ts` (fake payment provider, fresh collectors with declared places):
     a seller sets up payouts in Settings → Payouts; a buyer offers with "Use payment
     protection" (explanatory copy, no "escrow"); once accepted the buyer pays on the trade page,
     lands on the "Local test payment" checkout, pays and comes back PAID; the seller marks the
@@ -984,10 +954,10 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     message; a stranger gets the not-found state and 404; an admin finds it in the queue, puts it
     on hold, adds a note and resolves it for the buyer after the review step; the payment shows
     the refund, the audit log lists `dispute.freeze`, `dispute.note` and `dispute.resolve`, and
-    the buyer sees the decision, the refund and the cancelled trade. Every JSON response has at
-    most 3 decimals for `lat`/`lng`.
+    the buyer sees the decision, the refund and the cancelled trade. No JSON response carries a
+    coordinate.
   - `e2e/freemium.spec.ts` (fake billing provider): a fresh FREE collector (discoverable in
-    Montréal) sees the inventory's "Sponsored" placement, fills `binders.max`, gets the
+    Quebec) sees the inventory's "Sponsored" placement, fills `binders.max`, gets the
     limit-reached dialog and follows "See Premium"; "Upgrade to Premium" opens the local fake
     billing checkout, a simulated decline keeps it open, "Pay" lands on
     `/premium?checkout=success` with binders 5 / 50; the sixth binder is created and no ad is
@@ -1046,14 +1016,15 @@ docker run --rm -p 8080:8080 \
 
 `docker-entrypoint.sh` renders `/usr/share/nginx/html/config.json` from
 `API_BASE_URL, WS_BASE_URL, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,
-FIREBASE_APP_ID, FIREBASE_AUTH_EMULATOR_HOST, GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_MAP_ID, ENVIRONMENT`,
+FIREBASE_APP_ID, FIREBASE_AUTH_EMULATOR_HOST, ENVIRONMENT`,
 renders `nginx.conf` (listen `$PORT`, default 8080) and starts nginx.
 
 `nginx.conf`: SPA fallback, gzip, immutable caching for hashed assets, `no-cache` for
 `index.html` and `config.json`, `/healthz`, and security headers (`X-Content-Type-Options`,
-`X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, CSP allowing self, Google
-Fonts, Google Maps, Firebase Auth / Identity Toolkit, the Firebase auth domain, OpenStreetMap
-tiles and `ws(s)` to the API).
+`X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (denies geolocation), CSP
+allowing self, Google Fonts, Firebase Auth / Identity Toolkit, the Firebase auth domain and
+`ws(s)` to the API; no map or tile host since ADR 0017: the boundary files are served by the app
+itself).
 
 Ignore rules live in `.dockerignore` and its BuildKit twin `Dockerfile.dockerignore` (the
 latter is the one Docker reads when the context is the repo root; keep both identical).
