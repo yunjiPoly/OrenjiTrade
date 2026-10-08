@@ -282,7 +282,7 @@ describe('Onboarding age step (18+ rule)', () => {
 
     // The gate remembered where the collector was sent to onboarding from.
     usePendingLink.getState().set('/collectors/collector5');
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     // The remembered link replaces onboarding (back leads to the tabs), the tabs otherwise.
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
@@ -308,7 +308,7 @@ describe('Onboarding age step (18+ rule)', () => {
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 2 of 4 · Profile')).toBeOnTheScreen();
