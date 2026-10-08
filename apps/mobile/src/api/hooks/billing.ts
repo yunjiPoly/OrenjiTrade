@@ -9,6 +9,7 @@ import {
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { meKeys, publicKeys } from '../queryKeys';
+import { useHomeRegion } from './regions';
 import type {
   Ad,
   AdPlacement,
@@ -47,14 +48,12 @@ export function usePlans(enabled = true) {
 
 /**
  * Everything a plan change affects: the account (`/me` carries the plan), the plan with its
- * usage, the ads served (Premium has none), discovery (the map radius cap) and the credits
- * (stacked boosts).
+ * usage, the ads served (Premium has none) and the credits (stacked boosts).
  */
 export function refreshAfterPlanChange(queryClient: QueryClient, uid: Uid): void {
   void queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
   void queryClient.invalidateQueries({ queryKey: meKeys.plan(uid) });
   void queryClient.invalidateQueries({ queryKey: meKeys.ads(uid) });
-  void queryClient.invalidateQueries({ queryKey: meKeys.discovery(uid) });
   void queryClient.invalidateQueries({ queryKey: meKeys.credits(uid) });
 }
 
@@ -174,7 +173,6 @@ export function useSpendCredits() {
       // The balance, the ledger and the boosts (stacked entitlements raise the limits).
       void queryClient.invalidateQueries({ queryKey: meKeys.credits(uid) });
       void queryClient.invalidateQueries({ queryKey: meKeys.plan(uid) });
-      void queryClient.invalidateQueries({ queryKey: meKeys.discovery(uid) });
     },
   });
 }
@@ -252,9 +250,10 @@ export async function confirmFakeDonationCheckout(
 }
 
 /**
- * `GET /api/v1/ads?placement=&game=`: the sponsored placements served to this viewer (`[]` for
- * Premium members and `ads.enabled` entitlements; every ad is labelled "Sponsored"). The answer
- * is never cached by the API (`no-store`); it is read once per placement, game and plan.
+ * `GET /api/v1/ads?placement=&game=&region=`: the sponsored placements served to this viewer in
+ * the home region (`[]` for Premium members and `ads.enabled` entitlements; every ad is labelled
+ * "Sponsored"). The answer is never cached by the API (`no-store`); it is read once per
+ * placement, game, plan and region.
  */
 export function useAds(
   placement: AdPlacement,
@@ -263,13 +262,14 @@ export function useAds(
   enabled: boolean
 ) {
   const uid = useUid();
+  const region = useHomeRegion();
   return useQuery<Ad[], ApiError>({
-    queryKey: meKeys.adSlot(uid, placement, game ?? null, plan ?? null),
+    queryKey: meKeys.adSlot(uid, placement, game ?? null, plan ?? null, region),
     queryFn: async () => {
       const ads = required(
         (
           await api.GET('/api/v1/ads', {
-            params: { query: { placement, ...(game ? { game } : {}) } },
+            params: { query: { placement, region, ...(game ? { game } : {}) } },
           })
         ).data
       );

@@ -16,7 +16,6 @@ import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Stepper } from '@/src/components/ui/Stepper';
-import { nextRadius } from '@/src/lib/location';
 
 import { renderWithProviders } from '../test-utils';
 
@@ -230,20 +229,20 @@ describe('form controls', () => {
     const onChange = jest.fn();
     const { rerender } = renderWithProviders(
       <Stepper
-        label="Trading radius"
+        label="Copies"
         value={10}
         min={1}
         max={50}
-        next={nextRadius}
+        next={(current, direction) => current + direction * 5}
         onChange={onChange}
-        format={(v) => `${v} km`}
+        format={(v) => `${v} copies`}
       />
     );
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('10 km');
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    expect(screen.getByTestId('stepper-value')).toHaveTextContent('10 copies');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase copies' }));
     expect(onChange).toHaveBeenLastCalledWith(15);
-    rerender(<Stepper label="Trading radius" value={50} min={1} max={50} onChange={onChange} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    rerender(<Stepper label="Copies" value={50} min={1} max={50} onChange={onChange} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Increase copies' }));
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 

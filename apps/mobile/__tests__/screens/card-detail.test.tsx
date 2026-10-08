@@ -58,7 +58,7 @@ describe('Card detail', () => {
     expect(screen.getByText('French')).toBeOnTheScreen();
   });
 
-  it('opens the add flow, the holders list, the map and the set', async () => {
+  it('opens the add flow, the holders list and the set', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
     render();
     await screen.findByTestId('card-name');
@@ -72,8 +72,8 @@ describe('Card detail', () => {
       pathname: '/holders',
       params: { card: CARD_ID },
     });
-    fireEvent.press(screen.getByTestId('card-who-has-it'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
+    // The map is a placeholder in the app (ADR 0017): no "show on the map" for a card.
+    expect(screen.queryByTestId('card-who-has-it')).toBeNull();
     fireEvent.press(screen.getByTestId('card-set-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/sets/[id]',

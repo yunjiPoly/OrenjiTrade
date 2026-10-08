@@ -72,16 +72,14 @@ describe('Wishlist tab', () => {
   it('lists wishes with their criteria, matches, usage and filters', async () => {
     mockApi(
       routes({
-        'GET /api/v1/me/location': ok(
-          locationFixture({ discoverable: true, publicPoint: { lat: 45.503, lng: -73.569 } })
-        ),
+        'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })),
       })
     );
     renderWithProviders(<WishlistScreen />, { port: port() });
     expect(screen.getByTestId('wishlist-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
     expect(screen.getByTestId(`wish-criteria-${WISH_ID}`)).toHaveTextContent(
-      /Lightly Played or better.*Up to \$25\.00.*Within 10 km.*Trade or buy/
+      /Lightly Played or better.*Up to \$25\.00.*Trade or buy/
     );
     expect(screen.getByTestId(`wish-match-count-${WISH_ID}`)).toHaveTextContent('2 matches');
     expect(screen.getByTestId('wish-match-count-wish-paused')).toHaveTextContent('No matches yet');
@@ -108,11 +106,11 @@ describe('Wishlist tab', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
 
-  it('explains why matches cannot arrive yet', async () => {
-    mockApi(routes({ 'GET /api/v1/me/location': ok(locationFixture({ discoverable: false })) }));
+  it('explains why matches cannot arrive yet (no location)', async () => {
+    mockApi(routes({ 'GET /api/v1/me/location': ok({ discoverable: false }) }));
     renderWithProviders(<WishlistScreen />, { port: port() });
     expect(await screen.findByTestId('match-readiness')).toHaveTextContent(
-      /Show yourself on the map to get matches/
+      /Choose your location to get matches/
     );
     fireEvent.press(screen.getByTestId('match-readiness-action'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
@@ -161,14 +159,16 @@ describe('Wishlist tab', () => {
     mockApi(
       routes({
         'GET /api/v1/wishlist': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok([])],
-        'GET /api/v1/me/location': ok(locationFixture({ tradingArea: undefined })),
+        'GET /api/v1/me/location': ok(locationFixture({ location: undefined })),
       })
     );
     renderWithProviders(<WishlistScreen />, { port: port() });
     expect(await screen.findByTestId('wishlist-error')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('wishlist-empty')).toHaveTextContent(/Your wishlist is empty/);
-    expect(await screen.findByTestId('match-readiness')).toHaveTextContent(/Set your trading area/);
+    expect(await screen.findByTestId('match-readiness')).toHaveTextContent(
+      /Choose your location to get matches/
+    );
     fireEvent.press(screen.getByText('Add a card'));
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
@@ -194,7 +194,7 @@ describe('Wishlist tab', () => {
 });
 
 describe('Add and edit a wish', () => {
-  it('adds a card from its page: criteria, radius bounded by the plan, notes', async () => {
+  it('adds a card from its page: criteria and notes (no radius: the region, ADR 0017)', async () => {
     mockParams.current = { cardId: CARD_ID };
     const api = mockApi(
       routes({
@@ -204,14 +204,8 @@ describe('Add and edit a wish', () => {
     );
     renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-card')).toHaveTextContent(/Emberfang Fox VMAX/);
-    // The FREE plan caps the radius at 25 km: the stepper stops there.
-    await waitFor(() => expect(screen.getByTestId('wish-radius-value')).toHaveTextContent('25 km'));
-    expect(screen.getByTestId('wish-radius-increase')).toBeDisabled();
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
-    expect(screen.getByTestId('wish-radius-value')).toHaveTextContent('10 km');
-    fireEvent.press(screen.getByTestId('wish-condition'));
+    expect(screen.queryByTestId('wish-radius')).toBeNull();
+    fireEvent.press(await screen.findByTestId('wish-condition'));
     fireEvent.press(await screen.findByTestId('wish-condition-option-LIGHTLY_PLAYED'));
     fireEvent.changeText(screen.getByTestId('wish-max-price'), '25');
     fireEvent.press(screen.getByTestId('wish-trade-TRADE'));
@@ -223,7 +217,6 @@ describe('Add and edit a wish', () => {
       conditionMin: 'LIGHTLY_PLAYED',
       maxPrice: 25,
       currency: 'CAD',
-      radiusKm: 10,
       tradePreference: 'TRADE',
       notes: 'Fictional wish',
       active: true,
@@ -281,22 +274,22 @@ describe('Add and edit a wish', () => {
     expect(await screen.findByTestId('wish-card-step')).toBeOnTheScreen();
   });
 
-  it('edits a wish with a PATCH of every field', async () => {
+  it('edits a wish with a PATCH of every field (no radius: the region, ADR 0017)', async () => {
     mockParams.current = { id: WISH_ID };
     const api = mockApi(
-      routes({ 'PATCH /api/v1/wishlist/{id}': ok(wishFixture({ radiusKm: 9 })) })
+      routes({ 'PATCH /api/v1/wishlist/{id}': ok(wishFixture({ notes: 'For my deck!' })) })
     );
     renderWithProviders(<EditWishScreen />, { port: port() });
-    expect(await screen.findByTestId('wish-radius-value')).toHaveTextContent('10 km');
-    fireEvent.press(screen.getByTestId('wish-radius-decrease'));
+    fireEvent.changeText(await screen.findByLabelText('Private notes'), 'For my deck!');
+    expect(screen.queryByTestId('wish-radius')).toBeNull();
     fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).not.toHaveProperty('radiusKm');
     expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).toMatchObject({
-      radiusKm: 9,
       conditionMin: 'LIGHTLY_PLAYED',
       maxPrice: 25,
       printingId: null,
-      notes: 'For my deck.',
+      notes: 'For my deck!',
     });
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Wish updated.');
   });
@@ -338,15 +331,13 @@ describe('Matches of a wish', () => {
     expect(screen.getByTestId('wish-matches-head')).toHaveTextContent(
       /Matches for Azure-Eyes Sky Dragon/
     );
-    expect(screen.getByTestId('match-distance')).toHaveTextContent('1–5 km away');
-    expect(screen.getByTestId(`match-${match.id}`)).toHaveTextContent(/Verdun, Montréal/);
+    expect(screen.getByTestId('match-place')).toHaveTextContent('Ontario, Canada');
+    expect(screen.queryByText(/km/)).toBeNull();
     expect(screen.getByTestId('match-price')).toHaveTextContent('$45.00');
-    // Nothing on screen carries a coordinate.
-    expect(screen.toJSON()).not.toEqual(expect.stringContaining('45.458'));
 
-    fireEvent.press(screen.getByTestId(`match-on-map-${match.id}`));
-    expect(mockRouter.navigate).toHaveBeenCalledWith({
-      pathname: '/',
+    fireEvent.press(screen.getByTestId(`match-holders-${match.id}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/holders',
       params: { printing: match.item.printing.id },
     });
     fireEvent.press(screen.getByTestId(`match-message-${match.id}`));
@@ -374,12 +365,15 @@ describe('Matches of a wish', () => {
     expect(await screen.findByTestId('wish-matches-empty')).toBeOnTheScreen();
   });
 
-  it('shows no matches yet (with the map), a missing wish, and an error with retry', async () => {
+  it('shows no matches yet (with the holders), a missing wish, and an error with retry', async () => {
     mockApi(routes({ 'GET /api/v1/wishlist/{id}/matches': ok(matchPage([])) }));
     const first = renderWithProviders(<WishMatchesScreen />, { port: port() });
     expect(await screen.findByTestId('wish-matches-empty')).toHaveTextContent(/No matches yet/);
-    fireEvent.press(screen.getByText('Who has it on the map'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
+    fireEvent.press(screen.getByText('Who has it in my region'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/holders',
+      params: { card: CARD_ID },
+    });
     first.unmount();
 
     mockParams.current = { id: 'gone' };

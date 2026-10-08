@@ -126,7 +126,7 @@ export default function OffersScreen() {
         testID="offers-empty-sent"
         icon="tag-outline"
         title="You have not made any offer yet"
-        description="Find a card near you on the map or in a public binder, then press “Make an offer”."
+        description="Find a card in your region or in a public binder, then press “Make an offer”."
         actionLabel="Explore the map"
         onAction={() => router.navigate('/')}
       />
@@ -137,7 +137,7 @@ export default function OffersScreen() {
         testID="offers-empty-received"
         icon="inbox-arrow-down-outline"
         title="No offers on your cards yet"
-        description="Publish cards that accept offers: collectors nearby can then make you one."
+        description="Publish cards that accept offers: collectors of your region can then make you one."
         actionLabel="Open my inventory"
         onAction={() => router.navigate('/inventory')}
       />

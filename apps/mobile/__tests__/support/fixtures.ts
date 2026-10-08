@@ -29,15 +29,15 @@ import type {
   WishlistMatchResponse,
   CardDetail,
   CollectorMarker,
-  CollectorPreview,
   CollectorRatingsPage,
   ConversationSummary,
   MatchingItem,
   MessagePage,
   MessageResponse,
   MyPlan,
-  NearbyCollectorsResponse,
+  Place,
   PublicBinderSummary,
+  RegionsResponse,
   PublicInventoryPage,
   ReferencePage,
   CardPage,
@@ -64,6 +64,92 @@ import type {
 
 /** Fictional API answers shaped by the generated types (packages/shared-types). */
 
+/** Public places (ADR 0017): a state or province and its country, never a position. */
+export const QUEBEC: Place = {
+  regionCode: 'americas-north',
+  countryCode: 'CA',
+  countryName: 'Canada',
+  subdivisionCode: 'CA-QC',
+  subdivisionName: 'Quebec',
+  label: 'Quebec, Canada',
+};
+
+export const ONTARIO: Place = {
+  regionCode: 'americas-north',
+  countryCode: 'CA',
+  countryName: 'Canada',
+  subdivisionCode: 'CA-ON',
+  subdivisionName: 'Ontario',
+  label: 'Ontario, Canada',
+};
+
+/** `GET /regions` (a small slice of the seeded catalogue: three regions, a few countries). */
+export function regionsFixture(): RegionsResponse {
+  return {
+    regions: [
+      {
+        code: 'americas-north',
+        name: 'Americas (North)',
+        isDefault: true,
+        countries: [
+          {
+            code: 'CA',
+            name: 'Canada',
+            regionCode: 'americas-north',
+            active: true,
+            subdivisions: [
+              { code: 'CA-ON', name: 'Ontario', wholeCountry: false },
+              { code: 'CA-QC', name: 'Quebec', wholeCountry: false },
+            ],
+          },
+          {
+            code: 'US',
+            name: 'United States',
+            regionCode: 'americas-north',
+            active: true,
+            subdivisions: [{ code: 'US-WY', name: 'Wyoming', wholeCountry: false }],
+          },
+        ],
+      },
+      {
+        code: 'americas-south',
+        name: 'Americas (South)',
+        isDefault: false,
+        countries: [
+          {
+            code: 'UY',
+            name: 'Uruguay',
+            regionCode: 'americas-south',
+            active: true,
+            subdivisions: [{ code: 'UY-MO', name: 'Montevideo', wholeCountry: false }],
+          },
+        ],
+      },
+      {
+        code: 'europe',
+        name: 'Europe',
+        isDefault: false,
+        countries: [
+          {
+            code: 'FR',
+            name: 'France',
+            regionCode: 'europe',
+            active: true,
+            subdivisions: [{ code: 'FR-BRE', name: 'Brittany', wholeCountry: false }],
+          },
+          {
+            code: 'VA',
+            name: 'Vatican City',
+            regionCode: 'europe',
+            active: true,
+            subdivisions: [{ code: 'VA', name: 'Vatican City', wholeCountry: true }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
   return {
     id: '00000000-0000-4000-8000-0000000000a1',
@@ -78,7 +164,7 @@ export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
     lastActiveAt: null,
     onboarding: {
       profileComplete: true,
-      tradingAreaSet: true,
+      locationSet: true,
       interestsSet: true,
       ageConfirmed: true,
     },
@@ -88,7 +174,7 @@ export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
   };
 }
 
-export const NOT_ONBOARDED = { profileComplete: false, tradingAreaSet: false, interestsSet: false };
+export const NOT_ONBOARDED = { profileComplete: false, locationSet: false, interestsSet: false };
 
 /** The 18+ attestation as the API publishes it (never required at registration). */
 export const AGE_CONFIRMATION: LegalDocument = {
@@ -203,12 +289,11 @@ export function profileFixture(overrides: Partial<MyProfileResponse> = {}): MyPr
 
 export function locationFixture(overrides: Partial<MyLocationResponse> = {}): MyLocationResponse {
   return {
-    tradingArea: {
-      lat: 45.502,
-      lng: -73.567,
-      radiusKm: 10,
-      source: 'MANUAL',
-      label: 'Ville-Marie, Montréal',
+    location: {
+      ...QUEBEC,
+      regionName: 'Americas (North)',
+      city: 'Montréal',
+      showCity: true,
     },
     discoverable: false,
     ...overrides,
@@ -218,7 +303,6 @@ export function locationFixture(overrides: Partial<MyLocationResponse> = {}): My
 export function privacyFixture(overrides: Partial<PrivacySettings> = {}): PrivacySettings {
   return {
     discoverable: false,
-    showDistance: true,
     showOnlineStatus: false,
     showLastActive: true,
     profileVisibility: 'MEMBERS',
@@ -271,11 +355,7 @@ export function collectorFixture(
     bio: 'Binder collector in Montréal.',
     games: ['pokemon'],
     tags: [TAGS[0] as TagResponse],
-    location: {
-      publicLabel: 'Ville-Marie, Montréal',
-      publicPoint: { lat: 45.503, lng: -73.569 },
-      distanceBucket: 'KM_1_5',
-    },
+    location: { ...QUEBEC, city: 'Montréal' },
     memberSince: '2026-09-01T12:00:00Z',
     lastActiveBucket: 'TODAY',
     onlineStatus: 'HIDDEN',
@@ -468,7 +548,7 @@ export function publicBinderFixture(
       handle: 'collector1',
       displayName: 'Collector One',
       avatarUrl: null,
-      location: { publicLabel: 'Plateau-Mont-Royal, Montréal', distanceBucket: 'KM_1_5' },
+      place: QUEBEC,
     },
     freshness: {
       state: 'ACTIVE',
@@ -528,7 +608,7 @@ export function listingStatusFixture(overrides: Partial<ListingStatus> = {}): Li
   };
 }
 
-// --- Map discovery, collectors and messages (Phase 4, fictional) ---------------------------------
+// --- Collectors and messages (Phase 4, fictional) ------------------------------------------------
 
 /** The signed-in collector of `meFixture()`. */
 export const SELF_ID = '00000000-0000-4000-8000-0000000000a1';
@@ -539,9 +619,7 @@ export function markerFixture(overrides: Partial<CollectorMarker> = {}): Collect
     handle: 'collector2',
     displayName: 'Noé Verdun',
     avatarUrl: null,
-    publicPoint: { lat: 45.458, lng: -73.571 },
-    publicLabel: 'Verdun, Montréal',
-    distanceBucket: 'KM_1_5',
+    place: ONTARIO,
     rating: { average: 4.8, count: 12 },
     tags: ['local-pickup'],
     games: ['mtg'],
@@ -551,33 +629,6 @@ export function markerFixture(overrides: Partial<CollectorMarker> = {}): Collect
     publicBinderCount: 1,
     publicItemCount: 14,
     matchingItems: [],
-    ...overrides,
-  };
-}
-
-/** The viewer's own entry (the API keeps it in `nearby`). */
-export function selfMarkerFixture(overrides: Partial<CollectorMarker> = {}): CollectorMarker {
-  return markerFixture({
-    id: SELF_ID,
-    handle: 'maika',
-    displayName: 'Maïka Test',
-    publicPoint: { lat: 45.503, lng: -73.569 },
-    publicLabel: 'Ville-Marie, Montréal',
-    distanceBucket: undefined,
-    ...overrides,
-  });
-}
-
-export function nearbyFixture(
-  collectors: CollectorMarker[] = [selfMarkerFixture(), markerFixture()],
-  overrides: Partial<NearbyCollectorsResponse> = {}
-): NearbyCollectorsResponse {
-  return {
-    center: { lat: 45.5, lng: -73.57 },
-    radiusKm: 10,
-    collectors,
-    total: collectors.length,
-    truncated: false,
     ...overrides,
   };
 }
@@ -598,30 +649,6 @@ export function matchingItemFixture(overrides: Partial<MatchingItem> = {}): Matc
     edition: 'UNLIMITED',
     acceptsOffers: true,
     freshness: 'ACTIVE',
-    ...overrides,
-  };
-}
-
-export function previewFixture(overrides: Partial<CollectorPreview> = {}): CollectorPreview {
-  const marker = markerFixture();
-  return {
-    id: marker.id,
-    handle: marker.handle,
-    displayName: marker.displayName,
-    avatarUrl: null,
-    publicPoint: marker.publicPoint,
-    publicLabel: marker.publicLabel,
-    distanceBucket: 'KM_1_5',
-    rating: marker.rating,
-    tags: marker.tags,
-    games: marker.games,
-    lastActiveBucket: 'THIS_WEEK',
-    onlineStatus: 'ONLINE',
-    binderFreshness: 'ACTIVE',
-    publicBinderCount: 1,
-    publicItemCount: 14,
-    canMessage: true,
-    isBlocked: false,
     ...overrides,
   };
 }
@@ -694,16 +721,17 @@ export function referencesPageFixture(overrides: Partial<ReferencePage> = {}): R
   };
 }
 
-export function planFixture(radiusKm: number | null = 25): MyPlan {
+export function planFixture(viewsPerDay: number | null = 25): MyPlan {
   return {
     plan: { code: 'FREE', name: 'Free' },
     limits: [
       {
-        key: 'map.radius.max_km',
+        key: 'binder.views.per_day',
         allowed: true,
-        kind: 'CAP',
-        window: 'TOTAL',
-        limit: radiusKm ?? undefined,
+        kind: 'COUNTER',
+        window: 'DAY',
+        limit: viewsPerDay ?? undefined,
+        used: 0,
         planCode: 'FREE',
       },
     ],
@@ -764,12 +792,12 @@ export function conversationPage(
 export function channelFixture(overrides: Partial<CommunityChannel> = {}): CommunityChannel {
   return {
     id: '00000000-0000-4000-8f00-000000000001',
-    slug: 'montreal-pokemon',
-    name: 'Montréal · Pokémon',
+    slug: 'americas-north',
+    name: 'Americas (North)',
     kind: 'REGION',
-    game: 'pokemon',
-    regionLabel: 'Montréal',
-    description: 'Pokémon collectors around Montréal.',
+    game: null,
+    regionLabel: 'americas-north',
+    description: 'Canada, the United States, Mexico, Central America and the Caribbean.',
     postCount24h: 3,
     ...overrides,
   };
@@ -871,7 +899,6 @@ export function wishFixture(overrides: Partial<WishlistItemResponse> = {}): Wish
     language: null,
     maxPrice: 25,
     currency: 'CAD',
-    radiusKm: 10,
     tradePreference: 'ANY',
     notes: 'For my deck.',
     active: true,
@@ -891,7 +918,6 @@ export function matchFixture(
     wishlistItemId: WISH_ID,
     item: publicItemFixture(),
     collector: markerFixture(),
-    distanceBucket: 'KM_1_5',
     matchedAt: '2026-10-05T09:00:00Z',
     dismissed: false,
     ...overrides,
@@ -976,7 +1002,7 @@ export function offerPartyFixture(overrides: Partial<OfferParty> = {}): OfferPar
     handle: 'collector2',
     displayName: 'Noé Verdun',
     avatarUrl: null,
-    location: { publicLabel: 'Plateau-Mont-Royal, Montréal', distanceBucket: 'KM_1_5' },
+    place: ONTARIO,
     rating: { average: 4.5, count: 2 },
     ...overrides,
   };
@@ -1143,6 +1169,7 @@ export function unifiedSearchFixture(
     cards: [],
     printings: [],
     sets: [],
+    region: 'americas-north',
     collectors: [],
     binders: [],
     resolved: { printingId: null, cardId: null },
@@ -1160,7 +1187,7 @@ export function searchBinderFixture(
       handle: 'collector2',
       displayName: 'Noé Verdun',
       avatarUrl: null,
-      location: { publicLabel: 'Verdun, Montréal', distanceBucket: 'KM_1_5' },
+      place: ONTARIO,
     },
     ...overrides,
   });

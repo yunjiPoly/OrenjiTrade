@@ -141,7 +141,7 @@ export default function SignUpScreen() {
           Create your account
         </Text>
         <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-          Join collectors trading near you. You stay hidden on the map until you opt in.
+          Join collectors trading in your region. You stay hidden on the map until you opt in.
         </Text>
       </View>
 

@@ -21,13 +21,9 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().themeOverride).toBe('dark');
   });
 
-  it('merges preference patches without dropping other keys', () => {
-    useAppStore.getState().updatePrefs({ distanceUnit: 'mi' });
+  it('merges preference patches', () => {
     useAppStore.getState().updatePrefs({ lastSignedInEmail: 'ayumi@example.test' });
-    expect(useAppStore.getState().prefs).toEqual({
-      distanceUnit: 'mi',
-      lastSignedInEmail: 'ayumi@example.test',
-    });
+    expect(useAppStore.getState().prefs).toEqual({ lastSignedInEmail: 'ayumi@example.test' });
   });
 
   it('resets to the initial state', () => {
@@ -47,7 +43,7 @@ describe('useAppStore', () => {
       state: Record<string, unknown>;
       version: number;
     };
-    expect(persisted.version).toBe(3);
+    expect(persisted.version).toBe(4);
     expect(persisted.state).toEqual({ themeOverride: 'dark', prefs: DEFAULT_PREFS });
   });
 
@@ -69,10 +65,24 @@ describe('useAppStore', () => {
     );
     await useAppStore.persist.rehydrate();
     expect(useAppStore.getState().themeOverride).toBe('light');
-    expect(useAppStore.getState().prefs).toEqual({
-      distanceUnit: 'km',
-      lastSignedInEmail: 'old@example.test',
-    });
+    // The distance unit of versions 1 to 3 is dropped too (no distances since ADR 0017).
+    expect(useAppStore.getState().prefs).toEqual({ lastSignedInEmail: 'old@example.test' });
+  });
+
+  it('drops the distance unit version 3 kept', async () => {
+    await AsyncStorage.setItem(
+      APP_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 3,
+        state: {
+          themeOverride: 'dark',
+          prefs: { distanceUnit: 'mi', lastSignedInEmail: null },
+        },
+      })
+    );
+    await useAppStore.persist.rehydrate();
+    expect(useAppStore.getState().prefs).toEqual(DEFAULT_PREFS);
+    expect(useAppStore.getState().prefs).not.toHaveProperty('distanceUnit');
   });
 
   it('drops the map viewport versions 1 and 2 kept on the device', async () => {

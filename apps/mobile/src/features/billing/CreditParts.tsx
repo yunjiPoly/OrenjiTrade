@@ -204,7 +204,7 @@ export function ReferralCard({
   const share = async () => {
     try {
       await Share.share({
-        message: `Join me on OrenjiTrade, the map of card collectors near you. Use my referral code ${referral.code} to get ${creditsLabel(referral.refereeReward)}.`,
+        message: `Join me on OrenjiTrade, the map of card collectors in your region. Use my referral code ${referral.code} to get ${creditsLabel(referral.refereeReward)}.`,
       });
     } catch {
       // The member closed the share sheet.

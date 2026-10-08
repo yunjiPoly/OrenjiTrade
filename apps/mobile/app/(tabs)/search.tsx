@@ -52,7 +52,7 @@ type SearchParams = { q?: string; game?: string; set?: string; tab?: string };
  * Search tab (the web's `/search` tabs): Cards | Collectors | Binders. Cards: the card catalog
  * across games (the web's `/cards`): live, typo-tolerant search (names, text, printing codes)
  * with game pills and set / rarity / language / edition filters, an infinite list of results with
- * API pictures. Collectors (by name or handle, with the API's distance bucket) and public binders
+ * API pictures. Collectors (by name or handle, with their state or province) and public binders
  * (by name) come from `GET /search`. Recent searches are kept per segment. A result opens the
  * card detail, the collector profile or the public binder.
  */

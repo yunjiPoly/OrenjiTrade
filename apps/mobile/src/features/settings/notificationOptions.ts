@@ -11,7 +11,7 @@ export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string
 
 /** Categories in display order with human labels (unknown API categories still render). */
 export const CATEGORY_LABELS: Readonly<Record<string, { label: string; help: string }>> = {
-  WISHLIST_MATCH: { label: 'Wishlist matches', help: 'A card you want appears nearby.' },
+  WISHLIST_MATCH: { label: 'Wishlist matches', help: 'A card you want appears in your region.' },
   MESSAGE: { label: 'Messages', help: 'New private messages.' },
   OFFER: { label: 'Offers', help: 'Offers you receive and their answers.' },
   TRADE: { label: 'Trades', help: 'Progress of your trades.' },

@@ -85,9 +85,7 @@ export const OfferSummaryRow = memo(function OfferSummaryRow({
             style={[textStyle('xs'), styles.grow, { color: palette.textMuted }]}
           >
             {direction} {offer.counterparty.displayName}
-            {offer.counterparty.location?.publicLabel
-              ? ` · ${offer.counterparty.location.publicLabel}`
-              : ''}
+            {offer.counterparty.place?.label ? ` · ${offer.counterparty.place.label}` : ''}
           </Text>
         </View>
         <Text style={[textStyle('sm'), { color: palette.ink }]}>

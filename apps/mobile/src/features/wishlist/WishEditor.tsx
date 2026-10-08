@@ -4,7 +4,6 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useCard } from '@/src/api/hooks/catalog';
-import { useMyPlan } from '@/src/api/hooks/discovery';
 import { useGames } from '@/src/api/hooks/profile';
 import { useCreateWish, useUpdateWish } from '@/src/api/hooks/wishlist';
 import type { CardSuggestion, WishlistItemResponse } from '@/src/api/types';
@@ -21,15 +20,12 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { WishCriteriaFields } from './WishCriteriaFields';
 import {
-  clampRadius,
   hasWishErrors,
   newWishDefaults,
-  radiusMaxFor,
   toCreateWishRequest,
   toUpdateWishRequest,
   validateWish,
   wishFormFromItem,
-  wishRadiusCap,
   wishSaveError,
   type WishFormErrors,
   type WishFormValue,
@@ -43,10 +39,10 @@ export type WishEditorProps =
 /**
  * Add a wish (optionally for a known card or printing, e.g. from a card page) or edit one (the
  * web's wishlist dialog): card autocomplete → criteria (printing or any, condition minimum,
- * edition, language, rarity from the game's schema, maximum price and currency, radius bounded
- * by the plan's `map.radius.max_km`, trade preference, notes, alerts). Saves with
- * `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish (409) and plan limits (429) are
- * explained in place.
+ * edition, language, rarity from the game's schema, maximum price and currency, trade
+ * preference, notes, alerts; it matches listings of the collector's own region, ADR 0017). Saves
+ * with `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish (409) and plan limits (429)
+ * are explained in place.
  */
 export function WishEditor(props: WishEditorProps) {
   const { palette } = useTheme();
@@ -69,12 +65,9 @@ export function WishEditor(props: WishEditorProps) {
   const [limited, setLimited] = useState(false);
   const card = useCard(cardId);
   const games = useGames();
-  const plan = useMyPlan();
   const create = useCreateWish();
   const update = useUpdateWish();
   const saving = create.isPending || update.isPending;
-  const cap = wishRadiusCap(plan.data);
-  const radiusMax = radiusMaxFor(cap);
   const printings = card.data?.printings ?? [];
   const schema = games.data?.find((game) => game.slug === card.data?.game)?.schema ?? null;
 
@@ -82,11 +75,7 @@ export function WishEditor(props: WishEditorProps) {
   const cardData = card.data;
   if (!form && cardData && !editing) {
     const known = (cardData.printings ?? []).some((printing) => printing.id === wantedPrinting);
-    setForm(newWishDefaults(known ? wantedPrinting : null, radiusMax));
-  }
-  // The plan answered: keep the radius within its cap.
-  if (form && cap !== undefined && form.radiusKm > radiusMax) {
-    setForm({ ...form, radiusKm: clampRadius(form.radiusKm, radiusMax) });
+    setForm(newWishDefaults(known ? wantedPrinting : null));
   }
 
   const pick = (suggestion: CardSuggestion) => {
@@ -112,7 +101,7 @@ export function WishEditor(props: WishEditorProps) {
     if (!form || !card.data?.id || saving) {
       return;
     }
-    const found = validateWish(form, radiusMax);
+    const found = validateWish(form);
     setErrors(found);
     if (hasWishErrors(found)) {
       setMessage('Check the highlighted fields.');
@@ -149,7 +138,8 @@ export function WishEditor(props: WishEditorProps) {
     return (
       <View style={styles.root} testID="wish-card-step">
         <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-          Which card are you looking for? We&apos;ll tell you when a collector nearby lists it.
+          Which card are you looking for? We&apos;ll tell you when a collector of your region lists
+          it.
         </Text>
         <CardPicker onPick={pick} />
       </View>
@@ -216,8 +206,6 @@ export function WishEditor(props: WishEditorProps) {
         errors={errors}
         schema={schema}
         printings={printings}
-        radiusMax={radiusMax}
-        radiusCap={cap}
         disabled={saving}
       />
 

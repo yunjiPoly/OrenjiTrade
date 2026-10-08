@@ -22,7 +22,7 @@ export const VISIBILITY_INFO: Record<Visibility, { label: string; hint: string }
   PRIVATE: { label: 'Private', hint: 'Only you can see it.' },
   PUBLIC: {
     label: 'Public',
-    hint: 'Collectors near you can find it on the map and in search.',
+    hint: 'Collectors of your region can find it on the map and in search.',
   },
   TEMPORARILY_PUBLIC: {
     label: 'Temporarily public',

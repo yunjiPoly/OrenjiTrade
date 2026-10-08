@@ -1,21 +1,23 @@
 import type { operations } from '@orenji/shared-types';
 
-import { INTENT_FILTERS, isIntentFilter, type IntentFilter } from '@/src/features/map/discovery';
+import {
+  INTENT_FILTERS,
+  isIntentFilter,
+  type IntentFilter,
+} from '@/src/features/collectors/collectorLabels';
 
 /**
  * Filters of the card-holders view (mirror of the web's `features/search/data/search-params.ts`:
  * `HolderFilters`, `cardHoldersRequest`, `activeHolderFilterCount`, `priceRangeError`). The
- * request never carries the viewer's position: either nothing (the server uses their trading
- * area) or a public city centre.
+ * request names a platform region (ADR 0017): never a position, a radius or a distance.
  */
 
 export type HoldersTarget = { kind: 'card' | 'printing'; id: string };
 
-export type HolderSort = 'distance' | 'price' | 'freshness';
+export type HolderSort = 'freshness' | 'price';
 export const HOLDER_SORTS: readonly { value: HolderSort; label: string }[] = [
-  { value: 'distance', label: 'Closest first' },
-  { value: 'price', label: 'Lowest price' },
   { value: 'freshness', label: 'Freshest listings' },
+  { value: 'price', label: 'Lowest price' },
 ];
 
 export function isHolderSort(value: unknown): value is HolderSort {
@@ -63,7 +65,7 @@ export const DEFAULT_HOLDER_FILTERS: HolderFilters = {
   edition: null,
   language: null,
   acceptsOffers: false,
-  sort: 'distance',
+  sort: 'freshness',
 };
 
 /** A price typed in a field: 2 decimals within [0, MAX_PRICE]; `null` when empty or invalid. */
@@ -111,21 +113,17 @@ export function activeHolderFilterCount(filters: HolderFilters): number {
 
 export type CardHoldersQuery = NonNullable<operations['searchCardHolders']['parameters']['query']>;
 
-/** Query parameters of one page of holders (filters left out when unset). */
+/** Query parameters of one page of holders in `region` (filters left out when unset). */
 export function cardHoldersQuery(
   target: HoldersTarget,
   filters: HolderFilters,
-  centre: { lat?: number; lng?: number }
+  region: string
 ): Omit<CardHoldersQuery, 'page' | 'size'> {
-  const query: Omit<CardHoldersQuery, 'page' | 'size'> = { sort: filters.sort };
+  const query: Omit<CardHoldersQuery, 'page' | 'size'> = { region, sort: filters.sort };
   if (target.kind === 'printing') {
     query.printingId = target.id;
   } else {
     query.cardId = target.id;
-  }
-  if (centre.lat !== undefined && centre.lng !== undefined) {
-    query.lat = centre.lat;
-    query.lng = centre.lng;
   }
   if (filters.availability) {
     query.availability = filters.availability;
@@ -154,12 +152,12 @@ export function cardHoldersQuery(
   return query;
 }
 
-/** "3 listings near you" / "Looking for holders…". */
+/** "3 listings in your region" / "Looking for holders…". */
 export function holdersCountLabel(total: number | null): string {
   if (total === null) {
     return 'Looking for holders…';
   }
-  return `${total} ${total === 1 ? 'listing' : 'listings'} near you`;
+  return `${total} ${total === 1 ? 'listing' : 'listings'} in your region`;
 }
 
 /** Fallback conditions when the card's game schema is unknown (the web's list). */

@@ -34,6 +34,7 @@ import { useSnackbar } from '@/src/components/ui/Snackbar';
 import {
   activityLabel,
   channelIcon,
+  channelRegionName,
   postErrorMessage,
 } from '@/src/features/community/communityHelpers';
 import { PostComposer } from '@/src/features/community/PostComposer';
@@ -63,7 +64,7 @@ function ChannelHeader({ channel }: { channel: CommunityChannel }) {
         <Text testID="channel-activity" style={[textStyle('xs'), { color: palette.textMuted }]}>
           {[
             channel.game ? gameLabel(channel.game) : null,
-            channel.regionLabel,
+            channelRegionName(channel.regionLabel),
             activityLabel(channel.postCount24h),
           ]
             .filter(Boolean)

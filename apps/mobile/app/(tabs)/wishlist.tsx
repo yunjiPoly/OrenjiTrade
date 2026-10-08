@@ -4,7 +4,7 @@ import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-na
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
-import { useMyPlan } from '@/src/api/hooks/discovery';
+import { useMyPlan } from '@/src/api/hooks/plan';
 import { useMyLocation } from '@/src/api/hooks/location';
 import { useDeleteWish, useSetWishActive, useWishlist } from '@/src/api/hooks/wishlist';
 import type { WishlistItemResponse } from '@/src/api/types';
@@ -30,7 +30,7 @@ import { spacing } from '@/src/theme';
 /**
  * Wishlist tab (the web's `/wishlist`): the collector's wishes (card art, printing or "any
  * printing", criteria chips, match count, alerts switch, edit and remove), the plan usage, why
- * matches cannot arrive yet (no trading area, hidden from the map), filters (all, with matches,
+ * matches cannot arrive yet (no location), filters (all, with matches,
  * paused) and "Add a card". Match counts stay live over realtime; each wish opens its matches.
  */
 export default function WishlistScreen() {
@@ -105,7 +105,7 @@ export default function WishlistScreen() {
           testID="wishlist-empty"
           icon="heart-outline"
           title="Your wishlist is empty"
-          description="Add the cards you are hunting for. We'll let you know as soon as a collector nearby lists one."
+          description="Add the cards you are hunting for. We'll let you know as soon as a collector of your region lists one."
           actionLabel="Add a card"
           onAction={add}
         />
@@ -174,11 +174,11 @@ export default function WishlistScreen() {
           <EmptyState
             testID="wishlist-filter-empty"
             icon={filter === 'paused' ? 'bell-sleep-outline' : 'map-search-outline'}
-            title={filter === 'paused' ? 'No paused wishes' : 'No matches nearby yet'}
+            title={filter === 'paused' ? 'No paused wishes' : 'No matches in your region yet'}
             description={
               filter === 'paused'
                 ? 'Every wish has its alerts on.'
-                : 'When a collector near you lists a card you want, it shows up here.'
+                : 'When a collector of your region lists a card you want, it shows up here.'
             }
             actionLabel="Show all wishes"
             onAction={() => setFilter('all')}

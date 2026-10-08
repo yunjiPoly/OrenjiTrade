@@ -312,9 +312,7 @@ describe('One offer', () => {
     expect(screen.getByTestId('offer-expiry')).toHaveTextContent(/Expires in/);
     expect(screen.getByTestId('deal-cash')).toHaveTextContent('$40.00');
     expect(screen.getByTestId('deal-message')).toHaveTextContent(/Could we meet at the café\?/);
-    expect(screen.getByTestId('offer-seller')).toHaveTextContent(
-      /Plateau-Mont-Royal, Montréal · 1–5 km/
-    );
+    expect(screen.getByTestId('offer-seller')).toHaveTextContent(/Ontario, Canada/);
     expect(
       within(screen.getByTestId('offer-history')).getByText('You made the offer')
     ).toBeOnTheScreen();

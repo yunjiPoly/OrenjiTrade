@@ -2,6 +2,7 @@ import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import type { CommunityChannel } from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
+import { PLATFORM_REGION_NAMES } from '@/src/lib/place';
 
 /** `CreatePostRequest.body` / `UpdatePostRequest.body` limit. */
 export const POST_MAX_LENGTH = 2000;
@@ -17,7 +18,7 @@ export interface ChannelGroup {
 const TOPIC_KINDS = new Set(['LOOKING_FOR', 'NEW_LISTINGS', 'TRADES', 'GENERAL']);
 
 const KIND_ICONS: Readonly<Record<string, IconName>> = {
-  REGION: 'city-variant-outline',
+  REGION: 'earth',
   GAME: 'cards-outline',
   LOOKING_FOR: 'magnify',
   NEW_LISTINGS: 'new-box',
@@ -31,8 +32,8 @@ export function channelIcon(kind: string): IconName {
 }
 
 /**
- * Sections of the channel list (web: `groupChannels`): one per region (its game channels, e.g.
- * "Montréal"), then game-wide channels, then the topic channels (looking for, new listings,
+ * Sections of the channel list (web: `groupChannels`): the platform region channels (one per
+ * region, ADR 0017), then game-wide channels, then the topic channels (looking for, new listings,
  * trades, general). Server order is kept inside a section. `game` narrows region and game
  * channels to one game; topics always stay.
  */
@@ -40,7 +41,7 @@ export function groupChannels(
   channels: readonly CommunityChannel[],
   game: string | null = null
 ): ChannelGroup[] {
-  const regions = new Map<string, CommunityChannel[]>();
+  const regions: CommunityChannel[] = [];
   const games: CommunityChannel[] = [];
   const topics: CommunityChannel[] = [];
   for (const channel of channels) {
@@ -49,17 +50,17 @@ export function groupChannels(
       continue;
     }
     if (channel.kind === 'REGION') {
-      const label = channel.regionLabel || 'Regions';
-      regions.set(label, [...(regions.get(label) ?? []), channel]);
+      regions.push(channel);
     } else if (channel.kind === 'GAME') {
       games.push(channel);
     } else {
       topics.push(channel);
     }
   }
-  const groups: ChannelGroup[] = [...regions.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, items]) => ({ key: `region:${label}`, label, channels: items }));
+  const groups: ChannelGroup[] = [];
+  if (regions.length) {
+    groups.push({ key: 'regions', label: 'Regions', channels: regions });
+  }
   if (games.length) {
     groups.push({ key: 'games', label: 'Games', channels: games });
   }
@@ -69,9 +70,27 @@ export function groupChannels(
   return groups;
 }
 
-/** The channel to open when none is chosen: the first regional one, else the first. */
-export function defaultChannel(channels: readonly CommunityChannel[]): CommunityChannel | null {
-  return channels.find((channel) => channel.kind === 'REGION') ?? channels[0] ?? null;
+/**
+ * The channel to open when none is chosen: the channel of `region` (its `regionLabel` is the
+ * platform region code), else the first regional one, else the first.
+ */
+export function defaultChannel(
+  channels: readonly CommunityChannel[],
+  region: string | null = null
+): CommunityChannel | null {
+  return (
+    (region
+      ? channels.find((channel) => channel.kind === 'REGION' && channel.regionLabel === region)
+      : undefined) ??
+    channels.find((channel) => channel.kind === 'REGION') ??
+    channels[0] ??
+    null
+  );
+}
+
+/** "Europe" for a region channel's code; an archived city channel keeps its city label. */
+export function channelRegionName(label: string | null | undefined): string | null {
+  return label ? (PLATFORM_REGION_NAMES[label] ?? label) : null;
 }
 
 /** "3 posts today" / "1 post today". */

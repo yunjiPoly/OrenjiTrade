@@ -17,21 +17,20 @@ import {
   printingCode,
   printingImageUrl,
 } from '@/src/lib/catalog';
-import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
 import {
   availabilityLabel,
   badgeFreshness,
   conditionLabel,
   isKnownCondition,
 } from '@/src/lib/inventory';
-import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
+import { GENERIC_PLACE_LABEL, placeLabel } from '@/src/lib/place';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * One "who near me has this card" result (the web's `app-holder-row`): the listed copy (picture,
- * printing, set, language, edition, copies, condition, availability, offers, public note, price,
- * freshness) and its holder (name, approximate place and the API's distance bucket only), with
- * "Make an offer" when the copy accepts one and "View binder" when it sits in a public binder.
+ * One "who has this card in my region" result (the web's `app-holder-row`): the listed copy
+ * (picture, printing, set, language, edition, copies, condition, availability, offers, public
+ * note, price, freshness) and its holder (name and state or province only, ADR 0017), with "Make
+ * an offer" when the copy accepts one and "View binder" when it sits in a public binder.
  */
 export const HolderRow = memo(function HolderRow({ result }: { result: CardHolderResult }) {
   const { palette } = useTheme();
@@ -41,8 +40,7 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
   const price =
     formatMoney(item.askingPrice ?? null, item.currency) ??
     (item.acceptsOffers ? 'Make an offer' : 'No price');
-  const place = placeLabel(collector.publicLabel) ?? GENERIC_AREA_LABEL;
-  const distance = distanceBucketLabel(collector.distanceBucket);
+  const place = placeLabel(collector.place) ?? GENERIC_PLACE_LABEL;
   const meta = [item.printing.setName, languageName(item.language), editionLabel(item.edition)]
     .filter((part) => part && part !== '—')
     .join(' · ');
@@ -94,7 +92,7 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
       </View>
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`${collector.displayName}, ${place}${distance ? `, ${distance}` : ''}. Opens their profile.`}
+        accessibilityLabel={`${collector.displayName}, ${place}. Opens their profile.`}
         onPress={() =>
           router.push({ pathname: '/collectors/[id]', params: { id: collector.handle } })
         }
@@ -108,7 +106,6 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
           </Text>
           <Text style={[textStyle('xs'), { color: palette.textMuted }]} numberOfLines={1}>
             {place}
-            {distance ? ` · ${distance}` : ''}
           </Text>
         </View>
         <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />

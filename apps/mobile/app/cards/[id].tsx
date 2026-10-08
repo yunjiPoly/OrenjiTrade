@@ -27,9 +27,8 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 /**
  * Card detail (web: `/cards/:id`, `?printing=` selects a printing): the picture with the
  * provider credit, game-specific attributes from the game schema, the selected printing with its
- * market price, every printing, "Add to inventory", "Who has this near me" (the holders list with
- * every filter; "Show on the map" is the alternative view, the Map tab filtered by the card) and
- * "Add to wishlist". Deep-link target: https://www.orenjitrade.com/cards/<id> and
+ * market price, every printing, "Add to inventory", "Who has this in my region" (the holders list
+ * with every filter, ADR 0017) and "Add to wishlist". Deep-link target: https://www.orenjitrade.com/cards/<id> and
  * orenjitrade://cards/<id>.
  */
 export default function CardScreen() {
@@ -176,26 +175,18 @@ function CardContent({ card, printingId }: { card: CardDetail; printingId: strin
           testID="card-add-to-inventory"
         />
         <Button
-          label="Who has this near me"
+          label="Who has this in my region"
           icon="account-search-outline"
           variant="secondary"
-          accessibilityHint="Lists the collectors nearby who own, trade or sell this card"
+          accessibilityHint="Lists the collectors of your region who own, trade or sell this card"
           onPress={() => router.push({ pathname: '/holders', params: { card: card.id ?? '' } })}
           testID="card-holders"
-        />
-        <Button
-          label="Show on the map"
-          icon="map-marker-radius-outline"
-          variant="secondary"
-          accessibilityHint="Opens the map filtered by this card"
-          onPress={() => router.navigate({ pathname: '/', params: { card: card.id ?? '' } })}
-          testID="card-who-has-it"
         />
         <Button
           label="Add to wishlist"
           icon="heart-plus-outline"
           variant="secondary"
-          accessibilityHint="We tell you when a collector nearby lists it"
+          accessibilityHint="We tell you when a collector of your region lists it"
           onPress={() =>
             router.push({
               pathname: '/wishlist/new',

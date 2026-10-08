@@ -22,8 +22,8 @@ export const PUBLIC_ITEMS_PREVIEW = 8;
 /**
  * `GET /api/v1/collectors/{handle}`: a public profile as the caller sees it (the owner's own
  * "public preview"). Members only (401 signed out); 404 for unknown, PRIVATE, suspended or
- * deleted collectors alike. Location is a label, a 3-decimal public point and a bucketed
- * distance; the point is only ever drawn as a 3 km zone, never as text.
+ * deleted collectors alike. Location is the state or province and, when its owner shows it, the
+ * city (ADR 0017): never a position or a distance.
  */
 export function useCollectorProfile(handle: string | null | undefined) {
   const uid = useUid();

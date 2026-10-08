@@ -7,7 +7,7 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Chip } from '@/src/components/ui/Chip';
-import { collectorDistanceLabel, ratingLabel } from '@/src/features/map/discovery';
+import { ratingLabel } from '@/src/features/collectors/collectorLabels';
 import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
 import { offerTargetFromItem, sellerFromMarker } from '@/src/features/offers/offerTarget';
 import {
@@ -31,18 +31,19 @@ export interface WishMatchCardProps {
   onDismiss: () => void;
 }
 
-/** "Holders of this printing" on the Map tab (the list shows who they are). */
-export function mapParamsFor(match: Pick<WishlistMatchResponse, 'item'>): Record<string, string> {
+/** "Who has this printing (or card) in my region": the card holders list. */
+export function holdersParamsFor(
+  match: Pick<WishlistMatchResponse, 'item'>
+): Record<string, string> {
   const item = match.item;
   return item.printing?.id ? { printing: item.printing.id } : { card: item.card?.id ?? '' };
 }
 
 /**
- * One match of a wish (the web's `app-wish-match-card`): the collector (name, approximate place,
- * the API's distance bucket, rating, activity) and the matching public item (picture, printing,
- * condition / availability / offers, price, freshness, public note), with Message, Make an offer
- * (when the card accepts one), View profile, View binder, On the map and Dismiss. Never a coordinate: places and distances are the server's
- * approximations.
+ * One match of a wish (the web's `app-wish-match-card`): the collector (name, state or province,
+ * rating, activity) and the matching public item (picture, printing, condition / availability /
+ * offers, price, freshness, public note), with Message, Make an offer (when the card accepts one),
+ * View profile, View binder, Who has it in my region and Dismiss. Never a position or a distance (ADR 0017).
  */
 export function WishMatchCard({
   match,
@@ -94,12 +95,8 @@ export function WishMatchCard({
           >
             {collector.displayName}
           </Text>
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {collector.publicLabel}
-            {' · '}
-            <Text testID="match-distance" style={[styles.strong, { color: palette.ink }]}>
-              {collectorDistanceLabel(match.distanceBucket ?? collector.distanceBucket, false)}
-            </Text>
+          <Text testID="match-place" style={[textStyle('sm'), { color: palette.textMuted }]}>
+            {collector.place.label}
           </Text>
           <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
             {ratingLabel(collector.rating)}
@@ -182,11 +179,11 @@ export function WishMatchCard({
           />
         ) : null}
         <Button
-          label="On the map"
-          icon="map-outline"
+          label="Who has it in my region"
+          icon="account-search-outline"
           variant="ghost"
-          onPress={() => router.navigate({ pathname: '/', params: mapParamsFor(match) })}
-          testID={`match-on-map-${match.id}`}
+          onPress={() => router.push({ pathname: '/holders', params: holdersParamsFor(match) })}
+          testID={`match-holders-${match.id}`}
         />
       </View>
       <Text style={[textStyle('xs'), { color: palette.textMuted }]}>

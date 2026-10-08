@@ -98,7 +98,7 @@ export function HolderFiltersSheet({
           options={HOLDER_SORTS}
           value={filters.sort}
           onChange={(value) =>
-            onChange({ ...filters, sort: isHolderSort(value) ? value : 'distance' })
+            onChange({ ...filters, sort: isHolderSort(value) ? value : 'freshness' })
           }
           testID="holder-sort"
         />

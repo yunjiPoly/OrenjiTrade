@@ -33,7 +33,7 @@ function render() {
 const CARDS = signedInRoutes({ 'GET /api/v1/cards': ok(cardPage([cardSummaryFixture()])) });
 
 describe('Search tab segments (the web /search tabs)', () => {
-  it('finds collectors by name or handle with their approximate place and distance bucket', async () => {
+  it('finds collectors by name or handle with their state or province, never a distance', async () => {
     const api = mockApi({
       ...CARDS,
       'GET /api/v1/search': (request) =>
@@ -52,17 +52,17 @@ describe('Search tab segments (the web /search tabs)', () => {
     fireEvent.changeText(screen.getByTestId('search-collectors-input'), 'noé');
     const row = await screen.findByTestId('collector-result-collector2');
     expect(row).toHaveTextContent(/Noé Verdun/);
-    expect(row).toHaveTextContent(/@collector2 · Verdun, Montréal · 1–5 km away/);
+    expect(row).toHaveTextContent(/@collector2 · Ontario, Canada/);
     expect(row).toHaveTextContent(/4\.8 \(12 ratings\) · 1 public binder · 14 cards/);
     expect(screen.getByTestId('search-collectors-count')).toHaveTextContent(
-      /1 collector for “noé” · Locations are approximate \(about 3 km\)/
+      '1 collector for “noé”'
     );
-    // The own trading area: no centre is sent; only the collectors section is asked for.
+    // The home region scopes the search (ADR 0017); only the collectors section is asked for.
     const query = api.callsTo('GET /api/v1/search').at(-1)?.query;
+    expect(query?.get('region')).toBe('americas-north');
     expect(query?.get('lat')).toBeNull();
     expect(query?.getAll('types')).toEqual(['collectors']);
-    // Coordinates are never written out.
-    expect(screen.queryByText(/45\.4|73\.5/)).toBeNull();
+    expect(screen.queryByText(/km/)).toBeNull();
 
     fireEvent.press(row);
     expect(mockRouter.push).toHaveBeenCalledWith({
@@ -74,12 +74,13 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(useRecentSearchesStore.getState().byUser['uid-maika']).toBeUndefined();
   });
 
-  it('searches around the launch city without a trading area, and explains no match', async () => {
+  it('searches the default region without a location, and explains no match', async () => {
     const api = mockApi({
       ...CARDS,
       'GET /api/v1/me': ok(
         meFixture({
-          onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
+          homeRegion: undefined,
+          onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
         })
       ),
       'GET /api/v1/search': ok(unifiedSearchFixture({ query: 'zzz' })),
@@ -92,8 +93,9 @@ describe('Search tab segments (the web /search tabs)', () => {
       screen.getByText('Collectors appear when they are on the map and allow name search.')
     ).toBeOnTheScreen();
     const query = api.callsTo('GET /api/v1/search').at(-1)?.query;
-    expect(query?.get('lat')).toBe('45.502');
-    expect(query?.get('lng')).toBe('-73.567');
+    expect(query?.get('region')).toBe('americas-north');
+    expect(query?.has('lat')).toBe(false);
+    expect(query?.has('lng')).toBe(false);
   });
 
   it('finds public binders by name with their owner, and opens the public view', async () => {
@@ -109,7 +111,7 @@ describe('Search tab segments (the web /search tabs)', () => {
     const row = await screen.findByTestId(`binder-result-${PUBLIC_BINDER_ID}`);
     expect(row).toHaveTextContent(/Magic trades/);
     expect(row).toHaveTextContent(/Trade binder · 14 cards · Magic: The Gathering/);
-    expect(row).toHaveTextContent(/Noé Verdun · Verdun, Montréal · 1–5 km away/);
+    expect(row).toHaveTextContent(/Noé Verdun · Ontario, Canada/);
     expect(screen.getByTestId('search-binders-count')).toHaveTextContent(
       '1 public binder for “magic”'
     );

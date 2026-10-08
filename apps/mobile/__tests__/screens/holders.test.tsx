@@ -56,20 +56,22 @@ function routes(extra: MockRoutes = {}): MockRoutes {
 
 const render = () => renderWithProviders(<HoldersScreen />, { port: new FakeAuthPort(testUser()) });
 
-describe('Card holders ("who has this near me" as a list)', () => {
+describe('Card holders ("who has this in my region" as a list)', () => {
   it('shows a skeleton, then the card, the count and the listings with their holders', async () => {
     const api = mockApi(routes());
     render();
     expect(screen.getByTestId('holders-loading')).toBeOnTheScreen();
     await waitFor(() =>
       expect(screen.getByTestId('holders-title')).toHaveTextContent(
-        'Who has Emberfang Fox VMAX near you'
+        'Who has Emberfang Fox VMAX in your region'
       )
     );
     expect(screen.getByTestId('holders-subtitle')).toHaveTextContent(
-      'Collectors around your trading area. Places and distances are approximate.'
+      'Collectors of Americas (North). Only their state or province is shown.'
     );
-    expect(await screen.findByTestId('holders-count')).toHaveTextContent('2 listings near you');
+    expect(await screen.findByTestId('holders-count')).toHaveTextContent(
+      '2 listings in your region'
+    );
     const first = screen.getByTestId(`holder-${HOLDER_ITEM_ID}`);
     expect(within(first).getByText('AZR-EN001')).toBeOnTheScreen();
     expect(first).toHaveTextContent(/Azure Dawn · English · 1st Edition/);
@@ -77,24 +79,25 @@ describe('Card holders ("who has this near me" as a list)', () => {
       /\$45\.00/
     );
     expect(first).toHaveTextContent(/Noé Verdun/);
-    expect(first).toHaveTextContent(/Verdun, Montréal · 1–5 km away/);
+    expect(first).toHaveTextContent(/Ontario, Canada/);
+    expect(first).not.toHaveTextContent(/km/);
     expect(first).toHaveTextContent(/“Pack fresh\.”/);
     expect(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-binder`)).toBeOnTheScreen();
     const second = screen.getByTestId(`holder-${OTHER_ITEM}`);
     expect(within(second).getByTestId(`holder-${OTHER_ITEM}-price`)).toHaveTextContent('No price');
     expect(within(second).queryByRole('button', { name: /Make an offer/ })).toBeNull();
-    // The own trading area: no centre; the card id, the default sort and page.
+    // The home region (ADR 0017): no position; the card id, the default sort and page.
     const query = api.callsTo('GET /api/v1/search/card-holders')[0]?.query;
     expect(Object.fromEntries(query ?? [])).toEqual({
+      region: 'americas-north',
       cardId: CARD_ID,
-      sort: 'distance',
+      sort: 'freshness',
       page: '0',
       size: '20',
     });
-    expect(screen.queryByText(/45\.4|73\.5/)).toBeNull();
   });
 
-  it('opens the holder profile, the binder, the map, the card and an offer', async () => {
+  it('opens the holder profile, the binder, the card and an offer', async () => {
     mockApi(routes());
     render();
     const first = await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`);
@@ -114,8 +117,7 @@ describe('Card holders ("who has this near me" as a list)', () => {
       params: { item: HOLDER_ITEM_ID },
     });
     expect(offerTargetFor(HOLDER_ITEM_ID)?.seller.displayName).toBe('Noé Verdun');
-    fireEvent.press(screen.getByTestId('holders-map'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith({ pathname: '/', params: { card: CARD_ID } });
+    expect(screen.queryByTestId('holders-map')).toBeNull();
     fireEvent.press(screen.getByTestId('holders-card'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
@@ -157,6 +159,7 @@ describe('Card holders ("who has this near me" as a list)', () => {
     fireEvent(within(sheet).getByTestId('holder-max-price'), 'blur');
     await waitFor(() =>
       expect(last()).toEqual({
+        region: 'americas-north',
         cardId: CARD_ID,
         sort: 'price',
         availability: 'ACCEPTS_OFFERS',
@@ -216,41 +219,32 @@ describe('Card holders ("who has this near me" as a list)', () => {
     fireEvent.press(await screen.findByTestId('holder-accepts-offers'));
     fireEvent.press(screen.getByTestId('holder-filters-done'));
     expect(
-      await screen.findByText('Nobody nearby lists this card with these filters')
+      await screen.findByText('Nobody in your region lists this card with these filters')
     ).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('holders-empty-action'));
     expect(await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`)).toBeOnTheScreen();
   });
 
-  it('searches one printing, around a city without a trading area', async () => {
+  it('searches one printing in the home region of the collector', async () => {
     mockParams.current = { printing: PRINTING_A };
-    const api = mockApi(
-      routes({
-        'GET /api/v1/me': ok(
-          meFixture({
-            onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
-          })
-        ),
-      })
-    );
+    const api = mockApi(routes({ 'GET /api/v1/me': ok(meFixture({ homeRegion: 'europe' })) }));
     render();
     await waitFor(() =>
       expect(screen.getByTestId('holders-title')).toHaveTextContent(
-        'Who has Emberfang Fox VMAX (SVX-001) near you'
+        'Who has Emberfang Fox VMAX (SVX-001) in your region'
       )
     );
-    expect(screen.getByTestId('holders-subtitle')).toHaveTextContent(/Around Montréal\./);
+    expect(screen.getByTestId('holders-subtitle')).toHaveTextContent(/Collectors of Europe\./);
     await waitFor(() => {
       const query = api.callsTo('GET /api/v1/search/card-holders').at(-1)?.query;
       expect(query?.get('printingId')).toBe(PRINTING_A);
-      expect(query?.get('lat')).toBe('45.502');
-      expect(query?.get('lng')).toBe('-73.567');
+      expect(query?.get('region')).toBe('europe');
     });
-    fireEvent.press(screen.getByTestId('holders-map'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith({
-      pathname: '/',
-      params: { printing: PRINTING_A },
-    });
+    for (const call of api.callsTo('GET /api/v1/search/card-holders')) {
+      expect(call.query.has('lat')).toBe(false);
+      expect(call.query.has('lng')).toBe(false);
+      expect(call.query.get('region')).toBe('europe');
+    }
   });
 
   it('shows an error with retry, and the plan limit', async () => {

@@ -75,7 +75,7 @@ export function PublicBindersSection({
           style={[textStyle('sm'), { color: palette.textMuted }]}
         >
           {isOwn
-            ? 'No public binders yet. Publish a binder so collectors nearby can see what you trade.'
+            ? 'No public binders yet. Publish a binder so collectors of your region can see what you trade.'
             : `No public binders yet. When ${profile.displayName} publishes a binder, it will show up here.`}
         </Text>
       );
@@ -133,7 +133,7 @@ export function PublicCardsSection({
                   displayName: profile.displayName,
                   handle: profile.handle,
                   avatarUrl: profile.avatarUrl ?? null,
-                  placeLabel: profile.location?.publicLabel ?? null,
+                  placeLabel: profile.location?.label ?? null,
                 })}
               />
             }

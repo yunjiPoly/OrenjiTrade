@@ -149,7 +149,7 @@ export function WishCard({
 
       <SwitchRow
         label="Match alerts"
-        help={item.active ? 'On: we tell you about new listings nearby.' : 'Paused'}
+        help={item.active ? 'On: we tell you about new listings in your region.' : 'Paused'}
         value={item.active}
         onChange={onActiveChange}
         disabled={busy}

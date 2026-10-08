@@ -52,16 +52,16 @@ const COMMON_DEFINITIONS_FR: LegalDefinition[] = [
   {
     term: 'Annonce',
     definition:
-      'Un article d’inventaire visible publiquement, avec son état, sa disponibilité (échange, vente, offres) et sa localisation approximative.',
+      'Un article d’inventaire visible publiquement, avec son état, sa disponibilité (échange, vente, offres) et la province ou l’État de son propriétaire.',
   },
   {
-    term: 'Zone d’échange',
+    term: 'Localisation',
     definition:
-      'La localisation approximative à partir de laquelle un Collectionneur choisit d’être repérable. Elle est calculée côté serveur et ne révèle jamais une adresse précise.',
+      'Le pays et la province ou l’État qu’un Collectionneur déclare, avec une ville facultative. OrenjiTrade n’utilise jamais le GPS, la localisation de l’appareil, l’adresse IP ni le géocodage pour situer un Collectionneur.',
   },
 ];
 
-const LAST_UPDATED = '2026-10-05';
+const LAST_UPDATED = '2026-10-08';
 
 export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
   terms: {
@@ -117,8 +117,8 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'location',
         heading: 'Localisation et repérabilité',
         clauses: [
-          'La repérabilité est désactivée par défaut. Lorsque vous l’activez, les autres Collectionneurs voient votre Zone d’échange à une position approximative seulement; votre localisation précise n’est jamais affichée.',
-          'Vous pouvez modifier ou supprimer votre Zone d’échange en tout temps dans les Paramètres. La supprimer vous retire de la carte.',
+          'La repérabilité est désactivée par défaut et exige une Localisation. Lorsque vous l’activez, les autres Collectionneurs voient seulement votre province ou votre État et votre pays; votre ville n’apparaît que sur votre propre profil, et seulement si vous choisissez de l’afficher.',
+          'Vous pouvez modifier ou supprimer votre Localisation en tout temps dans Paramètres → Localisation. La supprimer vous retire de la carte et des recherches.',
         ],
       },
       {
@@ -165,9 +165,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         definition: 'Tout renseignement qui concerne une personne identifiée ou identifiable.',
       },
       {
-        term: 'Point public',
+        term: 'Lieu public',
         definition:
-          'La position approximative sur la carte dérivée de votre Zone d’échange\u00a0: alignée sur une grille d’environ un kilomètre et décalée d’un brouillage fixe propre à votre compte. Les cartes l’affichent comme une zone d’environ 3 km de large, jamais comme un point exact.',
+          'La province ou l’État et le pays de votre Localisation\u00a0: tout ce que les autres Collectionneurs voient de l’endroit où vous êtes. La carte compte les Cartables publics par province ou État. Votre ville n’est affichée que sur votre propre profil, et seulement si vous le choisissez.',
       },
     ],
     contact: CONTACT_PRIVACY_FR,
@@ -185,7 +185,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Données du compte\u00a0: adresse courriel, nom d’affichage, avatar, jeux suivis et étiquettes choisies. La connexion est gérée par notre fournisseur d’identité; nous ne voyons jamais votre mot de passe.',
           'Données d’inventaire\u00a0: les cartes, les états, les prix et la disponibilité que vous enregistrez, ainsi que la visibilité que vous attribuez à chaque Cartable.',
-          'Données de localisation\u00a0: uniquement la Zone d’échange que vous choisissez (ou une position approximative que vous partagez explicitement). Nous conservons le Point public dérivé pour l’affichage sur la carte. Nous ne vous suivons pas en arrière-plan.',
+          'Données de localisation\u00a0: uniquement le pays, la province ou l’État et la ville facultative que vous déclarez. Nous ne recueillons ni GPS ni localisation de l’appareil, nous ne déduisons pas votre localisation de votre adresse IP et nous ne vous suivons pas en arrière-plan.',
           'Données d’utilisation\u00a0: type d’appareil, version de l’application, journaux de diagnostic identifiés par un identifiant de requête, et événements d’analyse du produit qui ne contiennent jamais de localisation précise ni de contenu de messages.',
           'Communications\u00a0: messages privés, publications dans les canaux communautaires, offres, évaluations et signalements que vous soumettez.',
         ],
@@ -203,9 +203,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'location-privacy',
         heading: 'Confidentialité de la localisation',
         clauses: [
-          'Votre position précise (coordonnées géographiques), si vous la fournissez un jour, est chiffrée au repos et sert uniquement à dériver votre Point public. Elle n’est jamais renvoyée par nos API, affichée dans les applications, écrite dans les journaux ni incluse dans les analyses.',
-          'Les distances affichées aux autres Collectionneurs sont arrondies (par exemple «\u00a0environ 4 km\u00a0»). Le brouillage appliqué à votre Point public est fixe, de sorte que des requêtes répétées ne peuvent pas être combinées pour vous localiser.',
-          'Vous pouvez choisir votre Zone d’échange manuellement plutôt qu’avec la localisation de l’appareil.',
+          'Nous ne conservons aucune coordonnée géographique. La carte est dessinée à partir de données publiques de frontières (Natural Earth) et compte les Cartables publics par province ou État; aucune épingle, aucun point ni aucune distance n’est jamais affiché pour un Collectionneur.',
+          'Votre ville est un texte libre que nous ne géocodons jamais. Elle n’est affichée que sur votre propre profil public tant que «\u00a0Afficher ma ville sur mon profil\u00a0» est activé, et jamais dans les résultats de recherche, les Cartables, les offres, les messages, les notifications, les analyses ni rien de ce qui est partagé avec d’autres.',
+          'Vous pouvez modifier ou supprimer votre Localisation en tout temps dans Paramètres → Localisation; la supprimer désactive la repérabilité.',
         ],
       },
       {
@@ -213,7 +213,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'À qui nous communiquons des renseignements',
         clauses: [
           'Les fournisseurs de services qui hébergent et exploitent le Service pour notre compte (infrastructure infonuagique, fournisseur d’identité, livraison des notifications poussées, fournisseur de paiement lorsqu’il est activé), liés par des ententes de traitement des données.',
-          'Les autres Collectionneurs, dans la limite de ce que vous rendez public\u00a0: nom d’affichage, avatar, Cartables publics, évaluations et votre Point public.',
+          'Les autres Collectionneurs, dans la limite de ce que vous rendez public\u00a0: nom d’affichage, avatar, Cartables publics, évaluations, votre Lieu public et votre ville sur votre profil si vous choisissez de l’afficher.',
           'Les autorités, lorsque la loi l’exige ou pour protéger les droits et la sécurité des Collectionneurs.',
         ],
       },
@@ -230,7 +230,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Vos droits et comment les exercer',
         clauses: [
           'Vous avez le droit d’accéder aux renseignements personnels que nous détenons à votre sujet, de les faire rectifier s’ils sont inexacts, incomplets ou équivoques, d’en recevoir une copie et d’en demander la suppression. Selon votre lieu de résidence, vous pouvez aussi avoir le droit de restreindre certains traitements ou de vous y opposer.',
-          'Accès et rectification\u00a0: votre profil, vos jeux, vos étiquettes, votre zone d’échange, vos choix de confidentialité et de notifications sont affichés et modifiables dans les Paramètres (Profil, Confidentialité, Zone d’échange, Notifications). Une copie de vos données est offerte dans Paramètres → Compte («\u00a0Exporter mes données\u00a0»).',
+          'Accès et rectification\u00a0: votre profil, vos jeux, vos étiquettes, votre localisation, vos choix de confidentialité et de notifications sont affichés et modifiables dans les Paramètres (Profil, Confidentialité, Localisation, Notifications). Une copie de vos données est offerte dans Paramètres → Compte («\u00a0Exporter mes données\u00a0»).',
           'Suppression\u00a0: Paramètres → Compte («\u00a0Supprimer mon compte\u00a0») lance la suppression. Un délai de grâce de 7 jours vous permet de l’annuler; ensuite, vos renseignements personnels sont supprimés ou anonymisés dans les 30 jours, sauf ce que nous devons conserver pour des motifs légaux, de litige ou de sécurité (voir Conservation).',
           'Vous pouvez aussi écrire à privacy@orenjitrade.com. Nous répondons dans les 30 jours de la réception de votre demande, sans frais, et nous expliquons les motifs lorsque nous ne pouvons pas y donner suite ainsi que la façon de contester cette décision.',
           'Vous pouvez retirer votre consentement aux traitements facultatifs (comme les notifications poussées ou la repérabilité) en tout temps, sans que cela n’affecte la licéité des traitements antérieurs.',
@@ -290,7 +290,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'safety',
         heading: 'Rencontrez-vous et échangez en toute sécurité',
         clauses: [
-          'Pour les échanges en personne, donnez-vous rendez-vous dans des lieux publics achalandés, de jour, et faites-vous accompagner pour les cartes de valeur. Ne cédez jamais à la pression de communiquer votre adresse domiciliaire; la carte n’affiche jamais que des positions approximatives. La page «\u00a0Échanger en toute sécurité\u00a0» donne des conseils pratiques.',
+          'Pour les échanges en personne, donnez-vous rendez-vous dans des lieux publics achalandés, de jour, et faites-vous accompagner pour les cartes de valeur. Ne cédez jamais à la pression de communiquer votre adresse domiciliaire; la carte n’affiche jamais que des provinces et des États, jamais des positions. La page «\u00a0Échanger en toute sécurité\u00a0» donne des conseils pratiques.',
           'Utilisez les outils d’offre et de messagerie de l’application afin qu’il reste une trace si quelque chose tourne mal.',
           'Signalez tout comportement suspect avec le bouton Signaler le collectionneur. Les signalements sont examinés par les modérateurs et ne sont jamais montrés au Collectionneur signalé. Vous pouvez aussi bloquer un Collectionneur depuis son profil ou depuis le menu de la conversation.',
         ],
@@ -526,7 +526,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'third-parties',
         heading: 'Services de tiers',
         clauses: [
-          'Les tuiles de carte (Google Maps ou OpenStreetMap) et les polices Web sont chargées depuis leurs fournisseurs, qui peuvent déposer leurs propres témoins selon leurs propres politiques.',
+          'Les polices Web sont chargées depuis leur fournisseur, qui peut déposer ses propres témoins selon ses propres politiques. La carte est dessinée à partir de données de frontières intégrées à OrenjiTrade (Natural Earth)\u00a0: aucun fournisseur de cartes ou de tuiles n’est contacté.',
           'Lorsque les paiements protégés sont activés, le Fournisseur de paiement dépose les témoins nécessaires à la prévention de la fraude.',
         ],
       },
@@ -557,7 +557,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'prohibited-conduct',
         heading: 'Conduites interdites',
         clauses: [
-          'Tenter de déterminer la localisation précise d’un autre Collectionneur, notamment en combinant des positions sur la carte, des distances ou des moments à travers plusieurs requêtes ou plusieurs comptes.',
+          'Tenter de déterminer la localisation précise ou l’adresse d’un autre Collectionneur, notamment en combinant son profil, ses annonces, ses messages ou son activité à travers plusieurs requêtes ou plusieurs comptes.',
           'Moissonner, explorer ou exporter en masse des Annonces, des profils ou des données de la carte, ou utiliser le Service pour constituer un jeu de données concurrent.',
           'Contourner les limites de débit, les limites de forfait, les règles de fraîcheur ou les mesures de modération.',
           'Téléverser du code malveillant, sonder ou tester la sécurité du Service sans autorisation écrite, ou nuire à l’utilisation du Service par d’autres Collectionneurs.',
@@ -606,7 +606,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Donnez-vous rendez-vous dans un lieu public achalandé, de jour\u00a0: un café, un centre commercial, une boutique de cartes ou une bibliothèque. Certains postes de police offrent des zones d’échange sécuritaires; consultez le site Web de votre service de police local.',
           'Faites-vous accompagner lorsque les cartes ont de la valeur, et dites à un proche où vous allez et à quelle heure vous comptez revenir.',
-          'Ne communiquez jamais votre adresse domiciliaire, votre lieu de travail ni vos habitudes. OrenjiTrade n’affiche jamais que des zones approximatives, et vous contrôlez ce que vous publiez.',
+          'Ne communiquez jamais votre adresse domiciliaire, votre lieu de travail ni vos habitudes. OrenjiTrade n’affiche jamais que votre province ou votre État (et votre ville sur votre profil, si vous le choisissez), et vous contrôlez ce que vous publiez.',
           'Convenez des détails dans l’application avant la rencontre\u00a0: quelles cartes, quel état, quel prix ou quel échange, et comment vous paierez. La conversation et l’offre restent comme trace.',
         ],
       },
@@ -633,7 +633,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'what-we-show',
         heading: 'Ce qu’OrenjiTrade montre à votre sujet',
         clauses: [
-          'Les autres collectionneurs voient votre zone d’échange comme une zone approximative d’environ 3 km de large, jamais votre position exacte ni votre adresse. Les distances sont affichées sous forme de fourchettes.',
+          'Les autres collectionneurs voient votre province ou votre État et votre pays, jamais votre position exacte ni votre adresse. Votre ville n’apparaît que sur votre propre profil, si vous choisissez de l’afficher. Aucune distance n’est jamais affichée.',
           'La repérabilité est désactivée par défaut. Vous choisissez si vous apparaissez sur la carte, qui peut vous écrire et ce que vos cartables montrent, dans Paramètres → Confidentialité.',
         ],
       },

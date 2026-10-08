@@ -34,7 +34,6 @@ function useBlockMutation(kind: 'block' | 'unblock') {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: meKeys.blocks(uid) });
-      void queryClient.invalidateQueries({ queryKey: meKeys.discovery(uid) });
       void queryClient.invalidateQueries({ queryKey: meKeys.community(uid) });
       void queryClient.invalidateQueries({
         queryKey: [...meKeys.user(uid), 'collectors'],

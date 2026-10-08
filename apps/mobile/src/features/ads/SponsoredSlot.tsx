@@ -22,7 +22,7 @@ import { adClickUrl, adImageUrl } from './adLinks';
 
 /** Why an ad is shown (web: the "Sponsored" label's tooltip). */
 export const SPONSORED_HINT =
-  'Sponsored placements match games and your approximate region, never your exact location.';
+  'Sponsored placements match games and your platform region, never your location.';
 
 /**
  * One sponsored placement (web: `app-sponsored-ad`): always labelled "Sponsored", "Remove ads"

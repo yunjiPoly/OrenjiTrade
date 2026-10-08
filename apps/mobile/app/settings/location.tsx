@@ -7,8 +7,8 @@ import {
   useMyLocation,
   usePrivacySettings,
   useRemoveLocation,
+  useSaveLocation,
   useSavePrivacy,
-  useSaveTradingArea,
 } from '@/src/api/hooks/location';
 import type { MyLocationResponse, PrivacySettings } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
@@ -19,19 +19,20 @@ import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
-import { TradingAreaPicker } from '@/src/features/location/TradingAreaPicker';
+import { LocationFields } from '@/src/features/location/LocationFields';
 import {
-  areaInput,
   draftFromLocation,
-  isAreaDirty,
-  type AreaDraft,
-} from '@/src/features/location/tradingArea';
-import { placeLabel } from '@/src/lib/location';
+  isLocationDirty,
+  locationInput,
+  missingField,
+  type LocationDraft,
+} from '@/src/features/location/locationDraft';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * Settings → Location and discoverability (web: `/settings/trading-area` + the "Show me on the
- * map" privacy switch): the trading area, its public label, removal, and the map opt-in.
+ * Settings → Location and discoverability (ADR 0017, the web's `/settings/location` plus the
+ * "Show me on the map" privacy switch): the self-declared country, state or province and optional
+ * city, what others see, removal, and the map opt-in (which needs a location).
  */
 export default function LocationSettingsScreen() {
   const location = useMyLocation();
@@ -50,7 +51,7 @@ export default function LocationSettingsScreen() {
     <Screen scroll safeBottom testID="screen-settings-location">
       <QueryState
         query={query}
-        errorTitle="We could not load your trading area"
+        errorTitle="We could not load your location"
         loading={<SkeletonList rows={4} rowHeight={56} />}
         testID="settings-location"
       >
@@ -69,35 +70,37 @@ function LocationForm({
 }) {
   const { palette } = useTheme();
   const snackbar = useSnackbar();
-  const save = useSaveTradingArea();
+  const save = useSaveLocation();
   const remove = useRemoveLocation();
   const savePrivacy = useSavePrivacy();
-  const [edited, setEdited] = useState<AreaDraft | null>(null);
+  const [edited, setEdited] = useState<LocationDraft | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const draft = edited ?? draftFromLocation(location);
-  const dirty = isAreaDirty(draft, location);
-  const hasArea = !!location.tradingArea;
+  const dirty = isLocationDirty(draft, location);
+  const saved = location.location ?? null;
 
-  const saveArea = async () => {
-    const input = areaInput(draft, location);
-    if (!input) {
+  const saveLocation = async () => {
+    setSubmitted(true);
+    if (missingField(draft)) {
       return;
     }
     setError(null);
     try {
-      const saved = await save.mutateAsync(input);
+      const answer = await save.mutateAsync(locationInput(draft));
       setEdited(null);
+      setSubmitted(false);
       snackbar.show(
-        `Trading area saved${saved.tradingArea?.label ? ` · ${saved.tradingArea.label}` : ''}.`
+        `Location saved${answer.location?.label ? ` · ${answer.location.label}` : ''}.`
       );
     } catch (caught) {
       setError(messageOf(caught));
     }
   };
 
-  const removeArea = async () => {
+  const removeLocation = async () => {
     setError(null);
     try {
       await remove.mutateAsync();
@@ -123,24 +126,33 @@ function LocationForm({
   return (
     <View style={styles.root}>
       <SectionCard
-        title="Trading area"
-        description="Where you like to meet or ship from. Only you see the centre you pick; others see an approximate area."
+        title="Location"
+        description="Your country and state or province decide your region and where your binders appear. Others never see more than your state or province (and your city on your profile, if you choose)."
       >
-        <TradingAreaPicker
+        {saved ? (
+          <Text testID="location-label" style={[textStyle('md'), { color: palette.ink }]}>
+            {saved.label} · {saved.regionName}
+          </Text>
+        ) : (
+          <Text testID="location-none" style={[textStyle('sm'), { color: palette.textMuted }]}>
+            You have not said where you are yet, so you do not appear on the map.
+          </Text>
+        )}
+        <LocationFields
           value={draft}
           onChange={setEdited}
-          location={location}
+          showErrors={submitted}
           disabled={save.isPending || remove.isPending}
         />
         {error ? <FormMessage testID="location-error">{error}</FormMessage> : null}
         <Button
-          label="Save trading area"
+          label="Save location"
           loading={save.isPending}
           disabled={!dirty || remove.isPending}
-          onPress={() => void saveArea()}
+          onPress={() => void saveLocation()}
           testID="location-save"
         />
-        {hasArea ? (
+        {saved ? (
           <Button
             label="Remove location"
             variant="ghost"
@@ -155,7 +167,7 @@ function LocationForm({
       <SectionCard title="Discoverability" description="Off by default. Change it anytime.">
         <SwitchRow
           label="Show me on the map"
-          help="Collectors nearby see an approximate point for you and can open your public binders. When off, you are hidden from the map and from nearby searches."
+          help="Collectors of your region see your state or province and can open your public binders. When off, you are hidden from the map and from searches. Needs a location."
           value={privacy.discoverable}
           onChange={(value) => void setDiscoverable(value)}
           disabled={savePrivacy.isPending}
@@ -171,21 +183,20 @@ function LocationForm({
             testID="location-visibility"
             style={[textStyle('sm'), styles.grow, { color: palette.ink }]}
           >
-            {!hasArea
-              ? 'You have no trading area yet, so you never appear on the map.'
+            {!saved
+              ? 'You have not chosen a location yet, so you never appear on the map.'
               : !privacy.discoverable
-                ? `You are hidden from the map. Turn on “Show me on the map” to appear near ${placeLabel(location.tradingArea?.label) ?? 'your area'}.`
-                : `Collectors see you near ${placeLabel(location.tradingArea?.label) ?? 'your area'}.`}
+                ? `You are hidden from the map. Turn on “Show me on the map” to appear in ${saved.label}.`
+                : `Collectors see you in ${saved.label}.`}
           </Text>
         </View>
       </SectionCard>
 
       <SectionCard title="How OrenjiTrade protects where you live">
         {[
-          'You choose an approximate trading area, never an address.',
-          'We snap it to a ~1 km grid and add a fixed offset unique to you.',
-          'Distances are shown as ranges (“1–5 km”), never in metres.',
-          'Your chosen centre is only visible to you.',
+          'You choose your country and state or province; never an address, and the app never uses GPS.',
+          'The map counts binders per state or province: no pin, no point, no distance.',
+          'Your city is optional and shown only on your profile, if you want.',
         ].map((line) => (
           <Text key={line} style={[textStyle('sm'), { color: palette.textMuted }]}>
             • {line}
@@ -196,11 +207,11 @@ function LocationForm({
       <ConfirmDialog
         visible={confirmRemove}
         title="Remove your location?"
-        message="You will disappear from the map and nearby searches until you set a new trading area."
+        message="You will disappear from the map and from searches in your region until you choose a location again."
         confirmLabel="Remove location"
         tone="danger"
         busy={remove.isPending}
-        onConfirm={() => void removeArea()}
+        onConfirm={() => void removeLocation()}
         onCancel={() => setConfirmRemove(false)}
       />
     </View>

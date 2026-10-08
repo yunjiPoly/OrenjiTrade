@@ -340,9 +340,10 @@ describe('billing labels', () => {
     expect(signedCredits(-50)).toBe('−50');
     expect(durationLabel(24)).toBe('24 hours');
     expect(durationLabel(48)).toBe('2 days');
-    expect(creditReasonLabel('FEATURE_UNLOCK', 'Wider map for a day')).toBe('Wider map for a day');
+    expect(creditReasonLabel('FEATURE_UNLOCK', 'Unlimited binder views')).toBe(
+      'Unlimited binder views'
+    );
     expect(creditReasonLabel('REFERRAL')).toBe('Referral reward');
-    expect(entitlementLabel('map.radius.max_km', '100')).toBe('Map radius up to 100 km');
     expect(supporterMonth('2026-03')).toBe('March 2026');
     expect(supporterMonth('nope')).toBe('');
     expect(idempotencyKeyFrom('spend', 'a b/c-1')).toBe('spend:abc-1');
@@ -363,7 +364,7 @@ describe('billing labels', () => {
     const rows = usageRows(
       [
         { key: 'binders.max', kind: 'COUNTER', limit: 5, used: 5, allowed: false },
-        { key: 'map.radius.max_km', kind: 'CAP', limit: 25 },
+        { key: 'wishlist.items.max', kind: 'CAP', limit: 25 },
         {
           key: 'binder.views.per_day',
           kind: 'COUNTER',
@@ -376,7 +377,7 @@ describe('billing labels', () => {
     );
     expect(rows.map((row) => [row.value, row.percent, row.full, row.boosted])).toEqual([
       ['5 / 5', 100, true, false],
-      ['Up to 25 km', null, false, false],
+      ['Up to 25', null, false, false],
       ['3 used · Unlimited', null, false, true],
     ]);
   });
