@@ -36,6 +36,7 @@ import com.orenjitrade.api.profiles.domain.RatingSummaryProvider;
 import com.orenjitrade.api.ratings.domain.InteractionKind;
 import com.orenjitrade.api.ratings.domain.InteractionService;
 import com.orenjitrade.api.ratings.domain.InteractionSubjectType;
+import com.orenjitrade.api.users.domain.ConsentService;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -106,6 +107,7 @@ public class OfferService {
     private final ObjectProvider<AcceptedOfferHandler> trades;
     private final Limits limits;
     private final FeatureFlags featureFlags;
+    private final ConsentService consents;
     private final InteractionService interactions;
     private final StringRedisTemplate redis;
     private final ApplicationEventPublisher events;
@@ -125,6 +127,7 @@ public class OfferService {
             ObjectProvider<AcceptedOfferHandler> trades,
             Limits limits,
             FeatureFlags featureFlags,
+            ConsentService consents,
             InteractionService interactions,
             StringRedisTemplate redis,
             ApplicationEventPublisher events,
@@ -142,6 +145,7 @@ public class OfferService {
         this.trades = trades;
         this.limits = limits;
         this.featureFlags = featureFlags;
+        this.consents = consents;
         this.interactions = interactions;
         this.redis = redis;
         this.events = events;
@@ -154,10 +158,12 @@ public class OfferService {
 
     /**
      * {@code POST /offers}: a new offer (chain root, OPEN, the seller's turn). An {@code
-     * Idempotency-Key} repeats the original answer for 24 hours.
+     * Idempotency-Key} repeats the original answer for 24 hours. {@code 403
+     * AGE_CONFIRMATION_REQUIRED} until the buyer confirmed being 18 or older.
      */
     @Transactional
     public Created create(UUID me, OfferInputs.Create input, @Nullable String idempotencyKey) {
+        consents.requireAgeConfirmed(me);
         @Nullable String key = idempotencyKey(idempotencyKey);
         if (key != null) {
             Optional<OfferRow> previous = previousFor(me, key);
@@ -357,6 +363,7 @@ public class OfferService {
      */
     @Transactional
     public Detail counter(UUID me, UUID offerId, OfferInputs.Counter input) {
+        consents.requireAgeConfirmed(me);
         OfferRow row = lockParty(me, offerId);
         OfferRole actor = requireRole(row, me);
         requireAllowed(row, input.version(), OfferAction.COUNTER, actor);

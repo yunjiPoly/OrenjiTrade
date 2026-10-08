@@ -70,6 +70,19 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "e2e": {
+              "assets": [
+                {
+                  "glob": "**/*",
+                  "input": "public",
+                  "ignore": ["config.json"]
+                },
+                {
+                  "glob": "config.json",
+                  "input": "e2e/.runtime"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -82,6 +95,9 @@
             },
             "development": {
               "buildTarget": "web-angular:build:development"
+            },
+            "e2e": {
+              "buildTarget": "web-angular:build:development,e2e"
             }
           },
           "defaultConfiguration": "development"

@@ -32,12 +32,13 @@ describe('ApproximateAreaMapComponent', () => {
     await fixture.whenStable();
   });
 
-  it('draws the public point as the shared 2 km approximate area, never a pin', () => {
+  it('draws the public point as the shared 3 km approximate area (1500 m radius), never a pin', () => {
     expect(adapter.markers).toEqual([]);
     expect(adapter.circles).toEqual([
       { id: 'approx', center: point, radiusMeters: APPROXIMATE_AREA_RADIUS_M, variant: 'area' },
     ]);
     expect(adapter.fitted).toEqual([circleBounds(point, APPROXIMATE_AREA_RADIUS_M * 2.5)]);
+    expect(adapter.circles[0].radiusMeters).toBe(1500);
   });
 
   it('never zooms closer than the collector map cap', () => {

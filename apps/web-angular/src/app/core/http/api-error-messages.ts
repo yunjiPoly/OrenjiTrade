@@ -28,10 +28,10 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     }
     case 'LIMIT_REACHED':
+      // No Premium pitch here: the limit dialog names the upgrade only while the flag is on.
       return {
         title: 'Plan limit reached',
-        message:
-          'You reached a limit of your plan. It resets soon, or Premium raises it right away.',
+        message: 'You reached a limit of your plan. It resets soon.',
       };
     case 'FEATURE_DISABLED':
       return {
@@ -96,6 +96,12 @@ export function friendlyError(error: ApiError): FriendlyError {
       return {
         title: 'Updated terms',
         message: 'Please review and accept the current terms to continue.',
+      };
+    case 'AGE_CONFIRMATION_REQUIRED':
+      return {
+        title: 'Age confirmation needed',
+        message:
+          'OrenjiTrade is for people 18 years of age or older. Confirm your age to become discoverable, message collectors, post or make offers.',
       };
     default:
       if (error.isServerError || error.status === 0) {

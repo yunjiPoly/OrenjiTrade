@@ -8463,7 +8463,7 @@
           "me"
         ],
         "summary": "Accept a legal document version",
-        "description": "Stores the version, timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.",
+        "description": "Stores the version, the language the text was shown in (en or fr, en when omitted), timestamp, a salted hash of the client IP and the user agent. 409 when the version is not the current one.",
         "operationId": "acceptConsent",
         "requestBody": {
           "content": {
@@ -25907,7 +25907,7 @@
           "admin-catalog"
         ],
         "summary": "Local card image cache status (ADMIN, SUPER_ADMIN)",
-        "description": "Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 500 MB) and provider artworks per cache status and game.",
+        "description": "Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 5 GB = 5120 MiB; byte figures are 64-bit) and provider artworks per cache status and game.",
         "operationId": "getCardImageCacheStatus",
         "responses": {
           "200": {
@@ -33443,7 +33443,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -33451,6 +33452,16 @@
             "example": "2026-09-01",
             "maxLength": 32,
             "minLength": 0
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the legal text shown to the collector (en or fr); en when omitted. The version is the same in both languages.",
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "example": "fr",
+            "pattern": "en|fr"
           }
         },
         "required": [
@@ -38375,7 +38386,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -38985,6 +38997,10 @@
           },
           "interestsSet": {
             "type": "boolean"
+          },
+          "ageConfirmed": {
+            "type": "boolean",
+            "description": "Whether the collector confirmed being 18 years of age or older (AGE_CONFIRMATION consent). Added 2026-10-05; optional so older clients keep working."
           }
         },
         "required": [
@@ -39007,7 +39023,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -40445,7 +40462,8 @@
               "PAYMENT_PROTECTION",
               "REFUND_DISPUTE",
               "COOKIES",
-              "ACCEPTABLE_USE"
+              "ACCEPTABLE_USE",
+              "AGE_CONFIRMATION"
             ]
           },
           "version": {
@@ -40455,6 +40473,15 @@
           "acceptedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "language": {
+            "type": "string",
+            "description": "Language of the text shown when the consent was given",
+            "enum": [
+              "en",
+              "fr"
+            ],
+            "example": "fr"
           }
         },
         "required": [
@@ -41970,6 +41997,7 @@
               "HANDLE_TAKEN",
               "DELETION_BLOCKED",
               "TERMS_ACCEPTANCE_REQUIRED",
+              "AGE_CONFIRMATION_REQUIRED",
               "RATE_LIMITED",
               "LIMIT_REACHED",
               "PAYLOAD_TOO_LARGE",
@@ -42007,7 +42035,7 @@
           },
           "requiredConsents": {
             "type": "array",
-            "description": "Documents to accept (TERMS_ACCEPTANCE_REQUIRED problems)",
+            "description": "Documents to accept with POST /me/consents (TERMS_ACCEPTANCE_REQUIRED problems; the AGE_CONFIRMATION document for AGE_CONFIRMATION_REQUIRED problems)",
             "items": {
               "type": "object",
               "properties": {

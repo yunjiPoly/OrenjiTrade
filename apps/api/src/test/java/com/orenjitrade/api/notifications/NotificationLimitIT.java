@@ -2,22 +2,33 @@ package com.orenjitrade.api.notifications;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.wishlist.AbstractWishlistIT;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
 
 /**
  * The per-type daily notification limit (Phase 6 contract, {@code usage_limit}
  * wishlist.alerts.per_day: FREE 5, PREMIUM unlimited): beyond the limit matches are still stored
- * (not notified) and a single "more matches, upgrade" SYSTEM notice is created per day.
+ * (not notified) and a single "more matches" SYSTEM notice is created per day. The notice invites
+ * to upgrade only while the {@code premiumPlans} flag is on (off by the V105 launch configuration).
  */
 class NotificationLimitIT extends AbstractWishlistIT {
 
+    @Autowired private FeatureFlags featureFlags;
+
+    @AfterEach
+    void premiumPlansOff() {
+        premiumPlans(false);
+    }
+
     @Test
-    void freeCollectorsGetFiveAlertsAndASingleUpgradeNoticePerDay() {
+    void freeCollectorsGetFiveAlertsAndASingleNoticePerDayWithoutAPremiumPitchWhileTheFlagIsOff() {
         Centre centre = randomCentre();
         Collector wisher = collector("nl-free", centre);
         Collector seller = collector("nl-free-seller", centre.offset(2, 1));
@@ -50,11 +61,42 @@ class NotificationLimitIT extends AbstractWishlistIT {
         assertThat(data.path("limitKey").asString()).isEqualTo("wishlist.alerts.per_day");
         assertThat(data.path("limit").asInt()).isEqualTo(5);
         assertThat(data.path("planCode").asString()).isEqualTo("FREE");
-        assertThat(data.path("deepLink").asString()).isNotBlank();
+        // Launch configuration: nothing offers a subscription while premiumPlans is off.
+        assertThat(notice.path("body").asString()).doesNotContainIgnoringCase("premium");
+        assertThat(notice.path("body").asString()).contains("resets tomorrow");
+        assertThat(data.has("upgradeUrl")).isFalse();
+        assertThat(data.has("deepLink")).isFalse();
         assertThat(unreadCount(wisher)).isEqualTo(6);
 
         // The matches beyond the limit are still served on the wishlist.
         assertThat(matchedItems(wisher, wishId)).containsExactlyInAnyOrderElementsOf(items);
+    }
+
+    @Test
+    void theNoticeInvitesToUpgradeWhilePremiumPlansIsOn() {
+        premiumPlans(true);
+        Centre centre = randomCentre();
+        Collector wisher = collector("nl-pitch", centre);
+        Collector seller = collector("nl-pitch-seller", centre.offset(2, -1));
+        UUID azure = printing(AZURE);
+        createWish(wisher, wish(azure, true));
+
+        publishSequentially(seller, azure, 6);
+
+        List<JsonNode> notices = notificationsOfType(wisher, "SYSTEM");
+        assertThat(notices).hasSize(1);
+        JsonNode notice = notices.get(0);
+        assertThat(notice.path("body").asString()).contains("upgrade to Premium");
+        assertThat(notice.path("data").path("upgradeUrl").asString()).isEqualTo("/premium");
+        assertThat(notice.path("data").path("deepLink").asString()).isEqualTo("/premium");
+    }
+
+    private void premiumPlans(boolean enabled) {
+        testUsers.update(
+                "UPDATE feature_flag SET enabled = ?, rollout_percent = 100 WHERE key ="
+                        + " 'premiumPlans'",
+                enabled);
+        featureFlags.invalidate();
     }
 
     @Test

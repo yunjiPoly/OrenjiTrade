@@ -5,13 +5,18 @@ import {
   request as playwrightRequest,
   test,
 } from '@playwright/test';
+import { E2E_API_PORT, E2E_EMAIL_DOMAIN, E2E_WEB_PORT, runEmailPrefix } from './isolation';
 
 /**
- * Helpers for specs that run against the REAL local stack: the API (snapshot jar or bootRun on
- * :8080, profile `local`), PostGIS/Redis from docker compose and the Firebase Auth emulator.
- * Every account created here is fictional and lives only in the local emulator + database.
+ * Helpers for specs that run against the REAL local E2E stack: the API jar on :8180 (profile
+ * `local`, its own database `orenjitrade_e2e`, see `isolation.ts`), PostGIS/Redis from docker
+ * compose and the shared Firebase Auth emulator. Every account created here is fictional
+ * (`e2e-<run id>-...@example.test`), lives only in the E2E database and the local emulator, and
+ * is deleted from the emulator at the end of the run.
  */
-export const API_URL = process.env['E2E_API_URL'] ?? 'http://localhost:8080';
+export const API_URL = process.env['E2E_API_URL'] ?? `http://localhost:${E2E_API_PORT}`;
+/** The E2E web app (Playwright's baseURL, never the developer's :4200). */
+export const WEB_URL = process.env['E2E_BASE_URL'] ?? `http://localhost:${E2E_WEB_PORT}`;
 export const AUTH_EMULATOR_URL = process.env['E2E_AUTH_EMULATOR_URL'] ?? 'http://localhost:9099';
 export const FIREBASE_PROJECT_ID = process.env['E2E_FIREBASE_PROJECT_ID'] ?? 'orenjitrade-local';
 /** The emulator accepts any API key; this is the value from public/config.json. */
@@ -79,9 +84,9 @@ function suffix(): string {
     .padStart(2, '0')}`;
 }
 
-/** A unique fictional email for this run. */
+/** A unique fictional email of this run (`e2e-<run id>-<prefix>-<suffix>@example.test`). */
 export function uniqueEmail(prefix: string): string {
-  return `e2e-${prefix}-${suffix()}@example.test`;
+  return `${runEmailPrefix()}${prefix}-${suffix()}@${E2E_EMAIL_DOMAIN}`;
 }
 
 /** A unique handle matching `[a-z0-9_]{3,24}`. */
@@ -169,7 +174,10 @@ export async function apiMe(
   return response.json();
 }
 
-/** Accepts every document still required for the account. */
+/**
+ * Accepts every document still required for the account and records the 18+ confirmation (the
+ * state the sign-up page leaves a new collector in).
+ */
 export async function apiAcceptConsents(api: APIRequestContext, token: string): Promise<void> {
   const me = await apiMe(api, token);
   for (const consent of me.requiredConsents) {
@@ -179,6 +187,27 @@ export async function apiAcceptConsents(api: APIRequestContext, token: string): 
     });
     expect(response.status(), `consent ${consent.documentType}`).toBe(204);
   }
+  await apiConfirmAge(api, token);
+}
+
+/**
+ * Records the `AGE_CONFIRMATION` consent (current version from the public document list). The
+ * list is read with the collector's token so the call counts against the per-user rate limit
+ * (120/min) rather than the anonymous per-IP budget (60/min) that every worker would share.
+ */
+export async function apiConfirmAge(api: APIRequestContext, token: string): Promise<void> {
+  const documents = await api.get(`${API_URL}/api/v1/public/legal/documents`, {
+    headers: bearer(token),
+  });
+  expect(documents.ok(), 'GET /public/legal/documents').toBeTruthy();
+  const list: { documentType: string; version: string }[] = await documents.json();
+  const age = list.find((doc) => doc.documentType === 'AGE_CONFIRMATION');
+  expect(age, 'the API publishes the AGE_CONFIRMATION document').toBeTruthy();
+  const response = await api.post(`${API_URL}/api/v1/me/consents`, {
+    headers: bearer(token),
+    data: { documentType: age!.documentType, version: age!.version },
+  });
+  expect(response.status(), 'consent AGE_CONFIRMATION').toBe(204);
 }
 
 export interface OnboardedCollector extends EmulatorUser {

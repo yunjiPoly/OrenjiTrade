@@ -13,7 +13,7 @@ unless stated. Auth: `Authorization: Bearer <Firebase ID token>` for everything 
   "id": "uuid", "handle": "maika", "displayName": "Maïka Tremblay", "email": "…", "emailVerified": true,
   "roles": ["USER"], "status": "ACTIVE",
   "avatarUrl": "https://…|null", "createdAt": "…", "lastActiveAt": "…",
-  "onboarding": { "profileComplete": true, "tradingAreaSet": true, "interestsSet": true },
+  "onboarding": { "profileComplete": true, "tradingAreaSet": true, "interestsSet": true, "ageConfirmed": true },
   "requiredConsents": [ { "documentType": "TERMS", "version": "2026-09-01" } ],
   "plan": "FREE"
 }
@@ -23,10 +23,37 @@ email local part + suffix until the user picks one). `403 ACCOUNT_SUSPENDED` whe
 `428 TERMS_ACCEPTANCE_REQUIRED` on every non-exempt route while `requiredConsents` is non-empty
 (exempt: `/me`, `/me/consents`, `/public/**`, `/meta`, `/me/deletion-requests`).
 
-`GET /public/legal/documents` → `[ { "documentType": "TERMS|PRIVACY|COMMUNITY_GUIDELINES|MARKETPLACE_POLICY|PAYMENT_PROTECTION|REFUND_DISPUTE|COOKIES|ACCEPTABLE_USE", "version": "2026-09-01", "title": "…", "url": "/legal/terms", "requiredAtRegistration": true } ]`
+`GET /public/legal/documents` → `[ { "documentType": "TERMS|PRIVACY|COMMUNITY_GUIDELINES|MARKETPLACE_POLICY|PAYMENT_PROTECTION|REFUND_DISPUTE|COOKIES|ACCEPTABLE_USE|AGE_CONFIRMATION", "version": "2026-09-01", "title": "…", "url": "/legal/terms", "requiredAtRegistration": true } ]`
 
-`POST /me/consents` body `{ "documentType": "TERMS", "version": "2026-09-01" }` → 204. Stores
-version, timestamp, hashed IP, user agent. `409` if version is not current.
+`POST /me/consents` body `{ "documentType": "TERMS", "version": "2026-09-01", "language": "fr" }`
+→ 204. Stores version, the language of the text that was shown (`en` or `fr`; optional, `en` when
+omitted so older clients keep working; V104), timestamp, hashed IP, user agent. `409` if version is
+not current, `400 VALIDATION_FAILED` (field `language`) for another code. The French legal pages are
+a translation of the English draft, so one document version covers both languages and the consent
+records which one the collector read; the admin user detail and the data export (`ConsentSummary`)
+expose `language` next to the version.
+
+### 18+ rule (2026-10-05, V103)
+
+The attestation "I confirm I am 18 years of age or older" is a consent like any other:
+`POST /me/consents` body `{ "documentType": "AGE_CONFIRMATION", "version": "2026-10-05" }` → 204
+(timestamp, hashed IP, user agent and an audit row; the version is the current
+`AGE_CONFIRMATION` row of `legal_document`, published with `requiredAtRegistration: false` and
+`url: "/legal#age-confirmation"`, so the terms filter never asks for it and admin / staff
+routes keep working). `onboarding.ageConfirmed` (optional in the schema; older clients ignore
+it) reports whether any version was recorded. The service layer refuses, until it exists, with
+`403 AGE_CONFIRMATION_REQUIRED` (`message`, `requestId`, `timestamp`, and the `requiredConsents`
+extension naming the document to record):
+
+- `PUT /me/settings/privacy` with `discoverable: true` (becoming or staying on the map;
+  `searchDiscoverable` is not gated);
+- `POST /conversations` and `POST /conversations/{id}/messages` (reading is never gated);
+- `POST /community/channels/{slug}/posts` and `POST /community/posts/{id}/replies`;
+- `POST /offers` and `POST /offers/{id}/counter` (accepting, declining or withdrawing an
+  existing offer is not gated).
+
+Clients show the sign-up checkbox (never ticked by default) and, for existing accounts, the
+onboarding "Age" step before anything else. Self-declaration only: no identity verification.
 
 ## Profile
 

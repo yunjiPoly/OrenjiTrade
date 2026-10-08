@@ -1,9 +1,11 @@
 import { APIRequestContext, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { E2E_DB, isTestDataEmail } from '../../support/isolation';
 import {
   API_URL,
   AUTH_EMULATOR_URL,
   FIREBASE_API_KEY,
+  FIREBASE_PROJECT_ID,
   SEED_PASSWORD,
   authHeader,
   emulatorSignIn,
@@ -18,13 +20,17 @@ import { Point, PrivacyScanner } from './privacy';
  * fresh fictional accounts from the Firebase Auth emulator; every JSON answer is also handed to
  * the privacy scanner. The UI steps of a scenario stay in the specs; these helpers only prepare
  * the state a scenario starts from (and the two test-clock shortcuts: the deletion grace period and
- * a listing's last confirmation).
+ * a listing's last confirmation). Every collector created here is retired after the test (see
+ * {@link AcceptanceApi.cleanUp}).
  */
 
 /** Shared secret of `/internal/**` (the local profile default; CI passes its own value). */
 export const SERVICE_TOKEN = process.env['E2E_SERVICE_TOKEN'] ?? 'local-service-token';
 const DB_CONTAINER = process.env['E2E_DB_CONTAINER'] ?? 'orenjitrade-postgres';
-const DB_NAME = process.env['E2E_DB_NAME'] ?? 'orenjitrade';
+/** The E2E database (never the developer's `orenjitrade`, see `support/isolation.ts`). */
+const DB_NAME = process.env['E2E_DB_NAME'] ?? E2E_DB;
+/** Upper bound of the teardown: retiring collectors must never make a test time out. */
+const CLEANUP_BUDGET_MS = 20_000;
 const DB_USER = process.env['E2E_DB_USER'] ?? 'orenjitrade';
 
 export interface Collector {
@@ -63,6 +69,8 @@ export function suffix(): string {
 export class AcceptanceApi {
   private readonly promoted: Collector[] = [];
   private readonly publishedBinders: { owner: Collector; binderId: string }[] = [];
+  /** Every collector this helper created during the test (retired by {@link cleanUp}). */
+  private readonly created: Collector[] = [];
 
   constructor(
     private readonly request: APIRequestContext,
@@ -125,6 +133,20 @@ export class AcceptanceApi {
     for (const consent of me.requiredConsents) {
       await this.ok('POST', '/api/v1/me/consents', { token: user.idToken, data: consent });
     }
+    // The 18+ confirmation (never required at registration, but gating discoverability,
+    // messaging, community posts and offers). Read with the token: per-user rate limit, not the
+    // anonymous per-IP budget shared by every worker.
+    const documents = await this.ok<{ documentType: string; version: string }[]>(
+      'GET',
+      '/api/v1/public/legal/documents',
+      { token: user.idToken },
+    );
+    const age = documents.find((doc) => doc.documentType === 'AGE_CONFIRMATION');
+    expect(age, 'the API publishes the AGE_CONFIRMATION document').toBeTruthy();
+    await this.ok('POST', '/api/v1/me/consents', {
+      token: user.idToken,
+      data: { documentType: 'AGE_CONFIRMATION', version: age!.version },
+    });
     const handle = uniqueHandle(prefix);
     const displayName = options.displayName ?? `E2E ${prefix} ${suffix()}`;
     await this.ok('PUT', '/api/v1/me/profile', {
@@ -154,7 +176,7 @@ export class AcceptanceApi {
       await this.updatePrivacy(user.idToken, { discoverable: true });
     }
     const account = await this.ok<{ id: string }>('GET', '/api/v1/me', { token: user.idToken });
-    return {
+    const collector: Collector = {
       ...user,
       id: account.id,
       handle,
@@ -162,6 +184,8 @@ export class AcceptanceApi {
       area: options.area ?? null,
       areaLabel,
     };
+    this.created.push(collector);
+    return collector;
   }
 
   /** A fresh collector promoted by the seed super admin (demoted again after the test). */
@@ -417,18 +441,87 @@ export class AcceptanceApi {
     return body.error?.message ?? `HTTP ${response.status()}`;
   }
 
-  /** Teardown: takes staff roles back and unpublishes the binders published for the test. */
+  /**
+   * Teardown (never fails the test, bounded in time): takes staff roles back, unpublishes the
+   * binders published for the test, then retires every collector the test created through the
+   * real account-deletion path (`POST /me/deletion-requests`: off the map, public inventory hidden,
+   * sessions revoked; the deletion job anonymises the account after the grace period) and deletes
+   * their Auth emulator accounts. A collector whose deletion is blocked (an open trade) is at least
+   * taken off the map (`discoverable: false`). Seed accounts (`@orenjitrade.test`) are never touched.
+   */
   async cleanUp(): Promise<void> {
-    for (const member of this.promoted.splice(0)) {
-      await this.setRoles(member, ['USER']).catch(() => undefined);
+    const work = (async () => {
+      for (const member of this.promoted.splice(0)) {
+        await this.setRoles(member, ['USER']).catch(() => undefined);
+      }
+      for (const { owner, binderId } of this.publishedBinders.splice(0)) {
+        await this.request
+          .post(`${API_URL}/api/v1/binders/${binderId}/unpublish`, {
+            headers: authHeader(owner.idToken),
+          })
+          .catch(() => undefined);
+      }
+      for (const collector of this.created.splice(0)) {
+        await this.retire(collector).catch(() => undefined);
+      }
+    })().catch(() => undefined);
+    await Promise.race([
+      work,
+      new Promise<void>((resolve) => setTimeout(resolve, CLEANUP_BUDGET_MS)),
+    ]);
+  }
+
+  /** Requests the deletion of a test collector's account and deletes its emulator account. */
+  private async retire(collector: Collector): Promise<void> {
+    if (!isTestDataEmail(collector.email)) {
+      return; // never a seed account or anything outside the suites' test domain
     }
-    for (const { owner, binderId } of this.publishedBinders.splice(0)) {
-      await this.request
-        .post(`${API_URL}/api/v1/binders/${binderId}/unpublish`, {
-          headers: authHeader(owner.idToken),
-        })
-        .catch(() => undefined);
+    // A fresh token: the deletion request needs a sign-in within the last 5 minutes.
+    const signIn = await this.request.post(
+      `${AUTH_EMULATOR_URL}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
+      {
+        data: { email: collector.email, password: collector.password, returnSecureToken: true },
+        timeout: 5_000,
+      },
+    );
+    if (signIn.ok()) {
+      const token = ((await signIn.json()) as { idToken: string }).idToken;
+      const deletion = await this.request.post(`${API_URL}/api/v1/me/deletion-requests`, {
+        headers: authHeader(token),
+        data: { reason: 'Acceptance suite teardown (fictional test account)' },
+        timeout: 10_000,
+      });
+      if (deletion.status() === 409) {
+        const problem = (await deletion.json().catch(() => ({}))) as { errorCode?: string };
+        if (problem.errorCode === 'DELETION_BLOCKED') {
+          await this.hideFromMap(token);
+        }
+      }
     }
+    await this.request.post(
+      `${AUTH_EMULATOR_URL}/identitytoolkit.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/accounts:batchDelete`,
+      {
+        headers: { Authorization: 'Bearer owner' },
+        data: { localIds: [collector.uid], force: true },
+        timeout: 5_000,
+      },
+    );
+  }
+
+  /** `discoverable: false` for a collector who cannot be deleted yet. */
+  private async hideFromMap(token: string): Promise<void> {
+    const current = await this.request.get(`${API_URL}/api/v1/me/settings/privacy`, {
+      headers: authHeader(token),
+      timeout: 5_000,
+    });
+    if (!current.ok()) {
+      return;
+    }
+    await this.request.put(`${API_URL}/api/v1/me/settings/privacy`, {
+      headers: authHeader(token),
+      data: { ...((await current.json()) as Record<string, unknown>), discoverable: false },
+      timeout: 5_000,
+    });
   }
 
   private async setRoles(member: Collector, roles: string[]): Promise<void> {

@@ -1,0 +1,24 @@
+# Closes what Expo Go may put over the app: Android's "isn't responding" dialog on a slow
+# emulator (wait), the developer-menu introduction and the developer menu itself.
+appId: host.exp.exponent
+---
+- runFlow:
+    when:
+      visible: ".*isn't responding"
+    commands:
+      - tapOn: 'Wait'
+- runFlow:
+    when:
+      visible: 'This is the developer menu.*'
+    commands:
+      - tapOn: 'Continue'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - tapOn: 'Close'
+- runFlow:
+    when:
+      visible: 'Go home'
+    commands:
+      - back

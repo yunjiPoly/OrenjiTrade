@@ -1,0 +1,176 @@
+# Location and discoverability (Phase 1, ADR 0004): a fresh collector is hidden by default, picks
+# a manual trading area the way the web picker does (a city quick pick, then a tap on the map),
+# saves it, re-centres with "Use map centre" after panning, then opts into the map. The app only
+# shows the API's public label, never coordinates; scripts/check-area.js checks on the host that
+# the API holds a MANUAL centre with at most 3 decimals.
+#
+# Scrolling uses subflows/scroll-*-to.yaml (a swipe along the screen edge): a swipe in the middle
+# of the screen would pan the map instead of the page.
+appId: host.exp.exponent
+name: Trading area and discoverability
+tags:
+  - mobile-m1
+  - location
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: area
+      DISPLAY_NAME: Maestro Mapper
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-visibility'
+- assertVisible:
+    id: 'profile-visibility'
+    text: 'Hidden from the map.'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-location'
+- tapOn:
+    id: 'profile-location'
+- extendedWaitUntil:
+    visible:
+      id: 'area-public-label'
+      text: 'No trading area saved yet.'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'trading-area-map'
+    timeout: 30000
+- assertVisible:
+    id: 'area-centre-summary'
+    text: 'Centre: Montréal city centre.'
+
+# Hidden by default.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'location-visibility'
+- assertVisible:
+    id: 'location-visibility'
+    text: 'You have no trading area yet.*'
+- assertVisible:
+    id: 'location-discoverable'
+    checked: false
+
+# A city quick pick: its public centre and suggested radius (15 km for Québec), like the web.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-city-quebec'
+- tapOn:
+    id: 'area-city-quebec'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-centre-summary'
+- assertVisible:
+    id: 'area-centre-summary'
+    text: 'Centre: Québec city centre.'
+
+# A tap on the map, away from the pin in the middle, moves the centre there.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-public-label'
+- tapOn:
+    id: 'trading-area-map'
+    point: '25%,30%'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'area-centre-summary'
+- extendedWaitUntil:
+    visible:
+      id: 'area-centre-summary'
+      text: 'Centre: the point you chose on the map.'
+    timeout: 15000
+- takeScreenshot: discoverability-map-tap
+
+# A wider radius, then save.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'area-radius-increase'
+- tapOn:
+    id: 'area-radius-increase'
+- assertVisible:
+    id: 'area-radius-value'
+    text: '20 km'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'location-save'
+- tapOn:
+    id: 'location-save'
+- extendedWaitUntil:
+    visible: 'Trading area saved.*'
+    timeout: 30000
+- runScript:
+    file: scripts/check-area.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      RADIUS_KM: '20'
+      NOT_LAT: '46.813'
+      NOT_LNG: '-71.208'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-public-label'
+- assertVisible:
+    id: 'area-public-label'
+    text: '.*20 km radius'
+- assertVisible:
+    id: 'area-centre-summary'
+    text: 'Centre: your saved point.*'
+
+# Pan the map, then "Use map centre": a new, unsaved centre.
+- swipe:
+    from:
+      id: 'trading-area-map'
+    direction: LEFT
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'area-use-map-centre'
+- tapOn:
+    id: 'area-use-map-centre'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-centre-summary'
+- assertVisible:
+    id: 'area-centre-summary'
+    text: 'Centre: the point you chose on the map.'
+
+# Opt into the map (the unsaved centre stays unsaved: the switch only saves the privacy setting).
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'location-discoverable'
+- tapOn:
+    id: 'location-discoverable'
+- extendedWaitUntil:
+    visible: 'You now appear on the map.'
+    timeout: 30000
+- assertVisible:
+    id: 'location-discoverable'
+    checked: true
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'location-visibility'
+- assertVisible:
+    id: 'location-visibility'
+    text: 'Collectors see you near.*'
+- takeScreenshot: discoverability-on

@@ -69,6 +69,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    'expo-image',
+    // Google sign-in on a device: the system browser session of expo-auth-session.
+    'expo-web-browser',
+    // Only configures the optional "share into the app" extension, which stays disabled.
+    'expo-sharing',
     [
       'expo-splash-screen',
       {

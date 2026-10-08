@@ -33,7 +33,7 @@ export function collectorAreaId(handle: string): string {
 export interface CollectorMarkers {
   markers: MapMarker[];
   /**
-   * Approximate-area discs (2 km wide, sized in metres) under every collector drawn on their own,
+   * Approximate-area zones (3 km wide, sized in metres) under every collector drawn on their own,
    * so a public point never reads as an exact spot; the selected collector's disc is emphasised.
    * Clustered collectors have none (their bubble already stands for a group).
    */

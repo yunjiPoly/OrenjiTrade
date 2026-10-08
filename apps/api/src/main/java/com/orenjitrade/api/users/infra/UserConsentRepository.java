@@ -16,6 +16,11 @@ public interface UserConsentRepository extends JpaRepository<UserConsent, UUID> 
 
     List<UserConsent> findByUserIdOrderByAcceptedAtDesc(UUID userId);
 
+    /**
+     * Whether the user accepted any version of {@code documentType} (attestations never expire).
+     */
+    boolean existsByUserIdAndDocumentType(UUID userId, LegalDocumentType documentType);
+
     /** Current versions of required documents without a matching consent row for the user. */
     @Query(
             """

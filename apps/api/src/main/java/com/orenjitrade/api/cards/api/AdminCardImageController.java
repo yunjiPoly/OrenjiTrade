@@ -63,7 +63,8 @@ public class AdminCardImageController {
             summary = "Local card image cache status (ADMIN, SUPER_ADMIN)",
             description =
                     "Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB,"
-                            + " at most 500 MB) and provider artworks per cache status and game.")
+                            + " at most 5 GB = 5120 MiB; byte figures are 64-bit) and provider"
+                            + " artworks per cache status and game.")
     public CardImageCacheStatus status() {
         return cache.status();
     }

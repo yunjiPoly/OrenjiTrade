@@ -511,7 +511,7 @@ export class AdminCatalogService extends BaseService implements AdminCatalogServ
 
     /**
      * Local card image cache status (ADMIN, SUPER_ADMIN)
-     * Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 500 MB) and provider artworks per cache status and game.
+     * Used, reserved and remaining bytes, the limit (CARD_IMAGE_LOCAL_CACHE_MAX_MB, at most 5 GB &#x3D; 5120 MiB; byte figures are 64-bit) and provider artworks per cache status and game.
      * @endpoint get /api/v1/admin/card-images/status
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.

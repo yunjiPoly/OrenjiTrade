@@ -12,6 +12,9 @@ import com.orenjitrade.api.cards.infra.images.CardImageCacheRepository.ImageRow;
 import com.orenjitrade.api.cards.infra.images.CardImageCacheRepository.Usage;
 import com.orenjitrade.api.cards.infra.images.CardImageFileStore;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.common.storage.ObjectStorage;
+import com.orenjitrade.api.common.storage.ObjectSummary;
+import com.orenjitrade.api.common.storage.StoredObject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -48,6 +51,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -56,11 +60,16 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Game-agnostic local cache of provider card artworks with a hard capacity limit (ADR 0015).
+ * Game-agnostic capped cache of provider card artworks (ADR 0015). Renditions live behind the
+ * {@code cardImageStorage} {@link ObjectStorage}: local files under the cache directory (one
+ * directory per database, the default) or objects under a bucket prefix in the cloud, where the
+ * local disk is wiped on every restart; the PostgreSQL accounting and the local {@code .tmp/}
+ * staging of downloads are the same in both cases.
  *
- * <p><b>Capacity.</b> Final files, temporary download files and outstanding reservations together
- * never exceed {@link CardImageCacheProperties#limitBytes()} (at most 500 MB). Every capacity
- * change locks the single {@code card_image_cache_usage} row ({@code SELECT ... FOR UPDATE}):
+ * <p><b>Capacity.</b> Stored renditions, temporary download files and outstanding reservations
+ * together never exceed {@link CardImageCacheProperties#limitBytes()} (at most 5 GB = 5120 MiB; all
+ * byte accounting is {@code long}). Every capacity change locks the single {@code
+ * card_image_cache_usage} row ({@code SELECT ... FOR UPDATE}):
  *
  * <ol>
  *   <li>after the provider answered, bytes are <b>reserved</b> (the announced {@code
@@ -72,20 +81,24 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>an identical checksum reuses the existing file (no second file); otherwise the rendition is
  *       written to {@code .tmp/<reservation>.jpg.tmp} (the reservation grows under the lock if
  *       needed), then {@code used += size} and the reservation is released in one locked
- *       transaction, and only then the file is moved atomically to its deterministic key;
+ *       transaction, and only then the file is stored at its deterministic key (an atomic move into
+ *       the local directory, an upload to the bucket);
  *   <li>on any failure the temporary files are deleted first and the reservation released.
  * </ol>
  *
- * Files the cache could not delete still occupy the disk, so they keep counting: temporary files no
- * live reservation covers are added to every capacity check, and reconciliation keeps unreferenced
- * final files it failed to delete in the usage.
+ * Objects the cache could not delete still occupy capacity, so they keep counting: temporary files
+ * no live reservation covers are added to every capacity check, and reconciliation keeps
+ * unreferenced objects it failed to delete in the usage.
  *
  * <p>Reservations expire ({@code reservation-ttl}), so a crashed process cannot leak capacity.
  * Downloads are single-flight per image and bounded ({@code max-parallel-downloads}); provider
  * pacing and retries live in the provider adapter. {@link #reconcile()} (start-up and on demand)
- * deletes orphan temporary files, marks CACHED rows whose file vanished NOT_CACHED, deletes files
- * no row references, recomputes the usage from the files actually on disk and evicts the least
- * recently used images when the limit was lowered.
+ * deletes orphan temporary files, marks CACHED rows whose object vanished NOT_CACHED, deletes
+ * objects no row references, recomputes the usage from the objects actually stored and evicts the
+ * least recently used images when the limit was lowered. It never deletes an unreferenced object
+ * younger than the reservation TTL: it may belong to a commit in flight in another process (the
+ * previous revision during a Cloud Run rollout), so it is counted instead and removed by a later
+ * reconciliation if it stays unreferenced.
  */
 @Service
 public class CardImageCache implements DisposableBean {
@@ -126,14 +139,16 @@ public class CardImageCache implements DisposableBean {
     }
 
     /**
-     * A cached rendition ready to be served.
+     * A cached rendition ready to be served; {@link #read(CachedFile)} fetches its bytes.
      *
-     * @param path file
+     * @param imageId image row
+     * @param key storage key
      * @param size bytes
      * @param checksum SHA-256 (ETag)
      * @param contentType MIME type
      */
-    public record CachedFile(Path path, long size, String checksum, String contentType) {}
+    public record CachedFile(
+            UUID imageId, String key, long size, String checksum, String contentType) {}
 
     /**
      * Outcome of a reconciliation.
@@ -164,6 +179,9 @@ public class CardImageCache implements DisposableBean {
      * @param bytesReleased capacity released
      */
     public record ClearResult(int images, int filesDeleted, long bytesReleased) {}
+
+    /** Name of the {@link ObjectStorage} bean holding the renditions (never the media one). */
+    public static final String STORAGE_BEAN = "cardImageStorage";
 
     static final String STATUS_CACHED = "CACHED";
     static final String STATUS_NOT_CACHED = "NOT_CACHED";
@@ -205,6 +223,7 @@ public class CardImageCache implements DisposableBean {
     private final CardImageOnDemandProperties onDemand;
     private final CardImageCacheRepository repository;
     private final CardImageFileStore files;
+    private final ObjectStorage storage;
     private final CardImageProcessor processor;
     private final Map<String, CardProvider> providers = new LinkedHashMap<>();
     private final List<CardImageReferenceSource> referenceSources;
@@ -231,12 +250,14 @@ public class CardImageCache implements DisposableBean {
             List<CardProvider> providers,
             List<CardImageReferenceSource> referenceSources,
             TimeProvider timeProvider,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            @Qualifier(STORAGE_BEAN) ObjectStorage storage) {
         this.properties = properties;
         this.onDemand = onDemand;
         this.repository = repository;
         this.files = new CardImageFileStore(Path.of(properties.dir()));
         this.files.init();
+        this.storage = storage;
         this.processor = new CardImageProcessor(properties.targetWidth(), properties.jpegQuality());
         providers.forEach(provider -> this.providers.put(provider.providerId(), provider));
         this.referenceSources = List.copyOf(referenceSources);
@@ -250,7 +271,8 @@ public class CardImageCache implements DisposableBean {
                 Executors.newSingleThreadScheduledExecutor(daemonThreads("card-image-watchdog-"));
         this.onDemandIntervalNanos = (long) Math.ceil(1_000_000_000.0 / onDemand.maxPerSecond());
         log.info(
-                "Card image cache at {} (limit {} MB, {} px wide JPEG, {} parallel downloads)",
+                "Card image cache: temporary files in {} (limit {} MB, {} px wide JPEG, {} parallel"
+                        + " downloads)",
                 files.root(),
                 properties.maxMb(),
                 properties.targetWidth(),
@@ -261,6 +283,10 @@ public class CardImageCache implements DisposableBean {
         return properties.limitBytes();
     }
 
+    /**
+     * The local cache directory: the renditions with the local provider, only the {@code .tmp/}
+     * staging of downloads with the gcs provider.
+     */
     public Path directory() {
         return files.root();
     }
@@ -321,7 +347,7 @@ public class CardImageCache implements DisposableBean {
         return created;
     }
 
-    /** The cached rendition of an image, when it is CACHED and its file exists. */
+    /** The cached rendition of an image, when it is CACHED and its object exists. */
     public Optional<CachedFile> cachedFile(UUID imageId) {
         Optional<ImageRow> row = repository.findImage(imageId);
         if (row.isEmpty() || !STATUS_CACHED.equals(row.get().cacheStatus())) {
@@ -330,38 +356,80 @@ public class CardImageCache implements DisposableBean {
         return cachedFile(row.get());
     }
 
+    /** The rendition of a CACHED row after checking that its object exists (repairs the row). */
     private Optional<CachedFile> cachedFile(ImageRow row) {
+        Optional<CachedFile> described = describe(row);
+        if (described.isEmpty()) {
+            return Optional.empty();
+        }
+        if (!storage.exists(described.get().key())) {
+            markLost(row);
+            return Optional.empty();
+        }
+        return described;
+    }
+
+    /** The rendition a CACHED row describes, without touching the storage. */
+    private Optional<CachedFile> describe(ImageRow row) {
         String key = row.storageKey();
         if (key == null || row.checksum() == null || !CardImageFileStore.isValidKey(key)) {
             return Optional.empty();
         }
-        Path path = files.pathOf(key);
-        if (!Files.isRegularFile(path)) {
-            if (!COMMITTING.containsKey(key)) {
-                log.warn("Cached card image {} lost its file; marking it NOT_CACHED", row.id());
-                tx.executeWithoutResult(
-                        status -> {
-                            repository.lockUsage();
-                            if (!Files.isRegularFile(path)
-                                    && repository.countReferences(key, row.id()) == 0) {
-                                repository.addUsage(
-                                        -(row.fileSizeBytes() == null ? 0 : row.fileSizeBytes()),
-                                        -1,
-                                        timeProvider.now());
-                            }
-                            repository.markNotCached(List.of(row.id()), timeProvider.now());
-                        });
-            }
-            return Optional.empty();
-        }
         return Optional.of(
                 new CachedFile(
-                        path,
+                        row.id(),
+                        key,
                         row.fileSizeBytes() == null ? 0 : row.fileSizeBytes(),
                         row.checksum(),
                         row.contentType() == null
                                 ? CardImageProcessor.CONTENT_TYPE
                                 : row.contentType()));
+    }
+
+    /**
+     * The bytes of a cached rendition. Empty when the object vanished (evicted by another process,
+     * bucket restored from a backup, local disk wiped): the row is then marked NOT_CACHED and the
+     * usage corrected, so the next {@link #serving} fills it on demand or serves the placeholder.
+     */
+    public Optional<byte[]> read(CachedFile file) {
+        Optional<StoredObject> object;
+        try {
+            object = storage.get(file.key());
+        } catch (RuntimeException e) {
+            log.warn("Cached card image {} could not be read", file.imageId(), e);
+            return Optional.empty();
+        }
+        if (object.isEmpty()) {
+            repository.findImage(file.imageId()).ifPresent(this::markLost);
+            return Optional.empty();
+        }
+        return Optional.of(object.get().content());
+    }
+
+    /** A CACHED row whose object is gone: back to NOT_CACHED, usage corrected (once). */
+    private void markLost(ImageRow row) {
+        String key = row.storageKey();
+        if (key == null
+                || !STATUS_CACHED.equals(row.cacheStatus())
+                || COMMITTING.containsKey(key)) {
+            return;
+        }
+        log.warn("Cached card image {} lost its object; marking it NOT_CACHED", row.id());
+        tx.executeWithoutResult(
+                status -> {
+                    repository.lockUsage();
+                    Optional<ImageRow> current = repository.findImage(row.id());
+                    if (current.isEmpty() || !STATUS_CACHED.equals(current.get().cacheStatus())) {
+                        return; // repaired meanwhile
+                    }
+                    if (!storage.exists(key) && repository.countReferences(key, row.id()) == 0) {
+                        repository.addUsage(
+                                -(row.fileSizeBytes() == null ? 0 : row.fileSizeBytes()),
+                                -1,
+                                timeProvider.now());
+                    }
+                    repository.markNotCached(List.of(row.id()), timeProvider.now());
+                });
     }
 
     /** What {@code GET /api/v1/public/card-images/{id}} answers. */
@@ -377,9 +445,10 @@ public class CardImageCache implements DisposableBean {
     public record ServeRedirect(String url) implements Serving {}
 
     /**
-     * Serving decision for an image id: the cached file; for a re-host-only artwork that is not
-     * cached, an on-demand fill when allowed (otherwise the placeholder); never a re-host-only
-     * provider's URL. Empty for unknown ids.
+     * Serving decision for an image id: the cached rendition (described from the row; the caller
+     * reads it with {@link #read} and asks again when the object turned out to be gone); for a
+     * re-host-only artwork that is not cached, an on-demand fill when allowed (otherwise the
+     * placeholder); never a re-host-only provider's URL. Empty for unknown ids.
      */
     public Optional<Serving> serving(UUID imageId) {
         Optional<ImageRow> found = repository.findImage(imageId);
@@ -395,7 +464,9 @@ public class CardImageCache implements DisposableBean {
             return Optional.of(new ServeRedirect(row.sourceUrl()));
         }
         if (STATUS_CACHED.equals(row.cacheStatus())) {
-            Optional<CachedFile> file = cachedFile(row);
+            // No existence check here: the read that follows is the one round trip to the
+            // storage, and it repairs the row when the object is gone.
+            Optional<CachedFile> file = describe(row);
             if (file.isPresent()) {
                 touch(imageId);
                 return Optional.of(new ServeFile(file.get()));
@@ -527,14 +598,22 @@ public class CardImageCache implements DisposableBean {
         List<String> errors = Collections.synchronizedList(new ArrayList<>());
         Semaphore slots = new Semaphore(properties.maxParallelDownloads());
         List<CompletableFuture<Void>> pending = new ArrayList<>();
+        // One listing of the storage instead of one existence check per CACHED candidate (14,764
+        // metadata requests per Yu-Gi-Oh! import against a bucket). An object stored after the
+        // snapshot is simply re-checked by the download, which reports ALREADY_CACHED.
+        @Nullable Set<String> stored = null;
 
         for (CardImageCacheRepository.Candidate candidate : ordered) {
             if (STATUS_CACHED.equals(candidate.cacheStatus())
                     && candidate.storageKey() != null
-                    && CardImageFileStore.isValidKey(candidate.storageKey())
-                    && files.exists(candidate.storageKey())) {
-                alreadyCached.incrementAndGet();
-                continue;
+                    && CardImageFileStore.isValidKey(candidate.storageKey())) {
+                if (stored == null) {
+                    stored = storedKeys();
+                }
+                if (stored.contains(candidate.storageKey())) {
+                    alreadyCached.incrementAndGet();
+                    continue;
+                }
             }
             if (STATUS_MISSING.equals(candidate.cacheStatus())) {
                 missing.incrementAndGet();
@@ -606,6 +685,15 @@ public class CardImageCache implements DisposableBean {
     /** Provider artworks known for a game (cached or not). */
     public long countProviderImages(UUID gameId, String providerId) {
         return repository.countProviderImages(gameId, providerId);
+    }
+
+    /** Keys of every object currently stored (one listing). */
+    private Set<String> storedKeys() {
+        Set<String> keys = new HashSet<>();
+        for (ObjectSummary object : storage.list("")) {
+            keys.add(object.key());
+        }
+        return keys;
     }
 
     /** Artworks members currently see for this game (referenced printings and cards). */
@@ -813,7 +901,8 @@ public class CardImageCache implements DisposableBean {
                                                 rendition.sha256(), row.id());
                                 if (same.isEmpty()
                                         || same.get().storageKey() == null
-                                        || !files.exists(same.get().storageKey())) {
+                                        || !CardImageFileStore.isValidKey(same.get().storageKey())
+                                        || !storage.exists(same.get().storageKey())) {
                                     return false;
                                 }
                                 ImageRow existing = same.get();
@@ -848,7 +937,7 @@ public class CardImageCache implements DisposableBean {
                                 + rendition.sha256().substring(0, 8)
                                 + ".jpg";
             }
-            if (files.exists(key) && !COMMITTING.containsKey(key)) {
+            if (!COMMITTING.containsKey(key) && storage.exists(key)) {
                 // A leftover of an interrupted run: its bytes may already be counted.
                 reconcileRequested.set(true);
             }
@@ -887,8 +976,10 @@ public class CardImageCache implements DisposableBean {
             }
             try {
                 try {
-                    files.moveIntoPlace(temp, finalKey);
-                } catch (IOException e) {
+                    // Local storage renames the temporary file into place atomically; a bucket
+                    // receives an upload and the temporary file is deleted afterwards.
+                    storage.putFile(temp, finalKey, CardImageProcessor.CONTENT_TYPE);
+                } catch (IOException | RuntimeException e) {
                     CardImageFileStore.deleteQuietly(temp);
                     // From here on a leftover temporary file is no longer covered by the usage.
                     COMMITTED_RESERVATIONS.remove(reservation.id());
@@ -1087,9 +1178,7 @@ public class CardImageCache implements DisposableBean {
                 && CardImageFileStore.isValidKey(key)
                 && repository.countReferences(key, null) == 0
                 && !COMMITTING.containsKey(key)) {
-            boolean existed = files.exists(key);
-            files.delete(key);
-            if (existed) {
+            if (storage.delete(key)) {
                 repository.addUsage(
                         -(row.fileSizeBytes() == null ? 0 : row.fileSizeBytes()), -1, now);
             }
@@ -1127,7 +1216,7 @@ public class CardImageCache implements DisposableBean {
                                 if (CardImageFileStore.isValidKey(key)
                                         && repository.countReferences(key, null) == 0
                                         && !COMMITTING.containsKey(key)
-                                        && files.delete(key)) {
+                                        && storage.delete(key)) {
                                     deleted++;
                                 }
                             }
@@ -1147,7 +1236,7 @@ public class CardImageCache implements DisposableBean {
         return result;
     }
 
-    /** Reconciles files, rows and accounting (start-up, admin, CLI). */
+    /** Reconciles stored objects, rows and accounting (start-up, admin, CLI). */
     public ReconcileResult reconcile() {
         ReconcileResult result =
                 tx.execute(
@@ -1189,13 +1278,15 @@ public class CardImageCache implements DisposableBean {
             }
         }
 
-        Map<String, Long> onDisk = files.finalFiles();
+        List<ObjectSummary> stored = storage.list("");
+        Map<String, Long> onStore = new LinkedHashMap<>();
+        stored.forEach(object -> onStore.put(object.key(), object.size()));
         List<ImageRow> cached = repository.cachedImages(null);
         List<UUID> missing = new ArrayList<>();
         Map<String, Long> referenced = new LinkedHashMap<>();
         for (ImageRow row : cached) {
             String key = row.storageKey();
-            Long size = key == null ? null : onDisk.get(key);
+            Long size = key == null ? null : onStore.get(key);
             if (size == null) {
                 if (key == null || !COMMITTING.containsKey(key)) {
                     missing.add(row.id());
@@ -1212,25 +1303,50 @@ public class CardImageCache implements DisposableBean {
         int orphans = 0;
         long undeletableBytes = 0;
         int undeletable = 0;
-        for (Map.Entry<String, Long> file : onDisk.entrySet()) {
-            String key = file.getKey();
-            if (!referenced.containsKey(key) && !COMMITTING.containsKey(key)) {
-                if (files.deleteRelative(key)) {
-                    orphans++;
-                } else if (files.existsRelative(key)) {
-                    // Still on disk (e.g. held open by another process): it occupies capacity, so
-                    // the usage keeps counting it until a later reconciliation deletes it.
-                    undeletableBytes += file.getValue();
-                    undeletable++;
-                }
+        int recent = 0;
+        Instant keepIfNewerThan = now.minus(properties.reservationTtl());
+        for (ObjectSummary object : stored) {
+            String key = object.key();
+            if (referenced.containsKey(key) || COMMITTING.containsKey(key)) {
+                continue;
+            }
+            if (object.lastModified().isAfter(keepIfNewerThan)) {
+                // Possibly a commit in flight in another process (the previous revision during a
+                // rollout): never deleted while younger than the reservation TTL, but it occupies
+                // capacity, so it counts until it is referenced or a later reconciliation removes
+                // it.
+                recent++;
+                undeletableBytes += object.size();
+                undeletable++;
+                continue;
+            }
+            boolean deleted;
+            try {
+                deleted = storage.delete(key);
+            } catch (RuntimeException e) {
+                deleted = false; // stray name the key policy refuses, or an I/O failure
+            }
+            if (deleted) {
+                orphans++;
+            } else if (stillStored(key)) {
+                // Still there (e.g. held open by another process on Windows): it occupies capacity,
+                // so the usage keeps counting it until a later reconciliation deletes it.
+                undeletableBytes += object.size();
+                undeletable++;
             }
         }
-        if (undeletable > 0) {
+        if (recent > 0) {
+            log.info(
+                    "Card image cache: {} unreferenced object(s) younger than {} kept and counted"
+                            + " (a commit may be in flight elsewhere)",
+                    recent,
+                    properties.reservationTtl());
+        }
+        if (undeletable - recent > 0) {
             log.warn(
-                    "Card image cache: {} unreferenced file(s) ({} bytes) could not be deleted;"
-                            + " they keep counting against the limit",
-                    undeletable,
-                    undeletableBytes);
+                    "Card image cache: {} unreferenced object(s) could not be deleted; they keep"
+                            + " counting against the limit",
+                    undeletable - recent);
         }
         long used =
                 referenced.values().stream().mapToLong(Long::longValue).sum() + undeletableBytes;
@@ -1263,6 +1379,15 @@ public class CardImageCache implements DisposableBean {
         }
         return new ReconcileResult(
                 expired, orphanTemps, missing.size(), orphans, evicted, used, count);
+    }
+
+    /** Whether an object is still stored; an unanswerable question counts as "yes" (safe side). */
+    private boolean stillStored(String key) {
+        try {
+            return storage.exists(key);
+        } catch (RuntimeException e) {
+            return true;
+        }
     }
 
     @EventListener(ApplicationReadyEvent.class)

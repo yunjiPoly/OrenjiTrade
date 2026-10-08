@@ -62,6 +62,11 @@ spring:
     validate-migration-naming: true
   data:
     redis:
+      # Cache, rate limits, presence and realtime fan-out only, never primary storage (CLAUDE.md).
+      # Locally the docker compose Redis; in the cloud the Valkey sidecar of the single Cloud Run
+      # instance (redis://localhost:6379, no persistence: everything here may vanish on a restart,
+      # ADR 0016). Lettuce reconnects on its own when the server restarts; the readiness group
+      # below keeps the instance out of rotation until Redis answers again.
       url: ${REDIS_URL:redis://localhost:6379}
       timeout: 2s
   modulith:
@@ -170,6 +175,10 @@ orenji:
     core-size: 4
     max-size: 16
     queue-capacity: 500
+  realtime:
+    # Redis pub/sub channel prefix of the realtime fan-out (<prefix><userId>). Pub/sub ignores the
+    # logical database, so the local E2E API (Redis db 2) sets its own prefix next to npm run dev.
+    channel-prefix: "${REALTIME_CHANNEL_PREFIX:rt:user:}"
   firebase:
     project-id: ${FIREBASE_PROJECT_ID:orenjitrade-local}
     # Empty => Application Default Credentials against the real project.
@@ -207,11 +216,19 @@ orenji:
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:}
     gcs-bucket-media: ${GCS_BUCKET_MEDIA:}
   card-images:
-    # Local card image cache (ADR 0015). Card metadata lives in PostgreSQL; only the image files are
-    # cached here, never more than max-mb (hard ceiling 500: larger values stop the start-up).
+    # Capped card image cache (ADR 0015). Card metadata lives in PostgreSQL; only the image
+    # renditions are cached, never more than max-mb MiB (default and hard ceiling 5120 = 5 GB,
+    # owner decision 2026-10-04: larger values stop the start-up, smaller values are allowed).
     cache:
-      max-mb: ${CARD_IMAGE_LOCAL_CACHE_MAX_MB:500}
-      # One directory per database (reconciliation deletes files no row references).
+      max-mb: ${CARD_IMAGE_LOCAL_CACHE_MAX_MB:5120}
+      # Where the renditions live. Empty: the media provider (STORAGE_PROVIDER). local: files under
+      # `dir` (one directory per database; reconciliation deletes files no row references). gcs:
+      # objects under `object-prefix` of the media bucket (GCS_BUCKET_MEDIA) or of `gcs-bucket`,
+      # because Cloud Run wipes its local disk on every restart. Temporary download files always
+      # stay under `dir`.
+      provider: ${CARD_IMAGE_STORAGE_PROVIDER:}
+      gcs-bucket: ${CARD_IMAGE_GCS_BUCKET:}
+      object-prefix: ${CARD_IMAGE_OBJECT_PREFIX:card-images/}
       dir: ${CARD_IMAGE_CACHE_DIR:${orenji.storage.local-root}/card-images}
       # One rendition per artwork: JPEG (the JVM has no WebP encoder), 320 px wide, never upscaled.
       target-width: 320
@@ -462,7 +479,11 @@ spring:
       on-profile: prod
   datasource:
     hikari:
-      maximum-pool-size: ${DATABASE_POOL_SIZE:20}
+      # Cloud SQL db-g1-small (first-year profile, ADR 0016) has max_connections = 50: one api
+      # instance with a pool of 10 (Flyway shares it) plus superuser_reserved_connections (3),
+      # Cloud SQL's own sessions and admin headroom stays far below it. Raise DATABASE_POOL_SIZE
+      # together with the tier (and the sql_connection_alert_threshold in Terraform).
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
 orenji:
   environment: ${ORENJI_ENV:production}
   openapi:

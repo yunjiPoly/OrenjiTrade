@@ -1,0 +1,106 @@
+# Map discovery (mobile Phase 4): a seed collector (collector1, Plateau) sees discoverable
+# neighbours of the seed data on the Map tab as zones about 3 km wide (Leaflet + OpenStreetMap in
+# a WebView: Expo Go has no Google Maps key), opens Sofia's preview from the list, brings her zone
+# into view with "Show on map", opens the preview again with a tap inside the zone, then her
+# profile with its approximate area. The seed account is only signed in to.
+appId: host.exp.exponent
+name: Map zones, preview and profile
+tags:
+  - mobile-m3
+  - map
+---
+# The seed predates the 18+ rule: its confirmation is recorded through the API first (the
+# onboarding age step is proven by age-step-existing-account.yaml).
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'map-status'
+      text: '\d+ collectors within 10 km'
+    timeout: 60000
+- assertVisible:
+    id: 'map-approximate-note'
+- assertVisible: 'Locations are approximate \(about 3 km\) to protect privacy'
+# The tiles and the zones (orange circles) are drawn inside the WebView: wait, then keep the proof.
+- extendedWaitUntil:
+    notVisible:
+      id: 'collector-map-loading'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: map-zones
+
+# The list, then Sofia's preview.
+- tapOn:
+    id: 'map-view-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-row-collector5'
+    timeout: 30000
+- tapOn:
+    id: 'collector-row-collector5'
+- extendedWaitUntil:
+    visible:
+      id: 'preview-name'
+      text: 'Sofia Nguyen'
+    timeout: 60000
+- assertVisible: 'Locations are approximate \(about 3 km\)'
+- assertVisible:
+    id: 'preview-distance'
+    text: '.*km away'
+- takeScreenshot: map-preview
+
+# "Show on map": her zone fills the middle of the map; a tap in it opens her preview again.
+- tapOn:
+    id: 'preview-show-on-map'
+- extendedWaitUntil:
+    notVisible:
+      id: 'collector-preview-ready'
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: map-zone-focus
+- tapOn:
+    point: '50%,50%'
+- extendedWaitUntil:
+    visible:
+      id: 'preview-name'
+      text: 'Sofia Nguyen'
+    timeout: 60000
+
+# Her profile: the same approximate area (a zone, never a point).
+- tapOn:
+    id: 'preview-view-profile'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: 'Sofia Nguyen'
+    timeout: 60000
+- assertVisible:
+    id: 'collector-location'
+    text: 'Near .*'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-area-note'
+- assertVisible: 'Approximate area \(about 3 km\).*'
+- takeScreenshot: collector-profile-area
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-binders'
+- assertVisible:
+    id: 'collector-ratings'

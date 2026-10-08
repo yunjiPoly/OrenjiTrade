@@ -100,8 +100,19 @@ public abstract class AbstractIntegrationTest {
         return UUID.fromString(me(uid).path("id").asString());
     }
 
-    /** Provisions an account that has accepted every required document. */
+    /**
+     * Provisions an account that has accepted every required document and confirmed being 18 or
+     * older (the state of a collector who finished sign-up and onboarding).
+     */
     protected UUID provisionCompliant(String uid) {
+        UUID id = provision(uid);
+        testUsers.acceptAllRequiredConsents(id);
+        testUsers.confirmAge(id);
+        return id;
+    }
+
+    /** Provisions an account that accepted the terms but never confirmed its age. */
+    protected UUID provisionWithoutAgeConfirmation(String uid) {
         UUID id = provision(uid);
         testUsers.acceptAllRequiredConsents(id);
         return id;

@@ -1,10 +1,16 @@
 # Copy to terraform.tfvars (git-ignored) and fill in. Every value here is fictional.
-# Sizing defaults for prod live in variables.tf; override only what differs.
+# Sizing defaults for prod (low-cost first-year profile, ADR 0016) live in variables.tf;
+# override only what differs.
 
 project_id        = "orenjitrade-prod-123456"
 region            = "northamerica-northeast1"
 github_repository = "example-org/orenjitrade"
 alert_email       = "oncall@example.com"
+
+# Billing budget (US$150/month, emails at 50/90/100% actual + 100% forecast). Only the owner's
+# tfvars sets this: creating a budget needs permissions on the billing account.
+# billing_account_id = "012345-6789AB-CDEF01"
+# monthly_budget_usd = 150
 
 # Public hostnames (Cloudflare records point at the load balancer IP output).
 web_host = "www.orenjitrade.com"
@@ -13,17 +19,32 @@ api_host = "api.orenjitrade.com"
 # Firebase project when it differs from the GCP project.
 # firebase_project_id = "orenjitrade-prod-123456"
 
-# Enable only after adding versions to stripe-secret-key and stripe-webhook-secret.
-stripe_secrets_enabled = false
+# Public web configuration rendered into the web container's config.json (never secrets).
+# Firebase console > Project settings > Your apps > Web app; Maps key referrer-restricted to
+# https://www.orenjitrade.com/* and API-restricted to Maps JavaScript API.
+firebase_web_api_key    = "AIzaSyExampleExampleExampleExampleExampl"
+firebase_web_app_id     = "1:123456789012:web:0123456789abcdef012345"
+google_maps_browser_key = "" # empty = Leaflet/OpenStreetMap fallback until the key exists
+google_maps_map_id      = ""
 
-# Cloud Armor: admit only Cloudflare edge ranges at the load balancer.
+# Payments: enable only after adding versions to stripe-secret-key and stripe-webhook-secret.
+stripe_secrets_enabled = false
+# billing_provider     = "stripe"          # also needs stripe-billing-webhook-secret + the price id
+# stripe_price_premium = "price_0ExampleExample"
+
+# Edge: Cloud Armor admits only Cloudflare edge ranges; certificate through Certificate Manager
+# DNS authorization (create the `certificate_dns_authorizations` output as DNS-only CNAMEs).
 restrict_to_cloudflare = true
+certificate_mode       = "certificate_manager"
 # extra_allowed_ranges = ["203.0.113.0/24"]
+# Fallback: Cloudflare Origin CA certificate (keep this file git-ignored!) or Secret Manager ids.
+# certificate_mode              = "self_managed"
+# origin_certificate            = { certificate_pem = file("origin.pem"), private_key_pem = file("origin.key") }
+# origin_certificate_secret_ids = { certificate = "origin-certificate", private_key = "origin-private-key" }
 
 # Images are deployed by GitHub Actions; the defaults are placeholders for the first apply.
-# api_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/api:latest"
-# web_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/web:latest"
-# ml_image  = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/ml:latest"
+# api_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/api:<git sha>"
+# web_image = "northamerica-northeast1-docker.pkg.dev/orenjitrade-dev-123456/orenjitrade/web:<git sha>"
 
 # Production: only main may impersonate the deployer SA.
 wif_allowed_refs = ["refs/heads/main"]
@@ -33,6 +54,21 @@ deletion_protection = true
 
 # Analysts group with read access to the analytics dataset.
 # analytics_reader_members = ["group:analytics@example.com"]
+
+# --- Scale-up path (ADR 0016), in order; defaults are the low-cost profile ---------------
+# 1. Memorystore Basic 1 GB + several api instances:
+# redis_mode        = "memorystore"
+# redis_tier        = "BASIC"
+# redis_memory_size_gb = 1
+# api_max_instances = 3
+# api_db_pool_size  = 8            # instances x pool must stay under max_connections
+# 2. SLA-covered / larger database, then HA:
+# sql_tier              = "db-custom-1-3840"
+# sql_connection_alert_threshold = 80
+# sql_availability_type = "REGIONAL"
+# 3. Bigger api instance:
+# api_cpu    = "2"
+# api_memory = "2Gi"
 
 labels = {
   cost_center = "orenjitrade"

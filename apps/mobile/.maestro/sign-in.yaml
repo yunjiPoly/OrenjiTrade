@@ -1,0 +1,75 @@
+# Sign in (Phase 1): friendly errors for an empty form and wrong credentials, then a seed
+# collector signs in, lands on the tabs (Map | Inventory | Search | Messages | Wishlist | Profile)
+# and sees their profile. The seed account is only signed in to, never modified in the emulator;
+# its 18+ confirmation (the seed predates the rule) is recorded through the API first, as the
+# onboarding age step would (proven on its own by age-step-existing-account.yaml).
+appId: host.exp.exponent
+name: Sign in with a seed collector
+tags:
+  - mobile-m1
+  - auth
+---
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+
+# Client validation, then the friendly Firebase error.
+- tapOn:
+    id: 'sign-in-submit'
+- assertVisible: 'Enter your email address.'
+- assertVisible: 'Enter your password.'
+- tapOn:
+    id: 'sign-in-email'
+- inputText: ${SEED_EMAIL}
+- tapOn:
+    id: 'sign-in-password'
+- inputText: 'not-the-password'
+- hideKeyboard
+- tapOn:
+    id: 'sign-in-submit'
+- extendedWaitUntil:
+    visible: 'No account matches these credentials.*'
+    timeout: 30000
+
+# The real sign-in: same email, the right password. (Maestro erases before the cursor, and a tap
+# in the middle of a short field puts the cursor at its end.)
+- tapOn:
+    id: 'sign-in-password'
+- eraseText: 40
+- inputText: ${SEED_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: 'sign-in-submit'
+- extendedWaitUntil:
+    notVisible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- assertVisible:
+    id: 'tab-index'
+- assertVisible:
+    id: 'tab-inventory'
+- assertVisible:
+    id: 'tab-search'
+- assertVisible:
+    id: 'tab-messages'
+- assertVisible:
+    id: 'tab-wishlist'
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Maïka Tremblay'
+- assertVisible:
+    id: 'profile-handle-label'
+    text: '@collector1'
+- takeScreenshot: sign-in-profile

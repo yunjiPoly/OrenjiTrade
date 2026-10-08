@@ -1,5 +1,13 @@
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import type { ReactNode, Ref } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { spacing, useTheme } from '@/src/theme';
@@ -14,6 +22,8 @@ export interface ScreenProps {
   safeBottom?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** The scroll view of a `scroll` screen (to scroll to a section). */
+  scrollRef?: Ref<ScrollView>;
   testID?: string;
 }
 
@@ -25,6 +35,7 @@ export function Screen({
   safeBottom = false,
   style,
   contentContainerStyle,
+  scrollRef,
   testID,
 }: ScreenProps) {
   const { palette } = useTheme();
@@ -39,16 +50,24 @@ export function Screen({
       };
 
   if (scroll) {
+    // Forms scroll above the on-screen keyboard: the app is edge-to-edge on Android (SDK 57), so
+    // the window no longer resizes for the keyboard and the padding comes from here instead.
     return (
-      <ScrollView
-        testID={testID}
-        style={[styles.fill, { backgroundColor: palette.background }, style]}
-        contentContainerStyle={[padding, contentContainerStyle]}
-        keyboardShouldPersistTaps="handled"
-        contentInsetAdjustmentBehavior="automatic"
+      <KeyboardAvoidingView
+        style={[styles.fill, { backgroundColor: palette.background }]}
+        behavior={Platform.OS === 'web' ? undefined : 'padding'}
       >
-        {children}
-      </ScrollView>
+        <ScrollView
+          ref={scrollRef}
+          testID={testID}
+          style={[styles.fill, { backgroundColor: palette.background }, style]}
+          contentContainerStyle={[padding, contentContainerStyle]}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 

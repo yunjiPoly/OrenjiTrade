@@ -1,41 +1,34 @@
 package com.orenjitrade.api.cards.infra.images;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Files of the card image cache (ADR 0015). Final renditions live at deterministic keys {@code
+ * Keys and temporary files of the card image cache (ADR 0015). Final renditions live behind the
+ * cache's {@link com.orenjitrade.api.common.storage.ObjectStorage} (local files under the cache
+ * directory, or objects under a bucket prefix in the cloud) at deterministic keys {@code
  * <game>/<provider>/<shard>/<providerImageId>.jpg} (shard = first two hex digits of the SHA-256 of
- * the image id, so no directory grows past a few hundred files); in-flight downloads write only
- * below {@code .tmp/}, named after their capacity reservation ({@code <reservationId>.part} for the
- * raw body, {@code <reservationId>.jpg.tmp} for the rendition) so reconciliation can tell orphans
- * from live downloads. Every path is resolved inside the cache root (no traversal).
+ * the image id, so no directory grows past a few hundred files); in-flight downloads always write
+ * to the local directory, only below {@code .tmp/}, named after their capacity reservation ({@code
+ * <reservationId>.part} for the raw body, {@code <reservationId>.jpg.tmp} for the rendition) so
+ * reconciliation can tell orphans from live downloads. Every path is resolved inside the cache root
+ * (no traversal).
  */
 public final class CardImageFileStore {
 
@@ -48,6 +41,12 @@ public final class CardImageFileStore {
                     "^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\.(part|jpg\\.tmp)$");
     private static final Pattern KEY =
             Pattern.compile("^[a-z0-9-]+/[a-z0-9-]+/[0-9a-f]{2}/[A-Za-z0-9._-]{1,64}\\.jpg$");
+
+    /** A path segment the storage may hold: no dot-prefixed (working) names, no traversal. */
+    private static final Pattern SAFE_SEGMENT =
+            Pattern.compile("^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$");
+
+    static final int MAX_SAFE_KEY_LENGTH = 300;
 
     private final Path root;
 
@@ -69,7 +68,7 @@ public final class CardImageFileStore {
     }
 
     // -------------------------------------------------------------------------------------
-    // Keys and paths
+    // Keys
     // -------------------------------------------------------------------------------------
 
     /** Deterministic key of a provider artwork. */
@@ -103,21 +102,31 @@ public final class CardImageFileStore {
         }
     }
 
+    /** A key the cache itself produces ({@link #keyOf}). */
     public static boolean isValidKey(String key) {
         return KEY.matcher(key).matches() && !key.contains("..");
     }
 
-    /** Absolute path of a final file (refuses keys outside the cache). */
-    public Path pathOf(String key) {
-        if (!isValidKey(key)) {
-            throw new IllegalArgumentException("Invalid card image key");
+    /**
+     * Key policy of the cache's object storage: any traversal-free relative path made of plain
+     * segments (so reconciliation can delete stray objects that are not valid cache keys), never a
+     * dot-prefixed segment (the {@code .tmp/} staging directory and other working files).
+     */
+    public static boolean isSafeKey(String key) {
+        if (key.isEmpty() || key.length() > MAX_SAFE_KEY_LENGTH) {
+            return false;
         }
-        Path path = root.resolve(key).normalize();
-        if (!path.startsWith(root) || path.startsWith(root.resolve(TEMP_DIR))) {
-            throw new IllegalArgumentException("Invalid card image key");
+        for (String segment : key.split("/", -1)) {
+            if (!SAFE_SEGMENT.matcher(segment).matches()) {
+                return false;
+            }
         }
-        return path;
+        return true;
     }
+
+    // -------------------------------------------------------------------------------------
+    // Temporary files
+    // -------------------------------------------------------------------------------------
 
     public Path rawTemp(UUID reservationId) {
         return root.resolve(TEMP_DIR).resolve(reservationId + ".part");
@@ -125,29 +134,6 @@ public final class CardImageFileStore {
 
     public Path renditionTemp(UUID reservationId) {
         return root.resolve(TEMP_DIR).resolve(reservationId + ".jpg.tmp");
-    }
-
-    // -------------------------------------------------------------------------------------
-    // Operations
-    // -------------------------------------------------------------------------------------
-
-    public boolean exists(String key) {
-        return Files.isRegularFile(pathOf(key));
-    }
-
-    /** Size of a final file, empty when missing. */
-    public Optional<Long> size(String key) {
-        try {
-            return Optional.of(Files.size(pathOf(key)));
-        } catch (NoSuchFileException e) {
-            return Optional.empty();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    public InputStream open(String key) throws IOException {
-        return Files.newInputStream(pathOf(key));
     }
 
     /** Writes the rendition of a reservation into its temporary file. */
@@ -165,30 +151,6 @@ public final class CardImageFileStore {
         return temp;
     }
 
-    /** Moves a temporary file to its final key atomically (same file system). */
-    public void moveIntoPlace(Path temp, String key) throws IOException {
-        Path target = pathOf(key);
-        Files.createDirectories(target.getParent());
-        try {
-            Files.move(
-                    temp,
-                    target,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
-            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
-    /** Deletes a final file; {@code true} when one was removed. */
-    public boolean delete(String key) {
-        try {
-            return Files.deleteIfExists(pathOf(key));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     /** Deletes the temporary files of a reservation. */
     public void deleteTemps(UUID reservationId) {
         deleteQuietly(rawTemp(reservationId));
@@ -204,71 +166,6 @@ public final class CardImageFileStore {
         } catch (IOException e) {
             // best effort; reconciliation removes leftovers
         }
-    }
-
-    /** Final files by key with their size ({@code .tmp/} and unknown files excluded). */
-    public Map<String, Long> finalFiles() {
-        Map<String, Long> files = new LinkedHashMap<>();
-        if (!Files.isDirectory(root)) {
-            return files;
-        }
-        Path temp = root.resolve(TEMP_DIR);
-        try {
-            Files.walkFileTree(
-                    root,
-                    new SimpleFileVisitor<>() {
-                        @Override
-                        public FileVisitResult preVisitDirectory(
-                                Path dir, BasicFileAttributes attrs) {
-                            return dir.equals(temp)
-                                    ? FileVisitResult.SKIP_SUBTREE
-                                    : FileVisitResult.CONTINUE;
-                        }
-
-                        @Override
-                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                            if (attrs.isRegularFile()) {
-                                String key = root.relativize(file).toString().replace('\\', '/');
-                                files.put(key, attrs.size());
-                            }
-                            return FileVisitResult.CONTINUE;
-                        }
-
-                        @Override
-                        public FileVisitResult visitFileFailed(Path file, IOException exc) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                    });
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot scan the card image cache", e);
-        }
-        return files;
-    }
-
-    /** Files that are not valid final keys (stray files inside the cache tree). */
-    public List<String> strayFiles(Map<String, Long> finalFiles) {
-        List<String> stray = new ArrayList<>();
-        finalFiles.keySet().stream().filter(key -> !isValidKey(key)).forEach(stray::add);
-        return stray;
-    }
-
-    /** Deletes a stray file found by {@link #finalFiles()} (any relative path inside the root). */
-    public boolean deleteRelative(String relative) {
-        Path path = root.resolve(relative).normalize();
-        if (!path.startsWith(root) || path.equals(root)) {
-            return false;
-        }
-        try {
-            return Files.deleteIfExists(path);
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    /** Whether a file found by {@link #finalFiles()} is still present. */
-    public boolean existsRelative(String relative) {
-        Path path = root.resolve(relative).normalize();
-        return path.startsWith(root) && !path.equals(root) && Files.exists(path);
     }
 
     /** Temporary files with the reservation id they belong to ({@code null} for foreign names). */
@@ -299,7 +196,10 @@ public final class CardImageFileStore {
         return temps;
     }
 
-    /** Removes empty directories below the root (after clears). */
+    /**
+     * Removes empty directories below the root (after clears; local storage only, where the
+     * renditions share the root with {@code .tmp/}).
+     */
     public void pruneEmptyDirectories() {
         if (!Files.isDirectory(root)) {
             return;
@@ -308,9 +208,10 @@ public final class CardImageFileStore {
         try {
             Files.walkFileTree(
                     root,
-                    new SimpleFileVisitor<>() {
+                    new java.nio.file.SimpleFileVisitor<>() {
                         @Override
-                        public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+                        public java.nio.file.FileVisitResult postVisitDirectory(
+                                Path dir, IOException exc) {
                             if (!dir.equals(root) && !dir.equals(temp)) {
                                 try (DirectoryStream<Path> entries =
                                         Files.newDirectoryStream(dir)) {
@@ -321,12 +222,13 @@ public final class CardImageFileStore {
                                     // keep it
                                 }
                             }
-                            return FileVisitResult.CONTINUE;
+                            return java.nio.file.FileVisitResult.CONTINUE;
                         }
 
                         @Override
-                        public FileVisitResult visitFileFailed(Path file, IOException exc) {
-                            return FileVisitResult.CONTINUE;
+                        public java.nio.file.FileVisitResult visitFileFailed(
+                                Path file, IOException exc) {
+                            return java.nio.file.FileVisitResult.CONTINUE;
                         }
                     });
         } catch (IOException ignored) {

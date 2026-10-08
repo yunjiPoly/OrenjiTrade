@@ -27,8 +27,13 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { isApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import {
+  AGE_CONFIRMATION_TYPE,
+  AgeConfirmationCheckboxComponent,
+} from '../../../shared/legal/age-confirmation-checkbox.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { LegalTextsService } from '../../legal/legal-texts.service';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 import { routeAfterSignIn } from '../auth-navigation';
 import { LegalDocumentsStore } from '../data/legal-documents.store';
@@ -42,7 +47,8 @@ export const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * `/auth/sign-up`: email + password (or Google), acceptance of every legal document required at
- * registration (recorded with `POST /me/consents`), then a verification email.
+ * registration plus the 18+ confirmation (both recorded with `POST /me/consents`), then a
+ * verification email. Google sign-ups collect the same consents on the consent page.
  */
 @Component({
   selector: 'app-sign-up-page',
@@ -57,6 +63,7 @@ export const MIN_PASSWORD_LENGTH = 8;
     AuthLayoutComponent,
     GoogleButtonComponent,
     LegalConsentListComponent,
+    AgeConfirmationCheckboxComponent,
     ErrorStateComponent,
     SkeletonComponent,
   ],
@@ -70,19 +77,26 @@ export class SignUpPageComponent {
   private readonly session = inject(SessionService);
   protected readonly auth = inject(AuthService);
   protected readonly legal = inject(LegalDocumentsStore);
+  private readonly legalTexts = inject(LegalTextsService);
 
   readonly returnUrl = input<string | undefined>();
 
   protected readonly minPasswordLength = MIN_PASSWORD_LENGTH;
   protected readonly consents = new FormArray<FormControl<boolean>>([]);
+  /** Unticked by default; the server records the confirmation (`AGE_CONFIRMATION`). */
+  protected readonly ageConfirmed = this.fb.control(false, {
+    validators: Validators.requiredTrue,
+  });
   protected readonly form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(MIN_PASSWORD_LENGTH)]],
+    ageConfirmed: this.ageConfirmed,
   });
+  /** Titles follow the active legal language (the linked pages open in that language). */
   protected readonly consentItems = computed<ConsentItem[]>(() =>
     this.legal.requiredAtRegistration().map((doc) => ({
       documentType: doc.documentType,
-      title: doc.title,
+      title: this.legalTexts.titleOf(doc.url, doc.title),
       url: doc.url,
     })),
   );
@@ -154,10 +168,16 @@ export class SignUpPageComponent {
     }
   }
 
+  /** Every consent to record at sign-up: the required documents and the 18+ confirmation. */
   private requiredConsents() {
-    return this.legal
+    const consents = this.legal
       .requiredAtRegistration()
-      .map((doc) => ({ documentType: doc.documentType, version: doc.version }));
+      .map((doc) => ({ documentType: doc.documentType as string, version: doc.version }));
+    const age = this.legal.ageConfirmation();
+    if (age) {
+      consents.push({ documentType: AGE_CONFIRMATION_TYPE, version: age.version });
+    }
+    return consents;
   }
 
   private syncConsentControls(count: number): void {

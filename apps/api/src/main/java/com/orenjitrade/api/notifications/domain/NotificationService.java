@@ -7,6 +7,8 @@ import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
+import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.notifications.domain.ChannelPlan.DeliveryState;
 import com.orenjitrade.api.notifications.events.NotificationCreated;
 import com.orenjitrade.api.notifications.infra.NotificationRepository;
@@ -61,6 +63,7 @@ public class NotificationService {
     private final NotificationPreferencesService preferences;
     private final Limits limits;
     private final UserAccountService accounts;
+    private final FeatureFlags featureFlags;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
     private final JsonMapper jsonMapper;
@@ -70,6 +73,7 @@ public class NotificationService {
             NotificationPreferencesService preferences,
             Limits limits,
             UserAccountService accounts,
+            FeatureFlags featureFlags,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
             JsonMapper jsonMapper) {
@@ -77,6 +81,7 @@ public class NotificationService {
         this.preferences = preferences;
         this.limits = limits;
         this.accounts = accounts;
+        this.featureFlags = featureFlags;
         this.events = events;
         this.timeProvider = timeProvider;
         this.jsonMapper = jsonMapper;
@@ -134,7 +139,10 @@ public class NotificationService {
 
     /**
      * The single notice of the day telling the collector that more notifications of {@code type}
-     * were held back by their plan (dedup key {@code limit:<user>:<type>:<UTC day>}).
+     * were held back by their plan (dedup key {@code limit:<user>:<type>:<UTC day>}). The
+     * invitation to upgrade (sentence, {@code upgradeUrl}, {@code deepLink}) is only part of it
+     * while the {@code premiumPlans} flag is on for the collector: with the flag off nothing in the
+     * product offers a subscription (launch configuration).
      */
     private void limitNotice(
             NotificationRequest request,
@@ -155,14 +163,18 @@ public class NotificationService {
         if (!plan.wanted()) {
             return;
         }
+        boolean premiumOffered =
+                featureFlags.isEnabled(FeatureFlagKeys.PREMIUM_PLANS, request.userId());
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("kind", "LIMIT_REACHED");
         data.put("notificationType", request.type().name());
         data.put("limitKey", decision.key());
         data.put("limit", decision.limit());
         data.put("planCode", decision.planCode());
-        data.put("upgradeUrl", decision.upgradeUrl());
-        data.put("deepLink", decision.upgradeUrl());
+        if (premiumOffered) {
+            data.put("upgradeUrl", decision.upgradeUrl());
+            data.put("deepLink", decision.upgradeUrl());
+        }
         String title;
         String body;
         if (request.type() == NotificationType.WISHLIST_MATCH) {
@@ -171,14 +183,19 @@ public class NotificationService {
                     "You reached today's limit of "
                             + decision.limit()
                             + " wishlist alerts on your plan. New matches still appear on your"
-                            + " wishlist; upgrade to Premium for unlimited alerts.";
+                            + " wishlist"
+                            + (premiumOffered
+                                    ? "; upgrade to Premium for unlimited alerts."
+                                    : ". The limit resets tomorrow.");
         } else {
             title = "More notifications are waiting";
             body =
                     "You reached today's limit of "
                             + decision.limit()
-                            + " notifications of this kind on your plan. Upgrade to Premium for"
-                            + " unlimited alerts.";
+                            + " notifications of this kind on your plan."
+                            + (premiumOffered
+                                    ? " Upgrade to Premium for unlimited alerts."
+                                    : " The limit resets tomorrow.");
         }
         store(request.userId(), NotificationType.SYSTEM, title, body, data, key, plan, now);
     }

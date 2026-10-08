@@ -35,7 +35,8 @@ public class ConsentController {
             operationId = "acceptConsent",
             summary = "Accept a legal document version",
             description =
-                    "Stores the version, timestamp, a salted hash of the client IP and the user"
+                    "Stores the version, the language the text was shown in (en or fr, en when"
+                            + " omitted), timestamp, a salted hash of the client IP and the user"
                             + " agent. 409 when the version is not the current one.")
     @ApiResponse(responseCode = "204", description = "Consent recorded")
     public void accept(
@@ -47,6 +48,7 @@ public class ConsentController {
                 body.documentType(),
                 body.version().trim(),
                 request.getRemoteAddr(),
-                request.getHeader(HttpHeaders.USER_AGENT));
+                request.getHeader(HttpHeaders.USER_AGENT),
+                body.language());
     }
 }

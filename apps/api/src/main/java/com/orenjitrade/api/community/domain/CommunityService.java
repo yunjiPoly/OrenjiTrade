@@ -36,6 +36,7 @@ import com.orenjitrade.api.moderation.domain.ModerationScope;
 import com.orenjitrade.api.moderation.domain.ModerationService;
 import com.orenjitrade.api.profiles.domain.MemberCard;
 import com.orenjitrade.api.profiles.domain.MemberDirectory;
+import com.orenjitrade.api.users.domain.ConsentService;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
@@ -107,6 +108,7 @@ public class CommunityService {
     private final PostRepository posts;
     private final ReplyRepository replies;
     private final FeatureFlags featureFlags;
+    private final ConsentService consents;
     private final BlockService blocks;
     private final MemberDirectory members;
     private final ModerationService moderation;
@@ -124,6 +126,7 @@ public class CommunityService {
             PostRepository posts,
             ReplyRepository replies,
             FeatureFlags featureFlags,
+            ConsentService consents,
             BlockService blocks,
             MemberDirectory members,
             ModerationService moderation,
@@ -139,6 +142,7 @@ public class CommunityService {
         this.posts = posts;
         this.replies = replies;
         this.featureFlags = featureFlags;
+        this.consents = consents;
         this.blocks = blocks;
         this.members = members;
         this.moderation = moderation;
@@ -196,10 +200,14 @@ public class CommunityService {
         return CursorPage.of(items, new TimeCursor(last.createdAt(), last.id()).encode());
     }
 
-    /** {@code POST /community/channels/{slug}/posts}. */
+    /**
+     * {@code POST /community/channels/{slug}/posts}; {@code 403 AGE_CONFIRMATION_REQUIRED} until
+     * the author confirmed being 18 or older.
+     */
     @Transactional
     public PostView createPost(AuthenticatedUser author, String slug, NewPost input) {
         requireFeature(author);
+        consents.requireAgeConfirmed(author.userId());
         Instant now = timeProvider.now().truncatedTo(ChronoUnit.MICROS);
         ChannelRow channel = requireActiveChannel(slug, now);
         String body = requireText("body", input.body(), POST_MAX);
@@ -342,10 +350,14 @@ public class CommunityService {
         return CursorPage.of(items, new TimeCursor(last.createdAt(), last.id()).encode());
     }
 
-    /** {@code POST /community/posts/{id}/replies}. */
+    /**
+     * {@code POST /community/posts/{id}/replies}; {@code 403 AGE_CONFIRMATION_REQUIRED} until the
+     * author confirmed being 18 or older.
+     */
     @Transactional
     public ReplyView createReply(AuthenticatedUser author, UUID postId, String rawBody) {
         requireFeature(author);
+        consents.requireAgeConfirmed(author.userId());
         Instant now = timeProvider.now().truncatedTo(ChronoUnit.MICROS);
         PostRow post = requireVisiblePost(author, postId, now);
         String body = requireText("body", rawBody, REPLY_MAX);

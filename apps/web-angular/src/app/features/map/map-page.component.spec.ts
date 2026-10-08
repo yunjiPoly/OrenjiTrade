@@ -112,7 +112,7 @@ describe('MapPageComponent', () => {
       '2 collectors within 10 km',
     );
     expect(element.textContent).toContain(
-      'Locations are approximate (about 2 km) to protect privacy',
+      'Locations are approximate (about 3 km) to protect privacy',
     );
   });
 
@@ -143,7 +143,7 @@ describe('MapPageComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const note = element.querySelector('[data-testid=map-approximate-note]');
     expect(note?.textContent).toContain(APPROXIMATE_LOCATION_NOTE);
-    expect(note?.textContent).toContain('Locations are approximate (about 2 km)');
+    expect(note?.textContent).toContain('Locations are approximate (about 3 km)');
     // The map is created with the collector zoom cap and announces the approximation.
     const options = loader.mock.calls[0][1] as MapAdapterOptions;
     expect(options.maxZoom).toBe(COLLECTOR_MAP_MAX_ZOOM);

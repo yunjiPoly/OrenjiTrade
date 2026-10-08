@@ -3,6 +3,8 @@ package com.orenjitrade.api.users.domain;
 import com.orenjitrade.api.audit.domain.ActorType;
 import com.orenjitrade.api.audit.domain.AuditService;
 import com.orenjitrade.api.common.ApiException;
+import com.orenjitrade.api.common.ErrorCode;
+import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.users.infra.ConsentProperties;
 import com.orenjitrade.api.users.infra.LegalDocumentRepository;
@@ -18,11 +20,22 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Legal documents and the consents users give to them. */
+/**
+ * Legal documents and the consents users give to them, including the 18+ attestation ({@link
+ * LegalDocumentType#AGE_CONFIRMATION}): {@link #requireAgeConfirmed} is the service-layer gate
+ * other modules call before a collector becomes discoverable, messages, posts in the community or
+ * makes offers.
+ */
 @Service
 public class ConsentService {
 
     static final int MAX_USER_AGENT_LENGTH = 512;
+
+    /** Problem extension naming the consent to record (shared with the 428 terms problem). */
+    public static final String REQUIRED_CONSENTS_PROPERTY = "requiredConsents";
+
+    static final String AGE_CONFIRMATION_MESSAGE =
+            "Confirm that you are 18 years of age or older to continue";
 
     private final LegalDocumentRepository legalDocuments;
     private final UserConsentRepository consents;
@@ -67,6 +80,41 @@ public class ConsentService {
         return consents.findMissingRequiredConsents(userId);
     }
 
+    /**
+     * Whether {@code userId} recorded the 18+ confirmation (any version: the attestation stays
+     * valid when its wording is republished).
+     */
+    @Transactional(readOnly = true)
+    public boolean hasConfirmedAge(UUID userId) {
+        return consents.existsByUserIdAndDocumentType(userId, LegalDocumentType.AGE_CONFIRMATION);
+    }
+
+    /**
+     * The service-layer 18+ gate: passes silently when the confirmation exists.
+     *
+     * @throws ApiException {@code 403 AGE_CONFIRMATION_REQUIRED} with the {@code requiredConsents}
+     *     extension naming the current {@code AGE_CONFIRMATION} version to record
+     */
+    @Transactional(readOnly = true)
+    public void requireAgeConfirmed(UUID userId) {
+        if (hasConfirmedAge(userId)) {
+            return;
+        }
+        ApiException problem =
+                new ApiException(ErrorCode.AGE_CONFIRMATION_REQUIRED, AGE_CONFIRMATION_MESSAGE);
+        legalDocuments
+                .findByDocumentTypeAndCurrentTrue(LegalDocumentType.AGE_CONFIRMATION)
+                .ifPresent(
+                        document ->
+                                problem.withProperty(
+                                        REQUIRED_CONSENTS_PROPERTY,
+                                        List.of(
+                                                new RequiredConsent(
+                                                        document.getDocumentType(),
+                                                        document.getVersion()))));
+        throw problem;
+    }
+
     /** Every consent the user ever gave, newest first (admin detail, data export). */
     @Transactional(readOnly = true)
     public List<ConsentSummary> consentsOf(UUID userId) {
@@ -76,16 +124,12 @@ public class ConsentService {
                                 new ConsentSummary(
                                         consent.getDocumentType(),
                                         consent.getVersion(),
-                                        consent.getAcceptedAt()))
+                                        consent.getAcceptedAt(),
+                                        consent.getLanguage()))
                 .toList();
     }
 
-    /**
-     * Records that {@code userId} accepted {@code documentType} in {@code version}.
-     *
-     * @throws ApiException 404 when the document type has no current version, 409 when {@code
-     *     version} is not the current one
-     */
+    /** {@link #accept(UUID, LegalDocumentType, String, String, String, String)} in English. */
     @Transactional
     public void accept(
             UUID userId,
@@ -93,6 +137,33 @@ public class ConsentService {
             String version,
             @Nullable String clientIp,
             @Nullable String userAgent) {
+        accept(userId, documentType, version, clientIp, userAgent, null);
+    }
+
+    /**
+     * Records that {@code userId} accepted {@code documentType} in {@code version}, shown in {@code
+     * language} ({@code en} when {@code null}; one version covers both languages, see {@link
+     * ConsentLanguage}).
+     *
+     * @throws ApiException 404 when the document type has no current version, 409 when {@code
+     *     version} is not the current one, 400 for an unsupported language
+     */
+    @Transactional
+    public void accept(
+            UUID userId,
+            LegalDocumentType documentType,
+            String version,
+            @Nullable String clientIp,
+            @Nullable String userAgent,
+            @Nullable String language) {
+        String shownIn;
+        try {
+            shownIn = ConsentLanguage.normalize(language);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.validation(
+                    "Unsupported consent language",
+                    List.of(new ProblemFieldError("language", "must be one of en, fr")));
+        }
         LegalDocument current =
                 legalDocuments
                         .findByDocumentTypeAndCurrentTrue(documentType)
@@ -120,14 +191,21 @@ public class ConsentService {
                         version,
                         timeProvider.now(),
                         hashIp(clientIp),
-                        truncate(userAgent)));
+                        truncate(userAgent),
+                        shownIn));
         auditService.record(
                 ActorType.USER,
                 userId,
                 "consent.accept",
                 AuditService.TARGET_USER,
                 userId.toString(),
-                Map.of("documentType", documentType.name(), "version", version));
+                Map.of(
+                        "documentType",
+                        documentType.name(),
+                        "version",
+                        version,
+                        "language",
+                        shownIn));
     }
 
     /** SHA-256 over the server salt and the address; {@code null} when the address is unknown. */

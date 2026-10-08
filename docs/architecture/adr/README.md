@@ -15,8 +15,9 @@ major decision silently: add a superseding ADR and link both ways.
 | [0008](0008-firebase-identity-platform.md) | Firebase Authentication / Identity Platform as identity provider |
 | [0009](0009-domain-events-outbox-pubsub.md) | Domain events via transactional outbox with a Pub/Sub adapter |
 | [0010](0010-map-provider-abstraction.md) | Google Maps behind a map adapter with Leaflet fallback |
-| [0011](0011-payments-stripe-connect-abstraction.md) | Payments through a provider abstraction (Stripe Connect), feature-flagged |
+| [0011](0011-payments-stripe-connect-abstraction.md) | Payments through a provider abstraction (Stripe Connect), feature-flagged (open owner question 2026-10-05: app-store purchase rules for the mobile app) |
 | [0012](0012-postgres-search-before-elasticsearch.md) | PostgreSQL full-text + trigram search before any search engine |
 | [0013](0013-google-client-libraries-not-spring-cloud-gcp.md) | Google Cloud client libraries instead of Spring Cloud GCP |
 | [0014](0014-configurable-business-rules.md) | Business rules (limits, delisting, flags) are data, not code |
-| [0015](0015-card-images-provider-hosting-capped-cache.md) | Card images: provider hosting policies and a capped local image cache (≤ 500 MB) |
+| [0015](0015-card-images-provider-hosting-capped-cache.md) | Card images: provider hosting policies and a capped image cache (≤ 5 GB since 2026-10-04, previously 500 MB; renditions on object storage in the cloud since 2026-10-05) |
+| [0016](0016-low-cost-first-year-production-profile.md) | Low-cost first-year production profile (db-g1-small, Valkey sidecar, one api instance, Direct VPC egress, Certificate Manager behind Cloudflare, cost table and scale-up path) |

@@ -6,6 +6,25 @@
   max-width: 820px;
 }
 
+.legal__bar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-6);
+}
+
+.legal__banner {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+}
+
+@media (max-width: 599px) {
+  .legal__bar {
+    flex-direction: column-reverse;
+    align-items: flex-end;
+  }
+}
+
 .legal__meta {
   display: flex;
   flex-wrap: wrap;

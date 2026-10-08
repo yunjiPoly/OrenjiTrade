@@ -1,12 +1,18 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AccountProvider } from '@/src/account/AccountProvider';
 import { connectQueryManagers, queryClient } from '@/src/api/queryClient';
-import { SessionProvider } from '@/src/auth/SessionProvider';
+import { SessionProvider } from '@/src/auth/session';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
+import { SnackbarProvider } from '@/src/components/ui/Snackbar';
+import { RootNavigator } from '@/src/navigation/RootNavigator';
+import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
+import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 
 export {
@@ -21,26 +27,27 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
-  useEffect(() => {
-    const disconnect = connectQueryManagers();
-    SplashScreen.hideAsync().catch(() => undefined);
-    return disconnect;
-  }, []);
+  useEffect(() => connectQueryManagers(), []);
+  // The icon font is preloaded (not awaited): the web static render then embeds it, so the
+  // server HTML and the first client render draw the same glyphs (no hydration mismatch), and
+  // native screens do not flash empty icons.
+  useFonts(MaterialCommunityIcons.font);
 
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
-          <ThemeProvider>
-            <OfflineBanner />
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false, presentation: 'modal' }} />
-              <Stack.Screen name="collectors/[id]" options={{ title: 'Collector' }} />
-              <Stack.Screen name="cards/[id]" options={{ title: 'Card' }} />
-              <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
-            </Stack>
-          </ThemeProvider>
+          <AccountProvider>
+            <RealtimeProvider>
+              <RealtimeCacheSync />
+              <ThemeProvider>
+                <SnackbarProvider>
+                  <OfflineBanner />
+                  <RootNavigator />
+                </SnackbarProvider>
+              </ThemeProvider>
+            </RealtimeProvider>
+          </AccountProvider>
         </SessionProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

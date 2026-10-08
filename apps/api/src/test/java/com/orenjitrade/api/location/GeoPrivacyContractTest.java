@@ -773,9 +773,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
 
         List<JsonNode> documents = new ArrayList<>();
         List<JsonNode> ads = new ArrayList<>();
+        // Every money flag is off by the migrations (V105 launch configuration): switch on the
+        // four this test reads through, and put them back afterwards.
         testUsers.update(
                 "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key IN"
-                        + " ('advertising', 'donations')");
+                        + " ('premiumPlans', 'credits', 'advertising', 'donations')");
         featureFlags.invalidate();
         try {
             documents.add(callJson(HttpMethod.GET, "/api/v1/me/plan", premium, null, 200));
@@ -818,8 +820,8 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                     .isZero();
         } finally {
             testUsers.update(
-                    "UPDATE feature_flag SET enabled = false WHERE key IN ('advertising',"
-                            + " 'donations')");
+                    "UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans',"
+                            + " 'credits', 'advertising', 'donations')");
             featureFlags.invalidate();
         }
         for (String path :

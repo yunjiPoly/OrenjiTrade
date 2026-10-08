@@ -160,7 +160,8 @@ Card metadata comes from `CardProvider` adapters (`MockCardProvider` locally, `Y
 for the real Yu-Gi-Oh! catalog) and is always imported completely. Card images are separate: one
 `card_image` row per provider artwork, a provider hosting policy (`REHOST_REQUIRED` /
 `HOTLINK_ALLOWED`), a single `CardImageUrlResolver` for every DTO and a capped local cache (at most
-500 MB) served by `GET /api/v1/public/card-images/{id}` — see
+5 GB = 5120 MiB since 2026-10-04, enough for the whole Yu-Gi-Oh! catalog at 320 px) served by
+`GET /api/v1/public/card-images/{id}` — see
 [ADR 0015](adr/0015-card-images-provider-hosting-capped-cache.md).
 
 ## 6. Inventory model
@@ -249,9 +250,15 @@ flowchart LR
   CFd[Cloudflare<br/>www · api records<br/>WAF · cache bypass for api] --> CRp
 ```
 
-Environments: `local` (Docker Compose), `development`, `staging`, `production` — separate GCP
-projects or at least separate Cloud SQL instances, secrets and service accounts. Details in
-`docs/deployment/`.
+Environments: `local` (Docker Compose), `development`, `staging`, `production` (`ORENJI_ENV`;
+the Spring profiles are `local`, `dev`, `staging`, `prod`) — separate GCP projects or at least
+separate Cloud SQL instances, secrets and service accounts. Details in `docs/deployment/`.
+
+First-year production profile (ADR 0016, 2026-10-05): one always-on `api` Cloud Run instance
+with a Valkey sidecar as its Redis (no Memorystore until the scale-up path), Cloud SQL
+`db-g1-small` ZONAL, Direct VPC egress (no connector, no Cloud NAT), the web service scaled to
+zero, a Certificate Manager certificate behind Cloudflare, no `ml` service while Phase 11 is on
+hold. The diagram above shows the full topology the modules can still produce.
 
 ## 11. Observability
 

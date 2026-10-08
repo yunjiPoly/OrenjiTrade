@@ -80,6 +80,11 @@
         [formArray]="consents"
         [showError]="submitted() && consents.invalid"
       />
+      <app-age-confirmation-checkbox
+        class="form__field"
+        [control]="ageConfirmed"
+        [showError]="submitted() && ageConfirmed.invalid"
+      />
     }
 
     <button

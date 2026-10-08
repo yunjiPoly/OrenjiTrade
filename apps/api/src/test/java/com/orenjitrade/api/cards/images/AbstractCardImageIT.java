@@ -10,6 +10,8 @@ import com.orenjitrade.api.cards.domain.images.CardImageCache;
 import com.orenjitrade.api.cards.domain.images.CardImageCacheProperties;
 import com.orenjitrade.api.cards.domain.provider.SyncMode;
 import com.orenjitrade.api.cards.infra.ygoprodeck.YgoProDeckCardProvider;
+import com.orenjitrade.api.common.storage.ObjectStorage;
+import com.orenjitrade.api.common.storage.ObjectSummary;
 import com.orenjitrade.api.games.domain.GameService;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -23,6 +25,7 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -43,6 +46,11 @@ public abstract class AbstractCardImageIT extends AbstractIntegrationTest {
     @Autowired protected CardImageCache cache;
     @Autowired protected CardImageCacheProperties cacheProperties;
     @Autowired protected GameService gameService;
+
+    /** The storage holding this context's renditions (local files, or an in-memory bucket). */
+    @Autowired
+    @Qualifier(CardImageCache.STORAGE_BEAN)
+    protected ObjectStorage cardImageStorage;
 
     @DynamicPropertySource
     static void ygoProDeckStub(DynamicPropertyRegistry registry) {
@@ -65,6 +73,18 @@ public abstract class AbstractCardImageIT extends AbstractIntegrationTest {
         cache.awaitIdle(Duration.ofSeconds(30));
         cache.clear(null);
         testUsers.update("DELETE FROM card_image_cache_reservation");
+        // The suite shares one database and one cache directory between the local contexts and
+        // the in-memory-bucket context (CardImageObjectStorageIT): a clear in one context
+        // un-caches rows whose renditions live in the other context's storage, and reconciliation
+        // keeps fresh unreferenced objects (they may be a commit in flight elsewhere). Every test
+        // therefore starts from an empty storage, whatever another context left behind.
+        for (ObjectSummary object : cardImageStorage.list("")) {
+            try {
+                cardImageStorage.delete(object.key());
+            } catch (RuntimeException e) {
+                // a stray name the policy refuses: reconciliation counts it, the tests tolerate it
+            }
+        }
         cache.reconcile();
         testUsers.update(
                 "UPDATE card_image SET cache_status = 'NOT_CACHED', attempt_count = 0, last_error ="

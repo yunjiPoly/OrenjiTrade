@@ -1,0 +1,190 @@
+# Sign up -> verification -> onboarding -> tabs (Phase 1): a new fictional collector
+# (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) accepts the versioned legal documents and the
+# 18+ confirmation (its own checkbox, never ticked by "Accept all"), verifies the email through
+# the local Auth emulator, completes the three onboarding steps with a manual trading area and
+# stays hidden from the map (discoverability defaults to off).
+appId: host.exp.exponent
+name: Sign up and onboarding
+tags:
+  - mobile-m1
+  - auth
+  - onboarding
+---
+- runScript: scripts/new-identity.js
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- tapOn: 'Create an account'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-up'
+    timeout: 30000
+
+# Validation first (the legal documents come from the API; the button sits below them).
+- extendedWaitUntil:
+    visible: 'Accept all'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'sign-up-submit'
+- tapOn:
+    id: 'sign-up-submit'
+- assertVisible: 'Please accept every document to continue.'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'sign-up-display-name'
+- assertVisible: 'Enter a display name.'
+
+- tapOn:
+    id: 'sign-up-display-name'
+- inputText: 'Maestro Newbie'
+- tapOn:
+    id: 'sign-up-email'
+- inputText: ${output.signup.email}
+- tapOn:
+    id: 'sign-up-password'
+- inputText: ${output.signup.password}
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'legal-consents-all'
+- tapOn:
+    id: 'legal-consents-all'
+# The 18+ confirmation stays unticked after "Accept all" and is required on its own.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'age-confirmation'
+- assertVisible:
+    id: 'age-confirmation'
+    checked: false
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'sign-up-submit'
+- tapOn:
+    id: 'sign-up-submit'
+- assertVisible: 'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'age-confirmation'
+- tapOn:
+    id: 'age-confirmation'
+- assertVisible:
+    id: 'age-confirmation'
+    checked: true
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'sign-up-submit'
+- tapOn:
+    id: 'sign-up-submit'
+
+# Email verification through the emulator's out-of-band code.
+- extendedWaitUntil:
+    visible:
+      id: 'screen-verify-email'
+    timeout: 60000
+- assertVisible: 'Check your inbox'
+- runScript:
+    file: scripts/verify-email.js
+    env:
+      EMAIL: ${output.signup.email}
+- tapOn:
+    id: 'verify-check'
+
+# Onboarding step 1: profile, prefilled with the display name and the handle the API derived.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-profile'
+    timeout: 60000
+- assertVisible:
+    id: 'profile-display-name'
+    text: 'Maestro Newbie'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-profile-continue'
+- tapOn:
+    id: 'onboarding-profile-continue'
+
+# Step 2: interests.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-interests'
+    timeout: 30000
+- tapOn:
+    id: 'game-pokemon'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-interests-continue'
+- tapOn:
+    id: 'onboarding-interests-continue'
+
+# Step 3: a manual trading area on the map (the Québec quick pick: its public centre and suggested
+# radius); the map opt-in stays off. Edge swipes only: a swipe over the map would pan it.
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-area'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'trading-area-map'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'area-city-quebec'
+- tapOn:
+    id: 'area-city-quebec'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'area-centre-summary'
+- assertVisible:
+    id: 'area-centre-summary'
+    text: 'Centre: Québec city centre.'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-discoverable'
+- assertVisible:
+    id: 'onboarding-discoverable'
+    checked: false
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'onboarding-finish'
+- tapOn:
+    id: 'onboarding-finish'
+
+# The tabs, and the profile of the new collector, hidden from the map.
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Maestro Newbie'
+- assertVisible:
+    id: 'profile-handle-label'
+    text: '@.+'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-visibility'
+- assertVisible:
+    id: 'profile-area'
+    text: '.*Québec.*15 km radius'
+- assertVisible:
+    id: 'profile-visibility'
+    text: 'Hidden from the map.'
+- takeScreenshot: sign-up-onboarded-profile

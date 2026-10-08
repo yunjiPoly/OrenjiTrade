@@ -9,5 +9,11 @@ public enum LegalDocumentType {
     PAYMENT_PROTECTION,
     REFUND_DISPUTE,
     COOKIES,
-    ACCEPTABLE_USE
+    ACCEPTABLE_USE,
+    /**
+     * The 18+ attestation ("I confirm I am 18 years of age or older"), recorded like any other
+     * consent but never {@code required_at_registration}: the service layer gates discoverability,
+     * messaging, community posts and offers on it instead of the terms filter (V103).
+     */
+    AGE_CONFIRMATION
 }

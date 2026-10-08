@@ -51,7 +51,7 @@ test.describe('app shell', () => {
       page.locator('#map-messages-panel').getByRole('link', { name: 'Sign in to message' }),
     ).toHaveAttribute('href', '/auth/sign-in?returnUrl=%2Fmap');
     await expect(
-      page.getByText('Locations are approximate (about 2 km) to protect privacy'),
+      page.getByText('Locations are approximate (about 3 km) to protect privacy'),
     ).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Search the map' })).toBeVisible();
     await expect(page.getByRole('toolbar', { name: 'Map filters' })).toBeVisible();

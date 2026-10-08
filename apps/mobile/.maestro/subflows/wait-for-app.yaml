@@ -1,0 +1,16 @@
+# Waits until OrenjiTrade rendered one of its screens (after the boot screen restored the session).
+appId: host.exp.exponent
+---
+- extendedWaitUntil:
+    visible:
+      id: 'screen-.*'
+    timeout: 240000
+- runFlow:
+    when:
+      visible:
+        id: 'boot-screen'
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            id: 'boot-screen'
+          timeout: 60000

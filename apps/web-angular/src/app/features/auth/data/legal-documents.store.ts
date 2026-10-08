@@ -3,6 +3,7 @@ import { LegalDocument, LegalService, RequiredConsent } from '@orenji/api-client
 import { firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
+import { AGE_CONFIRMATION_TYPE } from '../../../shared/legal/age-confirmation-checkbox.component';
 
 /** Current legal document versions (`GET /api/v1/public/legal/documents`), cached per session. */
 @Injectable({ providedIn: 'root' })
@@ -19,8 +20,15 @@ export class LegalDocumentsStore {
   readonly error = this.errorState.asReadonly();
   /** Documents a new collector must accept, in a stable reading order (terms first). */
   readonly requiredAtRegistration = computed(() =>
-    sortDocuments(this.documentsState().filter((doc) => doc.requiredAtRegistration)),
+    sortDocuments(
+      this.documentsState().filter((doc) => doc.requiredAtRegistration && !isAgeConfirmation(doc)),
+    ),
   );
+  /**
+   * The 18+ attestation (`AGE_CONFIRMATION`): a consent to record, never a document to read, so
+   * it is kept out of {@link requiredAtRegistration} and shown as its own checkbox.
+   */
+  readonly ageConfirmation = computed(() => this.documentsState().find(isAgeConfirmation) ?? null);
 
   async load(force = false): Promise<void> {
     if ((this.loaded && !force) || this.loadingState()) {
@@ -53,6 +61,11 @@ export class LegalDocumentsStore {
 }
 
 const ORDER = ['TERMS', 'PRIVACY', 'COMMUNITY_GUIDELINES', 'ACCEPTABLE_USE'];
+
+function isAgeConfirmation(doc: LegalDocument): boolean {
+  const type: string = doc.documentType;
+  return type === AGE_CONFIRMATION_TYPE;
+}
 
 function sortDocuments(docs: LegalDocument[]): LegalDocument[] {
   const rank = (type: string) => {

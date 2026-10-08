@@ -13,3 +13,6 @@ src/theme/_theme-colors.scss
 
 # Not owned by this app
 ../../packages/
+
+# config.json of the E2E dev server (written per run)
+e2e/.runtime/

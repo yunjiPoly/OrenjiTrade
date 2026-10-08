@@ -1,0 +1,148 @@
+# Inventory (mobile Phase 3): a fresh collector adds a card through the catalog search, printing
+# and details steps, edits it and deletes it after a confirmation. scripts/check-inventory.js
+# checks on the host what the isolated API holds after each step.
+appId: host.exp.exponent
+name: Add, edit and delete an inventory card
+tags:
+  - mobile-m2
+  - inventory
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: inv
+      DISPLAY_NAME: Maestro Inventory
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-empty'
+    timeout: 60000
+
+# Step 1: catalog autocomplete.
+- tapOn:
+    id: 'inventory-add-card'
+- extendedWaitUntil:
+    visible:
+      id: 'card-picker-input'
+    timeout: 30000
+- tapOn:
+    id: 'card-picker-input'
+- inputText: 'tidal otter'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'card-picker-results'
+    timeout: 30000
+- tapOn:
+    text: 'Tidal Otterling.*'
+    index: 0
+
+# Step 2: the reverse holo printing.
+- extendedWaitUntil:
+    visible:
+      id: 'add-item-continue'
+    timeout: 30000
+- tapOn:
+    text: 'SVX-025, .*Reverse holo.*'
+- tapOn:
+    id: 'add-item-continue'
+
+# Step 3: two copies, for trade.
+- extendedWaitUntil:
+    visible:
+      id: 'item-quantity'
+    timeout: 30000
+- tapOn:
+    id: 'item-quantity'
+- eraseText: 6
+- inputText: '2'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'item-availability-TRADE'
+- tapOn:
+    id: 'item-availability-TRADE'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'add-item-submit'
+- takeScreenshot: inventory-add-details
+- tapOn:
+    id: 'add-item-submit'
+
+# Back on the Inventory tab with the new card.
+- extendedWaitUntil:
+    visible: 'Tidal Otterling, SVX-025.*'
+    timeout: 60000
+- takeScreenshot: inventory-list
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '1'
+      EXPECT_QUANTITY: '2'
+      EXPECT_AVAILABILITY: 'TRADE'
+      EXPECT_FINISH: 'REVERSE_HOLO'
+
+# Edit: three copies.
+- tapOn: 'Tidal Otterling, SVX-025.*'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-name'
+      text: 'Tidal Otterling'
+    timeout: 60000
+- tapOn:
+    id: 'item-quantity'
+- eraseText: 6
+- inputText: '3'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'edit-item-delete'
+- tapOn:
+    id: 'edit-item-save'
+- extendedWaitUntil:
+    visible: 'Card saved.'
+    timeout: 30000
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '1'
+      EXPECT_QUANTITY: '3'
+
+# Delete after a confirmation.
+- tapOn:
+    id: 'edit-item-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-delete-dialog'
+    timeout: 30000
+- takeScreenshot: inventory-delete-dialog
+- tapOn:
+    id: 'edit-item-delete-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-empty'
+    timeout: 60000
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '0'

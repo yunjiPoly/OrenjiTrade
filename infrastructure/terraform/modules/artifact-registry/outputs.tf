@@ -17,3 +17,8 @@ output "repository_url" {
   description = "Image prefix: <region>-docker.pkg.dev/<project>/<repo>."
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}"
 }
+
+output "dockerhub_repository_url" {
+  description = "Image prefix of the Docker Hub remote repository (<region>-docker.pkg.dev/<project>/<dockerhub repo>; append <namespace>/<image>), null when not created."
+  value       = var.create_dockerhub_remote ? "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.dockerhub[0].repository_id}" : null
+}

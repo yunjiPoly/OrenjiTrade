@@ -26,6 +26,13 @@ describe('friendlyError', () => {
     expect(friendlyMessage(error('PAYLOAD_TOO_LARGE', 413))).toContain('5 MB');
   });
 
+  it('explains the 18+ gate without echoing anything else', () => {
+    const problem = friendlyError(error('AGE_CONFIRMATION_REQUIRED', 403, 'server text'));
+    expect(problem.title).toBe('Age confirmation needed');
+    expect(problem.message).toContain('18 years of age or older');
+    expect(problem.message).not.toContain('server text');
+  });
+
   it('explains messaging and community refusals without echoing moderation details', () => {
     expect(friendlyError(error('MESSAGING_BLOCKED', 403)).title).toBe('Messaging unavailable');
     expect(friendlyMessage(error('MESSAGE_BLOCKED', 422, 'banned term xyz'))).not.toContain('xyz');

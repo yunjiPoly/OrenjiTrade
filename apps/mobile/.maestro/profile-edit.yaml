@@ -1,0 +1,94 @@
+# Profile edit (Phase 1): a fresh collector edits display name and bio from the Profile tab,
+# sees the API's field error for a taken handle, saves, and the Profile tab shows the change.
+appId: host.exp.exponent
+name: Edit the profile
+tags:
+  - mobile-m1
+  - profile
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: edit
+      DISPLAY_NAME: Maestro Editor
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Maestro Editor'
+- tapOn:
+    id: 'profile-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'profile-display-name'
+    timeout: 30000
+
+# A taken handle is refused by the API with a field error. (Maestro erases before the cursor; a
+# tap in the middle of a short field puts the cursor at its end.)
+- tapOn:
+    id: 'profile-handle'
+- eraseText: 40
+- inputText: 'collector2'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-display-name'
+- tapOn:
+    id: 'profile-display-name'
+- eraseText: 40
+- inputText: 'Maestro Editor Renamed'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-save-details'
+- tapOn:
+    id: 'profile-save-details'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'profile-handle'
+- extendedWaitUntil:
+    visible: 'That handle is already taken. Try another one.'
+    timeout: 30000
+
+# Back to the own handle, a new bio, save.
+- tapOn:
+    id: 'profile-handle'
+- eraseText: 40
+- inputText: ${output.collector.handle}
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-bio'
+- tapOn:
+    id: 'profile-bio'
+- eraseText: 40
+- inputText: 'Updated from the Android app.'
+- hideKeyboard
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-save-details'
+- tapOn:
+    id: 'profile-save-details'
+- extendedWaitUntil:
+    visible: 'Profile saved.'
+    timeout: 30000
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'profile-name'
+      text: 'Maestro Editor Renamed'
+    timeout: 30000
+- assertVisible:
+    id: 'profile-bio-text'
+    text: 'Updated from the Android app.'
+- takeScreenshot: profile-edited

@@ -1,6 +1,8 @@
 # ADR 0015 — Card images: provider hosting policies and a capped local image cache
 
-**Status:** Accepted · **Date:** 2026-10-01 · Extends [ADR 0005](0005-multi-tcg-data-model.md)
+**Status:** Accepted · **Date:** 2026-10-01 · **Amended:** 2026-10-04 (cache cap 500 MB → 5 GB),
+2026-10-05 (renditions behind `ObjectStorage`: local files or the media bucket) ·
+Extends [ADR 0005](0005-multi-tcg-data-model.md)
 
 ## Context
 
@@ -13,8 +15,9 @@ forbid continual hotlinking ("download and re-host the images yourself", or the 
 blacklisted) and ask clients to store pulled data locally to keep API calls to a minimum. Pokémon,
 Magic and Riftbound sources will follow with different terms (some CDNs explicitly allow
 hotlinking). The full Yu-Gi-Oh! catalog is 14,592 cards / 14,764 artworks (≈ 128 KB per full
-image), more than a developer machine should store, and the owner requires that the local image
-cache never exceeds 500 MB.
+image), more than a developer machine should store, and the owner required (2026-10-01) that the
+local image cache never exceeds 500 MB; on 2026-10-04 the owner raised that cap to 5 GB (see
+"Amendment 2026-10-04" below).
 
 ## Decision
 
@@ -38,7 +41,8 @@ cache never exceeds 500 MB.
    one card carry `data.cardImageUrl` (+ `cardName`, `game`), message offer links
    `OfferLink.imageUrl`, admin listings `AdminListingItem.imageUrl`.
 4. **Capped, game-agnostic cache** (`CardImageCache`): `CARD_IMAGE_LOCAL_CACHE_MAX_MB` (default
-   500; values above 500 stop the start-up, never silently lowered; smaller values allowed). Final
+   5120 MiB = 5 GB since 2026-10-04, previously 500; values above 5120 stop the start-up, never
+   silently lowered; smaller values allowed; every byte figure is a 64-bit `long` / `bigint`). Final
    files, temporary download files and outstanding reservations together never exceed the limit:
    bytes are reserved in `card_image_cache_reservation` under a lock on the single
    `card_image_cache_usage` row (`SELECT … FOR UPDATE`) before streaming (announced
@@ -68,6 +72,82 @@ cache never exceeds 500 MB.
    `Cache-Control: public, max-age=31536000, immutable` and the SHA-256 as ETag. The start-up seed
    stays on the offline `MockCardProvider`; tests and CI never touch the network.
 
+## Amendment 2026-10-04
+
+2026-10-04: owner raised the cap to 5 GB so the full Yu-Gi-Oh! catalog at 320 px fits locally.
+`CARD_IMAGE_LOCAL_CACHE_MAX_MB` now defaults to 5120 MiB, which is also the hard ceiling (5121 or
+more stops the start-up with "between 1 and 5120"; smaller values stay allowed and are never
+changed silently). The 14,764 artworks at about 45 KB each need about 650 MB, so 5 GB holds the
+whole Yu-Gi-Oh! catalog with room for the Pokémon, Magic and Riftbound catalogs that follow.
+Nothing else changes: one 320 px JPEG rendition per artwork (quality 0.82, no full-size or
+cropped copies), the 2 MB per-download maximum, reservations and temporary files counting toward
+the cap, eviction, reconciliation, the on-demand fill rate limits, and browsers only ever receive
+`/api/v1/public/card-images/{id}` (YGOPRODeck is never hotlinked). 5 GB (5,368,709,120 bytes)
+exceeds the 32-bit range: the accounting columns (`card_image_cache_usage.used_bytes`,
+`card_image_cache_reservation.bytes`, `card_image.file_size_bytes`) were already `bigint` in V100,
+the Java accounting uses `long` throughout and the OpenAPI byte fields are `int64`, so no migration
+was needed. Local development only: the cloud storage question (below) is unchanged.
+
+## Amendment 2026-10-05 — renditions on object storage (cloud profile)
+
+Cloud Run wipes the instance's disk on every restart, so a cache of local files would be lost with
+each deploy (see [ADR 0016](0016-low-cost-first-year-production-profile.md) for the production
+profile). The stored renditions now live behind the existing `ObjectStorage` abstraction
+(ADR 0013) through a second, dedicated instance (`cardImageStorage`, injected by name; the media
+storage stays the primary bean):
+
+- **Local development is unchanged.** With `STORAGE_PROVIDER=local` (the default) the instance is
+  a `LocalFileObjectStorage` rooted at `CARD_IMAGE_CACHE_DIR` (default
+  `<STORAGE_LOCAL_ROOT>/card-images`): the same files at the same keys
+  `<game>/<provider>/<shard>/<providerImageId>.jpg`, one directory per database, atomic rename
+  into place, `.tmp/` staging next to them. `npm run card-images:status|clear|reconcile`, the
+  E2E harness guards (`STORAGE_LOCAL_ROOT`, `CARD_IMAGE_CACHE_DIR`, `PROVIDER_DATA_DIR`) and
+  their isolation reasoning ("start-up reconciliation deletes files no row references") keep
+  working as before.
+- **In the cloud** (`STORAGE_PROVIDER=gcs`) the instance is a `GcsObjectStorage` for the prefix
+  `card-images/` (`CARD_IMAGE_OBJECT_PREFIX`) of the **media bucket** (`GCS_BUCKET_MEDIA`, or
+  `CARD_IMAGE_GCS_BUCKET` for a dedicated bucket). The media bucket was chosen over a dedicated
+  one because it already exists per environment, is bound to the API service account, enforces
+  public access prevention (renditions are only ever served through
+  `GET /api/v1/public/card-images/{id}`, which Cloudflare caches as `immutable`), and the prefix
+  cannot collide with the media namespaces (`avatars/`, `inventory/`, `uploads/`, `disputes/`,
+  `tmp/`; the `tmp/` lifecycle rule never touches it). The 5 GB cap is enforced per database by
+  the `card_image_cache_usage` row, not per bucket, so a separate bucket would add IAM, outputs
+  and cost without isolating anything; switching to one is a single variable.
+  `CARD_IMAGE_STORAGE_PROVIDER` can override the provider independently of the media storage
+  (tests run the cloud pipeline against an in-memory bucket this way).
+- **Temporary files stay local** (`CARD_IMAGE_CACHE_DIR`, `/tmp/card-images` on Cloud Run): the
+  raw body streams to `.tmp/<reservation>.part`, the rendition is written to
+  `.tmp/<reservation>.jpg.tmp`, the accounting is committed under the usage lock, and only then
+  the rendition is uploaded (or renamed into place locally). At most
+  `max-parallel-downloads × (2 MB + rendition)` bytes of the in-memory disk are in use.
+- **Every cap rule holds:** `used_bytes` counts the stored objects (recomputed from a bucket
+  listing by reconciliation), live reservations and temporary files no reservation covers are
+  added to every capacity check, expired reservations are reclaimed, eviction and clears delete
+  objects and release capacity, deduplication shares one object. Provider URLs remain
+  server-side (`card_image.source_url`), YGOPRODeck is never hotlinked, the adapter pacing
+  (5 requests/second, ceiling 15) is untouched.
+- **Reconciliation never deletes a valid object.** Start-up and on-demand reconciliation list
+  the bucket prefix (about 15 list calls for the whole Yu-Gi-Oh! catalog instead of one metadata
+  request per artwork), mark CACHED rows whose object is gone NOT_CACHED, delete orphan temporary
+  files and unreferenced objects, and recompute the usage from the listing. An unreferenced
+  object **younger than the reservation TTL (10 min) is never deleted**: it may be a commit in
+  flight in another process (the previous revision during a Cloud Run rollout, a second instance
+  on the scale-up path), so it is counted against the limit instead and removed by a later run
+  if it stays unreferenced. Objects whose names are not valid cache keys (strays) are deleted
+  once old, or kept counting when they cannot be deleted.
+- **Serving:** the row describes the rendition (key, size, SHA-256); a matching `If-None-Match`
+  answers 304 without touching the storage; otherwise one read fetches the object (one GCS round
+  trip on a Cloudflare miss). A vanished object (evicted by another instance, a bucket restore)
+  repairs the row and the same request is decided again (on-demand fill or placeholder). Imports
+  take one listing snapshot instead of an existence check per candidate.
+- Tests: `LocalFileObjectStorageTest`, `GcsObjectStorageTest` (google-cloud-nio in-memory
+  storage), `CardImageObjectStorageIT` (the full pipeline on an in-memory bucket: objects under
+  the prefix, a fresh instance after a wiped disk keeps and serves every object, a vanished object
+  is repaired and refilled, deduplication and eviction on objects, the cap with objects +
+  temporary files + reservations, fresh unreferenced objects kept and counted),
+  `CardImageCacheIT.reconciliationKeepsFreshUnreferencedFilesUntilTheyAge`.
+
 ## Consequences
 
 - Adding Pokémon, Magic or Riftbound means writing a `CardProvider` adapter (mapping, hosting
@@ -78,12 +158,15 @@ cache never exceeds 500 MB.
   in the footer and on card and set pages.
 - A local developer sees real pictures for what the demo and their own data reference; everything
   else shows placeholders until fetched. `npm run card-images:status|clear` manage the cache.
-- In the cloud the same cache would need shared storage (GCS) and per-instance coordination; the
-  accounting already lives in PostgreSQL. Deferred with the cloud deployment.
+- In the cloud the renditions are objects in the media bucket (amendment 2026-10-05); the
+  accounting lives in PostgreSQL, so several instances could share the bucket (a second instance
+  only becomes possible with a shared Redis, ADR 0016).
 - YGOPRODeck card data and images are © 4K Media Inc., a subsidiary of Konami Digital
   Entertainment, Inc.; attribution to YGOPRODeck is shown in docs and must be reviewed by counsel
   before any public launch (docs/providers/ygoprodeck.md).
 - Rejected: hotlinking provider images (forbidden, privacy leak of visitors' IPs to the provider);
-  storing every artwork (full size ≈ 2 GB; even the 320 px renditions, ≈ 45 KB each, would need
-  ≈ 650 MB, above the 500 MB cap); storing full and cropped variants (one
-  UI-sized rendition is enough); a separate image service (modular monolith, ADR 0001).
+  storing every artwork at full size (≈ 2 GB for Yu-Gi-Oh! alone; the 320 px renditions, ≈ 45 KB
+  each, need ≈ 650 MB — above the original 500 MB cap, but well within the 5 GB cap since
+  2026-10-04, so `--images all` may now cache the whole catalog at 320 px); storing full and
+  cropped variants (one UI-sized rendition is enough); a separate image service (modular
+  monolith, ADR 0001).

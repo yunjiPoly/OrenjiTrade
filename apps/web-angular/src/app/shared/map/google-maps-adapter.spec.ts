@@ -179,12 +179,12 @@ describe('Google Maps adapter', () => {
     adapter!.setCircles([disc]);
     expect(circles).toHaveLength(1);
     expect(circles[0].options).toEqual(
-      expect.objectContaining({ radius: 1000, fillOpacity: 0.08, strokeWeight: 1 }),
+      expect.objectContaining({ radius: 1500, fillOpacity: 0.08, strokeWeight: 1 }),
     );
     adapter!.setCircles([{ ...disc, variant: 'area' }]);
     expect(circles).toHaveLength(1);
     expect(circles[0].options).toEqual(
-      expect.objectContaining({ radius: 1000, fillOpacity: 0.12, strokeWeight: 2 }),
+      expect.objectContaining({ radius: 1500, fillOpacity: 0.12, strokeWeight: 2 }),
     );
     // Unchanged discs are not moved again (collector maps redraw them on every zoom).
     expect(circles[0].calls).toEqual([]);

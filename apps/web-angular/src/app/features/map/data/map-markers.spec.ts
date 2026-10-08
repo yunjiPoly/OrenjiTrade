@@ -55,7 +55,7 @@ describe('collector markers', () => {
     expect(markers.find((marker) => marker.id === 'collector:c5')?.selected).toBe(true);
   });
 
-  it('draws a 2 km approximate-area disc in metres under every collector', () => {
+  it('draws a 3 km approximate-area zone (1500 m radius) under every collector', () => {
     const { areas } = buildCollectorMarkers(
       [collector('maika'), collector('noah', { publicPoint: { lat: 45.5, lng: -73.6 } })],
       12,
@@ -77,7 +77,7 @@ describe('collector markers', () => {
         variant: 'area',
       },
     ]);
-    expect(APPROXIMATE_AREA_RADIUS_M).toBe(1000);
+    expect(APPROXIMATE_AREA_RADIUS_M).toBe(1500);
   });
 
   it('gives clustered collectors no disc but keeps the selected one', () => {

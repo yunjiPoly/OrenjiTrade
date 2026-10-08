@@ -1,114 +1,244 @@
-import { Link } from 'expo-router';
-import { useState } from 'react';
+import { Link, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { useAccount } from '@/src/account/AccountProvider';
+import { useFlowLock } from '@/src/account/flowLock';
+import {
+  MIN_PASSWORD_LENGTH,
+  hasErrors,
+  register,
+  requiredAtRegistration,
+  validateSignUp,
+  type RegistrationStep,
+} from '@/src/account/registration';
+import { isApiError } from '@/src/api/ApiError';
+import { friendlyMessage } from '@/src/api/errorMessages';
+import { useLegalDocuments } from '@/src/api/hooks/legal';
+import { authErrorMessage } from '@/src/auth/authErrors';
+import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
+import { ErrorState } from '@/src/components/ui/ErrorState';
+import { FormMessage, PasswordField } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
+import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
+import { GoogleButton, OrDivider } from '@/src/features/auth/GoogleButton';
+import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
+import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
+import { ageConfirmationOf } from '@/src/features/legal/ageConfirmation';
+import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
+import { LegalConsentList } from '@/src/features/legal/LegalConsentList';
+import type { ConsentItem } from '@/src/features/legal/legalDocs';
+import { legalKeyOf } from '@/src/features/legal/legalDocs';
+import { useLegalLanguage } from '@/src/features/legal/legalLanguage';
+import { legalTitleOf } from '@/src/features/legal/legalTexts';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STEP_LABELS: Record<RegistrationStep, string> = {
+  account: 'Creating your account…',
+  consents: 'Saving your consent…',
+  verification: 'Sending the verification email…',
+};
 
-/** Sign-up placeholder: local validation only; account creation is wired in Phase 1. */
+/**
+ * Create an account: display name, email + password, acceptance of every legal document required
+ * at registration (versions from the API, texts readable in-app in the active legal language)
+ * and the 18+ confirmation (its own unticked checkbox, recorded as the `AGE_CONFIRMATION`
+ * consent), then a verification email (web: `/auth/sign-up`). The auth gate is held until the
+ * consents are recorded. "Sign up with Google" signs in with Google instead; the consent screen
+ * then collects the legal acceptance and the 18+ confirmation, exactly like the web.
+ */
 export default function SignUpScreen() {
   const { palette } = useTheme();
+  const router = useRouter();
+  const session = useSession();
+  const account = useAccount();
+  const legal = useLegalDocuments();
+  const { language } = useLegalLanguage();
+
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const [accepted, setAccepted] = useState<string[]>([]);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [step, setStep] = useState<RegistrationStep | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const google = useGoogleSignIn('sign-in');
 
-  const errors = {
-    displayName:
-      submitted && displayName.trim().length < 2 ? 'Choose a display name (2+ characters).' : null,
-    email: submitted && !EMAIL_PATTERN.test(email) ? 'Enter a valid email address.' : null,
-    password: submitted && password.length < 8 ? 'Password must be at least 8 characters.' : null,
-    confirm: submitted && confirm !== password ? 'Passwords do not match.' : null,
-  };
+  const documents = useMemo(() => requiredAtRegistration(legal.data ?? []), [legal.data]);
+  const ageConfirmation = useMemo(() => ageConfirmationOf(legal.data), [legal.data]);
+  const items = useMemo<ConsentItem[]>(
+    () =>
+      documents.map((document) => {
+        const key = legalKeyOf(document.url);
+        return {
+          documentType: document.documentType,
+          version: document.version,
+          title: legalTitleOf(key, language, document.title),
+          key,
+        };
+      }),
+    [documents, language]
+  );
 
-  const onSubmit = () => {
+  const errors = validateSignUp(
+    { displayName, email, password, acceptedDocumentTypes: accepted, ageConfirmed },
+    documents,
+    ageConfirmation
+  );
+  const shown = submitted ? errors : null;
+
+  const onSubmit = async () => {
     setSubmitted(true);
-    if (
-      displayName.trim().length < 2 ||
-      !EMAIL_PATTERN.test(email) ||
-      password.length < 8 ||
-      confirm !== password
-    ) {
+    if (hasErrors(errors)) {
       return;
     }
-    setNotice('Account creation is not connected yet. Firebase Authentication arrives in Phase 1.');
+    setError(null);
+    const flowLock = useFlowLock.getState();
+    flowLock.lock('sign-up');
+    try {
+      await register(
+        { displayName, email, password },
+        documents,
+        {
+          signUp: (value, secret, name) => session.signUp(value, secret, name),
+          currentEmail: () => session.user?.email ?? null,
+          acceptConsents: account.acceptConsents,
+          sendEmailVerification: session.sendEmailVerification,
+          onStep: setStep,
+        },
+        ageConfirmation
+      );
+      // The verify-email screen releases the gate once it is shown.
+      router.replace('/verify-email');
+    } catch (caught) {
+      flowLock.unlock();
+      setError(isApiError(caught) ? friendlyMessage(caught) : authErrorMessage(caught));
+    } finally {
+      setStep(null);
+    }
+  };
+
+  /** Google sign-up: the consent screen collects the legal acceptance afterwards (the gate). */
+  const onGoogle = async () => {
+    setError(null);
+    try {
+      await google.start();
+    } catch (caught) {
+      setError(googleErrorMessage(caught));
+    }
   };
 
   return (
     <Screen scroll safeBottom testID="screen-sign-up">
       <View style={styles.header}>
-        <Text style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}>
-          Join the network
+        <Text
+          accessibilityRole="header"
+          style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
+        >
+          Create your account
         </Text>
         <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-          You stay hidden on the map until you choose a trading area and opt in.
+          Join collectors trading near you. You stay hidden on the map until you opt in.
         </Text>
       </View>
 
       <View style={styles.form}>
+        {session.initError ? (
+          <FormMessage tone="info">Sign-up is not configured for this environment yet.</FormMessage>
+        ) : null}
+        {error ? <FormMessage testID="sign-up-error">{error}</FormMessage> : null}
         <TextField
           label="Display name"
           value={displayName}
           onChangeText={setDisplayName}
-          error={errors.displayName}
-          hint="Shown to other collectors instead of your real name."
-          autoComplete="username"
+          error={shown?.displayName}
+          hint="How other collectors see you. You can change it later."
+          autoComplete="nickname"
+          maxLength={80}
           testID="sign-up-display-name"
         />
         <TextField
           label="Email"
           value={email}
           onChangeText={setEmail}
-          error={errors.email}
+          error={shown?.email}
           autoCapitalize="none"
+          autoCorrect={false}
           autoComplete="email"
           keyboardType="email-address"
           textContentType="emailAddress"
           testID="sign-up-email"
         />
-        <TextField
+        <PasswordField
           label="Password"
           value={password}
           onChangeText={setPassword}
-          error={errors.password}
-          secureTextEntry
+          error={shown?.password}
+          hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
           autoComplete="new-password"
           textContentType="newPassword"
           testID="sign-up-password"
         />
-        <TextField
-          label="Confirm password"
-          value={confirm}
-          onChangeText={setConfirm}
-          error={errors.confirm}
-          secureTextEntry
-          autoComplete="new-password"
-          textContentType="newPassword"
-          testID="sign-up-confirm"
+
+        {legal.isPending ? (
+          <View accessibilityLabel="Loading the legal documents" testID="sign-up-legal-loading">
+            <SkeletonList rows={2} rowHeight={40} />
+          </View>
+        ) : legal.isError && items.length === 0 ? (
+          <ErrorState
+            compact
+            testID="sign-up-legal-error"
+            error={legal.error}
+            title="We could not load the terms"
+            onRetry={() => void legal.refetch()}
+          />
+        ) : (
+          <>
+            <LegalConsentList
+              items={items}
+              accepted={accepted}
+              onChange={setAccepted}
+              showError={submitted && errors.consents !== null}
+            />
+            {ageConfirmation ? (
+              <AgeConfirmationCheckbox
+                checked={ageConfirmed}
+                onChange={setAgeConfirmed}
+                showError={submitted && errors.age !== null}
+                disabled={step !== null}
+              />
+            ) : null}
+          </>
+        )}
+
+        <Button
+          label="Create account"
+          loading={step !== null}
+          loadingLabel={step ? STEP_LABELS[step] : undefined}
+          disabled={items.length === 0 || google.busy}
+          onPress={() => void onSubmit()}
+          testID="sign-up-submit"
         />
-        <Button label="Create account" onPress={onSubmit} testID="sign-up-submit" />
-        {notice ? (
-          <Text
-            accessibilityRole="alert"
-            style={[textStyle('sm'), styles.notice, { color: palette.info }]}
-          >
-            {notice}
-          </Text>
-        ) : null}
+        <OrDivider />
+        <GoogleButton
+          label="Sign up with Google"
+          busy={google.busy}
+          disabled={step !== null || !!session.initError}
+          onPress={() => void onGoogle()}
+          testID="sign-up-google"
+        />
       </View>
+      <SimulatedGoogleAccountDialog {...google.dialog} />
 
       <View style={styles.footer}>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
           Already have an account?
         </Text>
         <Link
-          href="/(auth)/sign-in"
+          href="/sign-in"
           replace
           style={[textStyle('sm'), styles.link, { color: palette.accent }]}
         >
@@ -123,7 +253,6 @@ const styles = StyleSheet.create({
   header: { gap: spacing[2], marginBottom: spacing[6] },
   title: { fontWeight: fontWeight.bold },
   form: { gap: spacing[4] },
-  notice: { textAlign: 'center' },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
