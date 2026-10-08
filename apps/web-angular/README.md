@@ -67,8 +67,6 @@ The same build runs in every environment. At startup `AppConfigService`
   "wsBaseUrl": "ws://localhost:8080/ws",
   "firebase": { "apiKey": "", "authDomain": "", "projectId": "", "appId": "" },
   "firebaseAuthEmulatorHost": "localhost:9099",
-  "googleMapsApiKey": "",
-  "googleMapsMapId": "",
   "environment": "local"
 }
 ```
@@ -77,7 +75,8 @@ The same build runs in every environment. At startup `AppConfigService`
 - Container: rendered from environment variables by `docker-entrypoint.sh` (see Docker below).
 - Missing/invalid file: defaults from `app-config.model.ts` and a console warning; the app boots.
 
-Only public values belong here (Firebase web config, referrer-restricted Maps key). Never secrets.
+Only public values belong here (the Firebase web config). Never secrets. There is no map key:
+the map draws bundled boundary files (see Maps below, ADR 0017).
 
 ## HTTP layer
 
@@ -163,8 +162,8 @@ the Emulator UI (http://localhost:4000/auth).
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
   (`?printing=` selects a printing; hero picture, attributes rendered from the schema's
   `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
-  dialog on that printing), "Who has this near me" (opens `/map?card=<id>&view=list`, Phase 4)
-  and "Add to wishlist" (coming soon); `/sets/:id` (cards + paginated checklist). `GamesStore`
+  dialog on that printing), "Who has this in my region" (opens `/search?card=<id>`, the holders
+  of the platform region on screen; ADR 0017) and "Add to wishlist"; `/sets/:id` (cards + paginated checklist). `GamesStore`
   (`GET /games`) also feeds the profile game picker, so hidden games disappear there.
 - **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
   live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
