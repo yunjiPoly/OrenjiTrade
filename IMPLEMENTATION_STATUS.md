@@ -2009,7 +2009,9 @@ default, `americas-south`, `europe`).
   `expo-location` removed (package, plugin, permission strings); `react-native-maps` stays
   installed (plugin without a key); persisted store v4 drops the distance unit.
 - [x] **Seeds** — the 12 seed accounts are spread over the three regions
-  (`docs/development/test-accounts.md`); the deck-box ad targets Quebec.
+  (`docs/development/test-accounts.md`); the deck-box ad targets Quebec. The fictional bios,
+  binder descriptions and community posts name no city (the city is a location field, shown only
+  on its owner's profile).
 - [x] **Infra** — nginx CSP without map or tile hosts, `Permissions-Policy: geolocation=()`;
   Cloudflare's edge rate limit covers `/api/v1/regions` instead of the removed nearby route.
 - [x] **Docs** — ADR 0017 (new), ADR 0004 superseded, ADR 0010 and 0016 amended, ADR index,
@@ -2018,37 +2020,80 @@ default, `americas-south`, `europe`).
   architecture, product overview, deployment, security, incident register, law-enforcement
   guide; legal drafts (EN and FR, still drafts) no longer mention map tiles; `npm run sync:legal`.
 
+**Verification fixes (2026-10-08, after the independent functional check and privacy audit):**
+- The web `index.html` meta description (search engines, link previews) said "geographic
+  discovery network ... find who near you owns"; it now says "regional discovery network ... find
+  who in your region owns" (privacy audit's blocking item). The OpenAPI description follows.
+- Each binder row of a state panel shows its owner's state/province + country (`owner.place`),
+  not only the panel heading.
+- Tests added: `RegionCatalogTest` (7) and `LocationServiceTest` (11), pure unit tests of the
+  region, country, subdivision and city validation; `RegionMapIT` covers paused listings and
+  suspended accounts in the counts and the state list, signed in and signed out;
+  `region-switcher.component.spec.ts` (3). Notification fixtures of web and mobile specs no
+  longer carry "km away" texts; the mobile onboarding age specs wait for the checkbox (a
+  skeleton shows while the legal documents load).
+- Docs: `.env.example` drops `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`; the web README drops the Maps key
+  of `config.json`; `schema.md` (`discoverable`), the billing-budget README (no Maps quota), ADR
+  0002 (amended, links ADR 0017) and the API README (reserved `nearby` handle) are current; the
+  region-map caching is described as it is (server side only, `Cache-Control: no-cache,
+  no-store`); unknown request fields such as an old client's `lat`/`lng` are documented as ignored
+  and never stored (the repo's Jackson convention; `user_location` has no column for them).
+- Mobile: the hint under "Show my city on my profile" follows the switch (it always said others
+  only see the state or province, also while the city is shown on the profile).
+- Seeds: no fictional bio, binder description or community post names a city any more.
+- Test stability: cloned test printings carry the whole random token in their collector number
+  (three letters collided once across a full run).
+- The two discoverability hints differ on purpose: the web switch lives in Settings → Privacy, the
+  mobile one in Settings → Location (each platform names its own screen).
+
+**Owner decisions to confirm (S1 defaults):** Europe excludes Russia, Turkey and the Caucasus
+(Armenia, Azerbaijan, Georgia); Greenland is not in Americas (North); the country outlines are
+dissolved from Natural Earth admin-1 (not admin-0), so a country and its states always line up;
+the V110 region channel descriptions read "trades, meetups, locals" (wording only; no events feature). All are
+data (admin-editable country mapping, channel texts) and can change without code.
+
 **Migrations:** V106 `platform_regions`, V107 `platform_regions_seed`, V108
 `self_declared_location`, V109 `remove_distance_features`, V110 `platform_region_channels`.
 The owner's local database migrates on the next `npm run dev` and **loses its trading areas by
 design** (every collector declares a location again).
 
-**Checks (2026-10-08):**
-- `npm run test:api` (Spotless + `check`): 779 tests in 159 classes plus 12 in the separate
+**Checks (2026-10-08, re-run after the verification fixes):**
+- `npm run test:api` (Spotless + `check`): 798 tests in 161 classes plus 12 in the separate
   `catalogTest` task (the catalog fixture suites run in their own JVM), 0 failures, 0 skipped.
 - `./gradlew exportOpenApi` then `npm run generate:api`: the working tree stays clean.
-- `npm run test:web`: lint clean, 136 files / 630 tests. `npm run build -w apps/web-angular`:
-  initial 899.83 kB (214.47 kB transfer) against the 900 kB warning budget (1.5 MB error);
-  Leaflet in the lazy `leaflet-src` chunk (149.42 kB).
-- `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky (every spec, isolated stack :8180 / :4300).
+- `npm run test:web`: lint clean, 137 files / 633 tests. `npm run build -w apps/web-angular`:
+  initial 899.83 kB (214.46 kB transfer) against the 900 kB warning budget (1.5 MB error), no
+  warning; Leaflet in the lazy `leaflet-src` chunk (149.42 kB); the boundary files
+  (`public/boundaries/*.json`, 241 / 145 / 316 kB) are fetched per region, never bundled.
+- `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky, local retries 0 (every spec, isolated stack
+  :8180 / :4300).
 - `npm run test:mobile`: typecheck, lint, 76 suites / 647 jest tests, 28 harness guard tests.
   `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` (74 static
-  routes) succeed (output in the session scratchpad); neither carries a map provider URL.
+  routes) succeed (output in the session scratchpad); neither carries a map provider URL or a
+  location API.
 - `npm run test:mobile:e2e`: 51 passed, 0 skipped. Maestro on the Pixel_6_API_34 emulator
-  (Android 14, Expo Go, SDK 57): 24/24 flows in one full run (1 h 3 min); a manual walk (sign-in,
-  onboarding → "Where are you?" → Map tab placeholder) with screenshots, the saved place
-  confirmed on the API; Metro, the API and the emulator shut down afterwards.
+  (Android 14, Expo Go, SDK 57, cold boot): 24/24 flows in one full run (51 min 37 s) after the
+  last mobile source change; a manual walk (sign-in of a fictional emulator account, consents and
+  18+, onboarding → "Where are you?" with Canada → Quebec, a city and the show-city hint in both
+  states → Map tab placeholder) with screenshots, the saved place confirmed on the API, logcat
+  and Metro without errors, tokens, coordinates or the city; the walk account deleted, Metro, the
+  API and the emulator shut down afterwards. (The last seed-text commit came after that Maestro
+  run; the web and mobile Playwright suites and the API suite were re-run after it.)
 - `npm run infra:validate` (fmt + validate of dev / staging / prod and Cloudflare),
   `npm run audit:gate` (OK; the two allow-listed advisories unchanged), `npm run test:scripts`
   (64/64), `node scripts/sync-legal.mjs --check` in `apps/mobile` (up to date); there is no
-  `i18n:check` script.
+  `i18n:check` script and no root `scripts/sync-legal.mjs`.
 - Fresh database (`orenjitrade_regions_check`, migrated by the API to V110, then dropped): no
-  geometry or geography column and no point / lat / lng / latitude / longitude / radius /
-  grid_cell column outside PostGIS's own tables; PostGIS 3.5.2 still installed; 3 regions, 104
-  countries, 1,259 subdivisions, 12 seeded locations. Live walk on API :8480 / web :4480 (Redis
-  db 5): region tree, binder counts and state lists, unknown region 404 / 400, the removed
-  `/collectors/nearby` 404, the city only on profiles, no coordinate key in any answer and no
-  map provider request (processes stopped, Redis db 5 flushed).
+  geometry or geography column, no column named like point / lat / lng / latitude / longitude /
+  radius / grid_cell / geo_cell / distance and no GiST index outside PostGIS's own tables;
+  `user_location` = user_id, country_code, subdivision_code, city, show_city, created_at,
+  updated_at; PostGIS 3.5.2 still installed; 3 regions, 104 countries, 1,259 subdivisions, 12
+  seeded locations; no radius limit, entitlement or credit product; no seed bio, binder
+  description or post naming a city; 7 active and 4 archived channels. Live on API :8480 (Redis
+  db 5): region map answers carry `Cache-Control: no-cache, no-store, max-age=0,
+  must-revalidate`; binder counts americas-north CA-ON 1 / CA-QC 2 / US-CA 1, americas-south
+  AR-C 1 / BR-SP 1, europe ES-MD 1 / FR-IDF 1; state-list rows carry `owner.place` without a
+  city; `sort=distance` 400; unknown region 404 (processes stopped, Redis db 5 flushed).
 
 **Removed settings and perks:** the `showDistance` privacy switch; the trading area (centre,
 radius, device location); the wishlist radius; the `map.radius.max_km` plan limit (FREE 25 /
