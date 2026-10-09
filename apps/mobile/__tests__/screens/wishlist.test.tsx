@@ -73,7 +73,7 @@ describe('Wishlist tab', () => {
     expect(screen.getByTestId('wishlist-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
     expect(screen.getByTestId(`wish-copy-${WISH_ID}`)).toHaveTextContent(
-      'SVX-001 · Ultra Rare · Stellar Vortex'
+      'SVX-001 · Ultra Rare · Stellar Vortex · Holo'
     );
     expect(screen.getByTestId(`wish-note-${WISH_ID}`)).toHaveTextContent('“For my deck.”');
     expect(screen.getByTestId(`wish-chips-${WISH_ID}`)).toHaveTextContent(

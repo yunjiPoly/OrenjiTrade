@@ -60,6 +60,13 @@ describe('wishlist labels', () => {
       'Any printing · Quarter Century Secret Rare',
     );
     expect(whichCopyLabel(PRINTING, 'ignored')).toBe('AZR-EN001 · Ultra Rare · Azure Dawn');
+    // Two printings of a set often differ only by their finish: a special one is named.
+    expect(whichCopyLabel({ ...PRINTING, finish: 'NORMAL' })).toBe(
+      'AZR-EN001 · Ultra Rare · Azure Dawn',
+    );
+    expect(whichCopyLabel({ ...PRINTING, finish: 'REVERSE_HOLO' })).toBe(
+      'AZR-EN001 · Ultra Rare · Azure Dawn · Reverse holo',
+    );
   });
 
   it('shows Near Mint only and the price term as chips (the term alone for any printing)', () => {

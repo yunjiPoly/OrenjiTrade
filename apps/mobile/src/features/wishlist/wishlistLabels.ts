@@ -5,7 +5,7 @@ import type {
   WishlistItemResponse,
 } from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
-import { editionLabel, languageName, printingCode } from '@/src/lib/catalog';
+import { editionLabel, finishLabel, languageName, printingCode } from '@/src/lib/catalog';
 
 /**
  * Display vocabulary of the wishlist (stage S2, mirror of the web's `wishlist-labels.ts`): which
@@ -71,12 +71,21 @@ export function whichCopyLabel(
     return rarity ? `Any printing · ${rarity}` : 'Any printing';
   }
   return (
-    [printingCode(printing), printing.rarity, printing.setName].filter(Boolean).join(' · ') ||
-    'One printing'
+    [printingCode(printing), printing.rarity, printing.setName, specialFinish(printing.finish)]
+      .filter(Boolean)
+      .join(' · ') || 'One printing'
   );
 }
 
-/** One line describing a printing in a chooser: code · rarity · set · edition · language. */
+/** The finish of a printing when it is not the normal one ("Reverse holo"), else `null`. */
+export function specialFinish(finish: string | null | undefined): string | null {
+  return finish && finish !== 'NORMAL' ? finishLabel(finish) : null;
+}
+
+/**
+ * One line describing a printing in a chooser: code · rarity · set · edition · language · finish
+ * (two printings of one set often differ only by their finish).
+ */
 export function printingOptionLabel(printing: PrintingSummary): string {
   return [
     printingCode(printing),
@@ -84,6 +93,7 @@ export function printingOptionLabel(printing: PrintingSummary): string {
     printing.setName,
     printing.edition ? editionLabel(printing.edition) : null,
     printing.language ? languageName(printing.language) : null,
+    printing.finish ? finishLabel(printing.finish) : null,
   ]
     .filter((part) => part && part !== '—')
     .join(' · ');

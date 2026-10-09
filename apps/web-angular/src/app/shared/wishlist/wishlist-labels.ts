@@ -4,6 +4,7 @@ import type {
   WishPriceTerm,
   WishlistItemResponse,
 } from '@orenji/api-client';
+import { finishLabel } from '../catalog/catalog-labels';
 import { printingCode } from '../inventory/inventory-labels';
 
 /**
@@ -73,9 +74,15 @@ export function whichCopyLabel(
     return rarity ? `Any printing · ${rarity}` : 'Any printing';
   }
   return (
-    [printingCode(printing), printing.rarity, printing.setName].filter(Boolean).join(' · ') ||
-    'One printing'
+    [printingCode(printing), printing.rarity, printing.setName, specialFinish(printing.finish)]
+      .filter(Boolean)
+      .join(' · ') || 'One printing'
   );
+}
+
+/** The finish of a printing when it is not the normal one ("Reverse holo"), else `null`. */
+export function specialFinish(finish: string | null | undefined): string | null {
+  return finish && finish !== 'NORMAL' ? finishLabel(finish) : null;
 }
 
 /** Query parameters of the card page for a wish's selection (`?printing=` or `?rarity=`). */

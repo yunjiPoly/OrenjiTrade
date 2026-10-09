@@ -219,11 +219,23 @@ describe('wishlist labels', () => {
     expect(whichCopyLabel(undefined, 'Secret Rare')).toBe('Any printing · Secret Rare');
     expect(
       whichCopyLabel(
-        printingFixture({ printingCode: 'AZR-EN001', setName: 'Azure Dawn', rarity: 'Ultra Rare' })
+        printingFixture({
+          printingCode: 'AZR-EN001',
+          setName: 'Azure Dawn',
+          rarity: 'Ultra Rare',
+          finish: 'NORMAL',
+        })
       )
     ).toBe('AZR-EN001 · Ultra Rare · Azure Dawn');
+    // Two printings of a set often differ only by their finish: a special one is named.
+    expect(whichCopyLabel(printingFixture({ finish: 'REVERSE_HOLO' }))).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · Reverse holo'
+    );
     expect(printingOptionLabel(printingFixture())).toBe(
-      'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English'
+      'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo'
+    );
+    expect(printingOptionLabel(printingFixture({ finish: 'NORMAL' }))).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Normal'
     );
     expect(wishCardParams(wishFixture())).toEqual({ id: CARD_ID });
     expect(wishCardParams(wishFixture({ rarity: 'Secret Rare' }))).toEqual({
