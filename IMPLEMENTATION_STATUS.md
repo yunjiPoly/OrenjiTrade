@@ -2069,7 +2069,9 @@ design** (every collector declares a location again).
 - `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky (every spec, isolated stack :8180 / :4300).
   A first full run had one flaky spec (`acceptance/search.spec.ts`: its passive response
   listener lost a body after the page navigated); fixed in `3bf3e61` (search and privacy specs
-  read the answers with `waitForResponse` before navigating), then the whole suite re-run.
+  read the answers with `waitForResponse` before navigating), then the whole suite re-run. That
+  read still failed under load (verification fix 3): since then `npm run test:e2e -- --retries=0`
+  twice in a row, 73 passed each, 0 failed, 0 flaky, 0 skipped.
 - `npm run test:mobile`: typecheck, lint, 76 suites / 648 jest tests, 28 harness guard tests.
   `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` (74 static
   routes) succeed (output in the session scratchpad); neither carries a map provider URL, a
@@ -2147,6 +2149,12 @@ channels (archived).
 - The seed's Americas (South) shades two states (AR-C, BR-SP): collector6's only public binder
   (CL-RM) is 50 days unconfirmed on purpose (the seed's example of a listing HIDDEN until
   confirmed, `docs/development/seed-data.md`) and stays off the map.
+- The passive network scanners of the web E2E suite (the acceptance privacy fixture,
+  `watchCoordinates`, the card-images provider guard) read every JSON answer from Chromium's
+  DevTools buffer and skip a body Chromium no longer holds (the cause of verification fix 3):
+  they are a safety net beside the specs' recorded answers, the scanned API shortcut answers and
+  the API's `GeoPrivacyContractTest`. Routing every answer through `route.fetch()` would make
+  them complete; not done in S1.
 - The discoverable switch keeps its "Show me on the map" label (the owner's existing wording):
   the map lists the public binders of discoverable collectors per state, and the help text says
   what is shown (state or province, public binders, searches).
@@ -2168,6 +2176,43 @@ channels (archived).
 - Stale docs: the root README (no maps key), `apps/mobile/README.md` (the privacy fixture),
   `docs/security/README.md` (no Maps browser key), the acceptance tracker rows 3, 18, 20, 28, 35
   and the older deployment / owner-step lines.
+
+**Verification fix 3 (2026-10-08, the two blocking findings of the second verification):**
+- Web E2E: `acceptance/privacy.spec.ts` ("every place-bearing surface ...") failed on its first
+  attempt in every full run and passed on retry or alone. Its card-holders answer, read back with
+  `waitForResponse` + `response.json()` (the `3bf3e61` approach), threw "Network.getResponseBody:
+  No data found for resource with given identifier" although the page had rendered it and had
+  not navigated: the body comes from Chromium's DevTools network buffer, which does not keep
+  every fetch body under load. New `e2e/acceptance/support/answers.ts` `recordAnswers(page, url)`
+  records the answers in a page route (`route.fetch()` of the page's own request, parsed, then
+  `route.fulfill()` with that very answer), before the page can render them. The privacy spec
+  (state binder list and card holders) and the search spec (card holders) use it with the same
+  assertions; no other spec asserts on the body of a page answer (the others read
+  APIRequestContext answers or only statuses).
+- Messages empty state (web conversation list, mobile inbox): "Find a card or a binder in search,
+  open the collector's profile and press Message to start trading." instead of "Open a
+  collector's preview on the map ..."; the mobile action is "Open search" (Search tab) instead of
+  "Open the map" (the placeholder Map tab). Unit tests assert the text, no map / preview / near
+  wording and the navigation.
+- Wording sweep (web, mobile, API, Maestro, docs): the Blocked users descriptions (web, mobile)
+  now say what the block dialogs say (each other's binders, profiles and posts); a web
+  notification fixture no longer reads "Listed nearby"; the product overview, the launch runbook
+  (section 12) and the design system no longer put collectors, markers or previews on the map.
+  Remaining hits are the discoverable switch's own wording ("Show me on the map", "Visible on /
+  Hidden from the map", "Not on the map", "to be shown on the map"), binders and cards that
+  appear on the map, privacy assurances and test guards ("never a position or a distance",
+  `assertNotVisible '.*km away.*'`), unrelated identifiers (`CollectorMarker` API schema,
+  `markerTone`, read markers, map-marker icon names, the reserved handle "nearby", scroll and
+  relative-time "distance", the subdivision code `HU-KM`), applied migrations (never edited)
+  and history sections (ADR 0004, ADR 0010, the Phase 1/3/4/6 contracts, `schema.md` V005 and
+  Phase 4). Two internal code comments still mention the removed collector preview
+  (`MessagesPanelComponent.incoming`, mobile `BottomSheet`); not user-facing.
+- Checks on the final code: `npm run test:e2e -- --retries=0` twice in a row (73 passed each,
+  0 failed / flaky / skipped; privacy and search specs green on the first attempt both times),
+  `npm run test:web` (lint clean, 138 files / 637 tests), `npm run test:mobile` (typecheck, lint,
+  76 suites / 648 tests, 28 harness guard tests), `npm run test:mobile:e2e` (51 passed),
+  `npm run format:check -w apps/mobile`. No Maestro flow asserts the changed texts; Maestro was
+  not re-run.
 
 ## Phase 11 — ML
 
