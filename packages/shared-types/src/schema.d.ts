@@ -81,7 +81,7 @@ export interface paths {
         };
         /**
          * The caller's notification preferences
-         * @description Defaults: push and in-app on, email off, MARKETING fully off.
+         * @description Defaults: push and in-app on, email off, MARKETING fully off, wishlist alerts on.
          */
         get: operations["getNotificationSettings"];
         /**
@@ -181,6 +181,27 @@ export interface paths {
          * @description The listed binders come first in the given order; the others keep their relative order after them. 400 for duplicates, 404 when an id is not one of the caller's binders. Returns every binder in the new order.
          */
         put: operations["reorderBinders"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/wishlist/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The price terms a wish may choose (ADMIN) */
+        get: operations["getAdminWishlistSettings"];
+        /**
+         * Replace the price terms a wish may choose (ADMIN)
+         * @description 1 to 10 terms "<percent>% TCG" with an optional "+" (percent 1-200), in display order; duplicates are dropped. Wishes that chose a removed term keep it. Audited (wishlist.settings.update).
+         */
+        put: operations["updateAdminWishlistSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -599,26 +620,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/internal/jobs/wishlist-rematch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Re-run wishlist matching for the last 24 h (service auth)
-         * @description Nightly safety net: inventory items published in the last 24 hours are matched again (matches and notifications are idempotent, so only publications whose event was lost produce new ones) and wishlist items edited in that window are re-matched. Records a job run.
-         */
-        post: operations["runWishlistRematchJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/internal/jobs/upload-cleanup": {
         parameters: {
             query?: never;
@@ -928,29 +929,9 @@ export interface paths {
         put?: never;
         /**
          * Add a card to the wishlist
-         * @description cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller's platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).
+         * @description Which copy (cardId for any printing, optionally with a rarity of the card's printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller's platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
          */
         post: operations["createWishlistItem"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/wishlist/matches/{id}/dismiss": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Dismiss a match
-         * @description Idempotent; a dismissed match never comes back for this wishlist item.
-         */
-        post: operations["dismissWishlistMatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2859,16 +2840,13 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Remove a wishlist item
-         * @description Its matches are removed with it.
-         */
+        /** Remove a wishlist item */
         delete: operations["deleteWishlistItem"];
         options?: never;
         head?: never;
         /**
          * Update a wishlist item (any subset of the fields)
-         * @description Absent fields are unchanged. Changing the criteria re-matches the item (dismissed matches stay dismissed).
+         * @description Absent fields are unchanged; unknown members are ignored.
          */
         patch: operations["updateWishlistItem"];
         trace?: never;
@@ -3021,7 +2999,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/wishlist/{id}/matches": {
+    "/api/v1/wishlist/price-terms": {
         parameters: {
             query?: never;
             header?: never;
@@ -3029,10 +3007,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Public items matching a wishlist item (newest first)
-         * @description Cursor-paginated. Each match carries the public item (never private notes), the owner's marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.
+         * The price terms a wish may choose
+         * @description Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.
          */
-        get: operations["listWishlistMatches"];
+        get: operations["listWishPriceTerms"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3975,7 +3953,7 @@ export interface paths {
         };
         /**
          * A collector's public wishlist
-         * @description Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: the active items as card, printing and minimum condition (never notes, prices or radii). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.
+         * @description Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: every wish as card, printing or rarity, public note, Near Mint only and price term (never a place). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.
          */
         get: operations["getCollectorWishlist"];
         put?: never;
@@ -5011,7 +4989,7 @@ export interface paths {
         };
         /**
          * Analytics event counts (ADMIN)
-         * @description Totals and daily counts per event type (search_performed, collector_viewed, message_sent, wishlist_matched, rating_submitted, collector_reported, ...) for the last `days` UTC days including today, from the local aggregate.
+         * @description Totals and daily counts per event type (search_performed, collector_viewed, message_sent, wishlist_item_created, rating_submitted, collector_reported, ...) for the last `days` UTC days including today, from the local aggregate.
          */
         get: operations["getAnalyticsSummary"];
         put?: never;
@@ -5278,6 +5256,8 @@ export interface components {
             } | null;
             /** @description Defaults to disabled 22:00-08:00 America/Toronto */
             quietHours?: components["schemas"]["QuietHoursRequest"];
+            /** @description Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). Defaults to true when absent */
+            wishlistAlerts?: boolean | null;
         };
         QuietHoursRequest: {
             enabled: boolean;
@@ -5304,6 +5284,8 @@ export interface components {
                 [key: string]: components["schemas"]["ChannelPreferences"];
             };
             quietHours: components["schemas"]["QuietHours"];
+            /** @description Wishlist alerts on or off (in-app and push) */
+            wishlistAlerts: boolean;
         };
         /** @description Period without push notifications */
         QuietHours: {
@@ -5500,6 +5482,18 @@ export interface components {
             /** @example Updated 3 hours ago */
             label: string;
         };
+        UpdateWishlistSettingsRequest: {
+            /** @description 1 to 10 terms "<percent>% TCG" with an optional "+" (percent 1-200), in display order */
+            priceTerms: string[];
+        };
+        /** @description Wishlist settings (admin) */
+        WishlistSettingsResponse: {
+            priceTerms: string[];
+            /** Format: uuid */
+            updatedBy?: string | null;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
         UpdateRolesRequest: {
             /**
              * @description Complete role set; USER is always kept
@@ -5647,10 +5641,16 @@ export interface components {
         MarketPrice: {
             /** @example 18.5 */
             amount?: number;
-            /** @example CAD */
+            /** @example USD */
             currency?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /**
+             * @description YGOPRODECK: the set price of the YGOPRODeck card database (TCGplayer-based, USD), dated by its last update; SAMPLE: the fictional local sample catalog; CATALOG: entered by OrenjiTrade staff
+             * @example YGOPRODECK
+             * @enum {string}
+             */
+            source: "YGOPRODECK" | "SAMPLE" | "CATALOG";
         };
         /** @description Printing with card, set and metadata */
         PrintingDetail: {
@@ -6304,18 +6304,6 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
-        WishlistRematchResponse: {
-            /** Format: int32 */
-            inventoryItems: number;
-            /** Format: int32 */
-            wishlistItems: number;
-            /** Format: int32 */
-            matchesCreated: number;
-            /** Format: int32 */
-            notified: number;
-            /** Format: int32 */
-            failures: number;
-        };
         UploadCleanupJobResponse: {
             /** Format: int32 */
             removed: number;
@@ -6595,25 +6583,37 @@ export interface components {
             /** @description false when this click already converted with this kind */
             recorded?: boolean;
         };
-        /** @description cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. Matching compares platform regions (no radius, no distance; ADR 0017). */
+        /** @description Which copy: cardId (any printing, optionally of one rarity of the card's printings) or printingId (that printing; its card is derived). note is public (plain text, at most 280 characters, moderated). priceTerm is one of GET /wishlist/price-terms (a display term, not a filter). */
         CreateWishlistItemRequest: {
             /** Format: uuid */
             cardId?: string;
             /** Format: uuid */
             printingId?: string;
+            /**
+             * @description Any printing of this rarity (only without printingId, or equal to the printing's own rarity)
+             * @example Quarter Century Secret Rare
+             */
             rarity?: string;
-            /** @example LIGHTLY_PLAYED */
-            conditionMin?: string;
-            edition?: string;
-            language?: string;
-            /** @example 60 */
-            maxPrice?: number;
-            /** @example CAD */
-            currency?: string;
-            /** @enum {string} */
-            tradePreference?: "ANY" | "TRADE" | "SALE";
-            notes?: string;
-            active?: boolean;
+            /**
+             * @description Public note
+             * @example For my Azure-Eyes deck.
+             */
+            note?: string;
+            /** @description Only Near Mint (or Mint) copies; default false */
+            nearMintOnly?: boolean;
+            /** @example 85% TCG */
+            priceTerm?: string;
+        };
+        /** @description A display term relative to the TCG market price of the printing (not a filter); orMore = this percent or more ("100% TCG+") */
+        WishPriceTerm: {
+            /** @example 85% TCG */
+            label: string;
+            /**
+             * Format: int32
+             * @example 85
+             */
+            percent: number;
+            orMore: boolean;
         };
         /** @description The wished card */
         WishlistCardRef: {
@@ -6634,33 +6634,15 @@ export interface components {
             card?: components["schemas"]["WishlistCardRef"];
             /** @description The wished printing; null = any printing */
             printing?: components["schemas"]["PrintingSummary"];
-            /** @example Ultra Rare */
+            /**
+             * @description Any printing of this rarity; null = any rarity
+             * @example Ultra Rare
+             */
             rarity?: string | null;
-            /**
-             * @description Worst acceptable condition
-             * @example LIGHTLY_PLAYED
-             */
-            conditionMin?: string | null;
-            /** @example FIRST_EDITION */
-            edition?: string | null;
-            /** @example en */
-            language?: string | null;
-            /** @example 60 */
-            maxPrice?: number | null;
-            /** @example CAD */
-            currency: string;
-            /** @enum {string} */
-            tradePreference: "ANY" | "TRADE" | "SALE";
-            /** @description Private to the caller */
-            notes: string;
-            active: boolean;
-            /**
-             * Format: int64
-             * @description Undismissed matches whose item is public right now (blocked collectors excluded)
-             */
-            matchCount: number;
-            /** Format: date-time */
-            lastMatchedAt?: string | null;
+            /** @description Public note ("" = none) */
+            note: string;
+            nearMintOnly: boolean;
+            priceTerm?: components["schemas"]["WishPriceTerm"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -7407,12 +7389,12 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "WISHLIST_MATCH" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
+            type: "WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
             /** @example Wishlist match: Azure-Eyes */
             title: string;
-            /** @example Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec, Canada. */
+            /** @example Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada. */
             body: string;
-            /** @description Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_MATCH, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes) */
+            /** @description Ids of the objects concerned and `deepLink` (web path, e.g. /cards/<cardId>?printing=<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_ALERT, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes) */
             data: {
                 [key: string]: unknown;
             };
@@ -8897,20 +8879,15 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        /** @description Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, conditionMin, edition, language, maxPrice and notes may be null to clear them. Changing the criteria re-matches the item against the current public inventory. */
+        /** @description Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, note and priceTerm may be null to clear them. Changing printingId without rarity clears the stored rarity. */
         UpdateWishlistItemRequest: {
             /** Format: uuid */
             printingId?: string | null;
             rarity?: string | null;
-            conditionMin?: string | null;
-            edition?: string | null;
-            language?: string | null;
-            maxPrice?: number | null;
-            currency?: string;
-            /** @enum {string} */
-            tradePreference?: "ANY" | "TRADE" | "SALE";
-            notes?: string | null;
-            active?: boolean;
+            note?: string | null;
+            nearMintOnly?: boolean;
+            /** @example 85% TCG */
+            priceTerm?: string | null;
         };
         /** @description Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it. */
         UpdateInventoryItemRequest: {
@@ -9018,100 +8995,10 @@ export interface components {
             directory: string;
             status: components["schemas"]["CardImageCacheStatus"];
         };
-        /** @description A discoverable collector with their state/province and country (never a city, a coordinate or a distance) */
-        CollectorMarker: {
-            /** Format: uuid */
-            id: string;
-            /** @example maika */
-            handle: string;
-            /** @example Maïka Tremblay */
-            displayName: string;
-            /** Format: uri */
-            avatarUrl?: string | null;
-            place: components["schemas"]["Place"];
-            rating: components["schemas"]["CollectorRating"];
-            /**
-             * @example [
-             *       "trader"
-             *     ]
-             */
-            tags: string[];
-            /**
-             * @example [
-             *       "yugioh",
-             *       "pokemon"
-             *     ]
-             */
-            games: string[];
-            /** @enum {string} */
-            lastActiveBucket: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "LONGER_AGO" | "HIDDEN";
-            /** @enum {string} */
-            onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
-            /**
-             * @description Best freshness of the public listings (ACTIVE or AGING in search); null without public listings
-             * @enum {string|null}
-             */
-            binderFreshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN" | null;
-            /** Format: int32 */
-            publicBinderCount: number;
-            /** Format: int64 */
-            publicItemCount: number;
-            /** @description Public items matching hasPrintingId / hasCardId / availability (empty without those filters) */
-            matchingItems: components["schemas"]["MatchingItem"][];
-        };
-        /** @description Cursor-paginated list */
-        CursorPageWishlistMatchResponse: {
-            /** @description Items of the current slice */
-            items?: components["schemas"]["WishlistMatchResponse"][];
-            /** @description Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data */
-            nextCursor?: string | null;
-            /** @description Whether another slice exists */
-            hasMore?: boolean;
-        };
-        /** @description Public item matching the request's filters */
-        MatchingItem: {
-            /** Format: uuid */
-            itemId: string;
-            /** Format: uuid */
-            printingId: string;
-            /** @example AZR-EN001 */
-            printingCode?: string | null;
-            /** Format: uuid */
-            cardId: string;
-            /** @example Azure-Eyes Sky Dragon */
-            cardName: string;
-            /** @example yugioh */
-            game: string;
-            /** @enum {string} */
-            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
-            /** @example 45 */
-            askingPrice?: number | null;
-            /** @example CAD */
-            currency: string;
-            /** @example NEAR_MINT */
-            condition: string;
-            /** @example en */
-            language: string;
-            /** @example FIRST_EDITION */
-            edition: string;
-            acceptsOffers: boolean;
-            /**
-             * @description ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)
-             * @enum {string}
-             */
-            freshness: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
-        };
-        /** @description A public item matching a wishlist item */
-        WishlistMatchResponse: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            wishlistItemId: string;
-            item: components["schemas"]["PublicInventoryItem"];
-            collector: components["schemas"]["CollectorMarker"];
-            /** Format: date-time */
-            matchedAt: string;
-            dismissed: boolean;
+        /** @description The price terms a wish may choose */
+        WishPriceTermsResponse: {
+            /** @description In display order */
+            terms: components["schemas"]["WishPriceTerm"][];
         };
         /** @description Cursor-paginated list */
         CursorPageTradeSummary: {
@@ -9217,6 +9104,80 @@ export interface components {
                 [key: string]: unknown;
             };
             printings?: components["schemas"]["PageResponsePrintingSummary"];
+        };
+        /** @description A discoverable collector with their state/province and country (never a city, a coordinate or a distance) */
+        CollectorMarker: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            place: components["schemas"]["Place"];
+            rating: components["schemas"]["CollectorRating"];
+            /**
+             * @example [
+             *       "trader"
+             *     ]
+             */
+            tags: string[];
+            /**
+             * @example [
+             *       "yugioh",
+             *       "pokemon"
+             *     ]
+             */
+            games: string[];
+            /** @enum {string} */
+            lastActiveBucket: "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "LONGER_AGO" | "HIDDEN";
+            /** @enum {string} */
+            onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
+            /**
+             * @description Best freshness of the public listings (ACTIVE or AGING in search); null without public listings
+             * @enum {string|null}
+             */
+            binderFreshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN" | null;
+            /** Format: int32 */
+            publicBinderCount: number;
+            /** Format: int64 */
+            publicItemCount: number;
+            /** @description Public items matching hasPrintingId / hasCardId / availability (empty without those filters) */
+            matchingItems: components["schemas"]["MatchingItem"][];
+        };
+        /** @description Public item matching the request's filters */
+        MatchingItem: {
+            /** Format: uuid */
+            itemId: string;
+            /** Format: uuid */
+            printingId: string;
+            /** @example AZR-EN001 */
+            printingCode?: string | null;
+            /** Format: uuid */
+            cardId: string;
+            /** @example Azure-Eyes Sky Dragon */
+            cardName: string;
+            /** @example yugioh */
+            game: string;
+            /** @enum {string} */
+            availability: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
+            /** @example 45 */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+            /** @example NEAR_MINT */
+            condition: string;
+            /** @example en */
+            language: string;
+            /** @example FIRST_EDITION */
+            edition: string;
+            acceptsOffers: boolean;
+            /**
+             * @description ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)
+             * @enum {string}
+             */
+            freshness: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
         };
         /** @description Owner of a public binder */
         PublicBinderOwner: {
@@ -9969,8 +9930,12 @@ export interface components {
             card?: components["schemas"]["WishlistCardRef"];
             /** @description Null = any printing */
             printing?: components["schemas"]["PrintingSummary"];
-            /** @example NEAR_MINT */
-            conditionMin?: string | null;
+            /** @description Any printing of this rarity; null = any */
+            rarity?: string | null;
+            /** @description Public note ("" = none) */
+            note: string;
+            nearMintOnly: boolean;
+            priceTerm?: components["schemas"]["WishPriceTerm"];
         };
         /** @description Cursor-paginated list */
         CursorPageReferenceResponse: {
@@ -11972,6 +11937,149 @@ export interface operations {
             };
         };
     };
+    getAdminWishlistSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistSettingsResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateAdminWishlistSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWishlistSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description The settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistSettingsResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateUserRoles: {
         parameters: {
             query?: never;
@@ -13801,53 +13909,6 @@ export interface operations {
             };
         };
     };
-    runWishlistRematchJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WishlistRematchResponse"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     runUploadCleanupJob: {
         parameters: {
             query?: never;
@@ -14675,7 +14736,7 @@ export interface operations {
                     "application/json": components["schemas"]["WishlistItemResponse"];
                 };
             };
-            /** @description VALIDATION_FAILED (target, vocabularies, price, notes) */
+            /** @description VALIDATION_FAILED (target, rarity, note, price term) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -14702,7 +14763,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description CONFLICT: the same card with the same filters is already wished */
+            /** @description CONFLICT: the same card, printing and rarity is already wished */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14721,80 +14782,6 @@ export interface operations {
                 };
             };
             /** @description LIMIT_REACHED (wishlist.items.max) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    dismissWishlistMatch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Dismissed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unknown match or not the caller's */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -23464,6 +23451,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description CONFLICT: the new selection is already wished */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
                 headers: {
@@ -24348,39 +24344,22 @@ export interface operations {
             };
         };
     };
-    listWishlistMatches: {
+    listWishPriceTerms: {
         parameters: {
-            query?: {
-                /** @description Opaque cursor of the previous slice */
-                cursor?: string;
-                limit?: number;
-                /** @description true: also list dismissed matches */
-                includeDismissed?: boolean;
-            };
+            query?: never;
             header?: never;
-            path: {
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description One slice of matches */
+            /** @description The terms */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPageWishlistMatchResponse"];
-                };
-            };
-            /** @description VALIDATION_FAILED (invalid cursor or limit) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                    "application/json": components["schemas"]["WishPriceTermsResponse"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -24394,15 +24373,6 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unknown item or not the caller's */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

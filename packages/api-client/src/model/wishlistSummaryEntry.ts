@@ -9,6 +9,7 @@
  */
 import { WishlistCardRef } from './wishlistCardRef';
 import { PrintingSummary } from './printingSummary';
+import { WishPriceTerm } from './wishPriceTerm';
 
 
 /**
@@ -20,6 +21,15 @@ export interface WishlistSummaryEntry {
      * Null = any printing
      */
     printing?: PrintingSummary;
-    conditionMin?: string | null;
+    /**
+     * Any printing of this rarity; null = any
+     */
+    rarity?: string | null;
+    /**
+     * Public note (\"\" = none)
+     */
+    note: string;
+    nearMintOnly: boolean;
+    priceTerm?: WishPriceTerm;
 }
 

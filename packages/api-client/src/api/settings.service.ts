@@ -48,7 +48,7 @@ export class SettingsService extends BaseService implements SettingsServiceInter
 
     /**
      * The caller\&#39;s notification preferences
-     * Defaults: push and in-app on, email off, MARKETING fully off.
+     * Defaults: push and in-app on, email off, MARKETING fully off, wishlist alerts on.
      * @endpoint get /api/v1/me/settings/notifications
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.

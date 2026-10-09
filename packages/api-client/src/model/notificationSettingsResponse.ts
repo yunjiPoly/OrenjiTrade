@@ -23,5 +23,9 @@ export interface NotificationSettingsResponse {
      */
     categories: { [key: string]: ChannelPreferences; };
     quietHours: QuietHours;
+    /**
+     * Wishlist alerts on or off (in-app and push)
+     */
+    wishlistAlerts: boolean;
 }
 

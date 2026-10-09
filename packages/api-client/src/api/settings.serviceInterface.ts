@@ -35,7 +35,7 @@ export interface SettingsServiceInterface {
 
     /**
      * The caller\&#39;s notification preferences
-     * Defaults: push and in-app on, email off, MARKETING fully off.
+     * Defaults: push and in-app on, email off, MARKETING fully off, wishlist alerts on.
      * @endpoint get /api/v1/me/settings/notifications
 */
     getNotificationSettings(extraHttpRequestParams?: any): Observable<NotificationSettingsResponse>;
