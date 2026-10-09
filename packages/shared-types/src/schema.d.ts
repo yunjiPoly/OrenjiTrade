@@ -7390,7 +7390,7 @@ export interface components {
             id: string;
             /** @enum {string} */
             type: "WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
-            /** @example Wishlist match: Azure-Eyes */
+            /** @example Wishlist alert: Azure-Eyes */
             title: string;
             /** @example Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada. */
             body: string;

@@ -32933,7 +32933,7 @@
           },
           "title": {
             "type": "string",
-            "example": "Wishlist match: Azure-Eyes"
+            "example": "Wishlist alert: Azure-Eyes"
           },
           "body": {
             "type": "string",
