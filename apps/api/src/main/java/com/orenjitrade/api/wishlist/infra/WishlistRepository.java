@@ -1,14 +1,14 @@
 package com.orenjitrade.api.wishlist.infra;
 
-import com.orenjitrade.api.wishlist.domain.TradePreference;
 import com.orenjitrade.api.wishlist.domain.WishlistItemRow;
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -19,28 +19,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class WishlistRepository {
 
-    /**
-     * Undismissed matches whose inventory item is publicly listed right now and whose owner is not
-     * blocked with the wishlist owner (either direction).
-     */
-    static final String MATCH_COUNT =
-            """
-            (SELECT count(*) FROM wishlist_match m
-               JOIN inventory_item i ON i.id = m.inventory_item_id
-              WHERE m.wishlist_item_id = w.id AND NOT m.dismissed
-                AND i.publicly_listed AND i.deleted_at IS NULL
-                AND NOT EXISTS (SELECT 1 FROM user_block ub
-                                 WHERE (ub.blocker_id = w.owner_id AND ub.blocked_id = i.owner_id)
-                                    OR (ub.blocker_id = i.owner_id AND ub.blocked_id = w.owner_id)))
-            """;
-
     private static final String SELECT =
             "SELECT w.id, w.owner_id, w.game_slug, w.card_id, w.printing_id, w.rarity,"
-                    + " w.condition_min, w.edition, w.language, w.max_price, w.currency,"
-                    + " w.trade_preference, w.notes, w.active, w.created_at,"
-                    + " w.updated_at, w.last_matched_at, "
-                    + MATCH_COUNT
-                    + " AS match_count FROM wishlist_item w";
+                    + " w.public_note, w.near_mint_only, w.price_term, w.created_at, w.updated_at"
+                    + " FROM wishlist_item w";
 
     private final JdbcClient jdbc;
 
@@ -51,17 +33,6 @@ public class WishlistRepository {
     /** The owner's items, newest first. */
     public List<WishlistItemRow> findByOwner(UUID ownerId) {
         return jdbc.sql(SELECT + " WHERE w.owner_id = :ownerId ORDER BY w.created_at DESC, w.id")
-                .param("ownerId", ownerId)
-                .query(WishlistRepository::map)
-                .list();
-    }
-
-    /** The owner's active items (public summary), newest first. */
-    public List<WishlistItemRow> findActiveByOwner(UUID ownerId) {
-        return jdbc.sql(
-                        SELECT
-                                + " WHERE w.owner_id = :ownerId AND w.active"
-                                + " ORDER BY w.created_at DESC, w.id")
                 .param("ownerId", ownerId)
                 .query(WishlistRepository::map)
                 .list();
@@ -81,26 +52,20 @@ public class WishlistRepository {
                 .single();
     }
 
-    /** Whether the owner already wishes exactly this target with the same filters. */
-    public boolean existsSameWish(Values values, @Nullable UUID exceptId) {
+    /** Whether the owner already wishes exactly this selection (card, printing, rarity). */
+    public boolean existsSameSelection(Values values, @Nullable UUID exceptId) {
         return jdbc.sql(
                                 """
                                 SELECT count(*) FROM wishlist_item
                                  WHERE owner_id = :ownerId AND card_id = :cardId
                                    AND printing_id IS NOT DISTINCT FROM :printingId
                                    AND rarity IS NOT DISTINCT FROM :rarity
-                                   AND condition_min IS NOT DISTINCT FROM :conditionMin
-                                   AND edition IS NOT DISTINCT FROM :edition
-                                   AND language IS NOT DISTINCT FROM :language
                                    AND (CAST(:exceptId AS uuid) IS NULL OR id <> :exceptId)
                                 """)
                         .param("ownerId", values.ownerId())
                         .param("cardId", values.cardId())
                         .param("printingId", values.printingId(), Types.OTHER)
                         .param("rarity", values.rarity(), Types.VARCHAR)
-                        .param("conditionMin", values.conditionMin(), Types.VARCHAR)
-                        .param("edition", values.edition(), Types.VARCHAR)
-                        .param("language", values.language(), Types.VARCHAR)
                         .param("exceptId", exceptId, Types.OTHER)
                         .query(Long.class)
                         .single()
@@ -111,11 +76,10 @@ public class WishlistRepository {
         jdbc.sql(
                         """
                         INSERT INTO wishlist_item (id, owner_id, game_slug, card_id, printing_id,
-                               rarity, condition_min, edition, language, max_price, currency,
-                               trade_preference, notes, active, created_at, updated_at)
+                               rarity, public_note, near_mint_only, price_term, created_at,
+                               updated_at)
                         VALUES (:id, :ownerId, :gameSlug, :cardId, :printingId, :rarity,
-                                :conditionMin, :edition, :language, :maxPrice, :currency,
-                                :tradePreference, :notes, :active, :now, :now)
+                                :publicNote, :nearMintOnly, :priceTerm, :now, :now)
                         """)
                 .param("id", id)
                 .param("now", Timestamp.from(now))
@@ -128,10 +92,8 @@ public class WishlistRepository {
                         """
                         UPDATE wishlist_item
                            SET printing_id = :printingId, rarity = :rarity,
-                               condition_min = :conditionMin, edition = :edition,
-                               language = :language, max_price = :maxPrice, currency = :currency,
-                               trade_preference = :tradePreference,
-                               notes = :notes, active = :active, updated_at = :now
+                               public_note = :publicNote, near_mint_only = :nearMintOnly,
+                               price_term = :priceTerm, updated_at = :now
                          WHERE id = :id AND owner_id = :ownerId
                         """)
                 .param("id", id)
@@ -147,50 +109,26 @@ public class WishlistRepository {
                 .update();
     }
 
-    public void touchMatched(UUID id, Instant now) {
-        jdbc.sql("UPDATE wishlist_item SET last_matched_at = :now WHERE id = :id")
-                .param("now", Timestamp.from(now))
-                .param("id", id)
-                .update();
-    }
-
-    /** Active items edited since {@code since} (nightly rematch). */
-    public List<UUID> activeUpdatedSince(Instant since, int limit) {
-        return jdbc.sql(
-                        "SELECT id FROM wishlist_item WHERE active AND updated_at >= :since"
-                                + " ORDER BY updated_at LIMIT :limit")
-                .param("since", Timestamp.from(since))
-                .param("limit", limit)
-                .query(UUID.class)
-                .list();
-    }
-
     public int deleteByOwner(UUID ownerId) {
         return jdbc.sql("DELETE FROM wishlist_item WHERE owner_id = :ownerId")
                 .param("ownerId", ownerId)
                 .update();
     }
 
-    private static java.util.Map<String, Object> params(Values values) {
-        java.util.Map<String, Object> params = new java.util.HashMap<>();
+    private static Map<String, Object> params(Values values) {
+        Map<String, Object> params = new HashMap<>();
         params.put("ownerId", values.ownerId());
         params.put("gameSlug", values.gameSlug());
         params.put("cardId", values.cardId());
         params.put("printingId", values.printingId());
         params.put("rarity", values.rarity());
-        params.put("conditionMin", values.conditionMin());
-        params.put("edition", values.edition());
-        params.put("language", values.language());
-        params.put("maxPrice", values.maxPrice());
-        params.put("currency", values.currency());
-        params.put("tradePreference", values.tradePreference().name());
-        params.put("notes", values.notes());
-        params.put("active", values.active());
+        params.put("publicNote", values.publicNote());
+        params.put("nearMintOnly", values.nearMintOnly());
+        params.put("priceTerm", values.priceTerm());
         return params;
     }
 
     private static WishlistItemRow map(ResultSet rs, int rowNum) throws SQLException {
-        Timestamp lastMatched = rs.getTimestamp("last_matched_at");
         return new WishlistItemRow(
                 rs.getObject("id", UUID.class),
                 rs.getObject("owner_id", UUID.class),
@@ -198,36 +136,24 @@ public class WishlistRepository {
                 rs.getObject("card_id", UUID.class),
                 rs.getObject("printing_id", UUID.class),
                 rs.getString("rarity"),
-                rs.getString("condition_min"),
-                rs.getString("edition"),
-                rs.getString("language"),
-                rs.getBigDecimal("max_price"),
-                rs.getString("currency").trim(),
-                TradePreference.valueOf(rs.getString("trade_preference")),
-                rs.getString("notes"),
-                rs.getBoolean("active"),
+                rs.getString("public_note"),
+                rs.getBoolean("near_mint_only"),
+                rs.getString("price_term"),
                 rs.getTimestamp("created_at").toInstant(),
-                rs.getTimestamp("updated_at").toInstant(),
-                lastMatched == null ? null : lastMatched.toInstant(),
-                rs.getLong("match_count"));
+                rs.getTimestamp("updated_at").toInstant());
     }
 
     /**
-     * Column values of an item.
+     * Column values of a wish.
      *
      * @param ownerId owner
      * @param gameSlug game
      * @param cardId card
      * @param printingId printing or {@code null}
-     * @param rarity rarity or {@code null}
-     * @param conditionMin minimum condition or {@code null}
-     * @param edition edition or {@code null}
-     * @param language language or {@code null}
-     * @param maxPrice maximum price or {@code null}
-     * @param currency currency
-     * @param tradePreference trade preference
-     * @param notes private notes
-     * @param active active
+     * @param rarity rarity of an "any printing" wish or {@code null}
+     * @param publicNote public note ({@code ""} when none)
+     * @param nearMintOnly Near Mint only
+     * @param priceTerm price term label or {@code null}
      */
     public record Values(
             UUID ownerId,
@@ -235,12 +161,7 @@ public class WishlistRepository {
             UUID cardId,
             @Nullable UUID printingId,
             @Nullable String rarity,
-            @Nullable String conditionMin,
-            @Nullable String edition,
-            @Nullable String language,
-            @Nullable BigDecimal maxPrice,
-            String currency,
-            TradePreference tradePreference,
-            String notes,
-            boolean active) {}
+            String publicNote,
+            boolean nearMintOnly,
+            @Nullable String priceTerm) {}
 }

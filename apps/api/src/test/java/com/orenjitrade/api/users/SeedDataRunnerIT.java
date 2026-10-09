@@ -110,7 +110,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsCollector2sWishlistWithANotifiedMatchAndAFewNotifications() {
+    void seedsCollector2sWishlistWithAnAlertAndAFewNotifications() {
         UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
         String azureWish = "00000000-0000-4000-8f00-000000000201";
         String azureItem = "00000000-0000-4000-8c00-000000010101";
@@ -124,23 +124,32 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM wishlist_item WHERE owner_id = ? AND"
-                                        + " active",
+                                        + " (public_note <> '' OR price_term IS NOT NULL)",
                                 collector2))
-                .isEqualTo(3);
+                .as("two seeded wishes carry a public note and a price term, one neither")
+                .isEqualTo(2);
         assertThat(
                         testUsers.count(
-                                "SELECT count(*) FROM wishlist_match WHERE wishlist_item_id ="
-                                        + " ?::uuid AND inventory_item_id = ?::uuid AND notified",
-                                azureWish,
+                                "SELECT count(*) FROM wishlist_item WHERE id = ?::uuid AND"
+                                        + " near_mint_only AND price_term = '90% TCG'",
+                                azureWish))
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ? AND"
+                                        + " inventory_item_id = ?::uuid",
+                                collector2,
                                 azureItem))
-                .as("collector1's public Azure-Eyes matches and notified collector2")
+                .as("collector1's public Azure-Eyes alerted collector2")
                 .isEqualTo(1);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM notification WHERE user_id = ? AND type ="
-                                        + " 'WISHLIST_MATCH' AND dedup_key = ?",
+                                        + " 'WISHLIST_ALERT' AND dedup_key = ? AND data ->>"
+                                        + " 'wishlistItemId' = ?",
                                 collector2,
-                                "wishlist:" + azureWish + ":" + azureItem))
+                                "wishlist-alert:" + collector2 + ":" + azureItem,
+                                azureWish))
                 .isEqualTo(1);
         assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
         assertThat(
@@ -149,10 +158,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                         + " wishlist_visible",
                                 collector2))
                 .isEqualTo(1);
-        String collector2Matches =
-                "SELECT count(*) FROM wishlist_match m JOIN wishlist_item w ON w.id ="
-                        + " m.wishlist_item_id WHERE w.owner_id = ?";
-        int matches = testUsers.count(collector2Matches, collector2);
+        String collector2Alerts = "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ?";
+        int alerts = testUsers.count(collector2Alerts, collector2);
         int notifications =
                 testUsers.count("SELECT count(*) FROM notification WHERE user_id = ?", collector2);
 
@@ -160,7 +167,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
 
         assertThat(testUsers.count(wishes)).isEqualTo(3);
         assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
-        assertThat(testUsers.count(collector2Matches, collector2)).isEqualTo(matches);
+        assertThat(testUsers.count(collector2Alerts, collector2)).isEqualTo(alerts);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM notification WHERE user_id = ?", collector2))

@@ -2,23 +2,20 @@ package com.orenjitrade.api.wishlist.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
-import com.orenjitrade.api.inventory.api.InventoryResponses.PublicInventoryItemResponse;
-import com.orenjitrade.api.search.api.SearchResponses.CollectorMarkerResponse;
-import com.orenjitrade.api.wishlist.domain.TradePreference;
+import com.orenjitrade.api.wishlist.domain.PriceTerm;
 import com.orenjitrade.api.wishlist.domain.WishlistItemRow;
 import com.orenjitrade.api.wishlist.domain.WishlistItemView;
-import com.orenjitrade.api.wishlist.domain.WishlistMatchView;
+import com.orenjitrade.api.wishlist.domain.WishlistSettings;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
-import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Response DTOs of the wishlist (Phase 6 contract). Matches carry the public item and the owner's
- * marker (state/province and country, never a city or a distance; ADR 0017); the public summary
- * never carries notes or prices.
+ * Response DTOs of the wishlist (stage S2 model): which copy, the public note, "Near Mint only" and
+ * the price term. Nothing private exists on a wish any more; no matches, no locations.
  */
 public final class WishlistResponses {
 
@@ -40,7 +37,29 @@ public final class WishlistResponses {
         }
     }
 
-    /** A wishlist item of the caller. */
+    /** A price term relative to the TCG market price. */
+    @Schema(
+            name = "WishPriceTerm",
+            description =
+                    "A display term relative to the TCG market price of the printing (not a"
+                            + " filter); orMore = this percent or more (\"100% TCG+\")")
+    public record PriceTermResponse(
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "85% TCG") String label,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "85") int percent,
+            @Schema(requiredMode = RequiredMode.REQUIRED) boolean orMore) {
+
+        static PriceTermResponse from(PriceTerm term) {
+            return new PriceTermResponse(term.label(), term.percent(), term.orMore());
+        }
+
+        static @Nullable PriceTermResponse of(@Nullable String label) {
+            return label == null
+                    ? null
+                    : PriceTerm.parse(label).map(PriceTermResponse::from).orElse(null);
+        }
+    }
+
+    /** A wish of the caller. */
     @Schema(name = "WishlistItemResponse", description = "A card the caller is looking for")
     public record WishlistItemResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
@@ -51,35 +70,17 @@ public final class WishlistResponses {
             @Schema(nullable = true, description = "The wished printing; null = any printing")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable PrintingSummary printing,
-            @Schema(nullable = true, example = "Ultra Rare")
-                    @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String rarity,
             @Schema(
                             nullable = true,
-                            example = "LIGHTLY_PLAYED",
-                            description = "Worst acceptable condition")
+                            example = "Ultra Rare",
+                            description = "Any printing of this rarity; null = any rarity")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String conditionMin,
-            @Schema(nullable = true, example = "FIRST_EDITION")
-                    @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String edition,
-            @Schema(nullable = true, example = "en") @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String language,
-            @Schema(nullable = true, example = "60.00") @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable BigDecimal maxPrice,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "CAD") String currency,
-            @Schema(requiredMode = RequiredMode.REQUIRED) TradePreference tradePreference,
-            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Private to the caller")
-                    String notes,
-            @Schema(requiredMode = RequiredMode.REQUIRED) boolean active,
-            @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
-                            description =
-                                    "Undismissed matches whose item is public right now (blocked"
-                                            + " collectors excluded)")
-                    long matchCount,
+                    @Nullable String rarity,
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Public note (\"\" = none)")
+                    String note,
+            @Schema(requiredMode = RequiredMode.REQUIRED) boolean nearMintOnly,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable Instant lastMatchedAt,
+                    @Nullable PriceTermResponse priceTerm,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt) {
 
@@ -91,39 +92,11 @@ public final class WishlistResponses {
                     CardRefResponse.from(view.card()),
                     view.printing(),
                     row.rarity(),
-                    row.conditionMin(),
-                    row.edition(),
-                    row.language(),
-                    row.maxPrice(),
-                    row.currency(),
-                    row.tradePreference(),
-                    row.notes(),
-                    row.active(),
-                    row.matchCount(),
-                    row.lastMatchedAt(),
+                    row.publicNote(),
+                    row.nearMintOnly(),
+                    PriceTermResponse.of(row.priceTerm()),
                     row.createdAt(),
                     row.updatedAt());
-        }
-    }
-
-    /** A public item matching a wishlist item. */
-    @Schema(name = "WishlistMatchResponse", description = "A public item matching a wishlist item")
-    public record WishlistMatchResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED) UUID wishlistItemId,
-            @Schema(requiredMode = RequiredMode.REQUIRED) PublicInventoryItemResponse item,
-            @Schema(requiredMode = RequiredMode.REQUIRED) CollectorMarkerResponse collector,
-            @Schema(requiredMode = RequiredMode.REQUIRED) Instant matchedAt,
-            @Schema(requiredMode = RequiredMode.REQUIRED) boolean dismissed) {
-
-        static WishlistMatchResponse from(WishlistMatchView view, Instant now) {
-            return new WishlistMatchResponse(
-                    view.id(),
-                    view.wishlistItemId(),
-                    PublicInventoryItemResponse.from(view.item(), now),
-                    CollectorMarkerResponse.from(view.collector()),
-                    view.matchedAt(),
-                    view.dismissed());
         }
     }
 
@@ -137,12 +110,50 @@ public final class WishlistResponses {
             @Schema(nullable = true, description = "Null = any printing")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable PrintingSummary printing,
-            @Schema(nullable = true, example = "NEAR_MINT") @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String conditionMin) {
+            @Schema(nullable = true, description = "Any printing of this rarity; null = any")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String rarity,
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Public note (\"\" = none)")
+                    String note,
+            @Schema(requiredMode = RequiredMode.REQUIRED) boolean nearMintOnly,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable PriceTermResponse priceTerm) {
 
         static WishlistSummaryEntryResponse from(WishlistItemView view) {
+            WishlistItemRow row = view.row();
             return new WishlistSummaryEntryResponse(
-                    CardRefResponse.from(view.card()), view.printing(), view.row().conditionMin());
+                    CardRefResponse.from(view.card()),
+                    view.printing(),
+                    row.rarity(),
+                    row.publicNote(),
+                    row.nearMintOnly(),
+                    PriceTermResponse.of(row.priceTerm()));
+        }
+    }
+
+    /** {@code GET /wishlist/price-terms}. */
+    @Schema(name = "WishPriceTermsResponse", description = "The price terms a wish may choose")
+    public record PriceTermsResponse(
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "In display order")
+                    List<PriceTermResponse> terms) {
+
+        static PriceTermsResponse from(List<PriceTerm> terms) {
+            return new PriceTermsResponse(terms.stream().map(PriceTermResponse::from).toList());
+        }
+    }
+
+    /** {@code GET|PUT /admin/wishlist/settings}. */
+    @Schema(name = "WishlistSettingsResponse", description = "Wishlist settings (admin)")
+    public record SettingsResponse(
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<String> priceTerms,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable UUID updatedBy,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant updatedAt) {
+
+        static SettingsResponse from(WishlistSettings.Values values) {
+            return new SettingsResponse(
+                    values.priceTerms(), values.updatedBy(), values.updatedAt());
         }
     }
 }

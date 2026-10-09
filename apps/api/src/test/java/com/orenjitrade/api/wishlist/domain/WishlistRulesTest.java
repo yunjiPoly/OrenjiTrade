@@ -1,21 +1,21 @@
 package com.orenjitrade.api.wishlist.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.orenjitrade.api.inventory.domain.Availability;
+import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.location.domain.PublicPlace;
-import com.orenjitrade.api.notifications.domain.NotificationRequest;
-import com.orenjitrade.api.notifications.domain.NotificationType;
-import com.orenjitrade.api.wishlist.infra.WishlistMatchRepository.Candidate;
+import com.orenjitrade.api.wishlist.infra.WishlistAlertRepository.Candidate;
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * The matching rules of the Phase 6 contract in Java (twins of the SQL predicates): condition rank
- * against the game's ordered conditions, price and currency, trade preference against the
- * availability; notification texts name the state/province and country, never a distance.
+ * Pure rules of the stage S2 wishlist: price terms (parsing, the admin list's validation, the
+ * approximate amount), which listings fit a wish (selection, "Near Mint only") and the alert text
+ * and link.
  */
 class WishlistRulesTest {
 
@@ -29,132 +29,144 @@ class WishlistRulesTest {
                     "DAMAGED");
 
     @Test
-    void conditionMustBeAtLeastTheMinimum() {
-        assertThat(WishlistRules.conditionSatisfies(CONDITIONS, "DAMAGED", null)).isTrue();
-        assertThat(WishlistRules.conditionSatisfies(CONDITIONS, "MINT", "LIGHTLY_PLAYED")).isTrue();
-        assertThat(WishlistRules.conditionSatisfies(CONDITIONS, "NEAR_MINT", "LIGHTLY_PLAYED"))
-                .isTrue();
-        assertThat(WishlistRules.conditionSatisfies(CONDITIONS, "LIGHTLY_PLAYED", "LIGHTLY_PLAYED"))
-                .isTrue();
-        assertThat(
-                        WishlistRules.conditionSatisfies(
-                                CONDITIONS, "MODERATELY_PLAYED", "LIGHTLY_PLAYED"))
-                .isFalse();
-        assertThat(WishlistRules.conditionSatisfies(CONDITIONS, "GRADED_10", "LIGHTLY_PLAYED"))
-                .as("unknown item condition")
-                .isFalse();
-        assertThat(WishlistRules.conditionSatisfies(CONDITIONS, "MINT", "PRISTINE"))
-                .as("unknown minimum")
-                .isFalse();
-    }
-
-    @Test
-    void priceMustNotExceedTheMaximumInTheSameCurrency() {
-        BigDecimal sixty = new BigDecimal("60.00");
-        assertThat(WishlistRules.priceAcceptable(null, "CAD", new BigDecimal("999"), "CAD"))
-                .isTrue();
-        assertThat(WishlistRules.priceAcceptable(sixty, "CAD", null, "CAD"))
-                .as("unpriced items pass")
-                .isTrue();
-        assertThat(WishlistRules.priceAcceptable(sixty, "CAD", new BigDecimal("60"), "CAD"))
-                .isTrue();
-        assertThat(WishlistRules.priceAcceptable(sixty, "CAD", new BigDecimal("60.01"), "CAD"))
-                .isFalse();
-        assertThat(WishlistRules.priceAcceptable(sixty, "CAD", new BigDecimal("10"), "USD"))
-                .as("another currency never meets a set maximum")
-                .isFalse();
-    }
-
-    @Test
-    void tradePreferenceMatchesTheAvailability() {
-        for (Availability availability : Availability.values()) {
-            assertThat(WishlistRules.tradeCompatible(TradePreference.ANY, availability)).isTrue();
+    void priceTermsAreParsedFromTheirLabel() {
+        assertThat(PriceTerm.parse("85% TCG")).contains(new PriceTerm("85% TCG", 85, false));
+        assertThat(PriceTerm.parse(" 100% TCG+ ")).contains(new PriceTerm("100% TCG+", 100, true));
+        assertThat(PriceTerm.parse("200% TCG")).isPresent();
+        for (String invalid :
+                Arrays.asList(
+                        null,
+                        "",
+                        "85%",
+                        "85 % TCG",
+                        "085% TCG",
+                        "0% TCG",
+                        "201% TCG",
+                        "85% tcg",
+                        "85% TCG++",
+                        "-5% TCG",
+                        "cheap")) {
+            assertThat(PriceTerm.parse(invalid)).as(String.valueOf(invalid)).isEmpty();
         }
-        assertThat(WishlistRules.tradeCompatible(TradePreference.TRADE, Availability.TRADE))
+    }
+
+    @Test
+    void theApproximateAmountIsTheTermsShareOfTheMarketPrice() {
+        assertThat(PriceTerm.parse("85% TCG").orElseThrow().approximate(new BigDecimal("25.00")))
+                .isEqualByComparingTo("21.25");
+        assertThat(PriceTerm.parse("90% TCG").orElseThrow().approximate(new BigDecimal("0.99")))
+                .isEqualByComparingTo("0.89");
+        assertThat(PriceTerm.parse("100% TCG+").orElseThrow().approximate(new BigDecimal("18.5")))
+                .isEqualByComparingTo("18.50");
+    }
+
+    @Test
+    void theAdminListIsValidatedAndNormalised() {
+        assertThat(WishlistSettings.validate(List.of(" 80% TCG", "100% TCG+", "80% TCG")))
+                .containsExactly("80% TCG", "100% TCG+");
+        assertThat(WishlistSettings.validate(WishlistSettings.DEFAULT_PRICE_TERMS))
+                .containsExactlyElementsOf(WishlistSettings.DEFAULT_PRICE_TERMS);
+        assertThatThrownBy(() -> WishlistSettings.validate(List.of()))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> WishlistSettings.validate(null)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> WishlistSettings.validate(List.of("80% TCG", "cheap")))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(
+                        () ->
+                                WishlistSettings.validate(
+                                        List.of(
+                                                "1% TCG",
+                                                "2% TCG", "3% TCG", "4% TCG", "5% TCG", "6% TCG",
+                                                "7% TCG", "8% TCG", "9% TCG", "10% TCG",
+                                                "11% TCG")))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void nearMintOnlyAcceptsNearMintOrBetter() {
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "MINT", true)).isTrue();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "NEAR_MINT", true)).isTrue();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "LIGHTLY_PLAYED", true)).isFalse();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "DAMAGED", true)).isFalse();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "UNKNOWN", true)).isFalse();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "DAMAGED", false)).isTrue();
+        assertThat(WishlistAlertRules.conditionFits(List.of("GOOD"), "GOOD", true)).isFalse();
+        assertThat(WishlistAlertRules.NEAR_MINT_SQL)
+                .contains("w.near_mint_only")
+                .contains("'NEAR_MINT'");
+    }
+
+    @Test
+    void aSelectionFitsItsPrintingOrAnyPrintingOfItsRarity() {
+        UUID card = UUID.randomUUID();
+        UUID printing = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        assertThat(WishlistAlertRules.selectionFits(card, printing, null, card, printing, "UR"))
                 .isTrue();
-        assertThat(WishlistRules.tradeCompatible(TradePreference.TRADE, Availability.TRADE_OR_SALE))
-                .isTrue();
-        assertThat(WishlistRules.tradeCompatible(TradePreference.TRADE, Availability.SALE))
+        assertThat(WishlistAlertRules.selectionFits(card, printing, null, card, other, "UR"))
                 .isFalse();
+        assertThat(WishlistAlertRules.selectionFits(card, null, null, card, other, "UR")).isTrue();
+        assertThat(WishlistAlertRules.selectionFits(card, null, "UR", card, other, "UR")).isTrue();
+        assertThat(WishlistAlertRules.selectionFits(card, null, "SR", card, other, "UR")).isFalse();
         assertThat(
-                        WishlistRules.tradeCompatible(
-                                TradePreference.TRADE, Availability.COLLECTION_ONLY))
-                .isFalse();
-        assertThat(WishlistRules.tradeCompatible(TradePreference.SALE, Availability.SALE)).isTrue();
-        assertThat(WishlistRules.tradeCompatible(TradePreference.SALE, Availability.TRADE_OR_SALE))
-                .isTrue();
-        assertThat(WishlistRules.tradeCompatible(TradePreference.SALE, Availability.TRADE))
+                        WishlistAlertRules.selectionFits(
+                                card, null, null, UUID.randomUUID(), other, "UR"))
                 .isFalse();
     }
 
     @Test
-    void notificationTextsNameTheListersPlaceNeverADistance() {
+    void theAlertNamesCardCodeRarityHandleAndPlaceAndLinksToTheSelection() {
+        UUID card = UUID.randomUUID();
+        UUID printing = UUID.randomUUID();
         PublicPlace quebec =
                 new PublicPlace("americas-north", "CA", "Canada", "CA-QC", "Quebec", false);
-
-        UUID wish = UUID.fromString("00000000-0000-4000-8f00-000000000201");
-        UUID item = UUID.fromString("00000000-0000-4000-8c00-000000010101");
-        UUID wisher = UUID.fromString("00000000-0000-4000-8000-000000000002");
-        UUID owner = UUID.fromString("00000000-0000-4000-8000-000000000001");
-        UUID match = UUID.fromString("00000000-0000-4000-8f00-00000000aaaa");
-        UUID printing = UUID.fromString("00000000-0000-4000-8e00-000000000001");
-        Candidate candidate =
-                new Candidate(
-                        wish,
-                        wisher,
-                        item,
-                        printing,
-                        owner,
-                        "Azure-Eyes Sky Dragon",
-                        "AZR-EN001",
-                        new BigDecimal("45.00"),
-                        "CAD",
-                        "yugioh",
-                        "collector1",
-                        quebec);
-        String picture = "/api/v1/public/card-images/00000000-0000-4000-8d00-000000000001";
-        NotificationRequest request = WishlistMatcher.request(candidate, match, picture);
-        assertThat(request.userId()).isEqualTo(wisher);
-        assertThat(request.type()).isEqualTo(NotificationType.WISHLIST_MATCH);
-        assertThat(request.title()).isEqualTo("Wishlist match: Azure-Eyes Sky Dragon");
-        assertThat(request.body())
+        Candidate exact = candidate(card, printing, null, "AZR-EN001", "Ultra Rare", quebec);
+        assertThat(WishlistAlerts.body(exact))
                 .isEqualTo(
-                        "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec,"
-                                + " Canada for 45.00 CAD.");
-        assertThat(request.dedupKey()).isEqualTo("wishlist:" + wish + ":" + item);
-        assertThat(request.data())
-                .containsEntry("wishlistItemId", wish.toString())
-                .containsEntry("matchId", match.toString())
-                .containsEntry("inventoryItemId", item.toString())
-                .containsEntry("collectorId", owner.toString())
-                .containsEntry("regionCode", "americas-north")
-                .containsEntry("deepLink", "/wishlist/" + wish)
-                .containsEntry("cardName", "Azure-Eyes Sky Dragon")
-                .containsEntry("game", "yugioh")
-                .containsEntry("cardImageUrl", picture);
-        assertThat(request.data()).doesNotContainKey("distanceBucket");
-        assertThat(request.body()).doesNotContain("km");
+                        "Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @seller in"
+                                + " Quebec, Canada.");
+        assertThat(WishlistAlerts.deepLink(exact))
+                .isEqualTo("/cards/" + card + "?printing=" + printing);
 
-        Candidate unpriced =
-                new Candidate(
-                        wish,
-                        wisher,
-                        item,
-                        printing,
-                        owner,
-                        "Tidebinder",
-                        null,
-                        null,
-                        "CAD",
-                        "mtg",
-                        "collector9",
-                        new PublicPlace(
-                                "americas-north", "PR", "Puerto Rico", "PR", "Puerto Rico", true));
-        NotificationRequest unpricedRequest = WishlistMatcher.request(unpriced, match, null);
-        assertThat(unpricedRequest.body())
-                .isEqualTo("Tidebinder was listed by @collector9 in Puerto Rico.");
-        assertThat(unpricedRequest.data())
-                .containsEntry("cardName", "Tidebinder")
-                .doesNotContainKey("cardImageUrl");
+        PublicPlace puertoRico =
+                new PublicPlace("americas-north", "PR", "Puerto Rico", "PR", "Puerto Rico", true);
+        Candidate rarity =
+                candidate(card, null, "Collector's Rare", null, "Collector's Rare", puertoRico);
+        assertThat(WishlistAlerts.body(rarity))
+                .isEqualTo(
+                        "Azure-Eyes Sky Dragon Collector's Rare was just listed by @seller in"
+                                + " Puerto Rico.");
+        assertThat(WishlistAlerts.deepLink(rarity))
+                .isEqualTo("/cards/" + card + "?rarity=Collector%27s%20Rare")
+                .matches("^/(?!/)[\\w\\-/?=&.%~]*$");
+
+        Candidate any = candidate(card, null, null, "AZR-EN001", null, quebec);
+        assertThat(WishlistAlerts.deepLink(any)).isEqualTo("/cards/" + card);
+        assertThat(WishlistAlerts.request(any, null).dedupKey())
+                .isEqualTo("wishlist-alert:" + any.wisherId() + ":" + any.itemId());
+    }
+
+    private static Candidate candidate(
+            UUID card,
+            UUID printing,
+            String wishRarity,
+            String code,
+            String itemRarity,
+            PublicPlace place) {
+        return new Candidate(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                card,
+                printing,
+                wishRarity,
+                UUID.randomUUID(),
+                printing == null ? UUID.randomUUID() : printing,
+                UUID.randomUUID(),
+                "Azure-Eyes Sky Dragon",
+                code,
+                itemRarity,
+                "yugioh",
+                "seller",
+                place);
     }
 }

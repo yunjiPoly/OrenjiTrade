@@ -15,7 +15,6 @@ class SettingsIT extends AbstractIntegrationTest {
 
     static final List<String> CATEGORIES =
             List.of(
-                    "WISHLIST_MATCH",
                     "MESSAGE",
                     "OFFER",
                     "RATING",
@@ -78,6 +77,7 @@ class SettingsIT extends AbstractIntegrationTest {
         assertThat(defaults.path("pushEnabled").asBoolean()).isTrue();
         assertThat(defaults.path("emailEnabled").asBoolean()).isFalse();
         assertThat(defaults.path("inAppEnabled").asBoolean()).isTrue();
+        assertThat(defaults.path("wishlistAlerts").asBoolean()).as("on by default").isTrue();
         List<String> names = defaults.path("categories").propertyNames().stream().toList();
         assertThat(names).containsExactlyElementsOf(CATEGORIES);
         assertThat(defaults.path("categories").path("MESSAGE").toString())
@@ -92,6 +92,7 @@ class SettingsIT extends AbstractIntegrationTest {
         body.put("pushEnabled", false);
         body.put("emailEnabled", true);
         body.put("inAppEnabled", true);
+        body.put("wishlistAlerts", false);
         body.put(
                 "categories",
                 Map.of(
@@ -112,6 +113,10 @@ class SettingsIT extends AbstractIntegrationTest {
                 callJson(HttpMethod.PUT, "/api/v1/me/settings/notifications", uid, body, 200);
         assertThat(saved.path("pushEnabled").asBoolean()).isFalse();
         assertThat(saved.path("emailEnabled").asBoolean()).isTrue();
+        assertThat(saved.path("wishlistAlerts").asBoolean()).isFalse();
+        assertThat(saved.path("categories").has("WISHLIST_MATCH"))
+                .as("wishlist alerts have their own switch, not a category")
+                .isFalse();
         assertThat(saved.path("categories").path("MESSAGE").toString())
                 .isEqualTo("{\"push\":false,\"email\":true,\"inApp\":true}");
         assertThat(saved.path("categories").path("MARKETING").path("email").asBoolean()).isTrue();
@@ -128,6 +133,27 @@ class SettingsIT extends AbstractIntegrationTest {
                                         200)
                                 .toString())
                 .isEqualTo(saved.toString());
+
+        // Left out: wishlist alerts default to on (full replacement).
+        Map<String, Object> withoutSwitch = new LinkedHashMap<>(body);
+        withoutSwitch.remove("wishlistAlerts");
+        assertThat(
+                        callJson(
+                                        HttpMethod.PUT,
+                                        "/api/v1/me/settings/notifications",
+                                        uid,
+                                        withoutSwitch,
+                                        200)
+                                .path("wishlistAlerts")
+                                .asBoolean())
+                .isTrue();
+
+        // The removed WISHLIST_MATCH category is unknown now.
+        Map<String, Object> oldCategory = new LinkedHashMap<>(body);
+        oldCategory.put(
+                "categories",
+                Map.of("WISHLIST_MATCH", Map.of("push", true, "email", true, "inApp", true)));
+        callJson(HttpMethod.PUT, "/api/v1/me/settings/notifications", uid, oldCategory, 400);
 
         Map<String, Object> unknownCategory = new LinkedHashMap<>(body);
         unknownCategory.put(

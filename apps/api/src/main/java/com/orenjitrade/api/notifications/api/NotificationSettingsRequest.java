@@ -30,7 +30,14 @@ public record NotificationSettingsRequest(
                         categories,
         @Schema(nullable = true, description = "Defaults to disabled 22:00-08:00 America/Toronto")
                 @Valid
-                @Nullable QuietHoursRequest quietHours) {
+                @Nullable QuietHoursRequest quietHours,
+        @Schema(
+                        nullable = true,
+                        description =
+                                "Wishlist alerts on or off (one switch; in-app and push follow the"
+                                        + " master switches and quiet hours). Defaults to true"
+                                        + " when absent")
+                @Nullable Boolean wishlistAlerts) {
 
     static final String TIME_PATTERN = "^([01]\\d|2[0-3]):[0-5]\\d$";
 
@@ -53,7 +60,13 @@ public record NotificationSettingsRequest(
                                 quietHours.start(),
                                 quietHours.end(),
                                 quietHours.timezone().trim());
-        return new NotificationSettings(pushEnabled, emailEnabled, inAppEnabled, channels, quiet);
+        return new NotificationSettings(
+                pushEnabled,
+                emailEnabled,
+                inAppEnabled,
+                channels,
+                quiet,
+                wishlistAlerts == null || wishlistAlerts);
     }
 
     /** Channels of one category. */

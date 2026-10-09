@@ -99,12 +99,6 @@ variable "jobs" {
       path        = "/internal/jobs/upload-cleanup"
       description = "Every 15 minutes: delete unattached message uploads older than one hour (UploadCleanupJobController, local @Scheduled PT15M)."
     }
-    wishlist-rematch = {
-      schedule                 = "0 5 * * *"
-      path                     = "/internal/jobs/wishlist-rematch"
-      description              = "Nightly wishlist re-matching and notifications (WishlistJobController, local @Scheduled P1D)."
-      attempt_deadline_seconds = 600
-    }
     card-images-reconcile = {
       schedule                 = "45 4 * * *"
       path                     = "/internal/jobs/card-images/reconcile"

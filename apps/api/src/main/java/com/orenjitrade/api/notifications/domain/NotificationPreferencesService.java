@@ -70,6 +70,7 @@ public class NotificationPreferencesService {
                 requested.inAppEnabled(),
                 jsonMapper.writeValueAsString(categories),
                 jsonMapper.writeValueAsString(requested.quietHours()),
+                requested.wishlistAlerts(),
                 now);
         return toSettings(preferences);
     }
@@ -118,7 +119,8 @@ public class NotificationPreferencesService {
                 preferences.isEmailEnabled(),
                 preferences.isInAppEnabled(),
                 categories,
-                quietHours);
+                quietHours,
+                preferences.isWishlistAlerts());
     }
 
     private static void validateQuietHours(QuietHours quietHours) {

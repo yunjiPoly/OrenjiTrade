@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** {@code GET /api/v1/collectors/{handle}/wishlist}: a collector's public wishlist summary. */
 @RestController
-@Tag(name = "wishlist", description = "The caller's wishlist and its matches in their region")
+@Tag(name = "wishlist", description = "The caller's wishlist")
 public class CollectorWishlistController {
 
     private final WishlistService wishlistService;
@@ -34,9 +34,10 @@ public class CollectorWishlistController {
             summary = "A collector's public wishlist",
             description =
                     "Only when the collector shows their wishlist (privacy setting wishlistVisible)"
-                        + " and their profile is visible to the caller: the active items as card,"
-                        + " printing and minimum condition (never notes, prices or radii). 404"
-                        + " otherwise, and for unknown, suspended, deleted or blocked collectors.")
+                        + " and their profile is visible to the caller: every wish as card,"
+                        + " printing or rarity, public note, Near Mint only and price term (never a"
+                        + " place). 404 otherwise, and for unknown, suspended, deleted or blocked"
+                        + " collectors.")
     @ApiResponse(responseCode = "200", description = "The public wishlist")
     @ApiResponse(
             responseCode = "404",

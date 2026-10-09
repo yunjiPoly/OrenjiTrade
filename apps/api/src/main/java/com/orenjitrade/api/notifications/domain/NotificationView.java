@@ -24,20 +24,21 @@ import org.jspecify.annotations.Nullable;
 public record NotificationView(
         @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = RequiredMode.REQUIRED) NotificationType type,
-        @Schema(requiredMode = RequiredMode.REQUIRED, example = "Wishlist match: Azure-Eyes")
+        @Schema(requiredMode = RequiredMode.REQUIRED, example = "Wishlist alert: Azure-Eyes")
                 String title,
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,
                         example =
-                                "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in"
-                                        + " Quebec, Canada.")
+                                "Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by"
+                                        + " @collector1 in Quebec, Canada.")
                 String body,
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,
                         description =
                                 "Ids of the objects concerned and `deepLink` (web path, e.g."
-                                        + " /wishlist/<id> or /messages/<conversationId>)."
-                                        + " Notifications about one card (WISHLIST_MATCH,"
+                                        + " /cards/<cardId>?printing=<id> or"
+                                        + " /messages/<conversationId>)."
+                                        + " Notifications about one card (WISHLIST_ALERT,"
                                         + " OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE,"
                                         + " SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`,"
                                         + " `game` and `cardImageUrl` (OrenjiTrade's own card"

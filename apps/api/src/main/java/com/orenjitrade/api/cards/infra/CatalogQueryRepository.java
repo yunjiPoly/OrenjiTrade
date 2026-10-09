@@ -64,7 +64,8 @@ public class CatalogQueryRepository {
             """
             p.id, p.card_id, p.set_id, s.code AS set_code, s.name AS set_name, p.collector_number,
             p.printing_code, p.rarity, p.edition, p.language, p.finish, p.market_price,
-            p.market_price_currency, p.market_price_updated_at, p.metadata::text AS metadata,
+            p.market_price_currency, p.market_price_updated_at,
+            p.external_ref ->> 'provider' AS price_provider, p.metadata::text AS metadata,
             g.slug AS game, c.slug AS card_slug, c.image_id AS card_image_id
             """;
 
@@ -790,7 +791,8 @@ public class CatalogQueryRepository {
                     new MarketPrice(
                             rs.getBigDecimal("market_price"),
                             rs.getString("market_price_currency"),
-                            updated == null ? null : updated.toInstant());
+                            updated == null ? null : updated.toInstant(),
+                            MarketPrice.sourceOf(rs.getString("price_provider")));
         }
         return new PrintingRow(
                 rs.getObject("id", UUID.class),

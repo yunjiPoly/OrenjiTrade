@@ -2,13 +2,11 @@ package com.orenjitrade.api.wishlist.infra;
 
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.common.seed.SeedContributor;
-import com.orenjitrade.api.wishlist.domain.WishlistMatcher;
-import java.math.BigDecimal;
+import com.orenjitrade.api.wishlist.domain.WishlistAlerts;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -23,16 +21,17 @@ import org.springframework.transaction.annotation.Transactional;
  * local/dev only, stable ids {@code 00000000-0000-4000-8f00-0000000002NN}):
  *
  * <ul>
- *   <li>{@code ygo-p001a} (Azure-Eyes Sky Dragon AZR-EN001) at least LIGHTLY_PLAYED, up to 60 CAD:
- *       collector1 lists it publicly, so the seed runs the matcher for that item and collector2
- *       gets a WISHLIST_MATCH notification (through the normal pipeline, dedup-keyed);
- *   <li>{@code pkm-p002a}, any condition: collector1 keeps it in a private unfiled lot, so
- *       publishing it locally triggers a fresh match and notification;
- *   <li>the card of {@code mtg-p005b}, any printing, for trade: collector5 lists it (matched at
- *       once, without notification, like a wish created from the web).
+ *   <li>{@code ygo-p001a} (Azure-Eyes Sky Dragon AZR-EN001), Near Mint only, "90% TCG", with a
+ *       public note: collector1 lists it publicly (Near Mint), so the seed runs the wishlist alert
+ *       for that item and collector2 gets a WISHLIST_ALERT notification (through the normal
+ *       pipeline, sent-alert and dedup keyed);
+ *   <li>{@code pkm-p002a}: collector1 keeps it in a private unfiled lot, so publishing it locally
+ *       triggers a fresh alert;
+ *   <li>the card of {@code mtg-p005b}, any printing, "100% TCG+": collector5 lists it (no alert at
+ *       seed time; alerts are only sent for new publications).
  * </ul>
  *
- * Collectors 1, 2 and 5 are all in Americas (North) (db/seed/locations.json): matches never cross
+ * Collectors 1, 2 and 5 are all in Americas (North) (db/seed/locations.json): alerts never cross
  * platform regions (ADR 0017). The first run also makes collector2's wishlist visible on their
  * profile. Items are inserted once ({@code ON CONFLICT DO NOTHING}); later runs leave local edits
  * alone.
@@ -50,13 +49,13 @@ public class WishlistSeedContributor implements SeedContributor {
     private static final Logger log = LoggerFactory.getLogger(WishlistSeedContributor.class);
 
     private final JdbcClient jdbc;
-    private final WishlistMatcher matcher;
+    private final WishlistAlerts alerts;
     private final TimeProvider timeProvider;
 
     public WishlistSeedContributor(
-            JdbcClient jdbc, WishlistMatcher matcher, TimeProvider timeProvider) {
+            JdbcClient jdbc, WishlistAlerts alerts, TimeProvider timeProvider) {
         this.jdbc = jdbc;
-        this.matcher = matcher;
+        this.alerts = alerts;
         this.timeProvider = timeProvider;
     }
 
@@ -86,10 +85,9 @@ public class WishlistSeedContributor implements SeedContributor {
                             WISH_AZURE,
                             azure.get(),
                             true,
-                            "LIGHTLY_PLAYED",
-                            new BigDecimal("60.00"),
-                            "ANY",
-                            "For my Azure-Eyes deck; happy to meet at a local game store.",
+                            "Looking for a clean copy for my Azure-Eyes deck.",
+                            true,
+                            "90% TCG",
                             created);
         }
         Optional<Printing> promo = printing("pkm-p002a");
@@ -99,10 +97,9 @@ public class WishlistSeedContributor implements SeedContributor {
                             WISH_PROMO,
                             promo.get(),
                             true,
-                            null,
-                            null,
-                            "ANY",
                             "",
+                            false,
+                            null,
                             created.plus(Duration.ofMinutes(5)));
         }
         Optional<Printing> magic = printing("mtg-p005b");
@@ -112,10 +109,9 @@ public class WishlistSeedContributor implements SeedContributor {
                             WISH_MAGIC,
                             magic.get(),
                             false,
-                            null,
-                            null,
-                            "TRADE",
                             "Any printing is fine.",
+                            false,
+                            "100% TCG+",
                             created.plus(Duration.ofMinutes(10)));
         }
         if (inserted == 0) {
@@ -126,10 +122,7 @@ public class WishlistSeedContributor implements SeedContributor {
                                 + " WHERE user_id = :id AND NOT wishlist_visible")
                 .param("id", COLLECTOR2)
                 .update();
-        matcher.matchPublishedItem(COLLECTOR1_AZURE_ITEM);
-        for (UUID wish : List.of(WISH_AZURE, WISH_PROMO, WISH_MAGIC)) {
-            matcher.matchWishlistItem(wish);
-        }
+        alerts.alertForPublishedItem(COLLECTOR1_AZURE_ITEM);
         log.info("Seeded {} wishlist items for collector2", inserted);
     }
 
@@ -137,29 +130,26 @@ public class WishlistSeedContributor implements SeedContributor {
             UUID id,
             Printing printing,
             boolean exactPrinting,
-            @Nullable String conditionMin,
-            @Nullable BigDecimal maxPrice,
-            String tradePreference,
-            String notes,
+            String note,
+            boolean nearMintOnly,
+            @Nullable String priceTerm,
             Instant at) {
         return jdbc.sql(
                         """
                         INSERT INTO wishlist_item (id, owner_id, game_slug, card_id, printing_id,
-                               condition_min, max_price, currency, trade_preference,
-                               notes, active, created_at, updated_at)
-                        VALUES (:id, :owner, :game, :cardId, :printingId, :condition, :maxPrice,
-                                'CAD', :trade, :notes, true, :at, :at)
-                        ON CONFLICT (id) DO NOTHING
+                               public_note, near_mint_only, price_term, created_at, updated_at)
+                        VALUES (:id, :owner, :game, :cardId, :printingId, :note, :nearMintOnly,
+                                :priceTerm, :at, :at)
+                        ON CONFLICT DO NOTHING
                         """)
                 .param("id", id)
                 .param("owner", COLLECTOR2)
                 .param("game", printing.game())
                 .param("cardId", printing.cardId())
                 .param("printingId", exactPrinting ? printing.id() : null, java.sql.Types.OTHER)
-                .param("condition", conditionMin, java.sql.Types.VARCHAR)
-                .param("maxPrice", maxPrice, java.sql.Types.NUMERIC)
-                .param("trade", tradePreference)
-                .param("notes", notes)
+                .param("note", note)
+                .param("nearMintOnly", nearMintOnly)
+                .param("priceTerm", priceTerm, java.sql.Types.VARCHAR)
                 .param("at", Timestamp.from(at))
                 .update();
     }

@@ -31,7 +31,9 @@ public class NotificationSettingsController {
     @Operation(
             operationId = "getNotificationSettings",
             summary = "The caller's notification preferences",
-            description = "Defaults: push and in-app on, email off, MARKETING fully off.")
+            description =
+                    "Defaults: push and in-app on, email off, MARKETING fully off, wishlist alerts"
+                            + " on.")
     public NotificationSettingsResponse get(@AuthenticationPrincipal AuthenticatedUser principal) {
         return NotificationSettingsResponse.from(service.settingsOf(principal.userId()));
     }
