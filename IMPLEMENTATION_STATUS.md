@@ -2043,8 +2043,8 @@ default, `americas-south`, `europe`).
 - Seeds: no fictional bio, binder description or community post names a city any more.
 - Test stability: cloned test printings carry the whole random token in their collector number
   (three letters collided once across a full run).
-- The two discoverability hints differ on purpose: the web switch lives in Settings → Privacy, the
-  mobile one in Settings → Location (each platform names its own screen).
+- The discoverability hints: both now name Settings → Privacy (verification fix 2; the mobile app
+  also shows the switch in Settings → Location).
 
 **Owner decisions to confirm (S1 defaults):** Europe excludes Russia, Turkey and the Caucasus
 (Armenia, Azerbaijan, Georgia); Greenland is not in Americas (North); the country outlines are
@@ -2058,43 +2058,46 @@ V111 `region_model_comments` (database comment only, added by the second verific
 The owner's local database migrates on the next `npm run dev` and **loses its trading areas by
 design** (every collector declares a location again).
 
-**Checks (2026-10-08, re-run after the verification fixes):**
-- `npm run test:api` (Spotless + `check`): 798 tests in 161 classes plus 12 in the separate
+**Checks (2026-10-08, re-run after verification fix 2 on the final code):**
+- `./gradlew exportOpenApi --rerun` then `npm run generate:api`: the working tree stays clean.
+- `npm run test:api` (Spotless + `check`): 800 tests in 161 classes plus 12 in the separate
   `catalogTest` task (the catalog fixture suites run in their own JVM), 0 failures, 0 skipped.
-- `./gradlew exportOpenApi` then `npm run generate:api`: the working tree stays clean.
-- `npm run test:web`: lint clean, 137 files / 633 tests. `npm run build -w apps/web-angular`:
-  initial 899.83 kB (214.46 kB transfer) against the 900 kB warning budget (1.5 MB error), no
+- `npm run test:web`: lint clean, 138 files / 637 tests. `npm run build -w apps/web-angular`:
+  initial 899.96 kB (214.54 kB transfer) against the 900 kB warning budget (1.5 MB error), no
   warning; Leaflet in the lazy `leaflet-src` chunk (149.42 kB); the boundary files
   (`public/boundaries/*.json`, 241 / 145 / 316 kB) are fetched per region, never bundled.
-- `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky, local retries 0 (every spec, isolated stack
-  :8180 / :4300).
-- `npm run test:mobile`: typecheck, lint, 76 suites / 647 jest tests, 28 harness guard tests.
+- `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky (every spec, isolated stack :8180 / :4300).
+  A first full run had one flaky spec (`acceptance/search.spec.ts`: its passive response
+  listener lost a body after the page navigated); fixed in `3bf3e61` (search and privacy specs
+  read the answers with `waitForResponse` before navigating), then the whole suite re-run.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 648 jest tests, 28 harness guard tests.
   `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` (74 static
-  routes) succeed (output in the session scratchpad); neither carries a map provider URL or a
-  location API.
+  routes) succeed (output in the session scratchpad); neither carries a map provider URL, a
+  location API or the old "near them" wording.
 - `npm run test:mobile:e2e`: 51 passed, 0 skipped. Maestro on the Pixel_6_API_34 emulator
-  (Android 14, Expo Go, SDK 57, cold boot): 24/24 flows in one full run (51 min 37 s) after the
-  last mobile source change; a manual walk (sign-in of a fictional emulator account, consents and
-  18+, onboarding → "Where are you?" with Canada → Quebec, a city and the show-city hint in both
-  states → Map tab placeholder) with screenshots, the saved place confirmed on the API, logcat
-  and Metro without errors, tokens, coordinates or the city; the walk account deleted, Metro, the
-  API and the emulator shut down afterwards. (The last seed-text commit came after that Maestro
-  run; the web and mobile Playwright suites and the API suite were re-run after it.)
+  (Android 14, Expo Go, SDK 57, cold boot): 24/24 flows in one full run (48 min 46 s of flows,
+  50 min 17 s in all) after the last mobile source change; a manual walk (sign-in of a fictional
+  emulator account, onboarding → "Where are you?" with Canada → Quebec and a city, the
+  discoverability hint naming Settings → Privacy → Map tab placeholder → the Terms in English and
+  French with the "in their region" / "dans leur région" clause) with adb screenshots, the saved
+  place confirmed on the API, logcat, Metro and the API log without errors, tokens, coordinates
+  or the city; the walk account deleted, Metro, the API and the emulator shut down afterwards.
 - `npm run infra:validate` (fmt + validate of dev / staging / prod and Cloudflare),
   `npm run audit:gate` (OK; the two allow-listed advisories unchanged), `npm run test:scripts`
   (64/64), `node scripts/sync-legal.mjs --check` in `apps/mobile` (up to date); there is no
   `i18n:check` script and no root `scripts/sync-legal.mjs`.
-- Fresh database (`orenjitrade_regions_check`, migrated by the API to V110, then dropped): no
+- Fresh database (`orenjitrade_e2e`, recreated and migrated to V111 by the last E2E run): no
   geometry or geography column, no column named like point / lat / lng / latitude / longitude /
-  radius / grid_cell / geo_cell / distance and no GiST index outside PostGIS's own tables;
-  `user_location` = user_id, country_code, subdivision_code, city, show_city, created_at,
-  updated_at; PostGIS 3.5.2 still installed; 3 regions, 104 countries, 1,259 subdivisions, 12
-  seeded locations; no radius limit, entitlement or credit product; no seed bio, binder
-  description or post naming a city; 7 active and 4 archived channels. Live on API :8480 (Redis
-  db 5): region map answers carry `Cache-Control: no-cache, no-store, max-age=0,
-  must-revalidate`; binder counts americas-north CA-ON 1 / CA-QC 2 / US-CA 1, americas-south
-  AR-C 1 / BR-SP 1, europe ES-MD 1 / FR-IDF 1; state-list rows carry `owner.place` without a
-  city; `sort=distance` 400; unknown region 404 (processes stopped, Redis db 5 flushed).
+  radius / grid_cell / geo_cell / distance and no GiST index outside PostGIS's own tables (now
+  also asserted by `FlywayMigrationIT`); `user_location` = user_id, country_code,
+  subdivision_code, city, show_city, created_at, updated_at; PostGIS 3.5.2 still installed; 3
+  regions, 104 countries (39 / 14 / 51), 1,259 subdivisions; the `rating_summary` comment is the
+  V111 one. The owner's database `orenjitrade` is still at V105 (not migrated by this work).
+- Earlier live checks (first verification round, API :8480, Redis db 5): region map answers
+  carry `Cache-Control: no-cache, no-store, max-age=0, must-revalidate`; binder counts
+  americas-north CA-ON 1 / CA-QC 2 / US-CA 1, americas-south AR-C 1 / BR-SP 1, europe ES-MD 1 /
+  FR-IDF 1; state-list rows carry `owner.place` without a city; `sort=distance` 400; unknown
+  region 404.
 
 **Removed settings and perks:** the `showDistance` privacy switch; the trading area (centre,
 radius, device location); the wishlist radius; the `map.radius.max_km` plan limit (FREE 25 /
@@ -2122,8 +2125,9 @@ channels (archived).
 **Known gaps:**
 - Mobile: the Map tab does not draw the boundary map yet and there is no region switcher (the
   home region is browsed); see the follow-ups above.
-- The web initial bundle is 0.17 kB under its 900 kB warning budget: the next feature on the
-  initial path needs a deferral or a budget decision.
+- The web initial bundle is 0.04 kB under its 900 kB warning budget (899.96 kB; the legal texts
+  are part of the initial bundle): the next feature on the initial path needs a deferral (for
+  example lazy legal texts) or a budget decision.
 - `card-images.spec.ts` (picture loading) timed out once under the parallel load of a full run
   and passed on retry and in the final run; not related to S1, watch for it.
 - Region-scoped answers list the whole platform region: specs isolate by region, handle or item,
