@@ -170,6 +170,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V109 | `V109__remove_distance_features.sql` | ADR 0017: `wishlist_item.radius_km` and `wishlist_match.distance_bucket` dropped (matches and match alerts deleted), the `map.radius.max_km` limit, entitlements and `map_radius_day` credit product deleted, plan copy updated, ad targeting by `REGION` / `COUNTRY` / `SUBDIVISION` (no `REGION_LABEL` / `GEO_CELL`), `ad_impression` / `ad_click` record `region_code` and `subdivision_code` instead of `geo_cell` |
 | V110 | `V110__platform_region_channels.sql` | ADR 0017: the city REGION channels are archived; one REGION channel per platform region (`americas-north`, `americas-south`, `europe`) |
 | V111 | `V111__region_model_comments.sql` | ADR 0017: database comments only (`rating_summary` no longer mentions the nearby ranking) |
+| V112 | `V112__simplified_wishlist.sql` | Stage S2 (owner change of 2026-10-08, section 4): `wishlist_match` dropped with the WISHLIST_MATCH notifications and their limit notices; `wishlist_item` keeps only which copy (card, printing or any, rarity of "any printing" wishes) and gains `public_note` (≤ 280), `near_mint_only`, `price_term` (condition, edition, language, max price, currency, trade preference, private notes, `active`, `last_matched_at` dropped, data not migrated; same-selection duplicates collapsed to the oldest; `uq_wishlist_item_selection`); `wishlist_alert_sent` (sent-alert key); `platform_settings` `wishlist.price_terms`; `notification_preferences.wishlist_alerts` (the `WISHLIST_MATCH` category key removed from `categories`) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -456,7 +457,8 @@ A missing row means the defaults (push and in-app on, email off, `MARKETING` ful
 | --- | --- | --- |
 | `user_id` | `uuid` | PK, FK → `user_account.id` (cascade) |
 | `push_enabled`, `email_enabled`, `in_app_enabled` | `boolean` | master switches (`true`, `false`, `true`) |
-| `categories` | `jsonb` | object `{CATEGORY: {push, email, inApp}}` keyed by `WISHLIST_MATCH`, `MESSAGE`, `OFFER`, `RATING`, `TRADE`, `BINDER_FRESHNESS`, `REPORT_DECISION`, `MARKETING`; missing keys mean the defaults, unknown keys are ignored when reading (`ck_notification_preferences_categories`: must be an object). Never filtered in SQL, so no GIN index |
+| `categories` | `jsonb` | object `{CATEGORY: {push, email, inApp}}` keyed by `MESSAGE`, `OFFER`, `RATING`, `TRADE`, `BINDER_FRESHNESS`, `REPORT_DECISION`, `MARKETING` (`WISHLIST_MATCH` until V112); missing keys mean the defaults, unknown keys are ignored when reading (`ck_notification_preferences_categories`: must be an object). Never filtered in SQL, so no GIN index |
+| `wishlist_alerts` | `boolean` | V112: the one on/off switch of wishlist alerts (default `true`); in-app and push follow the master switches and quiet hours, never email |
 | `quiet_hours` | `jsonb` | object `{enabled, start "HH:mm", end "HH:mm", timezone}` (IANA zone validated by the service), default disabled 22:00-08:00 America/Toronto |
 | `created_at`, `updated_at` | `timestamptz` | |
 
@@ -1074,17 +1076,17 @@ Redis keys of this phase (not tables): `rt:user:{userId}` (pub/sub channel of th
 `mod:repeat:<scope>:<rule>:<user>:<sha256>` (moderation windows), `community:post:<channel>:<user>`
 (channel post rate), `rl:image-upload:…` (upload rate limit).
 
-### Phase 6 — wishlist, matching, notifications (V050–V051)
+### Phase 6 — wishlist, wishlist alerts, notifications (V050–V051, V112)
 
-Wishlist rows never carry a location. Matching (`WishlistMatcher`, event-driven on
-`InventoryItemPublished`, plus the nightly `wishlist-rematch` job) pairs a public listing with the
-wishes of collectors **in the same platform region** (ADR 0017, since V109; the item owner must be
-discoverable, the wish owner needs a location). No distance is measured or stored.
+Wishlist rows never carry a location. Since stage S2 (V112) no match is stored: when a public
+listing appears (`InventoryItemPublished`), `WishlistAlerts` alerts the collectors **of the same
+platform region** (ADR 0017; the lister discoverable, the wisher with a location) whose wishes it
+fits, once per collector and item (`wishlist_alert_sent`). No distance is measured or stored.
 The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, FREE 5 / PREMIUM
 unlimited) is counted through the `Limits` service in `usage_counter` (window = UTC day, Redis
 mirror); there is no separate notification rate-limit table.
 
-### V050 — wishlist items and matches
+### V050 / V112 — wishlist items and sent alerts
 
 #### `wishlist_item`
 
@@ -1095,42 +1097,37 @@ mirror); there is no separate notification rate-limit table.
 | `game_slug` | `text` | game of the card (slug pattern check) |
 | `card_id` | `uuid` | FK → `card.id` (cascade); always filled by the API (derived from the printing) |
 | `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card; `ck_wishlist_item_target`: card or printing required |
-| `rarity` | `text` | optional; a rarity of the game's `GameSchema` (validated by the API), 1-40 characters |
-| `condition_min` | `text` | optional worst acceptable condition, a code of `GameSchema.conditions` (ordered best first; matching uses `array_position`) |
-| `edition`, `language` | `text` | optional exact filters (upper-case code / ISO 639-1) |
-| `max_price` | `numeric(12,2)` | optional, ≥ 0; items priced in another currency never meet it; unpriced items pass |
-| `currency` | `char(3)` | default `CAD` |
-| `radius_km` | `integer` | **dropped by V109** (ADR 0017): a wish matches listings of the collector's platform region |
-| `trade_preference` | `text` | `ANY`, `TRADE` (item TRADE or TRADE_OR_SALE), `SALE` (SALE or TRADE_OR_SALE) |
-| `notes` | `text` | **PRIVATE**, ≤ 500 |
-| `active` | `boolean` | inactive items are kept but never matched |
-| `created_at`, `updated_at` | `timestamptz` | `updated_at` drives the nightly rematch of edited items |
-| `last_matched_at` | `timestamptz` | when the item last gained a match |
+| `rarity` | `text` | "any printing" wishes only (`ck_wishlist_item_rarity_any_printing`): any printing of this rarity, one of the rarities of the card's printings (validated by the API), 1-40 characters; `NULL` = any rarity |
+| `public_note` | `text` | V112: **public** note, plain text, ≤ 280 (`ck_wishlist_item_public_note`), moderated by the API; `''` = none |
+| `near_mint_only` | `boolean` | V112: only Near Mint or better copies fit (alerts, "Who wants it") |
+| `price_term` | `text` | V112: optional display term relative to the TCG market price (`ck_wishlist_item_price_term`: `"<percent>% TCG"` with an optional `+`); one of `platform_settings` `wishlist.price_terms` when chosen; never a filter |
+| `created_at`, `updated_at` | `timestamptz` | |
 
-Indexes: `ix_wishlist_item_active_card (active, card_id)` and `ix_wishlist_item_active_printing
-(active, printing_id)` (contract; matching looks items up by printing or card),
-`ix_wishlist_item_owner (owner_id, created_at DESC)` (owner list; `wishlist.items.max` usage is
-counted from this table through a `LimitUsageSource`), `ix_wishlist_item_updated (updated_at) WHERE
-active` (rematch job).
+Dropped by V109: `radius_km`. Dropped by V112 (data not migrated; private notes were not copied):
+`condition_min`, `edition`, `language`, `max_price`, `currency`, `trade_preference`, `notes`,
+`active`, `last_matched_at`.
 
-#### `wishlist_match`
+Indexes: `uq_wishlist_item_selection (owner_id, card_id, printing_id, rarity) NULLS NOT DISTINCT`
+(one wish per selection; 409 at the API), `ix_wishlist_item_card (card_id)`,
+`ix_wishlist_item_printing (printing_id) WHERE printing_id IS NOT NULL` (alerts look wishes up by
+printing or card), `ix_wishlist_item_owner (owner_id, created_at DESC)` (owner list;
+`wishlist.items.max` usage is counted from this table through a `LimitUsageSource`).
+
+#### `wishlist_alert_sent` (V112)
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `uuid` | PK |
-| `wishlist_item_id` | `uuid` | FK → `wishlist_item.id` (cascade) |
-| `inventory_item_id` | `uuid` | FK → `inventory_item.id` (cascade) |
-| `matched_at` | `timestamptz` | keyset cursor with `id` |
-| `distance_bucket` | `text` | **dropped by V109** (ADR 0017): matches pair collectors of the same platform region |
-| `notified` | `boolean` | a WISHLIST_MATCH notification exists (false for matches found when the wish was created or edited, suppressed by preferences or beyond the daily limit) |
-| `dismissed` | `boolean` | dismissed by the owner; never served by default, never re-created |
+| `user_id` | `uuid` | PK part, FK → `user_account.id` (cascade): the alerted collector |
+| `inventory_item_id` | `uuid` | PK part, FK → `inventory_item.id` (cascade) |
+| `sent_at` | `timestamptz` | when the alert was decided |
 
-Constraint `uq_wishlist_match (wishlist_item_id, inventory_item_id)`: inserts use `ON CONFLICT DO
-NOTHING`, so a re-publication, a redelivered event or the rematch job never match twice. Indexes:
-`ix_wishlist_match_item_matched (wishlist_item_id, matched_at DESC, id DESC)` (matches page),
-`ix_wishlist_match_inventory (inventory_item_id)`. Rows of items that stop being public, or whose
-owners are blocked in either direction, stay but are neither served nor counted in `matchCount`.
-Editing a wish's criteria deletes its undismissed matches that no longer apply.
+A sent-alert key, not a matches list: `INSERT ... ON CONFLICT DO NOTHING` decides each (collector,
+item) pair once, so a republished item, a redelivered event or several fitting wishes never alert
+twice. Index `ix_wishlist_alert_sent_item (inventory_item_id)`. Cleared with the account (cascade
+and the wishlist's deletion participant).
+
+`wishlist_match` (V050, one row per wishlist item and inventory item, with `notified` and
+`dismissed`) was **dropped by V112** with the matches feature.
 
 ### V051 — notifications and push tokens
 
@@ -1140,11 +1137,11 @@ Editing a wish's criteria deletes its undismissed matches that no longer apply.
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `user_id` | `uuid` | FK → `user_account.id` (cascade); the recipient |
-| `type` | `text` | `WISHLIST_MATCH`, `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
+| `type` | `text` | `WISHLIST_ALERT` (`WISHLIST_MATCH` until V112), `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
 | `title` | `text` | 1-200 |
 | `body` | `text` | ≤ 1000; never message text, notes or coordinates |
-| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/wishlist/<id>`, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
-| `dedup_key` | `text` | `uq_notification_dedup_key`; e.g. `wishlist:<wishlistItemId>:<inventoryItemId>`, `message:<messageId>`, `binder-warning:<owner>:<binder or unfiled>:<epoch second>`, `binder-hidden:<owner>:<binder or unfiled>:<UTC day>`, `limit:<user>:<type>:<UTC day>` |
+| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/cards/<cardId>?printing=<id>` of a wishlist alert, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
+| `dedup_key` | `text` | `uq_notification_dedup_key`; e.g. `wishlist-alert:<userId>:<inventoryItemId>`, `message:<messageId>`, `binder-warning:<owner>:<binder or unfiled>:<epoch second>`, `binder-hidden:<owner>:<binder or unfiled>:<UTC day>`, `limit:<user>:<type>:<UTC day>` |
 | `in_app` | `boolean` | listed in the notification centre (in-app channel enabled for the category) |
 | `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
 | `read_at`, `seen_at` | `timestamptz` | read marker (idempotent, the first time is kept) |
@@ -1518,6 +1515,11 @@ evicted after `PUT /admin/payments/settings`, SUPER_ADMIN, audited `payments.set
 `payments.dispute_window_days` 7 (1–60), `payments.platform_fee_percent` 5.00 (0–30),
 `payments.auto_release_enabled` true, `payments.release_reminder_hours` 48 (1–168),
 `payments.admin_refunds_enabled` false (ADMIN may refund only while true; SUPER_ADMIN always).
+
+Row of V112 (`WishlistSettings`, cached in Redis `wishlist-settings:v1` for ≤ 60 s, evicted after
+`PUT /admin/wishlist/settings`, ADMIN, audited `wishlist.settings.update`):
+`wishlist.price_terms` `"80% TCG,85% TCG,90% TCG,100% TCG,100% TCG+"` (1–10 comma-separated terms
+`"<percent>% TCG"` with an optional `+`, percent 1–200).
 
 #### `seller_account`
 

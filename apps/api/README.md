@@ -316,7 +316,7 @@ token of an account with pending consents or a suspension does not block them (s
   `CardImageUrlResolver`: re-host-only providers (YGOPRODeck) -> `GET /api/v1/public/card-images/{id}`,
   hotlink-allowed providers -> their URL, no artwork -> the placeholder SVG. Re-host-only provider
   URLs never reach clients (`CardImageUrlContractIT`).
-- Card pictures outside the catalog DTOs: notifications about one card (`WISHLIST_MATCH`, the
+- Card pictures outside the catalog DTOs: notifications about one card (`WISHLIST_ALERT`, the
   `OFFER_*` types, `TRADE_UPDATE`, `PAYMENT_UPDATE`, `SHIPMENT_STATUS`, `DISPUTE_UPDATE`) add
   `data.cardName`, `data.game` and `data.cardImageUrl` (`NotificationCards`; stored as the
   resolver produced it, an API-relative path from the after-commit listeners, made absolute against
@@ -685,56 +685,62 @@ blocks removed in both directions, posts and replies deleted and erased.
   registry for Phases 6 and 7. Open sessions of an account suspended later are not closed (it can no
   longer send through REST).
 
-## Wishlist, matching, notifications (Phase 6)
+## Wishlist, wishlist alerts, notifications (Phase 6, stage S2)
 
-Contract: `docs/api/contracts/phase6-wishlist-notifications.md`. Modules `wishlist` (items, matches,
-`WishlistMatcher`, rematch job) and `notifications` (`NotificationService`, dispatcher, push/email
-providers, push tokens, consumers of other modules' events). Migrations V050–V051. Every route needs
-a signed-in, compliant account.
+Contracts: `docs/api/contracts/s2-wishlist.md` (the wishlist since stage S2, 2026-10-09) and
+`docs/api/contracts/phase6-wishlist-notifications.md` (notifications; its wishlist part is history).
+Modules `wishlist` (items, price terms, `WishlistAlerts`) and `notifications` (`NotificationService`,
+dispatcher, push/email providers, push tokens, consumers of other modules' events). Migrations
+V050–V051, V112. Every route needs a signed-in, compliant account.
 
 | Route | Notes |
 | --- | --- |
-| `GET /api/v1/wishlist` | the caller's items, newest first: `{id, game, card{id,name,imageUrl}, printing (PrintingSummary or null = any printing), rarity, conditionMin, edition, language, maxPrice, currency, tradePreference, notes (private), active, matchCount, lastMatchedAt, createdAt, updatedAt}` |
-| `POST /api/v1/wishlist` | 201; `cardId` or `printingId` required (the card of a printing is derived); `rarity`, `conditionMin`, `edition`, `language` must belong to the game's `GameSchema` (codes are normalised: `lightly_played` → `LIGHTLY_PLAYED`, `FR` → `fr`); `maxPrice` ≥ 0 with 2 decimals, `currency` ISO 4217 (default CAD), `tradePreference` ANY/TRADE/SALE, `notes` ≤ 500; 409 `CONFLICT` for the same target with the same filters; 429 `LIMIT_REACHED` beyond `wishlist.items.max` (FREE 20 / PREMIUM 500). No radius: a wish matches listings of the wisher's platform region (ADR 0017). The new item is matched at once against the public inventory (no notification) |
-| `PATCH /api/v1/wishlist/{id}` | any subset; `printingId` (another printing of the same card, or null = any), `rarity`, `conditionMin`, `edition`, `language`, `maxPrice`, `notes` may be null; changing the criteria re-matches the item (undismissed matches that no longer apply are removed, dismissed ones stay) |
-| `DELETE /api/v1/wishlist/{id}` | 204; matches go with it |
-| `GET /api/v1/wishlist/{id}/matches?cursor=&limit=20&includeDismissed=false` | `CursorPage<WishlistMatchResponse>` newest first: `{id, wishlistItemId, item (PublicInventoryItem, never private notes), collector (CollectorMarker with its `place`), matchedAt, dismissed}`; items no longer public and collectors blocked in either direction are left out |
-| `POST /api/v1/wishlist/matches/{id}/dismiss` | 204, idempotent; 404 for other users' matches |
-| `GET /api/v1/collectors/{handle}/wishlist` | `[{card, printing, conditionMin}]` of the active items, only when the collector shows their wishlist (`wishlistVisible`), may be seen by the caller (profile visibility) and no block exists; 404 otherwise (the owner always sees their own) |
+| `GET /api/v1/wishlist` | the caller's items, newest first: `{id, game, card{id,name,imageUrl}, printing (PrintingSummary or null = any printing), rarity (null = any; only without a printing), note (public), nearMintOnly, priceTerm {label, percent, orMore} or null, createdAt, updatedAt}` |
+| `POST /api/v1/wishlist` | 201; `cardId` (any printing, optionally with a `rarity` of the card's printings) or `printingId` (its card is derived; a rarity equal to the printing's is dropped, another one is 400); `note` public, plain text, ≤ 280 code points, moderated (PROFILE scope); `nearMintOnly`; `priceTerm` one of `GET /wishlist/price-terms`; 409 `CONFLICT` for the same selection; 429 `LIMIT_REACHED` beyond `wishlist.items.max` (FREE 20 / PREMIUM 500). Unknown members (the removed `maxPrice`, `currency`, `tradePreference`, `notes`, `active`, `conditionMin`, `edition`, `language`, `radiusKm`) are ignored and never stored |
+| `PATCH /api/v1/wishlist/{id}` | any subset of `printingId` (another printing of the same card, or null = any), `rarity`, `note`, `priceTerm` (null clears) and `nearMintOnly`; changing `printingId` without `rarity` clears the stored rarity |
+| `DELETE /api/v1/wishlist/{id}` | 204 |
+| `GET /api/v1/wishlist/price-terms` | `{terms: [{label, percent, orMore}]}`: the admin list (platform setting `wishlist.price_terms`, seeded `80% TCG, 85% TCG, 90% TCG, 100% TCG, 100% TCG+`), display terms relative to the TCG market price, never a filter |
+| `GET\|PUT /api/v1/admin/wishlist/settings` | ADMIN; PUT `{priceTerms}` 1–10 terms `"<percent>% TCG"` (+ optional `+`), percent 1–200, audited `wishlist.settings.update` |
+| `GET /api/v1/collectors/{handle}/wishlist` | `[{card, printing, rarity, note, nearMintOnly, priceTerm}]`, only when the collector shows their wishlist (`wishlistVisible`, "Let others see what you want"), may be seen by the caller (profile visibility) and no block exists; 404 otherwise (the owner always sees their own) |
 | `GET /api/v1/notifications?cursor=&limit=20&unreadOnly=false` | `CursorPage<NotificationResponse>` `{id, type, title, body, data (ids + deepLink), createdAt, readAt}`, newest first; notifications whose in-app channel was off are never listed |
 | `GET /api/v1/notifications/unread-count` | `{count}` (badge) |
 | `POST /api/v1/notifications/{id}/read`, `POST /api/v1/notifications/read-all` | idempotent (the first read time is kept); read-all answers `{updated}`; 404 for other users' notifications |
 | `POST /api/v1/me/push-tokens {platform: IOS\|ANDROID\|WEB, token}`, `DELETE /api/v1/me/push-tokens/{token}` | 204, idempotent; a token registered by another account moves to the caller, an invalidated one becomes valid again; deleting another account's token is a no-op; tokens are never returned or logged |
-| `POST /internal/jobs/wishlist-rematch` | service auth; nightly safety net: re-matches inventory items published in the last 24 h (only lost publications create matches and notifications) and wishlist items edited in that window; `job_run`; `@Scheduled` daily under `local` (`WishlistRematchScheduler`) |
 
-### Matching (ADR 0009, ADR 0004)
+The matches feature (`wishlist_match`, `GET /wishlist/{id}/matches`, the dismiss endpoint, match
+counts, the nightly `wishlist-rematch` job and the `wishlist_matched` analytics event) was removed in
+stage S2 (V112).
+
+### Wishlist alerts (ADR 0009, ADR 0017)
 
 `InventoryItemPublished` → `WishlistInventoryListener` (`@ApplicationModuleListener`: after commit,
-own transaction, Spring Modulith registry) → `WishlistMatcher.matchPublishedItem`: the contract SQL
-(`WishlistMatchRepository.CANDIDATES`) over the item that is effectively public right now and fresh
-(ACTIVE or AGING): active wishes of other collectors for the printing (or the card when no printing
-is wished), condition rank (`array_position` in the game's ordered conditions), edition, language,
-rarity, price (same currency; unpriced items pass), trade preference (`ANY`, or TRADE/SALE against
-the availability), both collectors **in the same platform region** (ADR 0017: the item owner
-discoverable, the wisher with a location; no distance), active wisher account, no block in either
-direction. Each pair is inserted once
-(`ON CONFLICT DO NOTHING`); only a new pair calls `NotificationService.notify` with the dedup key
-`wishlist:<wishlistItemId>:<inventoryItemId>`, so re-publications and redelivered events never
-notify twice. Body example: "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec,
-Canada for 45.00 CAD." `WishlistMatched` / `WishlistItemCreated` feed the analytics events
-`wishlist_matched` (game, notified, owner hash) and `wishlist_item_created` (game, target kind,
-price flag, trade preference; never notes).
+own transaction, Spring Modulith registry) → `WishlistAlerts.alertForPublishedItem`: the SQL of
+`WishlistAlertRepository` over the item that is effectively public right now and fresh (ACTIVE or
+AGING): wishes of other collectors for its printing, or for its card with no rarity or the item's
+rarity; with `nearMintOnly` a Near Mint or better condition (`array_position` in the game's ordered
+conditions); both collectors **in the same platform region** (the lister discoverable, the wisher
+with a location; no distance); an active wisher; no block in either direction. One row per wisher
+(the most specific fitting wish). Each (wisher, item) pair is decided once through the sent-alert
+key `wishlist_alert_sent` (`ON CONFLICT DO NOTHING`), then `NotificationService.notify` with type
+`WISHLIST_ALERT` and dedup key `wishlist-alert:<userId>:<inventoryItemId>`, so re-publications,
+redelivered events and several fitting wishes never alert twice. Body example: "Azure-Eyes Sky
+Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada."; `deepLink`
+`/cards/<cardId>?printing=<id>` (one-printing wish), `?rarity=<rarity>` (rarity wish) or the bare
+card page. `WishlistItemCreated` feeds the analytics event `wishlist_item_created` (game, target
+kind card / rarity / printing, Near Mint only, price term set; never the note).
 
 ### Notifications
 
 `NotificationService.notify(NotificationRequest)` is the single entry point for other modules. It is
 idempotent per `dedupKey` (advisory lock + unique key), skips unreachable recipients (suspended,
 deletion pending, deleted), applies the preferences of `GET/PUT /me/settings/notifications` (master
-switch and category channels; SYSTEM notices are in-app only; nothing is stored or counted when no
-channel is wanted), holds push back during quiet hours (in the collector's time zone; in-app and email
+switch and category channels; `WISHLIST_ALERT` follows the one `wishlistAlerts` switch, in-app and
+push, never email; SYSTEM notices are in-app only; nothing is stored or counted when no channel is
+wanted), holds push back during quiet hours (in the collector's time zone; in-app and email
 unaffected), counts types with a daily limit through `Limits` (`wishlist.alerts.per_day`: FREE 5,
-PREMIUM unlimited; beyond it the match is kept un-notified and one SYSTEM notice "More wishlist
-matches are waiting" with `data.kind=LIMIT_REACHED` and the upgrade link is created per UTC day), then
+PREMIUM unlimited; beyond it the alert is held back and one SYSTEM notice "More wishlist alerts are
+waiting" with `data.kind=LIMIT_REACHED` (and the upgrade link while `premiumPlans` is on) is created
+per UTC day), then
 stores the row with its channel plan and publishes `NotificationCreated`. `NotificationDispatcher`
 (`@ApplicationModuleListener`) delivers the channels still `PENDING` and writes the outcome into
 `channel_state`: the in-app payload (same shape as the REST response) on `/user/queue/notifications`
@@ -761,10 +767,11 @@ Events turned into notifications (`ActivityNotificationListener`, dedup-keyed):
 ### Seed (Phase 6)
 
 `WishlistSeedContributor` ("wishlist", after "community"): collector2 wishes `ygo-p001a` (Azure-Eyes
-Sky Dragon AZR-EN001, at least LIGHTLY_PLAYED, up to 60 CAD, radius 25 km), which collector1 lists
-publicly, so the seed runs the real matcher and collector2 gets a WISHLIST_MATCH notification; plus
-`pkm-p002a` (collector1 keeps it in a private unfiled lot: publishing it locally triggers a fresh match
-and notification) and the card of `mtg-p005b` for trade (collector5 lists it). Stable ids
+Sky Dragon AZR-EN001, Near Mint only, "90% TCG", a public note), which collector1 lists publicly
+(Near Mint), so the seed runs the real wishlist alert and collector2 gets a WISHLIST_ALERT
+notification; plus `pkm-p002a` (collector1 keeps it in a private unfiled lot: publishing it locally
+triggers a fresh alert) and the card of `mtg-p005b`, any printing, "100% TCG+" (collector5 lists it;
+no alert at seed time). Stable ids
 `00000000-0000-4000-8f00-0000000002NN`; collector2's wishlist becomes visible on the first run.
 `NotificationSeedContributor` ("notifications"): four history rows `00000000-0000-4000-9a00-…` (read
 welcome and message notices for collector1, an unread message notice for collector2, an unread
@@ -772,24 +779,21 @@ freshness warning for collector3), never dispatched.
 
 ### Account data
 
-Export sections `wishlist` (every item with its private notes), `notifications` (the latest 1 000)
-and `pushTokens` (platform and dates, never the token). Deletion removes wishlist items and their
-matches, notifications and push tokens.
+Export sections `wishlist` (every item with its public note, Near Mint flag and price term),
+`notifications` (the latest 1 000) and `pushTokens` (platform and dates, never the token). Deletion
+removes wishlist items and their sent-alert keys, notifications and push tokens.
 
 ### Deviations from the Phase 6 contract
 
 - The daily limit is counted by the Phase 2 `Limits` service (`usage_counter` per UTC day with its
   Redis mirror `orenji:usage:*`) instead of a separate Redis key `notif:{userId}:{type}:{day}`; the
   limit values still come from `usage_limit` (ADR 0014).
-- Additive: `WishlistMatchResponse.wishlistItemId`, `WishlistItemResponse.updatedAt`, `GET
-  /wishlist/{id}/matches?includeDismissed=&limit=`, `GET /notifications?limit=`,
+- Additive: `WishlistItemResponse.updatedAt`, `GET /notifications?limit=`,
   `POST /notifications/read-all` answers `{updated}`; `notification.in_app` column (rows whose in-app
   channel was off exist for push/email bookkeeping but are never listed).
-- Matching also requires the item to be fresh (ACTIVE or AGING, like the map) and the rarity filter
-  (a contract field that the contract SQL omitted); items priced in another currency never meet a
-  maximum price.
-- A wish created or edited is matched at once against the current public inventory **without**
-  notifications (the collector is looking at the result); only new publications notify.
+- Stage S2 (2026-10-09) replaced the contract's wishlist model and matching by the simpler wish
+  and the wishlist alerts of `docs/api/contracts/s2-wishlist.md`; alerts also require the item to
+  be fresh (ACTIVE or AGING, like the map).
 - `DELETE /me/push-tokens/{token}` needs tokens without `/` (FCM and Expo tokens qualify; URL-encode
   `[` / `]`).
 
@@ -872,7 +876,7 @@ UNRESPONSIVE / REPORT_THRESHOLD / MODERATION / ADMIN, `pause_reason`, `paused_by
 `ListingPauseRules.NOT_PAUSED` (a correlated lookup on the owner alias `u`) is part of
 `PublicVisibilityRules.OWNER_LISTINGS_PUBLIC`, used by the effective public visibility of items
 (`InventoryItemRepository.LISTED`) and binders (`binderEffectivelyPublic`): every public read, the
-map's listing counts, search, card holders and wishlist matching ignore a paused collector's listings,
+map's listing counts, search, card holders and wishlist alerts ignore a paused collector's listings,
 while the collector stays on the map. `ListingsPaused` / `ListingsResumed` make the inventory module
 reconcile the owner (materialised flags and publication events) and `ListingsPaused` sends a SYSTEM
 notice (`data.kind=LISTINGS_PAUSED`, `source`, never the reason). Nothing is ever deleted.
@@ -1406,7 +1410,7 @@ Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql
 `message_attachment`, `image_upload`, `user_block`), `V041__community.sql` (`community_channel` with the
 eight launch channels, `community_post`, `community_reply`) and `V042__moderation_flags.sql`
 (`moderation_flag`, the rate-pattern check and the Phase 5 moderation rules). Phase 6 adds
-`V050__wishlist.sql` (`wishlist_item`, `wishlist_match`) and `V051__notifications.sql`
+`V050__wishlist.sql` (`wishlist_item`, `wishlist_match` — dropped by V112) and `V051__notifications.sql`
 (`notification`, `push_token`). Phase 7 adds `V060__ratings.sql` (`interaction`, `rating`,
 `rating_summary`, `reference`), `V061__collector_reports.sql` (`collector_report`, `moderator_note`, the
 REPORT moderation rules and flag reason, `user_account.banned_at`),
@@ -1467,7 +1471,7 @@ com.orenjitrade.api
 │                aggregate + /admin/analytics/summary
 ├── messaging/   conversations, messages, uploads, blocks, STOMP /ws + Redis fan-out, presence
 ├── community/   channels, posts, replies, /admin/community (Phase 5)
-├── wishlist/    wishlist items, WishlistMatcher (InventoryItemPublished), matches, rematch job
+├── wishlist/    wishlist items, price terms, WishlistAlerts (InventoryItemPublished)
 ├── ratings/     interactions, ratings (14-day edits, summaries), references, admin hide/unhide
 ├── reports/     collector reports, threshold, moderator review and decisions, history
 ├── offers/      offers (counter chain, current_turn, versions, history), expiry job, offer settings,

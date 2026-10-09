@@ -13,7 +13,7 @@ Stable ids use the pattern `00000000-0000-4000-8000-0000000000NN`.
 | NN | Handle | Display name | Declared place (`locations.json`) | Region | Tags | Games | Inventory profile |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 01 | collector1 | Maïka Tremblay | CA / CA-QC, city Montréal | americas-north | Collector, Trader, Local Meetups, French, English | Yu-Gi-Oh!, Pokémon | 2 public binders (fresh), 1 private binder |
-| 02 | collector2 | Devon Okafor | CA / CA-ON, city Toronto | americas-north | Player, Competitive, Shipping | Magic | 1 public binder (fresh), wishlist matches collector1's cards |
+| 02 | collector2 | Devon Okafor | CA / CA-ON, city Toronto | americas-north | Player, Competitive, Shipping | Magic | 1 public binder (fresh), wishlist (visible) alerted about collector1's Azure-Eyes listing |
 | 03 | collector3 | Priya Raman | AR / AR-C, city Buenos Aires (hidden) | americas-south | Collector, Vintage, High-End | Yu-Gi-Oh! | public binder last confirmed 40 days ago (STALE) |
 | 04 | collector4 | Lucas Bergeron | ES / ES-MD, city Madrid | europe | Player, Casual | Riftbound | binder temporarily public (24 h) |
 | 05 | collector5 | Sofia Nguyen | US / US-CA, city Los Angeles | americas-north | Collector, Sealed, Shipping | Pokémon, Magic | public binder, accepts offers on several cards |

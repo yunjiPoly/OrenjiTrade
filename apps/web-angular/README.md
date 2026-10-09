@@ -345,37 +345,33 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   the unread view drops what became read, re-read after reconnection), day sections (Today,
   Yesterday, Earlier this week, Older), per-row "Mark as read", "Mark all as read", link to
   Settings → Notifications.
-- **`/wishlist`, `/wishlist/:id`** (`features/wishlist`; one route through
-  `core/routing/optional-param.matcher.ts`, so the page survives opening a drawer):
-  `WishlistStore` (`GET /wishlist`, alerts on/off with an optimistic `PATCH {active}`,
-  `DELETE` with confirmation, plan usage of `wishlist.items.max`, match readiness from
-  `GET /me/location`, quiet re-read on a pushed WISHLIST_MATCH and on reconnection) → summary
-  (wishes, with matches, matches, usage meter with a Premium link from 80 %), filter
-  (All / With matches / Paused), `WishCardComponent` (card art, printing or "Any printing",
-  criteria chips, private note, matches button, alerts switch, menu: edit, see matches,
-  remove) and `MatchReadinessComponent` (explains that matches need a location, with a link to
-  the setting). `/wishlist/:id` (the notification deep link)
-  opens `WishlistMatchesSheetComponent` in a side sheet: `WishlistMatchesStore`
-  (`GET /wishlist/{id}/matches` cursor pages, new matches pushed for this wish arrive live,
-  optimistic dismiss `POST /wishlist/matches/{id}/dismiss`) → `WishMatchCardComponent`
-  (collector: avatar, state or province, rating, activity; listing: picture, printing,
-  condition / availability / offers chips, price, freshness, public note; Message through
-  `ConversationStarterService`, View binder, "Binders in <state>" on the map, Dismiss). Closing the sheet goes
-  back to `/wishlist`.
+- **`/wishlist`** (`features/wishlist`, stage S2; old `/wishlist/<id>` links redirect to it):
+  `WishlistStore` (`GET /wishlist`, `DELETE` with confirmation, plan usage of
+  `wishlist.items.max`, the location and privacy settings through `MyLocationStore`, quiet re-read
+  on reconnection) → a prompt to set country and state when no location is set (alerts come from
+  collectors of the region), "Let others see what you want" (the `wishlistVisible` privacy
+  setting, explained), the summary (wishes and usage meter with a Premium link from 80 % while
+  `premiumPlans` is on) and `WishCardComponent` (picture, which copy, public note, "Near Mint
+  only" and price term chips with the approximate amount for one printing, Edit, Remove). No
+  matches, filters or per-wish alert switch any more.
 - **Add/edit dialog** (`shared/wishlist`, a lazy chunk opened by `WishlistActions` from the
-  wishlist page, card detail, the card holders view and the map's holders panel; signed-out
-  visitors go to sign in first): card autocomplete (`GET /cards/suggest`; a printing suggestion
-  preselects it) → printing or "Any printing" → minimum condition, edition, language, rarity
-  (any printing only) from the game's `GameSchema`, maximum price + currency (no radius: a wish
-  matches the collector's platform region, ADR 0017), trade preference, private
-  notes, alerts switch (`wishlist-form.ts`: form, defaults, create/PATCH bodies, messages).
-  Inline errors: 409 identical wish, 429 `LIMIT_REACHED` (the limit dialog opens as well), field
-  errors of a 400. A new wish is confirmed with its matches found at once.
+  wishlist page, card detail (with its `?printing=` or `?rarity=`) and the card holders view;
+  signed-out visitors go to sign in first): card autocomplete (`GET /cards/suggest`; a printing
+  suggestion preselects it) → `WishFieldsComponent` (public note first, ≤ 280 characters;
+  "Near Mint only"; at most one price term from `GET /wishlist/price-terms` (`PriceTermsStore`),
+  "85% TCG ≈ 21.25 USD" with one printing's market price, its source and date in a tooltip) →
+  the shared `PrintingPickerComponent` (`shared/catalog/printing-picker`: "Any printing" first
+  and default, every printing with its picture, set, code, rarity, edition, language, finish and
+  market price; rarity / set / edition / language filters, the rarity alone meaning any printing
+  of that rarity; optional holder counts for the card page of stage S3). `wishlist-form.ts`:
+  form, defaults, create / PATCH bodies, messages. Inline errors: 409 same selection, 429
+  `LIMIT_REACHED` (the limit dialog opens as well), field errors of a 400.
 - **Collector page**: "Looking for" (`GET /collectors/{handle}/wishlist`, only when the collector
-  shows it; 404 hides the section).
-- **Matching (API)**: a public listing matches the wishes of collectors in the same platform
-  region; a wisher without a location gets no match, and the page says so
-  (`MatchReadinessComponent`).
+  shows it; 404 hides the section): which copy, public note, chips.
+- **Wishlist alerts (API)**: a public listing alerts the collectors of the same platform region
+  whose wishes it fits, once per collector and listing; the `WISHLIST_ALERT` notification opens
+  the card page with the wish's `?printing=` / `?rarity=`. Settings → Notifications has one
+  "Wishlist alerts" switch; `/admin/wishlist` edits the price terms.
 
 ## Ratings, collector reports and the admin console (Phase 7)
 
@@ -452,11 +448,11 @@ Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviat
 `TradesService`, `MessagingService`, `RatingsService`).
 
 - **Make an offer** (`shared/offers`): `MakeOfferButtonComponent` takes an `OfferTarget` (a view
-  model built from a public item and its owner, a card-holder result, a map "holders" listing or
-  a wishlist match) and shows "Make an offer" only when the card accepts at least one kind and is
+  model built from a public item and its owner, a card-holder result or a map "holders" listing)
+  and shows "Make an offer" only when the card accepts at least one kind and is
   not the viewer's own (signed-out visitors go to sign-in). Entry points: public binder cards,
-  the collector page's public cards, card-holder results (`/search?card=`), the map's holders
-  list and wishlist matches. `MakeOfferDialogComponent`: the card and its seller (region label
+  the collector page's public cards, card-holder results (`/search?card=`) and the map's holders
+  list. `MakeOfferDialogComponent`: the card and its seller (region label
   only), the kinds the availability allows (`allowedOfferKinds`: SALE → cash, TRADE → trade,
   TRADE_OR_SALE → cash / trade / cash + cards), amount (> 0, 2 decimals) and currency, the
   buyer's own cards through `OfferCardPickerComponent` (search `GET /inventory/items`, private
@@ -689,7 +685,7 @@ src/app/
     limits/     limit-reached interceptor, service and dialog
     layout/     app-shell, top-bar, notification-bell, account-menu, session-banner, bottom-nav
                 (<960px), footer, api-version, theme-toggle
-    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade"), optional-param matcher
+    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade")
     theme/      ThemeService
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
@@ -737,8 +733,7 @@ src/app/
                 post item, replies, moderator remove dialog
     search/     /search: data/ (params), unified results (tabs, collector result), card holders
                 (filters form, result row)
-    wishlist/   /wishlist: data/ (WishlistStore, WishlistMatchesStore), list (wish card, summary,
-                match readiness), matches (side sheet, match card)
+    wishlist/   /wishlist: data/ (WishlistStore), list (wish card, summary)
     notifications/ /notifications: data/ (NotificationFeedStore, day groups)
     legal, not-found
   shared/
@@ -828,11 +823,12 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   starter, blocked users settings, community helpers and store, admin community helpers,
   media URLs; Phase 6: notification kinds and safe deep links, `NotificationCenter` (session
   following, pushes counted once, optimistic reads, resync and receipt re-reads), notification
-  bell (badge, label, menu, mark read / all), `NotificationFeedStore` and day groups, optional
-  parameter matcher, wishlist labels and form (slider cap, create / PATCH bodies, validation,
-  server errors), `WishlistActions`, `WishlistStore` (filters, readiness, live re-reads,
-  optimistic alerts, removal), `WishlistMatchesStore` (paging, live matches, dismiss rollback),
-  wish card; Phase 7: report labels and refusals, the Report collector dialog (reasons in server
+  bell (badge, label, menu, mark read / all), `NotificationFeedStore` and day groups, wishlist
+  labels and form (stage S2: only the new fields, note length, create / PATCH bodies, server
+  errors), the printing picker (any printing, one printing, rarity only, filters, holder counts),
+  the wish fields (note first, at most one term, approximate amounts), `WishlistActions`,
+  `WishlistStore` (alert readiness, visibility switch, removal), wish card, notification settings
+  (the wishlist alerts switch), the admin price terms page; Phase 7: report labels and refusals, the Report collector dialog (reasons in server
   order, Confirm disabled until a reason, request with context and idempotency key, 409 inline,
   retry), rating labels (rateable interactions, edit window, criteria, refusals), star input
   (keyboard, clear, disabled), rate dialog (required overall, POST / PUT bodies, inline 409),
@@ -898,16 +894,18 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     conversation from a profile (full page), rejects a text file, sends a photo, shows the 422
     moderation refusal inline and reopens the conversation from the list by keyboard.
   - `e2e/wishlist.spec.ts` (two collectors of Americas (South), a region no other spec uses):
-    A adds a wish through the dialog (autocomplete, minimum condition, maximum price; no radius),
-    sees its chips, adds a second wish from the card page and gets the identical one refused
-    inline (409), removes it with confirmation; B of the same region lists the card: A's bell
-    badge and match count rise live without a reload, the bell menu entry opens
-    `/wishlist/<id>` with the matches drawer (B's state, price, binder link), a second copy arrives live in the open drawer and is dismissed, A messages B
-    from the match, `/notifications` filters unread ones and marks all read, A's profile shows the
-    public wishlist; B's binder is unpublished afterwards. A second test fills a FREE wishlist
-    (20 wishes), pauses alerts and filters, sees the location hint and gets the limit dialog
-    (429 `wishlist.items.max`) with the inline explanation. No JSON response carries a
-    coordinate.
+    A turns "Let others see what you want" on, adds a wish through the dialog (autocomplete,
+    public note, Near Mint only, "85% TCG" with its approximate amount once one printing is
+    checked in the printing picker; none of the old fields), sees its copy, note and chips, adds
+    a second wish from the card page and gets the same selection refused inline (409), removes it
+    with confirmation; B of the same region lists a Lightly Played copy (no alert: Near Mint
+    only) then a Near Mint one: A's bell badge rises live without a reload, the bell entry
+    ("… was just listed by @B in Montevideo, Uruguay.") opens `/cards/<id>?printing=<id>`,
+    `/notifications` holds one alert, Settings → Notifications shows the "Wishlist alerts" switch,
+    A's profile shows the public wishlist with the note and chips; B's binder is unpublished
+    afterwards. A second test fills a FREE wishlist (20 wishes), sees the prompt to set a location
+    for alerts and gets the limit dialog (429 `wishlist.items.max`) with the inline explanation.
+    No JSON response carries a coordinate.
   - `e2e/community.spec.ts`: `/community` opens the channel of the browsed platform region (the
     former city channels show as archived); a collector posts with a card link, is refused a duplicate (409) and a banned term
     (422) inline, edits the post; a second collector replies inline; the author sees the reply
