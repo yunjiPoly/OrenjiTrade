@@ -2330,13 +2330,18 @@ stayed; the scratch database was dropped. The owner's database `orenjitrade` is 
 **Known gaps:**
 - "Who wants it" and "Wanted by N" are stage S3 (the spec puts them there); until then wishes are
   visible only on the owner's public profile when shown.
-- The web card page reads `?printing=` but not yet `?rarity=` for display (S3 builds the picker
-  there); "Add to wishlist" from it already uses the rarity.
+- The card page (web and mobile) shows "Any printing in <rarity>" for `?rarity=` (review fix 1)
+  but no holders for it yet: "Find this card" with the shared picker and per-printing holder
+  counts is S3.
 - A staff-edited price on an imported printing still reports its provider as the source (the
   printing's `external_ref`); the next import overwrites it anyway.
-- The card pages' "Selected printing" (web and mobile) and the web printings table still say
-  "Market price" without the source: S3 replaces that section with "Find this card" and the
-  shared picker, which already labels the source.
+- The web printings table ("Market price" column) and the mobile printing list ("Market
+  $42.00") still show prices without their source (the "Selected printing" price of the web and
+  mobile card pages names it since review fix 1): S3 replaces them with the shared picker, which
+  already labels the source.
+- The web initial bundle stays at 899.92 kB against the 900 kB warning budget (an 80-byte
+  margin): S3 has to make room (or the budget has to move, with a reason) before it adds to the
+  initial chunks.
 - `wishlist_alert_sent` rows are kept until the account or the item goes (no time-based purge;
   the table is small: one row per collector and listing alerted).
 - Mobile follow-ups: the full printing picker on the card screen with holder counts (S3), "Who
@@ -2383,6 +2388,82 @@ OpenAPI document caught up with the NotificationResponse title example (`7ca7786
   harness API and the emulator were shut down; no process of this stage still listens.
 - V112 on a populated pre-V112 database (scratch database `orenjitrade_regions_check`, dropped
   afterwards): see "Migration" above.
+
+**Review fix 1 (2026-10-09, after the independent functional and product/UX reviews):** the
+functional review passed; the product/UX review found two blocking issues, both fixed at the root
+together with the cheap non-blocking ones:
+- **Wish dialog errors out of view (blocking).** The error block (409 same selection, plan limit,
+  summary) sat at the end of the scrolling content, below the picker, so a refused save looked
+  like nothing happened. It now sits between the content and the buttons (outside the scroll, in
+  view at 1280 px and 375 px); an invalid field gets the focus; when every problem sits next to
+  its field the summary says "Check the highlighted fields." instead of "Validation failed"; the
+  note's API errors read as sentences ("The note contains a word that is not allowed here.
+  Please rephrase it.").
+- **Alert link showed another printing (blocking).** The card page (web and mobile) ignored the
+  `?rarity=` of a wishlist alert for "any printing in a rarity" and showed the first printing
+  (another rarity) as "Selected printing". It now shows "Any printing in <rarity>" with that
+  rarity's printings (highlighted in the web printings table) and picks none; "Add to wishlist"
+  starts on the same choice; "Add to inventory" preselects a printing only when the rarity has
+  one; choosing a printing replaces `?rarity=` in the URL; an unknown printing or rarity is
+  ignored. The selected printing's price names its source ("TCG market price", "Sample market
+  price", tooltip / hint with the source and date).
+- Non-blocking: the price term boxes render from the form value on every change (two clicks in
+  one change detection left two boxes checked); the chosen card's name takes the focus after the
+  autocomplete pick, and closing the dialog returns the focus to the button that opened it (it
+  lost the focus while disabled during the chunk load); which copy names an edition other than
+  Unlimited (web and mobile; two printings of one code can differ only by it); Edit / Remove,
+  the remove confirmation and its snack bar name which copy (web and mobile); the % TCG chip
+  names its price source and date (wishlist page, public "Looking for"); the terms hint says
+  amounts appear once one printing is chosen; the picker says that set, edition and language
+  filters only narrow the list; a stale "matches" comment went.
+- Not changed (documented decisions): price terms stay mutually exclusive checkboxes (the spec's
+  wording) inside a labelled fieldset; the sent-alert key is still written while alerts are off;
+  notes stay plain text rendered escaped, as everywhere in the repo; the seed has no printing
+  code in several rarities (S3 adds one for its picker walk).
+
+**Checks after review fix 1 (2026-10-09, branch `feature/regions-s2-wishlist`):**
+- `./gradlew exportOpenApi` + `npm run generate:api`: no content change (the fix touches no API);
+  only the known CRLF stat-dirty `packages/api-client/src/.openapi-generator/FILES`, restored
+  with `git checkout`; the tree is clean.
+- `npm run test:api`: BUILD SUCCESSFUL in 6 m 31 s; `test` 805 tests / 161 classes, `catalogTest`
+  12 tests / 2 classes, 0 failures, 0 errors, 0 skipped.
+- `npm run test:web`: lint clean, 141 files / 656 tests (new: the wish dialog spec, the
+  quick-double-click term test, the trigger focus test, note wording, labels, picker hint).
+  `npm run build -w apps/web-angular`: initial total 899.92 kB (214.49 kB transfer), under the
+  900 kB budget, no warning (the fixes live in lazy chunks).
+- `npm run test:e2e -- --retries=0`: 73 passed on the first attempt, 0 failed / flaky / skipped
+  (final run 2.6 m). The first run of this fix failed once in `map.spec.ts` on a false positive of
+  the DOM coordinate scanner (the signed ad click token read "NN.NNNN" across its dots, a few
+  percent of tokens); the scanner now counts standalone numbers only (`e8f7a45`) and the suite
+  was re-run in full twice (73 / 73 each time). New checks: the 409 error in view at 1280 px and
+  375 px, the focus on the chosen card and back on "Add to wishlist" after Escape, the card page
+  `?rarity=` view ("Any printing in Ultra Rare", no selected printing, the wish dialog on the
+  same choice, a printing replacing the rarity) and the "Sample market price" label.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 650 jest tests (new: the rarity view, a
+  rarity the card lacks, the price source), 28 harness guard tests.
+- `npx expo export` (Expo SDK 57) into the scratchpad: Android (Hermes bundle 5.16 MB, 1759
+  modules) and web (73 static routes), both exit 0; neither bundle contains a matches / rematch
+  endpoint, `WISHLIST_MATCH`, `matchCount`, `radiusKm` or a map provider URL.
+- `npm run test:mobile:e2e`: 51 passed (1.3 m).
+- `npm run audit:gate`: OK (the 2 allowlisted advisories, until 2026-11-30).
+  `npm run test:scripts`: 64 / 64.
+- CI commands: `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
+  `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: all clean.
+- Native check (Pixel 6 emulator, Android 14, Expo Go SDK 57): `npm run test:mobile:maestro` ran
+  every flow once: **24 / 24 flows passed in 48 m 31 s** (harness 49 m 49 s). Then a scratch
+  walk (flows outside the repository, `--keep-running --skip-build`, seed collector2) with adb
+  screenshots: the Wishlist tab ("AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition", the note,
+  "Near Mint only", "90% TCG ≈ 37.80 CAD"), the remove confirmation naming which copy, the card
+  screen opened with `?rarity=Ultra%20Rare` (caption and section "Any printing in Ultra Rare",
+  "2 printings of this card in Ultra Rare: any of them fits", no selected printing), then
+  AZR-FR001 chosen (the rarity gives way; "Sample market price: fictional price of the local
+  sample catalog · updated 2026-09-01"). The walk's first sign-in typed a garbled e-mail once
+  (an emulator input glitch; the retry passed). Logcat: no FATAL EXCEPTION, no ReactNativeJS
+  error (only Expo Go's "Cannot connect to Expo CLI" once Metro stopped), no token, no
+  coordinate; Metro log clean; API log only Flyway's "extension already exists" notices. Metro,
+  the harness API and the emulator were shut down; nothing listens on 8082, 8090, 19006, 8180,
+  4300, 8480 or 4480.
 
 ## Phase 11 — ML
 
@@ -2509,8 +2590,10 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 > **Stage S2 — simplified wishlist, wishlist alerts, no matches (2026-10-09, branch
 > `feature/regions-s2-wishlist` on top of `feature/regions-geography`, not pushed):** builder done
 > (see "A simpler wishlist, wishlist alerts, no matches (stage S2)"): V112, API, web (the shared
-> printing picker), mobile, seeds, docs and every suite listed there. Merge order: the S1 PR first,
-> then S2.
+> printing picker), mobile, seeds, docs and every suite listed there; review fix 1 (the wish
+> dialog's errors in view, the card page's "Any printing in <rarity>" for an alert's `?rarity=`,
+> focus, labels) re-ran every suite and the 24 Maestro flows. Merge order: the S1 PR first, then
+> S2.
 >
 > **Exact next task: stage S3 — search, the card page, have/want and search history (spec
 > sections 2 and 2b of the 2026-10-08 product change), on a new branch from the S2 branch (or
