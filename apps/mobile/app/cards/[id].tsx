@@ -12,6 +12,7 @@ import { SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
+import { marketPriceSource } from '@/src/features/wishlist/wishlistLabels';
 import {
   editionLabel,
   finishLabel,
@@ -25,10 +26,13 @@ import { gameLabel } from '@/src/lib/profile';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * Card detail (web: `/cards/:id`, `?printing=` selects a printing): the picture with the
- * provider credit, game-specific attributes from the game schema, the selected printing with its
- * market price, every printing, "Add to inventory", "Who has this in my region" (the holders list
- * with every filter, ADR 0017) and "Add to wishlist". Deep-link target: https://www.orenjitrade.com/cards/<id> and
+ * Card detail (web: `/cards/:id`): the picture with the provider credit, game-specific attributes
+ * from the game schema, which copy the link names, every printing, "Add to inventory", "Who has
+ * this in my region" (the holders list with every filter, ADR 0017) and "Add to wishlist".
+ * `?printing=` selects a printing (its details and market price with the price's source);
+ * `?rarity=` (a wishlist alert for "any printing in a rarity") shows "Any printing in <rarity>"
+ * and its printings without picking one; with neither, the first printing is shown (stage S3
+ * brings the printing picker). Deep-link target: https://www.orenjitrade.com/cards/<id> and
  * orenjitrade://cards/<id>.
  */
 export default function CardScreen() {
@@ -105,15 +109,22 @@ function CardContent({
 }: {
   card: CardDetail;
   printingId: string | null;
-  /** `?rarity=` of a wishlist alert: "Add to wishlist" starts on any printing of it. */
+  /** `?rarity=` of a wishlist alert: any printing of it ("Add to wishlist" starts on it too). */
   rarity: string | null;
 }) {
   const { palette } = useTheme();
   const router = useRouter();
   const games = useGames();
   const printings = card.printings ?? [];
-  const selected: PrintingSummary | null =
-    printings.find((candidate) => candidate.id === printingId) ?? printings[0] ?? null;
+  // Which copy the link names: a printing of this card, else a rarity of its printings (an
+  // unknown printing or rarity is ignored). "Any printing in <rarity>" picks no printing.
+  const linked = printings.find((candidate) => candidate.id === printingId) ?? null;
+  const anyInRarity =
+    !linked && rarity && printings.some((candidate) => candidate.rarity === rarity) ? rarity : null;
+  const rarityPrintings = anyInRarity
+    ? printings.filter((candidate) => candidate.rarity === anyInRarity)
+    : [];
+  const selected: PrintingSummary | null = linked ?? (anyInRarity ? null : (printings[0] ?? null));
   const schema = games.data?.find((game) => game.slug === card.game)?.schema ?? null;
   const name = card.name ?? 'Card';
   const code = selected ? printingCode(selected) : '';
@@ -121,10 +132,16 @@ function CardContent({
   const typeLine = [card.cardType, card.subtype].filter(Boolean).join(' · ');
   const attributes = metadataEntries(schema?.metadataFields, card.metadata);
   const price = formatMarketPrice(selected?.marketPrice);
+  const priceSource = marketPriceSource(selected?.marketPrice);
+  // "Add to inventory" needs one printing: the shown one, or the only one of the rarity.
+  const inventoryPrinting = selected ?? (rarityPrintings.length === 1 ? rarityPrintings[0] : null);
 
   const select = (printing: PrintingSummary) => {
     if (printing.id) {
-      router.setParams({ printing: printing.id });
+      // One printing replaces "any printing in <rarity>".
+      router.setParams(
+        anyInRarity ? { printing: printing.id, rarity: undefined } : { printing: printing.id }
+      );
     }
   };
 
@@ -142,6 +159,10 @@ function CardContent({
           <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
             <Text style={styles.mono}>{code}</Text>
             {selected.setName ? ` · ${selected.setName}` : ''}
+          </Text>
+        ) : anyInRarity ? (
+          <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
+            Any printing in {anyInRarity}
           </Text>
         ) : null}
         <CardDataCredit game={card.game} />
@@ -184,7 +205,7 @@ function CardContent({
           onPress={() =>
             router.push({
               pathname: '/items/new',
-              params: { cardId: card.id ?? '', printingId: selected?.id ?? '' },
+              params: { cardId: card.id ?? '', printingId: inventoryPrinting?.id ?? '' },
             })
           }
           testID="card-add-to-inventory"
@@ -209,8 +230,8 @@ function CardContent({
               // `?rarity=` of a wishlist alert), like the web.
               params: {
                 cardId: card.id ?? '',
-                printingId: printingId ?? '',
-                rarity: printingId ? '' : (rarity ?? ''),
+                printingId: linked?.id ?? '',
+                rarity: anyInRarity ?? '',
               },
             })
           }
@@ -253,11 +274,11 @@ function CardContent({
                 <Text style={[textStyle('xl', 'heading'), styles.name, { color: palette.ink }]}>
                   {price}
                 </Text>
-                <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-                  Market price
-                  {selected.marketPrice?.updatedAt
-                    ? ` · ${selected.marketPrice.updatedAt.slice(0, 10)}`
-                    : ''}
+                <Text
+                  style={[textStyle('xs'), { color: palette.textMuted }]}
+                  testID="card-price-source"
+                >
+                  {priceSource ?? 'Market price'}
                 </Text>
               </>
             ) : (
@@ -265,6 +286,29 @@ function CardContent({
                 No market price for this printing yet.
               </Text>
             )}
+          </View>
+        </SectionCard>
+      ) : anyInRarity ? (
+        <SectionCard title={`Any printing in ${anyInRarity}`} testID="card-selected-rarity">
+          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+            {rarityPrintings.length} {rarityPrintings.length === 1 ? 'printing' : 'printings'} of
+            this card in {anyInRarity}: any of them fits. Choose one under Printings to see its
+            details and market price.
+          </Text>
+          <View style={styles.facts} accessibilityLabel={`Printings in ${anyInRarity}`}>
+            {rarityPrintings.map((printing) => (
+              <Fact
+                key={printing.id}
+                mono
+                label={[
+                  printingCode(printing),
+                  printing.edition ? editionLabel(printing.edition) : null,
+                  printing.language ? languageName(printing.language) : null,
+                ]
+                  .filter((part) => part && part !== '—')
+                  .join(' · ')}
+              />
+            ))}
           </View>
         </SectionCard>
       ) : null}

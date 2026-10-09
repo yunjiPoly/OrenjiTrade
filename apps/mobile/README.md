@@ -215,7 +215,7 @@ app/                       expo-router routes
   disputes/[id].tsx        a dispute (`?opened=1` after opening it from the trade)
   premium.tsx, credits.tsx, support.tsx   Premium (`?checkout=success`), Credits, Support
                            (`?donation=thanks`)
-  cards/[id].tsx           card detail (`?printing=` selects a printing)
+  cards/[id].tsx           card detail (`?printing=` selects a printing, `?rarity=` any printing of it)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
 src/

@@ -80,8 +80,10 @@ Default chosen by the owner's spec: wishes drive no stored matches. They drive "
   just listed by @handle in <state>, <country>." (never a city, a price or a distance), data
   `{wishlistItemId, inventoryItemId, cardId, printingId?, rarity?, collectorId, cardName, game,
   cardImageUrl, regionCode, deepLink}`; `deepLink` = `/cards/<cardId>?printing=<id>` (one-printing
-  wish), `/cards/<cardId>?rarity=<rarity>` (rarity wish) or `/cards/<cardId>`. The card page's
-  printing picker of stage S3 reads `?printing=` / `?rarity=`.
+  wish), `/cards/<cardId>?rarity=<rarity>` (rarity wish) or `/cards/<cardId>`. The card page (web
+  and mobile) reads both: `?printing=` shows that printing, `?rarity=` shows "Any printing in
+  <rarity>" with the printings of that rarity and picks none of them; the printing picker of stage
+  S3 replaces that block.
 - Settings: one switch, `wishlistAlerts` in `GET|PUT /me/settings/notifications` (default true;
   `notification_preferences.wishlist_alerts`). On: in-app and push, following the master switches
   and quiet hours; never email. The `WISHLIST_MATCH` category is gone from the channel matrix (an old

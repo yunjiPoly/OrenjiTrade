@@ -160,7 +160,8 @@ the Emulator UI (http://localhost:4000/auth).
   suggestion searches `/cards?q=`; deferred chunk with the plain search field as placeholder);
   `/cards` (query + game pills + set/rarity/language/edition from the game's `GameSchema`,
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
-  (`?printing=` selects a printing; hero picture, attributes rendered from the schema's
+  (`?printing=` selects a printing, `?rarity=` shows "Any printing in <rarity>" without picking one;
+  hero picture, attributes rendered from the schema's
   `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
   dialog on that printing), "Who has this in my region" (opens `/search?card=<id>`, the holders
   of the platform region on screen; ADR 0017) and "Add to wishlist"; `/sets/:id` (cards + paginated checklist). `GamesStore`

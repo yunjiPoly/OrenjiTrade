@@ -181,6 +181,15 @@
   font-size: var(--font-size-sm);
 }
 
+.detail__rarity-note {
+  margin: 0;
+}
+
+.detail__price-source {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
 .detail__count {
   display: inline-block;
   min-width: 1.6em;
