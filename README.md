@@ -153,7 +153,7 @@ All variables are listed with comments in [.env.example](.env.example). Copy it 
 when you need to change something: docker compose reads the port variables from it and the npm
 scripts pass its non-empty values to the API. Key groups: database, Redis, Firebase (project id +
 emulator host), Google Cloud (project, region, buckets), events transport (`local` | `pubsub`),
-storage provider (`local` | `gcs`), maps key, payments / billing (`fake` | `stripe`), donations
+storage provider (`local` | `gcs`), payments / billing (`fake` | `stripe`), donations
 (`fake`), push (`log` | `fcm`), email (`log`), ML URL, CORS origins. Production values would live
 in Secret Manager and Cloud Run configuration, never in Git.
 

@@ -80,8 +80,8 @@ audited and never includes another collector's city.
   `github-deployer` SA; the provider trusts only `assertion.repository == "<owner/repo>"` (and
   only `refs/heads/main` for prod). **No service-account keys are created, downloaded or stored
   in GitHub secrets.** GitHub repository/environment *variables* hold only non-secret ids.
-- **Frontends**: bundles may contain public keys only (Firebase web config, referrer-restricted
-  Maps browser key, Stripe publishable key). A CI grep for `sk_live`, `-----BEGIN` and
+- **Frontends**: bundles may contain public keys only (Firebase web config, Stripe publishable
+  key). There is no map key any more: the map draws bundled boundaries (ADR 0017). A CI grep for `sk_live`, `-----BEGIN` and
   `AIza` in built bundles is part of Phase 13.
 - **Local**: `.env` (git-ignored) copied from `.env.example`; emulators and fake providers mean
   no real key is needed for development.

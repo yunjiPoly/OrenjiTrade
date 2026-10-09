@@ -474,8 +474,9 @@ rule), and `createOnboardedCollector` records it for every collector it creates 
 `confirmAge: false`. The static web export served by `expo serve`
 has no rewrites for dynamic routes
 (`/cards/<id>` answers 404 on a full page load), so specs open them inside the running app
-(`openInApp` in `e2e/support/stack.ts`). A privacy fixture scans every API response for coordinates with more than 3 decimals,
-and OpenStreetMap tiles are served from memory (no tile requests leave the machine).
+(`openInApp` in `e2e/support/stack.ts`). A privacy fixture scans every JSON answer of the API for coordinate, radius and distance
+keys (none exists since ADR 0017) and fails a test on any request to a map provider, a tile
+server or the developer API; such requests are aborted (the app draws no map).
 Logs: `.local-dev/mobile-e2e/logs/`.
 
 ### Native flows (Maestro on the Android emulator)
