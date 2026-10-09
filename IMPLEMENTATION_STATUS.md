@@ -2214,6 +2214,176 @@ channels (archived).
   `npm run format:check -w apps/mobile`. No Maestro flow asserts the changed texts; Maestro was
   not re-run.
 
+## A simpler wishlist, wishlist alerts, no matches (stage S2, 2026-10-09)
+
+_Branch `feature/regions-s2-wishlist` (from `feature/regions-geography`, S1, at `d02308a`;
+`origin/main` had no commit the branch lacked). Stage S2 of the owner's 2026-10-08 product
+change: spec section 4 in full. Contract: [`docs/api/contracts/s2-wishlist.md`](docs/api/contracts/s2-wishlist.md).
+Builder done; not pushed (the ship step pushes)._
+
+**What replaced matches (the spec's own default, for the owner to confirm):** no match is stored.
+Wishes drive "Who wants it" and "Wanted by N" (stage S3, computed live from visible wishlists) and
+a simple **wishlist alert**: when a collector of the wish owner's platform region lists a public
+item that fits (card / printing / rarity, plus Near Mint or better when asked), the owner gets one
+`WISHLIST_ALERT` — "<card> <code> <rarity> was just listed by @handle in <state>, <country>." —
+that opens the card page with the wish's selection (`?printing=` / `?rarity=`). One on/off switch
+in the notification settings; one alert per collector and item (a sent-alert key); owners without
+a location get none and the wishlist page asks them to set country and state.
+
+- [x] **The wish** — only which copy (any printing; any printing of one rarity of the card's
+  printings; one printing), a public note (first field, ≤ 280 code points, plain text,
+  `TextModerationService` PROFILE scope), "Near Mint only" and at most one price term from the
+  admin list (platform setting `wishlist.price_terms`, seeded `80% TCG, 85% TCG, 90% TCG,
+  100% TCG, 100% TCG+`; `GET /wishlist/price-terms`; `GET|PUT /admin/wishlist/settings`, ADMIN,
+  audited `wishlist.settings.update`; web `/admin/wishlist`). A term the list no longer offers
+  stays on the wish that chose it. Removed from form, API, DTOs and database (V112, data dropped,
+  private notes **not** copied into the public note): maximum price + currency, trade/buy
+  preference, radius, private notes, language, minimum condition, edition, the per-wish alert
+  switch, match counts. Old request members are **ignored** like every unknown member of the API
+  (`spring.jackson` `fail-on-unknown-properties: false`, `PartialUpdate`) and never stored.
+  One wish per selection (409; unique index `uq_wishlist_item_selection`); the plan limit
+  `wishlist.items.max` (FREE 20 / PREMIUM 500) is kept.
+- [x] **Market price** — `MarketPrice.source` (`YGOPRODECK` = `YgoProDeckMapper`'s `set_price`,
+  TCGplayer-based USD, dated by the provider database's last update; `SAMPLE` = the fictional
+  mock catalog, CAD; `CATALOG` = staff-entered). Web: "TCG market price" / "Sample market price" /
+  "Market price" with the source and date in a tooltip; mobile: the same text as a hint. "85% TCG ≈
+  21.25 USD" next to a term when the wish names one printing with a price, the term alone for any
+  printing.
+- [x] **Matches removed** — `wishlist_match` (V112), `WishlistMatchRepository`, `WishlistMatcher`,
+  `WishlistMatchView`, `WishlistRules`, `TradePreference`, the matches and dismiss endpoints, match
+  counts, `lastMatchedAt`, the nightly `wishlist-rematch` job (controller, local scheduler, Cloud
+  Scheduler entry: 9 jobs now, ADR 0016 amended), `WishlistMatched` and the `wishlist_matched`
+  analytics event, the WISHLIST_MATCH notifications and their limit notices (deleted by V112), the
+  WISHLIST_MATCH preference category; web matches drawer, match cards, `WishlistMatchesStore`,
+  match readiness, "With matches" / "Paused" filters, the summary's match stats, the per-wish
+  "Match alerts" switch and `/wishlist/:id` (redirects to `/wishlist`); mobile matches screen
+  (`app/wishlist/[id]`), `WishMatchCard`, filters, counts and the alert switch; their tests and
+  docs.
+- [x] **Wishlist alerts** — `WishlistAlerts` + `WishlistAlertRepository` on
+  `InventoryItemPublished` (same rules as S1's matcher for visibility, freshness, region,
+  discoverability, blocks and the wisher's account; plus the selection and Near Mint rules), the
+  most specific fitting wish per collector, `wishlist_alert_sent (user_id, inventory_item_id)` and
+  the notification dedup key `wishlist-alert:<user>:<item>`; `NotificationSettings.wishlistAlerts`
+  (column `notification_preferences.wishlist_alerts`, default on: in-app + push following the
+  master switches and quiet hours, never email); the daily limit `wishlist.alerts.per_day`
+  (FREE 5) still applies ("More wishlist alerts are waiting").
+- [x] **Printing picker** — `shared/catalog/printing-picker` (web), reusable by the card page in
+  S3: "Any printing" first and default, every printing with its picture (API card-image URLs), set,
+  code, rarity, edition, language, finish and market price (source tooltip); filters rarity / set /
+  edition / language (shown only where printings differ), the rarity alone meaning any printing
+  of that rarity; an optional `holderCounts` input (region collectors per printing, holders
+  first) for S3; a native radio group (keyboard). It powers the wish dialog now.
+- [x] **Web** — wish dialog (card autocomplete → public note → Near Mint only → terms → picker),
+  wishlist page (picture, which copy, note, NM / % TCG chips, edit, remove; plan usage; "Let
+  others see what you want" bound to `wishlistVisible`; the location prompt), Settings →
+  Notifications "Wishlist alerts" switch, `/admin/wishlist`, the public "Looking for" (note and
+  chips), alert deep links to the card page, the card page passes `?rarity=` to "Add to wishlist",
+  wording without matches (bell, notifications, privacy option "Let others see what you want",
+  admin, the privacy policy draft EN/FR "send wishlist alerts"). Initial bundle 899.92 kB
+  (899.96 before; the now unused optional-param route matcher was removed).
+- [x] **Mobile (Expo SDK 57)** — wish editor (note, Near Mint only, terms with amounts and the
+  price source, a simple "Which copy" chooser: any printing / any printing of one rarity / each
+  printing, each with its finish), Wishlist tab (same list as the web, the visibility switch, the
+  location prompt), no
+  matches screen, Settings → Notifications "Wishlist alerts", alerts open the card screen with
+  `?printing=` / `?rarity=` (old `/wishlist/<id>` links open the list), "Looking for" with note
+  and chips, legal texts synced.
+- [x] **Seeds** — collector2's wishes carry a public note, Near Mint only and price terms;
+  collector1's Near Mint Azure-Eyes listing alerts collector2 through the real pipeline.
+- [x] **Docs** — new `docs/api/contracts/s2-wishlist.md`; Phase 6 / S1 contracts point to it;
+  `schema.md`, API / web / mobile READMEs, ADR 0017 (amended), ADR 0016 (scheduler), ADR 0009,
+  architecture, seed data, test accounts, local setup, product overview, CLAUDE.md wording,
+  tracker rows 23–25.
+
+**Migration:** V112 `simplified_wishlist` (drops `wishlist_match` and the removed columns, collapses
+same-selection duplicates to the oldest, clears a rarity stored with a printing, adds
+`public_note`, `near_mint_only`, `price_term`, `wishlist_alert_sent`, `wishlist.price_terms`,
+`notification_preferences.wishlist_alerts`; deletes WISHLIST_MATCH notifications and their limit
+notices and the category key). Proven on a populated pre-V112 database (V001–V111 applied with
+`psql` to a scratch database `orenjitrade_regions_check`, fictional S1-model wishes, a match,
+notifications and preferences inserted, then V112): the duplicate collapsed to the oldest, the
+printing wish lost its stray rarity, the rarity wish kept its rarity, no private note leaked, the
+match table and the match notifications went, the MESSAGE notification and the MESSAGE category
+stayed; the scratch database was dropped. The owner's database `orenjitrade` is not touched.
+
+**Decisions:**
+- "Near Mint only" accepts Near Mint **or better** (Mint), by the game's ordered conditions.
+- One alert per collector and item, whatever the number of fitting wishes (the link uses the most
+  specific wish); the sent-alert key is written even when the alert is switched off or over the
+  daily limit, so a later republication never alerts about an item already decided.
+- The one switch is a dedicated `wishlistAlerts` setting (in-app + push, never email) instead of
+  a category row of the channel matrix, so the matrix and the switch never disagree.
+- The nightly rematch job is removed rather than turned into an alert catch-up: alerts say "just
+  listed", and the Spring Modulith registry already republishes an undelivered publication event.
+- Price terms are stored as their label (`"85% TCG"`); the admin list holds labels whose format
+  carries the percent and the "or more" flag, so a removed term still reads correctly.
+- A rarity on a one-printing wish equal to the printing's is accepted and dropped, another one is
+  400; "any printing of a rarity" must name a rarity of the card's printings.
+- The public wishlist summary now lists every wish (there is no paused wish any more).
+- `CollectorDiscoveryService.markersFor` (only used by the old matches) is kept for S3's "Who
+  wants it" rows.
+- Mobile "Which copy" is a select sheet (any printing, one entry per rarity when the card has
+  several, then every printing) rather than the web's full picker; the card page picker is S3.
+- A wish's "which copy" label names the printing's finish when it is not Normal ("PFT-002 ·
+  Common · Prismatic Frontier · Reverse holo"): two printings of a set often differ only by it.
+
+**Known gaps:**
+- "Who wants it" and "Wanted by N" are stage S3 (the spec puts them there); until then wishes are
+  visible only on the owner's public profile when shown.
+- The web card page reads `?printing=` but not yet `?rarity=` for display (S3 builds the picker
+  there); "Add to wishlist" from it already uses the rarity.
+- A staff-edited price on an imported printing still reports its provider as the source (the
+  printing's `external_ref`); the next import overwrites it anyway.
+- The card pages' "Selected printing" (web and mobile) and the web printings table still say
+  "Market price" without the source: S3 replaces that section with "Find this card" and the
+  shared picker, which already labels the source.
+- `wishlist_alert_sent` rows are kept until the account or the item goes (no time-based purge;
+  the table is small: one row per collector and listing alerted).
+- Mobile follow-ups: the full printing picker on the card screen with holder counts (S3), "Who
+  wants it" and "Wanted by N" (S3); the S1 follow-ups (map, region switcher) remain.
+
+**Native check (Android emulator; the adb walk found one label bug):** while
+walking the changed screens, the mobile "Which copy" chooser showed Emberfang Fox's two PFT-002
+printings (normal and reverse holo) as two identical lines. Fixed in `f9405e1`: the chooser ends
+each printing with its finish and the which-copy label of a wish (web and mobile) names a finish
+other than Normal (unit tests on both). The stale "match" wording of `test-accounts.md`,
+`local-setup.md`, `seed-data.md` and the Phase 3 contract went too (`c1dfb74`), and the exported
+OpenAPI document caught up with the NotificationResponse title example (`7ca7786`).
+
+**Checks on the final code (2026-10-09, branch `feature/regions-s2-wishlist`):**
+- `./gradlew exportOpenApi` + `npm run generate:api`: the first re-run after `f37fdda` changed
+  only the NotificationResponse title example ("Wishlist alert: Azure-Eyes", committed `7ca7786`);
+  the second re-run reproduces every committed file byte for byte (the Windows generator rewrites
+  `packages/api-client/src/.openapi-generator/FILES` with CRLF, which git shows as stat-dirty
+  with an empty diff; `git checkout` of it leaves the tree clean).
+- `npm run test:api` (Spotless + `gradlew check`): BUILD SUCCESSFUL in 6 m 14 s; `test` 805 tests /
+  161 classes, `catalogTest` 12 tests / 2 classes, 0 failures, 0 errors, 0 skipped.
+- `npm run test:web`: lint clean, 140 files / 648 tests. `npm run build -w apps/web-angular`:
+  initial total 899.92 kB (214.46 kB transfer), under the 900 kB budget, no warning.
+- `npm run test:e2e -- --retries=0`: 73 passed (2.6 m) on the first attempt, 0 failed / flaky /
+  skipped.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 648 jest tests, 28 harness guard tests.
+- `npx expo export` (Expo SDK 57) into the scratchpad: Android (Hermes bundle 5.16 MB, 1759
+  modules) and web (73 static routes), both exit 0; neither bundle contains a matches / rematch
+  endpoint, `WISHLIST_MATCH` or a map provider URL.
+- `npm run test:mobile:e2e`: 51 passed (1.3 m).
+- `npm run audit:gate`: OK (the 2 allowlisted advisories, `braces` and `node-forge`, until
+  2026-11-30). `npm run test:scripts`: 64 / 64. `npm run infra:validate` (scheduler module, 9
+  jobs): passed.
+- Native Maestro check (Pixel 6 emulator, Android 14, Expo Go SDK 57):
+  `npm run test:mobile:maestro` ran every flow once: **24 / 24 flows passed in 48 m 49 s**
+  (including "Wishlist alert, notification and card page" and "Collector search, profile and
+  Looking for"). After the label fix, Metro was restarted and both wishlist flows re-ran: 2 / 2
+  passed. adb screenshots of the changed screens (wishlist tab with the visibility switch, the
+  note and the NM / % TCG chips; the wish editor with terms, amounts and the price source; the
+  "Which copy" chooser before and after the fix; Settings → Notifications "Wishlist alerts"; the
+  notification centre with the alert "... was just listed by @collector1 in Quebec, Canada."; the
+  card page it opens). Logcat: no ReactNativeJS error, no crash, only Expo Go internals; Metro
+  log: bundling lines only; no token or coordinate in logcat, Metro or API logs. Metro, the
+  harness API and the emulator were shut down; no process of this stage still listens.
+- V112 on a populated pre-V112 database (scratch database `orenjitrade_regions_check`, dropped
+  afterwards): see "Migration" above.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -2294,9 +2464,9 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 20 | Exact coordinates never exposed | PASS (S1: nothing to expose) | no coordinate is stored (FlywayMigrationIT on the migrated schema: no geometry/geography or coordinate-, radius- or distance-named column, no GiST index, no comment describing the old model; plus the fresh-database check); GeoPrivacyContractTest over every response family as every seed account + logs; acceptance PrivacyScanner (coordinate / distance / radius keys, cities outside profiles, map provider requests) on every acceptance test; mobile `placePrivacy.test.tsx`, `coordinateLiterals.test.ts`, the Playwright privacy fixture |
 | 21 | Private messaging | PASS | acceptance `messaging.spec.ts` (realtime delivery, unread badge, "Seen", live answer), `messaging.spec.ts` (blocks, photos); ConversationIT, MessagingAuthorizationIT, RealtimeIT; walkthrough (third collector gets 404); mobile (stage M4): `apps/mobile/e2e/messages.spec.ts`, Maestro `messages-inbox-thread.yaml`; mobile (M7): block → Settings → Blocked users → unblock (`blocked.spec.ts`, Maestro `blocked-users.yaml`) |
 | 22 | Public community chat | PASS | acceptance `community.spec.ts`, `community.spec.ts` (moderation); CommunityIT, ModerationIT; mobile (stage M4): `apps/mobile/e2e/community.spec.ts`, Maestro `community-post.yaml` |
-| 23 | Create wishlist | PASS | acceptance `wishlist.spec.ts`, `wishlist.spec.ts` (duplicate 409, FREE limit dialog; no radius since ADR 0017); WishlistIT; mobile (M4/S1): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` |
-| 24 | New public inventory triggers match | PASS (S1: same region) | acceptance `wishlist.spec.ts` (Americas South pair), `wishlist.spec.ts`; WishlistMatchingIT (region match, no distance); mobile (M4/S1): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (S2 replaces matches) |
-| 25 | In-app/push notification received | PASS (in-app + log push) · DEFERRED-CLOUD (real FCM) · DEFERRED-MOBILE (device push: needs an EAS project and a real FCM sender, owner cost rule) | acceptance `wishlist.spec.ts` (live STOMP notification), `wishlist.spec.ts` (bell, `/notifications`); NotificationCentreIT, NotificationRealtimeIT, PushDeliveryIT (log push provider); walkthrough (`WISHLIST_MATCH`, unread 0 → 1); mobile in-app (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (live bell badge, notification → matches) |
+| 23 | Create wishlist | PASS (S2: simplified wish) | acceptance `wishlist.spec.ts`, `wishlist.spec.ts` (printing picker, public note, Near Mint only, one % TCG term; same selection 409, FREE limit dialog); WishlistIT (only the new fields, old members ignored, note moderation and length, admin price terms); mobile (S2): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-alert-notification.yaml` |
+| 24 | New public inventory triggers match → **wishlist alert** | PASS (S2: alert, no stored match) | acceptance `wishlist.spec.ts` (Lisbon pair), `wishlist.spec.ts` (Americas South pair; Near Mint only, one alert, card page link); WishlistAlertsIT (same region yes, other region no, NM-only, rarity, one alert per item, no location, switch off, blocks); mobile (S2): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-alert-notification.yaml` |
+| 25 | In-app/push notification received | PASS (in-app + log push) · DEFERRED-CLOUD (real FCM) · DEFERRED-MOBILE (device push: needs an EAS project and a real FCM sender, owner cost rule) | acceptance `wishlist.spec.ts` (live STOMP notification), `wishlist.spec.ts` (bell, `/notifications`); NotificationCentreIT, NotificationRealtimeIT, PushDeliveryIT (log push provider); walkthrough (`WISHLIST_MATCH`, unread 0 → 1; `WISHLIST_ALERT` since S2); mobile in-app (stage M4/S2): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-alert-notification.yaml` (live bell badge, alert → card page) |
 | 26 | Send offers | PASS | acceptance `offers.spec.ts` (create → counter → accept → decline), `offers.spec.ts`, `payments.spec.ts`; OfferStateMachineIT, OfferAuthorizationIT, TradeLifecycleIT; walkthrough (offer → counter → accept → trade); mobile (stage M5): `apps/mobile/e2e/offers.spec.ts`, Maestro `offer-trade-rating.yaml` |
 | 27 | Eligible users can rate | PASS | acceptance `rating.spec.ts` (no rating without interaction, unrelated 403), `rating.spec.ts`; RatingEligibilityIT, RatingRulesTest; mobile (stage M5): `apps/mobile/e2e/offers.spec.ts` (rate from the completed trade, a reference), Maestro `offer-trade-rating.yaml`, jest `screens/ratings` (no interaction: no rating, the reason explained) |
 | 28 | Report collector via popup | PASS | acceptance `reporting.spec.ts`, `reporting.spec.ts` (all entry points); ReportFlowIT, ReportThresholdIT; mobile (stage M5): `apps/mobile/e2e/reports.spec.ts` (profile, conversation), Maestro `report-collector.yaml`, jest entry points (collector profile, community post, public binder; the map preview is gone since S1) |
@@ -2336,16 +2506,25 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 > API, web, mobile, seeds, docs and every suite listed there. The owner's local database
 > migrates on the next `npm run dev` and loses its trading areas by design.
 >
-> **Exact next task: stage S2 — simplified wishlist and removal of matches (spec section 4 of
-> the 2026-10-08 product change), on a new branch from `main` once the S1 PR is merged.** S1
-> already removed the wishlist radius and the distance bucket and made matching compare platform
-> regions (V109); S2 drops `wishlist_match` and the matches features (API, web drawer, mobile
-> matches screen, WISHLIST_MATCH notifications) and simplifies the wish itself, keeping
-> `wishlist_visible` for the public "Looking for". The remaining stages: S3 search / card page /
-> have-want / search history (sections 2 and 2b), S4 community photos (section 5), S5 YDK +
-> Collectr import (section 6), S6 final docs and the definition-of-done walkthrough (sections
-> 8–9). Mobile follow-ups of S1 (boundary map in the Map tab, a mobile region switcher) are listed
-> in the S1 section.
+> **Stage S2 — simplified wishlist, wishlist alerts, no matches (2026-10-09, branch
+> `feature/regions-s2-wishlist` on top of `feature/regions-geography`, not pushed):** builder done
+> (see "A simpler wishlist, wishlist alerts, no matches (stage S2)"): V112, API, web (the shared
+> printing picker), mobile, seeds, docs and every suite listed there. Merge order: the S1 PR first,
+> then S2.
+>
+> **Exact next task: stage S3 — search, the card page, have/want and search history (spec
+> sections 2 and 2b of the 2026-10-08 product change), on a new branch from the S2 branch (or
+> `main` once S1 and S2 are merged).** Reuse `shared/catalog/printing-picker` on the card page
+> (feed its `holderCounts` input from a new grouped per-printing holder count, read `?printing=` /
+> `?rarity=` into it, replace "Selected printing" and "Who has this near me" with "Find this
+> card"), extend `/search/card-holders` (rarity, country/subdivision filters, per-printing counts,
+> sorts), add "Who wants it" (visible wishlists, the S2 public note and NM / % TCG chips;
+> `CollectorDiscoveryService.markersFor` gives the rows' collectors) and "Wanted by N" on inventory
+> items (one grouped query, the same fit rules as `WishlistAlertRules`), search result have/want
+> counts, the rarity query parsing, and the server-side search history (`/me/search-history`,
+> privacy switch, export, deletion). The remaining stages: S4 community photos (section 5), S5 YDK
+> + Collectr import (section 6), S6 final docs and the definition-of-done walkthrough (sections
+> 8–9). Mobile follow-ups of S1 and S2 are listed in their sections.
 
 
 > **Web MVP complete locally (2026-09-30).** Workflow `web-mvp-local` / `web-mvp-local-continue`
