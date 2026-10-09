@@ -18,6 +18,20 @@ import {
 } from './wishForm';
 import { approximateAmount, marketPriceSource } from './wishlistLabels';
 
+/** The terms to offer: the admin list, plus `current` when the list no longer has it (web twin). */
+export function withCurrentTerm(
+  terms: readonly WishPriceTerm[],
+  current: string | null | undefined
+): readonly WishPriceTerm[] {
+  if (!current || terms.some((term) => term.label === current)) {
+    return terms;
+  }
+  const match = /^([1-9]\d{0,2})% TCG(\+)?$/.exec(current);
+  return match
+    ? [...terms, { label: current, percent: Number(match[1]), orMore: !!match[2] }]
+    : terms;
+}
+
 export interface WishFieldsProps {
   value: WishFormValue;
   onChange: (value: WishFormValue) => void;
@@ -77,7 +91,7 @@ export function WishFields({
             ? `Terms relative to the market price of this printing (${source}). Sellers see them; they never filter anything.`
             : 'Terms relative to the TCG market price of the copy you get. Sellers see them; they never filter anything.'}
         </Text>
-        {terms.map((term) => {
+        {withCurrentTerm(terms, value.priceTerm).map((term) => {
           const amount = approximateAmount(term, price);
           const label = amount ? `${term.label} ${amount}` : term.label;
           return (

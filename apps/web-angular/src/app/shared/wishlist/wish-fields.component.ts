@@ -17,6 +17,20 @@ import { marketPriceInfo } from '../catalog/catalog-labels';
 import { WISH_NOTE_MAX, WishForm, noteError, noteLength } from './wishlist-form';
 import { approximateAmount } from './wishlist-labels';
 
+/** The terms to offer: the admin list, plus `current` when the list no longer has it. */
+export function withCurrentTerm(
+  terms: readonly WishPriceTerm[],
+  current: string | null | undefined,
+): readonly WishPriceTerm[] {
+  if (!current || terms.some((term) => term.label === current)) {
+    return terms;
+  }
+  const match = /^([1-9]\d{0,2})% TCG(\+)?$/.exec(current);
+  return match
+    ? [...terms, { label: current, percent: Number(match[1]), orMore: !!match[2] }]
+    : terms;
+}
+
 /**
  * The public part of a wish (add/edit dialog): the public note first (plain text, at most 280
  * characters, shown wherever the wish is visible), then the optional "Near Mint only" and price
@@ -68,9 +82,9 @@ import { approximateAmount } from './wishlist-labels';
             </span>
           }
         </p>
-        @if (terms().length) {
+        @if (shownTerms().length) {
           <div class="wf__term-list">
-            @for (term of terms(); track term.label) {
+            @for (term of shownTerms(); track term.label) {
               <mat-checkbox
                 [checked]="selectedTerm() === term.label"
                 (change)="toggleTerm(term.label, $event.checked)"
@@ -163,6 +177,10 @@ export class WishFieldsComponent {
   private readonly value = linkedSignal(() => this.form().getRawValue());
   protected readonly length = computed(() => noteLength(this.value().note));
   protected readonly selectedTerm = computed(() => this.value().priceTerm);
+  /** The admin list, plus the wish's own term when the list no longer offers it (kept on edit). */
+  protected readonly shownTerms = computed(() =>
+    withCurrentTerm(this.terms(), this.selectedTerm()),
+  );
   protected readonly priceInfo = computed(() => marketPriceInfo(this.marketPrice()));
   protected readonly termsHint = computed(() =>
     this.priceInfo()

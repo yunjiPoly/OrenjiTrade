@@ -198,8 +198,11 @@ public class WishlistService {
             }
         }
         String note = patch.has("note") ? note(patch.note(), errors) : row.publicNote();
+        // A term the admin list no longer offers stays valid on the wish that chose it.
         @Nullable String priceTerm =
-                patch.has("priceTerm") ? priceTerm(patch.priceTerm(), errors) : row.priceTerm();
+                !patch.has("priceTerm") || isUnchanged(patch.priceTerm(), row.priceTerm())
+                        ? row.priceTerm()
+                        : priceTerm(patch.priceTerm(), errors);
         @Nullable String rarity = null;
         if (errors.isEmpty()) {
             // A printing change clears a stored rarity unless the request sets one.
@@ -348,6 +351,10 @@ public class WishlistService {
             log.info("Wishlist note flagged for review");
         }
         return value;
+    }
+
+    private static boolean isUnchanged(@Nullable String requested, @Nullable String stored) {
+        return requested != null && stored != null && requested.strip().equals(stored);
     }
 
     /** One of the admin-configured terms ({@code null} for none), else a field error. */

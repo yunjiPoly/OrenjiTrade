@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MarketPriceSourceEnum as Source, WishPriceTerm } from '@orenji/api-client';
-import { WishFieldsComponent } from './wish-fields.component';
+import { WishFieldsComponent, withCurrentTerm } from './wish-fields.component';
 import { WishForm, createWishForm, newWishDefaults } from './wishlist-form';
 
 const TERMS: WishPriceTerm[] = [
@@ -95,6 +95,22 @@ describe('WishFieldsComponent', () => {
     expect(element.querySelector('.wf__source')?.textContent).toContain(
       'TCG market price: YGOPRODeck set price (TCGplayer-based, USD)',
     );
+  });
+
+  it('keeps offering a term the admin list removed, on the wish that chose it', async () => {
+    expect(withCurrentTerm(TERMS, '85% TCG')).toBe(TERMS);
+    expect(withCurrentTerm(TERMS, '')).toBe(TERMS);
+    expect(withCurrentTerm(TERMS, '75% TCG').at(-1)).toEqual({
+      label: '75% TCG',
+      percent: 75,
+      orMore: false,
+    });
+    form = createWishForm({ ...newWishDefaults(), priceTerm: '75% TCG' });
+    await render(false);
+    const kept = element.querySelector(
+      '[data-testid="wish-term-75% TCG"] input',
+    ) as HTMLInputElement;
+    expect(kept.checked).toBe(true);
   });
 
   it('binds Near Mint only and counts the note', async () => {

@@ -23,6 +23,7 @@ import {
   wishCardParams,
   wishChips,
 } from '@/src/features/wishlist/wishlistLabels';
+import { withCurrentTerm } from '@/src/features/wishlist/WishFields';
 import { alertReadiness, wishUsage } from '@/src/features/wishlist/WishlistNotices';
 
 import {
@@ -184,6 +185,16 @@ describe('wishlist labels', () => {
       'Sample market price'
     );
     expect(marketPriceSource(null)).toBeNull();
+  });
+
+  it('keeps offering a term the admin list removed, on the wish that chose it', () => {
+    const terms = [{ label: '85% TCG', percent: 85, orMore: false }];
+    expect(withCurrentTerm(terms, '85% TCG')).toBe(terms);
+    expect(withCurrentTerm(terms, '110% TCG+')).toEqual([
+      ...terms,
+      { label: '110% TCG+', percent: 110, orMore: true },
+    ]);
+    expect(withCurrentTerm(terms, 'cheap')).toBe(terms);
   });
 
   it('shows Near Mint only and the price term as chips', () => {

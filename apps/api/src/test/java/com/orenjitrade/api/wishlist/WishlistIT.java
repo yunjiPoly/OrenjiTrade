@@ -363,9 +363,23 @@ class WishlistIT extends AbstractWishlistIT {
                                     .path("percent")
                                     .asInt())
                     .isEqualTo(75);
+            // The wish keeps its removed term, also when a client sends it back unchanged...
+            assertThat(
+                            callJson(
+                                            HttpMethod.PATCH,
+                                            "/api/v1/wishlist/" + kept,
+                                            owner.uid(),
+                                            Map.of("priceTerm", "85% TCG", "note", "Still wanted"),
+                                            200)
+                                    .path("priceTerm")
+                                    .path("label")
+                                    .asString())
+                    .isEqualTo("85% TCG");
+            // ...but another wish cannot choose it any more.
+            String fresh = createWish(owner, wish(printing(AZURE_FR), true)).path("id").asString();
             callJson(
                     HttpMethod.PATCH,
-                    "/api/v1/wishlist/" + kept,
+                    "/api/v1/wishlist/" + fresh,
                     owner.uid(),
                     Map.of("priceTerm", "85% TCG"),
                     400);
