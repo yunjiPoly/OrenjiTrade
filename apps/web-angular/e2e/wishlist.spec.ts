@@ -189,6 +189,8 @@ test.describe('wishlist and notifications', () => {
       await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByText(`${OTHER_CARD} is on your wishlist`)).toBeVisible();
+      // On a phone-sized screen, where the printing picker makes the dialog scroll.
+      await page.setViewportSize({ width: 375, height: 812 });
       await page.getByRole('button', { name: 'Add to wishlist' }).click();
       await expect(dialog.getByTestId('wish-card')).toContainText(OTHER_CARD);
       await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
@@ -201,6 +203,7 @@ test.describe('wishlist and notifications', () => {
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
       await expect(page.getByRole('button', { name: 'Add to wishlist' })).toBeFocused();
+      await page.setViewportSize({ width: 1280, height: 720 });
 
       // Remove that second wish from the list (confirmation first).
       await page.goto('/wishlist');
