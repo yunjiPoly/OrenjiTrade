@@ -1,18 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
-  Injector,
   computed,
   effect,
   inject,
-  input,
   untracked,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleChange, MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleChange, MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import type { WishlistItemResponse } from '@orenji/api-client';
@@ -29,35 +26,28 @@ import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.com
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 import { WishlistActions, addedMessage } from '../../shared/wishlist/wishlist-actions.service';
-import { WishFilter, WishlistStore } from './data/wishlist.store';
-import { MatchReadinessComponent } from './list/match-readiness.component';
+import { WishlistStore } from './data/wishlist.store';
 import { WishCardComponent } from './list/wish-card.component';
 import { WishlistSummaryComponent } from './list/wishlist-summary.component';
-import {
-  MatchesSheetData,
-  MatchesSheetResult,
-  WishlistMatchesSheetComponent,
-} from './matches/wishlist-matches-sheet.component';
 
 /**
- * `/wishlist` and `/wishlist/:id`: the collector's wishes (card art, printing or "any printing",
- * criteria chips, match count, alerts switch, edit and remove), the add/edit dialog (card
- * autocomplete → optional printing → criteria) and, for `/wishlist/:id` (the deep link of
- * WISHLIST_MATCH notifications), the matches drawer of that wish. Match counts stay live over the
- * realtime channel.
+ * `/wishlist` (stage S2): a clean list of the collector's wishes (picture, which copy, public
+ * note, "Near Mint only" and price term chips, edit, remove), the plan usage, the "Let others see
+ * what you want" switch (privacy setting `wishlistVisible`) and, without a location, a prompt to
+ * set country and state so wishlist alerts can arrive. No matches: when a collector of the region
+ * lists a fitting card, a wishlist alert opens its card page.
  */
 @Component({
   selector: 'app-wishlist-page',
   imports: [
     RouterLink,
     MatButtonModule,
-    MatButtonToggleModule,
     MatIconModule,
+    MatSlideToggleModule,
     EmptyStateComponent,
     ErrorStateComponent,
     PageHeaderComponent,
     SkeletonComponent,
-    MatchReadinessComponent,
     WishCardComponent,
     WishlistSummaryComponent,
   ],
@@ -81,14 +71,47 @@ import {
           </button>
         </app-page-header>
 
-        <app-match-readiness [readiness]="store.readiness()" />
+        @if (store.readiness() === 'no-location') {
+          <aside class="wl__prompt" role="note" data-testid="wishlist-location-prompt">
+            <mat-icon class="wl__prompt-icon" aria-hidden="true">location_off</mat-icon>
+            <div class="wl__prompt-text">
+              <p class="wl__prompt-title">Set your country and state to get wishlist alerts</p>
+              <p class="wl__prompt-body">
+                Alerts come from collectors of your region. Choose your country and state or
+                province once and new listings of the cards you want will reach you.
+              </p>
+            </div>
+            <a matButton="tonal" routerLink="/settings/location">Choose my location</a>
+          </aside>
+        }
+
+        <section class="wl__visibility" aria-labelledby="wl-visible-title">
+          <div class="wl__visibility-text">
+            <h2 class="wl__visibility-title" id="wl-visible-title">Let others see what you want</h2>
+            <p class="wl__visibility-help">
+              Collectors who own these cards can find you on your profile and offer them. Your
+              wishlist alerts work either way.
+            </p>
+          </div>
+          @if (store.visible() === null) {
+            <app-skeleton width="52px" height="32px" />
+          } @else {
+            <mat-slide-toggle
+              data-testid="wishlist-visible"
+              [checked]="!!store.visible()"
+              [disabled]="store.savingVisibility()"
+              aria-labelledby="wl-visible-title"
+              (change)="setVisible($event)"
+            />
+          }
+        </section>
 
         @switch (store.status()) {
           @case ('loading') {
             <div class="wl__grid" aria-busy="true">
               <span class="visually-hidden">Loading your wishlist</span>
               @for (bone of bones; track bone) {
-                <app-skeleton height="190px" />
+                <app-skeleton height="170px" />
               }
             </div>
           }
@@ -102,63 +125,19 @@ import {
           }
           @default {
             @if (store.items().length) {
-              <app-wishlist-summary
-                [count]="store.counts().all"
-                [matched]="store.counts().matches"
-                [totalMatches]="store.totalMatches()"
-                [usage]="store.usage()"
-              />
-              <div class="wl__bar">
-                <mat-button-toggle-group
-                  aria-label="Show wishes"
-                  hideSingleSelectionIndicator
-                  [value]="store.filter()"
-                  (change)="onFilter($event)"
-                >
-                  <mat-button-toggle value="all">All ({{ store.counts().all }})</mat-button-toggle>
-                  <mat-button-toggle value="matches">
-                    With matches ({{ store.counts().matches }})
-                  </mat-button-toggle>
-                  <mat-button-toggle value="paused">
-                    Paused ({{ store.counts().paused }})
-                  </mat-button-toggle>
-                </mat-button-toggle-group>
-              </div>
-              @if (store.visible().length) {
-                <ul class="wl__grid" aria-label="Your wishlist">
-                  @for (item of store.visible(); track item.id) {
-                    <li>
-                      <app-wish-card
-                        [item]="item"
-                        [busy]="store.busy().has(item.id)"
-                        (openMatches)="showMatches(item)"
-                        (edit)="edit(item)"
-                        (remove)="remove(item)"
-                        (activeChange)="setActive(item, $event)"
-                      />
-                    </li>
-                  }
-                </ul>
-              } @else {
-                <app-empty-state
-                  [icon]="store.filter() === 'paused' ? 'notifications_paused' : 'travel_explore'"
-                  [title]="store.filter() === 'paused' ? 'No paused wishes' : 'No matches yet'"
-                  [description]="
-                    store.filter() === 'paused'
-                      ? 'Every wish has its alerts on.'
-                      : 'When a collector of your region lists a card you want, it shows up here.'
-                  "
-                >
-                  <button
-                    actions
-                    matButton="outlined"
-                    type="button"
-                    (click)="store.setFilter('all')"
-                  >
-                    Show all wishes
-                  </button>
-                </app-empty-state>
-              }
+              <app-wishlist-summary [count]="store.items().length" [usage]="store.usage()" />
+              <ul class="wl__grid" aria-label="Your wishlist">
+                @for (item of store.items(); track item.id) {
+                  <li>
+                    <app-wish-card
+                      [item]="item"
+                      [busy]="store.busy().has(item.id)"
+                      (edit)="edit(item)"
+                      (remove)="remove(item)"
+                    />
+                  </li>
+                }
+              </ul>
             } @else {
               <app-empty-state
                 icon="favorite"
@@ -191,23 +170,64 @@ import {
     </div>
   `,
   styles: `
-    .wl__bar {
+    .wl__prompt {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
-      gap: var(--spacing-3);
-      margin: var(--spacing-5) 0 var(--spacing-4);
+      gap: var(--spacing-3) var(--spacing-4);
+      margin-bottom: var(--spacing-4);
+      padding: var(--spacing-4);
+      border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
     }
-    .wl__bar mat-button-toggle-group {
-      max-width: 100%;
-      overflow-x: auto;
+    .wl__prompt-icon {
+      flex: 0 0 auto;
+      color: var(--color-warning);
+    }
+    .wl__prompt-text {
+      flex: 1 1 320px;
+      min-width: 0;
+    }
+    .wl__prompt-title {
+      margin: 0;
+      font-weight: var(--font-weight-semibold);
+    }
+    .wl__prompt-body {
+      margin: 2px 0 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .wl__visibility {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--spacing-4);
+      margin-bottom: var(--spacing-5);
+      padding: var(--spacing-4);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+    }
+    .wl__visibility-text {
+      min-width: 0;
+    }
+    .wl__visibility-title {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+    }
+    .wl__visibility-help {
+      margin: 2px 0 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
     }
     .wl__grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
       gap: var(--spacing-4);
-      margin: 0;
+      margin: var(--spacing-4) 0 0;
       padding: 0;
       list-style: none;
     }
@@ -217,14 +237,10 @@ import {
 export class WishlistPageComponent {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
-  private readonly injector = inject(Injector);
   private readonly snackBar = inject(MatSnackBar);
   protected readonly auth = inject(AuthService);
   protected readonly store = inject(WishlistStore);
   protected readonly actions = inject(WishlistActions);
-
-  /** `/wishlist/:id`: the wish whose matches drawer is open (bound by the router). */
-  readonly id = input<string | undefined>();
 
   protected readonly bones = [1, 2, 3];
   protected readonly errorMessage = computed(() => {
@@ -232,26 +248,11 @@ export class WishlistPageComponent {
     return error ? friendlyMessage(error) : '';
   });
 
-  private sheet: { id: string; ref: MatDialogRef<WishlistMatchesSheetComponent> } | null = null;
-  private destroyed = false;
-
   constructor() {
     effect(() => {
       if (this.auth.isAuthenticated()) {
         untracked(() => this.store.init());
       }
-    });
-    // The URL drives the drawer: `/wishlist/<id>` opens it once the list is known.
-    effect(() => {
-      const id = this.id() ?? null;
-      const ready = this.store.status() === 'ready';
-      untracked(() => this.syncSheet(id, ready));
-    });
-    inject(DestroyRef).onDestroy(() => {
-      this.destroyed = true;
-      // A drawer still open when the page goes away (browser navigation) closes with it; one
-      // already closing keeps its own result.
-      this.sheet?.ref.close({ navigated: true, changed: false });
     });
   }
 
@@ -282,7 +283,7 @@ export class WishlistPageComponent {
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
             title: `Remove ${name}?`,
-            message: 'The wish and its matches are removed. You can add the card again later.',
+            message: 'The wish is removed. You can add the card again later.',
             confirmLabel: 'Remove',
             tone: 'danger',
           },
@@ -303,74 +304,19 @@ export class WishlistPageComponent {
     }
   }
 
-  protected async setActive(item: WishlistItemResponse, active: boolean): Promise<void> {
+  protected async setVisible(event: MatSlideToggleChange): Promise<void> {
     try {
-      await this.store.setActive(item, active);
+      await this.store.setVisible(event.checked);
       this.snackBar.open(
-        active
-          ? `Alerts on for ${item.card?.name ?? 'this wish'}.`
-          : `Alerts paused for ${item.card?.name ?? 'this wish'}.`,
+        event.checked
+          ? 'Others can now see what you want on your profile.'
+          : 'Your wishlist is hidden from others.',
         'OK',
-        { duration: 3000 },
+        { duration: 4000 },
       );
     } catch (error) {
+      event.source.checked = !event.checked;
       this.snackBar.open(friendlyMessage(error as ApiError), 'OK', { duration: 6000 });
     }
-  }
-
-  protected showMatches(item: WishlistItemResponse): void {
-    void this.router.navigate(['/wishlist', item.id]);
-  }
-
-  protected onFilter(event: MatButtonToggleChange): void {
-    this.store.setFilter(event.value as WishFilter);
-  }
-
-  private syncSheet(id: string | null, ready: boolean): void {
-    if (!id) {
-      this.sheet?.ref.close();
-      return;
-    }
-    if (!ready || this.sheet?.id === id) {
-      return;
-    }
-    const item = this.store.find(id);
-    if (!item) {
-      this.snackBar.open('This wish is no longer on your wishlist.', 'OK', { duration: 5000 });
-      void this.router.navigate(['/wishlist'], { replaceUrl: true });
-      return;
-    }
-    this.sheet?.ref.close();
-    const ref = this.dialog.open<
-      WishlistMatchesSheetComponent,
-      MatchesSheetData,
-      MatchesSheetResult
-    >(WishlistMatchesSheetComponent, {
-      data: { item },
-      injector: this.injector,
-      panelClass: 'app-side-sheet',
-      position: { right: '0', top: '0' },
-      height: '100dvh',
-      maxHeight: '100dvh',
-      width: 'min(560px, 100vw)',
-      maxWidth: '100vw',
-      autoFocus: 'dialog',
-      restoreFocus: true,
-    });
-    this.sheet = { id, ref };
-    ref.beforeClosed().subscribe(() => {
-      if (this.sheet?.ref === ref) {
-        this.sheet = null;
-      }
-    });
-    ref.afterClosed().subscribe((result) => {
-      if (this.destroyed) {
-        return;
-      }
-      void this.store.refresh();
-      if (!result?.navigated && this.id() === id) {
-        void this.router.navigate(['/wishlist'], { replaceUrl: true });
-      }
-    });
   }
 }

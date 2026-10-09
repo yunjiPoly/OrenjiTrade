@@ -71,6 +71,58 @@ export function formatMarketPrice(
   }
 }
 
+/** What a market price is and where it comes from, for its label and tooltip. */
+export interface MarketPriceInfo {
+  /** Short label: "TCG market price" for YGOPRODeck set prices. */
+  label: string;
+  /** Source and date, for a tooltip ("YGOPRODeck set price (TCGplayer-based, USD) · updated …"). */
+  detail: string;
+}
+
+function priceDate(value: string | null | undefined, locale: string): string | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
+  } catch {
+    return value.slice(0, 10);
+  }
+}
+
+/**
+ * The label and source of a market price: YGOPRODeck's `set_price` is TCGplayer-based USD (a "TCG
+ * market price"); the local sample catalog's prices are fictional; staff-entered prices say so.
+ */
+export function marketPriceInfo(
+  price: MarketPrice | null | undefined,
+  locale = 'en-CA',
+): MarketPriceInfo | null {
+  if (!price || price.amount === undefined || price.amount === null) {
+    return null;
+  }
+  const date = priceDate(price.updatedAt, locale);
+  const dated = date ? ` · updated ${date}` : '';
+  switch (price.source) {
+    case 'YGOPRODECK':
+      return {
+        label: 'TCG market price',
+        detail: `YGOPRODeck set price (TCGplayer-based, ${price.currency ?? 'USD'})${dated}`,
+      };
+    case 'SAMPLE':
+      return {
+        label: 'Sample market price',
+        detail: `Fictional price of the local sample catalog${dated}`,
+      };
+    default:
+      return { label: 'Market price', detail: `Set by OrenjiTrade${dated}` };
+  }
+}
+
 /** A metadata value rendered according to its schema field type. */
 export function formatMetadataValue(
   field: Pick<GameMetadataField, 'type'> | null,

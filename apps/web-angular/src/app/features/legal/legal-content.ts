@@ -215,7 +215,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'purposes',
         heading: 'Why we use it',
         clauses: [
-          'To operate the Service: show your public Binders on the map, match wishlists, deliver messages and notifications.',
+          'To operate the Service: show your public Binders on the map, send wishlist alerts, deliver messages and notifications.',
           'To keep the community safe: detect abuse, process reports, enforce the Community Guidelines, and comply with legal obligations.',
           'To improve the product using aggregated analytics. We do not sell personal data and we do not use it for third-party advertising profiles.',
         ],

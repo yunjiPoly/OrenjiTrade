@@ -1,121 +1,89 @@
-import type { PrintingSummary, WishlistItemResponse } from '@orenji/api-client';
-import { editionLabel, languageLabel } from '../catalog/catalog-labels';
-import { conditionLabel, formatPrice, printingCode } from '../inventory/inventory-labels';
+import type {
+  MarketPrice,
+  PrintingSummary,
+  WishPriceTerm,
+  WishlistItemResponse,
+} from '@orenji/api-client';
+import { printingCode } from '../inventory/inventory-labels';
 
 /**
- * Display vocabulary of the wishlist (Phase 6 contract): trade preferences, the criteria of a
- * wish as chips, printings and match counts. Values mirror the generated `@orenji/api-client`
- * enums; every screen words them the same way.
+ * Display vocabulary of the wishlist (stage S2): which copy, the "Near Mint only" and price term
+ * chips, the approximate amount of a term and the card page link of a wish. Every screen words
+ * them the same way.
  */
 
-/** What the collector accepts for a wished card (`ANY | TRADE | SALE`). */
-export type TradePreference = 'ANY' | 'TRADE' | 'SALE';
-
-export interface TradePreferenceInfo {
-  value: TradePreference;
-  label: string;
-  icon: string;
-  hint: string;
-}
-
-export const TRADE_PREFERENCES: readonly TradePreferenceInfo[] = [
-  {
-    value: 'ANY',
-    label: 'Trade or buy',
-    icon: 'sync_alt',
-    hint: 'Every listing counts: for trade, for sale or both.',
-  },
-  {
-    value: 'TRADE',
-    label: 'Trade only',
-    icon: 'swap_horiz',
-    hint: 'Only listings open to trades.',
-  },
-  { value: 'SALE', label: 'Buy only', icon: 'sell', hint: 'Only listings for sale.' },
-];
-
-export function isTradePreference(value: unknown): value is TradePreference {
-  return TRADE_PREFERENCES.some((option) => option.value === value);
-}
-
-export function tradePreferenceInfo(value: string | null | undefined): TradePreferenceInfo {
-  return TRADE_PREFERENCES.find((option) => option.value === value) ?? TRADE_PREFERENCES[0];
-}
-
-/** One criterion of a wish, shown as a chip. */
+/** One chip of a wish. */
 export interface WishChip {
-  kind: 'condition' | 'edition' | 'language' | 'rarity' | 'price' | 'trade';
+  kind: 'near-mint' | 'price-term';
   icon: string;
   label: string;
+  /** Longer text for a tooltip / screen readers (the market price source). */
+  detail?: string;
 }
 
-type WishCriteria = Pick<
-  WishlistItemResponse,
-  | 'printing'
-  | 'rarity'
-  | 'conditionMin'
-  | 'edition'
-  | 'language'
-  | 'maxPrice'
-  | 'currency'
-  | 'tradePreference'
->;
+/** "≈ 21.25 USD": `percent` of a market price, two decimals; `null` without a price. */
+export function approximateAmount(
+  term: Pick<WishPriceTerm, 'percent'> | null | undefined,
+  price: MarketPrice | null | undefined,
+): string | null {
+  if (!term || !price || price.amount === undefined || price.amount === null) {
+    return null;
+  }
+  const cents = Math.round(price.amount * term.percent);
+  const amount = (cents / 100).toFixed(2);
+  return `≈ ${amount} ${price.currency ?? ''}`.trim();
+}
 
-/** The criteria of a wish as chips, most selective first (unset filters are left out). */
-export function wishCriteriaChips(wish: WishCriteria): WishChip[] {
+/** "85% TCG ≈ 21.25 USD" with a printing's market price; the term alone otherwise. */
+export function priceTermLabel(
+  term: Pick<WishPriceTerm, 'label' | 'percent'>,
+  price: MarketPrice | null | undefined,
+): string {
+  const amount = approximateAmount(term, price);
+  return amount ? `${term.label} ${amount}` : term.label;
+}
+
+type WishCriteria = Pick<WishlistItemResponse, 'printing' | 'nearMintOnly' | 'priceTerm'>;
+
+/** The chips of a wish: Near Mint only, then the price term (with its amount for one printing). */
+export function wishChips(wish: WishCriteria): WishChip[] {
   const chips: WishChip[] = [];
-  if (wish.conditionMin) {
+  if (wish.nearMintOnly) {
+    chips.push({ kind: 'near-mint', icon: 'verified', label: 'Near Mint only' });
+  }
+  if (wish.priceTerm) {
     chips.push({
-      kind: 'condition',
-      icon: 'verified',
-      label: `${conditionLabel(wish.conditionMin)} or better`,
+      kind: 'price-term',
+      icon: 'sell',
+      label: priceTermLabel(wish.priceTerm, wish.printing?.marketPrice),
     });
   }
-  if (wish.edition) {
-    chips.push({ kind: 'edition', icon: 'layers', label: editionLabel(wish.edition) });
-  }
-  if (wish.language) {
-    chips.push({ kind: 'language', icon: 'translate', label: languageLabel(wish.language) });
-  }
-  if (wish.rarity && !wish.printing) {
-    chips.push({ kind: 'rarity', icon: 'diamond', label: wish.rarity });
-  }
-  const price = formatPrice(wish.maxPrice, wish.currency);
-  if (price) {
-    chips.push({ kind: 'price', icon: 'payments', label: `Up to ${price}` });
-  }
-  const trade = tradePreferenceInfo(wish.tradePreference);
-  chips.push({ kind: 'trade', icon: trade.icon, label: trade.label });
   return chips;
 }
 
-/** `AZR-EN001 · Azure Dawn`, or "Any printing" when the wish accepts every printing. */
-export function wishPrintingLabel(printing: PrintingSummary | null | undefined): string {
+/**
+ * Which copy: "Any printing", "Any printing · Quarter Century Secret Rare", or
+ * "AZR-EN001 · Ultra Rare · Azure Dawn".
+ */
+export function whichCopyLabel(
+  printing: PrintingSummary | null | undefined,
+  rarity?: string | null,
+): string {
   if (!printing) {
-    return 'Any printing';
+    return rarity ? `Any printing · ${rarity}` : 'Any printing';
   }
-  const code = printingCode(printing);
-  return [code, printing.setName].filter(Boolean).join(' · ') || 'One printing';
+  return (
+    [printingCode(printing), printing.rarity, printing.setName].filter(Boolean).join(' · ') ||
+    'One printing'
+  );
 }
 
-/** One line describing a printing in a picker: code · set · rarity · edition · language. */
-export function printingOptionLabel(printing: PrintingSummary): string {
-  return [
-    printingCode(printing),
-    printing.setName,
-    printing.rarity,
-    printing.edition ? editionLabel(printing.edition) : null,
-    printing.language ? languageLabel(printing.language) : null,
-  ]
-    .filter((part) => part && part !== '—')
-    .join(' · ');
-}
-
-/** "No matches yet" / "1 match" / "3 matches". */
-export function matchCountLabel(count: number | null | undefined): string {
-  const value = count ?? 0;
-  if (value <= 0) {
-    return 'No matches yet';
+/** Query parameters of the card page for a wish's selection (`?printing=` or `?rarity=`). */
+export function wishCardQuery(
+  wish: Pick<WishlistItemResponse, 'printing' | 'rarity'>,
+): Record<string, string> {
+  if (wish.printing?.id) {
+    return { printing: wish.printing.id };
   }
-  return value === 1 ? '1 match' : `${value} matches`;
+  return wish.rarity ? { rarity: wish.rarity } : {};
 }

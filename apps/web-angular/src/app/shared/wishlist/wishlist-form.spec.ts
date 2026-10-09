@@ -1,13 +1,14 @@
 import type { WishlistItemResponse } from '@orenji/api-client';
-import { WishlistItemResponseTradePreferenceEnum as Trade } from '@orenji/api-client';
 import {
-  ANY,
+  WISH_NOTE_MAX,
   applyServerErrors,
   createWishForm,
   newWishDefaults,
+  noteError,
+  noteLength,
+  selectionOf,
   toCreateWishRequest,
   toUpdateWishRequest,
-  wishFieldError,
   wishFormFromItem,
 } from './wishlist-form';
 
@@ -18,15 +19,9 @@ function item(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     card: { id: 'c1', name: 'Emberfang Fox' },
     printing: { id: 'p1', printingCode: 'PFT-002' },
     rarity: null,
-    conditionMin: 'NEAR_MINT',
-    edition: null,
-    language: 'en',
-    maxPrice: 25,
-    currency: 'USD',
-    tradePreference: Trade.Sale,
-    notes: 'For my deck',
-    active: false,
-    matchCount: 0,
+    note: 'For my deck',
+    nearMintOnly: true,
+    priceTerm: { label: '85% TCG', percent: 85, orMore: false },
     createdAt: '2026-09-30T10:00:00Z',
     updatedAt: '2026-09-30T10:00:00Z',
     ...overrides,
@@ -34,117 +29,138 @@ function item(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
 }
 
 describe('wishlist form', () => {
-  it('starts a new wish on any printing (or the given one), without a radius', () => {
-    expect(newWishDefaults(null)).toEqual({
-      printingId: ANY,
-      conditionMin: ANY,
-      edition: ANY,
-      language: ANY,
-      rarity: ANY,
-      maxPrice: null,
-      currency: 'CAD',
-      tradePreference: 'ANY',
-      notes: '',
-      active: true,
+  it('starts a new wish on any printing, one rarity or the given printing', () => {
+    expect(newWishDefaults()).toEqual({
+      printingId: '',
+      rarity: '',
+      note: '',
+      nearMintOnly: false,
+      priceTerm: '',
     });
-    expect(newWishDefaults('p1').printingId).toBe('p1');
-    expect(newWishDefaults('p1')).not.toHaveProperty('radiusKm');
-  });
-
-  it('sends the card for "any printing" (with the rarity) and the printing otherwise', () => {
-    const anyPrinting = toCreateWishRequest(
-      { ...newWishDefaults(null), rarity: 'Ultra Rare', maxPrice: 60, notes: '  ' },
-      'c1',
-    );
-    expect(anyPrinting).toEqual({
-      cardId: 'c1',
-      rarity: 'Ultra Rare',
-      maxPrice: 60,
-      currency: 'CAD',
-      tradePreference: 'ANY',
-      active: true,
-    });
-    const onePrinting = toCreateWishRequest(
-      {
-        ...newWishDefaults('p1'),
-        rarity: 'Ultra Rare',
-        conditionMin: 'LIGHTLY_PLAYED',
-        language: 'fr',
-        notes: 'Deck',
-      },
-      'c1',
-    );
-    expect(onePrinting).toEqual({
+    expect(newWishDefaults({ printingId: 'p1', rarity: 'Ultra Rare' })).toMatchObject({
       printingId: 'p1',
-      conditionMin: 'LIGHTLY_PLAYED',
-      language: 'fr',
-      notes: 'Deck',
-      currency: 'CAD',
-      tradePreference: 'ANY',
-      active: true,
+      rarity: '',
+    });
+    expect(newWishDefaults({ printingId: null, rarity: 'Secret Rare' })).toMatchObject({
+      printingId: '',
+      rarity: 'Secret Rare',
     });
   });
 
-  it('round-trips an existing wish and clears filters with null on update', () => {
-    const value = wishFormFromItem(item());
-    expect(value).toEqual({
+  it('has only which copy, the public note, Near Mint only and one price term', () => {
+    const form = createWishForm(newWishDefaults());
+    expect(Object.keys(form.controls).sort()).toEqual(
+      ['nearMintOnly', 'note', 'priceTerm', 'printingId', 'rarity'].sort(),
+    );
+  });
+
+  it('reads an existing wish', () => {
+    expect(wishFormFromItem(item())).toEqual({
       printingId: 'p1',
-      conditionMin: 'NEAR_MINT',
-      edition: ANY,
-      language: 'en',
-      rarity: ANY,
-      maxPrice: 25,
-      currency: 'USD',
-      tradePreference: 'SALE',
-      notes: 'For my deck',
-      active: false,
+      rarity: '',
+      note: 'For my deck',
+      nearMintOnly: true,
+      priceTerm: '85% TCG',
     });
     expect(
-      toUpdateWishRequest({ ...value, printingId: ANY, language: ANY, maxPrice: null }),
-    ).toEqual({
-      printingId: null,
+      wishFormFromItem(item({ printing: undefined, rarity: 'Ultra Rare', priceTerm: undefined })),
+    ).toMatchObject({ printingId: '', rarity: 'Ultra Rare', priceTerm: '' });
+    expect(selectionOf({ printingId: 'p1', rarity: 'x' })).toEqual({
+      printingId: 'p1',
       rarity: null,
-      conditionMin: 'NEAR_MINT',
-      edition: null,
-      language: null,
-      maxPrice: null,
-      currency: 'USD',
-      tradePreference: 'SALE',
-      notes: 'For my deck',
-      active: false,
+    });
+    expect(selectionOf({ printingId: '', rarity: 'Ultra Rare' })).toEqual({
+      printingId: null,
+      rarity: 'Ultra Rare',
     });
   });
 
-  it('validates like the API with friendly messages', () => {
-    const form = createWishForm(newWishDefaults(null));
-    form.controls.maxPrice.setValue(-1);
-    expect(wishFieldError('maxPrice', form.controls.maxPrice.errors)).toBe(
-      'The price cannot be negative.',
+  it('builds the create body: the card for any printing, the printing otherwise', () => {
+    expect(
+      toCreateWishRequest(
+        {
+          printingId: '',
+          rarity: 'Secret Rare',
+          note: '  Mint copy  ',
+          nearMintOnly: true,
+          priceTerm: '90% TCG',
+        },
+        'c1',
+      ),
+    ).toEqual({
+      cardId: 'c1',
+      rarity: 'Secret Rare',
+      note: 'Mint copy',
+      nearMintOnly: true,
+      priceTerm: '90% TCG',
+    });
+    const exact = toCreateWishRequest(
+      { printingId: 'p1', rarity: 'ignored', note: '', nearMintOnly: false, priceTerm: '' },
+      'c1',
     );
-    form.controls.maxPrice.setValue(1.234);
-    expect(wishFieldError('maxPrice', form.controls.maxPrice.errors)).toBe(
-      'Use at most two decimals.',
-    );
-    form.controls.maxPrice.setValue(12.5);
-    expect(form.controls.maxPrice.valid).toBe(true);
-    form.controls.notes.setValue('x'.repeat(501));
-    expect(wishFieldError('notes', form.controls.notes.errors)).toBe(
-      'Notes are limited to 500 characters.',
-    );
-    form.controls.currency.setValue('cad');
-    expect(wishFieldError('currency', form.controls.currency.errors)).toContain('three-letter');
-    expect(wishFieldError('notes', null)).toBeNull();
+    expect(exact).toEqual({ printingId: 'p1', nearMintOnly: false });
+    for (const removed of [
+      'maxPrice',
+      'currency',
+      'tradePreference',
+      'notes',
+      'conditionMin',
+      'edition',
+      'language',
+      'active',
+    ]) {
+      expect(exact).not.toHaveProperty(removed);
+    }
+  });
+
+  it('builds the update body with nulls clearing the choices', () => {
+    expect(
+      toUpdateWishRequest({
+        printingId: '',
+        rarity: '',
+        note: ' ',
+        nearMintOnly: false,
+        priceTerm: '',
+      }),
+    ).toEqual({ printingId: null, rarity: null, note: null, nearMintOnly: false, priceTerm: null });
+    expect(
+      toUpdateWishRequest({
+        printingId: 'p2',
+        rarity: 'Ultra Rare',
+        note: 'x',
+        nearMintOnly: true,
+        priceTerm: '100% TCG+',
+      }),
+    ).toEqual({
+      printingId: 'p2',
+      rarity: null,
+      note: 'x',
+      nearMintOnly: true,
+      priceTerm: '100% TCG+',
+    });
+  });
+
+  it('limits the note to 280 characters the way the API counts them', () => {
+    const form = createWishForm(newWishDefaults());
+    form.controls.note.setValue('é'.repeat(WISH_NOTE_MAX));
+    expect(form.controls.note.valid).toBe(true);
+    form.controls.note.setValue('🃏'.repeat(WISH_NOTE_MAX));
+    expect(noteLength(form.controls.note.value)).toBe(WISH_NOTE_MAX);
+    expect(form.controls.note.valid).toBe(true);
+    form.controls.note.setValue('x'.repeat(WISH_NOTE_MAX + 1));
+    expect(form.controls.note.invalid).toBe(true);
+    expect(noteError(form.controls.note.errors)).toBe('The note is limited to 280 characters.');
   });
 
   it('puts the API field errors on their controls', () => {
-    const form = createWishForm(newWishDefaults(null));
+    const form = createWishForm(newWishDefaults());
     const unmapped = applyServerErrors(form, {
-      notes: 'must not contain a link',
+      note: 'contains a term that is not allowed',
+      priceTerm: 'must be one of 80% TCG',
       cardId: 'unknown card',
-      radiusKm: 'no longer exists',
     });
-    expect(form.controls.notes.errors).toEqual({ server: 'must not contain a link' });
-    expect(wishFieldError('notes', form.controls.notes.errors)).toBe('must not contain a link');
-    expect(unmapped).toEqual(['cardId: unknown card', 'radiusKm: no longer exists']);
+    expect(noteError(form.controls.note.errors)).toBe('contains a term that is not allowed');
+    expect(form.controls.priceTerm.errors).toEqual({ server: 'must be one of 80% TCG' });
+    expect(unmapped).toEqual(['cardId: unknown card']);
   });
 });

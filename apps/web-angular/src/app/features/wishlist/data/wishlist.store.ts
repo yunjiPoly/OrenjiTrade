@@ -1,21 +1,14 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {
-  LocationService,
-  MyLocationResponse,
-  PlansService,
-  WishlistItemResponse,
-  WishlistService,
-} from '@orenji/api-client';
-import { Subscription, filter, firstValueFrom } from 'rxjs';
+import { PlansService, WishlistItemResponse, WishlistService } from '@orenji/api-client';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
-import { NotificationCenter } from '../../../core/notifications/notification-center.service';
 import { RealtimeService } from '../../../core/realtime/realtime.service';
+import { MyLocationStore } from '../../../shared/location/my-location.store';
 import { WISH_ITEMS_LIMIT_KEY } from '../../../shared/wishlist/wishlist-form';
 
 export type WishlistStatus = 'loading' | 'ready' | 'error';
-export type WishFilter = 'all' | 'matches' | 'paused';
 
 /** The plan's `wishlist.items.max` for the usage meter (`limit: null` = unlimited). */
 export interface WishUsage {
@@ -25,40 +18,18 @@ export interface WishUsage {
 }
 
 /**
- * Whether the collector can get matches: the matcher pairs wishes with listings of collectors in
- * the same platform region (ADR 0017), so the collector needs a location. `unknown` until `GET
- * /me/location` answers.
+ * Whether wishlist alerts can reach the collector: alerts go to collectors of the lister's
+ * platform region (ADR 0017), so the collector needs a country and a state or province. `unknown`
+ * until `GET /me/location` answers.
  */
-export type MatchReadiness = 'unknown' | 'ready' | 'no-location';
-
-export function matchReadiness(location: MyLocationResponse | null | undefined): MatchReadiness {
-  if (!location) {
-    return 'unknown';
-  }
-  return location.location ? 'ready' : 'no-location';
-}
-
-/** Wishes shown by a filter: all, those with matches, or the paused ones. */
-export function filterWishes(
-  items: readonly WishlistItemResponse[],
-  wishFilter: WishFilter,
-): WishlistItemResponse[] {
-  switch (wishFilter) {
-    case 'matches':
-      return items.filter((item) => item.matchCount > 0);
-    case 'paused':
-      return items.filter((item) => !item.active);
-    default:
-      return [...items];
-  }
-}
+export type AlertReadiness = 'unknown' | 'ready' | 'no-location';
 
 /**
  * The caller's wishlist (`GET /wishlist`, newest first) with its actions: add/replace after the
- * dialog, alerts on/off (`PATCH /wishlist/{id}` `{active}`, optimistic), remove
- * (`DELETE /wishlist/{id}`), and the plan usage (`GET /me/plan`, `wishlist.items.max`).
- * A pushed WISHLIST_MATCH notification and every realtime reconnection quietly re-read the list
- * so match counts stay live.
+ * dialog, remove (`DELETE /wishlist/{id}`), the plan usage (`GET /me/plan`, `wishlist.items.max`),
+ * the location behind the alerts and the "Let others see what you want" switch (privacy setting
+ * `wishlistVisible`, saved through the shared {@link MyLocationStore}). Every realtime
+ * reconnection quietly re-reads the list.
  *
  * Provided by the wishlist page.
  */
@@ -66,8 +37,7 @@ export function filterWishes(
 export class WishlistStore {
   private readonly api = inject(WishlistService);
   private readonly plansApi = inject(PlansService);
-  private readonly locationApi = inject(LocationService);
-  private readonly center = inject(NotificationCenter);
+  private readonly myLocation = inject(MyLocationStore);
   private readonly realtime = inject(RealtimeService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -75,31 +45,27 @@ export class WishlistStore {
   private readonly statusState = signal<WishlistStatus>('loading');
   private readonly errorState = signal<ApiError | null>(null);
   private readonly usageState = signal<WishUsage | null>(null);
-  private readonly filterState = signal<WishFilter>('all');
   private readonly busyState = signal<ReadonlySet<string>>(new Set());
-  private readonly locationState = signal<MyLocationResponse | null>(null);
+  private readonly settingsLoaded = signal(false);
+  private readonly visibilitySaving = signal(false);
 
   readonly items = this.itemsState.asReadonly();
   readonly status = this.statusState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly usage = this.usageState.asReadonly();
-  readonly filter = this.filterState.asReadonly();
   readonly busy = this.busyState.asReadonly();
-  /** Whether new listings of the region can match (a location is set). */
-  readonly readiness = computed(() => matchReadiness(this.locationState()));
-  readonly visible = computed(() => filterWishes(this.itemsState(), this.filterState()));
-  readonly counts = computed(() => {
-    const items = this.itemsState();
-    return {
-      all: items.length,
-      matches: items.filter((item) => item.matchCount > 0).length,
-      paused: items.filter((item) => !item.active).length,
-    };
+  /** Whether listings of the region can alert the collector (a location is set). */
+  readonly readiness = computed<AlertReadiness>(() => {
+    if (!this.settingsLoaded()) {
+      return 'unknown';
+    }
+    return this.myLocation.location()?.location ? 'ready' : 'no-location';
   });
-  /** Matches across active wishes. */
-  readonly totalMatches = computed(() =>
-    this.itemsState().reduce((sum, item) => sum + (item.active ? item.matchCount : 0), 0),
+  /** The `wishlistVisible` privacy setting; `null` until known. */
+  readonly visible = computed(() =>
+    this.settingsLoaded() ? (this.myLocation.privacy()?.wishlistVisible ?? false) : null,
   );
+  readonly savingVisibility = this.visibilitySaving.asReadonly();
 
   private loadSubscription: Subscription | null = null;
   private started = false;
@@ -112,13 +78,7 @@ export class WishlistStore {
     this.started = true;
     this.load();
     void this.loadUsage();
-    void this.loadLocation();
-    this.center.pushed$
-      .pipe(
-        filter((notification) => notification.type === 'WISHLIST_MATCH'),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(() => void this.refresh());
+    void this.loadSettings();
     this.realtime.resync$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => void this.refresh());
@@ -144,7 +104,7 @@ export class WishlistStore {
       });
   }
 
-  /** Quietly re-reads the list (live match counts); keeps what is shown on failure. */
+  /** Quietly re-reads the list; keeps what is shown on failure. */
   async refresh(): Promise<void> {
     if (this.statusState() !== 'ready') {
       if (this.statusState() === 'error') {
@@ -158,12 +118,8 @@ export class WishlistStore {
       );
       this.itemsState.set(items ?? []);
     } catch {
-      // Keep the current list; the next push or reconnection tries again.
+      // Keep the current list; the next reconnection tries again.
     }
-  }
-
-  setFilter(value: WishFilter): void {
-    this.filterState.set(value);
   }
 
   find(id: string | null | undefined): WishlistItemResponse | null {
@@ -183,30 +139,7 @@ export class WishlistStore {
     }
   }
 
-  /** Alerts on/off (optimistic); rejects with an `ApiError` after restoring the wish. */
-  async setActive(item: WishlistItemResponse, active: boolean): Promise<WishlistItemResponse> {
-    this.replace({ ...item, active });
-    this.setBusy(item.id, true);
-    try {
-      const saved = await firstValueFrom(
-        this.api.updateWishlistItem(
-          { id: item.id, updateWishlistItemRequest: { active } },
-          'body',
-          false,
-          { context: silentErrors() },
-        ),
-      );
-      this.replace(saved);
-      return saved;
-    } catch (error) {
-      this.replace(item);
-      throw toApiError(error);
-    } finally {
-      this.setBusy(item.id, false);
-    }
-  }
-
-  /** Removes a wish (and its matches); rejects with an `ApiError`. */
+  /** Removes a wish; rejects with an `ApiError`. */
   async remove(item: WishlistItemResponse): Promise<void> {
     this.setBusy(item.id, true);
     try {
@@ -222,16 +155,24 @@ export class WishlistStore {
     }
   }
 
-  /** The caller's location state behind {@link readiness}. */
-  async loadLocation(): Promise<void> {
+  /** "Let others see what you want" (`wishlistVisible`); rejects with an `ApiError`. */
+  async setVisible(visible: boolean): Promise<void> {
+    const privacy = this.myLocation.privacy();
+    if (!privacy || this.visibilitySaving()) {
+      return;
+    }
+    this.visibilitySaving.set(true);
     try {
-      this.locationState.set(
-        await firstValueFrom(
-          this.locationApi.getMyLocation('body', false, { context: silentErrors() }),
-        ),
-      );
-    } catch {
-      // The hint is optional; matching itself is unaffected.
+      await this.myLocation.savePrivacy({ ...privacy, wishlistVisible: visible });
+    } finally {
+      this.visibilitySaving.set(false);
+    }
+  }
+
+  /** The location (alert readiness) and the privacy settings (wishlist visibility). */
+  async loadSettings(): Promise<void> {
+    if (await this.myLocation.load()) {
+      this.settingsLoaded.set(true);
     }
   }
 
@@ -254,12 +195,6 @@ export class WishlistStore {
     } catch {
       // The meter is optional.
     }
-  }
-
-  private replace(item: WishlistItemResponse): void {
-    this.itemsState.update((items) =>
-      items.map((candidate) => (candidate.id === item.id ? item : candidate)),
-    );
   }
 
   private setBusy(id: string, busy: boolean): void {

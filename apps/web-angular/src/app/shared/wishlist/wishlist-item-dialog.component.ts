@@ -29,26 +29,33 @@ import { friendlyError, friendlyMessage } from '../../core/http/api-error-messag
 import { silentErrors } from '../../core/http/http-context';
 import { limitReachedInfo } from '../../core/limits/limit-reached';
 import { CardImageComponent } from '../ui/card-image/card-image.component';
-import { GamesStore } from '../catalog/games.store';
+import { PrintingPickerComponent } from '../catalog/printing-picker/printing-picker.component';
+import type { PrintingSelection } from '../catalog/printing-picker/printing-selection';
 import { ErrorStateComponent } from '../ui/error-state/error-state.component';
 import { GameChipComponent } from '../ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../ui/skeleton/skeleton.component';
+import { PriceTermsStore } from './price-terms.store';
 import { PickedCard, WishCardPickerComponent } from './wish-card-picker.component';
-import { WishCriteriaFieldsComponent } from './wish-criteria-fields.component';
+import { WishFieldsComponent } from './wish-fields.component';
 import {
   WISH_ITEMS_LIMIT_KEY,
   WishForm,
+  WishFormValue,
   applyServerErrors,
   createWishForm,
   newWishDefaults,
+  selectionOf,
   toCreateWishRequest,
   toUpdateWishRequest,
   wishFormFromItem,
 } from './wishlist-form';
 
-/** Add a wish (optionally for a known card or printing) or edit an existing one. */
+/**
+ * Add a wish (optionally for a known card, printing or "any printing" of one rarity) or edit an
+ * existing one.
+ */
 export type WishlistDialogData =
-  | { mode: 'create'; cardId?: string | null; printingId?: string | null }
+  | { mode: 'create'; cardId?: string | null; printingId?: string | null; rarity?: string | null }
   | { mode: 'edit'; item: WishlistItemResponse };
 
 /** Opens the dialog; it closes with the saved wish, or `undefined` when cancelled. */
@@ -72,11 +79,12 @@ export function openWishlistDialog(
 }
 
 /**
- * The add/edit wish dialog: card autocomplete (`GET /cards/suggest`) → optional printing →
- * criteria (condition minimum, edition, language, rarity from the game's schema, maximum price
- * and currency, trade preference, notes). Matches come from collectors of the same platform
- * region (ADR 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish
- * (409) and plan limits (429, the limit dialog opens too) are explained inline.
+ * The add/edit wish dialog (stage S2): card autocomplete (`GET /cards/suggest`), then the public
+ * note, "Near Mint only", one optional price term (`GET /wishlist/price-terms`) and which copy
+ * (the shared printing picker: any printing by default, any printing of one rarity, or one
+ * printing). Wishlist alerts come from collectors of the same platform region (ADR 0017). Saves
+ * with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409) and plan limits
+ * (429, the limit dialog opens too) are explained inline.
  */
 @Component({
   selector: 'app-wishlist-item-dialog',
@@ -89,8 +97,9 @@ export function openWishlistDialog(
     ErrorStateComponent,
     GameChipComponent,
     SkeletonComponent,
+    PrintingPickerComponent,
     WishCardPickerComponent,
-    WishCriteriaFieldsComponent,
+    WishFieldsComponent,
   ],
   template: `
     <h2 mat-dialog-title>{{ editing ? 'Edit wish' : 'Add to wishlist' }}</h2>
@@ -126,8 +135,22 @@ export function openWishlistDialog(
           }
         </div>
         @if (form(); as form) {
-          <form id="wish-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-            <app-wish-criteria-fields [form]="form" [schema]="schema()" [printings]="printings()" />
+          <form id="wish-form" [formGroup]="form" (ngSubmit)="save()" novalidate class="wd__form">
+            <app-wish-fields
+              [form]="form"
+              [terms]="priceTerms.terms()"
+              [termsError]="priceTerms.status() === 'error'"
+              [marketPrice]="selectedPrinting()?.marketPrice ?? null"
+            />
+            <app-printing-picker
+              [printings]="printings()"
+              [value]="selection()"
+              [game]="card.game ?? ''"
+              (valueChange)="choose($event)"
+            />
+            @if (selectionError(); as message) {
+              <p class="wd__field-error" role="alert">{{ message }}</p>
+            }
           </form>
         }
       } @else if (loadingCard()) {
@@ -159,6 +182,16 @@ export function openWishlistDialog(
   styles: `
     .wd__content {
       min-height: 240px;
+    }
+    .wd__form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-4);
+    }
+    .wd__field-error {
+      margin: 0;
+      color: var(--color-danger);
+      font-size: var(--font-size-sm);
     }
     .wd__lead {
       margin: 0 0 var(--spacing-4);
@@ -222,7 +255,7 @@ export class WishlistItemDialogComponent {
     inject<MatDialogRef<WishlistItemDialogComponent, WishlistItemResponse>>(MatDialogRef);
   private readonly catalog = inject(CatalogService);
   private readonly wishlistApi = inject(WishlistService);
-  private readonly games = inject(GamesStore);
+  protected readonly priceTerms = inject(PriceTermsStore);
 
   protected readonly editing = this.data.mode === 'edit';
 
@@ -234,7 +267,13 @@ export class WishlistItemDialogComponent {
   protected readonly error = signal<string | null>(null);
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
-  protected readonly schema = computed(() => this.games.schema(this.card()?.game));
+  /** Which copy, mirrored from the form (the picker's value). */
+  protected readonly selection = signal<PrintingSelection>({ printingId: null, rarity: null });
+  protected readonly selectedPrinting = computed(
+    () => this.printings().find((printing) => printing.id === this.selection().printingId) ?? null,
+  );
+  /** A server error about which copy (the picker has no inline error of its own). */
+  protected readonly selectionError = signal<string | null>(null);
   protected readonly cardImage = computed(() => this.card()?.primaryImageUrl ?? null);
   protected readonly saveLabel = computed(() => {
     if (this.saving()) {
@@ -247,17 +286,36 @@ export class WishlistItemDialogComponent {
   private cardRequest: { cardId: string | null; printingId: string | null } | null = null;
 
   constructor() {
-    void this.games.load();
+    void this.priceTerms.load();
     inject(DestroyRef).onDestroy(() => this.cardSubscription?.unsubscribe());
     if (this.data.mode === 'edit') {
       const item = this.data.item;
-      this.form.set(createWishForm(wishFormFromItem(item)));
+      this.setForm(wishFormFromItem(item));
       if (item.card?.id) {
         this.openCard(item.card.id, null);
       }
     } else if (this.data.cardId || this.data.printingId) {
       this.openCard(this.data.cardId ?? null, this.data.printingId ?? null);
     }
+  }
+
+  /** The picker chose another copy. */
+  protected choose(selection: PrintingSelection): void {
+    const form = this.form();
+    if (!form) {
+      return;
+    }
+    form.patchValue({
+      printingId: selection.printingId ?? '',
+      rarity: selection.printingId ? '' : (selection.rarity ?? ''),
+    });
+    this.selectionError.set(null);
+    this.selection.set(selection);
+  }
+
+  private setForm(value: WishFormValue): void {
+    this.form.set(createWishForm(value));
+    this.selection.set(selectionOf(value));
   }
 
   protected pick(picked: PickedCard): void {
@@ -268,6 +326,8 @@ export class WishlistItemDialogComponent {
     this.cardSubscription?.unsubscribe();
     this.card.set(null);
     this.form.set(null);
+    this.selection.set({ printingId: null, rarity: null });
+    this.selectionError.set(null);
     this.cardError.set(null);
     this.error.set(null);
     this.cardRequest = null;
@@ -337,10 +397,12 @@ export class WishlistItemDialogComponent {
     }
     if (error.errorCode === 'CONFLICT') {
       this.error.set(
-        error.message || 'This card is already on your wishlist with the same filters.',
+        error.message || 'This card is already on your wishlist with the same printing or rarity.',
       );
       return;
     }
+    const fieldErrors = error.fieldErrors ?? {};
+    this.selectionError.set(fieldErrors['printingId'] ?? fieldErrors['rarity'] ?? null);
     const unmapped = applyServerErrors(form, error.fieldErrors);
     this.error.set(
       unmapped.length
@@ -371,7 +433,8 @@ export class WishlistItemDialogComponent {
           this.card.set(card);
           if (!this.form()) {
             const known = (card.printings ?? []).some((printing) => printing.id === printingId);
-            this.form.set(createWishForm(newWishDefaults(known ? printingId : null)));
+            const rarity = this.data.mode === 'create' ? (this.data.rarity ?? null) : null;
+            this.setForm(newWishDefaults(known ? { printingId } : { printingId: null, rarity }));
           }
         },
         error: (error: unknown) => {

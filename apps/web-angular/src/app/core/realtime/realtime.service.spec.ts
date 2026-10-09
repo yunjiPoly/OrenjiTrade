@@ -154,8 +154,8 @@ describe('RealtimeService', () => {
     service.notifications$.subscribe((notification) => notifications.push(notification));
     session.push('/user/queue/notifications', {
       id: 'n1',
-      type: 'WISHLIST_MATCH',
-      title: 'Wishlist match: Emberfang Fox',
+      type: 'WISHLIST_ALERT',
+      title: 'Wishlist alert: Emberfang Fox',
       body: 'Emberfang Fox was listed by @collector5 in California, United States.',
       data: { deepLink: '/wishlist/w1' },
       createdAt: '2026-09-30T12:00:00Z',

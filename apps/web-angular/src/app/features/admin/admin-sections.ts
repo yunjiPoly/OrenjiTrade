@@ -43,6 +43,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   },
   { id: 'games', label: 'Games', icon: 'playing_cards', path: 'games', phase: null, area: 'admin' },
   { id: 'regions', label: 'Regions', icon: 'public', path: 'regions', phase: null, area: 'admin' },
+  {
+    id: 'wishlist',
+    label: 'Wishlist',
+    icon: 'favorite',
+    path: 'wishlist',
+    phase: null,
+    area: 'admin',
+  },
   { id: 'cards', label: 'Cards', icon: 'view_carousel', path: 'cards', phase: null, area: 'admin' },
   {
     id: 'community',

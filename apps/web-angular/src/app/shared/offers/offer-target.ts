@@ -21,7 +21,7 @@ export interface OfferSeller {
 
 /**
  * The card an offer is made on, assembled from whichever public read the entry point has (a
- * public binder item, a card-holder result, a map "holders" listing, a wishlist match). It is a
+ * public binder item, a card-holder result, a map "holders" listing). It is a
  * view model of the dialog, not a server DTO: the API only needs `itemId`.
  */
 export interface OfferTarget {
@@ -41,7 +41,7 @@ export interface OfferTarget {
   seller: OfferSeller;
 }
 
-/** A public inventory item (binder page, collector page, card holders, wishlist match). */
+/** A public inventory item (binder page, collector page, card holders). */
 export function offerTargetFromItem(item: PublicInventoryItem, seller: OfferSeller): OfferTarget {
   return {
     itemId: item.id,

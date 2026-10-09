@@ -12,12 +12,12 @@ export interface NotificationKind {
   /** Material Symbols glyph. */
   icon: string;
   tone: NotificationTone;
-  /** Short category shown above the title ("Wishlist match"). */
+  /** Short category shown above the title ("Wishlist alert"). */
   label: string;
 }
 
 const KINDS: Record<string, NotificationKind> = {
-  WISHLIST_MATCH: { icon: 'favorite', tone: 'match', label: 'Wishlist match' },
+  WISHLIST_ALERT: { icon: 'favorite', tone: 'match', label: 'Wishlist alert' },
   MESSAGE: { icon: 'chat', tone: 'message', label: 'Message' },
   OFFER_RECEIVED: { icon: 'local_offer', tone: 'offer', label: 'Offer' },
   OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Offer accepted' },
@@ -60,7 +60,7 @@ export function notificationKind(
 /** Characters allowed in an in-app path (with its query string); nothing else is followed. */
 const APP_PATH = /^\/(?!\/)[\w\-/?=&.%~]*$/;
 
-/** `value` when it is a same-app absolute path (`/wishlist/…`), otherwise `null`. */
+/** `value` when it is a same-app absolute path (`/cards/…`), otherwise `null`. */
 export function safeAppPath(value: unknown): string | null {
   return typeof value === 'string' && APP_PATH.test(value) ? value : null;
 }
@@ -71,7 +71,7 @@ function idOf(data: NotificationResponse['data'] | undefined, key: string): stri
 }
 
 /**
- * The page a notification opens: its `data.deepLink` (web path, e.g. `/wishlist/<id>`,
+ * The page a notification opens: its `data.deepLink` (web path, e.g. `/cards/<id>?printing=<id>`,
  * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/premium`,
  * `/collectors/<handle>?tab=ratings`, `/settings/reports`, `/offers/<id>`, `/trades/<id>`,
  * `/disputes/<id>`, `/settings/payouts`) when it
@@ -87,9 +87,14 @@ export function notificationLink(
   }
   const data = notification.data;
   switch (notification.type) {
-    case 'WISHLIST_MATCH': {
-      const wish = idOf(data, 'wishlistItemId');
-      return wish ? `/wishlist/${wish}` : '/wishlist';
+    case 'WISHLIST_ALERT': {
+      // The card page with the wish's selection (the API's deepLink normally covers it).
+      const card = idOf(data, 'cardId');
+      const printing = idOf(data, 'printingId');
+      if (!card) {
+        return '/wishlist';
+      }
+      return printing ? `/cards/${card}?printing=${printing}` : `/cards/${card}`;
     }
     case 'MESSAGE': {
       const conversation = idOf(data, 'conversationId');
@@ -129,7 +134,7 @@ export function notificationLink(
         case 'LIMIT_REACHED':
           // The API carries `deepLink: /premium` only while the premiumPlans flag is on (handled
           // above); without it the notice is only about held-back alerts.
-          return data?.['notificationType'] === 'WISHLIST_MATCH' ? '/wishlist' : '/notifications';
+          return data?.['notificationType'] === 'WISHLIST_ALERT' ? '/wishlist' : '/notifications';
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':

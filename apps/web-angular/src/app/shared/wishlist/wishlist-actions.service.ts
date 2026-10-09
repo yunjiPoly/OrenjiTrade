@@ -5,29 +5,27 @@ import type { WishlistItemResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import type { WishlistDialogData } from './wishlist-item-dialog.component';
-import { matchCountLabel } from './wishlist-labels';
 
-/** What the add dialog starts from: a card (any printing) and/or one printing. */
+/**
+ * What the add dialog starts from: a card (any printing), any printing of one rarity, or one
+ * printing (the selection the card page's picker shows).
+ */
 export interface WishPreset {
   cardId?: string | null;
   printingId?: string | null;
+  rarity?: string | null;
 }
 
 /** The snack-bar confirmation of a new wish. */
 export function addedMessage(item: WishlistItemResponse): string {
   const name = item.card?.name ?? 'The card';
-  if (item.matchCount > 0) {
-    return `${name} is on your wishlist: ${matchCountLabel(item.matchCount)} in your region already.`;
-  }
-  return item.active
-    ? `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`
-    : `${name} is on your wishlist (alerts paused).`;
+  return `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`;
 }
 
 /**
- * "Add to wishlist" from anywhere (wishlist page, card detail, card holders, map): opens the
- * add/edit dialog (a lazy chunk), sends signed-out visitors to sign in first, and confirms a new
- * wish with a snack bar that links to it.
+ * "Add to wishlist" from anywhere (wishlist page, card detail, card holders): opens the add/edit
+ * dialog (a lazy chunk), sends signed-out visitors to sign in first, and confirms a new wish with
+ * a snack bar that links to the wishlist.
  */
 @Injectable({ providedIn: 'root' })
 export class WishlistActions {
@@ -42,7 +40,7 @@ export class WishlistActions {
 
   /**
    * Opens the add dialog; resolves the new wish, or `null` (cancelled, signed out). With
-   * `confirm`, a snack bar confirms it with a "View" action opening its matches.
+   * `confirm`, a snack bar confirms it with a "View" action opening the wishlist.
    */
   async add(preset: WishPreset = {}, confirm = true): Promise<WishlistItemResponse | null> {
     if (!this.auth.isAuthenticated()) {
@@ -56,7 +54,7 @@ export class WishlistActions {
       this.snackBar
         .open(addedMessage(item), 'View', { duration: 6000 })
         .onAction()
-        .subscribe(() => void this.router.navigate(['/wishlist', item.id]));
+        .subscribe(() => void this.router.navigate(['/wishlist']));
     }
     return item;
   }

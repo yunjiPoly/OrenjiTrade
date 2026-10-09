@@ -1,9 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import {
-  WishlistItemResponse,
-  WishlistItemResponseTradePreferenceEnum as Trade,
-} from '@orenji/api-client';
+import { MarketPriceSourceEnum as Source, WishlistItemResponse } from '@orenji/api-client';
 import { WishCardComponent } from './wish-card.component';
 
 function wish(overrides: Partial<WishlistItemResponse> = {}): WishlistItemResponse {
@@ -14,17 +11,14 @@ function wish(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     printing: {
       id: 'p1',
       printingCode: 'AZR-EN001',
+      rarity: 'Ultra Rare',
       setName: 'Azure Dawn',
       images: [{ kind: 'FRONT' as never, url: '/printing.svg' }],
+      marketPrice: { amount: 25, currency: 'USD', source: Source.Ygoprodeck },
     },
-    conditionMin: 'LIGHTLY_PLAYED',
-    maxPrice: 60,
-    currency: 'CAD',
-    tradePreference: Trade.Trade,
-    notes: 'For my deck',
-    active: true,
-    matchCount: 3,
-    lastMatchedAt: new Date().toISOString(),
+    note: 'For my Azure deck',
+    nearMintOnly: true,
+    priceTerm: { label: '85% TCG', percent: 85, orMore: false },
     createdAt: '2026-09-30T10:00:00Z',
     updatedAt: '2026-09-30T10:00:00Z',
     ...overrides,
@@ -40,6 +34,12 @@ describe('WishCardComponent', () => {
     await fixture.whenStable();
   }
 
+  function chips(): (string | undefined)[] {
+    return Array.from(element.querySelectorAll('.wc__chip'), (chip) =>
+      chip.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+  }
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [WishCardComponent],
@@ -49,48 +49,54 @@ describe('WishCardComponent', () => {
     element = fixture.nativeElement as HTMLElement;
   });
 
-  it('shows the card, the printing, the criteria and the matches', async () => {
+  it('shows the card, which copy, the public note and the NM / % TCG chips', async () => {
     await render(wish());
     const link = element.querySelector<HTMLAnchorElement>('.wc__link');
     expect(link?.textContent?.trim()).toBe('Azure-Eyes Sky Dragon');
     expect(link?.getAttribute('href')).toBe('/cards/c1?printing=p1');
-    expect(element.querySelector('.wc__printing')?.textContent).toContain('AZR-EN001');
-    expect(element.querySelector('.wc__printing')?.textContent).toContain('Azure Dawn');
-    const chips = Array.from(element.querySelectorAll('.wc__chip'), (chip) =>
-      chip.textContent?.replace(/\s+/g, ' ').trim(),
+    expect(element.querySelector('[data-testid="wish-copy"]')?.textContent?.trim()).toBe(
+      'AZR-EN001 · Ultra Rare · Azure Dawn',
     );
-    expect(chips).toEqual([
-      'verified Lightly Played or better',
-      'payments Up to $60.00',
-      'swap_horiz Trade only',
-    ]);
-    expect(element.querySelector('.wc__notes')?.textContent).toContain('For my deck');
-    const matches = element.querySelector<HTMLButtonElement>('[data-testid="wish-matches"]');
-    expect(matches?.textContent).toContain('3 matches');
-    expect(matches?.getAttribute('aria-label')).toBe('3 matches for Azure-Eyes Sky Dragon');
-    expect(element.querySelector('.wc__last')?.textContent).toContain('Last match');
-    expect(element.querySelector('article')?.classList).toContain('wc--matched');
+    expect(element.querySelector('[data-testid="wish-note-text"]')?.textContent).toContain(
+      'For my Azure deck',
+    );
+    expect(chips()).toEqual(['verified Near Mint only', 'sell 85% TCG ≈ 21.25 USD']);
+    // Nothing of the old model: no matches, alerts switch, price limit or private note.
+    expect(element.textContent).not.toMatch(/match|Alerts|Up to|Private/i);
+    expect(element.querySelector('[role="switch"]')).toBeNull();
   });
 
-  it('says "Any printing" and dims paused wishes', async () => {
-    await render(wish({ printing: undefined, active: false, matchCount: 0, lastMatchedAt: null }));
-    expect(element.querySelector('.wc__printing')?.textContent?.trim()).toBe('Any printing');
-    expect(element.querySelector('article')?.classList).toContain('wc--paused');
-    expect(element.querySelector('[data-testid="wish-matches"]')?.textContent).toContain(
-      'No matches yet',
+  it('says "Any printing" with the rarity and shows the term alone without a printing', async () => {
+    await render(
+      wish({
+        printing: undefined,
+        rarity: 'Secret Rare',
+        note: '',
+        nearMintOnly: false,
+        priceTerm: { label: '100% TCG+', percent: 100, orMore: true },
+      }),
     );
-    expect(element.querySelector('.wc__last')).toBeNull();
+    expect(element.querySelector('[data-testid="wish-copy"]')?.textContent?.trim()).toBe(
+      'Any printing · Secret Rare',
+    );
+    expect(element.querySelector<HTMLAnchorElement>('.wc__link')?.getAttribute('href')).toBe(
+      '/cards/c1?rarity=Secret%20Rare',
+    );
+    expect(element.querySelector('[data-testid="wish-note-text"]')).toBeNull();
+    expect(chips()).toEqual(['sell 100% TCG+']);
   });
 
-  it('emits the matches, alerts and menu actions', async () => {
+  it('emits edit and remove', async () => {
     await render(wish());
-    const opened = vi.fn();
-    const toggled = vi.fn();
-    fixture.componentInstance.openMatches.subscribe(opened);
-    fixture.componentInstance.activeChange.subscribe(toggled);
-    element.querySelector<HTMLButtonElement>('[data-testid="wish-matches"]')!.click();
-    expect(opened).toHaveBeenCalled();
-    element.querySelector<HTMLButtonElement>('button[role="switch"]')!.click();
-    expect(toggled).toHaveBeenCalledWith(false);
+    const edited = vi.fn();
+    const removed = vi.fn();
+    fixture.componentInstance.edit.subscribe(edited);
+    fixture.componentInstance.remove.subscribe(removed);
+    const buttons = element.querySelectorAll<HTMLButtonElement>('.wc__foot button');
+    expect(buttons[0].getAttribute('aria-label')).toBe('Edit the wish for Azure-Eyes Sky Dragon');
+    buttons[0].click();
+    buttons[1].click();
+    expect(edited).toHaveBeenCalled();
+    expect(removed).toHaveBeenCalled();
   });
 });

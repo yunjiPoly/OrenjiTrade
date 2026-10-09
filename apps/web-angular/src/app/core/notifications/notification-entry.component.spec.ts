@@ -5,8 +5,8 @@ import { NotificationEntryComponent } from './notification-entry.component';
 function notification(data: Record<string, unknown>): NotificationResponse {
   return {
     id: 'n-1',
-    type: 'WISHLIST_MATCH',
-    title: 'Wishlist match: Azure-Eyes Sky Dragon',
+    type: 'WISHLIST_ALERT',
+    title: 'Wishlist alert: Azure-Eyes Sky Dragon',
     body: 'Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector2 in Ontario, Canada.',
     data,
     createdAt: '2026-10-01T10:00:00Z',
@@ -43,6 +43,6 @@ describe('NotificationEntryComponent', () => {
     const element = await render({ wishlistItemId: 'w-1', game: 'yugioh' });
     expect(element.querySelector('[data-testid="notification-card-image"]')).toBeNull();
     expect(element.querySelector('.ne__icon mat-icon')?.textContent).toContain('favorite');
-    expect(element.textContent).toContain('Wishlist match: Azure-Eyes Sky Dragon');
+    expect(element.textContent).toContain('Wishlist alert: Azure-Eyes Sky Dragon');
   });
 });

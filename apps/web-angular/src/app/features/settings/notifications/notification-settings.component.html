@@ -36,6 +36,36 @@
   </app-section-card>
 
   <app-section-card
+    heading="Wishlist alerts"
+    headingId="notif-wishlist"
+    description="When a collector of your region lists a card you want, we tell you in the app and by push."
+  >
+    <ul class="section-list">
+      <li class="section-row">
+        <div class="section-row__text">
+          <span class="section-row__label" id="notif-wishlist-alerts">
+            <mat-icon class="notif__icon" aria-hidden="true">favorite</mat-icon>
+            Wishlist alerts
+          </span>
+          <span class="section-row__help">
+            {{
+              settings.wishlistAlerts
+                ? 'On: one alert per new listing that fits a wish.'
+                : 'Off: no wishlist alerts. Your wishlist stays as it is.'
+            }}
+          </span>
+        </div>
+        <mat-slide-toggle
+          data-testid="notif-wishlist-alerts"
+          [checked]="settings.wishlistAlerts"
+          (change)="setWishlistAlerts($event.checked)"
+          aria-labelledby="notif-wishlist-alerts"
+        />
+      </li>
+    </ul>
+  </app-section-card>
+
+  <app-section-card
     heading="What to notify me about"
     headingId="notif-categories"
     description="Choose per topic and channel."

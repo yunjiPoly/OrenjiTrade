@@ -9,10 +9,10 @@ import {
 
 describe('notification kinds', () => {
   it('gives each type an icon, a tone and a label, with a neutral fallback', () => {
-    expect(notificationKind({ type: Type.WishlistMatch, data: {} })).toEqual({
+    expect(notificationKind({ type: Type.WishlistAlert, data: {} })).toEqual({
       icon: 'favorite',
       tone: 'match',
-      label: 'Wishlist match',
+      label: 'Wishlist alert',
     });
     expect(notificationKind({ type: Type.Message, data: {} }).tone).toBe('message');
     expect(notificationKind({ type: Type.BinderHidden, data: {} }).tone).toBe('warning');
@@ -32,8 +32,9 @@ describe('notification kinds', () => {
   });
 
   it('follows only same-app paths', () => {
-    expect(safeAppPath('/wishlist/00000000-0000-4000-8f00-000000000201')).toBe(
-      '/wishlist/00000000-0000-4000-8f00-000000000201',
+    expect(safeAppPath('/cards/c-1?printing=p-1')).toBe('/cards/c-1?printing=p-1');
+    expect(safeAppPath('/cards/c-1?rarity=Collector%27s%20Rare')).toBe(
+      '/cards/c-1?rarity=Collector%27s%20Rare',
     );
     expect(safeAppPath('/inventory?binder=unfiled')).toBe('/inventory?binder=unfiled');
     expect(safeAppPath('//evil.example/phish')).toBeNull();
@@ -47,10 +48,20 @@ describe('notification kinds', () => {
     expect(notificationLink({ type: Type.Message, data: { deepLink: '/messages/c1' } })).toBe(
       '/messages/c1',
     );
-    expect(notificationLink({ type: Type.WishlistMatch, data: { wishlistItemId: 'w-1' } })).toBe(
-      '/wishlist/w-1',
+    // A wishlist alert opens the card page with the wish's selection.
+    expect(
+      notificationLink({
+        type: Type.WishlistAlert,
+        data: { deepLink: '/cards/c-1?rarity=Secret%20Rare', cardId: 'c-1' },
+      }),
+    ).toBe('/cards/c-1?rarity=Secret%20Rare');
+    expect(
+      notificationLink({ type: Type.WishlistAlert, data: { cardId: 'c-1', printingId: 'p-1' } }),
+    ).toBe('/cards/c-1?printing=p-1');
+    expect(notificationLink({ type: Type.WishlistAlert, data: { cardId: 'c-1' } })).toBe(
+      '/cards/c-1',
     );
-    expect(notificationLink({ type: Type.WishlistMatch, data: {} })).toBe('/wishlist');
+    expect(notificationLink({ type: Type.WishlistAlert, data: {} })).toBe('/wishlist');
     expect(notificationLink({ type: Type.Message, data: { conversationId: 'c-9' } })).toBe(
       '/messages/c-9',
     );
@@ -67,7 +78,7 @@ describe('notification kinds', () => {
     expect(
       notificationLink({
         type: Type.System,
-        data: { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_MATCH' },
+        data: { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_ALERT' },
       }),
     ).toBe('/wishlist');
     expect(notificationLink({ type: Type.System, data: { kind: 'LIMIT_REACHED' } })).toBe(
@@ -75,8 +86,8 @@ describe('notification kinds', () => {
     );
     expect(
       notificationLink({
-        type: Type.WishlistMatch,
-        data: { deepLink: 'https://evil.example', wishlistItemId: '../../x' },
+        type: Type.WishlistAlert,
+        data: { deepLink: 'https://evil.example', cardId: '../../x' },
       }),
     ).toBe('/wishlist');
     expect(notificationLink({ type: Type.RatingReceived, data: {} })).toBe('/notifications');

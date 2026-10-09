@@ -34,7 +34,6 @@ export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string
 
 /** Categories in display order with human labels (unknown API categories still render). */
 export const CATEGORY_LABELS: Record<string, { label: string; help: string }> = {
-  WISHLIST_MATCH: { label: 'Wishlist matches', help: 'A card you want is listed in your region.' },
   MESSAGE: { label: 'Messages', help: 'New private messages.' },
   OFFER: { label: 'Offers', help: 'Offers you receive and their answers.' },
   TRADE: { label: 'Trades', help: 'Progress of your trades.' },
@@ -49,7 +48,10 @@ function timeZones(): string[] {
   return intl.supportedValuesOf?.('timeZone') ?? ['America/Toronto', 'UTC'];
 }
 
-/** Settings → Notifications: channels, category × channel matrix and quiet hours. */
+/**
+ * Settings → Notifications: channels, the one wishlist alerts switch, the category × channel matrix
+ * and quiet hours.
+ */
 @Component({
   selector: 'app-notification-settings',
   imports: [
@@ -123,6 +125,10 @@ export class NotificationSettingsComponent {
 
   protected setMaster(key: MasterKey, value: boolean): void {
     this.patch((settings) => ({ ...settings, [key]: value }));
+  }
+
+  protected setWishlistAlerts(value: boolean): void {
+    this.patch((settings) => ({ ...settings, wishlistAlerts: value }));
   }
 
   protected setCategory(category: string, channel: Channel, value: boolean): void {

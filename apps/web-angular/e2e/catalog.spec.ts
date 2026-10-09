@@ -89,11 +89,13 @@ test.describe('card catalog', () => {
       'href',
       /^\/search\?card=[0-9a-f-]{36}$/,
     );
-    // "Add to wishlist" (Phase 6) opens the wishlist dialog on this card and the chosen printing.
+    // "Add to wishlist" opens the wishlist dialog on this card with the chosen printing checked
+    // in the printing picker.
     await page.getByRole('button', { name: 'Add to wishlist' }).click();
     const wishDialog = page.getByRole('dialog', { name: 'Add to wishlist' });
     await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
-    await expect(wishDialog.getByRole('combobox', { name: 'Printing' })).toContainText('AZR-FR001');
+    await expect(wishDialog.getByRole('radio', { name: /^AZR-FR001,/ })).toBeChecked();
+    await expect(wishDialog.getByRole('radio', { name: /^Any printing/ })).not.toBeChecked();
     await wishDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(wishDialog).toBeHidden();
 

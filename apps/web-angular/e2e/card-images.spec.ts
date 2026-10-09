@@ -222,7 +222,7 @@ test.describe('card pictures', () => {
     expect(fox, 'Lantern Fox Spirit in the seed catalog').toBeTruthy();
     const wish = await request.post(`${API_URL}/api/v1/wishlist`, {
       headers: authHeader(owner.idToken),
-      data: { cardId: fox!.id, tradePreference: 'TRADE' },
+      data: { cardId: fox!.id },
     });
     expect(wish.status(), 'POST /wishlist').toBe(201);
 

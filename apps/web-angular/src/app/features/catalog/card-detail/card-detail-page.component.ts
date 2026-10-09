@@ -43,8 +43,9 @@ import { CardMetadataComponent } from './card-metadata.component';
 /**
  * `/cards/:id` (`?printing=` selects a printing): hero picture, game-specific attributes from the
  * game's schema, the selected printing with its market price, every printing, "Who has this near
- * me" (the map in holders mode) and "Add to wishlist" (Phase 6: the wishlist dialog, with the
- * printing chosen through `?printing=`, if any).
+ * me" (the map in holders mode) and "Add to wishlist" (the wishlist dialog, with the printing
+ * chosen through `?printing=`, or "any printing" of the `?rarity=` a wishlist alert links to; the
+ * printing picker of stage S3 reads both).
  */
 @Component({
   selector: 'app-card-detail-page',
@@ -74,9 +75,10 @@ export class CardDetailPageComponent {
   private readonly games = inject(GamesStore);
   protected readonly wishlist = inject(WishlistActions);
 
-  /** Route parameter and `?printing=` query parameter (bound by the router). */
+  /** Route parameter and the `?printing=` / `?rarity=` query parameters (bound by the router). */
   readonly id = input.required<string>();
   readonly printing = input<string | undefined>();
+  readonly rarity = input<string | undefined>();
 
   protected readonly card = signal<CardDetail | null>(null);
   protected readonly loading = signal(true);
@@ -142,9 +144,14 @@ export class CardDetailPageComponent {
     this.load(this.id());
   }
 
-  /** Opens the wishlist dialog for this card (the printing picked in the URL, else any). */
+  /** Opens the wishlist dialog for this card (the URL's printing or rarity, else any printing). */
   protected addToWishlist(cardId: string): void {
-    void this.wishlist.add({ cardId, printingId: this.printing() ?? null });
+    const printingId = this.printing() ?? null;
+    void this.wishlist.add({
+      cardId,
+      printingId,
+      rarity: printingId ? null : (this.rarity() ?? null),
+    });
   }
 
   protected selectPrinting(printingId: string): void {
