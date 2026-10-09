@@ -1,4 +1,5 @@
 import { requireStack } from '../support/stack';
+import { recordAnswers } from './support/answers';
 import { suffix } from './support/api';
 import { escapeRegExp, expect, signIn, test } from './support/fixtures';
 import { cityToken, placeOf } from './support/places';
@@ -48,28 +49,20 @@ test.describe('acceptance: search', () => {
     await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();
 
-    // "Who has this in my region" → the card-holders view with every filter. The answer the view
-    // rendered is read before the page moves on: Chromium drops the bodies of a document the page
-    // navigated away from, so a passive listener could miss it under the load of a full run.
-    let holdersAnswer: HoldersPage | undefined;
-    const holdersResponse = page.waitForResponse(async (response) => {
-      if (!response.url().includes('/api/v1/search/card-holders') || !response.ok()) {
-        return false;
-      }
-      const body = (await response.json().catch(() => null)) as HoldersPage | null;
-      if (!body?.items.some((item) => item.collector?.handle === holder.handle)) {
-        return false;
-      }
-      holdersAnswer = body;
-      return true;
-    });
+    // "Who has this in my region" → the card-holders view with every filter. Its answers are
+    // recorded in a route before the page gets them (support/answers.ts): read back from the
+    // browser, a body Chromium no longer kept could fail the test under the load of a full run.
+    const holdersAnswers = await recordAnswers<HoldersPage>(
+      page,
+      /\/api\/v1\/search\/card-holders(\?|$)/,
+    );
     await page.getByRole('link', { name: 'Who has this in my region' }).click();
     await expect(page).toHaveURL(/\/search\?card=[0-9a-f-]{36}$/);
     const row = page
       .getByRole('list', { name: 'Card holders in your region' })
       .getByRole('article', { name: new RegExp(`^${escapeRegExp(holder.displayName)}`) });
     await expect(row).toContainText('$17.50', { timeout: 20_000 });
-    await holdersResponse;
+    await holdersAnswers.stop();
     await expect(row).toContainText(place.label);
     await expect(row).not.toContainText(/\bkm\b/);
     await expect(row).not.toContainText(place.city ?? '');
@@ -96,7 +89,8 @@ test.describe('acceptance: search', () => {
     ).toBeVisible();
 
     // The holder was described by state and country only.
-    const seen = (holdersAnswer?.items ?? [])
+    const seen = holdersAnswers.received
+      .flatMap(({ body }) => body.items)
       .map((item) => item.collector)
       .filter((collector) => collector?.handle === holder.handle);
     expect(seen.length, 'the card-holders answer listed the holder').toBeGreaterThan(0);

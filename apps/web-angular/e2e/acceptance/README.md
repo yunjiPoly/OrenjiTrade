@@ -46,6 +46,12 @@ account is fresh and fictional (`e2e-<run id>-…@example.test`); nothing needs 
   retires every collector the test created: a deletion request through the API (off the map at
   once), `discoverable: false` when an open trade blocks the deletion, then the emulator account
   is deleted. Seed accounts are never touched.
+- `answers.ts` — `recordAnswers(page, url)`: the API answers a page receives for matching requests,
+  fetched and parsed in a route before the page gets them (`route.fetch()` → `route.fulfill()`).
+  A spec that asserts on an answer's body uses it instead of `waitForResponse()` +
+  `response.json()`, which reads Chromium's DevTools buffer: that buffer does not keep every fetch
+  body, and under the load of a full run such a read failed ("No data found for resource with
+  given identifier").
 - `places.ts` — one state per spec (US states no seed collector uses; the wishlist spec in Lisbon,
   Europe, since matching works per platform region), and `cityToken()` for distinctive fictional
   cities the scanner can trace.

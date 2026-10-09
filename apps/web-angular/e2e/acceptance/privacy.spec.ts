@@ -1,6 +1,5 @@
-import type { Response } from '@playwright/test';
-
 import { WEB_URL, requireStack } from '../support/stack';
+import { AnswerRecorder, recordAnswers } from './support/answers';
 import { suffix } from './support/api';
 import { expect, openState, stateBinder, test } from './support/fixtures';
 import { cityToken, placeOf } from './support/places';
@@ -19,6 +18,11 @@ import { stompBodies } from './support/privacy';
 
 interface PlaceAnswer {
   place?: { label?: string; city?: string };
+}
+
+/** A page of the state binder list (`owner`) or of the card holders (`collector`). */
+interface ListAnswer {
+  items?: ({ collector?: PlaceAnswer; owner?: PlaceAnswer } & object)[];
 }
 
 test.describe('acceptance: privacy', () => {
@@ -105,32 +109,37 @@ test.describe('acceptance: privacy', () => {
 
     const answers: PlaceAnswer[] = [];
     const pageV = await actors.open(viewer);
-    // The answers of the state list and of the card holders, each read before the page moves on:
-    // Chromium drops the bodies of a document the page navigated away from, so a passive listener
-    // could miss them under the load of a full run.
-    const placeAnswer = (pattern: RegExp) =>
-      pageV.waitForResponse((response) => pattern.test(response.url()) && response.ok());
-    const collect = async (response: Promise<Response>) => {
-      const body = (await (await response).json()) as {
-        items?: ({ collector?: PlaceAnswer; owner?: PlaceAnswer } & object)[];
-      };
-      answers.push(...(body.items ?? []).map((entry) => entry.collector ?? entry.owner ?? {}));
+    // The answers of the state list and of the card holders are recorded in a route, before the
+    // page gets them (support/answers.ts): read back from the browser, a body Chromium no longer
+    // kept failed the test under the load of a full run.
+    const collect = async (recorder: AnswerRecorder<ListAnswer>) => {
+      await recorder.stop();
+      expect(recorder.received.length, 'the page received the answer').toBeGreaterThan(0);
+      for (const { body } of recorder.received) {
+        answers.push(...(body.items ?? []).map((entry) => entry.collector ?? entry.owner ?? {}));
+      }
     };
 
     // The region map: the state's panel lists the seller's binder.
-    const stateAnswer = placeAnswer(/\/api\/v1\/regions\/.+\/binders/);
+    const stateAnswers = await recordAnswers<ListAnswer>(
+      pageV,
+      /\/api\/v1\/regions\/[^/?]+\/subdivisions\/[^/?]+\/binders(\?|$)/,
+    );
     const panel = await openState(pageV, place);
     await expect(stateBinder(panel, binder.name)).toBeVisible();
-    await collect(stateAnswer);
+    await collect(stateAnswers);
     expect(await privacy.scanDom(pageV)).toBeGreaterThan(100);
     // Card holders and unified search, profile, public binder.
     await pageV.goto(`/cards/${await api.cardId(viewer.idToken, card)}`);
-    const holdersAnswer = placeAnswer(/\/api\/v1\/search\/card-holders/);
+    const holdersAnswers = await recordAnswers<ListAnswer>(
+      pageV,
+      /\/api\/v1\/search\/card-holders(\?|$)/,
+    );
     await pageV.getByRole('link', { name: 'Who has this in my region' }).click();
     await expect(
       pageV.getByRole('list', { name: 'Card holders in your region' }).getByRole('article').first(),
     ).toBeVisible();
-    await collect(holdersAnswer);
+    await collect(holdersAnswers);
     await pageV.goto(`/search?q=${encodeURIComponent(seller.displayName)}&tab=collectors`);
     await expect(pageV.getByRole('main')).toContainText(seller.displayName);
     await pageV.goto(`/collectors/${seller.handle}`);
