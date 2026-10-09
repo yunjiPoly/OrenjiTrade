@@ -118,7 +118,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Localisation et repérabilité',
         clauses: [
           'La repérabilité est désactivée par défaut et exige une Localisation. Lorsque vous l’activez, les autres Collectionneurs voient seulement votre province ou votre État et votre pays; votre ville n’apparaît que sur votre propre profil, et seulement si vous choisissez de l’afficher.',
-          'Vous pouvez modifier ou supprimer votre Localisation en tout temps dans Paramètres → Localisation. La supprimer désactive la repérabilité : vos Cartables publics quittent la carte et vous n’apparaissez plus dans les recherches.',
+          'Vous pouvez modifier ou supprimer votre Localisation en tout temps dans Paramètres → Localisation. La supprimer désactive la repérabilité\u00a0: vos Cartables publics quittent la carte et vous n’apparaissez plus dans les recherches.',
         ],
       },
       {
