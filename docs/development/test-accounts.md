@@ -7,7 +7,7 @@ staging/production environment. Passwords below are development-only values.
 | Handle | Email | Password | Roles | Declared place (region) | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | collector1 | collector1@orenjitrade.test | LocalDev!2026 | USER | Montréal, Quebec, Canada (Americas North) | public Yu-Gi-Oh! + Pokémon binders, fresh inventory |
-| collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Toronto, Ontario, Canada (Americas North) | Magic binder, has wishlist items matching collector1 |
+| collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Toronto, Ontario, Canada (Americas North) | Magic binder, wishlist (public notes, Near Mint only, price terms) alerted by collector1's listing |
 | collector3 | collector3@orenjitrade.test | LocalDev!2026 | USER | Buenos Aires City, Argentina, city hidden (Americas South) | stale inventory (tests auto-delist), private binders only |
 | collector4 | collector4@orenjitrade.test | LocalDev!2026 | USER | Madrid, Community of Madrid, Spain (Europe) | Riftbound player, temporarily public binder |
 | collector5 | collector5@orenjitrade.test | LocalDev!2026 | USER | Los Angeles, California, United States (Americas North) | Pokémon, Magic, accepts offers |

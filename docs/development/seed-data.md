@@ -61,8 +61,11 @@ entries. Nothing happens while the real catalog is absent.
 - One OPEN offer from collector5 to collector1 (cash), one COUNTERED offer between 2 and 6.
 - Ratings: collector1 ↔ collector2 (completed trade), collector5 → collector1.
 - One OPEN collector report from collector4 against collector6 (reason SPAM) for admin review.
-- Wishlist: collector2 wants a printing that collector1 publishes (both in Americas North) so a
-  fresh publication triggers a match locally.
+- Wishlist (stage S2): collector2 wants a printing that collector1 publishes (both in Americas
+  North; public note, Near Mint only, "90% TCG"), the Pokémon printing `pkm-p002a` that collector1
+  keeps private (publishing it locally triggers a fresh alert) and any printing of a Magic card
+  ("100% TCG+"); the seed runs the real alert pipeline on collector1's listing, so collector2 has
+  one wishlist alert.
 - Notifications: a few read/unread for collector1.
 - Plans: FREE and PREMIUM with limits (binder views/day 30 vs unlimited, wishlist alerts 5 vs
   unlimited, advanced filters off/on); premium-user subscribed.
