@@ -59,12 +59,16 @@ describe('wishlist labels', () => {
     expect(whichCopyLabel(null, 'Quarter Century Secret Rare')).toBe(
       'Any printing · Quarter Century Secret Rare',
     );
-    expect(whichCopyLabel(PRINTING, 'ignored')).toBe('AZR-EN001 · Ultra Rare · Azure Dawn');
-    // Two printings of a set often differ only by their finish: a special one is named.
-    expect(whichCopyLabel({ ...PRINTING, finish: 'NORMAL' })).toBe(
+    expect(whichCopyLabel(PRINTING, 'ignored')).toBe(
+      'AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition',
+    );
+    // Two printings of one code often differ only by their edition or finish: a special one is
+    // named (Unlimited and Normal, the usual ones, are not).
+    const unlimited = { ...PRINTING, edition: 'UNLIMITED' };
+    expect(whichCopyLabel({ ...unlimited, finish: 'NORMAL' })).toBe(
       'AZR-EN001 · Ultra Rare · Azure Dawn',
     );
-    expect(whichCopyLabel({ ...PRINTING, finish: 'REVERSE_HOLO' })).toBe(
+    expect(whichCopyLabel({ ...unlimited, finish: 'REVERSE_HOLO' })).toBe(
       'AZR-EN001 · Ultra Rare · Azure Dawn · Reverse holo',
     );
   });
@@ -80,11 +84,20 @@ describe('wishlist labels', () => {
         }),
       ).map((chip) => chip.label),
     ).toEqual(['Near Mint only', '100% TCG+ ≈ 25.00 USD']);
+    // The amount names its source and date (tooltip / screen readers); the term alone has none.
+    expect(
+      wishChips(
+        wish({ printing: PRINTING, priceTerm: { label: '85% TCG', percent: 85, orMore: false } }),
+      )[0].detail,
+    ).toMatch(/^TCG market price: YGOPRODeck set price \(TCGplayer-based, USD\) · updated /);
     expect(
       wishChips(wish({ priceTerm: { label: '80% TCG', percent: 80, orMore: false } })).map(
         (chip) => chip.label,
       ),
     ).toEqual(['80% TCG']);
+    expect(
+      wishChips(wish({ priceTerm: { label: '80% TCG', percent: 80, orMore: false } }))[0].detail,
+    ).toBeUndefined();
   });
 
   it('links a wish to the card page with its selection', () => {

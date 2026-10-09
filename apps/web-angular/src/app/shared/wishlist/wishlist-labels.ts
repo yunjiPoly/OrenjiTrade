@@ -4,7 +4,7 @@ import type {
   WishPriceTerm,
   WishlistItemResponse,
 } from '@orenji/api-client';
-import { finishLabel } from '../catalog/catalog-labels';
+import { editionLabel, finishLabel, marketPriceInfo } from '../catalog/catalog-labels';
 import { printingCode } from '../inventory/inventory-labels';
 
 /**
@@ -46,25 +46,35 @@ export function priceTermLabel(
 
 type WishCriteria = Pick<WishlistItemResponse, 'printing' | 'nearMintOnly' | 'priceTerm'>;
 
-/** The chips of a wish: Near Mint only, then the price term (with its amount for one printing). */
+/**
+ * The chips of a wish: Near Mint only, then the price term (with its amount for one printing, and
+ * then the market price's source and date as `detail`).
+ */
 export function wishChips(wish: WishCriteria): WishChip[] {
   const chips: WishChip[] = [];
   if (wish.nearMintOnly) {
     chips.push({ kind: 'near-mint', icon: 'verified', label: 'Near Mint only' });
   }
   if (wish.priceTerm) {
-    chips.push({
+    const price = wish.printing?.marketPrice;
+    const chip: WishChip = {
       kind: 'price-term',
       icon: 'sell',
-      label: priceTermLabel(wish.priceTerm, wish.printing?.marketPrice),
-    });
+      label: priceTermLabel(wish.priceTerm, price),
+    };
+    const info = approximateAmount(wish.priceTerm, price) ? marketPriceInfo(price) : null;
+    if (info) {
+      chip.detail = `${info.label}: ${info.detail}`;
+    }
+    chips.push(chip);
   }
   return chips;
 }
 
 /**
  * Which copy: "Any printing", "Any printing · Quarter Century Secret Rare", or
- * "AZR-EN001 · Ultra Rare · Azure Dawn".
+ * "AZR-EN001 · Ultra Rare · Azure Dawn" (plus an edition other than Unlimited and a finish other
+ * than Normal: two printings of one code can differ only by them).
  */
 export function whichCopyLabel(
   printing: PrintingSummary | null | undefined,
@@ -74,10 +84,21 @@ export function whichCopyLabel(
     return rarity ? `Any printing · ${rarity}` : 'Any printing';
   }
   return (
-    [printingCode(printing), printing.rarity, printing.setName, specialFinish(printing.finish)]
+    [
+      printingCode(printing),
+      printing.rarity,
+      printing.setName,
+      specialEdition(printing.edition),
+      specialFinish(printing.finish),
+    ]
       .filter(Boolean)
       .join(' · ') || 'One printing'
   );
+}
+
+/** The edition of a printing when it is not the usual Unlimited one ("1st Edition"), else `null`. */
+export function specialEdition(edition: string | null | undefined): string | null {
+  return edition && edition !== 'UNLIMITED' ? editionLabel(edition) : null;
 }
 
 /** The finish of a printing when it is not the normal one ("Reverse holo"), else `null`. */

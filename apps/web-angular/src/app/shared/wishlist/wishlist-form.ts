@@ -127,15 +127,30 @@ export function toUpdateWishRequest(value: WishFormValue): UpdateWishlistItemReq
   };
 }
 
-/** Inline message of an invalid note (`server` = the API's own message). */
+/**
+ * Inline message of an invalid note. The API's field errors are short fragments ("contains a term
+ * that is not allowed", "must be plain text", "at most 280 characters"): the known ones read as a
+ * sentence, any other is shown capitalised.
+ */
 export function noteError(errors: Record<string, unknown> | null | undefined): string | null {
   if (!errors) {
     return null;
   }
-  if (typeof errors['server'] === 'string') {
-    return errors['server'];
+  const server = errors['server'];
+  if (typeof server !== 'string') {
+    return `The note is limited to ${WISH_NOTE_MAX} characters.`;
   }
-  return `The note is limited to ${WISH_NOTE_MAX} characters.`;
+  if (/not allowed/i.test(server)) {
+    return 'The note contains a word that is not allowed here. Please rephrase it.';
+  }
+  if (/plain text/i.test(server)) {
+    return 'Use plain text only in the note.';
+  }
+  if (/at most/i.test(server)) {
+    return `The note is limited to ${WISH_NOTE_MAX} characters.`;
+  }
+  const text = server.trim();
+  return text ? text[0].toUpperCase() + text.slice(1) : null;
 }
 
 /** Form controls the API's field errors map to (`cardId` has no control of its own). */

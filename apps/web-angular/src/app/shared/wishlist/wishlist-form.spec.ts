@@ -159,8 +159,19 @@ describe('wishlist form', () => {
       priceTerm: 'must be one of 80% TCG',
       cardId: 'unknown card',
     });
-    expect(noteError(form.controls.note.errors)).toBe('contains a term that is not allowed');
+    expect(noteError(form.controls.note.errors)).toBe(
+      'The note contains a word that is not allowed here. Please rephrase it.',
+    );
     expect(form.controls.priceTerm.errors).toEqual({ server: 'must be one of 80% TCG' });
     expect(unmapped).toEqual(['cardId: unknown card']);
+  });
+
+  it('words the API note errors as sentences', () => {
+    expect(noteError({ server: 'must be plain text' })).toBe('Use plain text only in the note.');
+    expect(noteError({ server: 'at most 280 characters' })).toBe(
+      'The note is limited to 280 characters.',
+    );
+    expect(noteError({ server: 'something else' })).toBe('Something else');
+    expect(noteError(null)).toBeNull();
   });
 });

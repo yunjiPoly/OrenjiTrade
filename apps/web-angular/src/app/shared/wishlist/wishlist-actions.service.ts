@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Injectable, Injector, inject, signal } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
@@ -33,6 +34,7 @@ export class WishlistActions {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly document = inject(DOCUMENT);
 
   private readonly openingState = signal(false);
   /** The dialog chunk is loading (buttons show progress). */
@@ -65,11 +67,17 @@ export class WishlistActions {
   }
 
   private async open(data: WishlistDialogData): Promise<WishlistItemResponse | null> {
+    // The trigger is disabled while the dialog chunk loads, which drops its focus: remember it so
+    // closing the dialog (Escape, Cancel, save) returns the focus there instead of to the page.
+    const active = this.document.activeElement;
+    const trigger = active instanceof HTMLElement && active !== this.document.body ? active : null;
     this.openingState.set(true);
     try {
       const { openWishlistDialog } = await import('./wishlist-item-dialog.component');
       this.openingState.set(false);
-      const result = await firstValueFrom(openWishlistDialog(this.injector, data).afterClosed());
+      const result = await firstValueFrom(
+        openWishlistDialog(this.injector, data, trigger).afterClosed(),
+      );
       return result ?? null;
     } finally {
       this.openingState.set(false);

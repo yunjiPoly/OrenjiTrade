@@ -1,13 +1,15 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   computed,
   effect,
+  inject,
   input,
   linkedSignal,
 } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -34,9 +36,11 @@ export function withCurrentTerm(
 /**
  * The public part of a wish (add/edit dialog): the public note first (plain text, at most 280
  * characters, shown wherever the wish is visible), then the optional "Near Mint only" and price
- * term checkboxes. At most one price term: checking one clears the others. With one printing
- * chosen and a market price known, each term shows its approximate amount ("85% TCG ≈ 21.25 USD")
- * and the price's source and date; with "Any printing" only the term.
+ * term checkboxes. At most one price term: checking one clears the others (the boxes are rendered
+ * from the form value on each change, so quick successive clicks never leave two checked). With one
+ * printing chosen and a market price known, each term shows its approximate amount ("85% TCG ≈
+ * 21.25 USD") and the price's source and date; with "Any printing" only the term and a hint that
+ * the amounts follow the choice of one printing.
  */
 @Component({
   selector: 'app-wish-fields',
@@ -86,8 +90,9 @@ export function withCurrentTerm(
           <div class="wf__term-list">
             @for (term of shownTerms(); track term.label) {
               <mat-checkbox
+                [value]="term.label"
                 [checked]="selectedTerm() === term.label"
-                (change)="toggleTerm(term.label, $event.checked)"
+                (change)="toggleTerm($event)"
                 [attr.data-testid]="'wish-term-' + term.label"
               >
                 {{ term.label }}
@@ -170,8 +175,11 @@ export class WishFieldsComponent {
   readonly termsError = input(false);
   /** Market price of the chosen printing; `null` for "any printing" or without a price. */
   readonly marketPrice = input<MarketPrice | null | undefined>(null);
+  /** One printing is chosen (else any printing, where no amount can be shown). */
+  readonly onePrinting = input(false);
 
   protected readonly noteMax = WISH_NOTE_MAX;
+  private readonly changeDetector = inject(ChangeDetectorRef);
 
   /** The form's current value as a signal. */
   private readonly value = linkedSignal(() => this.form().getRawValue());
@@ -182,11 +190,17 @@ export class WishFieldsComponent {
     withCurrentTerm(this.terms(), this.selectedTerm()),
   );
   protected readonly priceInfo = computed(() => marketPriceInfo(this.marketPrice()));
-  protected readonly termsHint = computed(() =>
-    this.priceInfo()
-      ? `Terms relative to the ${this.priceInfo()?.label.toLowerCase()} of this printing. Sellers see them; they never filter anything.`
-      : 'Terms relative to the TCG market price of the copy you get. Sellers see them; they never filter anything.',
-  );
+  protected readonly termsHint = computed(() => {
+    const info = this.priceInfo();
+    if (info) {
+      return `Terms relative to the ${info.label.toLowerCase()} of this printing. Sellers see them; they never filter anything.`;
+    }
+    const base =
+      'Terms relative to the TCG market price of the copy you get. Sellers see them; they never filter anything.';
+    return this.onePrinting()
+      ? `${base} This printing has no market price yet.`
+      : `${base} Choose one printing under “Which copy” to see approximate amounts.`;
+  });
 
   constructor() {
     effect((onCleanup) => {
@@ -205,9 +219,13 @@ export class WishFieldsComponent {
     return noteError(this.form().controls.note.errors);
   }
 
-  protected toggleTerm(label: string, checked: boolean): void {
+  protected toggleTerm(event: MatCheckboxChange): void {
+    const label = event.source.value;
     const control = this.form().controls.priceTerm;
-    control.setValue(checked ? label : control.value === label ? '' : control.value);
+    control.setValue(event.checked ? label : control.value === label ? '' : control.value);
     control.markAsDirty();
+    // Render the boxes now: with the one-way [checked] binding, a box checked and replaced within
+    // one change detection (two quick clicks) would keep its native check mark.
+    this.changeDetector.detectChanges();
   }
 }

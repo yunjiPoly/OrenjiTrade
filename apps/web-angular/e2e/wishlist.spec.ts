@@ -144,6 +144,8 @@ test.describe('wishlist and notifications', () => {
       await dialog.getByRole('combobox', { name: 'Card name or printing code' }).fill('Emberfang');
       await page.getByRole('option', { name: new RegExp(`^${WISHED_CARD} Pokémon`) }).click();
       await expect(dialog.getByTestId('wish-card')).toContainText(WISHED_CARD);
+      // The autocomplete is gone: the chosen card's name has the focus, not the page.
+      await expect(dialog.getByRole('heading', { level: 3, name: WISHED_CARD })).toBeFocused();
       // Nothing of the old form, and "Any printing" checked by default.
       await expect(dialog.getByRole('slider')).toHaveCount(0);
       await expect(dialog.getByRole('spinbutton')).toHaveCount(0);
@@ -193,16 +195,25 @@ test.describe('wishlist and notifications', () => {
       await expect(dialog.getByTestId('wish-error')).toContainText(
         'already on your wishlist with the same printing or rarity',
       );
-      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      // Next to the buttons, outside the scrolling content: in view whatever the scroll position.
+      await expect(dialog.getByTestId('wish-error')).toBeInViewport();
+      // Escape closes it and gives the focus back to the button that opened it.
+      await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
+      await expect(page.getByRole('button', { name: 'Add to wishlist' })).toBeFocused();
 
       // Remove that second wish from the list (confirmation first).
       await page.goto('/wishlist');
       await expect(page.locator('[data-wish]')).toHaveCount(2);
-      await page.getByRole('button', { name: `Remove ${OTHER_CARD} from your wishlist` }).click();
+      await page
+        .getByRole('button', { name: `Remove ${OTHER_CARD} (Any printing) from your wishlist` })
+        .click();
       const confirm = page.getByRole('dialog', { name: `Remove ${OTHER_CARD}?` });
+      await expect(confirm).toContainText('The wish for Any printing is removed.');
       await confirm.getByRole('button', { name: 'Remove' }).click();
-      await expect(page.getByText(`${OTHER_CARD} removed from your wishlist.`)).toBeVisible();
+      await expect(
+        page.getByText(`${OTHER_CARD} (Any printing) removed from your wishlist.`),
+      ).toBeVisible();
       await expect(page.locator('[data-wish]')).toHaveCount(1);
       await expect(bell).toHaveAttribute('data-realtime', 'connected', { timeout: 20_000 });
       // Marker to prove the page is never reloaded while the alert arrives.

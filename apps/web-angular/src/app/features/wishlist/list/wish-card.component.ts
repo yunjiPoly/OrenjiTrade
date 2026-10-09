@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type { WishlistItemResponse } from '@orenji/api-client';
 import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
@@ -11,12 +12,20 @@ import { whichCopyLabel, wishCardQuery, wishChips } from '../../../shared/wishli
 /**
  * One wish (stage S2): card picture, name (links to the card page with the wish's selection),
  * which copy ("Any printing", "Any printing · <rarity>" or the printing), the public note, the
- * "Near Mint only" and price term chips (with the approximate amount for one printing), and the
- * edit and remove buttons.
+ * "Near Mint only" and price term chips (with the approximate amount for one printing and its
+ * price source in a tooltip), and the edit and remove buttons (named with which copy: two wishes
+ * can name the same card).
  */
 @Component({
   selector: 'app-wish-card',
-  imports: [RouterLink, MatButtonModule, MatIconModule, CardImageComponent, GameChipComponent],
+  imports: [
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    CardImageComponent,
+    GameChipComponent,
+  ],
   template: `
     @let wish = item();
     <article class="wc" [attr.aria-labelledby]="titleId()" [attr.data-wish]="wish.id">
@@ -48,9 +57,17 @@ import { whichCopyLabel, wishCardQuery, wishChips } from '../../../shared/wishli
         @if (chips().length) {
           <ul class="wc__chips" [attr.aria-label]="'What you want for ' + name()">
             @for (chip of chips(); track chip.kind) {
-              <li class="wc__chip" [attr.data-kind]="chip.kind">
+              <li
+                class="wc__chip"
+                [attr.data-kind]="chip.kind"
+                [matTooltip]="chip.detail ?? ''"
+                [matTooltipDisabled]="!chip.detail"
+              >
                 <mat-icon aria-hidden="true">{{ chip.icon }}</mat-icon>
                 {{ chip.label }}
+                @if (chip.detail) {
+                  <span class="visually-hidden">({{ chip.detail }})</span>
+                }
               </li>
             }
           </ul>
@@ -61,7 +78,7 @@ import { whichCopyLabel, wishCardQuery, wishChips } from '../../../shared/wishli
             matButton
             type="button"
             [disabled]="busy()"
-            [attr.aria-label]="'Edit the wish for ' + name()"
+            [attr.aria-label]="'Edit the wish for ' + name() + ' (' + copy() + ')'"
             (click)="edit.emit()"
           >
             <mat-icon aria-hidden="true">edit</mat-icon>
@@ -72,7 +89,7 @@ import { whichCopyLabel, wishCardQuery, wishChips } from '../../../shared/wishli
             type="button"
             class="wc__danger"
             [disabled]="busy()"
-            [attr.aria-label]="'Remove ' + name() + ' from your wishlist'"
+            [attr.aria-label]="'Remove ' + name() + ' (' + copy() + ') from your wishlist'"
             (click)="remove.emit()"
           >
             <mat-icon aria-hidden="true">delete</mat-icon>

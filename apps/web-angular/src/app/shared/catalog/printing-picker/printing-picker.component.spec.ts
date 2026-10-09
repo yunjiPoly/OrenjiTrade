@@ -201,6 +201,21 @@ describe('PrintingPickerComponent', () => {
     expect(radios()).toHaveLength(4);
   });
 
+  it('says that set, edition and language filters only narrow the list', async () => {
+    await render();
+    (
+      fixture.componentInstance as unknown as { setFilter(facet: string, value: string): void }
+    ).setFilter('language', 'fr');
+    await fixture.whenStable();
+    expect(radios()).toHaveLength(2);
+    expect(radios()[0].checked).toBe(true);
+    // "Any printing" stays any language: only a rarity or one printing narrows the choice.
+    expect(emitted).toEqual([]);
+    expect(element.querySelector('.pp__hint')?.textContent).toContain(
+      'The set, edition and language filters only narrow the list',
+    );
+  });
+
   it('reports an unknown printing as "any printing"', async () => {
     await render({ printingId: 'missing', rarity: null });
     await fixture.whenStable();

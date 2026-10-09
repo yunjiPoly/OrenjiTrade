@@ -34,10 +34,13 @@ describe('WishCardComponent', () => {
     await fixture.whenStable();
   }
 
+  /** The visible text of each chip (without the screen-reader detail). */
   function chips(): (string | undefined)[] {
-    return Array.from(element.querySelectorAll('.wc__chip'), (chip) =>
-      chip.textContent?.replace(/\s+/g, ' ').trim(),
-    );
+    return Array.from(element.querySelectorAll('.wc__chip'), (chip) => {
+      const visible = chip.cloneNode(true) as HTMLElement;
+      visible.querySelectorAll('.visually-hidden').forEach((hidden) => hidden.remove());
+      return visible.textContent?.replace(/\s+/g, ' ').trim();
+    });
   }
 
   beforeEach(async () => {
@@ -61,6 +64,10 @@ describe('WishCardComponent', () => {
       'For my Azure deck',
     );
     expect(chips()).toEqual(['verified Near Mint only', 'sell 85% TCG ≈ 21.25 USD']);
+    // The amount names its price source (tooltip and screen-reader text).
+    expect(element.querySelector('[data-kind="price-term"] .visually-hidden')?.textContent).toBe(
+      '(TCG market price: YGOPRODeck set price (TCGplayer-based, USD))',
+    );
     // Nothing of the old model: no matches, alerts switch, price limit or private note.
     expect(element.textContent).not.toMatch(/match|Alerts|Up to|Private/i);
     expect(element.querySelector('[role="switch"]')).toBeNull();
@@ -84,6 +91,7 @@ describe('WishCardComponent', () => {
     );
     expect(element.querySelector('[data-testid="wish-note-text"]')).toBeNull();
     expect(chips()).toEqual(['sell 100% TCG+']);
+    expect(element.querySelector('.wc__chip .visually-hidden')).toBeNull();
   });
 
   it('emits edit and remove', async () => {
@@ -93,7 +101,13 @@ describe('WishCardComponent', () => {
     fixture.componentInstance.edit.subscribe(edited);
     fixture.componentInstance.remove.subscribe(removed);
     const buttons = element.querySelectorAll<HTMLButtonElement>('.wc__foot button');
-    expect(buttons[0].getAttribute('aria-label')).toBe('Edit the wish for Azure-Eyes Sky Dragon');
+    // Named with which copy: two wishes can name the same card.
+    expect(buttons[0].getAttribute('aria-label')).toBe(
+      'Edit the wish for Azure-Eyes Sky Dragon (AZR-EN001 · Ultra Rare · Azure Dawn)',
+    );
+    expect(buttons[1].getAttribute('aria-label')).toBe(
+      'Remove Azure-Eyes Sky Dragon (AZR-EN001 · Ultra Rare · Azure Dawn) from your wishlist',
+    );
     buttons[0].click();
     buttons[1].click();
     expect(edited).toHaveBeenCalled();

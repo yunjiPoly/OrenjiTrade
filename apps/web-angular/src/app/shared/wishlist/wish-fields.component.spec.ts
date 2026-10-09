@@ -85,6 +85,26 @@ describe('WishFieldsComponent', () => {
     expect(form.controls.priceTerm.value).toBe('');
   });
 
+  it('keeps one box checked when two terms are clicked within one change detection', async () => {
+    await render(false);
+    // No change detection between the clicks (an automated or very quick double choice).
+    termBoxes()[0].click();
+    termBoxes()[1].click();
+    await fixture.whenStable();
+    expect(form.controls.priceTerm.value).toBe('85% TCG');
+    expect(termBoxes().map((box) => box.checked)).toEqual([false, true, false]);
+  });
+
+  it('says how to see the amounts: one printing, or none without a market price', async () => {
+    await render(false);
+    expect(element.textContent).toContain(
+      'Choose one printing under “Which copy” to see approximate amounts.',
+    );
+    fixture.componentRef.setInput('onePrinting', true);
+    await fixture.whenStable();
+    expect(element.textContent).toContain('This printing has no market price yet.');
+  });
+
   it('shows the approximate amounts and the price source for one printing only', async () => {
     await render(false);
     expect(element.textContent).not.toContain('≈');

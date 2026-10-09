@@ -87,4 +87,26 @@ describe('WishlistActions', () => {
     );
     expect(snackBar.open).not.toHaveBeenCalled();
   });
+
+  it('returns the focus to the trigger, which loses it while the dialog chunk loads', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+    try {
+      await TestBed.inject(WishlistActions).add({ cardId: 'c1' }, false);
+      expect(dialog.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ restoreFocus: trigger }),
+      );
+    } finally {
+      trigger.remove();
+    }
+    // Nothing focused: the dialog's own default (the element focused when it opens).
+    (document.activeElement as HTMLElement | null)?.blur();
+    await TestBed.inject(WishlistActions).add({ cardId: 'c1' }, false);
+    expect(dialog.open).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ restoreFocus: true }),
+    );
+  });
 });

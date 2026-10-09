@@ -26,6 +26,7 @@ import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.com
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 import { WishlistActions, addedMessage } from '../../shared/wishlist/wishlist-actions.service';
+import { whichCopyLabel } from '../../shared/wishlist/wishlist-labels';
 import { WishlistStore } from './data/wishlist.store';
 import { WishCardComponent } from './list/wish-card.component';
 import { WishlistSummaryComponent } from './list/wishlist-summary.component';
@@ -278,12 +279,13 @@ export class WishlistPageComponent {
 
   protected async remove(item: WishlistItemResponse): Promise<void> {
     const name = item.card?.name ?? 'this card';
+    const copy = whichCopyLabel(item.printing, item.rarity);
     const confirmed = await firstValueFrom(
       this.dialog
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
             title: `Remove ${name}?`,
-            message: 'The wish is removed. You can add the card again later.',
+            message: `The wish for ${copy} is removed. You can add the card again later.`,
             confirmLabel: 'Remove',
             tone: 'danger',
           },
@@ -298,7 +300,9 @@ export class WishlistPageComponent {
     }
     try {
       await this.store.remove(item);
-      this.snackBar.open(`${name} removed from your wishlist.`, 'OK', { duration: 4000 });
+      this.snackBar.open(`${name} (${copy}) removed from your wishlist.`, 'OK', {
+        duration: 4000,
+      });
     } catch (error) {
       this.snackBar.open(friendlyMessage(error as ApiError), 'OK', { duration: 6000 });
     }

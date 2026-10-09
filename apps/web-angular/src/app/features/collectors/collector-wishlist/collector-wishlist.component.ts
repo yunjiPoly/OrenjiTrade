@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type { WishlistSummaryEntry } from '@orenji/api-client';
 import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
@@ -18,7 +19,7 @@ import {
  */
 @Component({
   selector: 'app-collector-wishlist',
-  imports: [MatIconModule, RouterLink, CardImageComponent],
+  imports: [MatIconModule, MatTooltipModule, RouterLink, CardImageComponent],
   template: `
     <ul class="cw" [attr.aria-label]="label()">
       @for (wish of entries(); track $index) {
@@ -38,9 +39,17 @@ import {
               <span class="cw__note">“{{ wish.note }}”</span>
             }
             @for (chip of chipsOf(wish); track chip.kind) {
-              <span class="cw__meta" [attr.data-kind]="chip.kind">
+              <span
+                class="cw__meta"
+                [attr.data-kind]="chip.kind"
+                [matTooltip]="chip.detail ?? ''"
+                [matTooltipDisabled]="!chip.detail"
+              >
                 <mat-icon aria-hidden="true">{{ chip.icon }}</mat-icon>
                 {{ chip.label }}
+                @if (chip.detail) {
+                  <span class="visually-hidden">({{ chip.detail }})</span>
+                }
               </span>
             }
           </div>

@@ -368,6 +368,13 @@ export class PrintingPickerComponent {
       const printing = this.printings().find((candidate) => candidate.id === selection.printingId);
       return printing ? `Only ${this.optionLabel(printing)}.` : 'One printing.';
     }
+    const filters = this.filters();
+    if (filters.set || filters.edition || filters.language) {
+      // Only the rarity is part of an "any printing" choice: say so while other filters are set.
+      return selection.rarity
+        ? `Any printing in ${selection.rarity}. The set, edition and language filters only narrow the list: choose a printing below for one copy only.`
+        : 'Any printing of the card. The set, edition and language filters only narrow the list: choose a rarity or one printing below.';
+    }
     return selection.rarity
       ? `Any printing in ${selection.rarity}. Choose a printing below for one copy only.`
       : 'Any printing of the card. Filter by rarity or choose one printing below.';

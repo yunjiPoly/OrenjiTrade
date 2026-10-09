@@ -1,11 +1,15 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
+  afterNextRender,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import {
@@ -58,10 +62,15 @@ export type WishlistDialogData =
   | { mode: 'create'; cardId?: string | null; printingId?: string | null; rarity?: string | null }
   | { mode: 'edit'; item: WishlistItemResponse };
 
-/** Opens the dialog; it closes with the saved wish, or `undefined` when cancelled. */
+/**
+ * Opens the dialog; it closes with the saved wish, or `undefined` when cancelled. `returnFocus` is
+ * the element focus goes back to on close (the trigger, which may have lost focus while the dialog
+ * chunk loaded); by default the element focused when the dialog opens.
+ */
 export function openWishlistDialog(
   injector: Injector,
   data: WishlistDialogData,
+  returnFocus: HTMLElement | null = null,
 ): MatDialogRef<WishlistItemDialogComponent, WishlistItemResponse> {
   return injector
     .get(MatDialog)
@@ -72,7 +81,7 @@ export function openWishlistDialog(
         injector,
         panelClass: 'app-dialog--lg',
         autoFocus: 'first-tabbable',
-        restoreFocus: true,
+        restoreFocus: returnFocus ?? true,
         maxHeight: '92dvh',
       },
     );
@@ -84,7 +93,9 @@ export function openWishlistDialog(
  * (the shared printing picker: any printing by default, any printing of one rarity, or one
  * printing). Wishlist alerts come from collectors of the same platform region (ADR 0017). Saves
  * with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409) and plan limits
- * (429, the limit dialog opens too) are explained inline.
+ * (429, the limit dialog opens too) are explained next to the buttons, outside the scrolling
+ * content, so the message is in view whatever the scroll position; an invalid field also gets the
+ * focus. Once a card is chosen, focus moves to its name (the autocomplete it came from is gone).
  */
 @Component({
   selector: 'app-wishlist-item-dialog',
@@ -121,7 +132,7 @@ export function openWishlistDialog(
           />
           <div class="wd__card-text">
             <app-game-chip [slug]="card.game ?? ''" />
-            <h3 class="wd__card-name">{{ card.name }}</h3>
+            <h3 #cardHeading class="wd__card-name" tabindex="-1">{{ card.name }}</h3>
             <p class="wd__muted">
               {{ printings().length }} {{ printings().length === 1 ? 'printing' : 'printings' }}
               in the catalog
@@ -141,6 +152,7 @@ export function openWishlistDialog(
               [terms]="priceTerms.terms()"
               [termsError]="priceTerms.status() === 'error'"
               [marketPrice]="selectedPrinting()?.marketPrice ?? null"
+              [onePrinting]="!!selection().printingId"
             />
             <app-printing-picker
               [printings]="printings()"
@@ -149,7 +161,9 @@ export function openWishlistDialog(
               (valueChange)="choose($event)"
             />
             @if (selectionError(); as message) {
-              <p class="wd__field-error" role="alert">{{ message }}</p>
+              <p class="wd__field-error" role="alert" data-testid="wish-selection-error">
+                {{ message }}
+              </p>
             }
           </form>
         }
@@ -164,13 +178,13 @@ export function openWishlistDialog(
         </p>
         <app-wish-card-picker (picked)="pick($event)" />
       }
-      @if (error(); as error) {
-        <p class="wd__error" role="alert" data-testid="wish-error">
-          <mat-icon aria-hidden="true">error</mat-icon>
-          {{ error }}
-        </p>
-      }
     </mat-dialog-content>
+    @if (error(); as error) {
+      <p class="wd__error" role="alert" data-testid="wish-error">
+        <mat-icon aria-hidden="true">error</mat-icon>
+        {{ error }}
+      </p>
+    }
     <mat-dialog-actions align="end">
       <button matButton type="button" mat-dialog-close>Cancel</button>
       <button matButton="filled" type="submit" form="wish-form" [disabled]="!form() || saving()">
@@ -222,6 +236,9 @@ export function openWishlistDialog(
     .wd__card-name {
       font-size: var(--font-size-lg);
     }
+    .wd__card-name:focus:not(:focus-visible) {
+      outline: none;
+    }
     .wd__muted {
       margin: 0;
       color: var(--color-text-muted);
@@ -232,9 +249,10 @@ export function openWishlistDialog(
     }
     .wd__error {
       display: flex;
+      flex: 0 0 auto;
       align-items: flex-start;
       gap: var(--spacing-2);
-      margin: var(--spacing-4) 0 0;
+      margin: var(--spacing-3) 24px 0;
       padding: var(--spacing-3);
       border-radius: var(--radius-md);
       background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
@@ -255,7 +273,11 @@ export class WishlistItemDialogComponent {
     inject<MatDialogRef<WishlistItemDialogComponent, WishlistItemResponse>>(MatDialogRef);
   private readonly catalog = inject(CatalogService);
   private readonly wishlistApi = inject(WishlistService);
+  private readonly injector = inject(Injector);
+  private readonly document = inject(DOCUMENT);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly priceTerms = inject(PriceTermsStore);
+  private readonly cardHeading = viewChild<ElementRef<HTMLElement>>('cardHeading');
 
   protected readonly editing = this.data.mode === 'edit';
 
@@ -319,7 +341,7 @@ export class WishlistItemDialogComponent {
   }
 
   protected pick(picked: PickedCard): void {
-    this.openCard(picked.cardId, picked.printingId);
+    this.openCard(picked.cardId, picked.printingId, true);
   }
 
   protected changeCard(): void {
@@ -348,6 +370,7 @@ export class WishlistItemDialogComponent {
     if (form.invalid) {
       form.markAllAsTouched();
       this.error.set('Check the highlighted fields.');
+      this.focusFirstProblem();
       return;
     }
     this.saving.set(true);
@@ -404,15 +427,71 @@ export class WishlistItemDialogComponent {
     const fieldErrors = error.fieldErrors ?? {};
     this.selectionError.set(fieldErrors['printingId'] ?? fieldErrors['rarity'] ?? null);
     const unmapped = applyServerErrors(form, error.fieldErrors);
-    this.error.set(
-      unmapped.length
-        ? `${friendlyError(error).message} (${unmapped.join('; ')})`
-        : friendlyError(error).message,
+    if (unmapped.length) {
+      this.error.set(`${friendlyError(error).message} (${unmapped.join('; ')})`);
+    } else if (Object.keys(fieldErrors).length) {
+      // Every problem sits next to its field: the generic "Validation failed" adds nothing.
+      this.error.set('Check the highlighted fields.');
+    } else {
+      this.error.set(friendlyError(error).message);
+    }
+    if (Object.keys(fieldErrors).length) {
+      this.focusFirstProblem();
+    }
+  }
+
+  /**
+   * After the next render: focus the first invalid field (the browser scrolls it into view), or
+   * scroll the first inline error (price term, which copy) into view.
+   */
+  private focusFirstProblem(): void {
+    afterNextRender(
+      {
+        write: () => {
+          const root = this.host.nativeElement;
+          const field = root.querySelector<HTMLElement>(
+            'textarea.ng-invalid, input.ng-invalid:not([type="checkbox"])',
+          );
+          if (field) {
+            field.focus();
+            return;
+          }
+          root
+            .querySelector<HTMLElement>('.wf__error, .wd__field-error')
+            ?.scrollIntoView({ block: 'nearest' });
+        },
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * After the next render: the chosen card's name takes the focus when it was picked in the
+   * autocomplete (which is gone now) or when the focus was lost while it loaded.
+   */
+  private focusCard(picked: boolean): void {
+    afterNextRender(
+      {
+        write: () => {
+          const heading = this.cardHeading()?.nativeElement;
+          const active = this.document.activeElement;
+          const container = this.host.nativeElement.closest('mat-dialog-container');
+          const lost =
+            !active ||
+            active === this.document.body ||
+            active === container ||
+            !(container ?? this.host.nativeElement).contains(active);
+          if (heading && (picked || lost)) {
+            heading.focus();
+          }
+        },
+      },
+      { injector: this.injector },
     );
   }
 
   /** Loads the card (from a printing id when only that is known) and prepares the form. */
-  private openCard(cardId: string | null, printingId: string | null): void {
+  private openCard(cardId: string | null, printingId: string | null, picked = false): void {
     this.cardSubscription?.unsubscribe();
     this.cardRequest = { cardId, printingId };
     this.loadingCard.set(true);
@@ -436,6 +515,7 @@ export class WishlistItemDialogComponent {
             const rarity = this.data.mode === 'create' ? (this.data.rarity ?? null) : null;
             this.setForm(newWishDefaults(known ? { printingId } : { printingId: null, rarity }));
           }
+          this.focusCard(picked);
         },
         error: (error: unknown) => {
           this.loadingCard.set(false);
