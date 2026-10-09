@@ -106,3 +106,30 @@ describe('legal language (the web rule)', () => {
     });
   });
 });
+
+describe('the in-app legal drafts follow the region model (ADR 0017)', () => {
+  /** Every string of one document: title, summary, definitions, headings and clauses. */
+  const texts = (doc: (typeof LEGAL_DOCUMENTS)[keyof typeof LEGAL_DOCUMENTS]): string[] => [
+    doc.title,
+    doc.summary,
+    ...doc.definitions.flatMap((item) => [item.term, item.definition]),
+    ...doc.sections.flatMap((section) => [section.heading, ...section.clauses]),
+  ];
+
+  it('never promise proximity, distances or people on the map, in English or French', () => {
+    const english =
+      /\bnear (me|you|them|us|their|your)\b|\bnearby\b|\d\s?km\b|approximate (area|zone|position)|trading area|\byou appear(ing)? on the map\b|stops you appearing on the map/i;
+    const french =
+      /près d’(eux|elles)|près de (vous|chez)|à proximité|\d\s?km\b|zone approximative|vous apparaissez sur la carte|vous retire de la carte/i;
+    for (const doc of Object.values(LEGAL_DOCUMENTS)) {
+      for (const text of texts(doc)) expect(text).not.toMatch(english);
+    }
+    for (const doc of Object.values(LEGAL_DOCUMENTS_FR)) {
+      for (const text of texts(doc)) expect(text).not.toMatch(french);
+    }
+    const nature = (docs: typeof LEGAL_DOCUMENTS) =>
+      docs.terms.sections.find((section) => section.id === 'nature-of-service')?.clauses[0];
+    expect(nature(LEGAL_DOCUMENTS)).toContain('find who in their region owns');
+    expect(nature(LEGAL_DOCUMENTS_FR)).toContain('trouver qui, dans leur région, possède');
+  });
+});

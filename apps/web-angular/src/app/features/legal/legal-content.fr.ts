@@ -95,7 +95,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'nature-of-service',
         heading: 'Ce qu’OrenjiTrade est et n’est pas',
         clauses: [
-          'OrenjiTrade est un lieu de découverte et de messagerie\u00a0: il aide les Collectionneurs à trouver qui, près d’eux, possède, échange, vend, recherche ou accepte des offres pour une carte, et leur permet de se parler. Les Collectionneurs traitent directement entre eux.',
+          'OrenjiTrade est un lieu de découverte et de messagerie\u00a0: il aide les Collectionneurs à trouver qui, dans leur région, possède, échange, vend, recherche ou accepte des offres pour une carte, et leur permet de se parler. Les Collectionneurs traitent directement entre eux.',
           'OrenjiTrade n’est partie à aucun échange, aucune vente ni aucune rencontre entre Collectionneurs, ne détient aucun titre de propriété sur les cartes et n’offre aucun service de gradation, d’authentification ou d’évaluation.',
           'Les Collectionneurs sont responsables de leurs propres échanges et rencontres\u00a0: ce dont ils conviennent, où et comment ils se rencontrent, comment ils paient et ce qu’ils remettent. Lisez la page «\u00a0Échanger en toute sécurité\u00a0» avant de rencontrer ou de payer un autre Collectionneur.',
           'Lorsque des fonctions de paiement sont activées, elles sont fournies par un fournisseur de services de paiement tiers selon la Politique de protection des paiements. OrenjiTrade n’exploite pas de service d’entiercement (escrow).',
@@ -115,7 +115,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Localisation et repérabilité',
         clauses: [
           'La repérabilité est désactivée par défaut et exige une Localisation. Lorsque vous l’activez, les autres Collectionneurs voient seulement votre province ou votre État et votre pays; votre ville n’apparaît que sur votre propre profil, et seulement si vous choisissez de l’afficher.',
-          'Vous pouvez modifier ou supprimer votre Localisation en tout temps dans Paramètres → Localisation. La supprimer vous retire de la carte et des recherches.',
+          'Vous pouvez modifier ou supprimer votre Localisation en tout temps dans Paramètres → Localisation. La supprimer désactive la repérabilité : vos Cartables publics quittent la carte et vous n’apparaissez plus dans les recherches.',
         ],
       },
       {
@@ -259,7 +259,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
     title: 'Règles de la communauté',
     shortTitle: 'Communauté',
     summary:
-      'Comment les Collectionneurs doivent se traiter entre eux sur la carte, dans le clavardage et dans les échanges.',
+      'Comment les Collectionneurs doivent se traiter entre eux dans la recherche, dans le clavardage et dans les échanges.',
     version: '0.1-draft',
     effectiveDate: null,
     lastUpdated: LAST_UPDATED,
@@ -631,7 +631,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Ce qu’OrenjiTrade montre à votre sujet',
         clauses: [
           'Les autres collectionneurs voient votre province ou votre État et votre pays, jamais votre position exacte ni votre adresse. Votre ville n’apparaît que sur votre propre profil, si vous choisissez de l’afficher. Aucune distance n’est jamais affichée.',
-          'La repérabilité est désactivée par défaut. Vous choisissez si vous apparaissez sur la carte, qui peut vous écrire et ce que vos cartables montrent, dans Paramètres → Confidentialité.',
+          'La repérabilité est désactivée par défaut. Vous choisissez si vos cartables publics apparaissent sur la carte et vous dans les recherches, qui peut vous écrire et ce que vos cartables montrent, dans Paramètres → Confidentialité.',
         ],
       },
       {
@@ -639,7 +639,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Signaler et bloquer',
         clauses: [
           'Signalez un collectionneur depuis son profil, depuis le menu de la conversation ou depuis une publication communautaire («\u00a0Signaler le collectionneur\u00a0»). Choisissez un motif; les modérateurs examinent chaque signalement, et le collectionneur signalé n’apprend jamais qui l’a signalé.',
-          'Bloquez un collectionneur depuis son profil ou depuis le menu de la conversation\u00a0: vous cessez de vous voir sur la carte, dans la recherche et dans la communauté, et aucun de vous deux ne peut écrire à l’autre. Gérez les blocages dans Paramètres → Utilisateurs bloqués.',
+          'Bloquez un collectionneur depuis son profil ou depuis le menu de la conversation\u00a0: vous cessez de voir les cartables, le profil et les publications l’un de l’autre sur la carte, dans la recherche et dans la communauté, et aucun de vous deux ne peut écrire à l’autre. Gérez les blocages dans Paramètres → Utilisateurs bloqués.',
           'Si vous êtes en danger, communiquez d’abord avec les services d’urgence de votre région (le 911 au Canada).',
         ],
       },

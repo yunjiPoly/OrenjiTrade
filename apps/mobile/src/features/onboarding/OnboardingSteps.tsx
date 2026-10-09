@@ -252,7 +252,7 @@ export function LocationStep({
       <LocationFields value={value} onChange={onChange} showErrors={showErrors} disabled={busy} />
       <SwitchRow
         label="Show me on the map"
-        help="When on, collectors of your region see your state or province and can find your public binders. Off by default; change it anytime in Settings → Location."
+        help="When on, collectors of your region see your state or province and can find your public binders. Off by default; change it anytime in Settings → Privacy."
         value={discoverable}
         onChange={onDiscoverableChange}
         disabled={busy}

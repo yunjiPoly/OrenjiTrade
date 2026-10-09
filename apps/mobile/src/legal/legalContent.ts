@@ -121,7 +121,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'nature-of-service',
         heading: 'What OrenjiTrade is and is not',
         clauses: [
-          'OrenjiTrade is a discovery and messaging venue: it helps Collectors find who near them owns, trades, sells, wants or accepts offers for a card, and lets them talk to each other. Collectors deal with each other directly.',
+          'OrenjiTrade is a discovery and messaging venue: it helps Collectors find who in their region owns, trades, sells, wants or accepts offers for a card, and lets them talk to each other. Collectors deal with each other directly.',
           'OrenjiTrade is not a party to any trade, sale or meeting between Collectors, does not hold title to cards, and does not provide grading, authentication or valuation services.',
           'Collectors are responsible for their own trades and meetings: what they agree on, where and how they meet, how they pay and what they hand over. Read the "Trading safely" page before you meet or pay another Collector.',
           'Where payment features are enabled, they are provided through a third-party payment provider under the Payment Protection Policy. OrenjiTrade does not operate an escrow service.',
@@ -141,7 +141,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Location and discoverability',
         clauses: [
           'Discoverability is off by default and requires a Location. When you enable it, other Collectors see your state or province and your country only; your city appears only on your own profile, and only if you choose to show it.',
-          'You can change or remove your Location at any time in Settings → Location. Removing it stops you appearing on the map and in searches.',
+          'You can change or remove your Location at any time in Settings → Location. Removing it turns discoverability off: your public Binders leave the map and you no longer appear in searches.',
         ],
       },
       {
@@ -285,7 +285,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     key: 'community-guidelines',
     title: 'Community Guidelines',
     shortTitle: 'Community',
-    summary: 'How Collectors are expected to treat each other on the map, in chat and in trades.',
+    summary: 'How Collectors are expected to treat each other in search, in chat and in trades.',
     version: '0.1-draft',
     effectiveDate: null,
     lastUpdated: LAST_UPDATED,
@@ -652,7 +652,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'What OrenjiTrade shows about you',
         clauses: [
           'Other collectors see your state or province and your country, never your exact position or your address. Your city appears only on your own profile, if you choose to show it. No distance is ever shown.',
-          'Discoverability is off by default. You choose whether to appear on the map, who can message you and what your binders show, in Settings → Privacy.',
+          'Discoverability is off by default. You choose whether your public binders appear on the map and you appear in searches, who can message you and what your binders show, in Settings → Privacy.',
         ],
       },
       {
@@ -660,7 +660,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Report and block',
         clauses: [
           'Report a collector from their profile, from the conversation menu or from a community post ("Report collector"). Choose a reason; moderators review every report, and the reported collector is never told who reported them.',
-          'Block a collector from their profile or from the conversation menu: you stop seeing each other on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
+          'Block a collector from their profile or from the conversation menu: you stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
           'If you are in danger, contact your local emergency services first (911 in Canada).',
         ],
       },

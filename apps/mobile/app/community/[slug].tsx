@@ -283,7 +283,7 @@ export default function CommunityChannelScreen() {
       <ConfirmDialog
         visible={!!blocking}
         title={`Block ${blocking?.author.displayName ?? 'this collector'}?`}
-        message="You will stop seeing each other on the map, in search and in the community, and neither of you can send messages. They are not told."
+        message="You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told."
         confirmLabel="Block"
         tone="danger"
         busy={block.isPending}
