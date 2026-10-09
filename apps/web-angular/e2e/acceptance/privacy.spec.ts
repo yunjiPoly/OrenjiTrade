@@ -1,3 +1,5 @@
+import type { Response } from '@playwright/test';
+
 import { WEB_URL, requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { expect, openState, stateBinder, test } from './support/fixtures';
@@ -103,29 +105,32 @@ test.describe('acceptance: privacy', () => {
 
     const answers: PlaceAnswer[] = [];
     const pageV = await actors.open(viewer);
-    pageV.on('response', (response) => {
-      if (/\/api\/v1\/(search\/card-holders|regions\/.+\/binders)/.test(response.url())) {
-        response
-          .json()
-          .then((body: { items?: ({ collector?: PlaceAnswer; owner?: PlaceAnswer } & object)[] }) =>
-            answers.push(
-              ...(body.items ?? []).map((entry) => entry.collector ?? entry.owner ?? {}),
-            ),
-          )
-          .catch(() => undefined);
-      }
-    });
+    // The answers of the state list and of the card holders, each read before the page moves on:
+    // Chromium drops the bodies of a document the page navigated away from, so a passive listener
+    // could miss them under the load of a full run.
+    const placeAnswer = (pattern: RegExp) =>
+      pageV.waitForResponse((response) => pattern.test(response.url()) && response.ok());
+    const collect = async (response: Promise<Response>) => {
+      const body = (await (await response).json()) as {
+        items?: ({ collector?: PlaceAnswer; owner?: PlaceAnswer } & object)[];
+      };
+      answers.push(...(body.items ?? []).map((entry) => entry.collector ?? entry.owner ?? {}));
+    };
 
     // The region map: the state's panel lists the seller's binder.
+    const stateAnswer = placeAnswer(/\/api\/v1\/regions\/.+\/binders/);
     const panel = await openState(pageV, place);
     await expect(stateBinder(panel, binder.name)).toBeVisible();
+    await collect(stateAnswer);
     expect(await privacy.scanDom(pageV)).toBeGreaterThan(100);
     // Card holders and unified search, profile, public binder.
     await pageV.goto(`/cards/${await api.cardId(viewer.idToken, card)}`);
+    const holdersAnswer = placeAnswer(/\/api\/v1\/search\/card-holders/);
     await pageV.getByRole('link', { name: 'Who has this in my region' }).click();
     await expect(
       pageV.getByRole('list', { name: 'Card holders in your region' }).getByRole('article').first(),
     ).toBeVisible();
+    await collect(holdersAnswer);
     await pageV.goto(`/search?q=${encodeURIComponent(seller.displayName)}&tab=collectors`);
     await expect(pageV.getByRole('main')).toContainText(seller.displayName);
     await pageV.goto(`/collectors/${seller.handle}`);
