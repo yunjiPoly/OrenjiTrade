@@ -169,6 +169,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V108 | `V108__self_declared_location.sql` | ADR 0017: `user_location` dropped (private centre, radius, public point, label, grid cell, GiST index) and recreated as country + subdivision + optional city + `show_city`; every collector becomes not discoverable; `privacy_settings.show_distance` dropped |
 | V109 | `V109__remove_distance_features.sql` | ADR 0017: `wishlist_item.radius_km` and `wishlist_match.distance_bucket` dropped (matches and match alerts deleted), the `map.radius.max_km` limit, entitlements and `map_radius_day` credit product deleted, plan copy updated, ad targeting by `REGION` / `COUNTRY` / `SUBDIVISION` (no `REGION_LABEL` / `GEO_CELL`), `ad_impression` / `ad_click` record `region_code` and `subdivision_code` instead of `geo_cell` |
 | V110 | `V110__platform_region_channels.sql` | ADR 0017: the city REGION channels are archived; one REGION channel per platform region (`americas-north`, `americas-south`, `europe`) |
+| V111 | `V111__region_model_comments.sql` | ADR 0017: database comments only (`rating_summary` no longer mentions the nearby ranking) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -1228,8 +1229,8 @@ Constraint `uq_rating_interaction_rater (interaction_id, rater_id)` (409 `ALREAD
 | `updated_at` | `timestamptz` | last recomputation |
 
 Recomputed by the ratings module (single upsert from `rating`) on every rating write, hide, unhide
-and deletion; read by `RatingSummaryProvider` (profiles, previews, markers, nearby ranking; one query
-per map page). Index `ix_rating_summary_average (average DESC NULLS LAST, count DESC)`.
+and deletion; read by `RatingSummaryProvider` (profiles, collector search results, offers; one query per
+page of results; no nearby ranking since ADR 0017, comment refreshed by V111). Index `ix_rating_summary_average (average DESC NULLS LAST, count DESC)`.
 
 #### `reference`
 
