@@ -266,8 +266,8 @@ recovers the zone or you restore into a new instance (RTO target 1 h, RPO 5 minu
 
 ## 12. Launch configuration (2026-10-05): money features off
 
-OrenjiTrade launches as **discovery + messaging only**: collectors find each other on the map and
-chat, then trade on their own. Every money feature stays switched off until the owner turns it on.
+OrenjiTrade launches as **discovery + messaging only**: collectors find each other's binders in
+their region (search and the region map's state lists) and chat, then trade on their own. Every money feature stays switched off until the owner turns it on.
 The switches are the `feature_flag` rows (ADR 0014): nothing is hard-coded, the launch state is
 data created by the migrations, and a `SUPER_ADMIN` changes it in `/admin > Feature flags`.
 

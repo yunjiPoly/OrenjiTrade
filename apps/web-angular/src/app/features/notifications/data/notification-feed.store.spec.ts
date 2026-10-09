@@ -23,7 +23,7 @@ function notification(
     id,
     type: Type.WishlistMatch,
     title: `Match ${id}`,
-    body: 'Listed nearby',
+    body: 'Listed in your region',
     data: {},
     createdAt,
     readAt,

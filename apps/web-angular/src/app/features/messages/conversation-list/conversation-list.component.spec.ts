@@ -61,6 +61,11 @@ describe('ConversationListComponent', () => {
     expect(element.querySelector('[aria-busy=true]')).not.toBeNull();
     await render({ status: 'ready' });
     expect(element.textContent).toContain('No conversations yet');
+    // ADR 0017: collectors are found through search and their profile, never on the map.
+    expect(element.textContent).toContain(
+      "Find a card or a binder in search, open the collector's profile and press Message",
+    );
+    expect(element.textContent).not.toMatch(/map|preview|near/i);
   });
 
   it('lists conversations with unread badges, online dots and own previews', async () => {

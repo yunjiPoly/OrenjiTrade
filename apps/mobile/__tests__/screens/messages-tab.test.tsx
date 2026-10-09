@@ -108,9 +108,15 @@ describe('Messages tab: inbox', () => {
       /Conversations could not load/
     );
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId('inbox-empty')).toHaveTextContent(/No conversations yet/);
-    fireEvent.press(screen.getByText('Open the map'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+    const empty = await screen.findByTestId('inbox-empty');
+    expect(empty).toHaveTextContent(/No conversations yet/);
+    // ADR 0017: collectors are found through search and their profile, never on the map.
+    expect(empty).toHaveTextContent(
+      /Find a card or a binder in search, open the collector's profile and press Message/
+    );
+    expect(empty).not.toHaveTextContent(/map|preview|near/i);
+    fireEvent.press(screen.getByText('Open search'));
+    expect(mockRouter.navigate).toHaveBeenCalledWith('/search');
   });
 
   it('stays live: a pushed message moves its conversation up with one more unread', async () => {

@@ -81,8 +81,9 @@ revenue: TCG-focused sponsored placements (clearly labelled, targeted by region,
 voluntary donations, and non-cash OriEnji credits with an immutable ledger.
 
 **Launch without payments (owner decision, 2026-10-05).** OrenjiTrade launches as *discovery +
-messaging only*: collectors find each other on the map and chat, then trade on their own. Every
-money feature is built and feature-flagged but **switched off at launch**: `protectedPayments`
+messaging only*: collectors find each other's binders in their region (search and the region
+map's state lists) and chat, then trade on their own. Every money feature is built and
+feature-flagged but **switched off at launch**: `protectedPayments`
 (payment protection, payouts, disputes), `premiumPlans` (Premium checkout and every upgrade
 prompt), `credits`, `donations`, `advertising`; `mlScanning` stays off by the Phase 11 hold and
 `publicChat` stays on. With the flags off no screen offers to pay, subscribe, buy credits or

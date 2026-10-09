@@ -58,7 +58,7 @@ import { listPreview } from '../data/message-text';
           <app-empty-state
             icon="forum"
             title="No conversations yet"
-            description="Open a collector's preview on the map or their profile and press Message to start trading."
+            description="Find a card or a binder in search, open the collector's profile and press Message to start trading."
           />
         } @else {
           <ul class="list" aria-label="Conversations">
