@@ -58,6 +58,7 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
     setDirty(true);
   };
   const setMaster = (key: MasterKey, value: boolean) => patch((s) => ({ ...s, [key]: value }));
+  const setWishlistAlerts = (value: boolean) => patch((s) => ({ ...s, wishlistAlerts: value }));
   const setCategory = (category: string, channel: Channel, value: boolean) =>
     patch((s) => {
       const current = s.categories[category] ?? { inApp: false, push: false, email: false };
@@ -102,6 +103,23 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
           Push notifications on this device arrive with a later release; your choice is already
           saved.
         </Text>
+      </SectionCard>
+
+      <SectionCard
+        title="Wishlist alerts"
+        description="When a collector of your region lists a card you want, we tell you in the app and by push."
+      >
+        <SwitchRow
+          label="Wishlist alerts"
+          help={
+            draft.wishlistAlerts
+              ? 'On: one alert per new listing that fits a wish.'
+              : 'Off: no wishlist alerts. Your wishlist stays as it is.'
+          }
+          value={draft.wishlistAlerts}
+          onChange={setWishlistAlerts}
+          testID="notif-wishlist-alerts"
+        />
       </SectionCard>
 
       <SectionCard title="What to notify me about" description="Choose per topic and channel.">

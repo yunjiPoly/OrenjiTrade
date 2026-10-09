@@ -2,105 +2,72 @@ import type { ApiError } from '@/src/api/ApiError';
 import { friendlyError } from '@/src/api/errorMessages';
 import type {
   CreateWishlistItemRequest,
-  TradePreference,
+  PrintingSummary,
   UpdateWishlistItemRequest,
   WishlistItemResponse,
 } from '@/src/api/types';
-import { DEFAULT_CURRENCY } from '@/src/lib/inventory';
 import { limitReachedInfo } from '@/src/lib/limits';
 
-import { isTradePreference } from './wishlistLabels';
+import { printingOptionLabel } from './wishlistLabels';
 
 /**
- * Bounds mirrored from the API (`WishlistService`): notes and price (web: `wishlist-form.ts`). A
- * wish matches listings of the collector's own region (ADR 0017): there is no radius.
+ * The wish form (stage S2, web: `wishlist-form.ts`): which copy (any printing, any printing of one
+ * rarity, or one printing), a public note (first field, plain text, at most {@link WISH_NOTE_MAX}
+ * characters), "Near Mint only" and at most one price term of the admin list. Nothing else: no
+ * price, currency, trade preference, distance, private note, language or condition.
  */
-export const WISH_NOTES_MAX = 500;
-export const WISH_MAX_PRICE = 9_999_999_999.99;
+export const WISH_NOTE_MAX = 280;
 /** The plan limit on the number of wishes. */
 export const WISH_ITEMS_LIMIT_KEY = 'wishlist.items.max';
-/** Select value meaning "no filter" (any printing, any condition, ...). */
-export const ANY = '';
 
 export interface WishFormValue {
-  /** Wished printing; `ANY` = every printing of the card. */
+  /** Wished printing; `''` = any printing. */
   printingId: string;
-  conditionMin: string;
-  edition: string;
-  language: string;
+  /** Rarity of an "any printing" wish; `''` = any rarity. */
   rarity: string;
-  /** As typed (decimal text); empty = no maximum. */
-  maxPrice: string;
-  currency: string;
-  tradePreference: TradePreference;
-  notes: string;
-  active: boolean;
+  note: string;
+  nearMintOnly: boolean;
+  /** A price term label ("85% TCG"); `''` = none. */
+  priceTerm: string;
 }
 
 export type WishField = keyof WishFormValue;
 export type WishFormErrors = Partial<Record<WishField, string>>;
 
-/** Defaults of a new wish: the given printing (or any), no filter. */
-export function newWishDefaults(printingId: string | null): WishFormValue {
+/** Defaults of a new wish: the given selection (any printing by default), no note or term. */
+export function newWishDefaults(
+  selection: { printingId?: string | null; rarity?: string | null } = {}
+): WishFormValue {
   return {
-    printingId: printingId ?? ANY,
-    conditionMin: ANY,
-    edition: ANY,
-    language: ANY,
-    rarity: ANY,
-    maxPrice: '',
-    currency: DEFAULT_CURRENCY,
-    tradePreference: 'ANY',
-    notes: '',
-    active: true,
+    printingId: selection.printingId ?? '',
+    rarity: selection.printingId ? '' : (selection.rarity ?? ''),
+    note: '',
+    nearMintOnly: false,
+    priceTerm: '',
   };
 }
 
 /** The form value of an existing wish. */
 export function wishFormFromItem(item: WishlistItemResponse): WishFormValue {
   return {
-    printingId: item.printing?.id ?? ANY,
-    conditionMin: item.conditionMin ?? ANY,
-    edition: item.edition ?? ANY,
-    language: item.language ?? ANY,
-    rarity: item.rarity ?? ANY,
-    maxPrice: item.maxPrice === null || item.maxPrice === undefined ? '' : String(item.maxPrice),
-    currency: item.currency || DEFAULT_CURRENCY,
-    tradePreference: isTradePreference(item.tradePreference) ? item.tradePreference : 'ANY',
-    notes: item.notes ?? '',
-    active: item.active,
+    printingId: item.printing?.id ?? '',
+    rarity: item.printing ? '' : (item.rarity ?? ''),
+    note: item.note ?? '',
+    nearMintOnly: !!item.nearMintOnly,
+    priceTerm: item.priceTerm?.label ?? '',
   };
 }
 
-/** The typed maximum price as a number; `null` when empty, `NaN` when not a number. */
-export function parsePrice(text: string): number | null {
-  const trimmed = text.trim().replace(',', '.');
-  if (!trimmed) {
-    return null;
-  }
-  return /^\d+(\.\d+)?$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+/** Characters of a note as the API counts them (code points). */
+export function noteLength(note: string): number {
+  return [...note.trim()].length;
 }
 
 /** Inline validation, mirroring the API's rules. */
 export function validateWish(value: WishFormValue): WishFormErrors {
   const errors: WishFormErrors = {};
-  const price = parsePrice(value.maxPrice);
-  if (price !== null) {
-    if (Number.isNaN(price)) {
-      errors.maxPrice = value.maxPrice.trim().startsWith('-')
-        ? 'The price cannot be negative.'
-        : 'Enter a valid price.';
-    } else if (price > WISH_MAX_PRICE) {
-      errors.maxPrice = 'Enter a valid price.';
-    } else if (Math.abs(price * 100 - Math.round(price * 100)) > 1e-6) {
-      errors.maxPrice = 'Use at most two decimals.';
-    }
-  }
-  if (!/^[A-Z]{3}$/.test(value.currency)) {
-    errors.currency = 'Use a three-letter currency code, like CAD.';
-  }
-  if (value.notes.length > WISH_NOTES_MAX) {
-    errors.notes = `Notes are limited to ${WISH_NOTES_MAX} characters.`;
+  if (noteLength(value.note) > WISH_NOTE_MAX) {
+    errors.note = `The note is limited to ${WISH_NOTE_MAX} characters.`;
   }
   return errors;
 }
@@ -109,23 +76,78 @@ export function hasWishErrors(errors: WishFormErrors): boolean {
   return Object.values(errors).some(Boolean);
 }
 
-function orNull(value: string): string | null {
-  return value.trim() ? value.trim() : null;
+// --- Which copy (the simple printing chooser) ----------------------------------------------------
+
+const RARITY_PREFIX = 'rarity:';
+
+/** One choice of the "Which copy" select. */
+export interface CopyOption {
+  value: string;
+  label: string;
+  detail?: string;
 }
 
 /**
- * `POST /wishlist` body. The card is sent with "any printing", the printing otherwise (its card
- * is derived by the API). Rarity only filters "any printing" wishes (a printing has one).
+ * The "Which copy" choices: "Any printing", "Any printing · <rarity>" for each rarity of the card
+ * (when it has several), then every printing (code · rarity · set · edition · language).
+ */
+export function copyOptions(printings: readonly PrintingSummary[]): CopyOption[] {
+  const rarities: string[] = [];
+  for (const printing of printings) {
+    if (printing.rarity && !rarities.includes(printing.rarity)) {
+      rarities.push(printing.rarity);
+    }
+  }
+  return [
+    { value: '', label: 'Any printing', detail: 'Every printing of the card' },
+    ...(rarities.length > 1
+      ? rarities.map((rarity) => ({
+          value: `${RARITY_PREFIX}${rarity}`,
+          label: `Any printing · ${rarity}`,
+          detail: 'Any printing of this rarity',
+        }))
+      : []),
+    ...printings
+      .filter((printing): printing is PrintingSummary & { id: string } => !!printing.id)
+      .map((printing) => ({ value: printing.id, label: printingOptionLabel(printing) })),
+  ];
+}
+
+/** The select value of a form value. */
+export function copyValue(value: Pick<WishFormValue, 'printingId' | 'rarity'>): string {
+  if (value.printingId) {
+    return value.printingId;
+  }
+  return value.rarity ? `${RARITY_PREFIX}${value.rarity}` : '';
+}
+
+/** The form value after choosing a copy. */
+export function withCopy(value: WishFormValue, choice: string): WishFormValue {
+  if (!choice) {
+    return { ...value, printingId: '', rarity: '' };
+  }
+  if (choice.startsWith(RARITY_PREFIX)) {
+    return { ...value, printingId: '', rarity: choice.slice(RARITY_PREFIX.length) };
+  }
+  return { ...value, printingId: choice, rarity: '' };
+}
+
+// --- Requests ------------------------------------------------------------------------------------
+
+function orNull(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * `POST /wishlist` body: the card for "any printing" (with its rarity, if one), the printing
+ * otherwise (the API derives its card).
  */
 export function toCreateWishRequest(
   value: WishFormValue,
   cardId: string
 ): CreateWishlistItemRequest {
-  const request: CreateWishlistItemRequest = {
-    currency: value.currency,
-    tradePreference: value.tradePreference,
-    active: value.active,
-  };
+  const request: CreateWishlistItemRequest = { nearMintOnly: value.nearMintOnly };
   if (value.printingId) {
     request.printingId = value.printingId;
   } else {
@@ -135,62 +157,40 @@ export function toCreateWishRequest(
       request.rarity = rarity;
     }
   }
-  const conditionMin = orNull(value.conditionMin);
-  if (conditionMin) {
-    request.conditionMin = conditionMin;
+  const note = orNull(value.note);
+  if (note) {
+    request.note = note;
   }
-  const edition = orNull(value.edition);
-  if (edition) {
-    request.edition = edition;
-  }
-  const language = orNull(value.language);
-  if (language) {
-    request.language = language;
-  }
-  const notes = orNull(value.notes);
-  if (notes) {
-    request.notes = notes;
-  }
-  const price = parsePrice(value.maxPrice);
-  if (price !== null && !Number.isNaN(price)) {
-    request.maxPrice = price;
+  const term = orNull(value.priceTerm);
+  if (term) {
+    request.priceTerm = term;
   }
   return request;
 }
 
-/** `PATCH /wishlist/{id}` body: every field, with `null` clearing a filter. */
+/** `PATCH /wishlist/{id}` body: every field, `null` clearing a choice. */
 export function toUpdateWishRequest(value: WishFormValue): UpdateWishlistItemRequest {
-  const price = parsePrice(value.maxPrice);
   return {
     printingId: orNull(value.printingId),
     rarity: value.printingId ? null : orNull(value.rarity),
-    conditionMin: orNull(value.conditionMin),
-    edition: orNull(value.edition),
-    language: orNull(value.language),
-    maxPrice: price === null || Number.isNaN(price) ? null : price,
-    currency: value.currency,
-    tradePreference: value.tradePreference,
-    notes: orNull(value.notes),
-    active: value.active,
+    note: orNull(value.note),
+    nearMintOnly: value.nearMintOnly,
+    priceTerm: orNull(value.priceTerm),
   };
 }
 
 const SERVER_FIELDS: readonly WishField[] = [
   'printingId',
   'rarity',
-  'conditionMin',
-  'edition',
-  'language',
-  'maxPrice',
-  'currency',
-  'tradePreference',
-  'notes',
+  'note',
+  'nearMintOnly',
+  'priceTerm',
 ];
 
 /**
  * What a refused save shows (web: `WishlistItemDialogComponent.showError`): a full wishlist (429
- * `LIMIT_REACHED`), an identical wish (409), else the API's field errors on their fields and a
- * summary.
+ * `LIMIT_REACHED`), the same selection twice (409), else the API's field errors on their fields
+ * and a summary.
  */
 export function wishSaveError(error: ApiError): { message: string; fields: WishFormErrors } {
   if (error.errorCode === 'LIMIT_REACHED') {
@@ -209,7 +209,8 @@ export function wishSaveError(error: ApiError): { message: string; fields: WishF
   if (error.errorCode === 'CONFLICT') {
     return {
       fields: {},
-      message: error.message || 'This card is already on your wishlist with the same filters.',
+      message:
+        error.message || 'This card is already on your wishlist with the same printing or rarity.',
     };
   }
   const fields: WishFormErrors = {};

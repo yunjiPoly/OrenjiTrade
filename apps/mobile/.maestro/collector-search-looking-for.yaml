@@ -78,7 +78,7 @@ tags:
       ID: 'collector-wish-${output.card.id}'
 - assertVisible:
     id: 'collector-wish-${output.card.id}'
-    text: '.*Lightly Played or better.*'
+    text: '.*Near Mint only.*'
 - assertNotVisible: '.*30.*CAD.*'
 - takeScreenshot: collector-looking-for
 - tapOn:

@@ -4,8 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useCard } from '@/src/api/hooks/catalog';
-import { useGames } from '@/src/api/hooks/profile';
-import { useCreateWish, useUpdateWish } from '@/src/api/hooks/wishlist';
+import { useCreateWish, usePriceTerms, useUpdateWish } from '@/src/api/hooks/wishlist';
 import type { CardSuggestion, WishlistItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
@@ -18,7 +17,7 @@ import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { WishCriteriaFields } from './WishCriteriaFields';
+import { WishFields } from './WishFields';
 import {
   hasWishErrors,
   newWishDefaults,
@@ -33,16 +32,21 @@ import {
 import { addedMessage } from './wishlistLabels';
 
 export type WishEditorProps =
-  | { mode: 'create'; cardId?: string | null; printingId?: string | null }
+  | {
+      mode: 'create';
+      cardId?: string | null;
+      printingId?: string | null;
+      rarity?: string | null;
+    }
   | { mode: 'edit'; item: WishlistItemResponse };
 
 /**
- * Add a wish (optionally for a known card or printing, e.g. from a card page) or edit one (the
- * web's wishlist dialog): card autocomplete → criteria (printing or any, condition minimum,
- * edition, language, rarity from the game's schema, maximum price and currency, trade
- * preference, notes, alerts; it matches listings of the collector's own region, ADR 0017). Saves
- * with `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish (409) and plan limits (429)
- * are explained in place.
+ * Add a wish (optionally for a known card, printing or rarity, e.g. from a card page) or edit one
+ * (the web's wishlist dialog, stage S2): card autocomplete → public note, "Near Mint only", one
+ * optional price term (`GET /wishlist/price-terms`) and which copy (any printing, any printing of
+ * one rarity, or one printing). Wishlist alerts come from collectors of the same region (ADR
+ * 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409)
+ * and plan limits (429) are explained in place.
  */
 export function WishEditor(props: WishEditorProps) {
   const { palette } = useTheme();
@@ -56,6 +60,9 @@ export function WishEditor(props: WishEditorProps) {
   const [wantedPrinting, setWantedPrinting] = useState<string | null>(
     props.mode === 'create' ? (props.printingId ?? null) : null
   );
+  const [wantedRarity, setWantedRarity] = useState<string | null>(
+    props.mode === 'create' ? (props.rarity ?? null) : null
+  );
   const [form, setForm] = useState<WishFormValue | null>(
     editItem ? wishFormFromItem(editItem) : null
   );
@@ -64,18 +71,21 @@ export function WishEditor(props: WishEditorProps) {
   // A plan limit refused the save: offer Premium.
   const [limited, setLimited] = useState(false);
   const card = useCard(cardId);
-  const games = useGames();
+  const terms = usePriceTerms();
   const create = useCreateWish();
   const update = useUpdateWish();
   const saving = create.isPending || update.isPending;
   const printings = card.data?.printings ?? [];
-  const schema = games.data?.find((game) => game.slug === card.data?.game)?.schema ?? null;
 
-  // A new wish starts once the card is known (with the asked printing when it is one of it).
+  // A new wish starts once the card is known (with the asked printing or rarity when the card
+  // has it; else any printing).
   const cardData = card.data;
   if (!form && cardData && !editing) {
     const known = (cardData.printings ?? []).some((printing) => printing.id === wantedPrinting);
-    setForm(newWishDefaults(known ? wantedPrinting : null));
+    const rarity = (cardData.printings ?? []).some((printing) => printing.rarity === wantedRarity)
+      ? wantedRarity
+      : null;
+    setForm(newWishDefaults(known ? { printingId: wantedPrinting } : { rarity }));
   }
 
   const pick = (suggestion: CardSuggestion) => {
@@ -87,11 +97,13 @@ export function WishEditor(props: WishEditorProps) {
     setMessage(null);
     setCardId(suggestion.id);
     setWantedPrinting(suggestion.kind === 'PRINTING' ? (suggestion.printingId ?? null) : null);
+    setWantedRarity(null);
   };
 
   const changeCard = () => {
     setCardId(null);
     setWantedPrinting(null);
+    setWantedRarity(null);
     setForm(null);
     setErrors({});
     setMessage(null);
@@ -197,15 +209,16 @@ export function WishEditor(props: WishEditorProps) {
         </View>
       </View>
 
-      <WishCriteriaFields
+      <WishFields
         value={form}
         onChange={(next) => {
           setForm(next);
           setMessage(null);
         }}
         errors={errors}
-        schema={schema}
         printings={printings}
+        terms={terms.data ?? []}
+        termsError={!!terms.error}
         disabled={saving}
       />
 

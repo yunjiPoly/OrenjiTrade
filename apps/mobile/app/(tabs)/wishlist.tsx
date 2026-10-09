@@ -4,65 +4,59 @@ import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-na
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
+import { useMyLocation, usePrivacySettings, useSavePrivacy } from '@/src/api/hooks/location';
 import { useMyPlan } from '@/src/api/hooks/plan';
-import { useMyLocation } from '@/src/api/hooks/location';
-import { useDeleteWish, useSetWishActive, useWishlist } from '@/src/api/hooks/wishlist';
+import { useDeleteWish, useWishlist } from '@/src/api/hooks/wishlist';
 import type { WishlistItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Screen } from '@/src/components/ui/Screen';
-import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { WishCard } from '@/src/features/wishlist/WishCard';
 import {
-  MatchReadinessNotice,
+  AlertReadinessNotice,
   WishlistSummary,
-  filterWishes,
-  matchReadiness,
+  WishlistVisibilityRow,
+  alertReadiness,
   wishUsage,
-  type WishFilter,
 } from '@/src/features/wishlist/WishlistNotices';
 import { spacing } from '@/src/theme';
 
 /**
- * Wishlist tab (the web's `/wishlist`): the collector's wishes (card art, printing or "any
- * printing", criteria chips, match count, alerts switch, edit and remove), the plan usage, why
- * matches cannot arrive yet (no location), filters (all, with matches,
- * paused) and "Add a card". Match counts stay live over realtime; each wish opens its matches.
+ * Wishlist tab (stage S2, the web's `/wishlist`): a clean list of the collector's wishes (card
+ * art, which copy, public note, "Near Mint only" and price term chips, edit, remove), the plan
+ * usage, the "Let others see what you want" switch (privacy setting `wishlistVisible`) and, without
+ * a location, a prompt to set country and state so wishlist alerts can arrive. No matches: a
+ * wishlist alert opens the card page.
  */
 export default function WishlistScreen() {
   const router = useRouter();
   const snackbar = useSnackbar();
   const wishlist = useWishlist();
   const location = useMyLocation();
+  const privacy = usePrivacySettings();
+  const savePrivacy = useSavePrivacy();
   const plan = useMyPlan();
-  const setActive = useSetWishActive();
   const remove = useDeleteWish();
-  const [filter, setFilter] = useState<WishFilter>('all');
   const [removing, setRemoving] = useState<WishlistItemResponse | null>(null);
   const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
-  const visible = useMemo(() => filterWishes(items, filter), [items, filter]);
-  const counts = useMemo(
-    () => ({
-      all: items.length,
-      matches: items.filter((item) => item.matchCount > 0).length,
-      paused: items.filter((item) => !item.active).length,
-    }),
-    [items]
-  );
-  const totalMatches = items.reduce((sum, item) => sum + (item.active ? item.matchCount : 0), 0);
-  const busyId = setActive.isPending ? setActive.variables?.item.id : null;
 
   const add = () => router.push('/wishlist/new');
 
-  const toggle = async (item: WishlistItemResponse, active: boolean) => {
-    const name = item.card?.name ?? 'this wish';
+  const setVisible = async (visible: boolean) => {
+    if (!privacy.data) {
+      return;
+    }
     try {
-      await setActive.mutateAsync({ item, active });
-      snackbar.show(active ? `Alerts on for ${name}.` : `Alerts paused for ${name}.`);
+      await savePrivacy.mutateAsync({ ...privacy.data, wishlistVisible: visible });
+      snackbar.show(
+        visible
+          ? 'Others can now see what you want on your profile.'
+          : 'Your wishlist is hidden from others.'
+      );
     } catch (error) {
       snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
     }
@@ -83,6 +77,19 @@ export default function WishlistScreen() {
     }
   };
 
+  const header = (
+    <View style={styles.header}>
+      <AlertReadinessNotice readiness={alertReadiness(location.data)} />
+      {privacy.data ? (
+        <WishlistVisibilityRow
+          visible={!!privacy.data.wishlistVisible}
+          onChange={(visible) => void setVisible(visible)}
+          disabled={savePrivacy.isPending}
+        />
+      ) : null}
+    </View>
+  );
+
   let content;
   if (!wishlist.data) {
     content = wishlist.error ? (
@@ -94,13 +101,13 @@ export default function WishlistScreen() {
       />
     ) : (
       <View style={styles.padded} accessibilityLabel="Loading your wishlist" aria-busy>
-        <SkeletonList rows={3} rowHeight={190} testID="wishlist-loading" />
+        <SkeletonList rows={3} rowHeight={170} testID="wishlist-loading" />
       </View>
     );
   } else if (items.length === 0) {
     content = (
       <ScrollView contentContainerStyle={[styles.padded, styles.grow]}>
-        <MatchReadinessNotice readiness={matchReadiness(location.data)} />
+        {header}
         <EmptyState
           testID="wishlist-empty"
           icon="heart-outline"
@@ -122,7 +129,7 @@ export default function WishlistScreen() {
       <FlatList
         testID="wishlist-list"
         accessibilityLabel="Your wishlist"
-        data={visible}
+        data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, styles.grow]}
         refreshControl={
@@ -131,59 +138,26 @@ export default function WishlistScreen() {
             onRefresh={() => {
               void wishlist.refetch();
               void location.refetch();
+              void privacy.refetch();
               void plan.refetch();
             }}
           />
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <MatchReadinessNotice readiness={matchReadiness(location.data)} />
-            <WishlistSummary
-              count={counts.all}
-              matched={counts.matches}
-              totalMatches={totalMatches}
-              usage={wishUsage(plan.data)}
-            />
+            {header}
+            <WishlistSummary count={items.length} usage={wishUsage(plan.data)} />
             <Button label="Add a card" icon="plus" onPress={add} testID="wishlist-add" />
-            <Segmented
-              label="Show wishes"
-              options={[
-                { value: 'all', label: `All (${counts.all})` },
-                { value: 'matches', label: `Matches (${counts.matches})` },
-                { value: 'paused', label: `Paused (${counts.paused})` },
-              ]}
-              value={filter}
-              onChange={setFilter}
-              testID="wishlist-filter"
-            />
           </View>
         }
         renderItem={({ item }) => (
           <WishCard
             item={item}
-            busy={busyId === item.id || (remove.isPending && removing?.id === item.id)}
-            onOpenMatches={() =>
-              router.push({ pathname: '/wishlist/[id]', params: { id: item.id } })
-            }
+            busy={remove.isPending && removing?.id === item.id}
             onEdit={() => router.push({ pathname: '/wishlist/edit', params: { id: item.id } })}
             onRemove={() => setRemoving(item)}
-            onActiveChange={(active) => void toggle(item, active)}
           />
         )}
-        ListEmptyComponent={
-          <EmptyState
-            testID="wishlist-filter-empty"
-            icon={filter === 'paused' ? 'bell-sleep-outline' : 'map-search-outline'}
-            title={filter === 'paused' ? 'No paused wishes' : 'No matches in your region yet'}
-            description={
-              filter === 'paused'
-                ? 'Every wish has its alerts on.'
-                : 'When a collector of your region lists a card you want, it shows up here.'
-            }
-            actionLabel="Show all wishes"
-            onAction={() => setFilter('all')}
-          />
-        }
       />
     );
   }
@@ -194,7 +168,7 @@ export default function WishlistScreen() {
       <ConfirmDialog
         visible={!!removing}
         title={`Remove ${removing?.card?.name ?? 'this card'}?`}
-        message="The wish and its matches are removed. You can add the card again later."
+        message="The wish is removed. You can add the card again later."
         confirmLabel="Remove"
         tone="danger"
         busy={remove.isPending}

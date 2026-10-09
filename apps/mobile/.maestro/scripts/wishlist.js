@@ -1,17 +1,17 @@
 // Maestro runScript (runs on the host): the two collectors of the wishlist flow, through the
 // local Firebase Auth emulator and the isolated mobile E2E API (:8090). Both are fresh, fictional
-// `@mobile-e2e.test` accounts of this run, both in Montevideo (Americas (South), ADR 0017: the
-// matcher pairs a platform region; no other flow or spec uses that region, so listings of other
-// flows never match).
+// `@mobile-e2e.test` accounts of this run, both in Montevideo (Americas (South), ADR 0017: wishlist
+// alerts stay in a platform region; no other flow or spec uses that region, so listings of other
+// flows never alert).
 //
 // ACTION=setup creates Wren (the app user: a location, discoverable) and Hal (in the same region,
 //   discoverable, with a public binder).
 //   Outputs: output.wren.{email, password, displayName}, output.hal.{email, password,
 //            displayName, binderId}
-// ACTION=list lists one public copy of PFT-002 (Emberfang Fox) in Hal's binder (EMAIL /
-//   PASSWORD = Hal's, BINDER): the matcher then notifies Wren.
-// ACTION=expect-wish checks, as Wren, that the wishlist holds one Emberfang Fox wish (with no
-//   radius: wishes match the collector's region).
+// ACTION=list lists one public Near Mint copy of PFT-002 (Emberfang Fox) in Hal's binder (EMAIL /
+//   PASSWORD = Hal's, BINDER): Wren then gets a wishlist alert.
+// ACTION=expect-wish checks, as Wren, that the wishlist holds one Emberfang Fox wish with the
+//   stage S2 fields (public note, Near Mint only, "85% TCG") and none of the removed ones.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
 // BINDER.
@@ -212,8 +212,30 @@ if (action === 'setup') {
   if (wishes.length !== 1 || !wishes[0].card || wishes[0].card.name !== 'Emberfang Fox') {
     throw new Error('Expected one Emberfang Fox wish, got ' + wishes.length + '.');
   }
-  if ('radiusKm' in wishes[0]) {
-    throw new Error('A wish still carries a radius: wishes match the region (ADR 0017).');
+  var wished = wishes[0];
+  if (
+    wished.note !== 'Fictional Maestro wish.' ||
+    wished.nearMintOnly !== true ||
+    !wished.priceTerm ||
+    wished.priceTerm.label !== '85% TCG'
+  ) {
+    throw new Error(
+      'The wish lacks its note, Near Mint only or price term: ' + JSON.stringify(wished)
+    );
+  }
+  var removed = [
+    'radiusKm',
+    'maxPrice',
+    'currency',
+    'tradePreference',
+    'notes',
+    'active',
+    'matchCount',
+  ];
+  for (var r = 0; r < removed.length; r++) {
+    if (removed[r] in wished) {
+      throw new Error('A wish still carries ' + removed[r] + ' (removed in stage S2).');
+    }
   }
 } else {
   throw new Error('Unknown ACTION ' + action);

@@ -2,42 +2,25 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { MyLocationResponse, MyPlan, WishlistItemResponse } from '@/src/api/types';
+import type { MyLocationResponse, MyPlan } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
-import type { IconName } from '@/src/components/ui/EmptyState';
+import { SwitchRow } from '@/src/components/ui/FormControls';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { WISH_ITEMS_LIMIT_KEY } from './wishForm';
 
 /**
- * Whether the collector can get matches: the matcher pairs wishes with listings of collectors in
- * the same platform region (ADR 0017), so the collector needs a location. `unknown` until
- * `GET /me/location` answers (web: `matchReadiness`).
+ * Whether wishlist alerts can reach the collector: alerts go to collectors of the lister's
+ * platform region (ADR 0017), so the collector needs a country and a state or province. `unknown`
+ * until `GET /me/location` answers (web: `WishlistStore.readiness`).
  */
-export type MatchReadiness = 'unknown' | 'ready' | 'no-location';
+export type AlertReadiness = 'unknown' | 'ready' | 'no-location';
 
-export function matchReadiness(location: MyLocationResponse | null | undefined): MatchReadiness {
+export function alertReadiness(location: MyLocationResponse | null | undefined): AlertReadiness {
   if (!location) {
     return 'unknown';
   }
   return location.location ? 'ready' : 'no-location';
-}
-
-export type WishFilter = 'all' | 'matches' | 'paused';
-
-/** Wishes shown by a filter: all, those with matches in the region, or the paused ones. */
-export function filterWishes(
-  items: readonly WishlistItemResponse[],
-  filter: WishFilter
-): WishlistItemResponse[] {
-  switch (filter) {
-    case 'matches':
-      return items.filter((item) => item.matchCount > 0);
-    case 'paused':
-      return items.filter((item) => !item.active);
-    default:
-      return [...items];
-  }
 }
 
 /** The plan's `wishlist.items.max` for the usage line (`limit: null` = unlimited). */
@@ -54,93 +37,82 @@ export function wishUsage(plan: MyPlan | undefined): WishUsage | null {
     : null;
 }
 
-const HINTS: Partial<
-  Record<
-    MatchReadiness,
-    { icon: IconName; title: string; text: string; action: string; link: string }
-  >
-> = {
-  'no-location': {
-    icon: 'map-marker-off-outline',
-    title: 'Choose your location to get matches',
-    text: 'Matches are listings of collectors in your region. Pick your country and state or province once and new listings of your region will reach you.',
-    action: 'Choose my location',
-    link: '/settings/location',
-  },
-};
-
-/** Why no match can arrive yet (no location), with the fix. */
-export function MatchReadinessNotice({ readiness }: { readiness: MatchReadiness }) {
+/** Without a location no wishlist alert can arrive: says so, with the fix. */
+export function AlertReadinessNotice({ readiness }: { readiness: AlertReadiness }) {
   const { palette } = useTheme();
   const router = useRouter();
-  const hint = HINTS[readiness];
-  if (!hint) {
+  if (readiness !== 'no-location') {
     return null;
   }
   return (
     <View
-      testID="match-readiness"
+      testID="wishlist-location-prompt"
       accessibilityRole="summary"
       style={[styles.notice, { borderColor: palette.warning, backgroundColor: palette.surface }]}
     >
       <View style={styles.row}>
-        <MaterialCommunityIcons name={hint.icon} size={22} color={palette.warning} />
+        <MaterialCommunityIcons name="map-marker-off-outline" size={22} color={palette.warning} />
         <Text style={[textStyle('md'), styles.strong, styles.grow, { color: palette.ink }]}>
-          {hint.title}
+          Set your country and state to get wishlist alerts
         </Text>
       </View>
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{hint.text}</Text>
+      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+        Alerts come from collectors of your region. Choose your country and state or province once
+        and new listings of the cards you want will reach you.
+      </Text>
       <Button
-        label={hint.action}
+        label="Choose my location"
         variant="secondary"
-        onPress={() => router.push(hint.link as '/settings/location')}
-        testID="match-readiness-action"
+        onPress={() => router.push('/settings/location')}
+        testID="wishlist-location-action"
       />
     </View>
   );
 }
 
-/** The wishlist at a glance: wishes, wishes with matches, matches in total, plan usage. */
-export function WishlistSummary({
-  count,
-  matched,
-  totalMatches,
-  usage,
+/** "Let others see what you want": the `wishlistVisible` privacy setting, explained. */
+export function WishlistVisibilityRow({
+  visible,
+  onChange,
+  disabled,
 }: {
-  count: number;
-  matched: number;
-  totalMatches: number;
-  usage: WishUsage | null;
+  visible: boolean;
+  onChange: (visible: boolean) => void;
+  disabled?: boolean;
 }) {
   const { palette } = useTheme();
-  const stats = [
-    { label: 'Wishes', value: count, testID: 'wishlist-count' },
-    { label: 'With matches', value: matched, testID: 'wishlist-matched' },
-    { label: 'Matches', value: totalMatches, testID: 'wishlist-total-matches' },
-  ];
+  return (
+    <View
+      testID="wishlist-visibility"
+      style={[styles.summary, { backgroundColor: palette.surface, borderColor: palette.border }]}
+    >
+      <SwitchRow
+        label="Let others see what you want"
+        help="Collectors who own these cards can find you on your profile and offer them. Your wishlist alerts work either way."
+        value={visible}
+        onChange={onChange}
+        disabled={disabled}
+        testID="wishlist-visible"
+      />
+    </View>
+  );
+}
+
+/** The wishlist at a glance: the number of wishes and the plan usage. */
+export function WishlistSummary({ count, usage }: { count: number; usage: WishUsage | null }) {
+  const { palette } = useTheme();
   return (
     <View
       testID="wishlist-summary"
-      accessibilityLabel="Wishlist summary"
+      accessibilityLabel={`Wishlist summary: ${count} ${count === 1 ? 'wish' : 'wishes'}`}
       style={[styles.summary, { backgroundColor: palette.surface, borderColor: palette.border }]}
     >
-      <View style={styles.stats}>
-        {stats.map((stat) => (
-          <View
-            key={stat.label}
-            style={styles.stat}
-            accessibilityLabel={`${stat.label}: ${stat.value}`}
-          >
-            <Text
-              testID={stat.testID}
-              style={[textStyle('xl', 'heading'), styles.strong, { color: palette.ink }]}
-            >
-              {stat.value}
-            </Text>
-            <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{stat.label}</Text>
-          </View>
-        ))}
-      </View>
+      <Text
+        testID="wishlist-count"
+        style={[textStyle('md'), styles.strong, { color: palette.ink }]}
+      >
+        {count} {count === 1 ? 'wish' : 'wishes'}
+      </Text>
       {usage ? (
         <Text testID="wishlist-usage" style={[textStyle('xs'), { color: palette.textMuted }]}>
           {usage.limit !== null
@@ -159,6 +131,4 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   strong: { fontWeight: fontWeight.semibold },
   summary: { gap: spacing[2], padding: spacing[3], borderRadius: radius.lg, borderWidth: 1 },
-  stats: { flexDirection: 'row', justifyContent: 'space-around' },
-  stat: { alignItems: 'center', gap: 2 },
 });

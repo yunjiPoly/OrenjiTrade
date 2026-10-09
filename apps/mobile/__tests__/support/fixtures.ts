@@ -25,8 +25,7 @@ import type {
   ReplyPage,
   ReplyResponse,
   WishlistItemResponse,
-  WishlistMatchPage,
-  WishlistMatchResponse,
+  WishPriceTerm,
   CardDetail,
   CollectorMarker,
   CollectorRatingsPage,
@@ -320,9 +319,10 @@ export function notificationsFixture(
     pushEnabled: true,
     emailEnabled: true,
     inAppEnabled: true,
+    wishlistAlerts: true,
     categories: {
       MESSAGE: { inApp: true, push: true, email: false },
-      WISHLIST_MATCH: { inApp: true, push: false, email: true },
+      OFFER: { inApp: true, push: false, email: true },
     },
     quietHours: { enabled: false, start: '22:00', end: '08:00', timezone: 'America/Toronto' },
     ...overrides,
@@ -389,7 +389,12 @@ export function printingFixture(overrides: Partial<PrintingSummary> = {}): Print
     language: 'en',
     finish: 'HOLO',
     images: [{ kind: 'FRONT', url: '/api/v1/public/card-images/pa', width: 320, height: 446 }],
-    marketPrice: { amount: 38, currency: 'CAD', updatedAt: '2026-09-30T00:00:00Z' },
+    marketPrice: {
+      amount: 38,
+      currency: 'CAD',
+      updatedAt: '2026-09-30T00:00:00Z',
+      source: 'SAMPLE',
+    },
     ...overrides,
   };
 }
@@ -883,7 +888,7 @@ export function replyPage(items: ReplyResponse[] = []): ReplyPage {
   return { items, nextCursor: null, hasMore: false };
 }
 
-// --- Wishlist + notifications (Phase 6, fictional) ----------------------------------------------
+// --- Wishlist (stage S2) + notifications (Phase 6, fictional) -----------------------------------
 
 export const WISH_ID = '00000000-0000-4000-9a00-000000000001';
 
@@ -894,38 +899,26 @@ export function wishFixture(overrides: Partial<WishlistItemResponse> = {}): Wish
     card: { id: CARD_ID, name: 'Azure-Eyes Sky Dragon', imageUrl: null },
     printing: undefined,
     rarity: null,
-    conditionMin: 'LIGHTLY_PLAYED',
-    edition: null,
-    language: null,
-    maxPrice: 25,
-    currency: 'CAD',
-    tradePreference: 'ANY',
-    notes: 'For my deck.',
-    active: true,
-    matchCount: 0,
-    lastMatchedAt: null,
+    note: 'For my deck.',
+    nearMintOnly: true,
+    priceTerm: { label: '85% TCG', percent: 85, orMore: false },
     createdAt: '2026-10-04T12:00:00Z',
     updatedAt: '2026-10-04T12:00:00Z',
     ...overrides,
   };
 }
 
-export function matchFixture(
-  overrides: Partial<WishlistMatchResponse> = {}
-): WishlistMatchResponse {
+/** The admin price terms of V112 (`GET /wishlist/price-terms`). */
+export function priceTermsFixture(): { terms: WishPriceTerm[] } {
   return {
-    id: '00000000-0000-4000-9a10-000000000001',
-    wishlistItemId: WISH_ID,
-    item: publicItemFixture(),
-    collector: markerFixture(),
-    matchedAt: '2026-10-05T09:00:00Z',
-    dismissed: false,
-    ...overrides,
+    terms: [
+      { label: '80% TCG', percent: 80, orMore: false },
+      { label: '85% TCG', percent: 85, orMore: false },
+      { label: '90% TCG', percent: 90, orMore: false },
+      { label: '100% TCG', percent: 100, orMore: false },
+      { label: '100% TCG+', percent: 100, orMore: true },
+    ],
   };
-}
-
-export function matchPage(items: WishlistMatchResponse[] = [matchFixture()]): WishlistMatchPage {
-  return { items, nextCursor: null, hasMore: false };
 }
 
 export function notificationFixture(
@@ -933,10 +926,10 @@ export function notificationFixture(
 ): NotificationResponse {
   return {
     id: '00000000-0000-4000-9b00-000000000001',
-    type: 'WISHLIST_MATCH',
-    title: 'Wishlist match: Azure-Eyes Sky Dragon',
-    body: 'Azure-Eyes Sky Dragon was listed by @collector2 in Ontario, Canada for 45.00 CAD.',
-    data: { wishlistItemId: WISH_ID, deepLink: `/wishlist/${WISH_ID}` },
+    type: 'WISHLIST_ALERT',
+    title: 'Wishlist alert: Azure-Eyes Sky Dragon',
+    body: 'Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector2 in Ontario, Canada.',
+    data: { wishlistItemId: WISH_ID, cardId: CARD_ID, deepLink: `/cards/${CARD_ID}` },
     createdAt: new Date().toISOString(),
     readAt: null,
     ...overrides,
@@ -1219,7 +1212,10 @@ export function wishlistEntryFixture(
   return {
     card: { id: CARD_ID, name: 'Azure-Eyes Sky Dragon', imageUrl: null },
     printing: undefined,
-    conditionMin: 'LIGHTLY_PLAYED',
+    rarity: null,
+    note: 'Sleeved copies welcome.',
+    nearMintOnly: true,
+    priceTerm: undefined,
     ...overrides,
   };
 }

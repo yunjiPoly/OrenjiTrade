@@ -15,13 +15,13 @@ import {
 } from './support/stack';
 
 /**
- * Mobile Phase 6 (wishlist, matching, notifications) against the real, isolated stack with two
- * fresh fictional collectors of Americas (South) (no other mobile spec uses that region, so
- * listings of parallel specs never match, ADR 0017: the matcher pairs a platform region): Wren
- * adds "Emberfang Fox" to her wishlist through the app; Hal lists the card publicly through the
- * API. The matcher notifies Wren over the realtime channel: the bell's badge and the wish's match
- * count rise without a reload; the notification opens the wish's matches (Hal's state, never a
- * distance or a position), and Message opens a conversation with Hal.
+ * Mobile wishlist and wishlist alerts (stage S2 of the 2026-10-08 product change) against the
+ * real, isolated stack with two fresh fictional collectors of Americas (South) (no other mobile
+ * spec uses that region, so listings of parallel specs never alert, ADR 0017): Wren adds "Emberfang
+ * Fox" through the app (public note, Near Mint only, a price term, one printing chosen in "Which
+ * copy"; nothing else); Hal lists the card publicly through the API. Wren gets one wishlist alert
+ * over the realtime channel (the bell's badge rises without a reload); the alert names Hal's state
+ * (never a city, a distance or a position) and opens the card page.
  */
 
 const WISHED_CARD = 'Emberfang Fox';
@@ -34,7 +34,7 @@ function suffix(): string {
 test.describe('mobile wishlist and notifications', () => {
   requireStack();
 
-  test('a wish, a listing in the region: live notification, deep link to the matches, message', async ({
+  test('a wish with the new fields, a listing in the region: one live alert that opens the card', async ({
     page,
     request,
   }) => {
@@ -56,77 +56,96 @@ test.describe('mobile wishlist and notifications', () => {
     await expect(wishlist.getByTestId('wishlist-empty')).toContainText('Your wishlist is empty', {
       timeout: 30_000,
     });
-    // With a location: matches can arrive, no hint.
-    await expect(wishlist.getByTestId('match-readiness')).toHaveCount(0);
+    // With a location: alerts can arrive, no prompt. The visibility switch is explained.
+    await expect(wishlist.getByTestId('wishlist-location-prompt')).toHaveCount(0);
+    await expect(wishlist.getByTestId('wishlist-visible')).toContainText(
+      'Let others see what you want'
+    );
     await wishlist.getByRole('button', { name: 'Add a card' }).click();
 
-    // The wish: card autocomplete, then the criteria.
+    // The wish: card autocomplete, then the note, Near Mint only, a term and one printing.
     const editor = screen(page, 'wish-new');
     await editor.getByLabel('Card name or printing code').fill('Emberfang');
     await editor.getByTestId(`suggestion-CARD-${WISHED_PRINTING}`).click();
     await expect(editor.getByTestId('wish-card')).toContainText(WISHED_CARD, { timeout: 30_000 });
-    await expect(editor.getByTestId('wish-printing')).toContainText('Any printing');
-    await editor.getByTestId('wish-condition').click();
-    await page.getByTestId('wish-condition-option-LIGHTLY_PLAYED').click();
-    await editor.getByLabel('Maximum price').fill('25');
-    // No radius: a wish matches listings of the collector's region (ADR 0017).
-    await expect(editor.getByTestId('wish-radius')).toHaveCount(0);
-    await editor.getByLabel('Private notes').fill('Fictional mobile E2E wish.');
+    await expect(editor.getByTestId('wish-copy')).toContainText('Any printing');
+    // Nothing of the old form.
+    for (const removed of [
+      'wish-max-price',
+      'wish-trade',
+      'wish-notes',
+      'wish-active',
+      'wish-radius',
+    ]) {
+      await expect(editor.getByTestId(removed)).toHaveCount(0);
+    }
+    await editor.getByLabel('Public note (optional)').fill('Fictional mobile E2E wish.');
+    await editor.getByTestId('wish-near-mint').click();
+    await editor.getByTestId('wish-copy').click();
+    await page.getByTestId(`wish-copy-option-${printingId}`).click();
+    await expect(editor.getByTestId('wish-term-85')).toContainText(/85% TCG ≈ 0\.\d\d CAD/);
+    await editor.getByTestId('wish-term-85').click();
     await editor.getByRole('button', { name: 'Add to wishlist' }).click();
     await expect(snackbar(page)).toContainText(`${WISHED_CARD} is on your wishlist`);
 
     const wishes = await request.get(`${API_URL}/api/v1/wishlist`, {
       headers: { Authorization: `Bearer ${wren.idToken}` },
     });
-    const wish = ((await wishes.json()) as { id: string; maxPrice: number }[])[0];
-    expect(wish).not.toHaveProperty('radiusKm');
-    expect(wish?.maxPrice).toBe(25);
-    const card = wishlist.getByTestId(`wish-${wish!.id}`);
-    await expect(card).toBeVisible();
-    await expect(wishlist.getByTestId(`wish-criteria-${wish!.id}`)).toContainText(
-      'Lightly Played or better'
+    const wish = ((await wishes.json()) as Record<string, unknown>[])[0] as {
+      id: string;
+      note: string;
+      nearMintOnly: boolean;
+      priceTerm: { label: string };
+      printing: { id: string };
+    };
+    expect(wish).toMatchObject({
+      note: 'Fictional mobile E2E wish.',
+      nearMintOnly: true,
+      priceTerm: { label: '85% TCG' },
+      printing: { id: printingId },
+    });
+    for (const removed of [
+      'maxPrice',
+      'tradePreference',
+      'notes',
+      'active',
+      'matchCount',
+      'radiusKm',
+    ]) {
+      expect(wish).not.toHaveProperty(removed);
+    }
+    await expect(wishlist.getByTestId(`wish-${wish.id}`)).toBeVisible();
+    await expect(wishlist.getByTestId(`wish-copy-${wish.id}`)).toContainText(
+      `${WISHED_PRINTING} · Common`
     );
-    await expect(wishlist.getByTestId(`wish-criteria-${wish!.id}`)).not.toContainText(/km/);
-    await expect(wishlist.getByTestId(`wish-match-count-${wish!.id}`)).toHaveText('No matches yet');
+    await expect(wishlist.getByTestId(`wish-note-${wish.id}`)).toContainText(
+      'Fictional mobile E2E wish.'
+    );
+    await expect(wishlist.getByTestId(`wish-chips-${wish.id}`)).toContainText('Near Mint only');
+    await expect(wishlist.getByTestId(`wish-chips-${wish.id}`)).toContainText('85% TCG');
+    await expect(wishlist.getByText(/match/i)).toHaveCount(0);
     const bell = page.getByTestId('notification-bell-wishlist');
     await expect(bell).toHaveAttribute('aria-label', 'Notifications');
 
-    // Hal lists the card in the region: the matcher notifies Wren live.
+    // Hal lists the card (Near Mint) in the region: one alert reaches Wren live.
     await apiListCopy(request, hal, binderId, printingId, 12);
     await expect(page.getByTestId('notification-bell-wishlist-badge')).toHaveText('1', {
       timeout: 60_000,
     });
-    await expect(wishlist.getByTestId(`wish-match-count-${wish!.id}`)).toHaveText('1 match', {
-      timeout: 30_000,
-    });
 
-    // The notification centre, then the deep link to the matches.
+    // The notification centre, then the card page.
     await bell.click();
     const centre = screen(page, 'notifications');
-    const entry = centre.getByRole('link', { name: new RegExp(`Wishlist match: ${WISHED_CARD}`) });
+    const entry = centre.getByRole('link', { name: new RegExp(`Wishlist alert: ${WISHED_CARD}`) });
     await expect(entry).toBeVisible({ timeout: 30_000 });
+    await expect(entry).toContainText(
+      `was just listed by @${hal.handle} in ${PLACE_LABELS.montevideo}.`
+    );
+    await expect(entry).not.toContainText('Zqhalcity');
+    await expect(entry).not.toContainText(/\bkm\b/);
     await expect(centre.getByTestId('notification-unread-dot')).toHaveCount(1);
     await entry.click();
-    const matches = screen(page, 'wish-matches');
-    await expect(matches.getByTestId('wish-matches-head')).toContainText(
-      `Matches for ${WISHED_CARD}`,
-      { timeout: 30_000 }
-    );
-    await expect(matches.getByText(hal.displayName)).toBeVisible();
-    await expect(matches.getByTestId('match-place')).toHaveText(PLACE_LABELS.montevideo);
-    await expect(matches.getByText('Zqhalcity')).toHaveCount(0);
-    await expect(matches.getByText(/\bkm\b/)).toHaveCount(0);
-    await expect(matches.getByTestId('match-price')).toHaveText(/12\.00/);
-    for (const src of await matches
-      .locator('img')
-      .evaluateAll((images) => images.map((image) => (image as HTMLImageElement).src))) {
-      expect(src.startsWith(`${API_URL}/api/v1/public/`), src).toBe(true);
-    }
-
-    // Message Hal from the match.
-    await matches.getByRole('button', { name: 'Message' }).click();
-    const thread = screen(page, 'conversation');
-    await expect(thread.getByTestId('conversation-profile')).toContainText(hal.displayName, {
+    await expect(screen(page, 'card').getByTestId('card-name')).toHaveText(WISHED_CARD, {
       timeout: 30_000,
     });
   });

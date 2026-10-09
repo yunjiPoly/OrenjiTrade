@@ -250,7 +250,7 @@ describe('Settings → Privacy', () => {
       })
     );
     renderWithProviders(<PrivacySettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    const wishlist = await screen.findByRole('switch', { name: 'Show my wishlist on my profile' });
+    const wishlist = await screen.findByRole('switch', { name: 'Let others see what you want' });
     expect(wishlist).toBeChecked();
     fireEvent.press(wishlist);
     await waitFor(() =>

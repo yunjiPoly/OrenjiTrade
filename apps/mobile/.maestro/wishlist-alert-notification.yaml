@@ -1,11 +1,12 @@
-# Wishlist + notifications (mobile Phase 6, ADR 0017): Wren (fresh, fictional, discoverable, in
-# Montevideo: Americas (South), a region no other flow uses) adds Emberfang Fox to her wishlist
-# through the app; Hal, in the same region, lists it publicly (host script scripts/wishlist.js).
-# The matcher pairs the region: it notifies Wren over the realtime channel, the bell's badge and
-# the wish's match count rise without a reload; the notification opens the wish's matches (Hal's
-# state, never a distance or a position), and Message opens a conversation with Hal.
+# Wishlist + wishlist alerts (stage S2 of the 2026-10-08 product change, ADR 0017): Wren (fresh,
+# fictional, discoverable, in Montevideo: Americas (South), a region no other flow uses) adds
+# Emberfang Fox to her wishlist through the app with a public note, "Near Mint only" and a price
+# term (no price, trade preference, private note or alert switch any more); Hal, in the same
+# region, lists a Near Mint copy publicly (host script scripts/wishlist.js). Wren gets one wishlist
+# alert over the realtime channel: the bell's badge rises without a reload; the alert names Hal's
+# state (never a city, a distance or a position) and opens the card page.
 appId: host.exp.exponent
-name: Wishlist match, notification and deep link
+name: Wishlist alert, notification and card page
 tags:
   - mobile-m4
   - wishlist
@@ -31,10 +32,14 @@ tags:
     visible:
       id: 'wishlist-empty'
     timeout: 60000
+- assertVisible:
+    id: 'wishlist-visible'
+- assertNotVisible:
+    id: 'wishlist-location-prompt'
 - tapOn:
     id: 'wishlist-empty-action'
 
-# The wish: card autocomplete, then save (no radius: the wish matches the region).
+# The wish: card autocomplete, then the public note, Near Mint only and a price term.
 - extendedWaitUntil:
     visible:
       id: 'card-picker-input'
@@ -55,6 +60,20 @@ tags:
     timeout: 60000
 - assertNotVisible:
     id: 'wish-radius'
+- assertNotVisible:
+    id: 'wish-max-price'
+- tapOn:
+    id: 'wish-note'
+- inputText: 'Fictional Maestro wish.'
+- hideKeyboard
+- tapOn:
+    id: 'wish-near-mint'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'wish-term-85'
+- tapOn:
+    id: 'wish-term-85'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -65,7 +84,8 @@ tags:
     visible:
       id: 'wishlist-summary'
     timeout: 60000
-- assertVisible: '.*No matches yet.*'
+- assertVisible: '.*Near Mint only.*'
+- assertNotVisible: '.*[Mm]atch.*'
 - runScript:
     file: scripts/wishlist.js
     env:
@@ -74,7 +94,7 @@ tags:
       PASSWORD: ${output.wren.password}
 - takeScreenshot: wishlist-wish
 
-# Hal lists the card in the region: the bell and the match count follow live.
+# Hal lists a Near Mint copy in the region: one alert, live.
 - runScript:
     file: scripts/wishlist.js
     env:
@@ -86,12 +106,9 @@ tags:
     visible:
       id: 'notification-bell-wishlist-badge'
     timeout: 90000
-- extendedWaitUntil:
-    visible: '.*1 match.*'
-    timeout: 60000
-- takeScreenshot: wishlist-match-live
+- takeScreenshot: wishlist-alert-live
 
-# The notification centre, then the deep link to the matches.
+# The notification centre, then the card page.
 - tapOn:
     id: 'notification-bell-wishlist'
 - extendedWaitUntil:
@@ -99,27 +116,16 @@ tags:
       id: 'screen-notifications'
     timeout: 60000
 - extendedWaitUntil:
-    visible: '.*Wishlist match: Emberfang Fox.*'
+    visible: '.*Wishlist alert: Emberfang Fox.*'
     timeout: 60000
+- assertVisible: '.*was just listed by @.* in Montevideo, Uruguay.*'
+- assertNotVisible: '.*km away.*'
 - takeScreenshot: notifications-centre
 # The title itself (a pattern would also match the row's "Mark as read: …" button).
-- tapOn: 'Wishlist match: Emberfang Fox'
+- tapOn: 'Wishlist alert: Emberfang Fox'
 - extendedWaitUntil:
     visible:
-      id: 'wish-matches-head'
+      id: 'card-name'
+      text: 'Emberfang Fox'
     timeout: 60000
-- assertVisible: 'Hal Maestro'
-# Hal's state, never a distance.
-- assertVisible:
-    id: 'match-place'
-    text: 'Montevideo, Uruguay'
-- assertNotVisible: '.*km away.*'
-- takeScreenshot: wishlist-matches
-
-# Message Hal from the match.
-- tapOn: 'Message'
-- extendedWaitUntil:
-    visible:
-      id: 'conversation-profile'
-    timeout: 60000
-- assertVisible: '.*Hal Maestro.*'
+- takeScreenshot: wishlist-alert-card

@@ -32,14 +32,20 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
  * orenjitrade://cards/<id>.
  */
 export default function CardScreen() {
-  const { id, printing } = useLocalSearchParams<{ id: string; printing?: string }>();
+  const { id, printing, rarity } = useLocalSearchParams<{
+    id: string;
+    printing?: string;
+    rarity?: string;
+  }>();
   const card = useCard(id);
   const notFound =
     !!card.error && (card.error.status === 404 || card.error.errorCode === 'VALIDATION_FAILED');
 
   let content;
   if (card.data) {
-    content = <CardContent card={card.data} printingId={printing ?? null} />;
+    content = (
+      <CardContent card={card.data} printingId={printing ?? null} rarity={rarity ?? null} />
+    );
   } else if (notFound) {
     content = <CardNotFound />;
   } else if (card.error) {
@@ -92,7 +98,16 @@ function CardSkeleton() {
   );
 }
 
-function CardContent({ card, printingId }: { card: CardDetail; printingId: string | null }) {
+function CardContent({
+  card,
+  printingId,
+  rarity,
+}: {
+  card: CardDetail;
+  printingId: string | null;
+  /** `?rarity=` of a wishlist alert: "Add to wishlist" starts on any printing of it. */
+  rarity: string | null;
+}) {
   const { palette } = useTheme();
   const router = useRouter();
   const games = useGames();
@@ -190,8 +205,13 @@ function CardContent({ card, printingId }: { card: CardDetail; printingId: strin
           onPress={() =>
             router.push({
               pathname: '/wishlist/new',
-              // The printing picked in the link (`?printing=`), else any printing (like the web).
-              params: { cardId: card.id ?? '', printingId: printingId ?? '' },
+              // The printing picked in the link (`?printing=`), else any printing (of the
+              // `?rarity=` of a wishlist alert), like the web.
+              params: {
+                cardId: card.id ?? '',
+                printingId: printingId ?? '',
+                rarity: printingId ? '' : (rarity ?? ''),
+              },
             })
           }
           testID="card-add-to-wishlist"

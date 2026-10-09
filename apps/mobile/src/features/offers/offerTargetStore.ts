@@ -4,8 +4,8 @@ import type { OfferTarget } from './offerTarget';
 
 /**
  * The cards "Make an offer" was pressed on, by item id, for the offer screen (`/offers/new?item=`):
- * no endpoint reads one public item, so the entry point (a binder, a profile, the map, a wishlist
- * match) hands over what it already shows. Not persisted: a reloaded web page or a cold start
+ * no endpoint reads one public item, so the entry point (a binder, a profile, the card holders)
+ * hands over what it already shows. Not persisted: a reloaded web page or a cold start
  * explains that the offer has to be started again from the card.
  */
 export interface OfferTargetStore {
