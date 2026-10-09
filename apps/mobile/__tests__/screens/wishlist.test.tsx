@@ -149,11 +149,14 @@ describe('Wishlist tab', () => {
     fireEvent.press(screen.getByTestId(`wish-remove-${WISH_ID}`));
     const dialog = await screen.findByTestId('wish-remove-dialog');
     expect(dialog).toHaveTextContent(/Remove Azure-Eyes Sky Dragon\?/);
+    expect(dialog).toHaveTextContent(
+      /The wish for SVX-001 · Ultra Rare · Stellar Vortex · Holo is removed\./
+    );
     fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
     await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).not.toBeOnTheScreen());
     expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1);
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      'Azure-Eyes Sky Dragon removed from your wishlist.'
+      'Azure-Eyes Sky Dragon (SVX-001 · Ultra Rare · Stellar Vortex · Holo) removed from your wishlist.'
     );
   });
 

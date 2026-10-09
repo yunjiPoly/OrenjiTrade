@@ -23,6 +23,7 @@ import {
   alertReadiness,
   wishUsage,
 } from '@/src/features/wishlist/WishlistNotices';
+import { whichCopyLabel } from '@/src/features/wishlist/wishlistLabels';
 import { spacing } from '@/src/theme';
 
 /**
@@ -67,9 +68,10 @@ export default function WishlistScreen() {
       return;
     }
     const name = removing.card?.name ?? 'this card';
+    const copy = whichCopyLabel(removing.printing, removing.rarity);
     try {
       await remove.mutateAsync({ id: removing.id });
-      snackbar.show(`${name} removed from your wishlist.`);
+      snackbar.show(`${name} (${copy}) removed from your wishlist.`);
     } catch (error) {
       snackbar.show(friendlyMessage(error as ApiError), { tone: 'error', duration: 6000 });
     } finally {
@@ -168,7 +170,7 @@ export default function WishlistScreen() {
       <ConfirmDialog
         visible={!!removing}
         title={`Remove ${removing?.card?.name ?? 'this card'}?`}
-        message="The wish is removed. You can add the card again later."
+        message={`The wish for ${removing ? whichCopyLabel(removing.printing, removing.rarity) : 'this card'} is removed. You can add the card again later.`}
         confirmLabel="Remove"
         tone="danger"
         busy={remove.isPending}

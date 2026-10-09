@@ -61,7 +61,8 @@ export function wishChips(
 
 /**
  * Which copy: "Any printing", "Any printing · Quarter Century Secret Rare", or
- * "AZR-EN001 · Ultra Rare · Azure Dawn".
+ * "AZR-EN001 · Ultra Rare · Azure Dawn" (plus an edition other than Unlimited and a finish other
+ * than Normal: two printings of one code can differ only by them).
  */
 export function whichCopyLabel(
   printing: PrintingSummary | null | undefined,
@@ -71,10 +72,21 @@ export function whichCopyLabel(
     return rarity ? `Any printing · ${rarity}` : 'Any printing';
   }
   return (
-    [printingCode(printing), printing.rarity, printing.setName, specialFinish(printing.finish)]
+    [
+      printingCode(printing),
+      printing.rarity,
+      printing.setName,
+      specialEdition(printing.edition),
+      specialFinish(printing.finish),
+    ]
       .filter(Boolean)
       .join(' · ') || 'One printing'
   );
+}
+
+/** The edition of a printing when it is not the usual Unlimited one ("1st Edition"), else `null`. */
+export function specialEdition(edition: string | null | undefined): string | null {
+  return edition && edition !== 'UNLIMITED' ? editionLabel(edition) : null;
 }
 
 /** The finish of a printing when it is not the normal one ("Reverse holo"), else `null`. */

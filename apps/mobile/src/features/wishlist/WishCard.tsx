@@ -29,6 +29,8 @@ export function WishCard({ item, busy, onEdit, onRemove }: WishCardProps) {
   const image = item.printing?.images?.[0]?.url ?? item.card?.imageUrl ?? null;
   const params = wishCardParams(item);
   const chips = wishChips(item);
+  // Named with which copy in the buttons: two wishes can name the same card.
+  const copy = whichCopyLabel(item.printing, item.rarity);
 
   return (
     <View
@@ -54,7 +56,7 @@ export function WishCard({ item, busy, onEdit, onRemove }: WishCardProps) {
             testID={`wish-copy-${item.id}`}
             style={[textStyle('sm'), { color: palette.textMuted }]}
           >
-            {whichCopyLabel(item.printing, item.rarity)}
+            {copy}
           </Text>
         </View>
       </View>
@@ -88,7 +90,7 @@ export function WishCard({ item, busy, onEdit, onRemove }: WishCardProps) {
           variant="secondary"
           onPress={onEdit}
           disabled={busy}
-          accessibilityLabel={`Edit the wish for ${name}`}
+          accessibilityLabel={`Edit the wish for ${name} (${copy})`}
           testID={`wish-edit-${item.id}`}
         />
         <Button
@@ -97,7 +99,7 @@ export function WishCard({ item, busy, onEdit, onRemove }: WishCardProps) {
           variant="ghost"
           onPress={onRemove}
           disabled={busy}
-          accessibilityLabel={`Remove ${name} from your wishlist`}
+          accessibilityLabel={`Remove ${name} (${copy}) from your wishlist`}
           testID={`wish-remove-${item.id}`}
         />
       </View>

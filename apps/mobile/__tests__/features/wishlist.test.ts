@@ -227,9 +227,13 @@ describe('wishlist labels', () => {
         })
       )
     ).toBe('AZR-EN001 · Ultra Rare · Azure Dawn');
-    // Two printings of a set often differ only by their finish: a special one is named.
+    // Two printings of a set often differ only by their edition or finish: a special one is
+    // named (Unlimited and Normal, the usual ones, are not).
     expect(whichCopyLabel(printingFixture({ finish: 'REVERSE_HOLO' }))).toBe(
       'SVX-001 · Ultra Rare · Stellar Vortex · Reverse holo'
+    );
+    expect(whichCopyLabel(printingFixture({ edition: 'FIRST_EDITION', finish: 'NORMAL' }))).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · 1st Edition'
     );
     expect(printingOptionLabel(printingFixture())).toBe(
       'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo'
