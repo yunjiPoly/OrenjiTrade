@@ -667,11 +667,11 @@ function macJavaHome() {
 }
 
 /**
- * Where the Java runtime of the API jar is looked for, in priority order: the two override
- * variables (ORENJI_JAVA_HOME, JAVA_HOME), `java` on PATH, on macOS an installed JDK 21 that
- * `/usr/libexec/java_home` knows, then the JDKs Gradle provisioned under ~/.gradle/jdks.
- * `fromDotEnv(name)` tells whether a variable came from the repository `.env`, so the log can say
- * where a value is set.
+ * Where the Java runtime of the API jar is looked for, in priority order: ORENJI_JAVA_HOME (the
+ * override), JAVA_HOME, `java` on PATH, on macOS an installed JDK 21 that `/usr/libexec/java_home`
+ * knows, then the JDKs Gradle provisioned under ~/.gradle/jdks. The two variables carry their name
+ * in `variable`. `fromDotEnv(name)` tells whether a variable came from the repository `.env`, so
+ * the log can say where a value is set.
  */
 export function javaCandidates(
   env = process.env,
@@ -682,7 +682,12 @@ export function javaCandidates(
   for (const name of ['ORENJI_JAVA_HOME', 'JAVA_HOME']) {
     if (env[name]) {
       const source = fromDotEnv(name) ? `${name} in .env` : name;
-      candidates.push({ javaBin: path.join(env[name], 'bin', exe), source, override: true });
+      candidates.push({
+        javaBin: path.join(env[name], 'bin', exe),
+        source,
+        variable: name,
+        override: name === 'ORENJI_JAVA_HOME',
+      });
     }
   }
   candidates.push({ javaBin: 'java', source: '`java` on PATH', override: false });
@@ -700,12 +705,17 @@ export function javaCandidates(
 }
 
 /**
- * Picks the Java runtime of the API jar among `candidates` (see javaCandidates). An override
- * variable that points at a usable Java (>= 21) wins, as before. Otherwise an exact Java 21 is
- * preferred wherever it is found, so the jar runs on what CI and production run; a newer Java is
- * only the last resort. `probe(javaBin)` returns the major version (0 when it cannot run) and is
- * called lazily, once per binary. Returns `{ javaBin, source, override, major, exact, ignored }`
- * (`ignored`: the override candidates that were set but unusable), or null when nothing fits.
+ * Picks the Java runtime of the API jar among `candidates` (see javaCandidates), in their order:
+ * 1. ORENJI_JAVA_HOME when it points at a usable Java (>= 21): the explicit override, even when
+ *    that Java is newer.
+ * 2. Otherwise an exact Java 21 wherever it is found (JAVA_HOME first), so the jar runs on what CI
+ *    and production run. A JAVA_HOME that holds a newer Java does not win over it: it is a
+ *    machine-wide setting, and Gradle does not follow it for the build either (daemon JVM criteria).
+ * 3. A newer Java only as the last resort (JAVA_HOME first again).
+ * `probe(javaBin)` returns the major version (0 when it cannot run) and is called lazily, once per
+ * binary. Returns `{ javaBin, source, variable, override, major, exact, ignored, passedOver }`, or
+ * null when nothing fits. `ignored`: the variables that were looked at but are unusable.
+ * `passedOver`: the variables that hold a newer Java while an exact Java 21 was taken.
  */
 export function selectJava(candidates, probe, wanted = API_JAVA_MAJOR) {
   const majors = new Map();
@@ -722,14 +732,20 @@ export function selectJava(candidates, probe, wanted = API_JAVA_MAJOR) {
   if (!chosen) {
     return null;
   }
-  const ignored = candidates
-    .filter((candidate) => candidate.override && majorOf(candidate) < wanted)
-    .map((candidate) => ({ ...candidate, major: majorOf(candidate) }));
   const major = majorOf(chosen);
-  return { ...chosen, major, exact: major === wanted, ignored };
+  const exact = major === wanted;
+  const withMajor = (candidate) => ({ ...candidate, major: majorOf(candidate) });
+  // Only what the search looked at: nothing behind a winning override is probed.
+  const lookedAt = candidates.filter((candidate) => candidate.variable && majors.has(candidate.javaBin));
+  const ignored = lookedAt.filter((candidate) => majorOf(candidate) < wanted).map(withMajor);
+  const passedOver =
+    exact && !chosen.override
+      ? lookedAt.filter((candidate) => candidate !== chosen && majorOf(candidate) > wanted).map(withMajor)
+      : [];
+  return { ...chosen, major, exact, ignored, passedOver };
 }
 
-/** The log lines a Java choice deserves: ignored override variables, and a runtime newer than 21. */
+/** The log lines a Java choice deserves: ignored variables, and a runtime newer than 21. */
 export function javaChoiceWarnings(choice, wanted = API_JAVA_MAJOR) {
   const warnings = choice.ignored.map(
     (candidate) =>
@@ -737,17 +753,24 @@ export function javaChoiceWarnings(choice, wanted = API_JAVA_MAJOR) {
       `${candidate.major > 0 ? `Java ${candidate.major}` : 'not a working Java'}; ignoring it (the API jar needs Java ${wanted}+).`,
   );
   if (!choice.exact) {
-    let remedy = `No Java ${wanted} was found: install a JDK ${wanted} or set ORENJI_JAVA_HOME to one to test on the same Java.`;
-    if (choice.source.startsWith('ORENJI_JAVA_HOME')) {
-      remedy = `Point ORENJI_JAVA_HOME at a JDK ${wanted} to test on the same Java.`;
-    } else if (choice.override) {
-      remedy = `Set ORENJI_JAVA_HOME to a JDK ${wanted} to test on the same Java (it wins over ${choice.source}).`;
-    }
+    const remedy =
+      choice.variable === 'ORENJI_JAVA_HOME'
+        ? `Point ORENJI_JAVA_HOME at a JDK ${wanted} to test on the same Java.`
+        : `No Java ${wanted} was found: install a JDK ${wanted} or set ORENJI_JAVA_HOME to one to test on the same Java.`;
     warnings.push(
       `The API jar will run on Java ${choice.major} (${choice.source}: ${choice.javaBin}), but CI and production run Java ${wanted}. ${remedy}`,
     );
   }
   return warnings;
+}
+
+/** The log lines that explain a choice without being a problem: a newer JAVA_HOME that was not taken. */
+export function javaChoiceNotes(choice, wanted = API_JAVA_MAJOR) {
+  return choice.passedOver.map(
+    (candidate) =>
+      `${candidate.source} is Java ${candidate.major}, so it is not used: the API jar runs on Java ${wanted} like CI and ` +
+      `production (${choice.source}: ${choice.javaBin}). Set ORENJI_JAVA_HOME to run it on another Java.`,
+  );
 }
 
 function probeJava(javaBin) {
@@ -759,7 +782,7 @@ const JAVA_LOOKUP_VARIABLES = ['ORENJI_JAVA_HOME', 'JAVA_HOME', 'GRADLE_USER_HOM
 
 /**
  * The Java runtime for the API jar (E2E harnesses, test-data purge): see selectJava for the rules
- * (override variables first, then an exact Java 21, a newer Java as the last resort with a
+ * (ORENJI_JAVA_HOME first, then an exact Java 21, a newer Java as the last resort with a
  * warning). Returns the path of the `java` binary, or null when no Java 21+ is found.
  *
  * The variables are read from the shell and, when the shell does not define them, from the
@@ -782,6 +805,9 @@ export function findJava21({
   }
   for (const warning of javaChoiceWarnings(choice)) {
     report.warn(warning);
+  }
+  for (const note of javaChoiceNotes(choice)) {
+    report.info(note);
   }
   return choice.javaBin;
 }

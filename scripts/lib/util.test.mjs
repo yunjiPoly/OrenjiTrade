@@ -12,6 +12,7 @@ import {
   findJava21,
   gradleJdkJavaBins,
   javaCandidates,
+  javaChoiceNotes,
   javaChoiceWarnings,
   loadDotEnv,
   selectJava,
@@ -29,8 +30,13 @@ function touch(file) {
 const PATH_JAVA = { javaBin: 'java', source: '`java` on PATH', override: false };
 const MAC_JAVA = { javaBin: '/Library/Java/temurin-27/bin/java', source: '/usr/libexec/java_home', override: false };
 const GRADLE_21 = { javaBin: '/home/.gradle/jdks/temurin-21/bin/java', source: 'the JDKs Gradle provisioned (~/.gradle/jdks)', override: false };
-const orenjiHome = (dir) => ({ javaBin: `${dir}/bin/java`, source: 'ORENJI_JAVA_HOME', override: true });
-const javaHome = (dir) => ({ javaBin: `${dir}/bin/java`, source: 'JAVA_HOME', override: true });
+const orenjiHome = (dir) => ({
+  javaBin: `${dir}/bin/java`,
+  source: 'ORENJI_JAVA_HOME',
+  variable: 'ORENJI_JAVA_HOME',
+  override: true,
+});
+const javaHome = (dir) => ({ javaBin: `${dir}/bin/java`, source: 'JAVA_HOME', variable: 'JAVA_HOME', override: false });
 
 /** A probe answering from a { javaBin: major } table (0 for anything else) that records its calls. */
 function probeOf(majors) {
@@ -54,6 +60,7 @@ describe('Java runtime of the API jar', () => {
     assert.equal(choice.major, 21);
     assert.equal(choice.exact, true);
     assert.deepEqual(javaChoiceWarnings(choice), []);
+    assert.deepEqual(javaChoiceNotes(choice), []);
   });
 
   it('takes Java 21 from PATH without looking further', () => {
@@ -63,7 +70,7 @@ describe('Java runtime of the API jar', () => {
     assert.deepEqual(probe.calls, ['java']);
   });
 
-  it('keeps the override variables first: a usable ORENJI_JAVA_HOME wins even when it is newer', () => {
+  it('keeps the override first: a usable ORENJI_JAVA_HOME wins even when it is newer', () => {
     const override = orenjiHome('/opt/jdk-25');
     const probe = probeOf({ [override.javaBin]: 25, java: 21, [GRADLE_21.javaBin]: 21 });
     const choice = selectJava([override, PATH_JAVA, GRADLE_21], probe);
@@ -78,18 +85,69 @@ describe('Java runtime of the API jar', () => {
     assert.match(warning, /Point ORENJI_JAVA_HOME at a JDK 21/);
   });
 
-  it('ORENJI_JAVA_HOME wins over JAVA_HOME, and JAVA_HOME over PATH and the Gradle JDKs', () => {
+  it('ORENJI_JAVA_HOME wins over JAVA_HOME, which is then not even looked at', () => {
     const first = orenjiHome('/opt/jdk-21');
-    const second = javaHome('/opt/jdk-27');
-    const majors = { [first.javaBin]: 21, [second.javaBin]: 27, java: 21, [GRADLE_21.javaBin]: 21 };
-    assert.equal(selectJava([first, second, PATH_JAVA, GRADLE_21], probeOf(majors)).source, 'ORENJI_JAVA_HOME');
-    const choice = selectJava([second, PATH_JAVA, GRADLE_21], probeOf(majors));
-    assert.equal(choice.source, 'JAVA_HOME');
-    assert.equal(choice.major, 27);
-    assert.match(javaChoiceWarnings(choice)[0], /Set ORENJI_JAVA_HOME to a JDK 21 .*wins over JAVA_HOME/);
+    const second = javaHome('/opt/nowhere');
+    const probe = probeOf({ [first.javaBin]: 21, java: 21, [GRADLE_21.javaBin]: 21 });
+    const choice = selectJava([first, second, PATH_JAVA, GRADLE_21], probe);
+    assert.equal(choice.source, 'ORENJI_JAVA_HOME');
+    assert.deepEqual(probe.calls, [first.javaBin]);
+    assert.deepEqual(javaChoiceWarnings(choice), []);
+    assert.deepEqual(javaChoiceNotes(choice), []);
   });
 
-  it('ignores an override that is too old or does not run, and says so', () => {
+  it('a JAVA_HOME that is exactly Java 21 wins over PATH and the Gradle JDKs', () => {
+    const shell = javaHome('/opt/jdk-21');
+    const probe = probeOf({ [shell.javaBin]: 21, java: 21, [GRADLE_21.javaBin]: 21 });
+    const choice = selectJava([shell, PATH_JAVA, GRADLE_21], probe);
+    assert.equal(choice.source, 'JAVA_HOME');
+    assert.equal(choice.exact, true);
+    assert.deepEqual(probe.calls, [shell.javaBin]);
+    assert.deepEqual(javaChoiceWarnings(choice), []);
+    assert.deepEqual(javaChoiceNotes(choice), []);
+  });
+
+  it('a JAVA_HOME newer than 21 does not beat an installed Java 21, and the log says so', () => {
+    // The owner's Mac with JAVA_HOME exported to the system JDK: Temurin 27, Gradle-provisioned 21.
+    const shell = javaHome('/opt/jdk-27');
+    const probe = probeOf({ [shell.javaBin]: 27, java: 27, [MAC_JAVA.javaBin]: 27, [GRADLE_21.javaBin]: 21 });
+    const choice = selectJava([shell, PATH_JAVA, MAC_JAVA, GRADLE_21], probe);
+    assert.equal(choice.javaBin, GRADLE_21.javaBin);
+    assert.equal(choice.exact, true);
+    assert.deepEqual(choice.ignored, []);
+    assert.deepEqual(javaChoiceWarnings(choice), []);
+    const notes = javaChoiceNotes(choice);
+    assert.equal(notes.length, 1);
+    assert.match(notes[0], /^JAVA_HOME is Java 27, so it is not used: the API jar runs on Java 21 like CI and production/);
+    assert.ok(notes[0].includes(GRADLE_21.javaBin));
+    assert.match(notes[0], /Set ORENJI_JAVA_HOME to run it on another Java\.$/);
+
+    // Java 21 on PATH is enough as well.
+    assert.equal(selectJava([shell, PATH_JAVA], probeOf({ [shell.javaBin]: 27, java: 21 })).javaBin, 'java');
+  });
+
+  it('a JAVA_HOME newer than 21 is the first last resort when no Java 21 exists', () => {
+    const shell = javaHome('/opt/jdk-27');
+    const choice = selectJava([shell, PATH_JAVA, MAC_JAVA], probeOf({ [shell.javaBin]: 27, java: 25, [MAC_JAVA.javaBin]: 25 }));
+    assert.equal(choice.source, 'JAVA_HOME');
+    assert.equal(choice.major, 27);
+    assert.deepEqual(javaChoiceNotes(choice), []);
+    const warnings = javaChoiceWarnings(choice);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /will run on Java 27 \(JAVA_HOME: \/opt\/jdk-27\/bin\/java\), but CI and production run Java 21/);
+    assert.match(warnings[0], /No Java 21 was found: install a JDK 21 or set ORENJI_JAVA_HOME/);
+  });
+
+  it('a newer ORENJI_JAVA_HOME that points at the same JDK as JAVA_HOME gives one warning and no note', () => {
+    const override = orenjiHome('/opt/jdk-27');
+    const shell = javaHome('/opt/jdk-27');
+    const choice = selectJava([override, shell, PATH_JAVA, GRADLE_21], probeOf({ [override.javaBin]: 27, java: 21 }));
+    assert.equal(choice.source, 'ORENJI_JAVA_HOME');
+    assert.equal(javaChoiceWarnings(choice).length, 1);
+    assert.deepEqual(javaChoiceNotes(choice), []);
+  });
+
+  it('ignores a variable that is too old or does not run, and says so', () => {
     const old = orenjiHome('/opt/jdk-17');
     const missing = javaHome('/opt/nowhere');
     const probe = probeOf({ [old.javaBin]: 17, java: 27, [GRADLE_21.javaBin]: 21 });
@@ -141,19 +199,26 @@ describe('where the Java runtime is looked for', () => {
       { ORENJI_JAVA_HOME: '/opt/orenji-jdk', JAVA_HOME: '/opt/shell-jdk' },
       { platform: 'darwin', home, javaHomeOfMac: () => '/Library/Java/JavaVirtualMachines/temurin-27.jdk/Contents/Home' },
     );
+    // Only ORENJI_JAVA_HOME is an override; JAVA_HOME is the first place an exact Java 21 is taken from.
     assert.deepEqual(
       candidates.map((candidate) => [candidate.javaBin, candidate.override]),
       [
         [path.join('/opt/orenji-jdk', 'bin', 'java'), true],
-        [path.join('/opt/shell-jdk', 'bin', 'java'), true],
+        [path.join('/opt/shell-jdk', 'bin', 'java'), false],
         ['java', false],
         [path.join('/Library/Java/JavaVirtualMachines/temurin-27.jdk/Contents/Home', 'bin', 'java'), false],
         [gradleJava, false],
       ],
     );
     assert.deepEqual(
-      candidates.map((candidate) => candidate.source).slice(0, 2),
-      ['ORENJI_JAVA_HOME', 'JAVA_HOME'],
+      candidates.map((candidate) => [candidate.source, candidate.variable]),
+      [
+        ['ORENJI_JAVA_HOME', 'ORENJI_JAVA_HOME'],
+        ['JAVA_HOME', 'JAVA_HOME'],
+        ['`java` on PATH', undefined],
+        ['/usr/libexec/java_home', undefined],
+        ['the JDKs Gradle provisioned (~/.gradle/jdks)', undefined],
+      ],
     );
   });
 
@@ -230,6 +295,16 @@ describe('findJava21 reads the variables from the shell and from the repository 
     assert.equal(findJava21({ shellEnv: {}, dotEnv, probe: probeOf({ java: 21 }), lookup, report }), 'java');
     assert.equal(report.lines.length, 1);
     assert.match(report.lines[0], /^ORENJI_JAVA_HOME in \.env is set, but .* is not a working Java; ignoring it/);
+  });
+
+  it('reports a newer exported JAVA_HOME that was not used as information, not as a warning', () => {
+    const lines = { warn: [], info: [] };
+    const report = { warn: (line) => lines.warn.push(line), info: (line) => lines.info.push(line) };
+    const probe = probeOf({ [bin('/opt/shell-jdk-27')]: 27, java: 21 });
+    assert.equal(findJava21({ shellEnv: { JAVA_HOME: '/opt/shell-jdk-27' }, dotEnv: {}, probe, lookup, report }), 'java');
+    assert.deepEqual(lines.warn, []);
+    assert.equal(lines.info.length, 1);
+    assert.match(lines.info[0], /^JAVA_HOME is Java 27, so it is not used/);
   });
 
   it('reads GRADLE_USER_HOME from .env too, and finds nothing without any Java 21+', () => {
