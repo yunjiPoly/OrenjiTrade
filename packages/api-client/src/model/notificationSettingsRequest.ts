@@ -24,7 +24,7 @@ export interface NotificationSettingsRequest {
      */
     quietHours?: QuietHoursRequest;
     /**
-     * Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). Defaults to true when absent
+     * Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). When absent the stored value is kept (on for a collector who never chose)
      */
     wishlistAlerts?: boolean | null;
 }

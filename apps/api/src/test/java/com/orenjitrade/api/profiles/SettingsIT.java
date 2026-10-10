@@ -134,14 +134,61 @@ class SettingsIT extends AbstractIntegrationTest {
                                 .toString())
                 .isEqualTo(saved.toString());
 
-        // Left out: wishlist alerts default to on (full replacement).
+        // Left out: the stored switch is kept (a client that does not know it must not turn
+        // alerts back on), while everything else is replaced.
         Map<String, Object> withoutSwitch = new LinkedHashMap<>(body);
         withoutSwitch.remove("wishlistAlerts");
+        withoutSwitch.put("emailEnabled", false);
+        JsonNode kept =
+                callJson(
+                        HttpMethod.PUT,
+                        "/api/v1/me/settings/notifications",
+                        uid,
+                        withoutSwitch,
+                        200);
+        assertThat(kept.path("wishlistAlerts").asBoolean()).as("still off").isFalse();
+        assertThat(kept.path("emailEnabled").asBoolean()).isFalse();
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/me/settings/notifications",
+                                        uid,
+                                        null,
+                                        200)
+                                .path("wishlistAlerts")
+                                .asBoolean())
+                .isFalse();
+        // Sent explicitly, it is on again; left out once more, it stays on.
+        Map<String, Object> switchedOn = new LinkedHashMap<>(body);
+        switchedOn.put("wishlistAlerts", true);
         assertThat(
                         callJson(
                                         HttpMethod.PUT,
                                         "/api/v1/me/settings/notifications",
                                         uid,
+                                        switchedOn,
+                                        200)
+                                .path("wishlistAlerts")
+                                .asBoolean())
+                .isTrue();
+        assertThat(
+                        callJson(
+                                        HttpMethod.PUT,
+                                        "/api/v1/me/settings/notifications",
+                                        uid,
+                                        withoutSwitch,
+                                        200)
+                                .path("wishlistAlerts")
+                                .asBoolean())
+                .isTrue();
+        // A collector without stored settings who leaves it out gets the default: on.
+        String fresh = uniqueUid("notifications-fresh");
+        provisionCompliant(fresh);
+        assertThat(
+                        callJson(
+                                        HttpMethod.PUT,
+                                        "/api/v1/me/settings/notifications",
+                                        fresh,
                                         withoutSwitch,
                                         200)
                                 .path("wishlistAlerts")

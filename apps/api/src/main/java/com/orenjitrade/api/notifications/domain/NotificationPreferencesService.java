@@ -51,9 +51,15 @@ public class NotificationPreferencesService {
                 .orElseGet(NotificationSettings::defaults);
     }
 
-    /** Replaces the settings; missing categories fall back to their defaults. */
+    /**
+     * Replaces the settings; missing categories fall back to their defaults. With {@code
+     * keepWishlistAlerts} the stored wishlist alert switch is kept whatever {@code requested} says
+     * (on for a collector without stored settings): a request that leaves the switch out must not
+     * turn alerts back on.
+     */
     @Transactional
-    public NotificationSettings update(UUID userId, NotificationSettings requested) {
+    public NotificationSettings update(
+            UUID userId, NotificationSettings requested, boolean keepWishlistAlerts) {
         validateQuietHours(requested.quietHours());
         Instant now = timeProvider.now();
         NotificationPreferences preferences =
@@ -70,7 +76,7 @@ public class NotificationPreferencesService {
                 requested.inAppEnabled(),
                 jsonMapper.writeValueAsString(categories),
                 jsonMapper.writeValueAsString(requested.quietHours()),
-                requested.wishlistAlerts(),
+                keepWishlistAlerts ? preferences.isWishlistAlerts() : requested.wishlistAlerts(),
                 now);
         return toSettings(preferences);
     }

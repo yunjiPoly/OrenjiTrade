@@ -49,7 +49,7 @@ export interface SettingsServiceInterface {
 
     /**
      * Replace the caller\&#39;s notification preferences
-     * Full replacement. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
+     * Full replacement, except wishlistAlerts, which keeps its stored value when left out. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
      * @endpoint put /api/v1/me/settings/notifications
 * @param requestParameters
      */

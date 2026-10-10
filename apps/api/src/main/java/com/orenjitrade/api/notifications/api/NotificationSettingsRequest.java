@@ -15,7 +15,11 @@ import java.util.EnumMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** Body of {@code PUT /api/v1/me/settings/notifications} (full replacement). */
+/**
+ * Body of {@code PUT /api/v1/me/settings/notifications}: a full replacement, except {@code
+ * wishlistAlerts}, which keeps its stored value when a client leaves it out (a client that does not
+ * know the switch must not turn alerts back on).
+ */
 @Schema(name = "NotificationSettingsRequest")
 public record NotificationSettingsRequest(
         @Schema(requiredMode = RequiredMode.REQUIRED) @NotNull Boolean pushEnabled,
@@ -35,12 +39,22 @@ public record NotificationSettingsRequest(
                         nullable = true,
                         description =
                                 "Wishlist alerts on or off (one switch; in-app and push follow the"
-                                        + " master switches and quiet hours). Defaults to true"
-                                        + " when absent")
+                                        + " master switches and quiet hours). When absent the"
+                                        + " stored value is kept (on for a collector who never"
+                                        + " chose)")
                 @Nullable Boolean wishlistAlerts) {
 
     static final String TIME_PATTERN = "^([01]\\d|2[0-3]):[0-5]\\d$";
 
+    /** Whether the body leaves the wishlist alert switch out (the stored value is then kept). */
+    boolean keepsWishlistAlerts() {
+        return wishlistAlerts == null;
+    }
+
+    /**
+     * The requested settings; {@code wishlistAlerts} is only meaningful unless {@link
+     * #keepsWishlistAlerts()}.
+     */
     NotificationSettings toSettings() {
         Map<NotificationCategory, ChannelPreferences> channels =
                 new EnumMap<>(NotificationCategory.class);

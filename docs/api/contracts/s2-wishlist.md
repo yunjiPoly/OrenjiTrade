@@ -87,7 +87,9 @@ Default chosen by the owner's spec: wishes drive no stored matches. They drive "
   <rarity>" with the printings of that rarity and picks none of them; the printing picker of stage
   S3 replaces that block.
 - Settings: one switch, `wishlistAlerts` in `GET|PUT /me/settings/notifications` (default true;
-  `notification_preferences.wishlist_alerts`). On: in-app and push, following the master switches
+  `notification_preferences.wishlist_alerts`). A `PUT` that leaves the member out keeps the stored
+  value (the rest of the body is still a full replacement), so a client that does not know the
+  switch never turns alerts back on. On: in-app and push, following the master switches
   and quiet hours; never email. The `WISHLIST_MATCH` category is gone from the channel matrix (an old
   client sending it gets 400 like any unknown category). The daily plan limit
   `wishlist.alerts.per_day` (FREE 5, PREMIUM unlimited) still applies; beyond it one SYSTEM notice

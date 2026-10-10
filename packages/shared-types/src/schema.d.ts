@@ -86,7 +86,7 @@ export interface paths {
         get: operations["getNotificationSettings"];
         /**
          * Replace the caller's notification preferences
-         * @description Full replacement. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
+         * @description Full replacement, except wishlistAlerts, which keeps its stored value when left out. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
          */
         put: operations["updateNotificationSettings"];
         post?: never;
@@ -5256,7 +5256,7 @@ export interface components {
             } | null;
             /** @description Defaults to disabled 22:00-08:00 America/Toronto */
             quietHours?: components["schemas"]["QuietHoursRequest"];
-            /** @description Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). Defaults to true when absent */
+            /** @description Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). When absent the stored value is kept (on for a collector who never chose) */
             wishlistAlerts?: boolean | null;
         };
         QuietHoursRequest: {

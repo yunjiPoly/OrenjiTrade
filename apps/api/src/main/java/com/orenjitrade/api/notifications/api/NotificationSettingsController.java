@@ -43,12 +43,13 @@ public class NotificationSettingsController {
             operationId = "updateNotificationSettings",
             summary = "Replace the caller's notification preferences",
             description =
-                    "Full replacement. Unknown categories, malformed times (HH:mm) and unknown"
+                    "Full replacement, except wishlistAlerts, which keeps its stored value when"
+                            + " left out. Unknown categories, malformed times (HH:mm) and unknown"
                             + " time zones are 400.")
     public NotificationSettingsResponse update(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody NotificationSettingsRequest body) {
         return NotificationSettingsResponse.from(
-                service.update(principal.userId(), body.toSettings()));
+                service.update(principal.userId(), body.toSettings(), body.keepsWishlistAlerts()));
     }
 }
