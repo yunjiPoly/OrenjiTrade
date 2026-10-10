@@ -10,13 +10,13 @@ import {
   safeAppPath,
 } from '@/src/features/notifications/notificationKinds';
 
-import { WISH_ID, notificationFixture } from '../support/fixtures';
+import { CARD_ID, notificationFixture } from '../support/fixtures';
 
 describe('notification kinds', () => {
   it('gives every type an icon, tone and label (and SYSTEM notices their own)', () => {
-    expect(notificationKind({ type: 'WISHLIST_MATCH', data: {} })).toMatchObject({
+    expect(notificationKind({ type: 'WISHLIST_ALERT', data: {} })).toMatchObject({
       tone: 'match',
-      label: 'Wishlist match',
+      label: 'Wishlist alert',
     });
     expect(notificationKind({ type: 'MESSAGE', data: {} }).label).toBe('Message');
     expect(notificationKind({ type: 'SYSTEM', data: { kind: 'LIMIT_REACHED' } }).label).toBe(
@@ -32,7 +32,8 @@ describe('notification kinds', () => {
   });
 
   it('follows only safe in-app paths', () => {
-    expect(safeAppPath('/wishlist/abc')).toBe('/wishlist/abc');
+    expect(safeAppPath('/cards/abc?printing=p1')).toBe('/cards/abc?printing=p1');
+    expect(safeAppPath('/cards/abc?rarity=Secret%20Rare')).toBe('/cards/abc?rarity=Secret%20Rare');
     expect(safeAppPath('/inventory?binder=b1')).toBe('/inventory?binder=b1');
     expect(safeAppPath('//evil.example/x')).toBeNull();
     expect(safeAppPath('https://evil.example')).toBeNull();
@@ -43,7 +44,13 @@ describe('notification kinds', () => {
   it('rebuilds the web path from ids when there is no deep link', () => {
     const link = (type: string, data: Record<string, unknown>) =>
       notificationLink({ type: type as 'SYSTEM', data });
-    expect(link('WISHLIST_MATCH', { wishlistItemId: 'w1' })).toBe('/wishlist/w1');
+    // A wishlist alert opens the card page with the wish's selection.
+    expect(link('WISHLIST_ALERT', { cardId: 'c1', printingId: 'p1' })).toBe(
+      '/cards/c1?printing=p1'
+    );
+    // Without a printing, "any printing" is said explicitly (the screen picks none itself).
+    expect(link('WISHLIST_ALERT', { cardId: 'c1' })).toBe('/cards/c1?printing=any');
+    expect(link('WISHLIST_ALERT', { cardId: '../x' })).toBe('/wishlist');
     expect(link('MESSAGE', { conversationId: 'c1' })).toBe('/messages/c1');
     expect(link('MESSAGE', {})).toBe('/messages');
     expect(link('BINDER_HIDDEN', { binderId: 'b1' })).toBe('/inventory?binder=b1');
@@ -54,7 +61,7 @@ describe('notification kinds', () => {
     // The plan-limit notice leads to Premium only while the API offers it (`upgradeUrl` /
     // `deepLink` in the payload); with the flag off it is only about held-back alerts.
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED' })).toBe('/notifications');
-    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_MATCH' })).toBe(
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_ALERT' })).toBe(
       '/wishlist'
     );
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: '/premium' })).toBe('/premium');
@@ -70,7 +77,26 @@ describe('notification kinds', () => {
   });
 
   it('maps web paths to app screens, with a note for the settings that stay on the web', () => {
-    expect(mobileTarget('/wishlist/w1')).toEqual({ kind: 'route', href: '/wishlist/w1' });
+    // The matches screen is gone (stage S2): an old wish link opens the list.
+    expect(mobileTarget('/wishlist/w1')).toEqual({ kind: 'route', href: '/wishlist' });
+    // A wishlist alert's card page keeps the wish's printing or rarity.
+    expect(mobileTarget(`/cards/${CARD_ID}?printing=p1`)).toEqual({
+      kind: 'route',
+      href: `/cards/${CARD_ID}?printing=p1`,
+    });
+    expect(mobileTarget(`/cards/${CARD_ID}?rarity=Secret%20Rare`)).toEqual({
+      kind: 'route',
+      href: `/cards/${CARD_ID}?rarity=Secret%20Rare`,
+    });
+    // An "any printing" wish says so: the card screen shows "Any printing".
+    expect(mobileTarget(`/cards/${CARD_ID}?printing=any`)).toEqual({
+      kind: 'route',
+      href: `/cards/${CARD_ID}?printing=any`,
+    });
+    expect(mobileTarget(`/cards/${CARD_ID}?printing=bad id`)).toEqual({
+      kind: 'route',
+      href: `/cards/${CARD_ID}`,
+    });
     expect(mobileTarget('/messages/c1')).toEqual({ kind: 'route', href: '/messages/c1' });
     expect(mobileTarget('/community')).toEqual({ kind: 'route', href: '/messages?view=community' });
     expect(mobileTarget('/community/montreal')).toEqual({
@@ -141,9 +167,10 @@ describe('notification kinds', () => {
       href: '/sets/00000000-0000-4000-8a20-000000000001',
     });
     expect(mobileTarget('/something-else')).toEqual({ kind: 'route', href: '/notifications' });
+    // A wishlist alert opens the card page.
     expect(notificationTarget(notificationFixture())).toEqual({
       kind: 'route',
-      href: `/wishlist/${WISH_ID}`,
+      href: `/cards/${CARD_ID}`,
     });
   });
 

@@ -10,7 +10,6 @@ export const EVENT_LABELS: Record<string, string> = {
   message_sent: 'Messages sent',
   community_post_created: 'Community posts',
   wishlist_item_created: 'Wishes added',
-  wishlist_matched: 'Wishlist matches',
   collector_reported: 'Collector reports',
   rating_submitted: 'Ratings',
   user_signed_up: 'Sign-ups',

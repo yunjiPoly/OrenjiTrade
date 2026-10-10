@@ -242,6 +242,13 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/donations", Level.ADMIN));
         routes.add(get("/api/v1/admin/donations/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/donations/settings", Level.ADMIN));
+        routes.add(get("/api/v1/admin/wishlist/settings", Level.ADMIN));
+        routes.add(
+                new Route(
+                        HttpMethod.PUT,
+                        "/api/v1/admin/wishlist/settings",
+                        Map.of("priceTerms", List.of()),
+                        Level.ADMIN));
         // --- SUPER_ADMIN (service rules; unknown keys answer 404 to a SUPER_ADMIN) ------------
         // Refunds: SUPER_ADMIN unless payments.admin_refunds_enabled (off by default).
         routes.add(

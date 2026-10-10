@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
+import { useMyLocation } from '@/src/api/hooks/location';
 import {
   useNotificationSettings,
   useSaveNotificationSettings,
@@ -23,6 +24,7 @@ import {
   type Channel,
   type MasterKey,
 } from '@/src/features/settings/notificationOptions';
+import { AlertReadinessNotice, alertReadiness } from '@/src/features/wishlist/WishlistNotices';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /** Settings → Notifications (web: `/settings/notifications`): channels, topics, quiet hours. */
@@ -46,6 +48,8 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
   const { palette } = useTheme();
   const snackbar = useSnackbar();
   const save = useSaveNotificationSettings();
+  // Wishlist alerts need a country and state (ADR 0017): without them, say so next to the switch.
+  const location = useMyLocation();
   const [draft, setDraft] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +62,7 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
     setDirty(true);
   };
   const setMaster = (key: MasterKey, value: boolean) => patch((s) => ({ ...s, [key]: value }));
+  const setWishlistAlerts = (value: boolean) => patch((s) => ({ ...s, wishlistAlerts: value }));
   const setCategory = (category: string, channel: Channel, value: boolean) =>
     patch((s) => {
       const current = s.categories[category] ?? { inApp: false, push: false, email: false };
@@ -102,6 +107,20 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
           Push notifications on this device arrive with a later release; your choice is already
           saved.
         </Text>
+      </SectionCard>
+
+      <SectionCard
+        title="Wishlist alerts"
+        description="When a collector of your region lists a card you want, we tell you in the app and by push."
+      >
+        <SwitchRow
+          label="Wishlist alerts"
+          help="One alert per new listing that fits a wish. Turning them off keeps your wishlist as it is."
+          value={draft.wishlistAlerts}
+          onChange={setWishlistAlerts}
+          testID="notif-wishlist-alerts"
+        />
+        <AlertReadinessNotice readiness={alertReadiness(location.data)} />
       </SectionCard>
 
       <SectionCard title="What to notify me about" description="Choose per topic and channel.">

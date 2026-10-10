@@ -239,7 +239,7 @@ export class UserModerationPanelComponent {
     const answer = await askReason(this.dialog, {
       title: `Pause the listings of @${this.handle()}?`,
       message:
-        'Their public binders and cards disappear from the map, search and matches until you ' +
+        'Their public binders and cards disappear from the map, search and wishlist alerts until you ' +
         'resume them or the end date passes. Their inventory is unchanged; they get a notice ' +
         'without your reason.',
       confirmLabel: 'Pause listings',

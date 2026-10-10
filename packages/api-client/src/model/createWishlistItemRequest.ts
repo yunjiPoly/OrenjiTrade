@@ -10,26 +10,23 @@
 
 
 /**
- * cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game\'s GameSchema. Matching compares platform regions (no radius, no distance; ADR 0017).
+ * Which copy: cardId (any printing, optionally of one rarity of the card\'s printings) or printingId (that printing; its card is derived). note is public (plain text, at most 280 characters, moderated). priceTerm is one of GET /wishlist/price-terms (a display term, not a filter).
  */
 export interface CreateWishlistItemRequest { 
     cardId?: string;
     printingId?: string;
+    /**
+     * Any printing of this rarity (only without printingId, or equal to the printing\'s own rarity)
+     */
     rarity?: string;
-    conditionMin?: string;
-    edition?: string;
-    language?: string;
-    maxPrice?: number;
-    currency?: string;
-    tradePreference?: CreateWishlistItemRequestTradePreferenceEnum;
-    notes?: string;
-    active?: boolean;
+    /**
+     * Public note
+     */
+    note?: string;
+    /**
+     * Only Near Mint (or Mint) copies; default false
+     */
+    nearMintOnly?: boolean;
+    priceTerm?: string;
 }
-export enum CreateWishlistItemRequestTradePreferenceEnum {
-    Any = 'ANY',
-    Trade = 'TRADE',
-    Sale = 'SALE'
-};
-
-
 

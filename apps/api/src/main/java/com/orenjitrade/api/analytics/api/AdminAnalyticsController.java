@@ -53,9 +53,10 @@ public class AdminAnalyticsController {
             summary = "Analytics event counts (ADMIN)",
             description =
                     "Totals and daily counts per event type (search_performed, collector_viewed,"
-                        + " message_sent, wishlist_matched, rating_submitted, collector_reported,"
-                        + " ...) for the last `days` UTC days including today, from the local"
-                        + " aggregate.")
+                            + " message_sent, wishlist_item_created, rating_submitted,"
+                            + " collector_reported,"
+                            + " ...) for the last `days` UTC days including today, from the local"
+                            + " aggregate.")
     public AnalyticsSummaryResponse summary(
             @RequestParam(defaultValue = "7") @Min(1) @Max(90) int days) {
         LocalDate to = LocalDate.ofInstant(timeProvider.now(), ZoneOffset.UTC);

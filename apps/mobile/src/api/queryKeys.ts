@@ -76,11 +76,10 @@ export const meKeys = {
     [...ME_ROOT, uidKey(uid), 'community', 'posts', slug] as const,
   communityReplies: (uid: Uid, postId: string) =>
     [...ME_ROOT, uidKey(uid), 'community', 'replies', postId] as const,
-  /** Wishlist (Phase 6): every read (prefix), the list, one wish's matches. */
+  /** Wishlist (stage S2): every read (prefix), the list, the admin price terms. */
   wishlist: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist'] as const,
   wishlistItems: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'items'] as const,
-  wishMatches: (uid: Uid, id: string) =>
-    [...ME_ROOT, uidKey(uid), 'wishlist', 'matches', id] as const,
+  wishPriceTerms: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'price-terms'] as const,
   /** Notification centre (Phase 6): every read (prefix), the unread count, the feeds. */
   notificationCentre: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notification-centre'] as const,
   notificationUnread: (uid: Uid) =>

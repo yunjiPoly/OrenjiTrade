@@ -34,7 +34,7 @@ export default function NewOfferScreen() {
           testID="offer-new-missing"
           icon="tag-off-outline"
           title="Choose the card again"
-          description="Open the card you want on a binder, a profile, the map or your wishlist matches, then press “Make an offer”."
+          description="Open the card you want on a binder, a profile or its holders in your region, then press “Make an offer”."
           actionLabel="Back"
           onAction={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         />

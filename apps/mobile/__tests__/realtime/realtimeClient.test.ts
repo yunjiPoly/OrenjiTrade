@@ -94,10 +94,10 @@ describe('RealtimeClient', () => {
     });
     session.push('/user/queue/notifications', {
       id: 'n1',
-      type: 'WISHLIST_MATCH',
-      title: 'Wishlist match: Emberfang Fox',
-      body: 'Emberfang Fox was listed by @collector5 in California, United States.',
-      data: { deepLink: '/wishlist/w1' },
+      type: 'WISHLIST_ALERT',
+      title: 'Wishlist alert: Emberfang Fox',
+      body: 'Emberfang Fox PFT-002 Common was just listed by @collector5 in California, United States.',
+      data: { deepLink: '/cards/c1' },
       createdAt: '2026-10-05T12:00:00Z',
       readAt: null,
     });

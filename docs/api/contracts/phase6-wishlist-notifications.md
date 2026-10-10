@@ -1,5 +1,11 @@
 # Phase 6 contract — wishlist, matching, notifications, push
 
+> **Stage S2 (2026-10-09):** the wishlist and its matching below are **history**. A wish is now
+> which copy + a public note + "Near Mint only" + one price term, the matches feature is gone and a
+> wishlist alert replaces it: see [s2-wishlist.md](s2-wishlist.md). The notification centre, push
+> tokens and preferences below still apply (the `WISHLIST_MATCH` type and category became
+> `WISHLIST_ALERT` with its own `wishlistAlerts` switch).
+>
 > **ADR 0017 (2026-10-08):** wishes have no `radiusKm` and matches no `distanceBucket`; the
 > matcher pairs a public listing with the wishes of collectors in the same platform region (no
 > `ST_DWithin`). See [s1-regions-location.md](s1-regions-location.md).

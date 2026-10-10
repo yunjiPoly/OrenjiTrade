@@ -34,7 +34,8 @@ community channels, offers and trades, ratings and references, collector reporti
 Registration → profile → location (region, country, state or province, optional city) →
 interests · Inventory add/organise/publish · Map → state → binder → profile → message · Card
 search → holders in my region ·
-Wishlist → match → notification · Offer lifecycle · Rating after eligible interaction ·
+Wishlist (which copy, public note, Near Mint only, % TCG term) → a collector of the region lists
+it → wishlist alert → card page · Offer lifecycle · Rating after eligible interaction ·
 Report collector (reason + confirm) → admin review → audit · Freemium limit → upgrade prompt ·
 Account deletion → public traces removed.
 

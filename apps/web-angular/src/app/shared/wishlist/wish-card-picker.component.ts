@@ -36,17 +36,24 @@ import {
 import { gameInfo } from '../domain/games';
 import { CardImageComponent } from '../ui/card-image/card-image.component';
 
-/** A card chosen in the picker: the card, and the printing when a printing code was chosen. */
+/**
+ * A card chosen in the picker: the card, and the printing code when a code was chosen. A code is
+ * not a printing: several printings of the card can share it (a 1st Edition and an Unlimited
+ * `SHV-EN003`, one code in several rarities), so the wish form decides what it stands for.
+ */
 export interface PickedCard {
   cardId: string;
-  printingId: string | null;
+  printingCode: string | null;
 }
 
 type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
 
 /**
  * "Which card do you want?": card name or printing code with autocomplete (`GET /cards/suggest`).
- * A card suggestion means any printing; a printing suggestion preselects that printing.
+ * A card suggestion means any printing. A printing code suggestion (one row per card and code,
+ * whatever the number of printings sharing the code) hands the code over: the wish form preselects
+ * a printing only when the code names exactly one printing of the card, and otherwise starts on
+ * "Any printing" with the picker narrowed to that code (never a silent pick).
  */
 @Component({
   selector: 'app-wish-card-picker',
@@ -103,7 +110,7 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
               </span>
             </span>
             @if (suggestion.kind === 'PRINTING') {
-              <span class="csb-option__kind">Printing</span>
+              <span class="csb-option__kind">Printing code</span>
             }
           </span>
         </mat-option>
@@ -209,7 +216,7 @@ export class WishCardPickerComponent {
     }
     this.picked.emit({
       cardId: suggestion.id,
-      printingId: suggestion.kind === 'PRINTING' ? (suggestion.printingId ?? null) : null,
+      printingCode: suggestion.kind === 'PRINTING' ? (suggestion.printingCode ?? null) : null,
     });
   }
 }

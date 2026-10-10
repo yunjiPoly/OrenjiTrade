@@ -194,7 +194,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         id: 'purposes',
         heading: 'Pourquoi nous les utilisons',
         clauses: [
-          'Pour exploiter le Service\u00a0: afficher vos Cartables publics sur la carte, apparier les listes de souhaits, livrer les messages et les notifications.',
+          'Pour exploiter le Service\u00a0: afficher vos Cartables publics sur la carte, envoyer les alertes de liste de souhaits, livrer les messages et les notifications.',
           'Pour la sécurité de la communauté\u00a0: détecter les abus, traiter les signalements, faire respecter les Règles de la communauté et nous conformer à nos obligations légales.',
           'Pour améliorer le produit à l’aide d’analyses agrégées. Nous ne vendons pas de renseignements personnels et nous ne les utilisons pas pour des profils publicitaires de tiers.',
         ],

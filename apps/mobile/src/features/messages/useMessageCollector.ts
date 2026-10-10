@@ -7,7 +7,7 @@ import { useStartConversation } from '@/src/api/hooks/messaging';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 
 /**
- * "Message" on a profile, a binder or a match (the web's `ConversationStarterService`): opens
+ * "Message" on a profile, a binder or a holder (the web's `ConversationStarterService`): opens
  * the conversation with a collector, creating it when needed (`POST /conversations`), then the
  * thread. A refusal (403 `MESSAGING_BLOCKED`: a block, or the collector's messaging permission)
  * is explained in a snackbar.

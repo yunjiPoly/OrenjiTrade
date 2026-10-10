@@ -29,8 +29,15 @@ import {
   finishLabel,
   formatMarketPrice,
   languageLabel,
+  marketPriceInfo,
 } from '../../../shared/catalog/catalog-labels';
 import { GamesStore } from '../../../shared/catalog/games.store';
+import {
+  ANY_PRINTING_PARAM,
+  PrintingSelection,
+  normaliseSelection,
+} from '../../../shared/catalog/printing-picker/printing-selection';
+import { printingCode } from '../../../shared/inventory/inventory-labels';
 import { gameInfo } from '../../../shared/domain/games';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
@@ -41,10 +48,16 @@ import { PrintingsTableComponent } from '../shared/printings-table.component';
 import { CardMetadataComponent } from './card-metadata.component';
 
 /**
- * `/cards/:id` (`?printing=` selects a printing): hero picture, game-specific attributes from the
- * game's schema, the selected printing with its market price, every printing, "Who has this near
- * me" (the map in holders mode) and "Add to wishlist" (Phase 6: the wishlist dialog, with the
- * printing chosen through `?printing=`, if any).
+ * `/cards/:id`: hero picture, game-specific attributes from the game's schema, which copy the URL
+ * names, every printing, "Who has this in my region" and "Add to wishlist". `?printing=<id>`
+ * selects a printing (its details and market price, labelled with the price's source);
+ * `?rarity=` (the link of a wishlist alert for "any printing in a rarity") shows "Any printing in
+ * <rarity>" with the printings of that rarity highlighted and picks none of them;
+ * `?printing=any` (the link of an alert for an "any printing" wish, and of such a wish) shows
+ * "Any printing": no selected printing, no highlighted row, no price of one printing. With no
+ * parameter the first printing is still shown (stage S3 replaces this with the shared printing
+ * picker, "Any printing" by default). "Add to wishlist" opens the wishlist dialog on that same
+ * selection.
  */
 @Component({
   selector: 'app-card-detail-page',
@@ -74,9 +87,10 @@ export class CardDetailPageComponent {
   private readonly games = inject(GamesStore);
   protected readonly wishlist = inject(WishlistActions);
 
-  /** Route parameter and `?printing=` query parameter (bound by the router). */
+  /** Route parameter and the `?printing=` / `?rarity=` query parameters (bound by the router). */
   readonly id = input.required<string>();
   readonly printing = input<string | undefined>();
+  readonly rarity = input<string | undefined>();
 
   protected readonly card = signal<CardDetail | null>(null);
   protected readonly loading = signal(true);
@@ -92,10 +106,50 @@ export class CardDetailPageComponent {
   });
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
+  /** `?printing=any`: the link says "any printing" itself. */
+  private readonly saysAnyPrinting = computed(() => this.printing() === ANY_PRINTING_PARAM);
+  /**
+   * Which copy the URL names: a printing of this card, else a rarity of its printings (an unknown
+   * printing or rarity is ignored).
+   */
+  protected readonly selection = computed<PrintingSelection>(() =>
+    normaliseSelection(
+      {
+        printingId: this.saysAnyPrinting() ? null : (this.printing() ?? null),
+        rarity: this.rarity() ?? null,
+      },
+      this.printings(),
+    ),
+  );
+  /** "Any printing", said by the link: nothing is selected, highlighted or priced. */
+  protected readonly anyPrinting = computed(() => {
+    const selection = this.selection();
+    return this.saysAnyPrinting() && !selection.printingId && !selection.rarity;
+  });
+  /** The printings of "any printing in <rarity>" (empty otherwise). */
+  protected readonly rarityPrintings = computed<PrintingSummary[]>(() => {
+    const rarity = this.selection().rarity;
+    return rarity ? this.printings().filter((printing) => printing.rarity === rarity) : [];
+  });
+  /**
+   * The printing shown in detail: never one silently picked for "any printing" or "any printing
+   * in <rarity>".
+   */
   protected readonly selected = computed<PrintingSummary | null>(() => {
     const printings = this.printings();
-    const wanted = this.printing();
-    return printings.find((candidate) => candidate.id === wanted) ?? printings[0] ?? null;
+    const selection = this.selection();
+    if (selection.printingId) {
+      return printings.find((candidate) => candidate.id === selection.printingId) ?? null;
+    }
+    return selection.rarity || this.anyPrinting() ? null : (printings[0] ?? null);
+  });
+  /**
+   * "Add to inventory" needs one printing: the shown one, or the only one the selection leaves
+   * (of the rarity, or of the card for "any printing").
+   */
+  protected readonly inventoryPrintingId = computed(() => {
+    const candidates = this.anyPrinting() ? this.printings() : this.rarityPrintings();
+    return this.selected()?.id ?? (candidates.length === 1 ? (candidates[0].id ?? null) : null);
   });
   protected readonly schema = computed(() => this.games.schema(this.card()?.game));
   protected readonly gameLabel = computed(() => gameInfo(this.card()?.game ?? '').label);
@@ -114,6 +168,10 @@ export class CardDetailPageComponent {
   });
   protected readonly selectedPrice = computed(() =>
     formatMarketPrice(this.selected()?.marketPrice),
+  );
+  /** What the shown market price is ("TCG market price") and its source and date (tooltip). */
+  protected readonly selectedPriceInfo = computed(() =>
+    marketPriceInfo(this.selected()?.marketPrice),
   );
   protected readonly edition = editionLabel;
   protected readonly finish = finishLabel;
@@ -142,17 +200,35 @@ export class CardDetailPageComponent {
     this.load(this.id());
   }
 
-  /** Opens the wishlist dialog for this card (the printing picked in the URL, else any). */
+  /** Opens the wishlist dialog for this card (the URL's printing or rarity, else any printing). */
   protected addToWishlist(cardId: string): void {
-    void this.wishlist.add({ cardId, printingId: this.printing() ?? null });
+    const selection = this.selection();
+    void this.wishlist.add({
+      cardId,
+      printingId: selection.printingId,
+      rarity: selection.printingId ? null : selection.rarity,
+    });
   }
 
+  /** One printing replaces "any printing" (`?printing=any`) and "any printing in <rarity>". */
   protected selectPrinting(printingId: string): void {
     void this.router.navigate([], {
-      queryParams: { printing: printingId },
+      queryParams: { printing: printingId, rarity: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  /** "AZR-EN001 · 1st Edition · English" (a printing of "any printing in <rarity>"). */
+  protected rarityPrintingLabel(printing: PrintingSummary): string {
+    return [
+      printingCode(printing),
+      printing.edition ? editionLabel(printing.edition) : null,
+      printing.language ? languageLabel(printing.language) : null,
+      printing.finish && printing.finish !== 'NORMAL' ? finishLabel(printing.finish) : null,
+    ]
+      .filter((part) => part && part !== '—')
+      .join(' · ');
   }
 
   private load(id: string): void {

@@ -9,8 +9,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 import {
   ChannelPreferences,
+  LocationService,
   NotificationSettingsResponse,
   SettingsService,
 } from '@orenji/api-client';
@@ -34,7 +36,6 @@ export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string
 
 /** Categories in display order with human labels (unknown API categories still render). */
 export const CATEGORY_LABELS: Record<string, { label: string; help: string }> = {
-  WISHLIST_MATCH: { label: 'Wishlist matches', help: 'A card you want is listed in your region.' },
   MESSAGE: { label: 'Messages', help: 'New private messages.' },
   OFFER: { label: 'Offers', help: 'Offers you receive and their answers.' },
   TRADE: { label: 'Trades', help: 'Progress of your trades.' },
@@ -49,7 +50,11 @@ function timeZones(): string[] {
   return intl.supportedValuesOf?.('timeZone') ?? ['America/Toronto', 'UTC'];
 }
 
-/** Settings → Notifications: channels, category × channel matrix and quiet hours. */
+/**
+ * Settings → Notifications: channels, the one wishlist alerts switch (with a hint when no country
+ * and state are set, since alerts come from collectors of the region), the category × channel
+ * matrix and quiet hours.
+ */
 @Component({
   selector: 'app-notification-settings',
   imports: [
@@ -62,6 +67,7 @@ function timeZones(): string[] {
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSlideToggleModule,
+    RouterLink,
     SectionCardComponent,
     ErrorStateComponent,
     SkeletonComponent,
@@ -72,6 +78,7 @@ function timeZones(): string[] {
 })
 export class NotificationSettingsComponent {
   private readonly settingsApi = inject(SettingsService);
+  private readonly locationApi = inject(LocationService);
   private readonly snackBar = inject(MatSnackBar);
 
   protected readonly channels = CHANNELS;
@@ -82,6 +89,8 @@ export class NotificationSettingsComponent {
   protected readonly saving = signal(false);
   protected readonly dirty = signal(false);
   protected readonly saveError = signal<string | null>(null);
+  /** No country and state yet: wishlist alerts cannot arrive (ADR 0017), said by the switch. */
+  protected readonly noLocation = signal(false);
   protected readonly categories = computed(() => {
     const settings = this.draft();
     if (!settings) {
@@ -103,6 +112,19 @@ export class NotificationSettingsComponent {
 
   constructor() {
     void this.load();
+    void this.loadLocation();
+  }
+
+  /** Optional: only drives the "set your location" hint of wishlist alerts. */
+  private async loadLocation(): Promise<void> {
+    try {
+      const mine = await firstValueFrom(
+        this.locationApi.getMyLocation('body', false, { context: silentErrors() }),
+      );
+      this.noLocation.set(!mine.location);
+    } catch {
+      // Without an answer, no hint.
+    }
   }
 
   protected async load(): Promise<void> {
@@ -123,6 +145,10 @@ export class NotificationSettingsComponent {
 
   protected setMaster(key: MasterKey, value: boolean): void {
     this.patch((settings) => ({ ...settings, [key]: value }));
+  }
+
+  protected setWishlistAlerts(value: boolean): void {
+    this.patch((settings) => ({ ...settings, wishlistAlerts: value }));
   }
 
   protected setCategory(category: string, channel: Channel, value: boolean): void {

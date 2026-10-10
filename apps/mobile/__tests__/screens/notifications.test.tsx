@@ -4,7 +4,7 @@ import NotificationsScreen from '@/app/notifications';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { WISH_ID, notificationFixture, notificationPage } from '../support/fixtures';
+import { CARD_ID, notificationFixture, notificationPage } from '../support/fixtures';
 import { mockApi, noContent, ok, problem, type MockRoutes } from '../support/mockApi';
 import { fakeRealtime } from '../support/realtime';
 import { signedInRoutes } from '../support/routes';
@@ -61,7 +61,7 @@ describe('Notification centre', () => {
     expect(await screen.findByText(match.title)).toBeOnTheScreen();
     expect(screen.getByText('Today')).toBeOnTheScreen();
     expect(screen.getByText('Older')).toBeOnTheScreen();
-    expect(screen.getByText('Wishlist match')).toBeOnTheScreen();
+    expect(screen.getByText('Wishlist alert')).toBeOnTheScreen();
     expect(screen.getAllByTestId('notification-unread-dot')).toHaveLength(2);
     expect(await screen.findByText('Unread (2)')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('notifications-view-unread'));
@@ -73,7 +73,8 @@ describe('Notification centre', () => {
     const api = mockApi(routes());
     renderWithProviders(<NotificationsScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId(`notification-${match.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith(`/wishlist/${WISH_ID}`);
+    // A wishlist alert opens the card page.
+    expect(mockRouter.push).toHaveBeenCalledWith(`/cards/${CARD_ID}`);
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1)
     );

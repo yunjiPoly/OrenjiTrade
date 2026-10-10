@@ -1,7 +1,7 @@
 import { WEB_URL, requireStack } from '../support/stack';
 import { AnswerRecorder, recordAnswers } from './support/answers';
 import { suffix } from './support/api';
-import { expect, openState, stateBinder, test } from './support/fixtures';
+import { escapeRegExp, expect, openState, stateBinder, test } from './support/fixtures';
 import { cityToken, placeOf } from './support/places';
 import { stompBodies } from './support/privacy';
 
@@ -11,8 +11,8 @@ import { stompBodies } from './support/privacy';
  * coordinate, a distance, a radius and a registered city, in an HTTP answer and in a STOMP frame)
  * and then sweeps every place-bearing surface a signed-in collector can reach for a discoverable
  * collector with a city: the region map (counts and the state's binders), the card holders, the
- * unified search, the profile (where the city is allowed), the public binder, the wishlist
- * matches and the realtime notification. Only states and countries may appear; never a
+ * unified search, the profile (where the city is allowed), the public binder, the wishlist and
+ * the realtime wishlist alert. Only states and countries may appear; never a
  * coordinate, a distance or the city outside the owner's profile.
  */
 
@@ -101,10 +101,10 @@ test.describe('acceptance: privacy', () => {
       discoverable: true,
       displayName: `Val Viewer ${suffix()}`,
     });
-    // The viewer wishes the card too: the match and its notification carry the seller's place.
+    // The viewer wishes the card too: the wishlist alert carries the seller's place.
     await api.ok('POST', '/api/v1/wishlist', {
       token: viewer.idToken,
-      data: { cardId: await api.cardId(viewer.idToken, card), tradePreference: 'ANY' },
+      data: { cardId: await api.cardId(viewer.idToken, card) },
     });
 
     const answers: PlaceAnswer[] = [];
@@ -148,11 +148,11 @@ test.describe('acceptance: privacy', () => {
     await pageV.goto(`/binders/${binder.id}`);
     await expect(pageV.getByTestId('owner-public-label')).toContainText(place.label);
     await expect(pageV.getByRole('main')).not.toContainText(city);
-    // Wishlist: the wish matched the listed copy; a second copy is published while the viewer is
-    // connected and reaches the viewer as a realtime notification (a STOMP frame, scanned too).
+    // Wishlist: a copy published while the viewer is connected reaches the viewer as a realtime
+    // wishlist alert (a STOMP frame, scanned too) naming the seller's state and country.
     await pageV.goto('/wishlist');
     const wish = pageV.locator('[data-wish]').filter({ hasText: card });
-    await expect(wish.getByTestId('wish-matches')).toHaveText(/1 match/, { timeout: 15_000 });
+    await expect(wish).toHaveCount(1);
     const bell = pageV.getByTestId('notification-bell');
     await expect(bell).toHaveAttribute('data-realtime', 'connected', { timeout: 20_000 });
     const framesBefore = privacy.checkedFrames;
@@ -165,12 +165,13 @@ test.describe('acceptance: privacy', () => {
     });
     await expect(pageV.getByTestId('notification-badge')).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => privacy.checkedFrames).toBeGreaterThan(framesBefore);
-    await expect(wish.getByTestId('wish-matches')).toHaveText(/2 matches/, { timeout: 15_000 });
-    await wish.getByTestId('wish-matches').click();
-    const drawer = pageV.getByRole('dialog', { name: `Matches for ${card}` });
-    const matches = drawer.locator('[data-match]').filter({ hasText: seller.displayName });
-    await expect(matches).toHaveCount(2);
-    await expect(matches.first().getByTestId('match-place')).toHaveText(place.label);
+    await bell.click();
+    const alert = pageV
+      .getByRole('menu', { name: 'Notifications' })
+      .getByRole('menuitem', { name: new RegExp(`Wishlist alert: ${escapeRegExp(card)}`) });
+    await expect(alert).toContainText(`was just listed by @${seller.handle} in ${place.label}`);
+    await expect(alert).not.toContainText(city);
+    await pageV.keyboard.press('Escape');
 
     // What the viewer received: the state and the country, never the city.
     const shown = answers.filter((entry) => entry.place?.label);

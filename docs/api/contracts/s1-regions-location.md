@@ -52,7 +52,7 @@ Admin: `PUT /api/v1/admin/regions/countries/{code}` (ADMIN) body `{ "regionCode"
 ## Places of other collectors
 
 Every collector block (search results, card holders, binder owners, offer and trade parties,
-wishlist matches, conversations) carries `place`:
+wishlist matches (removed in stage S2, [s2-wishlist.md](s2-wishlist.md)), conversations) carries `place`:
 `{ "regionCode", "countryCode", "countryName", "subdivisionCode", "subdivisionName", "label" }`,
 absent when the collector is not discoverable. `GET /api/v1/collectors/{handle}` returns
 `location` (`ProfileLocation`: the same fields plus `city`, present only while the owner shows

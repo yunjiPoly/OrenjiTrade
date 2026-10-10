@@ -6,8 +6,8 @@
 // collector in Wyoming, both in the platform region Americas (North).
 //
 // ACTION=looking-for creates Wren (the app user, discoverable) and Hal (in Wyoming,
-//   discoverable, name search allowed, "Show my wishlist on my profile" on, one Emberfang Fox
-//   wish with a private price).
+//   discoverable, name search allowed, "Let others see what you want" on, one Emberfang Fox
+//   wish for any printing with a public note, "Near Mint only" and the price term "85% TCG").
 //   Outputs: output.wren.{email, password, displayName}, output.hal.{handle, displayName},
 //            output.card.{id, name}
 // ACTION=holders creates Ada (the app user) and Ben (in Wyoming, discoverable, a public
@@ -196,10 +196,9 @@ if (action === 'looking-for') {
       headers: jsonHeaders(hal.token),
       body: JSON.stringify({
         cardId: wanted.cardId,
-        conditionMin: 'LIGHTLY_PLAYED',
-        maxPrice: 30,
-        currency: 'CAD',
-        tradePreference: 'ANY',
+        note: 'Fictional Maestro wish.',
+        nearMintOnly: true,
+        priceTerm: '85% TCG',
       }),
     }),
     'POST /wishlist'

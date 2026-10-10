@@ -7,7 +7,7 @@ staging/production environment. Passwords below are development-only values.
 | Handle | Email | Password | Roles | Declared place (region) | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | collector1 | collector1@orenjitrade.test | LocalDev!2026 | USER | Montréal, Quebec, Canada (Americas North) | public Yu-Gi-Oh! + Pokémon binders, fresh inventory |
-| collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Toronto, Ontario, Canada (Americas North) | Magic binder, has wishlist items matching collector1 |
+| collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Toronto, Ontario, Canada (Americas North) | Magic binder, wishlist (public notes, Near Mint only, price terms) alerted by collector1's listing |
 | collector3 | collector3@orenjitrade.test | LocalDev!2026 | USER | Buenos Aires City, Argentina, city hidden (Americas South) | stale inventory (tests auto-delist), private binders only |
 | collector4 | collector4@orenjitrade.test | LocalDev!2026 | USER | Madrid, Community of Madrid, Spain (Europe) | Riftbound player, temporarily public binder |
 | collector5 | collector5@orenjitrade.test | LocalDev!2026 | USER | Los Angeles, California, United States (Americas North) | Pokémon, Magic, accepts offers |
@@ -24,6 +24,11 @@ database accounts (stable ids `00000000-0000-4000-8000-0000000000NN`, provider u
 `seed-<handle>`) and, when `FIREBASE_AUTH_EMULATOR_HOST` is set, the matching Firebase emulator
 users (password from `SEED_EMULATOR_PASSWORD`, default `LocalDev!2026`, email verified).
 Handles must match `[a-z0-9_]{3,24}`, hence `premium_user`.
+
+The table describes a freshly seeded database **and** one seeded before stage S2 and migrated
+since: at the first start after the migration the seed fills collector2's three untouched seed
+wishes (public note, Near Mint only, price terms) and sends the sample wishlist alert once. No
+`npm run infra:reset` is needed for that; wishes you edited yourself are left as they are.
 
 Seed locations are **declared places** (ADR 0017): a country, an ISO 3166-2 state or province
 and an optional city, never a coordinate or an address (`db/seed/locations.json`). Others only

@@ -10,6 +10,7 @@ import {
   locationFixture,
   meFixture,
   notificationsFixture,
+  priceTermsFixture,
   privacyFixture,
   profileFixture,
   regionsFixture,
@@ -33,6 +34,7 @@ export function signedInRoutes(overrides: MockRoutes = {}): MockRoutes {
     'GET /api/v1/inventory/summary': ok(summaryFixture()),
     'GET /api/v1/binders': ok([binderFixture()]),
     'GET /api/v1/me/listings/status': ok(listingStatusFixture()),
+    'GET /api/v1/wishlist/price-terms': ok(priceTermsFixture()),
     ...overrides,
   };
 }

@@ -271,6 +271,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
+    // Every worker of the suite calls from one address: on a fast machine the signed-out specs
+    // alone exceed the anonymous budget of 60 a minute, and the 429 then fails an unrelated spec.
+    // The limits themselves are proven by the API's integration tests, not by this suite.
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
   };
 }
 

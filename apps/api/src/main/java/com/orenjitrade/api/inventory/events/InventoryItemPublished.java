@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
  * An inventory item became effectively public: created public, visibility changed to public, its
  * binder was published, restored from HIDDEN, or its owner became listed again. Emitted exactly
  * once per transition, inside the transaction that caused it (transactional outbox). Consumed by
- * wishlist matching (Phase 6) and analytics. Carries no private notes and no location.
+ * wishlist alerts (stage S2) and analytics. Carries no private notes and no location.
  *
  * @param itemId item
  * @param ownerId owner

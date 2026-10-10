@@ -10,25 +10,13 @@
 
 
 /**
- * Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, conditionMin, edition, language, maxPrice and notes may be null to clear them. Changing the criteria re-matches the item against the current public inventory.
+ * Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, note and priceTerm may be null to clear them. Changing printingId without rarity clears the stored rarity.
  */
 export interface UpdateWishlistItemRequest { 
     printingId?: string | null;
     rarity?: string | null;
-    conditionMin?: string | null;
-    edition?: string | null;
-    language?: string | null;
-    maxPrice?: number | null;
-    currency?: string;
-    tradePreference?: UpdateWishlistItemRequestTradePreferenceEnum;
-    notes?: string | null;
-    active?: boolean;
+    note?: string | null;
+    nearMintOnly?: boolean;
+    priceTerm?: string | null;
 }
-export enum UpdateWishlistItemRequestTradePreferenceEnum {
-    Any = 'ANY',
-    Trade = 'TRADE',
-    Sale = 'SALE'
-};
-
-
 

@@ -6,7 +6,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The card a notification is about (ADR 0015): notifications concerning one card (WISHLIST_MATCH,
+ * The card a notification is about (ADR 0015): notifications concerning one card (WISHLIST_ALERT,
  * the OFFER_* types, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) carry {@value
  * #CARD_NAME}, {@value #CARD_IMAGE_URL} and {@value #GAME} in their {@code data} so clients show
  * the card's picture. The URL always comes from the cards module's {@code CardImageUrlResolver}

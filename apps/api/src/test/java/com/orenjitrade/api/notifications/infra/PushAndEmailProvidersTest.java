@@ -35,10 +35,11 @@ class PushAndEmailProvidersTest {
             new PushMessage(
                     UUID.fromString("00000000-0000-4000-9a00-00000000abcd"),
                     UUID.fromString("00000000-0000-4000-8000-000000000002"),
-                    NotificationType.WISHLIST_MATCH,
-                    "Wishlist match: Azure-Eyes Sky Dragon",
-                    "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec, Canada.",
-                    Map.of("deepLink", "/wishlist/x", "type", "WISHLIST_MATCH"));
+                    NotificationType.WISHLIST_ALERT,
+                    "Wishlist alert: Azure-Eyes Sky Dragon",
+                    "Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in"
+                            + " Quebec, Canada.",
+                    Map.of("deepLink", "/cards/x", "type", "WISHLIST_ALERT"));
 
     @Test
     void logPushProviderLogsWithoutTokensAndDeliversEverything(CapturedOutput output) {

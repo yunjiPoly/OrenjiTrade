@@ -256,8 +256,9 @@ against the same local stack. Phase 1 (accounts, onboarding, profile, settings) 
 binders, their publication and the public binder view) and Phase 4 ("Who has this in my region"
 and the collector profile; since ADR 0017 the Map tab is a placeholder that names the home region
 until it draws the web's boundary map) and Phases 5–6 (the Messages tab with the inbox,
-conversations and the community channels, live over the realtime channel; the Wishlist tab with
-matches in the region; the notification centre with a live bell) and Phases 7–8 (reporting a
+conversations and the community channels, live over the realtime channel; the Wishlist tab
+(stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
+region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
 collector and My reports; rating a collector and writing a reference after an interaction;
 "Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
 with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
@@ -294,7 +295,7 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 `localhost`. A physical phone needs the machine's LAN address in `apps/mobile/.env`
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
-(collector1 and collector2 share a seed conversation; collector2 has a seed wish with a match;
+(collector1 and collector2 share a seed conversation; collector2 has seed wishes and a wishlist alert about collector1's listing;
 collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
 Offers / Trades; collector1 also sells a protected trade waiting for collector8's receipt, has
 payouts set up, 300 credits and the referral code `COLLECTOR1`; collector5's protected trade with
@@ -480,7 +481,9 @@ PostgreSQL/Redis is the usual culprit: stop it or move the compose port (`POSTGR
 
 **The API does not become ready.** Read `.local-dev/logs/api.log`. Common causes: infrastructure
 not healthy (`docker compose ps`), a database migrated by another branch (Flyway validation error,
-e.g. a checksum mismatch: `npm run infra:reset`), or the first Gradle run still downloading (be
+e.g. a checksum mismatch: `npm run infra:reset`; for a scratch or E2E database only, drop and
+recreate that one database instead, which keeps the dev database and the card-image cache; never
+`flyway repair`), or the first Gradle run still downloading (be
 patient; later runs use the cache). The readiness endpoint returns 503 while the database or Redis is down.
 
 **Emulator warning "/data is not writable".** The `firebase-data` volume was created by an old

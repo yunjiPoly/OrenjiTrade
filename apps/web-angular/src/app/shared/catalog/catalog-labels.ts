@@ -53,21 +53,76 @@ export function languageLabel(code: string | null | undefined): string {
   return name && name.toLowerCase() !== code.toLowerCase() ? name : code.toUpperCase();
 }
 
-/** Localised market price (`CA$42.00`), or `null` when the printing has none. */
-export function formatMarketPrice(
-  price: MarketPrice | null | undefined,
-  locale = 'en-CA',
-): string | null {
+/**
+ * An amount with its currency code after it, two decimals ("1,234.50 CAD"): the wording of
+ * market prices and of the wish price term amounts ("85% TCG ≈ 21.25 USD"), so a CAD market
+ * price never reads as "$" next to a term in USD or CAD.
+ */
+export function formatAmountWithCode(amount: number, currency: string | null | undefined): string {
+  const digits = new Intl.NumberFormat('en-CA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${digits} ${currency ?? ''}`.trim();
+}
+
+/** Market price with its currency code (`42.00 CAD`), or `null` when the printing has none. */
+export function formatMarketPrice(price: MarketPrice | null | undefined): string | null {
   if (!price || price.amount === undefined || price.amount === null) {
     return null;
   }
+  return formatAmountWithCode(price.amount, price.currency || 'CAD');
+}
+
+/** What a market price is and where it comes from, for its label and tooltip. */
+export interface MarketPriceInfo {
+  /** Short label: "TCG market price" for YGOPRODeck set prices. */
+  label: string;
+  /** Source and date, for a tooltip ("YGOPRODeck set price (TCGplayer-based, USD) · updated …"). */
+  detail: string;
+}
+
+function priceDate(value: string | null | undefined, locale: string): string | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
   try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: price.currency || 'CAD',
-    }).format(price.amount);
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
   } catch {
-    return `${price.amount.toFixed(2)} ${price.currency ?? ''}`.trim();
+    return value.slice(0, 10);
+  }
+}
+
+/**
+ * The label and source of a market price: YGOPRODeck's `set_price` is TCGplayer-based USD (a "TCG
+ * market price"); the local sample catalog's prices are fictional; staff-entered prices say so.
+ */
+export function marketPriceInfo(
+  price: MarketPrice | null | undefined,
+  locale = 'en-CA',
+): MarketPriceInfo | null {
+  if (!price || price.amount === undefined || price.amount === null) {
+    return null;
+  }
+  const date = priceDate(price.updatedAt, locale);
+  const dated = date ? ` · updated ${date}` : '';
+  switch (price.source) {
+    case 'YGOPRODECK':
+      return {
+        label: 'TCG market price',
+        detail: `YGOPRODeck set price (TCGplayer-based, ${price.currency ?? 'USD'})${dated}`,
+      };
+    case 'SAMPLE':
+      return {
+        label: 'Sample market price',
+        detail: `Fictional price of the local sample catalog${dated}`,
+      };
+    default:
+      return { label: 'Market price', detail: `Set by OrenjiTrade${dated}` };
   }
 }
 
