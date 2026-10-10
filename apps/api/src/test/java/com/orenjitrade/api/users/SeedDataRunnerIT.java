@@ -177,9 +177,15 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
 
     /**
      * A database seeded before stage S2 and then migrated (the owner's own dev database): the three
-     * stable-id wishes exist with V112's defaults and no wishlist alert was ever sent. The seed
-     * gives them their S2 values and runs the sample alert, once; a wish the collector edited is
-     * left alone.
+     * stable-id wishes exist with V112's defaults and collector2 was never alerted about
+     * collector1's listing. The seed gives the untouched wishes their S2 values and runs the sample
+     * alert until collector2 has been alerted, once; a wish the collector edited is left alone.
+     *
+     * <p>The notification itself is not deleted here: this database is shared with every other
+     * suite, whose listings use up collector2's daily alert limit, so a second notification could
+     * not be relied on (the first one, sent at start-up, is asserted above). What the seed owns is
+     * asked instead: the alert step runs again while the sent-alert key is missing, and the stored
+     * notification stays the only one (its dedup key).
      */
     @Test
     void anUpgradedDatabaseGetsTheSeedWishValuesAndTheSampleAlertOnce() {
@@ -195,7 +201,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         String alertNotifications =
                 "SELECT count(*) FROM notification WHERE user_id = ? AND type = 'WISHLIST_ALERT'"
                         + " AND dedup_key = ?";
-        // What V112 leaves of wishes seeded under the old model.
+        String allNotifications = "SELECT count(*) FROM notification WHERE user_id = ?";
+        // What V112 leaves of wishes seeded under the old model, and no alert decided yet.
         testUsers.update(
                 "UPDATE wishlist_item SET public_note = '', near_mint_only = false,"
                         + " price_term = NULL, updated_at = created_at"
@@ -205,10 +212,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         + " ?::uuid",
                 collector2,
                 azureItem);
-        testUsers.update(
-                "DELETE FROM notification WHERE user_id = ? AND dedup_key = ?",
-                collector2,
-                alertKey);
+        int notifications = testUsers.count(allNotifications, collector2);
 
         seedDataRunner.seedAll();
 
@@ -225,16 +229,17 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .containsEntry("public_note", "Any printing is fine.")
                 .containsEntry("near_mint_only", false)
                 .containsEntry("price_term", "100% TCG+");
-        assertThat(testUsers.count(sentAlerts, collector2, azureItem)).isEqualTo(1);
+        assertThat(testUsers.count(sentAlerts, collector2, azureItem))
+                .as("the alert step ran again: the Near Mint wish fits collector1's listing")
+                .isEqualTo(1);
         assertThat(testUsers.count(alertNotifications, collector2, alertKey)).isEqualTo(1);
+        assertThat(testUsers.count(allNotifications, collector2)).isEqualTo(notifications);
 
         // A wish the collector emptied on purpose (edited: updated_at moved) stays as it is.
         testUsers.update(
                 "UPDATE wishlist_item SET public_note = '', price_term = NULL,"
                         + " updated_at = created_at + interval '1 hour' WHERE id = ?::uuid",
                 magicWish);
-        int notifications =
-                testUsers.count("SELECT count(*) FROM notification WHERE user_id = ?", collector2);
 
         seedDataRunner.seedAll();
 
@@ -243,9 +248,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .containsEntry("price_term", null);
         assertThat(wishRow(azureWish)).containsEntry("price_term", "90% TCG");
         assertThat(testUsers.count(sentAlerts, collector2, azureItem)).isEqualTo(1);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM notification WHERE user_id = ?", collector2))
+        assertThat(testUsers.count(allNotifications, collector2))
                 .as("seeding again notifies nobody")
                 .isEqualTo(notifications);
 
