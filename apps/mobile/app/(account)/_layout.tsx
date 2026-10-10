@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { ACCOUNT_SCREEN_TITLES } from '@/src/navigation/backTitles';
 import { useTheme } from '@/src/theme/useTheme';
 
 /**
@@ -21,10 +22,13 @@ export default function AccountLayout() {
         contentStyle: { backgroundColor: palette.background },
       }}
     >
-      <Stack.Screen name="verify-email" options={{ title: 'Verify your email' }} />
-      <Stack.Screen name="consent" options={{ title: 'Review our terms' }} />
-      <Stack.Screen name="suspended" options={{ title: 'Account status' }} />
-      <Stack.Screen name="unavailable" options={{ title: 'OrenjiTrade' }} />
+      <Stack.Screen
+        name="verify-email"
+        options={{ title: ACCOUNT_SCREEN_TITLES['verify-email'] }}
+      />
+      <Stack.Screen name="consent" options={{ title: ACCOUNT_SCREEN_TITLES.consent }} />
+      <Stack.Screen name="suspended" options={{ title: ACCOUNT_SCREEN_TITLES.suspended }} />
+      <Stack.Screen name="unavailable" options={{ title: ACCOUNT_SCREEN_TITLES.unavailable }} />
     </Stack>
   );
 }
