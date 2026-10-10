@@ -407,6 +407,13 @@ test.describe('wishlist and notifications', () => {
       await expect(
         dialog.getByTestId(`printing-option-${singlePrintingId}`).getByRole('radio'),
       ).toBeChecked();
+      // A click outside the dialog does not discard a typed note; Cancel still closes.
+      await dialog.getByRole('textbox', { name: 'Public note (optional)' }).fill('Typed, unsaved.');
+      await page.mouse.click(8, 8);
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('textbox', { name: 'Public note (optional)' })).toHaveValue(
+        'Typed, unsaved.',
+      );
       await dialog.getByRole('button', { name: 'Cancel' }).click();
       await expect(dialog).toBeHidden();
 
