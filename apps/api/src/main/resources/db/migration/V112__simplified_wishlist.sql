@@ -40,7 +40,21 @@ ALTER TABLE wishlist_item
     DROP COLUMN active,
     DROP COLUMN last_matched_at;
 
--- Wishes that differed only by a removed filter are now the same wish: keep the oldest.
+-- Normalise the selection BEFORE collapsing duplicates, so that rows which only become equal
+-- through the normalisation are collapsed too (the unique index below needs it):
+-- 1. The card of a printing wish is the printing's card (the old schema allowed a printing wish
+--    without card_id; the API always filled it).
+UPDATE wishlist_item w SET card_id = p.card_id
+  FROM card_printing p
+ WHERE w.card_id IS NULL AND p.id = w.printing_id;
+
+-- 2. A printing fixes its rarity: a rarity is kept only on "any printing" wishes. The old form
+--    allowed a rarity filter next to one printing, so (P, 'Ultra Rare') and (P, NULL) become the
+--    same wish here.
+UPDATE wishlist_item SET rarity = NULL WHERE printing_id IS NOT NULL AND rarity IS NOT NULL;
+
+-- 3. Wishes that differed only by a removed filter (or by the normalisation above) are now the
+--    same wish: keep the oldest.
 DELETE FROM wishlist_item w
  USING wishlist_item older
  WHERE older.owner_id = w.owner_id
@@ -49,10 +63,8 @@ DELETE FROM wishlist_item w
    AND older.rarity IS NOT DISTINCT FROM w.rarity
    AND (older.created_at, older.id) < (w.created_at, w.id);
 
--- A printing fixes its rarity: a rarity is kept only on "any printing" wishes.
-UPDATE wishlist_item SET rarity = NULL WHERE printing_id IS NOT NULL AND rarity IS NOT NULL;
-
 ALTER TABLE wishlist_item
+    ALTER COLUMN card_id SET NOT NULL,
     ADD COLUMN public_note    text    NOT NULL DEFAULT '',
     ADD COLUMN near_mint_only boolean NOT NULL DEFAULT false,
     ADD COLUMN price_term     text,
@@ -69,7 +81,7 @@ CREATE UNIQUE INDEX uq_wishlist_item_selection
 CREATE INDEX ix_wishlist_item_card ON wishlist_item (card_id);
 CREATE INDEX ix_wishlist_item_printing ON wishlist_item (printing_id) WHERE printing_id IS NOT NULL;
 
-COMMENT ON TABLE wishlist_item IS 'Cards a collector is looking for (stage S2 model): the card, one printing or any printing (printing_id NULL), an optional rarity for "any printing" wishes, a public note, "Near Mint only" and an optional price term. card_id is always filled by the API.';
+COMMENT ON TABLE wishlist_item IS 'Cards a collector is looking for (stage S2 model): the card, one printing or any printing (printing_id NULL), an optional rarity for "any printing" wishes, a public note, "Near Mint only" and an optional price term. card_id is always set (the printing''s card for a printing wish).';
 COMMENT ON COLUMN wishlist_item.rarity IS 'Rarity of "any printing" wishes (any printing of this rarity); NULL = any rarity. Always NULL when printing_id is set (the printing fixes it).';
 COMMENT ON COLUMN wishlist_item.public_note IS 'PUBLIC note (plain text, at most 280 characters, moderated like profile text): shown wherever the wish is visible (the owner''s public wishlist, "Who wants it").';
 COMMENT ON COLUMN wishlist_item.near_mint_only IS 'Only Near Mint (or Mint) copies fit this wish (wishlist alerts, "Who wants it").';

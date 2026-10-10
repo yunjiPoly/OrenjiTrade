@@ -1095,7 +1095,7 @@ mirror); there is no separate notification rate-limit table.
 | `id` | `uuid` | PK |
 | `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
 | `game_slug` | `text` | game of the card (slug pattern check) |
-| `card_id` | `uuid` | FK → `card.id` (cascade); always filled by the API (derived from the printing) |
+| `card_id` | `uuid` | FK → `card.id` (cascade); `NOT NULL` since V112 (V112 fills it from the printing where an old row lacked it); derived from the printing by the API |
 | `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card; `ck_wishlist_item_target`: card or printing required |
 | `rarity` | `text` | "any printing" wishes only (`ck_wishlist_item_rarity_any_printing`): any printing of this rarity, one of the rarities of the card's printings (validated by the API), 1-40 characters; `NULL` = any rarity |
 | `public_note` | `text` | V112: **public** note, plain text, ≤ 280 (`ck_wishlist_item_public_note`), moderated by the API; `''` = none |
@@ -1106,6 +1106,8 @@ mirror); there is no separate notification rate-limit table.
 Dropped by V109: `radius_km`. Dropped by V112 (data not migrated; private notes were not copied):
 `condition_min`, `edition`, `language`, `max_price`, `currency`, `trade_preference`, `notes`,
 `active`, `last_matched_at`.
+V112 normalises the selection before collapsing duplicates (card filled from the printing, a
+rarity stored next to a printing cleared), then keeps the oldest of the wishes that became equal.
 
 Indexes: `uq_wishlist_item_selection (owner_id, card_id, printing_id, rarity) NULLS NOT DISTINCT`
 (one wish per selection; 409 at the API), `ix_wishlist_item_card (card_id)`,
