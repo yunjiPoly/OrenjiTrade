@@ -407,7 +407,7 @@ public class BinderRepository {
                         """
                         WITH previous AS (
                             SELECT id, freshness_state FROM binder
-                             WHERE owner_id = :ownerId AND id IN (:ids) FOR UPDATE)
+                             WHERE owner_id = :ownerId AND id IN (:ids) ORDER BY id FOR UPDATE)
                         UPDATE binder b SET confirmed_at = :now, last_owner_activity_at = :now,
                                warned_at = NULL, freshness_state = 'ACTIVE'
                           FROM previous p
@@ -425,12 +425,14 @@ public class BinderRepository {
     /** Re-derives the freshness of every binder from the policy; returns the changes. */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
-                        "WITH computed AS (SELECT id, freshness_state AS old_state, "
+                        "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
                                 + FRESHNESS_CASE
-                                + " AS new_state FROM binder)"
+                                + " AS new_state FROM binder WHERE freshness_state <> "
+                                + FRESHNESS_CASE
+                                + " ORDER BY id FOR NO KEY UPDATE)"
                                 + " UPDATE binder b SET freshness_state = c.new_state"
                                 + " FROM computed c"
-                                + " WHERE b.id = c.id AND c.old_state <> c.new_state"
+                                + " WHERE b.id = c.id"
                                 + " RETURNING b.id, b.owner_id, c.old_state, c.new_state")
                 .param("hiddenCutoff", Timestamp.from(policy.hiddenCutoff(now)))
                 .param("staleCutoff", Timestamp.from(policy.staleCutoff(now)))
@@ -443,10 +445,16 @@ public class BinderRepository {
     public List<Warned> warn(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE binder SET warned_at = :now
-                         WHERE warned_at IS NULL AND publicly_listed AND freshness_state <> 'HIDDEN'
-                           AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                        RETURNING id, owner_id, confirmed_at
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM binder
+                             WHERE warned_at IS NULL AND publicly_listed
+                               AND freshness_state <> 'HIDDEN'
+                               AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE binder b SET warned_at = :now
+                          FROM due d
+                         WHERE b.id = d.id
+                        RETURNING b.id, b.owner_id, b.confirmed_at
                         """)
                 .param("now", Timestamp.from(now))
                 .param("warnCutoff", Timestamp.from(policy.warnCutoff(now)))
@@ -464,8 +472,13 @@ public class BinderRepository {
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE binder SET visibility = 'PRIVATE', public_until = NULL
-                         WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                        WITH expired AS MATERIALIZED (
+                            SELECT id FROM binder
+                             WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE binder b SET visibility = 'PRIVATE', public_until = NULL
+                          FROM expired e
+                         WHERE b.id = e.id
                         """)
                 .param("now", Timestamp.from(now))
                 .update();
@@ -473,7 +486,8 @@ public class BinderRepository {
 
     /**
      * Stores the effective public visibility of the binders matching {@code scopeSql} (a condition
-     * on alias {@code b}) and returns those whose value flipped.
+     * on alias {@code b}) and returns those whose value flipped. The flipped rows are locked in
+     * ascending id order before they are written.
      */
     public List<ListingChange> reconcile(
             String scopeSql, java.util.Map<String, ?> params, Instant now) {
@@ -485,12 +499,15 @@ public class BinderRepository {
                                         + FROM
                                         + " WHERE "
                                         + scopeSql
-                                        + ")"
-                                        + " UPDATE binder t SET publicly_listed = c.listed,"
+                                        + "), flipped AS MATERIALIZED (SELECT t.id, c.listed"
+                                        + " FROM binder t JOIN computed c ON c.id = t.id"
+                                        + " WHERE t.publicly_listed <> c.listed"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t)"
+                                        + " UPDATE binder t SET publicly_listed = f.listed,"
                                         + " listing_changed_at = :now"
-                                        + " FROM computed c"
-                                        + " WHERE t.id = c.id AND t.publicly_listed <> c.listed"
-                                        + " RETURNING t.id, t.owner_id, c.listed")
+                                        + " FROM flipped f"
+                                        + " WHERE t.id = f.id"
+                                        + " RETURNING t.id, t.owner_id, f.listed")
                         .param("now", Timestamp.from(now));
         for (java.util.Map.Entry<String, ?> param : params.entrySet()) {
             statement = statement.param(param.getKey(), param.getValue());

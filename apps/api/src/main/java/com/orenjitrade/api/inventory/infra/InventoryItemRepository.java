@@ -636,10 +636,16 @@ public class InventoryItemRepository {
     public List<UUID> softDeleteInBinder(UUID ownerId, UUID binderId, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET deleted_at = :now, updated_at = :now,
+                        WITH doomed AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = :now, updated_at = :now,
                                last_owner_activity_at = :now
-                         WHERE owner_id = :ownerId AND binder_id = :binderId AND deleted_at IS NULL
-                        RETURNING id
+                          FROM doomed d
+                         WHERE i.id = d.id
+                        RETURNING i.id
                         """)
                 .param("ownerId", ownerId)
                 .param("binderId", binderId)
@@ -656,10 +662,13 @@ public class InventoryItemRepository {
             UUID ownerId, UUID binderId, boolean keepVisibility, Instant now) {
         String visibility = keepVisibility ? "" : ", visibility = 'PRIVATE', public_until = NULL";
         return jdbc.sql(
-                        "UPDATE inventory_item SET binder_id = NULL, updated_at = :now"
-                                + visibility
+                        "WITH unfiled AS MATERIALIZED (SELECT id FROM inventory_item"
                                 + " WHERE owner_id = :ownerId AND binder_id = :binderId"
-                                + " RETURNING id")
+                                + " ORDER BY id FOR NO KEY UPDATE)"
+                                + " UPDATE inventory_item i SET binder_id = NULL, updated_at = :now"
+                                + visibility
+                                + " FROM unfiled u WHERE i.id = u.id"
+                                + " RETURNING i.id")
                 .param("ownerId", ownerId)
                 .param("binderId", binderId)
                 .param("now", Timestamp.from(now))
@@ -679,7 +688,7 @@ public class InventoryItemRepository {
                                 "WITH previous AS (SELECT id, freshness_state FROM inventory_item"
                                         + " WHERE owner_id = :ownerId AND deleted_at IS NULL AND "
                                         + scope
-                                        + " FOR UPDATE)"
+                                        + " ORDER BY id FOR UPDATE)"
                                         + " UPDATE inventory_item i SET confirmed_at = :now,"
                                         + " last_owner_activity_at = :now, warned_at = NULL,"
                                         + " freshness_state = 'ACTIVE', hidden_reason = NULL"
@@ -752,8 +761,13 @@ public class InventoryItemRepository {
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET visibility = 'PRIVATE', public_until = NULL
-                         WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                        WITH expired AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET visibility = 'PRIVATE', public_until = NULL
+                          FROM expired e
+                         WHERE i.id = e.id
                         """)
                 .param("now", Timestamp.from(now))
                 .update();
@@ -762,14 +776,17 @@ public class InventoryItemRepository {
     /** Re-derives the freshness of every non-deleted item; returns the changes. */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
-                        "WITH computed AS (SELECT id, freshness_state AS old_state, "
+                        "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
                                 + FRESHNESS_CASE
-                                + " AS new_state FROM inventory_item WHERE deleted_at IS NULL)"
+                                + " AS new_state FROM inventory_item WHERE deleted_at IS NULL"
+                                + " AND freshness_state <> "
+                                + FRESHNESS_CASE
+                                + " ORDER BY id FOR NO KEY UPDATE)"
                                 + " UPDATE inventory_item i SET freshness_state = c.new_state,"
                                 + " hidden_reason = CASE WHEN c.new_state = 'HIDDEN'"
                                 + " THEN 'STALE_UNCONFIRMED' ELSE NULL END"
                                 + " FROM computed c"
-                                + " WHERE i.id = c.id AND c.old_state <> c.new_state"
+                                + " WHERE i.id = c.id"
                                 + " RETURNING i.id, i.owner_id, i.binder_id, i.publicly_listed,"
                                 + " c.old_state, c.new_state")
                 .param("hiddenCutoff", Timestamp.from(policy.hiddenCutoff(now)))
@@ -791,11 +808,16 @@ public class InventoryItemRepository {
     public List<Warned> warn(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET warned_at = :now
-                         WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
-                           AND freshness_state <> 'HIDDEN'
-                           AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                        RETURNING id, owner_id, binder_id, confirmed_at
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
+                               AND freshness_state <> 'HIDDEN'
+                               AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET warned_at = :now
+                          FROM due d
+                         WHERE i.id = d.id
+                        RETURNING i.id, i.owner_id, i.binder_id, i.confirmed_at
                         """)
                 .param("now", Timestamp.from(now))
                 .param("warnCutoff", Timestamp.from(policy.warnCutoff(now)))
@@ -812,7 +834,8 @@ public class InventoryItemRepository {
 
     /**
      * Stores the effective public visibility of the items matching {@code scopeSql} (a condition on
-     * alias {@code i}) and returns those whose value flipped.
+     * alias {@code i}) and returns those whose value flipped. The flipped rows are locked in
+     * ascending id order before they are written.
      */
     public List<ListingChange> reconcile(String scopeSql, Map<String, ?> params, Instant now) {
         JdbcClient.StatementSpec statement =
@@ -823,13 +846,17 @@ public class InventoryItemRepository {
                                         + FROM
                                         + " WHERE "
                                         + scopeSql
-                                        + ")"
+                                        + "), flipped AS MATERIALIZED (SELECT t.id, c.listed,"
+                                        + " c.card_id, c.game"
+                                        + " FROM inventory_item t JOIN computed c ON c.id = t.id"
+                                        + " WHERE t.publicly_listed <> c.listed"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t)"
                                         + " UPDATE inventory_item t SET publicly_listed ="
-                                        + " c.listed, listing_changed_at = :now"
-                                        + " FROM computed c"
-                                        + " WHERE t.id = c.id AND t.publicly_listed <> c.listed"
-                                        + " RETURNING t.id, t.owner_id, t.printing_id, c.card_id,"
-                                        + " c.game, c.listed, t.availability, t.asking_price,"
+                                        + " f.listed, listing_changed_at = :now"
+                                        + " FROM flipped f"
+                                        + " WHERE t.id = f.id"
+                                        + " RETURNING t.id, t.owner_id, t.printing_id, f.card_id,"
+                                        + " f.game, f.listed, t.availability, t.asking_price,"
                                         + " t.currency")
                         .param("now", Timestamp.from(now));
         for (Map.Entry<String, ?> param : params.entrySet()) {
