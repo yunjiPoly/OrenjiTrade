@@ -656,17 +656,20 @@ export function gradleJdkJavaBins(jdksDir, exe = IS_WINDOWS ? 'java.exe' : 'java
   return bins;
 }
 
-/** macOS: the JDK home `/usr/libexec/java_home -v 21` names (it may be a newer JDK), else null. */
+/**
+ * macOS: the home of an installed JDK 21 according to `/usr/libexec/java_home`, else null. `-F`
+ * matters: without it java_home answers with the default JDK (a newer one) when no JDK 21 exists.
+ */
 function macJavaHome() {
-  const result = capture('/usr/libexec/java_home', ['-v', String(API_JAVA_MAJOR)], { timeout: 20_000 });
+  const result = capture('/usr/libexec/java_home', ['-F', '-v', String(API_JAVA_MAJOR)], { timeout: 20_000 });
   const home = result.status === 0 ? result.stdout.trim().split(/\r?\n/)[0] : '';
   return home || null;
 }
 
 /**
  * Where the Java runtime of the API jar is looked for, in priority order: the two override
- * variables (ORENJI_JAVA_HOME, JAVA_HOME), `java` on PATH, on macOS the installed JDK
- * `/usr/libexec/java_home` names, then the JDKs Gradle provisioned under ~/.gradle/jdks.
+ * variables (ORENJI_JAVA_HOME, JAVA_HOME), `java` on PATH, on macOS an installed JDK 21 that
+ * `/usr/libexec/java_home` knows, then the JDKs Gradle provisioned under ~/.gradle/jdks.
  */
 export function javaCandidates(
   env = process.env,
