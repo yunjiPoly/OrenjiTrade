@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -18,6 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -28,7 +31,8 @@ import org.springframework.stereotype.Repository;
  *
  * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): a write to a
  * collector's binders or inventory items first takes that collector's owner lock ({@link
- * #lockOwners}), so the writes of one collector run one after the other. Below it, binder rows are
+ * #lockOwners}), so the writes of one collector run one after the other; the freshness job takes
+ * the lock of all owners ({@link #lockAllOwners}) and runs alone. Below them, binder rows are
  * locked before inventory item rows and, within the table, in ascending {@code id}: every statement
  * here that locks several binders takes them through an {@code ORDER BY id} locking clause.
  */
@@ -46,6 +50,12 @@ public class BinderRepository {
 
     private static final String FROM =
             " FROM binder b" + PublicVisibilityRules.ownerJoins("b.owner_id");
+
+    /** Advisory key of the lock of all owners ({@link #lockAllOwners}). */
+    private static final String ALL_OWNERS_KEY = "hashtextextended('inventory-owners', 0)";
+
+    /** SQLSTATE {@code lock_not_available}: a lock wait ran into {@code lock_timeout}. */
+    private static final String LOCK_NOT_AVAILABLE = "55P03";
 
     private static final String FRESHNESS_CASE =
             """
@@ -192,11 +202,17 @@ public class BinderRepository {
      * items of two collectors). Every write to a collector's binders or inventory items takes the
      * lock before its first row lock, so those writes run one after the other and none of them
      * reads a state that another one is still changing.
+     *
+     * <p>The shared half of the lock of all owners comes first ({@link #lockAllOwners}): no such
+     * write runs while the freshness job does.
      */
     public void lockOwners(Collection<UUID> ownerIds) {
         if (ownerIds.isEmpty()) {
             return;
         }
+        jdbc.sql("SELECT pg_advisory_xact_lock_shared(" + ALL_OWNERS_KEY + ")")
+                .query()
+                .listOfRows();
         // The keys are sorted in a subquery, so the locks are taken in that order whatever the
         // order of the ids.
         jdbc.sql(
@@ -208,6 +224,42 @@ public class BinderRepository {
                                  ORDER BY 1) k
                         """)
                 .param("ownerIds", ownerIds.stream().map(UUID::toString).distinct().toList())
+                .query()
+                .listOfRows();
+    }
+
+    /**
+     * Takes the lock of all owners until the transaction ends (the freshness job, which writes
+     * binders and items of every collector): the exclusive half of the advisory lock whose shared
+     * half every {@link #lockOwners} takes. The job then runs alone, and the writes that arrive
+     * meanwhile wait for its commit.
+     *
+     * <p>Waits at most {@code maxWait} for the writes in progress ({@code lock_timeout}, put back
+     * afterwards). Writes that arrive during that wait queue behind this request, so the bound is
+     * also the longest time a write that does not end can hold the other writes up.
+     *
+     * @throws CannotAcquireLockException when a write was still running after {@code maxWait}
+     */
+    public void lockAllOwners(Duration maxWait) {
+        String previous =
+                jdbc.sql("SELECT current_setting('lock_timeout')").query(String.class).single();
+        setLockTimeout(maxWait.toMillis() + "ms");
+        try {
+            jdbc.sql("SELECT pg_advisory_xact_lock(" + ALL_OWNERS_KEY + ")").query().listOfRows();
+        } catch (DataAccessException e) {
+            if (e.getRootCause() instanceof SQLException cause
+                    && LOCK_NOT_AVAILABLE.equals(cause.getSQLState())) {
+                throw new CannotAcquireLockException(
+                        "Binder and item writes still in progress after " + maxWait, e);
+            }
+            throw e;
+        }
+        setLockTimeout(previous);
+    }
+
+    private void setLockTimeout(String value) {
+        jdbc.sql("SELECT set_config('lock_timeout', :value, true)")
+                .param("value", value)
                 .query()
                 .listOfRows();
     }

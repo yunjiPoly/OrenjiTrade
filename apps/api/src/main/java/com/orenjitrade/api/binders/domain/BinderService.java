@@ -20,6 +20,7 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,10 +53,12 @@ import org.springframework.transaction.annotation.Transactional;
  * binder.publicly_listed} and events are emitted when it flips ({@link #reconcileListing}).
  *
  * <p>Locks: every write to a collector's binders or inventory items starts with that collector's
- * owner lock ({@link #lockOwners}), so the writes of one collector run one after the other. Below
- * it, a transaction locks the binder rows first, in ascending id ({@link #lockInOrder}, {@link
- * #lockAllInOrder}; every write here starts with the binder it changes), and only then the item
- * rows: the item count trigger and the listing reconciliation both end in binder rows.
+ * owner lock ({@link #lockOwners}), so the writes of one collector run one after the other; the
+ * freshness job, which writes every collector's rows, takes the lock of all owners ({@link
+ * #lockAllOwners}) and runs alone. Below them, a transaction locks the binder rows first, in
+ * ascending id ({@link #lockInOrder}, {@link #lockAllInOrder}; every write here starts with the
+ * binder it changes), and only then the item rows: the item count trigger and the listing
+ * reconciliation both end in binder rows.
  */
 @Service
 public class BinderService {
@@ -388,6 +391,20 @@ public class BinderService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void lockOwners(Collection<UUID> ownerIds) {
         repository.lockOwners(ownerIds);
+    }
+
+    /**
+     * The first step of the freshness job, which writes binders and inventory items of every
+     * collector: takes the lock of all owners until the transaction ends. The job then runs alone;
+     * writes that take {@link #lockOwners} meanwhile wait for its commit.
+     *
+     * @param maxWait how long to wait for the writes in progress
+     * @throws org.springframework.dao.CannotAcquireLockException when one of them was still running
+     *     after {@code maxWait} (nothing was written yet; the next run does the work)
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockAllOwners(Duration maxWait) {
+        repository.lockAllOwners(maxWait);
     }
 
     /**
