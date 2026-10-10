@@ -1,5 +1,6 @@
 import type { NotificationResponse } from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
+import { ANY_PRINTING_PARAM } from '@/src/lib/catalog';
 
 /**
  * Display vocabulary of the notification centre (Phase 6 contract, mirror of the web's
@@ -92,7 +93,8 @@ export function notificationLink(
       if (!card) {
         return '/wishlist';
       }
-      return printing ? `/cards/${card}?printing=${printing}` : `/cards/${card}`;
+      // Without a printing, "any" is said explicitly: the screen never picks one itself.
+      return `/cards/${card}?printing=${printing ?? ANY_PRINTING_PARAM}`;
     }
     case 'MESSAGE': {
       const conversation = idOf(data, 'conversationId');
@@ -178,7 +180,7 @@ function route(href: string): NotificationTarget {
 /**
  * The mobile screen of a web path (the API's deep links are web paths): the wishlist,
  * conversations, community channels, binders (`/inventory?binder=`), cards (with the
- * `?printing=` / `?rarity=` of a wishlist alert), collector profiles
+ * `?printing=<id>`, `?printing=any` or `?rarity=` of a wishlist alert), collector profiles
  * (`?tab=ratings` scrolls to the ratings), offers, trades, disputes, Premium, credits, support,
  * legal pages and settings (My reports, offer settings, payouts) map to their app screens; the
  * web-only settings explain where to go instead. Ids are validated again.

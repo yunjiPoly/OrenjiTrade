@@ -89,15 +89,25 @@ export interface CopyOption {
 
 /**
  * The "Which copy" choices: "Any printing", "Any printing · <rarity>" for each rarity of the card
- * (when it has several), then every printing (code · rarity · set · edition · language).
+ * (when it has several), then every printing (code · rarity · set · edition · language). With
+ * `code` (a printing code the collector typed that several printings share) those printings come
+ * first among the printings, marked as carrying the code.
  */
-export function copyOptions(printings: readonly PrintingSummary[]): CopyOption[] {
+export function copyOptions(
+  printings: readonly PrintingSummary[],
+  code: string | null = null
+): CopyOption[] {
   const rarities: string[] = [];
   for (const printing of printings) {
     if (printing.rarity && !rarities.includes(printing.rarity)) {
       rarities.push(printing.rarity);
     }
   }
+  const listed = printings.filter(
+    (printing): printing is PrintingSummary & { id: string } => !!printing.id
+  );
+  const coded = code ? listed.filter((printing) => printing.printingCode === code) : [];
+  const others = listed.filter((printing) => !coded.includes(printing));
   return [
     { value: '', label: 'Any printing', detail: 'Every printing of the card' },
     ...(rarities.length > 1
@@ -107,9 +117,12 @@ export function copyOptions(printings: readonly PrintingSummary[]): CopyOption[]
           detail: 'Any printing of this rarity',
         }))
       : []),
-    ...printings
-      .filter((printing): printing is PrintingSummary & { id: string } => !!printing.id)
-      .map((printing) => ({ value: printing.id, label: printingOptionLabel(printing) })),
+    ...coded.map((printing) => ({
+      value: printing.id,
+      label: printingOptionLabel(printing),
+      detail: `The code you typed (${code})`,
+    })),
+    ...others.map((printing) => ({ value: printing.id, label: printingOptionLabel(printing) })),
   ];
 }
 

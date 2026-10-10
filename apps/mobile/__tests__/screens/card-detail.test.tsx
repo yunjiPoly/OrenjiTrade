@@ -76,6 +76,48 @@ describe('Card detail', () => {
     expect(mockRouter.setParams).toHaveBeenCalledWith({ printing: PRINTING_B, rarity: undefined });
   });
 
+  it('shows "Any printing" for ?printing=any (an alert for an any-printing wish), picking no printing', async () => {
+    mockParams.current = { id: CARD_ID, printing: 'any' };
+    mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
+    render();
+    const section = await screen.findByTestId('card-selected-any');
+    expect(section).toHaveTextContent(/Any printing/);
+    expect(section).toHaveTextContent(/2 printings of this card: any of them fits/);
+    // No selected printing, no price of one printing, no highlighted row.
+    expect(screen.queryByTestId('card-selected-printing')).toBeNull();
+    expect(screen.queryByTestId('card-selected-rarity')).toBeNull();
+    expect(screen.queryByTestId('card-price')).toBeNull();
+    expect(screen.getByTestId(`printing-${PRINTING_A}`)).not.toBeChecked();
+    expect(screen.getByTestId(`printing-${PRINTING_B}`)).not.toBeChecked();
+    // The picture is the card's, not one printing's.
+    expect(screen.getByLabelText('Emberfang Fox VMAX')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Emberfang Fox VMAX, printing SVX-001')).toBeNull();
+    // "Add to wishlist" starts on any printing; "Add to inventory" lets the collector choose.
+    fireEvent.press(screen.getByTestId('card-add-to-wishlist'));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/wishlist/new',
+      params: { cardId: CARD_ID, printingId: '', rarity: '' },
+    });
+    fireEvent.press(screen.getByTestId('card-add-to-inventory'));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/items/new',
+      params: { cardId: CARD_ID, printingId: '' },
+    });
+    // Choosing one printing replaces "any".
+    fireEvent.press(screen.getByTestId(`printing-${PRINTING_B}`));
+    expect(mockRouter.setParams).toHaveBeenCalledWith({ printing: PRINTING_B });
+  });
+
+  it('lets a rarity next to ?printing=any win', async () => {
+    mockParams.current = { id: CARD_ID, printing: 'any', rarity: 'Ultra Rare' };
+    mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
+    render();
+    expect(await screen.findByTestId('card-selected-rarity')).toHaveTextContent(
+      /Any printing in Ultra Rare/
+    );
+    expect(screen.queryByTestId('card-selected-any')).toBeNull();
+  });
+
   it('ignores a rarity the card has no printing of', async () => {
     mockParams.current = { id: CARD_ID, rarity: 'Secret Rare' };
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));

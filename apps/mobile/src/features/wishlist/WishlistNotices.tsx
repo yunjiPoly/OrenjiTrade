@@ -75,10 +75,13 @@ export function WishlistVisibilityRow({
   visible,
   onChange,
   disabled,
+  alertsPossible = true,
 }: {
   visible: boolean;
   onChange: (visible: boolean) => void;
   disabled?: boolean;
+  /** `false` while the collector has no location: no alert can arrive, so none is promised. */
+  alertsPossible?: boolean;
 }) {
   const { palette } = useTheme();
   return (
@@ -88,7 +91,7 @@ export function WishlistVisibilityRow({
     >
       <SwitchRow
         label="Let others see what you want"
-        help="Collectors who own these cards can find you on your profile and offer them. Your wishlist alerts work either way."
+        help={`Collectors who own these cards can find you on your profile and offer them.${alertsPossible ? ' Your wishlist alerts work either way.' : ''}`}
         value={visible}
         onChange={onChange}
         disabled={disabled}

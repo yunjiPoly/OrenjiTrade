@@ -14,6 +14,7 @@ import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
 import { marketPriceSource } from '@/src/features/wishlist/wishlistLabels';
 import {
+  ANY_PRINTING_PARAM,
   editionLabel,
   finishLabel,
   formatMarketPrice,
@@ -29,10 +30,12 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
  * Card detail (web: `/cards/:id`): the picture with the provider credit, game-specific attributes
  * from the game schema, which copy the link names, every printing, "Add to inventory", "Who has
  * this in my region" (the holders list with every filter, ADR 0017) and "Add to wishlist".
- * `?printing=` selects a printing (its details and market price with the price's source);
+ * `?printing=<id>` selects a printing (its details and market price with the price's source);
  * `?rarity=` (a wishlist alert for "any printing in a rarity") shows "Any printing in <rarity>"
- * and its printings without picking one; with neither, the first printing is shown (stage S3
- * brings the printing picker). Deep-link target: https://www.orenjitrade.com/cards/<id> and
+ * and its printings without picking one; `?printing=any` (an alert for an "any printing" wish,
+ * and such a wish's own link) shows "Any printing": no selected printing, no highlighted row, no
+ * price of one printing. With no parameter the first printing is still shown (stage S3 brings the
+ * printing picker). Deep-link target: https://www.orenjitrade.com/cards/<id> and
  * orenjitrade://cards/<id>.
  */
 export default function CardScreen() {
@@ -117,14 +120,20 @@ function CardContent({
   const games = useGames();
   const printings = card.printings ?? [];
   // Which copy the link names: a printing of this card, else a rarity of its printings (an
-  // unknown printing or rarity is ignored). "Any printing in <rarity>" picks no printing.
-  const linked = printings.find((candidate) => candidate.id === printingId) ?? null;
+  // unknown printing or rarity is ignored), else "any printing" when the link says so
+  // (`?printing=any`). "Any printing" and "Any printing in <rarity>" pick no printing.
+  const saysAny = printingId === ANY_PRINTING_PARAM;
+  const linked = saysAny
+    ? null
+    : (printings.find((candidate) => candidate.id === printingId) ?? null);
   const anyInRarity =
     !linked && rarity && printings.some((candidate) => candidate.rarity === rarity) ? rarity : null;
+  const anyPrinting = saysAny && !anyInRarity;
   const rarityPrintings = anyInRarity
     ? printings.filter((candidate) => candidate.rarity === anyInRarity)
     : [];
-  const selected: PrintingSummary | null = linked ?? (anyInRarity ? null : (printings[0] ?? null));
+  const selected: PrintingSummary | null =
+    linked ?? (anyInRarity || anyPrinting ? null : (printings[0] ?? null));
   const schema = games.data?.find((game) => game.slug === card.game)?.schema ?? null;
   const name = card.name ?? 'Card';
   const code = selected ? printingCode(selected) : '';
@@ -133,12 +142,14 @@ function CardContent({
   const attributes = metadataEntries(schema?.metadataFields, card.metadata);
   const price = formatMarketPrice(selected?.marketPrice);
   const priceSource = marketPriceSource(selected?.marketPrice);
-  // "Add to inventory" needs one printing: the shown one, or the only one of the rarity.
-  const inventoryPrinting = selected ?? (rarityPrintings.length === 1 ? rarityPrintings[0] : null);
+  // "Add to inventory" needs one printing: the shown one, or the only one the selection leaves
+  // (of the rarity, or of the card for "any printing").
+  const candidates = anyPrinting ? printings : rarityPrintings;
+  const inventoryPrinting = selected ?? (candidates.length === 1 ? candidates[0] : null);
 
   const select = (printing: PrintingSummary) => {
     if (printing.id) {
-      // One printing replaces "any printing in <rarity>".
+      // One printing replaces "any printing" (`?printing=any`) and "any printing in <rarity>".
       router.setParams(
         anyInRarity ? { printing: printing.id, rarity: undefined } : { printing: printing.id }
       );
@@ -163,6 +174,10 @@ function CardContent({
         ) : anyInRarity ? (
           <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
             Any printing in {anyInRarity}
+          </Text>
+        ) : anyPrinting ? (
+          <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
+            Any printing
           </Text>
         ) : null}
         <CardDataCredit game={card.game} />
@@ -310,6 +325,13 @@ function CardContent({
               />
             ))}
           </View>
+        </SectionCard>
+      ) : anyPrinting ? (
+        <SectionCard title="Any printing" testID="card-selected-any">
+          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+            {printings.length} {printings.length === 1 ? 'printing' : 'printings'} of this card: any
+            of them fits. Choose one under Printings to see its details and market price.
+          </Text>
         </SectionCard>
       ) : null}
 

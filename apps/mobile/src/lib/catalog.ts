@@ -225,6 +225,21 @@ export function printingFacts(printing: PrintingSummary): string {
     .join(' · ');
 }
 
+/**
+ * `?printing=any`: the card screen link of an explicit "any printing" selection (a wishlist alert
+ * for an "any printing" wish, a wish's own link). The screen then shows "Any printing" and picks
+ * no printing for the collector (web twin: `ANY_PRINTING_PARAM`).
+ */
+export const ANY_PRINTING_PARAM = 'any';
+
+/** The printings carrying a printing code (several when editions or rarities share it). */
+export function printingsWithCode(
+  printings: readonly PrintingSummary[],
+  code: string | null | undefined
+): PrintingSummary[] {
+  return code ? printings.filter((printing) => printing.printingCode === code) : [];
+}
+
 /** Suggestions without duplicates (the same card or printing code listed twice). */
 export function uniqueSuggestions(items: readonly CardSuggestion[]): CardSuggestion[] {
   const seen = new Set<string>();

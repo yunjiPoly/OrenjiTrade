@@ -23,7 +23,7 @@ import {
   alertReadiness,
   wishUsage,
 } from '@/src/features/wishlist/WishlistNotices';
-import { whichCopyLabel } from '@/src/features/wishlist/wishlistLabels';
+import { removeConfirmation, whichCopyLabel } from '@/src/features/wishlist/wishlistLabels';
 import { spacing } from '@/src/theme';
 
 /**
@@ -87,6 +87,7 @@ export default function WishlistScreen() {
           visible={!!privacy.data.wishlistVisible}
           onChange={(visible) => void setVisible(visible)}
           disabled={savePrivacy.isPending}
+          alertsPossible={alertReadiness(location.data) !== 'no-location'}
         />
       ) : null}
     </View>
@@ -170,7 +171,7 @@ export default function WishlistScreen() {
       <ConfirmDialog
         visible={!!removing}
         title={`Remove ${removing?.card?.name ?? 'this card'}?`}
-        message={`The wish for ${removing ? whichCopyLabel(removing.printing, removing.rarity) : 'this card'} is removed. You can add the card again later.`}
+        message={removing ? removeConfirmation(removing) : ''}
         confirmLabel="Remove"
         tone="danger"
         busy={remove.isPending}

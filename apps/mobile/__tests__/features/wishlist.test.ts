@@ -19,11 +19,13 @@ import {
   marketPriceSource,
   priceTermLabel,
   printingOptionLabel,
+  removeConfirmation,
   whichCopyLabel,
   wishCardParams,
   wishChips,
 } from '@/src/features/wishlist/wishlistLabels';
-import { withCurrentTerm } from '@/src/features/wishlist/WishFields';
+import { copyHint, withCurrentTerm } from '@/src/features/wishlist/WishFields';
+import { printingsWithCode } from '@/src/lib/catalog';
 import { alertReadiness, wishUsage } from '@/src/features/wishlist/WishlistNotices';
 
 import {
@@ -194,6 +196,18 @@ describe('wishlist labels', () => {
       ...terms,
       { label: '110% TCG+', percent: 110, orMore: true },
     ]);
+    // The kept term sits at its percent, not at the end.
+    const list = [
+      { label: '80% TCG', percent: 80, orMore: false },
+      { label: '100% TCG', percent: 100, orMore: false },
+      { label: '100% TCG+', percent: 100, orMore: true },
+    ];
+    expect(withCurrentTerm(list, '90% TCG').map((term) => term.label)).toEqual([
+      '80% TCG',
+      '90% TCG',
+      '100% TCG',
+      '100% TCG+',
+    ]);
     expect(withCurrentTerm(terms, 'cheap')).toBe(terms);
   });
 
@@ -241,7 +255,8 @@ describe('wishlist labels', () => {
     expect(printingOptionLabel(printingFixture({ finish: 'NORMAL' }))).toBe(
       'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Normal'
     );
-    expect(wishCardParams(wishFixture())).toEqual({ id: CARD_ID });
+    // "Any printing" is a selection too: the link says it, so the page picks no printing.
+    expect(wishCardParams(wishFixture())).toEqual({ id: CARD_ID, printing: 'any' });
     expect(wishCardParams(wishFixture({ rarity: 'Secret Rare' }))).toEqual({
       id: CARD_ID,
       rarity: 'Secret Rare',
@@ -252,6 +267,54 @@ describe('wishlist labels', () => {
     });
     expect(addedMessage(wishFixture())).toBe(
       "Azure-Eyes Sky Dragon is on your wishlist. We'll tell you when a collector of your region lists it."
+    );
+  });
+
+  it('words the remove confirmation with the card and which copy', () => {
+    expect(removeConfirmation(wishFixture())).toBe(
+      'Your wish for Azure-Eyes Sky Dragon (any printing) will be removed. You can add the card again later.'
+    );
+    expect(removeConfirmation(wishFixture({ rarity: 'Secret Rare' }))).toContain(
+      '(any printing in Secret Rare) will be removed.'
+    );
+    expect(removeConfirmation(wishFixture({ printing: printingFixture() }))).toContain(
+      '(SVX-001 · Ultra Rare · Stellar Vortex · Holo) will be removed.'
+    );
+  });
+
+  it('never takes a typed code that several printings share for one of them', () => {
+    const english = printingFixture();
+    const french = printingFixture({ id: 'p-fr', language: 'fr', finish: 'REVERSE_HOLO' });
+    const other = printingFixture({ id: 'p-2', printingCode: 'SVX-002', rarity: 'Common' });
+    const printings = [other, english, french];
+    expect(printingsWithCode(printings, 'SVX-001').map((printing) => printing.id)).toEqual([
+      PRINTING_A,
+      'p-fr',
+    ]);
+    expect(printingsWithCode(printings, 'SVX-002')).toHaveLength(1);
+    expect(printingsWithCode(printings, null)).toEqual([]);
+    // "Which copy" lists the printings of the typed code first, marked as such.
+    const options = copyOptions(printings, 'SVX-001');
+    expect(options.map((option) => option.value)).toEqual([
+      '',
+      'rarity:Common',
+      'rarity:Ultra Rare',
+      PRINTING_A,
+      'p-fr',
+      'p-2',
+    ]);
+    expect(options[3]?.detail).toBe('The code you typed (SVX-001)');
+    expect(options[5]?.detail).toBeUndefined();
+    // The hint says why no printing was picked, and writes a chosen printing out in full.
+    expect(copyHint({ printingId: '', rarity: '' }, printings, 'SVX-001')).toBe(
+      'Any printing of the card. 2 printings share the code SVX-001: choose one in “Which copy” for that copy only.'
+    );
+    expect(copyHint({ printingId: '', rarity: '' }, printings)).toBe('Any printing of the card.');
+    expect(copyHint({ printingId: '', rarity: 'Common' }, printings)).toBe(
+      'Any printing in Common.'
+    );
+    expect(copyHint({ printingId: 'p-fr', rarity: '' }, printings, 'SVX-001')).toBe(
+      'Only SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · French · Reverse holo.'
     );
   });
 

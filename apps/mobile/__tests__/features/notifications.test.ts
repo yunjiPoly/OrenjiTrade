@@ -48,7 +48,8 @@ describe('notification kinds', () => {
     expect(link('WISHLIST_ALERT', { cardId: 'c1', printingId: 'p1' })).toBe(
       '/cards/c1?printing=p1'
     );
-    expect(link('WISHLIST_ALERT', { cardId: 'c1' })).toBe('/cards/c1');
+    // Without a printing, "any printing" is said explicitly (the screen picks none itself).
+    expect(link('WISHLIST_ALERT', { cardId: 'c1' })).toBe('/cards/c1?printing=any');
     expect(link('WISHLIST_ALERT', { cardId: '../x' })).toBe('/wishlist');
     expect(link('MESSAGE', { conversationId: 'c1' })).toBe('/messages/c1');
     expect(link('MESSAGE', {})).toBe('/messages');
@@ -86,6 +87,11 @@ describe('notification kinds', () => {
     expect(mobileTarget(`/cards/${CARD_ID}?rarity=Secret%20Rare`)).toEqual({
       kind: 'route',
       href: `/cards/${CARD_ID}?rarity=Secret%20Rare`,
+    });
+    // An "any printing" wish says so: the card screen shows "Any printing".
+    expect(mobileTarget(`/cards/${CARD_ID}?printing=any`)).toEqual({
+      kind: 'route',
+      href: `/cards/${CARD_ID}?printing=any`,
     });
     expect(mobileTarget(`/cards/${CARD_ID}?printing=bad id`)).toEqual({
       kind: 'route',

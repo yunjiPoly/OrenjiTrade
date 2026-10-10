@@ -215,7 +215,8 @@ app/                       expo-router routes
   disputes/[id].tsx        a dispute (`?opened=1` after opening it from the trade)
   premium.tsx, credits.tsx, support.tsx   Premium (`?checkout=success`), Credits, Support
                            (`?donation=thanks`)
-  cards/[id].tsx           card detail (`?printing=` selects a printing, `?rarity=` any printing of it)
+  cards/[id].tsx           card detail (`?printing=<id>` selects a printing, `?rarity=` any printing of
+                           it, `?printing=any` any printing: neither picks one)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
 src/
@@ -429,7 +430,9 @@ photo; a card link, mute and a block both ways), `community.spec.ts` (channels w
 activity, post, edit, reply, delete), `wishlist.spec.ts` (two collectors of Americas (South): a wish
 with a public note, Near Mint only, "85% TCG" and one printing, none of the removed fields, then a
 listing: one wishlist alert rises live on the bell, names the holder's state only and opens the
-card), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
+card; and a typed printing code shared by a 1st Edition and an Unlimited printing starts the wish
+on "Any printing" while a code of one printing preselects it, then the alert for that "Any
+printing" wish opens the card screen on "Any printing" with no printing selected), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
 leads to sign-in with the notice), `reports.spec.ts` (report a collector from the profile with
 the API's reasons -> "Report sent" -> My reports with the status; a second open report refused
 (409); a report from a conversation's options), `offers.spec.ts` (a cash offer from a public

@@ -14,6 +14,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
 import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
+import { printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -44,7 +45,9 @@ export type WishEditorProps =
  * Add a wish (optionally for a known card, printing or rarity, e.g. from a card page) or edit one
  * (the web's wishlist dialog, stage S2): card autocomplete → public note, "Near Mint only", one
  * optional price term (`GET /wishlist/price-terms`) and which copy (any printing, any printing of
- * one rarity, or one printing). Wishlist alerts come from collectors of the same region (ADR
+ * one rarity, or one printing). A printing code typed in the autocomplete preselects a printing
+ * only when exactly one printing of the card has it; a code several printings share starts on
+ * "Any printing" and "Which copy" lists those printings first (never a silent pick). Wishlist alerts come from collectors of the same region (ADR
  * 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409)
  * and plan limits (429) are explained in place.
  */
@@ -63,6 +66,9 @@ export function WishEditor(props: WishEditorProps) {
   const [wantedRarity, setWantedRarity] = useState<string | null>(
     props.mode === 'create' ? (props.rarity ?? null) : null
   );
+  // A printing code typed in the autocomplete. A code is not a printing: several printings of
+  // the card can share it (a 1st Edition and an Unlimited one, one code in several rarities).
+  const [wantedCode, setWantedCode] = useState<string | null>(null);
   const [form, setForm] = useState<WishFormValue | null>(
     editItem ? wishFormFromItem(editItem) : null
   );
@@ -78,14 +84,18 @@ export function WishEditor(props: WishEditorProps) {
   const printings = card.data?.printings ?? [];
 
   // A new wish starts once the card is known (with the asked printing or rarity when the card
-  // has it; else any printing).
+  // has it; else any printing). A typed code preselects a printing only when exactly one
+  // printing of the card carries it: among several, none is picked for the collector.
   const cardData = card.data;
+  const coded = printingsWithCode(printings, wantedCode);
+  const sharedCode = coded.length > 1 ? wantedCode : null;
   if (!form && cardData && !editing) {
-    const known = (cardData.printings ?? []).some((printing) => printing.id === wantedPrinting);
-    const rarity = (cardData.printings ?? []).some((printing) => printing.rarity === wantedRarity)
+    const wanted = coded.length === 1 ? (coded[0]?.id ?? null) : wantedPrinting;
+    const known = !!wanted && printings.some((printing) => printing.id === wanted);
+    const rarity = printings.some((printing) => printing.rarity === wantedRarity)
       ? wantedRarity
       : null;
-    setForm(newWishDefaults(known ? { printingId: wantedPrinting } : { rarity }));
+    setForm(newWishDefaults(known ? { printingId: wanted } : { rarity }));
   }
 
   const pick = (suggestion: CardSuggestion) => {
@@ -96,13 +106,15 @@ export function WishEditor(props: WishEditorProps) {
     setErrors({});
     setMessage(null);
     setCardId(suggestion.id);
-    setWantedPrinting(suggestion.kind === 'PRINTING' ? (suggestion.printingId ?? null) : null);
+    setWantedPrinting(null);
+    setWantedCode(suggestion.kind === 'PRINTING' ? (suggestion.printingCode ?? null) : null);
     setWantedRarity(null);
   };
 
   const changeCard = () => {
     setCardId(null);
     setWantedPrinting(null);
+    setWantedCode(null);
     setWantedRarity(null);
     setForm(null);
     setErrors({});
@@ -217,8 +229,10 @@ export function WishEditor(props: WishEditorProps) {
         }}
         errors={errors}
         printings={printings}
+        sharedCode={sharedCode}
         terms={terms.data ?? []}
         termsError={!!terms.error}
+        onRetryTerms={() => void terms.refetch()}
         disabled={saving}
       />
 

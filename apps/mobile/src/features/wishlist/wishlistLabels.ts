@@ -6,6 +6,7 @@ import type {
 } from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
 import {
+  ANY_PRINTING_PARAM,
   editionLabel,
   finishLabel,
   formatAmountWithCode,
@@ -142,7 +143,10 @@ export function marketPriceSource(price: MarketPrice | null | undefined): string
   }
 }
 
-/** The card page params of a wish's selection (`printing` or `rarity`). */
+/**
+ * The card page params of a wish's selection, always explicit: `printing` (an id), `rarity`, or
+ * `printing: 'any'` for an "any printing" wish (the page then picks no printing by itself).
+ */
 export function wishCardParams(
   wish: Pick<WishlistItemResponse, 'card' | 'printing' | 'rarity'>
 ): { id: string; printing?: string; rarity?: string } | null {
@@ -153,7 +157,23 @@ export function wishCardParams(
   if (wish.printing?.id) {
     return { id, printing: wish.printing.id };
   }
-  return wish.rarity ? { id, rarity: wish.rarity } : { id };
+  return wish.rarity ? { id, rarity: wish.rarity } : { id, printing: ANY_PRINTING_PARAM };
+}
+
+/**
+ * The confirmation before a wish is removed (web twin): "Your wish for Mirrorblade Knight (any
+ * printing) will be removed. You can add the card again later."
+ */
+export function removeConfirmation(
+  wish: Pick<WishlistItemResponse, 'card' | 'printing' | 'rarity'>
+): string {
+  const name = wish.card?.name ?? 'this card';
+  const copy = wish.printing
+    ? whichCopyLabel(wish.printing)
+    : wish.rarity
+      ? `any printing in ${wish.rarity}`
+      : 'any printing';
+  return `Your wish for ${name} (${copy}) will be removed. You can add the card again later.`;
 }
 
 /** The confirmation of a new wish (web: `addedMessage`). */

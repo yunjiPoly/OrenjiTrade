@@ -8,6 +8,7 @@ import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CARD_ID,
   PRINTING_A,
+  PRINTING_B,
   WISH_ID,
   cardDetailFixture,
   locationFixture,
@@ -122,6 +123,7 @@ describe('Wishlist tab', () => {
     renderWithProviders(<WishlistScreen />, { port: port() });
     const toggle = await screen.findByTestId('wishlist-visible');
     expect(toggle).toHaveTextContent(/Let others see what you want/);
+    await waitFor(() => expect(toggle).toHaveTextContent(/Your wishlist alerts work either way\./));
     fireEvent.press(toggle);
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Your wishlist is hidden from others.'
@@ -143,6 +145,11 @@ describe('Wishlist tab', () => {
     expect(await screen.findByTestId('wishlist-location-prompt')).toHaveTextContent(
       /Set your country and state to get wishlist alerts/
     );
+    // Without a location no alert can arrive: the visibility help does not promise any.
+    expect(await screen.findByTestId('wishlist-visible')).toHaveTextContent(
+      /find you on your profile and offer them\.$/
+    );
+    expect(screen.queryByText(/wishlist alerts work either way/)).toBeNull();
     fireEvent.press(screen.getByTestId('wishlist-location-action'));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
 
@@ -150,7 +157,7 @@ describe('Wishlist tab', () => {
     const dialog = await screen.findByTestId('wish-remove-dialog');
     expect(dialog).toHaveTextContent(/Remove Azure-Eyes Sky Dragon\?/);
     expect(dialog).toHaveTextContent(
-      /The wish for SVX-001 · Ultra Rare · Stellar Vortex · Holo is removed\./
+      /Your wish for Azure-Eyes Sky Dragon \(SVX-001 · Ultra Rare · Stellar Vortex · Holo\) will be removed\./
     );
     fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
     await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).not.toBeOnTheScreen());
@@ -226,17 +233,17 @@ describe('Add and edit a wish', () => {
     expect(screen.getByTestId('snackbar')).toHaveTextContent(/is on your wishlist/);
   });
 
-  it('starts from the card autocomplete, keeps a picked printing, and explains refusals', async () => {
-    const api = mockApi(
-      routes({
+  it('starts from the card autocomplete, keeps the printing of a code only one printing has, and explains refusals', async () => {
+    const api = mockApi({
+      ...routes({
         'GET /api/v1/cards/suggest': ok([
           {
             kind: 'PRINTING',
             id: CARD_ID,
             printingId: PRINTING_A,
-            name: 'Azure-Eyes Sky Dragon',
-            game: 'yugioh',
-            printingCode: 'AZR-EN001',
+            name: 'Emberfang Fox VMAX',
+            game: 'pokemon',
+            printingCode: 'SVX-001',
             imageUrl: null,
           },
         ]),
@@ -244,15 +251,28 @@ describe('Add and edit a wish', () => {
           problem(409, 'CONFLICT', ''),
           problem(429, 'LIMIT_REACHED', 'Limit', { limitKey: 'wishlist.items.max', limit: 20 }),
         ],
-      })
-    );
+      }),
+      // One printing only carries SVX-001 here.
+      'GET /api/v1/cards/{id}': ok(
+        cardDetailFixture({
+          printings: [
+            printingFixture(),
+            printingFixture({ id: 'printing-2', printingCode: 'SVX-002', rarity: 'Common' }),
+          ],
+        })
+      ),
+    });
     renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-card-step')).toHaveTextContent(
       /Which card are you looking for\?/
     );
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'AZR');
-    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-AZR-EN001'));
+    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'SVX');
+    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-SVX-001'));
     expect(await screen.findByTestId('wish-copy')).toHaveTextContent(/SVX-001/);
+    // The chosen printing is written out in full under the field.
+    expect(screen.getByTestId('wish-copy-hint')).toHaveTextContent(
+      'Only SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo.'
+    );
     // Inline validation first.
     fireEvent.changeText(screen.getByTestId('wish-note'), 'x'.repeat(281));
     fireEvent.press(screen.getByTestId('wish-save'));
@@ -273,6 +293,50 @@ describe('Add and edit a wish', () => {
     // Another card can be chosen.
     fireEvent.press(screen.getByTestId('wish-change-card'));
     expect(await screen.findByTestId('wish-card-step')).toBeOnTheScreen();
+  });
+
+  it('starts on any printing for a typed code that two printings share (never a silent pick)', async () => {
+    // The fixture card has two printings with the code SVX-001 (English holo, French reverse holo).
+    const api = mockApi(
+      routes({
+        'GET /api/v1/cards/suggest': ok([
+          {
+            kind: 'PRINTING',
+            id: CARD_ID,
+            printingId: PRINTING_A,
+            name: 'Emberfang Fox VMAX',
+            game: 'pokemon',
+            printingCode: 'SVX-001',
+            imageUrl: null,
+          },
+        ]),
+        'POST /api/v1/wishlist': (request) => ok(wishFixture(request.body as object), 201),
+      })
+    );
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    fireEvent.changeText(await screen.findByTestId('card-picker-input'), 'SVX-001');
+    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-SVX-001'));
+    expect(await screen.findByTestId('wish-copy')).toHaveTextContent(/Any printing/);
+    expect(screen.getByTestId('wish-copy')).not.toHaveTextContent(/SVX-001/);
+    expect(screen.getByTestId('wish-copy-hint')).toHaveTextContent(
+      'Any printing of the card. 2 printings share the code SVX-001: choose one in “Which copy” for that copy only.'
+    );
+    // "Which copy" offers both printings of the code, each named in full.
+    fireEvent.press(screen.getByTestId('wish-copy'));
+    expect(await screen.findByTestId(`wish-copy-option-${PRINTING_A}`)).toHaveTextContent(
+      /SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo/
+    );
+    expect(screen.getByTestId(`wish-copy-option-${PRINTING_B}`)).toHaveTextContent(
+      /SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · French · Reverse holo/
+    );
+    fireEvent.press(screen.getByTestId('wish-copy-option-'));
+    // Saved as it stands, the wish is for any printing of the card.
+    fireEvent.press(screen.getByTestId('wish-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
+      cardId: CARD_ID,
+      nearMintOnly: false,
+    });
   });
 
   it('starts on any printing of the rarity a link carries', async () => {
