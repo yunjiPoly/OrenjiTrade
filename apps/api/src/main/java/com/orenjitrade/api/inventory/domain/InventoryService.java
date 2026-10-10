@@ -79,11 +79,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  * their visibility only when the binder was PUBLIC without an end date, otherwise they become
  * PRIVATE. Making an item public confirms it (the owner asserts it is available).
  *
- * <p>Lock order: every write that reaches a binder row (the item count trigger on a filed item's
+ * <p>Locks: every write here that can reach a binder row (the item count trigger on a filed item's
  * {@code binder_id} or {@code deleted_at}, a confirmation or move that refreshes the binder, the
- * reconciliation of a binder's items) takes the binder rows before the item rows, both in ascending
- * id ({@link #lockForWrite}). The listing reconciler and the binder writes do the same; taking an
- * item first deadlocks with them.
+ * reconciliation of a binder's items) first takes the owner lock of the collector, so the writes of
+ * one collector run one after the other, then the binder rows before the item rows, both in
+ * ascending id ({@link #lockForWrite}). The listing reconciler and the binder writes do the same.
+ * Item photos and the admin hide write one item row, never reach a binder and wait for nothing
+ * else: they lock only that row.
  */
 @Service
 public class InventoryService {
@@ -228,6 +230,7 @@ public class InventoryService {
     @Transactional
     public InventoryItemView create(UUID ownerId, NewItem input) {
         Instant now = timeProvider.now();
+        binders.lockOwners(List.of(ownerId));
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable PrintingDetail printing = requirePrinting(input.printingId(), true, errors);
         if (input.binderId() != null) {
@@ -683,7 +686,8 @@ public class InventoryService {
     public List<TransferResult> reserveAndTransfer(List<TransferLine> lines) {
         Instant now = timeProvider.now();
         // The lines belong to two collectors and an item whose last copy leaves is soft-deleted
-        // (its binder is recounted): every binder, then every item, before the first line.
+        // (its binder is recounted): both owner locks, every binder, then every item, before the
+        // first line.
         lockForWrite(null, lines.stream().map(TransferLine::itemId).toList(), List.of());
         List<TransferResult> results = new ArrayList<>();
         List<UUID> removed = new ArrayList<>();
@@ -793,7 +797,8 @@ public class InventoryService {
     /** Deletes every item and photo of the owner (account purge); returns the item count. */
     @Transactional
     public int purge(UUID ownerId) {
-        // The reconciler locks every binder of the owner, which the delete below recounts.
+        // The reconciler takes the owner lock and every binder of the owner, which the delete
+        // below recounts.
         reconciler.owner(ownerId);
         List<UUID> ids = items.lockAllOf(ownerId);
         deleteObjectsAfterCommit(images.deleteByItems(ids));
@@ -805,14 +810,13 @@ public class InventoryService {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Takes the row locks of an item write in the one order every path uses: the binders the items
-     * are filed in and {@code otherBinderIds} (a move target) first, in ascending id, then the live
-     * items among {@code itemIds}, in ascending id.
+     * Takes the locks of an item write in the one order every path uses: the owner lock of the
+     * collector (of both collectors of a trade transfer), then the binders the items are filed in
+     * and {@code otherBinderIds} (a move target), in ascending id, then the live items among {@code
+     * itemIds}, in ascending id.
      *
-     * <p>The binders are read before the items are locked, so an item may turn out to be filed
-     * elsewhere once its row is held (another request moved it in between). That binder is then
-     * taken without waiting; when another transaction holds it the request ends with {@code 409}
-     * instead of waiting against the lock order.
+     * <p>The binders are read under the owner lock: no other write of the collector can move one of
+     * the items between that read and the row locks.
      *
      * @param ownerId only this owner's items and binders when given (ids taken from a request);
      *     {@code null} for admin and trade writes, whose ids are not the caller's to choose
@@ -820,19 +824,13 @@ public class InventoryService {
      */
     private Map<UUID, LockedItem> lockForWrite(
             @Nullable UUID ownerId, Collection<UUID> itemIds, Collection<UUID> otherBinderIds) {
+        binders.lockOwners(ownerId != null ? List.of(ownerId) : items.ownersOf(itemIds));
         Set<UUID> binderIds = new HashSet<>(items.binderIdsOf(ownerId, itemIds));
         binderIds.addAll(otherBinderIds);
-        Set<UUID> held = binders.lockInOrder(ownerId, binderIds);
+        binders.lockInOrder(ownerId, binderIds);
         Map<UUID, LockedItem> locked = new LinkedHashMap<>();
-        Set<UUID> movedTo = new HashSet<>();
         for (LockedItem item : items.lockAll(ownerId, itemIds)) {
             locked.put(item.id(), item);
-            if (item.binderId() != null && !held.contains(item.binderId())) {
-                movedTo.add(item.binderId());
-            }
-        }
-        if (!movedTo.isEmpty() && !binders.tryLock(movedTo)) {
-            throw ApiException.conflict("The item is being changed by another request; try again");
         }
         return locked;
     }

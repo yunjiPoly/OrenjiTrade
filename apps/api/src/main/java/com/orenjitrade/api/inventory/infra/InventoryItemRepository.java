@@ -34,12 +34,12 @@ import org.springframework.stereotype.Repository;
  * visibility ({@link #LISTED}); public lists filter on it and never on the materialised flag. Reads
  * join the catalog tables (card, game) and the owner's account and privacy rows read-only.
  *
- * <p>Lock order (docs/database/schema.md "Lock order of binders and inventory items"): binder rows
- * are locked before item rows, and item rows in ascending {@code id}. The trigger {@code
- * trg_inventory_item_binder_count} updates the binder of an item whose {@code binder_id} or {@code
- * deleted_at} changes, so callers of those writes hold the binder first ({@code
- * InventoryService.lockForWrite}); every statement here that locks several items takes them through
- * an {@code ORDER BY id} locking clause.
+ * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): the callers of the
+ * writes here hold the owner lock of the collector, then binder rows are locked before item rows,
+ * and item rows in ascending {@code id}. The trigger {@code trg_inventory_item_binder_count}
+ * updates the binder of an item whose {@code binder_id} or {@code deleted_at} changes, so callers
+ * of those writes hold the binder first ({@code InventoryService.lockForWrite}); every statement
+ * here that locks several items takes them through an {@code ORDER BY id} locking clause.
  */
 @Repository
 public class InventoryItemRepository {
@@ -122,8 +122,22 @@ public class InventoryItemRepository {
     }
 
     /**
-     * Binders the live items among {@code ids} are filed in, read without a lock: the binders an
-     * item write locks before it locks the items.
+     * The owners of the items among {@code ids}, deleted ones included (an owner never changes).
+     */
+    public List<UUID> ownersOf(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("SELECT DISTINCT owner_id FROM inventory_item WHERE id IN (:ids)")
+                .param("ids", ids)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Binders the live items among {@code ids} are filed in, read without a row lock: the binders
+     * an item write locks before it locks the items. The caller holds the owner lock, so no other
+     * write moves these items meanwhile.
      *
      * @param ownerId only this owner's items when given
      */
@@ -145,7 +159,8 @@ public class InventoryItemRepository {
 
     /**
      * Locks the live items among {@code ids} in ascending id order and returns them with the binder
-     * they are filed in now (it cannot change while the lock is held).
+     * they are filed in now (it cannot change while the lock is held). The id order is the second
+     * line behind the owner lock, which already keeps the collector's other writes off these rows.
      *
      * @param ownerId only this owner's items when given
      */

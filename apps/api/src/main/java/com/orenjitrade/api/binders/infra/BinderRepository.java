@@ -26,10 +26,11 @@ import org.springframework.stereotype.Repository;
  * never written here. Reads carry the live effective public visibility ({@link
  * PublicVisibilityRules}).
  *
- * <p>Lock order (docs/database/schema.md "Lock order of binders and inventory items"): binder rows
- * are locked before inventory item rows and, within the table, in ascending {@code id}. Every
- * statement here that locks several binders therefore takes them through an {@code ORDER BY id}
- * locking clause.
+ * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): a write to a
+ * collector's binders or inventory items first takes that collector's owner lock ({@link
+ * #lockOwners}), so the writes of one collector run one after the other. Below it, binder rows are
+ * locked before inventory item rows and, within the table, in ascending {@code id}: every statement
+ * here that locks several binders takes them through an {@code ORDER BY id} locking clause.
  */
 @Repository
 public class BinderRepository {
@@ -186,6 +187,32 @@ public class BinderRepository {
     }
 
     /**
+     * Takes the owner locks of these collectors until the transaction ends: transaction-scoped
+     * advisory locks, one per collector, taken in ascending key order (a trade transfer writes the
+     * items of two collectors). Every write to a collector's binders or inventory items takes the
+     * lock before its first row lock, so those writes run one after the other and none of them
+     * reads a state that another one is still changing.
+     */
+    public void lockOwners(Collection<UUID> ownerIds) {
+        if (ownerIds.isEmpty()) {
+            return;
+        }
+        // The keys are sorted in a subquery, so the locks are taken in that order whatever the
+        // order of the ids.
+        jdbc.sql(
+                        """
+                        SELECT pg_advisory_xact_lock(k.key)
+                          FROM (SELECT DISTINCT
+                                       hashtextextended('inventory-owner:' || o.id, 0) AS key
+                                  FROM unnest(ARRAY[:ownerIds]::text[]) AS o(id)
+                                 ORDER BY 1) k
+                        """)
+                .param("ownerIds", ownerIds.stream().map(UUID::toString).distinct().toList())
+                .query()
+                .listOfRows();
+    }
+
+    /**
      * Locks binders in ascending id order, before any of their items is written (the lock order).
      * {@code FOR UPDATE}, the mode {@link #lockOwned} takes, so a later statement of the
      * transaction never has to strengthen the lock while another session holds a weaker one.
@@ -213,22 +240,6 @@ public class BinderRepository {
     public List<UUID> lockAllOf(UUID ownerId) {
         return jdbc.sql("SELECT id FROM binder WHERE owner_id = :ownerId ORDER BY id FOR UPDATE")
                 .param("ownerId", ownerId)
-                .query(UUID.class)
-                .list();
-    }
-
-    /**
-     * Locks the binders among {@code ids} that no other transaction holds, without waiting (a
-     * binder that has to be taken out of the lock order is never waited for); returns those locked.
-     */
-    public List<UUID> tryLockAll(Collection<UUID> ids) {
-        if (ids.isEmpty()) {
-            return List.of();
-        }
-        return jdbc.sql(
-                        "SELECT id FROM binder WHERE id IN (:ids) ORDER BY id FOR UPDATE SKIP"
-                                + " LOCKED")
-                .param("ids", ids)
                 .query(UUID.class)
                 .list();
     }

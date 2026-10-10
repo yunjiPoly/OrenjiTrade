@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -50,10 +51,11 @@ import org.springframework.transaction.annotation.Transactional;
  * or {@link BinderUnpublished} exactly once: the last computed value is materialised in {@code
  * binder.publicly_listed} and events are emitted when it flips ({@link #reconcileListing}).
  *
- * <p>Lock order: a transaction that writes binders and inventory items locks the binder rows first,
- * in ascending id ({@link #lockInOrder}, {@link #lockAllInOrder}; every write here starts with the
- * binder it changes), and only then the item rows. The item count trigger and the listing
- * reconciliation both end in binder rows, so any other order can deadlock.
+ * <p>Locks: every write to a collector's binders or inventory items starts with that collector's
+ * owner lock ({@link #lockOwners}), so the writes of one collector run one after the other. Below
+ * it, a transaction locks the binder rows first, in ascending id ({@link #lockInOrder}, {@link
+ * #lockAllInOrder}; every write here starts with the binder it changes), and only then the item
+ * rows: the item count trigger and the listing reconciliation both end in binder rows.
  */
 @Service
 public class BinderService {
@@ -128,6 +130,7 @@ public class BinderService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
+        repository.lockOwners(List.of(ownerId));
         repository.lockOwnerForCreation(ownerId);
         limits.consume(ownerId, BINDERS_MAX);
         UUID id = UUID.randomUUID();
@@ -320,6 +323,7 @@ public class BinderService {
         }
         // Every binder of the owner is rewritten below in the requested order: take them in the
         // lock order first.
+        repository.lockOwners(List.of(ownerId));
         repository.lockAllOf(ownerId);
         if (!repository.notOwned(ownerId, distinct).isEmpty()) {
             throw ApiException.notFound(NOT_FOUND);
@@ -373,6 +377,20 @@ public class BinderService {
     }
 
     /**
+     * The first step of every write to these collectors' binders or inventory items: takes their
+     * owner locks until the transaction ends, before any binder or item row is locked. The writes
+     * of one collector then run one after the other: none of them reads the binder of an item while
+     * another one moves it, and none waits for a row in the middle of its work that another write
+     * of the same collector holds.
+     *
+     * @param ownerIds the collectors whose rows the transaction writes (two for a trade transfer)
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockOwners(Collection<UUID> ownerIds) {
+        repository.lockOwners(ownerIds);
+    }
+
+    /**
      * Locks binders before their items are written, in ascending id order (the lock order of every
      * inventory and binder write). Call it before the first item row is locked, with every binder
      * the transaction is going to reach: the binders the items are filed in (the item count trigger
@@ -393,18 +411,6 @@ public class BinderService {
     @Transactional
     public Set<UUID> lockAllInOrder(UUID ownerId) {
         return new HashSet<>(repository.lockAllOf(ownerId));
-    }
-
-    /**
-     * Locks binders the transaction could not take in the lock order (it already holds item rows),
-     * without waiting for them, so it can never be part of a lock cycle.
-     *
-     * @return whether every binder is locked now; {@code false} when another transaction holds one
-     */
-    @Transactional
-    public boolean tryLock(Collection<UUID> binderIds) {
-        Set<UUID> wanted = new HashSet<>(binderIds);
-        return repository.tryLockAll(wanted).size() == wanted.size();
     }
 
     /**
@@ -507,6 +513,7 @@ public class BinderService {
     /** Deletes every binder of the owner (account purge); items are purged by their module. */
     @Transactional
     public int purge(UUID ownerId) {
+        repository.lockOwners(List.of(ownerId));
         repository.lockAllOf(ownerId);
         return repository.deleteAllOf(ownerId).size();
     }
@@ -516,6 +523,7 @@ public class BinderService {
     // ---------------------------------------------------------------------------------------
 
     private BinderView lockOwned(UUID ownerId, UUID binderId) {
+        repository.lockOwners(List.of(ownerId));
         if (!repository.lockOwned(ownerId, binderId)) {
             throw ApiException.notFound(NOT_FOUND);
         }
