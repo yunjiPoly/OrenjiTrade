@@ -7,8 +7,10 @@ import {
   inject,
   input,
   linkedSignal,
+  output,
 } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,7 +21,11 @@ import { marketPriceInfo } from '../catalog/catalog-labels';
 import { WISH_NOTE_MAX, WishForm, noteError, noteLength } from './wishlist-form';
 import { approximateAmount } from './wishlist-labels';
 
-/** The terms to offer: the admin list, plus `current` when the list no longer has it. */
+/**
+ * The terms to offer: the admin list, plus `current` when the list no longer has it (a wish keeps
+ * a term the admin removed), placed by its percent ("90% TCG" between 85 and 100, an "or more"
+ * term after the plain one of the same percent) rather than at the end.
+ */
 export function withCurrentTerm(
   terms: readonly WishPriceTerm[],
   current: string | null | undefined,
@@ -28,9 +34,13 @@ export function withCurrentTerm(
     return terms;
   }
   const match = /^([1-9]\d{0,2})% TCG(\+)?$/.exec(current);
-  return match
-    ? [...terms, { label: current, percent: Number(match[1]), orMore: !!match[2] }]
-    : terms;
+  if (!match) {
+    return terms;
+  }
+  const kept: WishPriceTerm = { label: current, percent: Number(match[1]), orMore: !!match[2] };
+  const rank = (term: WishPriceTerm) => (term.percent ?? 0) * 2 + (term.orMore ? 1 : 0);
+  const after = terms.findIndex((term) => rank(term) > rank(kept));
+  return after < 0 ? [...terms, kept] : [...terms.slice(0, after), kept, ...terms.slice(after)];
 }
 
 /** A label inside a sentence: lower-case first letter, except an acronym ("TCG market price"). */
@@ -51,6 +61,7 @@ export function inSentence(label: string): string {
   selector: 'app-wish-fields',
   imports: [
     ReactiveFormsModule,
+    MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
@@ -60,7 +71,9 @@ export function inSentence(label: string): string {
   template: `
     @let f = form();
     <div class="wf" [formGroup]="f">
-      <mat-form-field appearance="outline" class="wf__note">
+      <!-- Dynamic subscript: an error of two lines on a phone grows the field instead of
+           running into "Near Mint only". -->
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="wf__note">
         <mat-label>Public note (optional)</mat-label>
         <textarea
           matInput
@@ -70,9 +83,17 @@ export function inSentence(label: string): string {
           [attr.maxlength]="noteMax * 2"
         ></textarea>
         <mat-hint>Everyone who can see your wishlist sees this note.</mat-hint>
-        <mat-hint align="end">{{ length() }} / {{ noteMax }}</mat-hint>
+        <mat-hint align="end" class="wf__count">{{ length() }} / {{ noteMax }}</mat-hint>
         @if (f.controls.note.invalid) {
-          <mat-error>{{ error() }}</mat-error>
+          <mat-error>
+            {{ error() }}
+            @if (length() > noteMax) {
+              <!-- The error replaces the counter: keep saying by how much the note is over. -->
+              <span class="wf__count" data-testid="wish-note-over"
+                >{{ length() }} / {{ noteMax }}</span
+              >
+            }
+          </mat-error>
         }
       </mat-form-field>
 
@@ -110,7 +131,8 @@ export function inSentence(label: string): string {
         }
         @if (termsError() && !terms().length) {
           <p class="wf__hint" role="alert" data-testid="wish-terms-error">
-            The price terms could not load. Try again later.
+            The price terms could not load.
+            <button matButton type="button" (click)="retryTerms.emit()">Retry</button>
           </p>
         }
         @if (f.controls.priceTerm.errors?.['server']; as message) {
@@ -130,6 +152,10 @@ export function inSentence(label: string): string {
     }
     .wf__note {
       width: 100%;
+    }
+    /* "281 / 280" stays on one line, also on a phone-sized dialog. */
+    .wf__count {
+      white-space: nowrap;
     }
     .wf__terms {
       min-width: 0;
@@ -185,6 +211,8 @@ export class WishFieldsComponent {
   readonly marketPrice = input<MarketPrice | null | undefined>(null);
   /** One printing is chosen (else any printing, where no amount can be shown). */
   readonly onePrinting = input(false);
+  /** The collector asks to load the price terms again (after `termsError`). */
+  readonly retryTerms = output<void>();
 
   protected readonly noteMax = WISH_NOTE_MAX;
   private readonly changeDetector = inject(ChangeDetectorRef);

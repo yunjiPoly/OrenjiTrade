@@ -39,6 +39,30 @@ describe('NotificationEntryComponent', () => {
     expect(element.querySelector('.ne__icon')).toBeNull();
   });
 
+  it('never cuts a wishlist alert in the bell menu: its last words are the place', async () => {
+    const fixture = TestBed.createComponent(NotificationEntryComponent);
+    fixture.componentRef.setInput('notification', notification({}));
+    fixture.componentRef.setInput('compact', true);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const body = element.querySelector('.ne__body');
+    expect(body?.textContent).toContain('in Ontario, Canada.');
+    expect(body?.classList.contains('ne__body--clamp')).toBe(false);
+    // Other notifications keep the two-line clamp of the menu.
+    fixture.componentRef.setInput('notification', {
+      ...notification({}),
+      type: 'MESSAGE',
+      title: 'New message',
+      body: 'A long message preview that the menu shortens.',
+    });
+    await fixture.whenStable();
+    expect(element.querySelector('.ne__body')?.classList.contains('ne__body--clamp')).toBe(true);
+    // The notifications page never clamps.
+    fixture.componentRef.setInput('compact', false);
+    await fixture.whenStable();
+    expect(element.querySelector('.ne__body')?.classList.contains('ne__body--clamp')).toBe(false);
+  });
+
   it('keeps the type icon when the payload carries no card picture', async () => {
     const element = await render({ wishlistItemId: 'w-1', game: 'yugioh' });
     expect(element.querySelector('[data-testid="notification-card-image"]')).toBeNull();

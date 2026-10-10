@@ -93,7 +93,9 @@ export function termsProblem(terms: readonly string[]): string | null {
             @if (problem(); as problem) {
               <mat-hint class="terms__problem">{{ problem }}</mat-hint>
             } @else {
-              <mat-hint>{{ terms().length }} terms</mat-hint>
+              <mat-hint
+                >{{ terms().length }} {{ terms().length === 1 ? 'term' : 'terms' }}</mat-hint
+              >
             }
           </mat-form-field>
           <div class="terms__actions">

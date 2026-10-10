@@ -123,14 +123,55 @@ describe('WishFieldsComponent', () => {
     );
   });
 
+  it('keeps the count in view once the note is over the limit', async () => {
+    await render(false);
+    expect(element.querySelector('[data-testid="wish-note-over"]')).toBeNull();
+    form.controls.note.setValue('x'.repeat(281));
+    form.controls.note.markAsTouched();
+    await fixture.whenStable();
+    expect(element.textContent).toContain('The note is limited to 280 characters.');
+    // The error replaces the counter hint: the count is repeated next to it, on one line.
+    const over = element.querySelector('[data-testid="wish-note-over"]');
+    expect(over?.textContent?.trim()).toBe('281 / 280');
+    expect(over?.classList.contains('wf__count')).toBe(true);
+  });
+
+  it('offers to load the price terms again when they failed', async () => {
+    fixture.componentRef.setInput('form', form);
+    fixture.componentRef.setInput('terms', []);
+    fixture.componentRef.setInput('termsError', true);
+    await fixture.whenStable();
+    let retried = 0;
+    fixture.componentInstance.retryTerms.subscribe(() => retried++);
+    const error = element.querySelector('[data-testid="wish-terms-error"]');
+    expect(error?.textContent).toContain('The price terms could not load.');
+    error?.querySelector('button')?.click();
+    expect(retried).toBe(1);
+  });
+
   it('keeps offering a term the admin list removed, on the wish that chose it', async () => {
     expect(withCurrentTerm(TERMS, '85% TCG')).toBe(TERMS);
     expect(withCurrentTerm(TERMS, '')).toBe(TERMS);
-    expect(withCurrentTerm(TERMS, '75% TCG').at(-1)).toEqual({
+    // The kept term sits at its percent, not after "100% TCG+".
+    expect(withCurrentTerm(TERMS, '75% TCG')[0]).toEqual({
       label: '75% TCG',
       percent: 75,
       orMore: false,
     });
+    expect(withCurrentTerm(TERMS, '90% TCG').map((term) => term.label)).toEqual([
+      '80% TCG',
+      '85% TCG',
+      '90% TCG',
+      '100% TCG+',
+    ]);
+    expect(withCurrentTerm(TERMS, '100% TCG').map((term) => term.label)).toEqual([
+      '80% TCG',
+      '85% TCG',
+      '100% TCG',
+      '100% TCG+',
+    ]);
+    expect(withCurrentTerm(TERMS, '120% TCG+').at(-1)?.label).toBe('120% TCG+');
+    expect(withCurrentTerm(TERMS, 'cheap')).toBe(TERMS);
     form = createWishForm({ ...newWishDefaults(), priceTerm: '75% TCG' });
     await render(false);
     const kept = element.querySelector(

@@ -26,7 +26,7 @@ import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.com
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 import { WishlistActions, addedMessage } from '../../shared/wishlist/wishlist-actions.service';
-import { whichCopyLabel } from '../../shared/wishlist/wishlist-labels';
+import { removeConfirmation, whichCopyLabel } from '../../shared/wishlist/wishlist-labels';
 import { WishlistStore } from './data/wishlist.store';
 import { WishCardComponent } from './list/wish-card.component';
 import { WishlistSummaryComponent } from './list/wishlist-summary.component';
@@ -90,8 +90,10 @@ import { WishlistSummaryComponent } from './list/wishlist-summary.component';
           <div class="wl__visibility-text">
             <h2 class="wl__visibility-title" id="wl-visible-title">Let others see what you want</h2>
             <p class="wl__visibility-help">
-              Collectors who own these cards can find you on your profile and offer them. Your
-              wishlist alerts work either way.
+              Collectors who own these cards can find you on your profile and offer them.
+              @if (store.readiness() !== 'no-location') {
+                Your wishlist alerts work either way.
+              }
             </p>
           </div>
           @if (store.visible() === null) {
@@ -285,7 +287,7 @@ export class WishlistPageComponent {
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
             title: `Remove ${name}?`,
-            message: `The wish for ${copy} is removed. You can add the card again later.`,
+            message: removeConfirmation(item),
             confirmLabel: 'Remove',
             tone: 'danger',
           },

@@ -39,7 +39,12 @@ import { CardImageComponent } from '../../shared/ui/card-image/card-image.compon
         <time [attr.datetime]="n.createdAt">{{ n.createdAt | relativeTime }}</time>
       </span>
       <span class="ne__title">{{ n.title }}</span>
-      <span class="ne__body" [class.ne__body--clamp]="compact()">{{ n.body }}</span>
+      <!-- A wishlist alert is one sentence that ends with the place ("... was just listed by
+           @handle in Quebec, Canada."): it is never cut, or the menu would hide where the card
+           is. -->
+      <span class="ne__body" [class.ne__body--clamp]="compact() && n.type !== 'WISHLIST_ALERT'">{{
+        n.body
+      }}</span>
     </span>
     @if (unread()) {
       <span class="ne__dot" data-testid="notification-unread-dot" aria-hidden="true"></span>
@@ -166,7 +171,7 @@ import { CardImageComponent } from '../../shared/ui/card-image/card-image.compon
 })
 export class NotificationEntryComponent {
   readonly notification = input.required<NotificationResponse>();
-  /** Clamp the body to two lines (menu). */
+  /** Clamp the body to two lines (menu), except a wishlist alert (see the template). */
   readonly compact = input(false, { transform: booleanAttribute });
 
   protected readonly kind = computed(() => notificationKind(this.notification()));

@@ -100,6 +100,8 @@ import {
     .cw__note {
       font-size: var(--font-size-xs);
       overflow-wrap: anywhere;
+      /* A note keeps its line breaks, as on the owner's wishlist page. */
+      white-space: pre-line;
     }
     .cw__meta {
       display: inline-flex;
