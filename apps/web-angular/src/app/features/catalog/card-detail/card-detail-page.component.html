@@ -42,6 +42,8 @@
           </p>
         } @else if (selection().rarity; as rarity) {
           <p class="detail__caption">Any printing in {{ rarity }}</p>
+        } @else if (anyPrinting()) {
+          <p class="detail__caption">Any printing</p>
         }
         <app-card-data-attribution class="detail__attribution" [game]="card.game ?? null" />
       </div>
@@ -148,6 +150,21 @@
                 <li class="chip chip--code mono">{{ rarityPrintingLabel(printing) }}</li>
               }
             </ul>
+          </section>
+        } @else if (anyPrinting()) {
+          <section
+            class="detail__printing"
+            aria-labelledby="selected-printing-title"
+            data-testid="selected-any"
+          >
+            <div class="detail__printing-head">
+              <h2 id="selected-printing-title" class="detail__h2">Any printing</h2>
+            </div>
+            <p class="detail__muted detail__rarity-note">
+              {{ printings().length }}
+              {{ printings().length === 1 ? 'printing' : 'printings' }} of this card: any of them
+              fits. Choose one under Printings to see its details and market price.
+            </p>
           </section>
         }
 

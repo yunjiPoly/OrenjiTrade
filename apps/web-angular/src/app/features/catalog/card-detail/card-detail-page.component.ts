@@ -33,6 +33,7 @@ import {
 } from '../../../shared/catalog/catalog-labels';
 import { GamesStore } from '../../../shared/catalog/games.store';
 import {
+  ANY_PRINTING_PARAM,
   PrintingSelection,
   normaliseSelection,
 } from '../../../shared/catalog/printing-picker/printing-selection';
@@ -48,12 +49,15 @@ import { CardMetadataComponent } from './card-metadata.component';
 
 /**
  * `/cards/:id`: hero picture, game-specific attributes from the game's schema, which copy the URL
- * names, every printing, "Who has this in my region" and "Add to wishlist". `?printing=` selects a
- * printing (its details and market price, labelled with the price's source); `?rarity=` (the link
- * of a wishlist alert for "any printing in a rarity") shows "Any printing in <rarity>" with the
- * printings of that rarity highlighted and picks none of them; with neither, the first printing
- * is shown (stage S3 replaces this with the shared printing picker, "Any printing" by default).
- * "Add to wishlist" opens the wishlist dialog on that same selection.
+ * names, every printing, "Who has this in my region" and "Add to wishlist". `?printing=<id>`
+ * selects a printing (its details and market price, labelled with the price's source);
+ * `?rarity=` (the link of a wishlist alert for "any printing in a rarity") shows "Any printing in
+ * <rarity>" with the printings of that rarity highlighted and picks none of them;
+ * `?printing=any` (the link of an alert for an "any printing" wish, and of such a wish) shows
+ * "Any printing": no selected printing, no highlighted row, no price of one printing. With no
+ * parameter the first printing is still shown (stage S3 replaces this with the shared printing
+ * picker, "Any printing" by default). "Add to wishlist" opens the wishlist dialog on that same
+ * selection.
  */
 @Component({
   selector: 'app-card-detail-page',
@@ -102,36 +106,50 @@ export class CardDetailPageComponent {
   });
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
+  /** `?printing=any`: the link says "any printing" itself. */
+  private readonly saysAnyPrinting = computed(() => this.printing() === ANY_PRINTING_PARAM);
   /**
    * Which copy the URL names: a printing of this card, else a rarity of its printings (an unknown
    * printing or rarity is ignored).
    */
   protected readonly selection = computed<PrintingSelection>(() =>
     normaliseSelection(
-      { printingId: this.printing() ?? null, rarity: this.rarity() ?? null },
+      {
+        printingId: this.saysAnyPrinting() ? null : (this.printing() ?? null),
+        rarity: this.rarity() ?? null,
+      },
       this.printings(),
     ),
   );
+  /** "Any printing", said by the link: nothing is selected, highlighted or priced. */
+  protected readonly anyPrinting = computed(() => {
+    const selection = this.selection();
+    return this.saysAnyPrinting() && !selection.printingId && !selection.rarity;
+  });
   /** The printings of "any printing in <rarity>" (empty otherwise). */
   protected readonly rarityPrintings = computed<PrintingSummary[]>(() => {
     const rarity = this.selection().rarity;
     return rarity ? this.printings().filter((printing) => printing.rarity === rarity) : [];
   });
-  /** The printing shown in detail: never one silently picked for "any printing in <rarity>". */
+  /**
+   * The printing shown in detail: never one silently picked for "any printing" or "any printing
+   * in <rarity>".
+   */
   protected readonly selected = computed<PrintingSummary | null>(() => {
     const printings = this.printings();
     const selection = this.selection();
     if (selection.printingId) {
       return printings.find((candidate) => candidate.id === selection.printingId) ?? null;
     }
-    return selection.rarity ? null : (printings[0] ?? null);
+    return selection.rarity || this.anyPrinting() ? null : (printings[0] ?? null);
   });
-  /** "Add to inventory" needs one printing: the shown one, or the only one of the rarity. */
+  /**
+   * "Add to inventory" needs one printing: the shown one, or the only one the selection leaves
+   * (of the rarity, or of the card for "any printing").
+   */
   protected readonly inventoryPrintingId = computed(() => {
-    const rarityPrintings = this.rarityPrintings();
-    return (
-      this.selected()?.id ?? (rarityPrintings.length === 1 ? (rarityPrintings[0].id ?? null) : null)
-    );
+    const candidates = this.anyPrinting() ? this.printings() : this.rarityPrintings();
+    return this.selected()?.id ?? (candidates.length === 1 ? (candidates[0].id ?? null) : null);
   });
   protected readonly schema = computed(() => this.games.schema(this.card()?.game));
   protected readonly gameLabel = computed(() => gameInfo(this.card()?.game ?? '').label);
@@ -192,7 +210,7 @@ export class CardDetailPageComponent {
     });
   }
 
-  /** One printing replaces "any printing in <rarity>". */
+  /** One printing replaces "any printing" (`?printing=any`) and "any printing in <rarity>". */
   protected selectPrinting(printingId: string): void {
     void this.router.navigate([], {
       queryParams: { printing: printingId, rarity: null },

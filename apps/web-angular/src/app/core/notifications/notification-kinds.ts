@@ -72,6 +72,7 @@ function idOf(data: NotificationResponse['data'] | undefined, key: string): stri
 
 /**
  * The page a notification opens: its `data.deepLink` (web path, e.g. `/cards/<id>?printing=<id>`,
+ * `/cards/<id>?rarity=<rarity>` or `/cards/<id>?printing=any` of a wishlist alert,
  * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/premium`,
  * `/collectors/<handle>?tab=ratings`, `/settings/reports`, `/offers/<id>`, `/trades/<id>`,
  * `/disputes/<id>`, `/settings/payouts`) when it
@@ -94,7 +95,8 @@ export function notificationLink(
       if (!card) {
         return '/wishlist';
       }
-      return printing ? `/cards/${card}?printing=${printing}` : `/cards/${card}`;
+      // Without a printing, "any" is said explicitly: the page never picks a printing itself.
+      return `/cards/${card}?printing=${printing ?? 'any'}`;
     }
     case 'MESSAGE': {
       const conversation = idOf(data, 'conversationId');

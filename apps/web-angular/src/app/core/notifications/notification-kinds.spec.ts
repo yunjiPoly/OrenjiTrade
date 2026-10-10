@@ -58,9 +58,23 @@ describe('notification kinds', () => {
     expect(
       notificationLink({ type: Type.WishlistAlert, data: { cardId: 'c-1', printingId: 'p-1' } }),
     ).toBe('/cards/c-1?printing=p-1');
+    // Without a deep link and without a printing, "any printing" is still said explicitly.
     expect(notificationLink({ type: Type.WishlistAlert, data: { cardId: 'c-1' } })).toBe(
-      '/cards/c-1',
+      '/cards/c-1?printing=any',
     );
+    // The API's own link carries a rarity wish's selection.
+    expect(
+      notificationLink({
+        type: Type.WishlistAlert,
+        data: { deepLink: '/cards/c-1?rarity=Secret%20Rare', cardId: 'c-1', rarity: 'Secret Rare' },
+      }),
+    ).toBe('/cards/c-1?rarity=Secret%20Rare');
+    expect(
+      notificationLink({
+        type: Type.WishlistAlert,
+        data: { deepLink: '/cards/c-1?printing=any', cardId: 'c-1' },
+      }),
+    ).toBe('/cards/c-1?printing=any');
     expect(notificationLink({ type: Type.WishlistAlert, data: {} })).toBe('/wishlist');
     expect(notificationLink({ type: Type.Message, data: { conversationId: 'c-9' } })).toBe(
       '/messages/c-9',

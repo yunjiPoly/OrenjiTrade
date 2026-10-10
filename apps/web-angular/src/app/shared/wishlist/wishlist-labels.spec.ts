@@ -3,6 +3,7 @@ import { MarketPriceSourceEnum as Source } from '@orenji/api-client';
 import {
   approximateAmount,
   priceTermLabel,
+  removeConfirmation,
   whichCopyLabel,
   wishCardQuery,
   wishChips,
@@ -100,9 +101,22 @@ describe('wishlist labels', () => {
     ).toBeUndefined();
   });
 
-  it('links a wish to the card page with its selection', () => {
-    expect(wishCardQuery(wish())).toEqual({});
+  it('links a wish to the card page with its selection, said explicitly', () => {
+    // "Any printing" is a selection too: the page must not pick a printing by itself.
+    expect(wishCardQuery(wish())).toEqual({ printing: 'any' });
     expect(wishCardQuery(wish({ rarity: 'Secret Rare' }))).toEqual({ rarity: 'Secret Rare' });
     expect(wishCardQuery(wish({ printing: PRINTING, rarity: null }))).toEqual({ printing: 'p1' });
+  });
+
+  it('words the remove confirmation with the card and which copy', () => {
+    expect(removeConfirmation(wish())).toBe(
+      'Your wish for Azure-Eyes Sky Dragon (any printing) will be removed. You can add the card again later.',
+    );
+    expect(removeConfirmation(wish({ rarity: 'Secret Rare' }))).toContain(
+      'Your wish for Azure-Eyes Sky Dragon (any printing in Secret Rare) will be removed.',
+    );
+    expect(removeConfirmation(wish({ printing: PRINTING, rarity: null }))).toContain(
+      `Your wish for Azure-Eyes Sky Dragon (${whichCopyLabel(PRINTING)}) will be removed.`,
+    );
   });
 });

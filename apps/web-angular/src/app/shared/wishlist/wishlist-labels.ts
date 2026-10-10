@@ -10,6 +10,7 @@ import {
   formatAmountWithCode,
   marketPriceInfo,
 } from '../catalog/catalog-labels';
+import { selectionQuery } from '../catalog/printing-picker/printing-selection';
 import { printingCode } from '../inventory/inventory-labels';
 
 /**
@@ -109,6 +110,23 @@ export function whichCopyLabel(
   );
 }
 
+/**
+ * The confirmation before a wish is removed: "Your wish for Mirrorblade Knight (any printing)
+ * will be removed. You can add the card again later." It names the card and which copy (two
+ * wishes of one card differ only by it).
+ */
+export function removeConfirmation(
+  wish: Pick<WishlistItemResponse, 'card' | 'printing' | 'rarity'>,
+): string {
+  const name = wish.card?.name ?? 'this card';
+  const copy = wish.printing
+    ? whichCopyLabel(wish.printing)
+    : wish.rarity
+      ? `any printing in ${wish.rarity}`
+      : 'any printing';
+  return `Your wish for ${name} (${copy}) will be removed. You can add the card again later.`;
+}
+
 /** The edition of a printing when it is not the usual Unlimited one ("1st Edition"), else `null`. */
 export function specialEdition(edition: string | null | undefined): string | null {
   return edition && edition !== 'UNLIMITED' ? editionLabel(edition) : null;
@@ -119,12 +137,12 @@ export function specialFinish(finish: string | null | undefined): string | null 
   return finish && finish !== 'NORMAL' ? finishLabel(finish) : null;
 }
 
-/** Query parameters of the card page for a wish's selection (`?printing=` or `?rarity=`). */
+/**
+ * Query parameters of the card page for a wish's selection: `?printing=<id>`, `?rarity=<rarity>`
+ * or `?printing=any` (said explicitly, so the page never shows a printing nobody chose).
+ */
 export function wishCardQuery(
   wish: Pick<WishlistItemResponse, 'printing' | 'rarity'>,
 ): Record<string, string> {
-  if (wish.printing?.id) {
-    return { printing: wish.printing.id };
-  }
-  return wish.rarity ? { rarity: wish.rarity } : {};
+  return selectionQuery({ printingId: wish.printing?.id ?? null, rarity: wish.rarity ?? null });
 }

@@ -15,17 +15,66 @@ export interface PrintingSelection {
 
 export const ANY_PRINTING: PrintingSelection = { printingId: null, rarity: null };
 
-/** The list filters of the picker; `''` = no filter. */
+/**
+ * `?printing=any`: the card page link of an explicit "any printing" selection (a wishlist alert
+ * for an "any printing" wish, a wish's own link). The page then shows "Any printing" and picks no
+ * printing for the collector. Stage S3 makes that the page's default without the parameter.
+ */
+export const ANY_PRINTING_PARAM = 'any';
+
+/**
+ * The card page's query parameters for a selection, always explicit: `?printing=<id>`,
+ * `?rarity=<rarity>` or `?printing=any`.
+ */
+export function selectionQuery(selection: PrintingSelection): Record<string, string> {
+  if (selection.printingId) {
+    return { printing: selection.printingId };
+  }
+  return selection.rarity ? { rarity: selection.rarity } : { printing: ANY_PRINTING_PARAM };
+}
+
+/**
+ * The list filters of the picker; `''` = no filter. `code` is a printing code the collector typed
+ * (a code can be shared by several printings: editions, rarities); it has no select of its own.
+ */
 export interface PrintingFilters {
   rarity: string;
   set: string;
   edition: string;
   language: string;
+  code: string;
 }
 
-export const NO_FILTERS: PrintingFilters = { rarity: '', set: '', edition: '', language: '' };
+export const NO_FILTERS: PrintingFilters = {
+  rarity: '',
+  set: '',
+  edition: '',
+  language: '',
+  code: '',
+};
 
-export type PrintingFacet = keyof PrintingFilters;
+/** The filters with a select above the list. */
+export type PrintingFacet = Exclude<keyof PrintingFilters, 'code'>;
+
+/** The printings carrying a printing code (several when editions or rarities share it). */
+export function printingsWithCode(
+  printings: readonly PrintingSummary[],
+  code: string | null | undefined,
+): PrintingSummary[] {
+  return code ? printings.filter((printing) => printing.printingCode === code) : [];
+}
+
+/**
+ * The printing a typed printing code stands for: the only printing of the card with that code,
+ * `null` when several share it (never a silent pick among them) or none has it.
+ */
+export function onlyPrintingWithCode(
+  printings: readonly PrintingSummary[],
+  code: string | null | undefined,
+): PrintingSummary | null {
+  const matches = printingsWithCode(printings, code);
+  return matches.length === 1 ? matches[0] : null;
+}
 
 /** One option of a filter select. */
 export interface FacetOption {
@@ -76,7 +125,8 @@ export function passesFilters(printing: PrintingSummary, filters: PrintingFilter
     (!filters.rarity || printing.rarity === filters.rarity) &&
     (!filters.set || printing.setId === filters.set) &&
     (!filters.edition || printing.edition === filters.edition) &&
-    (!filters.language || printing.language === filters.language)
+    (!filters.language || printing.language === filters.language) &&
+    (!filters.code || printing.printingCode === filters.code)
   );
 }
 
