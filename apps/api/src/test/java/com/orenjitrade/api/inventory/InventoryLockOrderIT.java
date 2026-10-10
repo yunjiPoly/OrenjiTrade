@@ -3,6 +3,7 @@ package com.orenjitrade.api.inventory;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.binders.domain.BinderChanges.NewBinder;
@@ -523,6 +524,173 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             assertThat(e).hasMessageContaining("lock timeout");
             return false;
         }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The owner lock in front of every write
+    // ---------------------------------------------------------------------------------------
+
+    /** A write to a collector's binders or inventory items, through its entry point. */
+    enum OwnerWrite {
+        ITEM_CREATE,
+        ITEM_CREATE_IN_A_BINDER,
+        ITEM_UPDATE,
+        ITEM_DELETE,
+        ITEM_CONFIRM,
+        ITEM_BULK,
+        ITEM_ADMIN_RESTORE,
+        TRADE_TRANSFER,
+        BINDER_CREATE,
+        BINDER_UPDATE,
+        BINDER_PUBLISH,
+        BINDER_UNPUBLISH,
+        BINDER_ADMIN_UNPUBLISH,
+        BINDER_CONFIRM,
+        BINDER_DELETE,
+        BINDER_REORDER,
+        OWNER_RECONCILIATION,
+        ITEM_PURGE,
+        BINDER_PURGE
+    }
+
+    /**
+     * The owner lock is the first lock of every write to a collector's binders or items. While
+     * another transaction holds it, the write waits, and it waits with no row in hand: every binder
+     * and item of the collector can still be locked. A write that skipped the lock would run next
+     * to the collector's other writes; one that took a row first would hold it while it waits.
+     */
+    @ParameterizedTest
+    @EnumSource(OwnerWrite.class)
+    void everyWriteStartsWithTheOwnerLock(OwnerWrite write) throws Exception {
+        String uid = uniqueUid("lock-first");
+        UUID ownerId = collector(uid);
+        String binderId = createBinder(uid, "One", "PRIVATE");
+        String otherBinderId = createBinder(uid, "Two", "PRIVATE");
+        String filed = createItem(uid, binderId, Map.of());
+        String unfiled = createItem(uid, null, Map.of());
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            CompletableFuture<Integer> holderPid = new CompletableFuture<>();
+            CountDownLatch release = new CountDownLatch(1);
+            Future<?> holder =
+                    pool.submit(
+                            () ->
+                                    transaction.executeWithoutResult(
+                                            status -> {
+                                                announce(
+                                                        holderPid,
+                                                        () ->
+                                                                binderService.lockOwners(
+                                                                        List.of(ownerId)));
+                                                awaitQuietly(release);
+                                            }));
+            Future<?> writing;
+            try {
+                int pid = holderPid.get(STEP.toSeconds(), TimeUnit.SECONDS);
+                writing =
+                        pool.submit(
+                                () ->
+                                        perform(
+                                                write,
+                                                uid,
+                                                ownerId,
+                                                binderId,
+                                                otherBinderId,
+                                                filed,
+                                                unfiled));
+                awaitWaiterOf(pid, writing);
+                assertThatCode(() -> lockEveryRowOf(ownerId))
+                        .as("no row is held while the write waits for the owner lock")
+                        .doesNotThrowAnyException();
+            } finally {
+                release.countDown();
+            }
+            holder.get(STEP.toSeconds(), TimeUnit.SECONDS);
+            writing.get(STEP.toSeconds(), TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertItemCountsMatch(ownerId);
+    }
+
+    private void perform(
+            OwnerWrite write,
+            String uid,
+            UUID ownerId,
+            String binderId,
+            String otherBinderId,
+            String filed,
+            String unfiled) {
+        String binder = "/api/v1/binders/" + binderId;
+        switch (write) {
+            case ITEM_CREATE -> createItem(uid, null, Map.of());
+            case ITEM_CREATE_IN_A_BINDER -> createItem(uid, binderId, Map.of());
+            case ITEM_UPDATE ->
+                    callJson(
+                            HttpMethod.PATCH,
+                            ITEMS + "/" + unfiled,
+                            uid,
+                            Map.of("quantity", 2),
+                            200);
+            case ITEM_DELETE -> callJson(HttpMethod.DELETE, ITEMS + "/" + filed, uid, null, 204);
+            case ITEM_CONFIRM ->
+                    callJson(HttpMethod.POST, ITEMS + "/" + filed + "/confirm", uid, null, 200);
+            case ITEM_BULK ->
+                    bulk(
+                            uid,
+                            "SET_AVAILABILITY",
+                            List.of(filed, unfiled),
+                            Map.of("availability", "TRADE"));
+            case ITEM_ADMIN_RESTORE ->
+                    assertThat(inventoryService.restoreListing(uuid(filed))).isPresent();
+            case TRADE_TRANSFER ->
+                    assertThat(
+                                    inventoryService.reserveAndTransfer(
+                                            List.of(new TransferLine(uuid(filed), ownerId, 1))))
+                            .allMatch(result -> result.removed());
+            case BINDER_CREATE -> createBinder(uid, "Three", "PRIVATE");
+            case BINDER_UPDATE ->
+                    callJson(HttpMethod.PATCH, binder, uid, Map.of("name", "Renamed"), 200);
+            case BINDER_PUBLISH ->
+                    callJson(
+                            HttpMethod.POST,
+                            binder + "/publish",
+                            uid,
+                            Map.of("mode", "PUBLIC"),
+                            200);
+            case BINDER_UNPUBLISH ->
+                    callJson(HttpMethod.POST, binder + "/unpublish", uid, null, 200);
+            case BINDER_ADMIN_UNPUBLISH ->
+                    assertThat(binderService.adminUnpublish(uuid(binderId))).isPresent();
+            case BINDER_CONFIRM -> callJson(HttpMethod.POST, binder + "/confirm", uid, null, 200);
+            case BINDER_DELETE -> callJson(HttpMethod.DELETE, binder, uid, null, 204);
+            case BINDER_REORDER ->
+                    callJson(
+                            HttpMethod.PUT,
+                            "/api/v1/binders/reorder",
+                            uid,
+                            Map.of("binderIds", List.of(otherBinderId, binderId)),
+                            200);
+            case OWNER_RECONCILIATION -> reconciler.owner(ownerId);
+            case ITEM_PURGE -> inventoryService.purge(ownerId);
+            case BINDER_PURGE -> binderService.purge(ownerId);
+        }
+    }
+
+    /** Locks every binder and item of the collector for a moment; fails when one is held. */
+    private void lockEveryRowOf(UUID ownerId) {
+        transaction.executeWithoutResult(
+                status -> {
+                    for (String table : List.of("binder", "inventory_item")) {
+                        jdbc.queryForList(
+                                "SELECT id FROM "
+                                        + table
+                                        + " WHERE owner_id = ? ORDER BY id FOR UPDATE NOWAIT",
+                                UUID.class,
+                                ownerId);
+                    }
+                });
     }
 
     // ---------------------------------------------------------------------------------------
@@ -1073,7 +1241,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             }
             Thread.sleep(20);
         }
-        throw new AssertionError("Nothing stopped at the row held by backend " + pid);
+        throw new AssertionError("Nothing waited for a lock of backend " + pid);
     }
 
     /** Waits until {@code count} sessions wait for a lock held by backend {@code pid}. */
