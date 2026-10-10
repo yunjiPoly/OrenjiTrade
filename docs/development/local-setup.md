@@ -9,6 +9,10 @@ deployment is deliberately postponed, see [../deployment/DEFERRED.md](../deploym
 All commands below run from the **repository root** and work the same in PowerShell, cmd, Git
 Bash, macOS and Linux shells (they are Node scripts under `scripts/`, no extra dependencies).
 
+**Setting up a Mac from zero** (Apple Silicon, Docker with Rosetta for the amd64-only PostGIS image,
+Java 21, Node 24, Xcode/iOS simulator, an arm64 Android emulator, Maestro, and the macOS-specific
+workarounds): see [macos-setup.md](macos-setup.md).
+
 ## Prerequisites
 
 | Tool | Version | Needed for |
