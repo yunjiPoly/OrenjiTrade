@@ -2379,6 +2379,22 @@ completed, more normalisation, the test widened to 10 cases): see "Review fix 3"
 - The mobile "Add a card" (inventory) flow still preselects the first printing of a typed code
   in its visible printing step; S3 reworks that step ("the add dialog asks the user to pick
   one").
+- The web header search still shows one row for a printing code that several printings share and
+  opens the card on the first of them (`?printing=<id>`); "Add to wishlist" from that page then
+  starts on that printing. The page and the dialog both name the printing, but the pick was not
+  the collector's: this is the card search of spec section 2 (S3). Review fix 3 removed the
+  silent pick from the wish form only.
+- On the web at 375 px, the notice that a shared code picked no printing ("2 printings share the
+  code ...") sits below the fold of the wish dialog while "Add to wishlist" stays in view; the
+  wish saved is the safe one (any printing). S3 places the picker.
+- A full wishlist (20 of 20) still opens the whole add form and refuses only at save.
+- Small leftovers of the round-3 product/UX verification, for S3 (it reworks these components):
+  the "Printing code" chip is clipped at 375 px for long card names; "Retry" for the price terms
+  drops keyboard focus to the page; closing the wish dialog during a save that is then refused
+  logs an `NG0911` console error (and a double activation within about 80 ms sends two POSTs,
+  201 then 409); the shared-code hint counts printings a filter hides; the mobile suggestion chip
+  still says "Printing"; with six entries the bell menu's two footer actions are below its fold;
+  a multi-line note opens scrolled to its last line in the edit dialog.
 - `wishlist_alert_sent` rows are kept until the account or the item goes (no time-based purge;
   the table is small: one row per collector and listing alerted).
 - Mobile follow-ups: the full printing picker on the card screen with holder counts (S3), "Who
@@ -2523,15 +2539,15 @@ major findings, both silent printing picks). Every major and minor finding was r
 - **An "Any printing" alert landed on a printing nobody chose (major, web and mobile).** The alert
   linked to the bare card page, which shows its first printing as "Selected printing": an Unlimited
   copy was listed and the page showed the 1st Edition at 6.75 CAD. The alert link now always says
-  the selection: `/cards/<id>?printing=any` for an any-printing wish (`b8d3750`), next to
-  `?printing=<id>` and `?rarity=`, which are unchanged. The card page (web `1b9fc32`, mobile
-  `00a07f6`) shows an "Any printing" block for it: no "Selected printing", no highlighted or
+  the selection: `/cards/<id>?printing=any` for an any-printing wish (`55b3352`), next to
+  `?printing=<id>` and `?rarity=`, which are unchanged. The card page (web `8c5a2c4`, mobile
+  `5fcb29d`) shows an "Any printing" block for it: no "Selected printing", no highlighted or
   checked row, no price of one printing, the card's own picture; choosing a printing replaces
   "any". A wish's own link (wishlist page, "Looking for") uses the same marker.
 - **A typed printing code picked one of the printings sharing it (major, web and mobile).**
   `SHV-EN003` (a 1st Edition and an Unlimited printing) started the wish on "Only … 1st Edition",
   and that wish then got no alert for an Unlimited copy. A code is no longer taken for a printing
-  (`7498baa`, `00a07f6`): the form preselects a printing only when exactly one printing of the
+  (`c96ec26`, `5fcb29d`): the form preselects a printing only when exactly one printing of the
   card carries the code; otherwise it starts on "Any printing", the web picker is narrowed to the
   code's printings with the reason ("2 printings share the code SHV-EN003: choose one below for
   that copy only", "Show every printing"), and the mobile "Which copy" lists them first.
@@ -2539,11 +2555,11 @@ major findings, both silent printing picks). Every major and minor finding was r
   filter; after a refused save (409, plan limit) the keyboard focus stays on the wish dialog's
   save button; the bell menu shows a wishlist alert in full (the place was cut off); onboarding
   tags "help collectors find you" (web and mobile); the seed fills the three stable-id wishes of a
-  database seeded before S2 while they are untouched and sends the sample alert once (`957f5b5`;
+  database seeded before S2 while they are untouched and sends the sample alert once (`569b3a4`;
   the owner's dev database is exactly that case); `PUT /me/settings/notifications` without
-  `wishlistAlerts` keeps the stored value (`559e116`); `schema.md`'s sensitive-data table no longer
+  `wishlistAlerts` keeps the stored value (`d9f5f94`); `schema.md`'s sensitive-data table no longer
   lists private wishlist notes.
-- **V112, edited one last time before it freezes at the merge (`ef3ccd5`, still one
+- **V112, edited one last time before it freezes at the merge (`25c26b4`, still one
   transaction):** a collector whose old WISHLIST_MATCH category had in-app and push off starts
   with `wishlist_alerts = false`; paused wishes are deleted before the column is dropped (lead
   decision, see "Decisions"); incomplete `event_publication` rows of the removed `WishlistMatched`
@@ -2581,7 +2597,7 @@ major findings, both silent printing picks). Every major and minor finding was r
   a minute on the emulated PostgreSQL; the API never allowed more than 20 or 500).
 
 **Checks after review fix 3 (2026-10-10, Mac mini: Apple M6, macOS 27, OrbStack, JDK 21, Node 24;
-code at `39e45c4`, retries off):**
+code at `19fdf71`, retries off):**
 - `npm run test:scripts`: 64 / 64 (13 suites).
 - `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
   `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
@@ -2596,7 +2612,7 @@ code at `39e45c4`, retries off):**
   round failed: the first on `BinderIT` (the known deadlock) and on the new seed test, which
   relied on a second alert notification while other suites had used up the seeded collector2's
   daily alert limit in the shared test database (the test now keeps the notification and removes
-  only the sent-alert key, `39e45c4`); the second only on that seed test.
+  only the sent-alert key, `19fdf71`); the second only on that seed test.
 - `npm run test:web`: lint clean, 142 files / 678 tests (new: the card page spec, the typed code,
   the focus after a refusal, the backdrop, the picker's "Any printing" row, the note count, the
   term order, the bell clamp). `npm run build -w apps/web-angular`: initial total 899.93 kB
@@ -2624,6 +2640,31 @@ code at `39e45c4`, retries off):**
   the outbox row before). The owner's database was only read (still V105, 3 wishes).
 - Nothing listens on 8180, 4300, 8090, 19006, 8082 or 8460; the shared containers were never
   restarted.
+
+**Independent verification of review fix 3 (2026-10-10, same Mac):** a functional verifier and a
+product/UX reviewer, each on its own stack, both **approve** (no blocker, no major finding).
+- Functional: every check above re-run on the branch head (API 816 + 12 tests green on the first
+  run, web 678, mobile 656 jest + 28 guard tests, mobile web E2E 52 / 52); every item of the
+  round found fixed with its test; V112 re-applied to a copy of the owner's dev database (V105)
+  and to the hostile V111 data (2,031 wishes left, opt-outs off only where in-app and push were
+  both off, no incomplete outbox row, the first start succeeding), still one transaction (a
+  failure forced at its last statement rolls back byte for byte), and a mutation check: removing
+  each of the 8 new statements makes `SimplifiedWishlistMigrationIT` fail.
+- Product/UX, on the web at 1280 x 800 and 375 x 812 (light and dark) and on the Expo web build
+  at 375 px: the three alert link shapes land as wished (any printing, one printing, a rarity)
+  and survive a reload; codes shared by 2, 2 and 4 printings start on "Any printing" with the
+  reason given, a code with one printing is preselected, and the resulting wishes alerted for
+  exactly the right copies. Its two minor findings and its nits are in "Known gaps" above.
+- Two flaky E2E checks surfaced that day, neither in S2 code, both hardened on this branch:
+  the signed-out specs of the web suite share the anonymous per-IP rate limit (60 a minute), and
+  on this fast machine the 61st call of a minute failed `launch-config.spec.ts` in one full run
+  and `smoke.spec.ts` in another (the E2E API now gets `RATE_LIMIT_ANONYMOUS_PER_MINUTE=600` from
+  the harness and from `e2e.yml`, and the launch spec asserts the answer's status; the limits
+  stay proven by the API's integration tests); the provider guard of `card-images.spec.ts` awaited response bodies
+  without a bound and timed out on GitHub CI for the macOS pull request when Chromium never
+  delivered one (it now bounds each read at 5 s, like the two other scanners).
+- Not verified by anyone this round: the native Maestro suite (no Android emulator on the Mac;
+  the iOS path for the harness is the next task) and screen reader output.
 
 ## Phase 11 — ML
 
