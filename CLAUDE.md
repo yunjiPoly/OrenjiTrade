@@ -123,6 +123,9 @@ call for geography (boundaries are bundled static assets).
 
 ## Working rules for Claude Code
 
+New machine or long break? Read `docs/development/claude-handoff.md` first: current state, next
+steps and the owner's working agreements. macOS setup: `docs/development/macos-setup.md`.
+
 1. Before modifying code: inspect the existing implementation, this file, and
    `IMPLEMENTATION_STATUS.md`. Extend working code; do not rewrite it to look cleaner.
 2. After implementing: build it, run the relevant unit + integration tests (and E2E when the
