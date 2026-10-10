@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { KeyboardAvoidingView, ScrollView, Text } from 'react-native';
 
@@ -223,6 +224,12 @@ describe('form controls', () => {
   it('renders form messages as alerts', () => {
     renderWithProviders(<FormMessage testID="msg">Something failed.</FormMessage>);
     expect(screen.getByRole('alert')).toHaveTextContent(/Something failed\./);
+  });
+
+  it('keeps the icon of a form message out of its spoken name (iOS reads the children)', () => {
+    renderWithProviders(<FormMessage testID="msg">Something failed.</FormMessage>);
+    const icon = screen.UNSAFE_getByType(MaterialCommunityIcons);
+    expect(icon.props.accessibilityElementsHidden).toBe(true);
   });
 
   it('steps a value within its bounds', () => {
