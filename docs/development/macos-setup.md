@@ -1036,6 +1036,8 @@ Each item: where, what breaks, the workaround, and the fix to make in the repo. 
     **Fixed 2026-10-10.** `ORENJI_JAVA_HOME` first (it also works from `.env`), then an exact Java 21 (`JAVA_HOME` first), a newer Java only with a warning (5); unit-tested in `scripts/lib/util.test.mjs`. A full E2E run with it was not done that day.
 24. **`scripts/lib/util.mjs` "Docker is not running":** the hint named only Docker Desktop and its "Engine running" label.
     **Fixed 2026-10-10.** It names OrbStack too.
+25. **API start-up log on macOS:** every start prints `WARN ... DnsServerAddressStreamProviders : Can not find io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider in the classpath, fallback to system defaults. This may result in incorrect DNS resolutions on MacOS.`
+    Expected noise, not fixed: PostgreSQL, Redis and the Auth emulator are on `localhost`, so nothing depends on that resolver locally. The remedy would be the `io.netty:netty-resolver-dns-native-macos` runtime dependency for local runs only.
 
 ---
 
