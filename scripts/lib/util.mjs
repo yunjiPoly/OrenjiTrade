@@ -114,10 +114,10 @@ export function parseFlags(argv, known) {
 
 /**
  * Reads the optional repository-root `.env` (copied from `.env.example`). Values already set in
- * the environment win; empty values are skipped so the application defaults apply.
+ * the environment win; empty values are skipped so the application defaults apply. `file` exists
+ * for the unit tests.
  */
-export function loadDotEnv() {
-  const file = path.join(ROOT, '.env');
+export function loadDotEnv(file = path.join(ROOT, '.env')) {
   const values = {};
   if (!fs.existsSync(file)) {
     return values;
@@ -670,16 +670,19 @@ function macJavaHome() {
  * Where the Java runtime of the API jar is looked for, in priority order: the two override
  * variables (ORENJI_JAVA_HOME, JAVA_HOME), `java` on PATH, on macOS an installed JDK 21 that
  * `/usr/libexec/java_home` knows, then the JDKs Gradle provisioned under ~/.gradle/jdks.
+ * `fromDotEnv(name)` tells whether a variable came from the repository `.env`, so the log can say
+ * where a value is set.
  */
 export function javaCandidates(
   env = process.env,
-  { platform = process.platform, home = os.homedir(), javaHomeOfMac = macJavaHome } = {},
+  { platform = process.platform, home = os.homedir(), javaHomeOfMac = macJavaHome, fromDotEnv = () => false } = {},
 ) {
   const exe = platform === 'win32' ? 'java.exe' : 'java';
   const candidates = [];
   for (const name of ['ORENJI_JAVA_HOME', 'JAVA_HOME']) {
     if (env[name]) {
-      candidates.push({ javaBin: path.join(env[name], 'bin', exe), source: name, override: true });
+      const source = fromDotEnv(name) ? `${name} in .env` : name;
+      candidates.push({ javaBin: path.join(env[name], 'bin', exe), source, override: true });
     }
   }
   candidates.push({ javaBin: 'java', source: '`java` on PATH', override: false });
@@ -735,7 +738,7 @@ export function javaChoiceWarnings(choice, wanted = API_JAVA_MAJOR) {
   );
   if (!choice.exact) {
     let remedy = `No Java ${wanted} was found: install a JDK ${wanted} or set ORENJI_JAVA_HOME to one to test on the same Java.`;
-    if (choice.source === 'ORENJI_JAVA_HOME') {
+    if (choice.source.startsWith('ORENJI_JAVA_HOME')) {
       remedy = `Point ORENJI_JAVA_HOME at a JDK ${wanted} to test on the same Java.`;
     } else if (choice.override) {
       remedy = `Set ORENJI_JAVA_HOME to a JDK ${wanted} to test on the same Java (it wins over ${choice.source}).`;
@@ -751,18 +754,34 @@ function probeJava(javaBin) {
   return javaBin !== 'java' && !fs.existsSync(javaBin) ? 0 : javaMajor(javaBin);
 }
 
+/** The variables the Java lookup reads (javaCandidates). */
+const JAVA_LOOKUP_VARIABLES = ['ORENJI_JAVA_HOME', 'JAVA_HOME', 'GRADLE_USER_HOME'];
+
 /**
  * The Java runtime for the API jar (E2E harnesses, test-data purge): see selectJava for the rules
  * (override variables first, then an exact Java 21, a newer Java as the last resort with a
  * warning). Returns the path of the `java` binary, or null when no Java 21+ is found.
+ *
+ * The variables are read from the shell and, when the shell does not define them, from the
+ * repository `.env`: `.env.example` lists ORENJI_JAVA_HOME, and child processes get `.env` the
+ * same way (childEnv). The parameters exist for the unit tests.
  */
-export function findJava21() {
-  const choice = selectJava(javaCandidates(), probeJava);
+export function findJava21({
+  shellEnv = process.env,
+  dotEnv = loadDotEnv(),
+  probe = probeJava,
+  lookup = {},
+  report = log,
+} = {}) {
+  // Read name by name: on Windows process.env finds a variable whatever its letter case.
+  const env = Object.fromEntries(JAVA_LOOKUP_VARIABLES.map((name) => [name, shellEnv[name] ?? dotEnv[name]]));
+  const fromDotEnv = (name) => shellEnv[name] === undefined && dotEnv[name] !== undefined;
+  const choice = selectJava(javaCandidates(env, { ...lookup, fromDotEnv }), probe);
   if (!choice) {
     return null;
   }
   for (const warning of javaChoiceWarnings(choice)) {
-    log.warn(warning);
+    report.warn(warning);
   }
   return choice.javaBin;
 }

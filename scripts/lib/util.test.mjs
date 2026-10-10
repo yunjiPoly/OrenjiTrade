@@ -7,7 +7,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { after, describe, it } from 'node:test';
-import { API_JAVA_MAJOR, gradleJdkJavaBins, javaCandidates, javaChoiceWarnings, selectJava } from './util.mjs';
+import {
+  API_JAVA_MAJOR,
+  findJava21,
+  gradleJdkJavaBins,
+  javaCandidates,
+  javaChoiceWarnings,
+  loadDotEnv,
+  selectJava,
+} from './util.mjs';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'orenji-util-'));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -171,6 +179,70 @@ describe('where the Java runtime is looked for', () => {
       candidates.map((candidate) => candidate.javaBin),
       ['java', bin],
     );
+  });
+});
+
+describe('findJava21 reads the variables from the shell and from the repository .env', () => {
+  // No java_home call and no real ~/.gradle/jdks: only the variables and `java` on PATH count.
+  const lookup = { platform: 'linux', home: path.join(tmp, 'no-such-home') };
+  const bin = (home) => path.join(home, 'bin', 'java');
+
+  function dotEnvFile(name, text) {
+    const file = path.join(tmp, name, '.env');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+    return file;
+  }
+
+  function recorder() {
+    const lines = [];
+    return { lines, warn: (line) => lines.push(line), info: (line) => lines.push(line) };
+  }
+
+  it('uses ORENJI_JAVA_HOME from .env although the shell exports a newer JAVA_HOME', () => {
+    // .env.example ships the entry empty; the developer fills it in.
+    const dotEnv = loadDotEnv(dotEnvFile('env-21', '# --- Local scripts ---\nORENJI_JAVA_HOME=/opt/env-jdk-21\nJAVA_HOME=\n'));
+    assert.deepEqual(dotEnv, { ORENJI_JAVA_HOME: '/opt/env-jdk-21' });
+    const report = recorder();
+    const probe = probeOf({ [bin('/opt/env-jdk-21')]: 21, [bin('/opt/shell-jdk-27')]: 27, java: 27 });
+    const java = findJava21({ shellEnv: { JAVA_HOME: '/opt/shell-jdk-27' }, dotEnv, probe, lookup, report });
+    assert.equal(java, bin('/opt/env-jdk-21'));
+    assert.deepEqual(report.lines, []);
+  });
+
+  it('lets an exported variable win over the .env one, and an empty exported one switch it off', () => {
+    const dotEnv = loadDotEnv(dotEnvFile('env-25', 'ORENJI_JAVA_HOME="/opt/env-jdk-25"\n'));
+    const probe = () => probeOf({ [bin('/opt/env-jdk-25')]: 25, [bin('/opt/shell-jdk-21')]: 21, java: 21 });
+    const exported = { ORENJI_JAVA_HOME: '/opt/shell-jdk-21' };
+    assert.equal(findJava21({ shellEnv: exported, dotEnv, probe: probe(), lookup, report: recorder() }), bin('/opt/shell-jdk-21'));
+    assert.equal(findJava21({ shellEnv: { ORENJI_JAVA_HOME: '' }, dotEnv, probe: probe(), lookup, report: recorder() }), 'java');
+    // Without the exported variable the .env value is back, and the warning names its origin.
+    const report = recorder();
+    assert.equal(findJava21({ shellEnv: {}, dotEnv, probe: probe(), lookup, report }), bin('/opt/env-jdk-25'));
+    assert.equal(report.lines.length, 1);
+    assert.match(report.lines[0], /will run on Java 25 \(ORENJI_JAVA_HOME in \.env: /);
+    assert.match(report.lines[0], /Point ORENJI_JAVA_HOME at a JDK 21/);
+  });
+
+  it('says that an unusable value comes from .env (a path copied from another machine)', () => {
+    const dotEnv = loadDotEnv(dotEnvFile('env-windows', 'ORENJI_JAVA_HOME=C:\\jdks\\temurin-21\n'));
+    const report = recorder();
+    assert.equal(findJava21({ shellEnv: {}, dotEnv, probe: probeOf({ java: 21 }), lookup, report }), 'java');
+    assert.equal(report.lines.length, 1);
+    assert.match(report.lines[0], /^ORENJI_JAVA_HOME in \.env is set, but .* is not a working Java; ignoring it/);
+  });
+
+  it('reads GRADLE_USER_HOME from .env too, and finds nothing without any Java 21+', () => {
+    const gradleHome = path.join(tmp, 'env-gradle-home');
+    const provisioned = touch(path.join(gradleHome, 'jdks', 'temurin-21', 'bin', 'java'));
+    const dotEnv = loadDotEnv(dotEnvFile('env-gradle', `GRADLE_USER_HOME=${gradleHome}\n`));
+    const probe = probeOf({ java: 17, [provisioned]: 21 });
+    assert.equal(findJava21({ shellEnv: {}, dotEnv, probe, lookup, report: recorder() }), provisioned);
+    assert.equal(findJava21({ shellEnv: {}, dotEnv: {}, probe: probeOf({ java: 17 }), lookup, report: recorder() }), null);
+  });
+
+  it('reads no .env when the file does not exist', () => {
+    assert.deepEqual(loadDotEnv(path.join(tmp, 'no-such-dir', '.env')), {});
   });
 });
 

@@ -594,7 +594,7 @@ Key local values:
 - `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099`, `FIREBASE_PROJECT_ID=orenjitrade-local`
 - `STORAGE_PROVIDER=local`, `CARD_IMAGE_LOCAL_CACHE_MAX_MB=5120`
 - Payments, billing and donations use `fake`.
-- `ORENJI_JAVA_HOME` (optional): a JDK 21 for the E2E jar. It wins over `JAVA_HOME` and the automatic choice (5).
+- `ORENJI_JAVA_HOME` (optional): a JDK 21 for the E2E jar. It wins over `JAVA_HOME` and the automatic choice (5). It works from `.env` or exported in the shell; the exported value wins.
 - **Regions branch:** `GOOGLE_MAPS_API_KEY`, `GOOGLE_MAPS_MAP_ID`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and `LOCATION_JITTER_SECRET` are removed.
 
 Verify: `diff <(grep -o '^[A-Z_]*=' .env.example) <(grep -o '^[A-Z_]*=' .env)` prints nothing.
