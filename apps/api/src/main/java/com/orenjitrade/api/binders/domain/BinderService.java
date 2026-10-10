@@ -49,6 +49,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Every transition of the effective public visibility of a binder emits {@link BinderPublished}
  * or {@link BinderUnpublished} exactly once: the last computed value is materialised in {@code
  * binder.publicly_listed} and events are emitted when it flips ({@link #reconcileListing}).
+ *
+ * <p>Lock order: a transaction that writes binders and inventory items locks the binder rows first,
+ * in ascending id ({@link #lockInOrder}, {@link #lockAllInOrder}; every write here starts with the
+ * binder it changes), and only then the item rows. The item count trigger and the listing
+ * reconciliation both end in binder rows, so any other order can deadlock.
  */
 @Service
 public class BinderService {
@@ -313,6 +318,9 @@ public class BinderService {
                     "Validation failed",
                     List.of(new ProblemFieldError("binderIds", "must not contain duplicates")));
         }
+        // Every binder of the owner is rewritten below in the requested order: take them in the
+        // lock order first.
+        repository.lockAllOf(ownerId);
         if (!repository.notOwned(ownerId, distinct).isEmpty()) {
             throw ApiException.notFound(NOT_FOUND);
         }
@@ -365,8 +373,44 @@ public class BinderService {
     }
 
     /**
+     * Locks binders before their items are written, in ascending id order (the lock order of every
+     * inventory and binder write). Call it before the first item row is locked, with every binder
+     * the transaction is going to reach: the binders the items are filed in (the item count trigger
+     * and {@link #recordItemActivity} write them) and the binder they move to.
+     *
+     * @param ownerId only this owner's binders when given (ids taken from a request)
+     * @return the binders locked; unknown ones and other owners' binders are absent
+     */
+    @Transactional
+    public Set<UUID> lockInOrder(@Nullable UUID ownerId, Collection<UUID> binderIds) {
+        return new HashSet<>(repository.lockAll(ownerId, new HashSet<>(binderIds)));
+    }
+
+    /**
+     * Locks every binder of an owner in ascending id order: for writes that reach all of the
+     * owner's binders and items (listing reconciliation, account purge).
+     */
+    @Transactional
+    public Set<UUID> lockAllInOrder(UUID ownerId) {
+        return new HashSet<>(repository.lockAllOf(ownerId));
+    }
+
+    /**
+     * Locks binders the transaction could not take in the lock order (it already holds item rows),
+     * without waiting for them, so it can never be part of a lock cycle.
+     *
+     * @return whether every binder is locked now; {@code false} when another transaction holds one
+     */
+    @Transactional
+    public boolean tryLock(Collection<UUID> binderIds) {
+        Set<UUID> wanted = new HashSet<>(binderIds);
+        return repository.tryLockAll(wanted).size() == wanted.size();
+    }
+
+    /**
      * Items were created, confirmed or moved into these binders: that confirms the binders (hidden
-     * ones come back). Does not touch the items.
+     * ones come back). Does not touch the items. The caller holds the binders ({@link
+     * #lockInOrder}).
      */
     @Transactional
     public void recordItemActivity(UUID ownerId, Collection<UUID> binderIds, Instant now) {
@@ -463,6 +507,7 @@ public class BinderService {
     /** Deletes every binder of the owner (account purge); items are purged by their module. */
     @Transactional
     public int purge(UUID ownerId) {
+        repository.lockAllOf(ownerId);
         return repository.deleteAllOf(ownerId).size();
     }
 

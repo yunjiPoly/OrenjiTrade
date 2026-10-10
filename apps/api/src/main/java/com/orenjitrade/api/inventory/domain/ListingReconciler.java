@@ -28,6 +28,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>Pending JPA changes of the surrounding transaction (e.g. the account status set by the
  * deletion framework) are flushed first, so the SQL sees them.
+ *
+ * <p>Lock order: binder rows before item rows, each in ascending id (the item count trigger and
+ * every item write end in a binder row). {@link #items} and {@link #binders} are called by writes
+ * that already hold those rows; {@link #owner} takes every binder of the owner itself, so it never
+ * runs between two statements of a write to one of that owner's filed items.
  */
 @Component
 public class ListingReconciler {
@@ -62,7 +67,7 @@ public class ListingReconciler {
                 true);
     }
 
-    /** Some binders and every item in them. */
+    /** Some binders and every item in them (the caller holds the binder rows). */
     @Transactional
     public Counts binders(Collection<UUID> binderIds) {
         if (binderIds.isEmpty()) {
@@ -88,6 +93,7 @@ public class ListingReconciler {
     @Transactional
     public Counts owner(UUID ownerId, boolean publishEvents) {
         flush();
+        binderService.lockAllInOrder(ownerId);
         binderService.reconcileListing(new ListingScope.Owner(ownerId), publishEvents);
         return publish(
                 items.reconcile("i.owner_id = :ownerId", Map.of("ownerId", ownerId), now()),

@@ -25,6 +25,11 @@ import org.springframework.stereotype.Repository;
  * {@code binder} access (explicit SQL). {@code item_count} is maintained by a database trigger and
  * never written here. Reads carry the live effective public visibility ({@link
  * PublicVisibilityRules}).
+ *
+ * <p>Lock order (docs/database/schema.md "Lock order of binders and inventory items"): binder rows
+ * are locked before inventory item rows and, within the table, in ascending {@code id}. Every
+ * statement here that locks several binders therefore takes them through an {@code ORDER BY id}
+ * locking clause.
  */
 @Repository
 public class BinderRepository {
@@ -178,6 +183,54 @@ public class BinderRepository {
                 .query(UUID.class)
                 .optional()
                 .isPresent();
+    }
+
+    /**
+     * Locks binders in ascending id order, before any of their items is written (the lock order).
+     * {@code FOR UPDATE}, the mode {@link #lockOwned} takes, so a later statement of the
+     * transaction never has to strengthen the lock while another session holds a weaker one.
+     *
+     * @param ownerId only this owner's binders when given
+     * @return the binders locked (unknown ids and other owners' binders are absent)
+     */
+    public List<UUID> lockAll(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT id FROM binder WHERE id IN (:ids)"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId")
+                                        + " ORDER BY id FOR UPDATE")
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement.query(UUID.class).list();
+    }
+
+    /** Locks every binder of an owner in ascending id order; returns their ids. */
+    public List<UUID> lockAllOf(UUID ownerId) {
+        return jdbc.sql("SELECT id FROM binder WHERE owner_id = :ownerId ORDER BY id FOR UPDATE")
+                .param("ownerId", ownerId)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Locks the binders among {@code ids} that no other transaction holds, without waiting (a
+     * binder that has to be taken out of the lock order is never waited for); returns those locked.
+     */
+    public List<UUID> tryLockAll(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT id FROM binder WHERE id IN (:ids) ORDER BY id FOR UPDATE SKIP"
+                                + " LOCKED")
+                .param("ids", ids)
+                .query(UUID.class)
+                .list();
     }
 
     /** Ids among {@code ids} that the owner does not own (or that do not exist). */

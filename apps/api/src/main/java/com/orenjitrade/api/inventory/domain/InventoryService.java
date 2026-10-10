@@ -37,6 +37,7 @@ import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.BinderStatsRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Confirmed;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.CoverRow;
+import com.orenjitrade.api.inventory.infra.InventoryItemRepository.LockedItem;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.SummaryRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Values;
 import java.math.BigDecimal;
@@ -77,6 +78,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  * unfiled one PRIVATE. Moving items out of a binder to "no binder" never exposes them: they keep
  * their visibility only when the binder was PUBLIC without an end date, otherwise they become
  * PRIVATE. Making an item public confirms it (the owner asserts it is available).
+ *
+ * <p>Lock order: every write that reaches a binder row (the item count trigger on a filed item's
+ * {@code binder_id} or {@code deleted_at}, a confirmation or move that refreshes the binder, the
+ * reconciliation of a binder's items) takes the binder rows before the item rows, both in ascending
+ * id ({@link #lockForWrite}). The listing reconciler and the binder writes do the same; taking an
+ * item first deadlocks with them.
  */
 @Service
 public class InventoryService {
@@ -224,6 +231,8 @@ public class InventoryService {
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable PrintingDetail printing = requirePrinting(input.printingId(), true, errors);
         if (input.binderId() != null) {
+            // Binder first (lock order): the insert counts the item in it and confirms it.
+            binders.lockInOrder(ownerId, List.of(input.binderId()));
             binders.requireOwned(ownerId, input.binderId());
         }
         ListingVisibility visibility =
@@ -275,7 +284,11 @@ public class InventoryService {
     /** {@code PATCH /inventory/items/{id}}: any subset of the fields. */
     @Transactional
     public InventoryItemView update(UUID ownerId, UUID itemId, ItemPatch patch) {
-        if (!items.lockOwned(ownerId, itemId)) {
+        List<UUID> targetBinder =
+                patch.has("binderId") && patch.binderId() != null
+                        ? List.of(patch.binderId())
+                        : List.of();
+        if (!lockForWrite(ownerId, List.of(itemId), targetBinder).containsKey(itemId)) {
             throw ApiException.notFound(NOT_FOUND);
         }
         Instant now = timeProvider.now();
@@ -374,7 +387,7 @@ public class InventoryService {
     /** {@code DELETE /inventory/items/{id}}: soft delete (photos are removed). */
     @Transactional
     public void delete(UUID ownerId, UUID itemId) {
-        if (!items.lockOwned(ownerId, itemId)) {
+        if (!lockForWrite(ownerId, List.of(itemId), List.of()).containsKey(itemId)) {
             throw ApiException.notFound(NOT_FOUND);
         }
         softDelete(List.of(itemId), timeProvider.now());
@@ -384,7 +397,7 @@ public class InventoryService {
     /** {@code POST /inventory/items/{id}/confirm}: refreshes the confirmation, HIDDEN → ACTIVE. */
     @Transactional
     public InventoryItemView confirm(UUID ownerId, UUID itemId) {
-        if (!items.lockOwned(ownerId, itemId)) {
+        if (!lockForWrite(ownerId, List.of(itemId), List.of()).containsKey(itemId)) {
             throw ApiException.notFound(NOT_FOUND);
         }
         Instant now = timeProvider.now();
@@ -404,7 +417,9 @@ public class InventoryService {
      */
     @Transactional
     public Optional<AdminChange> restoreListing(UUID itemId) {
-        Optional<UUID> owner = items.lockOwnerOf(itemId);
+        Optional<UUID> owner =
+                Optional.ofNullable(lockForWrite(null, List.of(itemId), List.of()).get(itemId))
+                        .map(LockedItem::ownerId);
         if (owner.isEmpty()) {
             return Optional.empty();
         }
@@ -458,20 +473,23 @@ public class InventoryService {
         Instant now = timeProvider.now();
         List<UUID> ids = List.copyOf(new LinkedHashSet<>(request.itemIds()));
         validateBulk(request, now);
+        @Nullable UUID targetId =
+                request.action() == BulkAction.MOVE_TO_BINDER ? request.binderId() : null;
+        // Locks first (the binders, the target included, then the caller's live items), then the
+        // rows are read: nothing below decides on a state another request can still change.
+        Set<UUID> lockedIds =
+                lockForWrite(ownerId, ids, targetId == null ? List.of() : List.of(targetId))
+                        .keySet();
         @Nullable BinderView target =
-                request.action() == BulkAction.MOVE_TO_BINDER && request.binderId() != null
-                        ? binders.requireOwned(ownerId, request.binderId())
-                        : null;
+                targetId == null ? null : binders.requireOwned(ownerId, targetId);
         Map<UUID, ItemRow> owned = new LinkedHashMap<>();
-        for (ItemRow row : items.findByIds(ids, now)) {
-            if (row.ownerId().equals(ownerId)) {
-                owned.put(row.id(), row);
-            }
+        for (ItemRow row : items.findByIds(lockedIds, now)) {
+            owned.put(row.id(), row);
         }
         List<Skipped> skipped = new ArrayList<>();
         List<UUID> changed = new ArrayList<>();
         for (UUID id : ids) {
-            if (!owned.containsKey(id) || !items.lockOwned(ownerId, id)) {
+            if (!owned.containsKey(id)) {
                 skipped.add(new Skipped(id, SkipReason.NOT_FOUND));
                 continue;
             }
@@ -664,6 +682,9 @@ public class InventoryService {
     @Transactional
     public List<TransferResult> reserveAndTransfer(List<TransferLine> lines) {
         Instant now = timeProvider.now();
+        // The lines belong to two collectors and an item whose last copy leaves is soft-deleted
+        // (its binder is recounted): every binder, then every item, before the first line.
+        lockForWrite(null, lines.stream().map(TransferLine::itemId).toList(), List.of());
         List<TransferResult> results = new ArrayList<>();
         List<UUID> removed = new ArrayList<>();
         List<UUID> touched = new ArrayList<>();
@@ -772,8 +793,9 @@ public class InventoryService {
     /** Deletes every item and photo of the owner (account purge); returns the item count. */
     @Transactional
     public int purge(UUID ownerId) {
+        // The reconciler locks every binder of the owner, which the delete below recounts.
         reconciler.owner(ownerId);
-        List<UUID> ids = items.idsOf(ownerId);
+        List<UUID> ids = items.lockAllOf(ownerId);
         deleteObjectsAfterCommit(images.deleteByItems(ids));
         return items.deleteAllOf(ownerId);
     }
@@ -781,6 +803,39 @@ public class InventoryService {
     // ---------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * Takes the row locks of an item write in the one order every path uses: the binders the items
+     * are filed in and {@code otherBinderIds} (a move target) first, in ascending id, then the live
+     * items among {@code itemIds}, in ascending id.
+     *
+     * <p>The binders are read before the items are locked, so an item may turn out to be filed
+     * elsewhere once its row is held (another request moved it in between). That binder is then
+     * taken without waiting; when another transaction holds it the request ends with {@code 409}
+     * instead of waiting against the lock order.
+     *
+     * @param ownerId only this owner's items and binders when given (ids taken from a request);
+     *     {@code null} for admin and trade writes, whose ids are not the caller's to choose
+     * @return the locked items by id (unknown, deleted and other owners' items are absent)
+     */
+    private Map<UUID, LockedItem> lockForWrite(
+            @Nullable UUID ownerId, Collection<UUID> itemIds, Collection<UUID> otherBinderIds) {
+        Set<UUID> binderIds = new HashSet<>(items.binderIdsOf(ownerId, itemIds));
+        binderIds.addAll(otherBinderIds);
+        Set<UUID> held = binders.lockInOrder(ownerId, binderIds);
+        Map<UUID, LockedItem> locked = new LinkedHashMap<>();
+        Set<UUID> movedTo = new HashSet<>();
+        for (LockedItem item : items.lockAll(ownerId, itemIds)) {
+            locked.put(item.id(), item);
+            if (item.binderId() != null && !held.contains(item.binderId())) {
+                movedTo.add(item.binderId());
+            }
+        }
+        if (!movedTo.isEmpty() && !binders.tryLock(movedTo)) {
+            throw ApiException.conflict("The item is being changed by another request; try again");
+        }
+        return locked;
+    }
 
     /** Items with their printings and photos (rows whose printing vanished are dropped). */
     List<InventoryItemView> views(List<ItemRow> rows) {

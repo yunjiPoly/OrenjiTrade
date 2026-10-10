@@ -33,6 +33,13 @@ import org.springframework.stereotype.Repository;
  * {@code inventory_item} access (explicit SQL). Every read carries the live effective public
  * visibility ({@link #LISTED}); public lists filter on it and never on the materialised flag. Reads
  * join the catalog tables (card, game) and the owner's account and privacy rows read-only.
+ *
+ * <p>Lock order (docs/database/schema.md "Lock order of binders and inventory items"): binder rows
+ * are locked before item rows, and item rows in ascending {@code id}. The trigger {@code
+ * trg_inventory_item_binder_count} updates the binder of an item whose {@code binder_id} or {@code
+ * deleted_at} changes, so callers of those writes hold the binder first ({@code
+ * InventoryService.lockForWrite}); every statement here that locks several items takes them through
+ * an {@code ORDER BY id} locking clause.
  */
 @Repository
 public class InventoryItemRepository {
@@ -114,7 +121,59 @@ public class InventoryItemRepository {
                 .list();
     }
 
-    /** Locks the owner's non-deleted item row. */
+    /**
+     * Binders the live items among {@code ids} are filed in, read without a lock: the binders an
+     * item write locks before it locks the items.
+     *
+     * @param ownerId only this owner's items when given
+     */
+    public List<UUID> binderIdsOf(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT DISTINCT binder_id FROM inventory_item WHERE id IN (:ids)"
+                                        + " AND binder_id IS NOT NULL AND deleted_at IS NULL"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId"))
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement.query(UUID.class).list();
+    }
+
+    /**
+     * Locks the live items among {@code ids} in ascending id order and returns them with the binder
+     * they are filed in now (it cannot change while the lock is held).
+     *
+     * @param ownerId only this owner's items when given
+     */
+    public List<LockedItem> lockAll(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT id, owner_id, binder_id FROM inventory_item"
+                                        + " WHERE id IN (:ids) AND deleted_at IS NULL"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId")
+                                        + " ORDER BY id FOR UPDATE")
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement
+                .query(
+                        (rs, rowNum) ->
+                                new LockedItem(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("owner_id", UUID.class),
+                                        rs.getObject("binder_id", UUID.class)))
+                .list();
+    }
+
+    /** Locks the owner's non-deleted item row (writes that never reach a binder: photos). */
     public boolean lockOwned(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT id FROM inventory_item WHERE id = :id AND owner_id = :ownerId"
@@ -796,9 +855,14 @@ public class InventoryItemRepository {
     // Account deletion
     // ---------------------------------------------------------------------------------------
 
-    /** Every item of an owner, deleted or not (purge). */
-    public List<UUID> idsOf(UUID ownerId) {
-        return jdbc.sql("SELECT id FROM inventory_item WHERE owner_id = :ownerId")
+    /**
+     * Every item of an owner, deleted or not, locked in ascending id order (purge: the delete that
+     * follows takes the rows in no particular order).
+     */
+    public List<UUID> lockAllOf(UUID ownerId) {
+        return jdbc.sql(
+                        "SELECT id FROM inventory_item WHERE owner_id = :ownerId ORDER BY id FOR"
+                                + " UPDATE")
                 .param("ownerId", ownerId)
                 .query(UUID.class)
                 .list();
@@ -921,6 +985,15 @@ public class InventoryItemRepository {
             return params;
         }
     }
+
+    /**
+     * An item whose row the transaction holds.
+     *
+     * @param id item
+     * @param ownerId owner
+     * @param binderId binder, {@code null} when unfiled
+     */
+    public record LockedItem(UUID id, UUID ownerId, @Nullable UUID binderId) {}
 
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}
