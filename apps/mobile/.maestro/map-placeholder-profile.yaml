@@ -3,7 +3,7 @@
 # region map is not drawn in the app yet; no tile server, no GPS); then Sofia's profile (seed
 # collector5, California, showing her city) shows her state and city, never a distance or a zone.
 # The seed account is only signed in to.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Map placeholder and a collector's place
 tags:
   - mobile-m3

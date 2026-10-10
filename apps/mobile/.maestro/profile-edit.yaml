@@ -1,6 +1,6 @@
 # Profile edit (Phase 1): a fresh collector edits display name and bio from the Profile tab,
 # sees the API's field error for a taken handle, saves, and the Profile tab shows the change.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Edit the profile
 tags:
   - mobile-m1
@@ -34,7 +34,7 @@ tags:
     id: 'profile-handle'
 - eraseText: 40
 - inputText: 'collector2'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -43,7 +43,7 @@ tags:
     id: 'profile-display-name'
 - eraseText: 40
 - inputText: 'Maestro Editor Renamed'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -63,7 +63,7 @@ tags:
     id: 'profile-handle'
 - eraseText: 40
 - inputText: ${output.collector.handle}
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -72,7 +72,7 @@ tags:
     id: 'profile-bio'
 - eraseText: 40
 - inputText: 'Updated from the Android app.'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -82,7 +82,7 @@ tags:
 - extendedWaitUntil:
     visible: 'Profile saved.'
     timeout: 30000
-- back
+- runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
       id: 'profile-name'

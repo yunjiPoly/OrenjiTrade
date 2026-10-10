@@ -1,7 +1,7 @@
 # Search tab and card detail (mobile Phase 2): a fresh collector searches the catalog (the mock
 # catalog of the isolated database), narrows it with a language from the game schema, opens a
 # card, reads its printings and switches to the French printing, which has no market price.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Search the catalog and open a card
 tags:
   - mobile-m2
@@ -33,7 +33,7 @@ tags:
 - tapOn:
     id: 'search-input'
 - inputText: 'emberfang'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: 'card-result-emberfang-fox'

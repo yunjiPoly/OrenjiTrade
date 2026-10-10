@@ -4,7 +4,7 @@
 # app's fake billing checkout, which declines once ("Try again") and then succeeds: Pat is welcomed
 # on Premium (the API holds the plan) and the sixth binder can be created. "Cancel now" brings
 # the free plan back.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Premium - limit reached, subscribe, limit lifted, cancel
 tags:
   - mobile-m6
@@ -35,7 +35,7 @@ tags:
 - tapOn:
     id: 'binder-name'
 - inputText: 'One too many'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'binder-save'
 - extendedWaitUntil:
@@ -99,7 +99,7 @@ tags:
 - tapOn:
     id: 'binder-name'
 - inputText: 'Premium binder'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'binder-save'
 - extendedWaitUntil:

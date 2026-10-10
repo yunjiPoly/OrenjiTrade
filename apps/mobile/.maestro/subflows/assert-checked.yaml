@@ -1,0 +1,19 @@
+# Asserts that the checkbox or switch with id ID is on screen and ticked. Android exposes the
+# state as `checked`. iOS has no checkbox control: React Native says it in the element's value
+# ("checkbox, checked"), and a switch has the value 1.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: ${ID}
+          checked: true
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: ${ID}
+          text: 'checkbox, checked|1'

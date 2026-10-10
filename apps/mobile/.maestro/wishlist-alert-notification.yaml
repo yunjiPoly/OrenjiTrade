@@ -5,7 +5,7 @@
 # region, lists a Near Mint copy publicly (host script scripts/wishlist.js). Wren gets one wishlist
 # alert over the realtime channel: the bell's badge rises without a reload; the alert names Hal's
 # state (never a city, a distance or a position) and opens the card page.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Wishlist alert, notification and card page
 tags:
   - mobile-m4
@@ -47,7 +47,7 @@ tags:
 - tapOn:
     id: 'card-picker-input'
 - inputText: 'emberfang'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: 'suggestion-CARD-PFT-002'
@@ -65,7 +65,7 @@ tags:
 - tapOn:
     id: 'wish-note'
 - inputText: 'Fictional Maestro wish.'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'wish-near-mint'
 - runFlow:

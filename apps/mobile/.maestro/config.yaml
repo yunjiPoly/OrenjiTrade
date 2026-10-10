@@ -1,10 +1,14 @@
 # Maestro workspace of the OrenjiTrade mobile app (native proof, local and free: Expo Go on a
-# local Android emulator; never Maestro Cloud, never EAS). Run every flow with
-#   npm run test:mobile:maestro
+# local Android emulator or on the iOS simulator; never Maestro Cloud, never EAS). Run every flow
+# with
+#   npm run test:mobile:maestro                      (-- --platform android|ios)
 # which starts (or reuses) the isolated API on :8090 and Metro on :8082 and passes the env below.
 #
-# Env (set by the harness; defaults in each script/flow are for a manual run):
-#   APP_URL            Metro URL as seen from the emulator (exp://10.0.2.2:8082)
+# Env (set by the harness; a manual `maestro test` passes them with -e):
+#   APP_ID             Expo Go's application id: host.exp.exponent on Android, host.exp.Exponent
+#                      on iOS (every flow and subflow has `appId: ${APP_ID}`)
+#   APP_URL            Metro URL as the device sees it (Android emulator: exp://10.0.2.2:8082;
+#                      iOS simulator: exp://127.0.0.1:8082)
 #   API_URL            isolated API as seen from the host (http://localhost:8090), used by scripts
 #   AUTH_EMULATOR_URL  Firebase Auth emulator as seen from the host (http://localhost:9099)
 #   RUN_ID             run id: created accounts are m-<RUN_ID>-maestro-...@mobile-e2e.test and
@@ -13,5 +17,12 @@
 # Every top-level flow is independent (each starts from a cleared Expo Go and signs in to a seed
 # or creates its own fictional collector); shared steps live in subflows/, host-side helpers in
 # scripts/.
+#
+# One set of flows for both platforms. What differs sits in the subflows, in `when: platform:`
+# blocks: hiding the keyboard (hide-keyboard.yaml, hide-keyboard-in-dialog.yaml), going back
+# (go-back.yaml), scrolling an element into reach (scroll-down-to.yaml, scroll-up-to.yaml,
+# scroll-down-to-text.yaml), the ticked state of a checkbox or switch (assert-checked.yaml,
+# assert-unchecked.yaml) and what Expo Go puts over the app (dismiss-dev-menu.yaml,
+# hide-tools-button.yaml). A flow never calls `hideKeyboard`, `back` or `checked:` itself.
 flows:
   - '*.yaml'

@@ -3,7 +3,7 @@
 # province, an optional city), save, then opt into the map. No map, no GPS: the app shows the
 # API's label ("Ontario, Canada"), and scripts/check-location.js checks on the host that the API
 # holds the declared codes and the city, and no coordinate, radius or distance field.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Location and discoverability
 tags:
   - mobile-m1
@@ -69,7 +69,7 @@ tags:
 - tapOn:
     id: 'location-city'
 - inputText: 'Ottawa'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - takeScreenshot: discoverability-pickers
 - runFlow:
     file: subflows/scroll-down-to.yaml
@@ -104,17 +104,19 @@ tags:
 - assertVisible:
     id: 'location-visibility'
     text: 'You are hidden from the map.*'
-- assertVisible:
-    id: 'location-discoverable'
-    checked: false
+- runFlow:
+    file: subflows/assert-unchecked.yaml
+    env:
+      ID: 'location-discoverable'
 - tapOn:
     id: 'location-discoverable'
 - extendedWaitUntil:
     visible: 'You now appear on the map.'
     timeout: 30000
-- assertVisible:
-    id: 'location-discoverable'
-    checked: true
+- runFlow:
+    file: subflows/assert-checked.yaml
+    env:
+      ID: 'location-discoverable'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

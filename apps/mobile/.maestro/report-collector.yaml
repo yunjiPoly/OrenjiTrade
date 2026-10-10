@@ -1,7 +1,7 @@
 # Collector reports (mobile Phase 7): Ada (fresh, fictional) opens the profile of Bo (fresh,
 # fictional; scripts/offers.js) and reports him: the reasons of the API, details, Confirm, the
 # confirmation; My reports shows the open report and the API holds it (status only).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Report a collector and follow it in My reports
 tags:
   - mobile-m5
@@ -54,7 +54,7 @@ tags:
 - tapOn:
     id: 'report-details'
 - inputText: 'Insults after a declined trade.'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
