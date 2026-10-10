@@ -186,7 +186,7 @@ export function InterestsStep({
     <View style={styles.step} testID="onboarding-interests">
       <StepHeading
         title="What do you collect?"
-        text="Pick your games and a few tags. They appear on your profile and help matching."
+        text="Pick your games and a few tags. They appear on your profile and help collectors find you."
       />
       <GamePicker value={editor.games} onChange={editor.setGames} disabled={busy} />
       <SubHeading>Languages</SubHeading>

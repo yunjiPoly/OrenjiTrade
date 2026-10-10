@@ -21,7 +21,7 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 
 ## Domain events
 
-`InventoryItemPublished { itemId, ownerId, printingId, cardId, gameSlug, availability, askingPrice, currency, publishedAt }` (emitted when an item becomes publicly visible: created public, visibility changed to public, binder published, restored from HIDDEN) — consumed by wishlist matching (Phase 6) and analytics.
+`InventoryItemPublished { itemId, ownerId, printingId, cardId, gameSlug, availability, askingPrice, currency, publishedAt }` (emitted when an item becomes publicly visible: created public, visibility changed to public, binder published, restored from HIDDEN) — consumed by wishlist matching (Phase 6; the wishlist alerts since stage S2, see [s2-wishlist.md](s2-wishlist.md)) and analytics.
 `InventoryItemUnpublished { itemId }`, `BinderPublished { binderId, ownerId }`, `BinderFreshnessChanged { binderId, state }`.
 
 ## Endpoints — inventory

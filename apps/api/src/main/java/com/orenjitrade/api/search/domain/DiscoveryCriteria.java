@@ -8,9 +8,9 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A validated discovery request (the collector engine behind the collectors of {@code GET /search}
- * and the wishlist matches). Independent of the viewer, so its results are cacheable per {@link
- * #cacheKey()}; viewer-specific rules (last active, blocks) are applied afterwards.
+ * A validated discovery request (the collector engine behind the collectors of {@code GET
+ * /search}). Independent of the viewer, so its results are cacheable per {@link #cacheKey()};
+ * viewer-specific rules (last active, blocks) are applied afterwards.
  *
  * @param region platform region the collectors' country belongs to (ADR 0017)
  * @param game game slug: the collector plays it or lists items of it

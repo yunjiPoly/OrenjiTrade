@@ -34,7 +34,7 @@ below are fictional placeholders; the real ones live in each environment's git-i
 | Identity | Firebase Auth emulator | Firebase project (dev) | Firebase project (staging) | Identity Platform + MFA |
 | Payments | `FakePaymentProvider` | fake (Stripe test keys optional) | Stripe **test** keys | fake until Stripe secrets exist, then Stripe live keys behind `protectedPayments` |
 | Events | in-process outbox | outbox; analytics to Pub/Sub | same | outbox; analytics to Pub/Sub → BigQuery; `domain-events` push off until the receiver exists |
-| Scheduled jobs | `@Scheduled` under `local` | 10 Cloud Scheduler jobs | 10 | 10 (every scheduled `/internal/jobs/*` route) |
+| Scheduled jobs | `@Scheduled` under `local` | 9 Cloud Scheduler jobs | 9 | 9 (every scheduled `/internal/jobs/*` route) |
 | Images | local build | built here (`docker-build.yml`) | pulled from the build registry | pulled from the build registry (prod's own when there is no dev project) |
 | Deploy trigger | manual | manual `deploy.yml` | manual `deploy.yml`, approval | manual `deploy.yml`, approval, `main`/`v*` only |
 | WIF refs allowed | — | any ref of the repo | any ref | `refs/heads/main` |

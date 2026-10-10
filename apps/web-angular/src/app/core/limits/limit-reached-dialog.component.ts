@@ -69,12 +69,6 @@ export function openLimitReachedDialog(
 
       <dl class="limit__facts">
         <div class="limit__fact">
-          <dt>Limit</dt>
-          <dd>
-            <span class="mono">{{ info.limitKey || 'unknown' }}</span>
-          </dd>
-        </div>
-        <div class="limit__fact">
           <dt>Usage</dt>
           <dd>{{ usageText() }}</dd>
         </div>

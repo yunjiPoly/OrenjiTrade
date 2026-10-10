@@ -18,10 +18,11 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Notification preferences applied by {@code NotificationService.notify} (Phase 6 contract): a
- * disabled category stores (and counts) nothing, in-app off keeps the notification out of the
- * centre while push still goes out, quiet hours hold push back (in-app unaffected), email goes
- * through the log provider to verified addresses only, with the address masked in the logs.
+ * Notification preferences applied by {@code NotificationService.notify} (Phase 6 contract, stage
+ * S2 wishlist alerts switch): the wishlist alerts switch and a disabled category store (and count)
+ * nothing, in-app off keeps the notification out of the centre while push still goes out, quiet
+ * hours hold push back (in-app unaffected), email goes through the log provider to verified
+ * addresses only, with the address masked in the logs; wishlist alerts never use email.
  */
 @ExtendWith(OutputCaptureExtension.class)
 class NotificationPreferencesIT extends AbstractWishlistIT {
@@ -29,18 +30,11 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
 
     @Test
-    void aDisabledCategoryStoresAndCountsNothing() {
+    void theWishlistAlertsSwitchAndADisabledCategoryStoreAndCountNothing() {
         Pair pair = pair("np-off");
-        settings(pair.wisher(), false, channels(false, false, false), null);
+        settings(pair.wisher(), false, true, false, null, null);
 
-        String first = publish(pair);
-        assertThat(storedMatches(pair.wishId())).as("the match itself is kept").isEqualTo(1);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM wishlist_match WHERE inventory_item_id ="
-                                        + " ?::uuid AND notified",
-                                first))
-                .isZero();
+        publish(pair);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM notification WHERE user_id = ?",
@@ -54,16 +48,21 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
                 .as("suppressed notifications do not count against the daily limit")
                 .isZero();
 
-        settings(pair.wisher(), false, channels(true, false, true), null);
+        settings(pair.wisher(), false, true, true, null, null);
         publish(pair);
-        assertThat(notificationsOfType(pair.wisher(), "WISHLIST_MATCH")).hasSize(1);
+        assertThat(notificationsOfType(pair.wisher(), "WISHLIST_ALERT")).hasSize(1);
+
+        // A disabled category (messages) stores nothing either.
+        settings(pair.wisher(), false, true, true, channels(false, false, false), null);
+        message(pair.seller(), pair.wisher(), "Still looking for the dragon?");
+        assertThat(storedNotifications(pair.wisher().id(), "MESSAGE")).isZero();
     }
 
     @Test
     void inAppOffKeepsTheCentreEmptyWhilePushIsDelivered() {
         Pair pair = pair("np-push");
         registerToken(pair.wisher(), "ANDROID", uniqueToken());
-        settings(pair.wisher(), false, channels(true, false, false), null);
+        settings(pair.wisher(), false, false, true, null, null);
 
         publish(pair);
         awaitDispatched(pair.wisher().id());
@@ -89,12 +88,14 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
         settings(
                 pair.wisher(),
                 false,
-                channels(true, false, true),
+                true,
+                true,
+                null,
                 quiet(true, now.minusHours(2), now.plusHours(2)));
 
         publish(pair);
         awaitDispatched(pair.wisher().id());
-        List<JsonNode> listed = notificationsOfType(pair.wisher(), "WISHLIST_MATCH");
+        List<JsonNode> listed = notificationsOfType(pair.wisher(), "WISHLIST_ALERT");
         assertThat(listed).hasSize(1);
         assertThat(channelState(listed.get(0).path("id").asString()))
                 .contains("\"push\": \"SKIPPED\"")
@@ -105,12 +106,14 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
         settings(
                 pair.wisher(),
                 false,
-                channels(true, false, true),
+                true,
+                true,
+                null,
                 quiet(true, now.plusHours(3), now.plusHours(5)));
         String second = publish(pair);
         awaitDispatched(pair.wisher().id());
         String secondNotification =
-                notificationsOfType(pair.wisher(), "WISHLIST_MATCH").stream()
+                notificationsOfType(pair.wisher(), "WISHLIST_ALERT").stream()
                         .filter(
                                 node ->
                                         second.equals(
@@ -137,10 +140,17 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
     @Test
     void emailGoesToVerifiedAddressesThroughTheLogProvider(CapturedOutput output) {
         Pair pair = pair("np-email");
-        settings(pair.wisher(), true, channels(false, true, true), null);
+        settings(pair.wisher(), true, true, true, channels(false, true, true), null);
+
+        // Wishlist alerts never use email, even with the email switch on.
         publish(pair);
         awaitDispatched(pair.wisher().id());
-        String state = rowsOf(pair.wisher().id()).get(0).get("state").toString();
+        assertThat(rowsOf(pair.wisher().id()).get(0).get("state").toString())
+                .contains("\"email\": \"SKIPPED\"");
+
+        String conversation = message(pair.seller(), pair.wisher(), "Do you still want it?");
+        awaitDispatched(pair.wisher().id());
+        String state = messageState(pair.wisher(), conversation);
         assertThat(state)
                 .contains("\"email\": \"SENT\"")
                 .contains("\"emailProvider\": \"log\"")
@@ -160,20 +170,17 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
         // An unverified address gets nothing.
         testUsers.update(
                 "UPDATE user_account SET email_verified = false WHERE id = ?", pair.wisher().id());
-        String second = publish(pair);
+        testUsers.update(
+                "DELETE FROM notification WHERE user_id = ? AND type = 'MESSAGE'",
+                pair.wisher().id());
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversation + "/messages",
+                pair.seller().uid(),
+                Map.of("kind", "TEXT", "body", "Anyone?"),
+                201);
         awaitDispatched(pair.wisher().id());
-        String unverified =
-                (String)
-                        testUsers
-                                .query(
-                                        "SELECT channel_state::text AS state FROM notification"
-                                                + " WHERE user_id = ? AND data ->>"
-                                                + " 'inventoryItemId' = ?",
-                                        pair.wisher().id(),
-                                        second)
-                                .get(0)
-                                .get("state");
-        assertThat(unverified)
+        assertThat(messageState(pair.wisher(), conversation))
                 .contains("\"email\": \"SKIPPED\"")
                 .contains("\"emailReason\": \"NO_EMAIL\"");
     }
@@ -192,7 +199,7 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
         return new Pair(wisher, seller, azure, wishId);
     }
 
-    /** The seller publishes one more matching item; waits for the matcher. */
+    /** The seller publishes one more fitting item; waits for the wishlist alerts. */
     private String publish(Pair pair) {
         String itemId =
                 publicItem(pair.seller(), pair.printing(), offered("NEAR_MINT", "20.00", "SALE"));
@@ -233,16 +240,55 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
         return quiet;
     }
 
+    /** The seller messages the wisher (a MESSAGE notification); returns the conversation id. */
+    private String message(Collector from, Collector to, String text) {
+        String conversation =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/conversations",
+                                from.uid(),
+                                Map.of("recipientId", to.id().toString()),
+                                201)
+                        .path("id")
+                        .asString();
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversation + "/messages",
+                from.uid(),
+                Map.of("kind", "TEXT", "body", text),
+                201);
+        return conversation;
+    }
+
+    /** Channel state of the latest MESSAGE notification of a conversation (JSON text). */
+    private String messageState(Collector recipient, String conversation) {
+        return (String)
+                testUsers
+                        .query(
+                                "SELECT channel_state::text AS state FROM notification WHERE"
+                                        + " user_id = ? AND type = 'MESSAGE' AND data ->>"
+                                        + " 'conversationId' = ? ORDER BY created_at DESC",
+                                recipient.id(),
+                                conversation)
+                        .get(0)
+                        .get("state");
+    }
+
     private void settings(
             Collector collector,
             boolean emailEnabled,
-            Map<String, Object> wishlistChannels,
+            boolean inAppEnabled,
+            boolean wishlistAlerts,
+            Map<String, Object> messageChannels,
             Map<String, Object> quietHours) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("pushEnabled", true);
         body.put("emailEnabled", emailEnabled);
-        body.put("inAppEnabled", true);
-        body.put("categories", Map.of("WISHLIST_MATCH", wishlistChannels));
+        body.put("inAppEnabled", inAppEnabled);
+        body.put("wishlistAlerts", wishlistAlerts);
+        if (messageChannels != null) {
+            body.put("categories", Map.of("MESSAGE", messageChannels));
+        }
         if (quietHours != null) {
             body.put("quietHours", quietHours);
         }

@@ -41,9 +41,10 @@ Phases 5 and 6 (stage M4) are implemented on the same API and realtime channel a
 signed in, paused in the background, reconnecting with backoff), the **Messages** tab (Inbox |
 Community: the inbox with unread counts and previews, the full conversation with card / binder /
 offer links, photos, read markers, typing, "Seen", mute / archive / block; the public community
-channels with posts, replies and own edits), the **Wishlist** tab (wishes with the API's criteria,
-matches in the home region with the card picture and the holder's state, Message / profile /
-"Who has it in my region"; "Add to wishlist" on the card detail) and the **notification centre** (a bell
+channels with posts, replies and own edits), the **Wishlist** tab (stage S2: which copy, public
+note, "Near Mint only" and price term chips, edit, remove, "Let others see what you want", a prompt
+to set a location for alerts; "Add to wishlist" on the card detail with its printing or rarity;
+no matches) and the **notification centre** (a bell
 with a live unread badge on every tab, the list, mark read, a deep link per notification kind).
 Device push is not wired (it needs an EAS project and a real FCM sender): notifications arrive in
 the app. An ended session leads to the sign-in screen with an explanation, and a link opened while
@@ -56,7 +57,7 @@ conversations, community posts and public binders) and **My reports** (`settings
 status only); **ratings and references** (`ratings/rate`, `ratings/reference`: overall and the four
 criteria after an eligible interaction, edits for 14 days, one reference per collector, from
 profiles, conversations and completed trades); **offers** ("Make an offer" on public cards from
-binders, profiles, the map's holders and wishlist matches; `offers/new`, `offers/counter`, the
+binders, profiles and the holders list; `offers/new`, `offers/counter`, the
 inbox `offers` with Received / Sent and status filters, one offer `offers/[id]` with accept /
 counter / decline / withdraw and the history; offer settings; offer links in chat open the offer
 and can be shared); **trades** (`trades`, `trades/[id]`: the next move, meetup, confirming the
@@ -97,7 +98,7 @@ public binders by name with their owner, recent searches per segment), the **car
 (`holders`: "Who has this in my region" from a card as a list with sort (freshness or price),
 availability, condition, price range, freshness, edition, language and accepts-offers filters,
 paged), **"Looking for"** on a collector's profile (the public wishlist of a collector
-who enabled "Show my wishlist on my profile"), **Settings → Blocked users** (list and unblock;
+who enabled "Let others see what you want"), **Settings → Blocked users** (list and unblock;
 linked from Settings, from a blocked profile's Message reason, from the block dialog and from the
 settings deep links), inventory **owner photos** on a card (view, add from the library, remove;
 the web's upload rules, no camera) and **multi-select bulk actions** (visibility including
@@ -200,7 +201,7 @@ app/                       expo-router routes
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
   community/[slug].tsx     a public channel (posts, replies, own edits)
-  (tabs)/wishlist.tsx      wishes; wishlist/new, edit (`?id=`), [id] (the wish's matches)
+  (tabs)/wishlist.tsx      wishes; wishlist/new (`?cardId=&printingId=&rarity=`), edit (`?id=`)
   notifications.tsx        the notification centre (the bell in every tab header opens it)
   report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
   ratings/                 rate (`?userId=&handle=&name=`, `&kind=TRADE`, `&rating=` to edit),
@@ -214,7 +215,8 @@ app/                       expo-router routes
   disputes/[id].tsx        a dispute (`?opened=1` after opening it from the trade)
   premium.tsx, credits.tsx, support.tsx   Premium (`?checkout=success`), Credits, Support
                            (`?donation=thanks`)
-  cards/[id].tsx           card detail (`?printing=` selects a printing)
+  cards/[id].tsx           card detail (`?printing=<id>` selects a printing, `?rarity=` any printing of
+                           it, `?printing=any` any printing: neither picks one)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
 src/
@@ -298,7 +300,7 @@ Conventions later stages reuse:
   handshake, paused in the background (`AppState`), immediate retry when NetInfo reports the
   network back; after every (re)connection `resync` re-reads over REST what pushes may have
   missed. `RealtimeCacheSync` applies pushes to the react-query caches (threads, inbox order and
-  unread counts, receipts, presence, the notification badge and lists, wishlist match counts), so
+  unread counts, receipts, presence, the notification badge and lists), so
   screens only read their queries. React Native's WebSocket drops the NUL that ends a STOMP frame:
   native builds send frames as binary UTF-8 (NUL included) and restore the NUL of received text
   frames (`nulSafeFrames`); keep that when touching `stompConnection.ts`.
@@ -426,8 +428,11 @@ profile with the state and the shown city, "Message" opens the conversation and 
 collector writes over the API: the inbox badge, the thread, live delivery, a reply, "Seen", a
 photo; a card link, mute and a block both ways), `community.spec.ts` (channels with their
 activity, post, edit, reply, delete), `wishlist.spec.ts` (two collectors of Americas (South): a wish
-without a radius, then a listing: the bell and the match count rise live, the notification opens
-the matches with the holder's state only, Message), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
+with a public note, Near Mint only, "85% TCG" and one printing, none of the removed fields, then a
+listing: one wishlist alert rises live on the bell, names the holder's state only and opens the
+card; and a typed printing code shared by a 1st Edition and an Unlimited printing starts the wish
+on "Any printing" while a code of one printing preselects it, then the alert for that "Any
+printing" wish opens the card screen on "Any printing" with no printing selected), `session.spec.ts` (a signed-out profile link reopens after sign-in; an ended session
 leads to sign-in with the notice), `reports.spec.ts` (report a collector from the profile with
 the API's reasons -> "Report sent" -> My reports with the status; a second open report refused
 (409); a report from a conversation's options), `offers.spec.ts` (a cash offer from a public
@@ -518,9 +523,9 @@ API with the read marker, the other collector's answer appears live in the open 
 `community-post.yaml` (Messages ->
 Community -> General, a post and a reply checked on the API by `scripts/community.js`; the texts
 carry the run's handle because the channel keeps earlier runs' posts),
-`wishlist-match-notification.yaml` (a wish made in the app, a listing by a second collector of the
-same region (`scripts/wishlist.js`, both in Montevideo): the bell's badge and the match count rise live, the notification opens
-the matches, then a conversation), `offer-trade-rating.yaml` (a cash offer on a public card
+`wishlist-alert-notification.yaml` (a wish made in the app with a public note, Near Mint only and
+"85% TCG", a Near Mint listing by a second collector of the same region (`scripts/wishlist.js`,
+both in Montevideo): one wishlist alert on the bell, live, naming the state, which opens the card), `offer-trade-rating.yaml` (a cash offer on a public card
 opened by deep link, the seller's counter-offer from the host (`scripts/offers.js`) followed live,
 accept, the trade, both confirmations and the live completion, a rating checked on the API),
 `report-collector.yaml` (report a collector from the profile, the confirmation, My reports,
@@ -563,7 +568,7 @@ Metro after source changes (`npm run test:mobile:maestro -- --stop`).
 
 - Custom scheme: `orenjitrade://collectors/<handle>`, `orenjitrade://cards/<id>`,
   `orenjitrade://binders/<id>`, and every other app route (`orenjitrade://messages/<id>`,
-  `orenjitrade://wishlist/<id>`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
+  `orenjitrade://wishlist`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
   `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`,
   `orenjitrade://disputes/<id>`, `orenjitrade://premium`, `orenjitrade://credits`,
   `orenjitrade://support`, `orenjitrade://settings/payouts`, `orenjitrade://holders?card=<id>`

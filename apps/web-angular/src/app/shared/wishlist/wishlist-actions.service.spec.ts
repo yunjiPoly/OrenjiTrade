@@ -3,7 +3,6 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import type { WishlistItemResponse } from '@orenji/api-client';
-import { WishlistItemResponseTradePreferenceEnum as Trade } from '@orenji/api-client';
 import { Subject, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { WishlistActions, addedMessage } from './wishlist-actions.service';
@@ -13,11 +12,8 @@ function wish(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     id: 'w1',
     game: 'pokemon',
     card: { id: 'c1', name: 'Emberfang Fox' },
-    currency: 'CAD',
-    tradePreference: Trade.Any,
-    notes: '',
-    active: true,
-    matchCount: 0,
+    note: '',
+    nearMintOnly: false,
     createdAt: '2026-09-30T10:00:00Z',
     updatedAt: '2026-09-30T10:00:00Z',
     ...overrides,
@@ -34,7 +30,7 @@ describe('WishlistActions', () => {
   beforeEach(() => {
     signedIn = true;
     actions$ = new Subject();
-    dialog = { open: vi.fn(() => ({ afterClosed: () => of(wish({ matchCount: 2 })) })) };
+    dialog = { open: vi.fn(() => ({ afterClosed: () => of(wish()) })) };
     snackBar = { open: vi.fn(() => ({ onAction: () => actions$ })) };
     router = { url: '/cards/c1', navigate: vi.fn(async () => true) };
     TestBed.configureTestingModule({
@@ -47,16 +43,11 @@ describe('WishlistActions', () => {
     });
   });
 
-  it('words the confirmation after the matches found at once', () => {
+  it('confirms a new wish with the region alert promise (no matches any more)', () => {
     expect(addedMessage(wish())).toBe(
       "Emberfang Fox is on your wishlist. We'll tell you when a collector of your region lists it.",
     );
-    expect(addedMessage(wish({ matchCount: 3 }))).toBe(
-      'Emberfang Fox is on your wishlist: 3 matches in your region already.',
-    );
-    expect(addedMessage(wish({ active: false }))).toBe(
-      'Emberfang Fox is on your wishlist (alerts paused).',
-    );
+    expect(addedMessage(wish({ card: undefined }))).toContain('The card is on your wishlist');
   });
 
   it('sends signed-out visitors to sign in and back', async () => {
@@ -69,20 +60,22 @@ describe('WishlistActions', () => {
     expect(dialog.open).not.toHaveBeenCalled();
   });
 
-  it('opens the dialog on the preset card and confirms the new wish with a link to it', async () => {
-    const result = await TestBed.inject(WishlistActions).add({ cardId: 'c1', printingId: 'p1' });
+  it('opens the dialog on the preset selection and confirms the new wish with a link', async () => {
+    const result = await TestBed.inject(WishlistActions).add({
+      cardId: 'c1',
+      printingId: null,
+      rarity: 'Secret Rare',
+    });
     expect(result?.id).toBe('w1');
     expect(dialog.open).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ data: { mode: 'create', cardId: 'c1', printingId: 'p1' } }),
+      expect.objectContaining({
+        data: { mode: 'create', cardId: 'c1', printingId: null, rarity: 'Secret Rare' },
+      }),
     );
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Emberfang Fox is on your wishlist: 2 matches in your region already.',
-      'View',
-      { duration: 6000 },
-    );
+    expect(snackBar.open).toHaveBeenCalledWith(addedMessage(wish()), 'View', { duration: 6000 });
     actions$.next();
-    expect(router.navigate).toHaveBeenCalledWith(['/wishlist', 'w1']);
+    expect(router.navigate).toHaveBeenCalledWith(['/wishlist']);
   });
 
   it('opens the edit dialog without a confirmation', async () => {
@@ -93,5 +86,27 @@ describe('WishlistActions', () => {
       expect.objectContaining({ data: { mode: 'edit', item } }),
     );
     expect(snackBar.open).not.toHaveBeenCalled();
+  });
+
+  it('returns the focus to the trigger, which loses it while the dialog chunk loads', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+    try {
+      await TestBed.inject(WishlistActions).add({ cardId: 'c1' }, false);
+      expect(dialog.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ restoreFocus: trigger }),
+      );
+    } finally {
+      trigger.remove();
+    }
+    // Nothing focused: the dialog's own default (the element focused when it opens).
+    (document.activeElement as HTMLElement | null)?.blur();
+    await TestBed.inject(WishlistActions).add({ cardId: 'c1' }, false);
+    expect(dialog.open).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ restoreFocus: true }),
+    );
   });
 });

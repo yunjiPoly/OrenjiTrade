@@ -164,8 +164,8 @@ describe('RealtimeCacheSync', () => {
     expect(queryClient.getQueryData<{ count: number }>(meKeys.notificationUnread(uid))?.count).toBe(
       2
     );
-    // A wishlist match makes the wishlist stale (match counts).
-    expect(queryClient.getQueryState(meKeys.wishlistItems(uid))?.isInvalidated).toBe(true);
+    // A wishlist alert changes nothing on the wishlist itself (no match counts any more).
+    expect(queryClient.getQueryState(meKeys.wishlistItems(uid))?.isInvalidated).not.toBe(true);
 
     // A reconnection re-reads the inbox.
     const before = api.callsTo('GET /api/v1/conversations').length;

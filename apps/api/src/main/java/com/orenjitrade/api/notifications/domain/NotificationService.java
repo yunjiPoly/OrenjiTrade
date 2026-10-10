@@ -177,13 +177,13 @@ public class NotificationService {
         }
         String title;
         String body;
-        if (request.type() == NotificationType.WISHLIST_MATCH) {
-            title = "More wishlist matches are waiting";
+        if (request.type() == NotificationType.WISHLIST_ALERT) {
+            title = "More wishlist alerts are waiting";
             body =
                     "You reached today's limit of "
                             + decision.limit()
-                            + " wishlist alerts on your plan. New matches still appear on your"
-                            + " wishlist"
+                            + " wishlist alerts on your plan. New listings still show on the card"
+                            + " pages"
                             + (premiumOffered
                                     ? "; upgrade to Premium for unlimited alerts."
                                     : ". The limit resets tomorrow.");

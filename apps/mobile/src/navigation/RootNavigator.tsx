@@ -67,14 +67,13 @@ export function RootNavigator() {
         {/* Inventory items (web: the add dialog and the edit panel of /inventory). */}
         <Stack.Screen name="items/new" options={{ title: 'Add a card' }} />
         <Stack.Screen name="items/[id]" options={{ title: 'Card' }} />
-        {/* A conversation (from the inbox, a collector, a match or a notification). */}
+        {/* A conversation (from the inbox, a collector, a holder or a notification). */}
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation' }} />
         {/* A public community channel (web: /community/:slug; the list is in the Messages tab). */}
         <Stack.Screen name="community/[slug]" options={{ title: 'Community' }} />
-        {/* Wishlist (web: the add/edit dialog and the matches drawer of /wishlist/:id). */}
+        {/* Wishlist (web: the add/edit dialog). */}
         <Stack.Screen name="wishlist/new" options={{ title: 'Add to wishlist' }} />
         <Stack.Screen name="wishlist/edit" options={{ title: 'Edit wish' }} />
-        <Stack.Screen name="wishlist/[id]" options={{ title: 'Matches' }} />
         {/* The notification centre (web: the top-bar bell and /notifications). */}
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         {/* Ratings, references and collector reports (Phase 7; web: their dialogs). */}

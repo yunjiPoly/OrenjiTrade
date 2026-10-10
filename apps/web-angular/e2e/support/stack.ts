@@ -353,7 +353,10 @@ export interface DomCoordinateFinding {
  * Every DOM attribute of the page holding a number in coordinate range (-180..180) with more than
  * 3 decimals. Purely geometric attributes (inline styles, SVG path data and transforms, which hold
  * screen pixels) are skipped; everything else (aria labels, titles, data-*, href, src, value, ...)
- * is checked. Returns the findings and how many attributes were scanned.
+ * is checked. A number counts only when it stands alone: digits glued to letters, dots or dashes
+ * belong to another token (the signed `v1.<payload>.<signature>` token of an ad click URL reads
+ * "…k12.3456b…" across its dots now and then, which is no coordinate). Returns the findings and
+ * how many attributes were scanned.
  */
 export async function domCoordinateFindings(
   page: Page,
@@ -386,7 +389,7 @@ export async function domCoordinateFindings(
           continue;
         }
         scanned++;
-        for (const match of attribute.value.matchAll(/-?\d{1,3}\.(\d{4,})/g)) {
+        for (const match of attribute.value.matchAll(/(?<![\w.-])-?\d{1,3}\.\d{4,}(?![\w.])/g)) {
           if (Math.abs(Number(match[0])) <= 180) {
             findings.push({
               element: element.tagName.toLowerCase(),

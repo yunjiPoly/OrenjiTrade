@@ -7,7 +7,7 @@ import { friendlyError } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 
 /**
- * "Message" buttons (collector profile, binders, matches): opens the conversation with a collector,
+ * "Message" buttons (collector profile, offers, trades): opens the conversation with a collector,
  * creating it when needed (`POST /conversations` is idempotent: 200 existing, 201 new). Refusals
  * (403 MESSAGING_BLOCKED: a block, or the collector's messaging permission) are explained in a
  * snack bar and resolve `null`.

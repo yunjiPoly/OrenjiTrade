@@ -73,7 +73,9 @@ test.describe('card catalog', () => {
     );
     await expect(selected).toContainText('Ultra Rare');
     await expect(selected).toContainText('1st Edition');
-    await expect(page.getByTestId('selected-price')).toContainText('$42.00');
+    await expect(page.getByTestId('selected-price')).toContainText('42.00 CAD');
+    // The price says what it is (the fictional sample catalog here); its source is a tooltip.
+    await expect(page.getByTestId('selected-price-source')).toHaveText('Sample market price');
 
     // Printings table: pick the French printing.
     const printings = page.getByRole('table', { name: 'Printings of Azure-Eyes Sky Dragon' });
@@ -81,7 +83,7 @@ test.describe('card catalog', () => {
     await expect(printings).toContainText('French');
     await printings.getByRole('button', { name: 'Show printing AZR-FR001' }).click();
     await expect(page).toHaveURL(/printing=[0-9a-f-]{36}/);
-    await expect(page.getByTestId('selected-price')).toContainText('$33.60');
+    await expect(page.getByTestId('selected-price')).toContainText('33.60 CAD');
     await expect(selected).toContainText('Unlimited');
 
     // "Who has this in my region" opens the card holders of the browsed region (ADR 0017).
@@ -89,13 +91,36 @@ test.describe('card catalog', () => {
       'href',
       /^\/search\?card=[0-9a-f-]{36}$/,
     );
-    // "Add to wishlist" (Phase 6) opens the wishlist dialog on this card and the chosen printing.
+    // "Add to wishlist" opens the wishlist dialog on this card with the chosen printing checked
+    // in the printing picker.
     await page.getByRole('button', { name: 'Add to wishlist' }).click();
     const wishDialog = page.getByRole('dialog', { name: 'Add to wishlist' });
     await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
-    await expect(wishDialog.getByRole('combobox', { name: 'Printing' })).toContainText('AZR-FR001');
+    await expect(wishDialog.getByRole('radio', { name: /^AZR-FR001,/ })).toBeChecked();
+    await expect(wishDialog.getByRole('radio', { name: /^Any printing/ })).not.toBeChecked();
     await wishDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(wishDialog).toBeHidden();
+
+    // A wishlist alert for "any printing in a rarity" links with `?rarity=`: the page says so and
+    // picks no printing silently; "Add to wishlist" starts on the same choice.
+    const cardPath = new URL(page.url()).pathname;
+    await page.goto(`${cardPath}?rarity=Ultra%20Rare`);
+    const anyInRarity = page.getByRole('region', { name: 'Any printing in Ultra Rare' });
+    await expect(anyInRarity).toContainText('2 printings of this card in Ultra Rare');
+    await expect(anyInRarity).toContainText('AZR-EN001 · 1st Edition · English');
+    await expect(anyInRarity).toContainText('AZR-FR001 · Unlimited · French');
+    await expect(page.getByRole('region', { name: 'Selected printing' })).toHaveCount(0);
+    await expect(page.getByTestId('selected-price')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Add to wishlist' }).click();
+    await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
+    await expect(wishDialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
+    await expect(wishDialog).toContainText('Any printing in Ultra Rare');
+    await wishDialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(wishDialog).toBeHidden();
+    // Choosing one printing replaces the rarity in the URL.
+    await printings.getByRole('button', { name: 'Show printing AZR-FR001' }).click();
+    await expect(page).toHaveURL(/\?printing=[0-9a-f-]{36}$/);
+    await expect(selected).toContainText('Unlimited');
 
     // The hero picture is a real API placeholder image.
     const hero = page.getByRole('img', { name: /Azure-Eyes Sky Dragon, printing AZR-FR001/ });

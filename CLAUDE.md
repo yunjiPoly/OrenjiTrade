@@ -70,7 +70,7 @@ call for geography (boundaries are bundled static assets).
 - Every public representation is a **place**: the state or province and the country. The city
   appears **only on its owner's public profile, while `show_city` is on**: never in search,
   binders, offers, messages, notifications, the map, admin lists, exports to others or analytics.
-- Discovery (search, card holders, map, wishlist matching, ads) is scoped to one **platform
+- Discovery (search, card holders, map, wishlist alerts, ads) is scoped to one **platform
   region** (`americas-north` default, `americas-south`, `europe`); clients always send `region`.
 - `GeoPrivacyContractTest` signs in as every seed account and fails on any coordinate, distance or
   radius key, any number with more than 3 decimals, "km away" wording, or a city outside its

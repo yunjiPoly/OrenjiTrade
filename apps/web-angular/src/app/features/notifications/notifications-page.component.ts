@@ -52,7 +52,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
       @if (auth.isAuthenticated()) {
         <app-page-header
           title="Notifications"
-          subtitle="Wishlist matches, messages and updates about your listings."
+          subtitle="Wishlist alerts, messages and updates about your listings."
         >
           <button
             actions
@@ -132,7 +132,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                   <app-empty-state
                     icon="task_alt"
                     title="You're all caught up"
-                    description="No unread notifications. New wishlist matches and messages will appear here."
+                    description="No unread notifications. New wishlist alerts and messages will appear here."
                   >
                     <button actions matButton="outlined" type="button" (click)="showAll()">
                       Show all notifications
@@ -176,7 +176,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
         <app-empty-state
           icon="lock_person"
           title="Notifications are for members"
-          description="Sign in to get wishlist matches, messages and offers in one place."
+          description="Sign in to get wishlist alerts, messages and offers in one place."
         >
           <a
             actions

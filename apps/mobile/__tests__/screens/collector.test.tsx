@@ -258,7 +258,9 @@ describe('Collector profile', () => {
           wishlistEntryFixture({
             card: { id: 'c2', name: 'Emberfang Fox VMAX', imageUrl: null },
             printing: printingFixture(),
-            conditionMin: null,
+            note: '',
+            nearMintOnly: false,
+            priceTerm: { label: '90% TCG', percent: 90, orMore: false },
           }),
         ]),
       })
@@ -271,11 +273,13 @@ describe('Collector profile', () => {
     );
     expect(dragon).toHaveTextContent(/Azure-Eyes Sky Dragon/);
     expect(dragon).toHaveTextContent(/Any printing/);
-    expect(dragon).toHaveTextContent(/Lightly Played or better/);
+    expect(dragon).toHaveTextContent(/Sleeved copies welcome\./);
+    expect(dragon).toHaveTextContent(/Near Mint only/);
     const fox = within(section).getByTestId('collector-wish-c2');
-    expect(fox).toHaveTextContent(/SVX-001 · Stellar Vortex/);
-    // Never prices, radii or notes.
-    expect(section).not.toHaveTextContent(/km|CA\$/);
+    expect(fox).toHaveTextContent(/SVX-001 · Ultra Rare · Stellar Vortex/);
+    expect(fox).toHaveTextContent(/90% TCG ≈ 34\.20 CAD/);
+    // Never a radius, a distance or a place.
+    expect(section).not.toHaveTextContent(/km|Quebec|Ontario/);
     fireEvent.press(fox);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',

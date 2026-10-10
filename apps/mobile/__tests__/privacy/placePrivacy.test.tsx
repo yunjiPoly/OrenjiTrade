@@ -14,7 +14,6 @@ import {
   conversationFixture,
   locationFixture,
   markerFixture,
-  matchFixture,
   matchingItemFixture,
   meFixture,
   messagePage,
@@ -26,6 +25,7 @@ import {
   referencesPageFixture,
   searchBinderFixture,
   unifiedSearchFixture,
+  wishFixture,
 } from '../support/fixtures';
 import { mockApi, ok, type MockRequest } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -86,7 +86,7 @@ const FIXTURES: Record<string, unknown> = {
   profile: collectorFixture(),
   holders: cardHoldersPage([cardHolderFixture()]),
   search: unifiedSearchFixture({ collectors: [markerFixture()], binders: [searchBinderFixture()] }),
-  match: matchFixture(),
+  wish: wishFixture(),
   party: offerPartyFixture(),
   binders: [publicBinderSummaryFixture()],
   publicItems: publicItemsPage([publicItemFixture()]),

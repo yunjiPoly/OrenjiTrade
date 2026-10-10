@@ -11,13 +11,15 @@ import java.util.Map;
  * @param inAppEnabled master switch for the in-app notification centre
  * @param categories every category with its channels, in {@link NotificationCategory} order
  * @param quietHours push-free period
+ * @param wishlistAlerts the one on/off switch of wishlist alerts (in-app and push)
  */
 public record NotificationSettings(
         boolean pushEnabled,
         boolean emailEnabled,
         boolean inAppEnabled,
         Map<NotificationCategory, ChannelPreferences> categories,
-        QuietHours quietHours) {
+        QuietHours quietHours,
+        boolean wishlistAlerts) {
 
     public NotificationSettings {
         EnumMap<NotificationCategory, ChannelPreferences> complete =
@@ -29,6 +31,6 @@ public record NotificationSettings(
     }
 
     public static NotificationSettings defaults() {
-        return new NotificationSettings(true, false, true, Map.of(), QuietHours.DEFAULT);
+        return new NotificationSettings(true, false, true, Map.of(), QuietHours.DEFAULT, true);
     }
 }

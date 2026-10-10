@@ -19,7 +19,6 @@ import com.orenjitrade.api.reports.events.CollectorReported;
 import com.orenjitrade.api.search.events.SearchPerformed;
 import com.orenjitrade.api.trades.events.TradeUpdated;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
-import com.orenjitrade.api.wishlist.events.WishlistMatched;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -207,7 +206,7 @@ public class AnalyticsEventListener {
                 });
     }
 
-    /** Committed wishlist items (Phase 6): game, target kind and filter flags. */
+    /** Committed wishlist items (stage S2): game, target kind, Near Mint only, price term set. */
     @TransactionalEventListener(fallbackExecution = true)
     void on(WishlistItemCreated created) {
         emit(
@@ -216,36 +215,13 @@ public class AnalyticsEventListener {
                     Map<String, Object> payload = new LinkedHashMap<>();
                     payload.put("game", created.game());
                     payload.put("target", created.target());
-                    payload.put("has_max_price", created.hasMaxPrice());
-                    payload.put("trade_preference", created.tradePreference());
+                    payload.put("near_mint_only", created.nearMintOnly());
+                    payload.put("has_price_term", created.hasPriceTerm());
                     return event(
                             AnalyticsEventTypes.WISHLIST_ITEM_CREATED,
                             created.occurredAt(),
                             created.ownerId(),
                             null,
-                            null,
-                            payload);
-                });
-    }
-
-    /**
-     * Committed wishlist matches (Phase 6): game, platform region (never a distance or a point),
-     * whether a notification was created, the pseudonymous item owner.
-     */
-    @TransactionalEventListener(fallbackExecution = true)
-    void on(WishlistMatched matched) {
-        emit(
-                AnalyticsEventTypes.WISHLIST_MATCHED,
-                () -> {
-                    Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("game", matched.game());
-                    payload.put("notified", matched.notified());
-                    payload.put("owner_hash", hash(matched.itemOwnerId()));
-                    return event(
-                            AnalyticsEventTypes.WISHLIST_MATCHED,
-                            matched.matchedAt(),
-                            matched.wisherId(),
-                            matched.regionCode(),
                             null,
                             payload);
                 });

@@ -67,6 +67,10 @@ test.describe('settings', () => {
     ).toBeVisible();
     await expect(page.getByTestId('collector-public-label')).toContainText('Quebec, Canada');
     await expect(page.getByTestId('collector-city')).toHaveText(city);
+    // "City, State, Country" with no space before the comma.
+    await expect(page.getByTestId('collector-public-label')).toContainText(
+      `${city}, Quebec, Canada`,
+    );
     await expect(page.getByRole('link', { name: 'Edit profile' })).toBeVisible();
 
     // Someone else's profile (seed data, discoverable, city shown): state and city, no distance.

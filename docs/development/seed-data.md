@@ -13,7 +13,7 @@ Stable ids use the pattern `00000000-0000-4000-8000-0000000000NN`.
 | NN | Handle | Display name | Declared place (`locations.json`) | Region | Tags | Games | Inventory profile |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 01 | collector1 | Maïka Tremblay | CA / CA-QC, city Montréal | americas-north | Collector, Trader, Local Meetups, French, English | Yu-Gi-Oh!, Pokémon | 2 public binders (fresh), 1 private binder |
-| 02 | collector2 | Devon Okafor | CA / CA-ON, city Toronto | americas-north | Player, Competitive, Shipping | Magic | 1 public binder (fresh), wishlist matches collector1's cards |
+| 02 | collector2 | Devon Okafor | CA / CA-ON, city Toronto | americas-north | Player, Competitive, Shipping | Magic | 1 public binder (fresh), wishlist (visible) alerted about collector1's Azure-Eyes listing |
 | 03 | collector3 | Priya Raman | AR / AR-C, city Buenos Aires (hidden) | americas-south | Collector, Vintage, High-End | Yu-Gi-Oh! | public binder last confirmed 40 days ago (STALE) |
 | 04 | collector4 | Lucas Bergeron | ES / ES-MD, city Madrid | europe | Player, Casual | Riftbound | binder temporarily public (24 h) |
 | 05 | collector5 | Sofia Nguyen | US / US-CA, city Los Angeles | americas-north | Collector, Sealed, Shipping | Pokémon, Magic | public binder, accepts offers on several cards |
@@ -61,8 +61,15 @@ entries. Nothing happens while the real catalog is absent.
 - One OPEN offer from collector5 to collector1 (cash), one COUNTERED offer between 2 and 6.
 - Ratings: collector1 ↔ collector2 (completed trade), collector5 → collector1.
 - One OPEN collector report from collector4 against collector6 (reason SPAM) for admin review.
-- Wishlist: collector2 wants a printing that collector1 publishes (both in Americas North) so a
-  fresh publication triggers a match locally.
+- Wishlist (stage S2): collector2 wants a printing that collector1 publishes (both in Americas
+  North; public note, Near Mint only, "90% TCG"), the Pokémon printing `pkm-p002a` that collector1
+  keeps private (publishing it locally triggers a fresh alert) and any printing of a Magic card
+  ("100% TCG+"); the seed runs the real alert pipeline on collector1's listing, so collector2 has
+  one wishlist alert. The same holds for a database seeded before stage S2 and migrated since
+  (V112 left its three seed wishes without note, flag or term): at the next start the seed gives
+  each of them its values above while the wish is still untouched (the three fields empty and
+  never edited), and sends the sample alert once. A seed wish edited locally is never changed; a
+  seed wish that was paused before S2 was deleted by V112 and is simply seeded again.
 - Notifications: a few read/unread for collector1.
 - Plans: FREE and PREMIUM with limits (binder views/day 30 vs unlimited, wishlist alerts 5 vs
   unlimited, advanced filters off/on); premium-user subscribed.

@@ -164,6 +164,7 @@ test.describe('launch configuration: every money flag off', () => {
   }) => {
     test.setTimeout(180_000);
     const publicFlags = await request.get(`${API_URL}/api/v1/public/feature-flags`);
+    expect(publicFlags.ok(), 'GET /public/feature-flags').toBeTruthy();
     const flags = (await publicFlags.json()) as Record<string, boolean>;
     for (const key of MONEY_FLAGS) {
       expect(flags[key], `public flag ${key}`).toBe(false);

@@ -128,14 +128,13 @@ export type ReplyResponse = Schemas['ReplyResponse'];
 export type ReplyPage = Schemas['CursorPageReplyResponse'];
 export type CreatePostRequest = Schemas['CreatePostRequest'];
 
-// --- Wishlist + notifications (Phase 6) ---------------------------------------------------------
+// --- Wishlist (stage S2) + notifications (Phase 6) ---------------------------------------------
 export type WishlistItemResponse = Schemas['WishlistItemResponse'];
 export type WishlistCardRef = Schemas['WishlistCardRef'];
 export type CreateWishlistItemRequest = Schemas['CreateWishlistItemRequest'];
 export type UpdateWishlistItemRequest = Schemas['UpdateWishlistItemRequest'];
-export type TradePreference = WishlistItemResponse['tradePreference'];
-export type WishlistMatchResponse = Schemas['WishlistMatchResponse'];
-export type WishlistMatchPage = Schemas['CursorPageWishlistMatchResponse'];
+export type WishPriceTerm = Schemas['WishPriceTerm'];
+export type WishPriceTermsResponse = Schemas['WishPriceTermsResponse'];
 export type WishlistSummaryEntry = Schemas['WishlistSummaryEntry'];
 export type NotificationResponse = Schemas['NotificationResponse'];
 export type NotificationType = NotificationResponse['type'];

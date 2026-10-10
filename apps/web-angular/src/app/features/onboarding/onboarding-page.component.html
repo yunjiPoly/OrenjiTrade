@@ -94,7 +94,7 @@
       <mat-step label="Interests" [completed]="interestsDone()" [editable]="true">
         <h2 class="onboarding__step-title">What do you collect?</h2>
         <p class="onboarding__step-text">
-          Pick your games and a few tags. They appear on your profile and help matching.
+          Pick your games and a few tags. They appear on your profile and help collectors find you.
         </p>
         <app-game-picker [value]="games()" (valueChange)="games.set($event)" />
         <h3 class="onboarding__sub">Languages</h3>

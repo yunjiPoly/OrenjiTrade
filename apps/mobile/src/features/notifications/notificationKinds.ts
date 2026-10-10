@@ -1,5 +1,6 @@
 import type { NotificationResponse } from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
+import { ANY_PRINTING_PARAM } from '@/src/lib/catalog';
 
 /**
  * Display vocabulary of the notification centre (Phase 6 contract, mirror of the web's
@@ -12,12 +13,12 @@ export type NotificationTone = 'match' | 'message' | 'offer' | 'trade' | 'warnin
 export interface NotificationKind {
   icon: IconName;
   tone: NotificationTone;
-  /** Short category shown above the title ("Wishlist match"). */
+  /** Short category shown above the title ("Wishlist alert"). */
   label: string;
 }
 
 const KINDS: Record<string, NotificationKind> = {
-  WISHLIST_MATCH: { icon: 'heart', tone: 'match', label: 'Wishlist match' },
+  WISHLIST_ALERT: { icon: 'heart', tone: 'match', label: 'Wishlist alert' },
   MESSAGE: { icon: 'message-text', tone: 'message', label: 'Message' },
   OFFER_RECEIVED: { icon: 'tag', tone: 'offer', label: 'Offer' },
   OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Offer accepted' },
@@ -60,7 +61,7 @@ export function notificationKind(
 /** Characters allowed in an in-app path (with its query string); nothing else is followed. */
 const APP_PATH = /^\/(?!\/)[\w\-/?=&.%~]*$/;
 
-/** `value` when it is a same-app absolute path (`/wishlist/…`), otherwise `null`. */
+/** `value` when it is a same-app absolute path (`/cards/…`), otherwise `null`. */
 export function safeAppPath(value: unknown): string | null {
   return typeof value === 'string' && APP_PATH.test(value) ? value : null;
 }
@@ -85,9 +86,15 @@ export function notificationLink(
   }
   const data = notification.data;
   switch (notification.type) {
-    case 'WISHLIST_MATCH': {
-      const wish = idOf(data, 'wishlistItemId');
-      return wish ? `/wishlist/${wish}` : '/wishlist';
+    case 'WISHLIST_ALERT': {
+      // The card page with the wish's selection (the API's deepLink normally covers it).
+      const card = idOf(data, 'cardId');
+      const printing = idOf(data, 'printingId');
+      if (!card) {
+        return '/wishlist';
+      }
+      // Without a printing, "any" is said explicitly: the screen never picks one itself.
+      return `/cards/${card}?printing=${printing ?? ANY_PRINTING_PARAM}`;
     }
     case 'MESSAGE': {
       const conversation = idOf(data, 'conversationId');
@@ -132,7 +139,7 @@ export function notificationLink(
           if (upgrade) {
             return upgrade;
           }
-          return data?.['notificationType'] === 'WISHLIST_MATCH' ? '/wishlist' : '/notifications';
+          return data?.['notificationType'] === 'WISHLIST_ALERT' ? '/wishlist' : '/notifications';
         }
         case 'LISTINGS_PAUSED':
           return '/inventory';
@@ -171,8 +178,9 @@ function route(href: string): NotificationTarget {
 }
 
 /**
- * The mobile screen of a web path (the API's deep links are web paths): wishlist matches,
- * conversations, community channels, binders (`/inventory?binder=`), cards, collector profiles
+ * The mobile screen of a web path (the API's deep links are web paths): the wishlist,
+ * conversations, community channels, binders (`/inventory?binder=`), cards (with the
+ * `?printing=<id>`, `?printing=any` or `?rarity=` of a wishlist alert), collector profiles
  * (`?tab=ratings` scrolls to the ratings), offers, trades, disputes, Premium, credits, support,
  * legal pages and settings (My reports, offer settings, payouts) map to their app screens; the
  * web-only settings explain where to go instead. Ids are validated again.
@@ -184,7 +192,8 @@ export function mobileTarget(webPath: string): NotificationTarget {
   const id = rawId && ID.test(rawId) ? rawId : null;
   switch (root) {
     case 'wishlist':
-      return route(id ? `/wishlist/${id}` : '/wishlist');
+      // The matches screen of one wish is gone (stage S2): old links open the list.
+      return route('/wishlist');
     case 'messages':
       return route(id ? `/messages/${id}` : '/messages');
     case 'community':
@@ -195,8 +204,20 @@ export function mobileTarget(webPath: string): NotificationTarget {
     }
     case 'binders':
       return route(id ? `/binders/${id}` : '/inventory?view=binders');
-    case 'cards':
-      return route(id ? `/cards/${id}` : '/search');
+    case 'cards': {
+      if (!id) {
+        return route('/search');
+      }
+      const printing = params.get('printing');
+      if (printing && ID.test(printing)) {
+        return route(`/cards/${id}?printing=${printing}`);
+      }
+      const rarity = params.get('rarity');
+      if (rarity && rarity.length <= 40) {
+        return route(`/cards/${id}?rarity=${encodeURIComponent(rarity)}`);
+      }
+      return route(`/cards/${id}`);
+    }
     case 'sets':
       return route(id ? `/sets/${id}` : '/search');
     case 'collectors':

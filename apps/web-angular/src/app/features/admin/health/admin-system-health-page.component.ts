@@ -25,7 +25,6 @@ const COMPONENT_LABELS: Record<string, string> = {
 const JOB_LABELS: Record<string, string> = {
   freshness: 'Listing freshness (hourly)',
   delist: 'Strikes and pauses (nightly)',
-  'wishlist-rematch': 'Wishlist re-match',
   'account-deletion': 'Account deletion',
   'upload-cleanup': 'Upload clean-up',
   ping: 'Scheduler ping',

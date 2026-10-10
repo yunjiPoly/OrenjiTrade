@@ -34,14 +34,29 @@ public record ChannelPlan(
         SKIPPED
     }
 
+    /** The channels of wishlist alerts while their switch is on: in-app and push, never email. */
+    static final ChannelPreferences WISHLIST_ALERT_CHANNELS =
+            new ChannelPreferences(true, false, true);
+
+    /** No channel (a switch is off). */
+    static final ChannelPreferences NO_CHANNEL = new ChannelPreferences(false, false, false);
+
     /**
      * The channels of a notification of {@code type} under {@code settings} at {@code now}: the
      * master switch and the category switch must both be on; push is skipped during quiet hours
-     * (in-app and email are not); {@link NotificationType#SYSTEM} notices are in-app only.
+     * (in-app and email are not); {@link NotificationType#WISHLIST_ALERT} follows the one {@code
+     * wishlistAlerts} switch (in-app and push); {@link NotificationType#SYSTEM} notices are in-app
+     * only.
      */
     public static ChannelPlan of(
             NotificationSettings settings, NotificationType type, Instant now) {
         @Nullable NotificationCategory category = type.category();
+        if (type == NotificationType.WISHLIST_ALERT) {
+            return of(
+                    settings,
+                    settings.wishlistAlerts() ? WISHLIST_ALERT_CHANNELS : NO_CHANNEL,
+                    now);
+        }
         if (category == null) {
             return new ChannelPlan(
                     settings.inAppEnabled(),
@@ -50,7 +65,11 @@ public record ChannelPlan(
                     DeliveryState.SKIPPED,
                     REASON_DISABLED);
         }
-        ChannelPreferences channels = settings.categories().get(category);
+        return of(settings, settings.categories().get(category), now);
+    }
+
+    private static ChannelPlan of(
+            NotificationSettings settings, ChannelPreferences channels, Instant now) {
         boolean inApp = settings.inAppEnabled() && channels.inApp();
         DeliveryState push = DeliveryState.SKIPPED;
         @Nullable String pushReason = REASON_DISABLED;

@@ -279,7 +279,9 @@
   }
 
   .collector__grid {
-    grid-template-columns: 1fr;
+    // minmax(0, ...): a bare 1fr track grows to its content's min-content width, which made the
+    // page scroll sideways by a few pixels on a 375 px screen.
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .collector__banner-card--2 {

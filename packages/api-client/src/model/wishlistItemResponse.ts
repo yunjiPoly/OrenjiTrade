@@ -9,6 +9,7 @@
  */
 import { WishlistCardRef } from './wishlistCardRef';
 import { PrintingSummary } from './printingSummary';
+import { WishPriceTerm } from './wishPriceTerm';
 
 
 /**
@@ -25,34 +26,17 @@ export interface WishlistItemResponse {
      * The wished printing; null = any printing
      */
     printing?: PrintingSummary;
+    /**
+     * Any printing of this rarity; null = any rarity
+     */
     rarity?: string | null;
     /**
-     * Worst acceptable condition
+     * Public note (\"\" = none)
      */
-    conditionMin?: string | null;
-    edition?: string | null;
-    language?: string | null;
-    maxPrice?: number | null;
-    currency: string;
-    tradePreference: WishlistItemResponseTradePreferenceEnum;
-    /**
-     * Private to the caller
-     */
-    notes: string;
-    active: boolean;
-    /**
-     * Undismissed matches whose item is public right now (blocked collectors excluded)
-     */
-    matchCount: number;
-    lastMatchedAt?: string | null;
+    note: string;
+    nearMintOnly: boolean;
+    priceTerm?: WishPriceTerm;
     createdAt: string;
     updatedAt: string;
 }
-export enum WishlistItemResponseTradePreferenceEnum {
-    Any = 'ANY',
-    Trade = 'TRADE',
-    Sale = 'SALE'
-};
-
-
 

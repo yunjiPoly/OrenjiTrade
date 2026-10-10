@@ -78,7 +78,7 @@ location). `GET/PUT/DELETE /api/v1/me/location`:
 
 ### Discovery by region
 
-- Search, card holders, binder search, suggestions, the wishlist matcher, ads and the map are
+- Search, card holders, binder search, suggestions, the wishlist alerts, ads and the map are
   scoped to **one platform region**: the request's `region` parameter, else the signed-in
   collector's home region, else the default (`americas-north`). Clients always send it.
 - Results rank by freshness, then rating, then handle (no distance sort; the holders sort is
@@ -86,6 +86,9 @@ location). `GET/PUT/DELETE /api/v1/me/location`:
 - The wishlist matcher matches a new public listing with wishes of collectors **in the same
   region** (the old distance bucket and `radius_km` are gone; V109 deletes the stored matches and
   their notifications); the notification reads "<card> was listed by @handle in <place>".
+  *Amended 2026-10-09 (stage S2, V112):* no match is stored any more; the same region rule now
+  decides the wishlist alerts ("<card> <code> <rarity> was just listed by @handle in <state>,
+  <country>.", once per collector and listing), see `docs/api/contracts/s2-wishlist.md`.
 - The map is a **choropleth of binder counts per state/province** (`GET
   /api/v1/regions/{region}/binder-counts`) and a **list of public binders per state/province**
   (`GET /api/v1/regions/{region}/subdivisions/{code}/binders`, cursor pages of 1–50). Both are

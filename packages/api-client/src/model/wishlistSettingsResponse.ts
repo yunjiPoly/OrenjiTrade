@@ -9,11 +9,12 @@
  */
 
 
-export interface WishlistRematchResponse { 
-    inventoryItems: number;
-    wishlistItems: number;
-    matchesCreated: number;
-    notified: number;
-    failures: number;
+/**
+ * Wishlist settings (admin)
+ */
+export interface WishlistSettingsResponse { 
+    priceTerms: Array<string>;
+    updatedBy?: string | null;
+    updatedAt?: string | null;
 }
 

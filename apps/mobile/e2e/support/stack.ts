@@ -683,8 +683,7 @@ export async function apiAddWish(
     headers: authHeader(as.idToken),
     data: {
       cardId,
-      conditionMin: 'LIGHTLY_PLAYED',
-      tradePreference: 'ANY',
+      nearMintOnly: true,
       ...extra,
     },
   });

@@ -40,6 +40,10 @@
             <span class="mono">{{ printing.printingCode }}</span>
             · {{ printing.setName }}
           </p>
+        } @else if (selection().rarity; as rarity) {
+          <p class="detail__caption">Any printing in {{ rarity }}</p>
+        } @else if (anyPrinting()) {
+          <p class="detail__caption">Any printing</p>
         }
         <app-card-data-attribution class="detail__attribution" [game]="card.game ?? null" />
       </div>
@@ -58,7 +62,7 @@
           <a
             matButton="filled"
             routerLink="/inventory"
-            [queryParams]="{ add: selected()?.id ?? null, card: card.id }"
+            [queryParams]="{ add: inventoryPrintingId(), card: card.id }"
           >
             <mat-icon aria-hidden="true">library_add</mat-icon>
             Add to inventory
@@ -108,7 +112,15 @@
               @if (selectedPrice(); as price) {
                 <span class="detail__price-value">{{ price }}</span>
                 <span class="detail__price-note">
-                  Market price
+                  @if (selectedPriceInfo(); as info) {
+                    <span
+                      class="detail__price-source"
+                      tabindex="0"
+                      data-testid="selected-price-source"
+                      [matTooltip]="info.detail"
+                      >{{ info.label }}</span
+                    >
+                  }
                   @if (printing.marketPrice?.updatedAt; as updatedAt) {
                     · {{ updatedAt | date: 'mediumDate' : 'UTC' }}
                   }
@@ -117,6 +129,42 @@
                 <span class="detail__price-note">No market price for this printing yet.</span>
               }
             </div>
+          </section>
+        } @else if (selection().rarity; as rarity) {
+          <section
+            class="detail__printing"
+            aria-labelledby="selected-printing-title"
+            data-testid="selected-rarity"
+          >
+            <div class="detail__printing-head">
+              <h2 id="selected-printing-title" class="detail__h2">Any printing in {{ rarity }}</h2>
+            </div>
+            <p class="detail__muted detail__rarity-note">
+              {{ rarityPrintings().length }}
+              {{ rarityPrintings().length === 1 ? 'printing' : 'printings' }} of this card in
+              {{ rarity }}: any of them fits. Choose one under Printings to see its details and
+              market price.
+            </p>
+            <ul class="detail__chips" [attr.aria-label]="'Printings in ' + rarity">
+              @for (printing of rarityPrintings(); track printing.id) {
+                <li class="chip chip--code mono">{{ rarityPrintingLabel(printing) }}</li>
+              }
+            </ul>
+          </section>
+        } @else if (anyPrinting()) {
+          <section
+            class="detail__printing"
+            aria-labelledby="selected-printing-title"
+            data-testid="selected-any"
+          >
+            <div class="detail__printing-head">
+              <h2 id="selected-printing-title" class="detail__h2">Any printing</h2>
+            </div>
+            <p class="detail__muted detail__rarity-note">
+              {{ printings().length }}
+              {{ printings().length === 1 ? 'printing' : 'printings' }} of this card: any of them
+              fits. Choose one under Printings to see its details and market price.
+            </p>
           </section>
         }
 
@@ -141,6 +189,7 @@
           [cardName]="card.name ?? ''"
           [game]="card.game"
           [selectedId]="selected()?.id ?? null"
+          [selectedRarity]="selection().rarity"
           [label]="'Printings of ' + card.name"
           (pick)="selectPrinting($event)"
         />

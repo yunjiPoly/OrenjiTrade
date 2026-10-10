@@ -5,13 +5,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Notification types (Phase 6 contract). Each type belongs to a preference category (channels per
- * category in {@code notification_preferences}); {@link #SYSTEM} notices are in-app only and not
- * configurable per category. Types with a daily limit key are counted per UTC day against the
- * caller's plan ({@code usage_limit}, ADR 0014).
+ * category in {@code notification_preferences}); {@link #WISHLIST_ALERT} has its own on/off switch
+ * instead ({@code wishlistAlerts}: in-app and push, never email; stage S2); {@link #SYSTEM} notices
+ * are in-app only and not configurable. Types with a daily limit key are counted per UTC day
+ * against the caller's plan ({@code usage_limit}, ADR 0014).
  */
 @Schema(name = "NotificationType")
 public enum NotificationType {
-    WISHLIST_MATCH(NotificationCategory.WISHLIST_MATCH, "wishlist.alerts.per_day"),
+    /** A collector of the recipient's region listed a public item fitting their wishlist. */
+    WISHLIST_ALERT(null, "wishlist.alerts.per_day"),
     MESSAGE(NotificationCategory.MESSAGE, null),
     OFFER_RECEIVED(NotificationCategory.OFFER, null),
     OFFER_ACCEPTED(NotificationCategory.OFFER, null),
@@ -41,7 +43,7 @@ public enum NotificationType {
         this.dailyLimitKey = dailyLimitKey;
     }
 
-    /** The preference category, {@code null} for {@link #SYSTEM}. */
+    /** The preference category, {@code null} for {@link #WISHLIST_ALERT} and {@link #SYSTEM}. */
     public @Nullable NotificationCategory category() {
         return category;
     }

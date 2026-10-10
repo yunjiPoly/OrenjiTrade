@@ -1,0 +1,141 @@
+# Wishlist + wishlist alerts (stage S2 of the 2026-10-08 product change, ADR 0017): Wren (fresh,
+# fictional, discoverable, in Montevideo: Americas (South), a region no other flow uses) adds
+# Emberfang Fox to her wishlist through the app with a public note, "Near Mint only" and a price
+# term (no price, trade preference, private note or alert switch any more); Hal, in the same
+# region, lists a Near Mint copy publicly (host script scripts/wishlist.js). Wren gets one wishlist
+# alert over the realtime channel: the bell's badge rises without a reload; the alert names Hal's
+# state (never a city, a distance or a position) and opens the card page.
+appId: host.exp.exponent
+name: Wishlist alert, notification and card page
+tags:
+  - mobile-m4
+  - wishlist
+  - notifications
+---
+- runScript:
+    file: scripts/wishlist.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.wren.email}
+      PASSWORD: ${output.wren.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-wishlist'
+    timeout: 60000
+- tapOn:
+    id: 'tab-wishlist'
+- extendedWaitUntil:
+    visible:
+      id: 'wishlist-empty'
+    timeout: 60000
+- assertVisible:
+    id: 'wishlist-visible'
+- assertNotVisible:
+    id: 'wishlist-location-prompt'
+- tapOn:
+    id: 'wishlist-empty-action'
+
+# The wish: card autocomplete, then the public note, Near Mint only and a price term.
+- extendedWaitUntil:
+    visible:
+      id: 'card-picker-input'
+    timeout: 60000
+- tapOn:
+    id: 'card-picker-input'
+- inputText: 'emberfang'
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: 'suggestion-CARD-PFT-002'
+    timeout: 60000
+- tapOn:
+    id: 'suggestion-CARD-PFT-002'
+- extendedWaitUntil:
+    visible:
+      id: 'wish-card'
+    timeout: 60000
+- assertNotVisible:
+    id: 'wish-radius'
+- assertNotVisible:
+    id: 'wish-max-price'
+- tapOn:
+    id: 'wish-note'
+- inputText: 'Fictional Maestro wish.'
+- hideKeyboard
+- tapOn:
+    id: 'wish-near-mint'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'wish-term-85'
+- tapOn:
+    id: 'wish-term-85'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'wish-save'
+- tapOn:
+    id: 'wish-save'
+- extendedWaitUntil:
+    visible:
+      id: 'wishlist-summary'
+    timeout: 60000
+- assertVisible: '.*Near Mint only.*'
+- assertNotVisible: '.*[Mm]atch.*'
+- runScript:
+    file: scripts/wishlist.js
+    env:
+      ACTION: expect-wish
+      EMAIL: ${output.wren.email}
+      PASSWORD: ${output.wren.password}
+- takeScreenshot: wishlist-wish
+
+# Hal lists a Near Mint copy in the region: one alert, live.
+- runScript:
+    file: scripts/wishlist.js
+    env:
+      ACTION: list
+      EMAIL: ${output.hal.email}
+      PASSWORD: ${output.hal.password}
+      BINDER: ${output.hal.binderId}
+- extendedWaitUntil:
+    visible:
+      id: 'notification-bell-wishlist-badge'
+    timeout: 90000
+- takeScreenshot: wishlist-alert-live
+
+# The notification centre, then the card page.
+- tapOn:
+    id: 'notification-bell-wishlist'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-notifications'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: '.*Wishlist alert: Emberfang Fox.*'
+    timeout: 60000
+- assertVisible: '.*was just listed by @.* in Montevideo, Uruguay.*'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: notifications-centre
+# The title itself (a pattern would also match the row's "Mark as read: …" button).
+- tapOn: 'Wishlist alert: Emberfang Fox'
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: 'Emberfang Fox'
+    timeout: 60000
+# The wish is for any printing: the alert says so (?printing=any) and the card screen shows
+# "Any printing", never a printing picked for the collector.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-selected-any'
+- assertVisible:
+    id: 'card-selected-any'
+- assertNotVisible:
+    id: 'card-selected-printing'
+- takeScreenshot: wishlist-alert-card

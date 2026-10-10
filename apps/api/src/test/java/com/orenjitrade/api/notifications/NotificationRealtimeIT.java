@@ -37,7 +37,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * New notifications reach the recipient's open sessions on {@code /user/queue/notifications}
  * (through the Redis fan-out of the Phase 5 realtime channel) with the same representation as
- * {@code GET /notifications}: a wishlist match and a private message. Nobody else receives them.
+ * {@code GET /notifications}: a wishlist alert and a private message. Nobody else receives them.
  */
 class NotificationRealtimeIT extends AbstractWishlistIT {
 
@@ -67,7 +67,7 @@ class NotificationRealtimeIT extends AbstractWishlistIT {
     }
 
     @Test
-    void wishlistMatchesAndMessagesArePushedToTheRecipientOnly() throws Exception {
+    void wishlistAlertsAndMessagesArePushedToTheRecipientOnly() throws Exception {
         Place place = americasNorth();
         Collector wisher = collector("nr-wisher", place);
         Collector seller = collector("nr-seller", place);
@@ -79,13 +79,13 @@ class NotificationRealtimeIT extends AbstractWishlistIT {
 
         String itemId = publicItem(seller, azure, offered("NEAR_MINT", "35.00", "SALE"));
         JsonNode pushed = wisherQueue.poll(20, TimeUnit.SECONDS);
-        assertThat(pushed).as("the wisher receives the match in realtime").isNotNull();
-        assertThat(pushed.path("type").asString()).isEqualTo("WISHLIST_MATCH");
+        assertThat(pushed).as("the wisher receives the alert in realtime").isNotNull();
+        assertThat(pushed.path("type").asString()).isEqualTo("WISHLIST_ALERT");
         assertThat(pushed.path("data").path("wishlistItemId").asString()).isEqualTo(wishId);
         assertThat(pushed.path("data").path("inventoryItemId").asString()).isEqualTo(itemId);
         assertThat(pushed.path("readAt").isNull() || pushed.path("readAt").isMissingNode())
                 .isTrue();
-        JsonNode listed = notificationsOfType(wisher, "WISHLIST_MATCH").get(0);
+        JsonNode listed = notificationsOfType(wisher, "WISHLIST_ALERT").get(0);
         assertThat(pushed.path("id").asString()).isEqualTo(listed.path("id").asString());
         assertThat(pushed.path("title").asString()).isEqualTo(listed.path("title").asString());
         assertThat(pushed.path("body").asString()).isEqualTo(listed.path("body").asString());

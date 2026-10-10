@@ -16,5 +16,16 @@ export interface MarketPrice {
     amount?: number;
     currency?: string;
     updatedAt?: string;
+    /**
+     * YGOPRODECK: the set price of the YGOPRODeck card database (TCGplayer-based, USD), dated by its last update; SAMPLE: the fictional local sample catalog; CATALOG: entered by OrenjiTrade staff
+     */
+    source: MarketPriceSourceEnum;
 }
+export enum MarketPriceSourceEnum {
+    Ygoprodeck = 'YGOPRODECK',
+    Sample = 'SAMPLE',
+    Catalog = 'CATALOG'
+};
+
+
 

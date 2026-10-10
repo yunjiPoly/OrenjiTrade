@@ -24,11 +24,11 @@ public final class AnalyticsEventTypes {
     /** A community post was published (channel slug and link flags only; never the text). */
     public static final String COMMUNITY_POST_CREATED = "community_post_created";
 
-    /** A card was added to a wishlist (game, target kind, filters; never notes). */
+    /**
+     * A card was added to a wishlist (game, target kind, Near Mint only, price term; never the
+     * note).
+     */
     public static final String WISHLIST_ITEM_CREATED = "wishlist_item_created";
-
-    /** A public item matched a wishlist item (game, region, whether notified). */
-    public static final String WISHLIST_MATCHED = "wishlist_matched";
 
     /** A rating was written or edited (interaction kind, score; never the comment or ids). */
     public static final String RATING_SUBMITTED = "rating_submitted";

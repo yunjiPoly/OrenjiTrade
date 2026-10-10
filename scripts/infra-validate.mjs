@@ -7,6 +7,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { terraformInstallHint } from './lib/host-tools.mjs';
 import {
   LOCAL_DEV_DIR,
   ROOT,
@@ -28,8 +29,7 @@ const ROOT_MODULES = [
 const version = capture('terraform', ['version']);
 if (version.status !== 0) {
   log.error(
-    'Terraform is not installed (needed only for this check). Install Terraform 1.9+ ' +
-      '(winget install Hashicorp.Terraform / brew install terraform) and retry.',
+    `Terraform is not installed (needed only for this check). Install Terraform 1.9+ (${terraformInstallHint(process.platform)}) and retry.`,
   );
   process.exit(1);
 }

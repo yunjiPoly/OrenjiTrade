@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /** Kinds of notification a collector can tune per channel. */
 @Schema(name = "NotificationCategory")
 public enum NotificationCategory {
-    WISHLIST_MATCH,
     MESSAGE,
     OFFER,
     RATING,

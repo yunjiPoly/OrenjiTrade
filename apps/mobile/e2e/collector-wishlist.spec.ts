@@ -12,8 +12,8 @@ import {
 
 /**
  * "Looking for" on a collector's profile (stage M7, the web's `app-collector-wishlist` on
- * `GET /collectors/{handle}/wishlist`): the public wishlist of a collector who enabled "Show my
- * wishlist on my profile" (card, printing or any printing, minimum condition; never prices, radii
+ * `GET /collectors/{handle}/wishlist`): the public wishlist of a collector who enabled "Let others
+ * see what you want" (card, which copy, public note, Near Mint only and price term; never radii
  * or notes); nothing for a collector who keeps it private (404).
  */
 test.describe('mobile collector wishlist', () => {
@@ -29,15 +29,16 @@ test.describe('mobile collector wishlist', () => {
     const viewer = await createOnboardedCollector(request, 'wview', 'Mobile Viewer');
     const { cardId, cardName } = await cardOfPrinting(request, open.idToken, 'PFT-002');
     await apiAddWish(request, open, cardId, {
-      conditionMin: 'LIGHTLY_PLAYED',
+      note: 'Sleeved copies welcome.',
+      priceTerm: '90% TCG',
+      // A member of the old model: ignored, never stored.
       maxPrice: 30,
-      currency: 'CAD',
     });
     await apiAddWish(request, closed, cardId);
     await apiUpdatePrivacy(request, open.idToken, { wishlistVisible: true });
     await signInThroughUi(page, viewer.email, viewer.password);
 
-    // The open profile: "Looking for" with the card and the minimum condition, no notes.
+    // The open profile: "Looking for" with the card, the public note and the chips.
     const shown = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/collectors/${open.handle}/wishlist`) &&
@@ -48,8 +49,8 @@ test.describe('mobile collector wishlist', () => {
     await expect(profile.getByTestId('collector-name')).toHaveText('Open Wisher', {
       timeout: 30_000,
     });
-    // The public entry carries the card, the printing and the condition; never the price (and
-    // wishes have no radius since ADR 0017).
+    // The public entry carries the card, which copy, the note and the chips; never a price
+    // limit (removed in stage S2) or a radius (ADR 0017).
     const body = (await (await shown).json()) as Record<string, unknown>[];
     expect(body).toHaveLength(1);
     expect(body[0]).not.toHaveProperty('maxPrice');
@@ -60,7 +61,9 @@ test.describe('mobile collector wishlist', () => {
     const wish = section.getByTestId(`collector-wish-${cardId}`);
     await expect(wish).toContainText(cardName);
     await expect(wish).toContainText('Any printing');
-    await expect(wish).toContainText('Lightly Played or better');
+    await expect(wish).toContainText('Sleeved copies welcome.');
+    await expect(wish).toContainText('Near Mint only');
+    await expect(wish).toContainText('90% TCG');
     await expect(section).not.toContainText('km');
 
     // The wish opens the card.

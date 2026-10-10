@@ -39,6 +39,8 @@ api/adminReports.service.ts
 api/adminReports.serviceInterface.ts
 api/adminUsers.service.ts
 api/adminUsers.serviceInterface.ts
+api/adminWishlist.service.ts
+api/adminWishlist.serviceInterface.ts
 api/ads.service.ts
 api/ads.serviceInterface.ts
 api/api.ts
@@ -244,7 +246,6 @@ model/cursorPagePublicBinderSummary.ts
 model/cursorPageReferenceResponse.ts
 model/cursorPageReplyResponse.ts
 model/cursorPageTradeSummary.ts
-model/cursorPageWishlistMatchResponse.ts
 model/deletionRequestResponse.ts
 model/deletionRequestSummary.ts
 model/delistJobResponse.ts
@@ -485,13 +486,15 @@ model/updateRatingRequest.ts
 model/updateRolesRequest.ts
 model/updateUsageLimitRequest.ts
 model/updateWishlistItemRequest.ts
+model/updateWishlistSettingsRequest.ts
 model/uploadCleanupJobResponse.ts
 model/usageLimit.ts
 model/visibilityCounts.ts
+model/wishPriceTerm.ts
+model/wishPriceTermsResponse.ts
 model/wishlistCardRef.ts
 model/wishlistItemResponse.ts
-model/wishlistMatchResponse.ts
-model/wishlistRematchResponse.ts
+model/wishlistSettingsResponse.ts
 model/wishlistSummaryEntry.ts
 param.ts
 provide-api.ts

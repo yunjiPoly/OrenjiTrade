@@ -295,8 +295,9 @@ class AnalyticsIT extends AbstractIntegrationTest {
         setLocation(seller, "MX", "MX-YUC", null);
         Map<String, Object> wish = new java.util.LinkedHashMap<>();
         wish.put("printingId", printingId.toString());
-        wish.put("maxPrice", new java.math.BigDecimal("80.00"));
-        wish.put("notes", "Secret wish note");
+        wish.put("note", "Public wish note");
+        wish.put("nearMintOnly", true);
+        wish.put("priceTerm", "85% TCG");
         String wishId =
                 callJson(HttpMethod.POST, "/api/v1/wishlist", wisher, wish, 201)
                         .path("id")
@@ -320,7 +321,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
                             .toList();
             Set<String> types = new HashSet<>();
             mine.forEach(event -> types.add(event.path("event_type").asString()));
-            if (types.containsAll(Set.of("wishlist_item_created", "wishlist_matched"))) {
+            if (types.contains("wishlist_item_created")) {
                 break;
             }
             Thread.sleep(200);
@@ -328,20 +329,18 @@ class AnalyticsIT extends AbstractIntegrationTest {
         JsonNode created = first(mine, "wishlist_item_created");
         assertThat(created.path("payload").path("game").asString()).isEqualTo("yugioh");
         assertThat(created.path("payload").path("target").asString()).isEqualTo("printing");
-        assertThat(created.path("payload").path("has_max_price").asBoolean()).isTrue();
-        assertThat(created.path("payload").path("trade_preference").asString()).isEqualTo("ANY");
-        JsonNode matched = first(mine, "wishlist_matched");
-        assertThat(matched.path("payload").has("distance_bucket")).isFalse();
-        assertThat(matched.path("region_code").asString()).isEqualTo("americas-north");
-        assertThat(matched.path("payload").path("notified").asBoolean()).isTrue();
-        assertThat(matched.path("payload").path("owner_hash").asString())
-                .isEqualTo(actorHasher.hash(sellerId));
+        assertThat(created.path("payload").path("near_mint_only").asBoolean()).isTrue();
+        assertThat(created.path("payload").path("has_price_term").asBoolean()).isTrue();
+        assertThat(created.path("payload").has("has_max_price")).isFalse();
+        // The matches feature and its analytics are gone (stage S2): no wishlist_matched event.
+        assertThat(mine.stream().map(event -> event.path("event_type").asString()))
+                .doesNotContain("wishlist_matched");
         for (JsonNode event : mine) {
             ObjectNode checked = (ObjectNode) event.deepCopy();
             checked.remove("occurred_at");
             String text = checked.toString();
             assertThat(text)
-                    .doesNotContain("Secret wish note")
+                    .doesNotContain("Public wish note")
                     .doesNotContain("Secret seller note")
                     .doesNotContain(wisherId.toString())
                     .doesNotContain(sellerId.toString())

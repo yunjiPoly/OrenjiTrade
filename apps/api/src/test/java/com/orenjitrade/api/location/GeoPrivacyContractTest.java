@@ -383,55 +383,37 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Phase 6: the seeded wishlist of collector2 (items, matches with collector1's listing, public
-     * summary) and the notification centre: the match's owner carries a place, the alert names the
-     * state/province + country, never a distance.
+     * Phase 6 / stage S2: the seeded wishlist of collector2 (items, public summary, price terms)
+     * and the notification centre: the wishlist alert about collector1's listing names the
+     * state/province + country, never a distance or a city.
      */
     @Test
     void wishlistAndNotificationResponsesCarryPlacesNotDistances(CapturedOutput output) {
         String collector1 = "seed-collector1:collector1@orenjitrade.test";
         String collector2 = "seed-collector2:collector2@orenjitrade.test";
-        String azureWish = "00000000-0000-4000-8f00-000000000201";
         String azureItem = "00000000-0000-4000-8c00-000000010101";
 
         JsonNode wishlist = fetch("/api/v1/wishlist", collector2);
         assertThat(wishlist).hasSizeGreaterThanOrEqualTo(3);
-        boolean sawSeededMatch = false;
-        for (JsonNode item : wishlist) {
-            JsonNode matches =
-                    fetch(
-                            "/api/v1/wishlist/" + item.path("id").asString() + "/matches",
-                            collector2);
-            for (JsonNode match : matches.path("items")) {
-                if (azureWish.equals(item.path("id").asString())
-                        && azureItem.equals(match.path("item").path("id").asString())) {
-                    sawSeededMatch = true;
-                    assertThat(match.path("collector").path("handle").asString())
-                            .isEqualTo("collector1");
-                    assertThat(match.path("collector").path("place").path("label").asString())
-                            .isEqualTo("Quebec, Canada");
-                }
-            }
-        }
-        assertThat(sawSeededMatch).as("collector1's Azure-Eyes matches collector2's wish").isTrue();
+        fetch("/api/v1/wishlist/price-terms", collector2);
         fetch("/api/v1/collectors/collector2/wishlist", collector1);
 
         JsonNode notifications = fetch("/api/v1/notifications?limit=50", collector2);
-        boolean sawMatchNotification = false;
+        boolean sawAlert = false;
         for (JsonNode notification : notifications.path("items")) {
-            if ("WISHLIST_MATCH".equals(notification.path("type").asString())
+            if ("WISHLIST_ALERT".equals(notification.path("type").asString())
                     && azureItem.equals(
                             notification.path("data").path("inventoryItemId").asString())) {
-                sawMatchNotification = true;
+                sawAlert = true;
                 assertThat(notification.path("body").asString())
-                        .contains("was listed by @collector1 in Quebec, Canada");
+                        .contains("was just listed by @collector1 in Quebec, Canada");
             }
         }
-        assertThat(sawMatchNotification).as("the seeded match notified collector2").isTrue();
+        assertThat(sawAlert).as("the seeded listing alerted collector2").isTrue();
         fetch("/api/v1/notifications", collector1);
         for (Fetched document : fetched) {
             if (document.path().startsWith("/api/v1/wishlist")) {
-                // collector2's own wishlist: the wish notes are theirs; item notes still never
+                // collector2's own wishlist: public wish notes only; item notes still never
                 // show.
                 assertNoItemNotes(document.body(), document.path());
             } else {

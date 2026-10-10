@@ -53,6 +53,16 @@ export const ADMIN_ROUTES: Routes = [
           import('./regions/admin-regions-page.component').then((m) => m.AdminRegionsPageComponent),
       },
       {
+        path: 'wishlist',
+        title: 'Wishlist · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./wishlist/admin-wishlist-settings-page.component').then(
+            (m) => m.AdminWishlistSettingsPageComponent,
+          ),
+      },
+      {
         path: 'cards',
         title: 'Cards · Admin',
         canActivate: [adminGuard],

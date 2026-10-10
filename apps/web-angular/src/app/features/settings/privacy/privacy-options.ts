@@ -37,8 +37,8 @@ export const PRIVACY_TOGGLES: readonly PrivacyToggle[] = [
   },
   {
     key: 'wishlistVisible',
-    label: 'Show my wishlist on my profile',
-    help: 'Helps sellers and traders offer you the cards you are looking for.',
+    label: 'Let others see what you want',
+    help: 'Shows your wishlist on your profile, so collectors who own these cards can find you. Wishlist alerts work either way.',
   },
 ];
 

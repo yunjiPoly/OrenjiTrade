@@ -226,21 +226,20 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                             .as("summary of %s %s", operation.getKey(), path)
                                             .isNotEmpty());
         }
-        // Phase 6 (wishlist, matches, notifications, push tokens).
+        // Phase 6 (wishlist, notifications, push tokens) and the stage S2 wishlist.
         for (String path :
                 java.util.List.of(
                         "/api/v1/wishlist",
                         "/api/v1/wishlist/{id}",
-                        "/api/v1/wishlist/{id}/matches",
-                        "/api/v1/wishlist/matches/{id}/dismiss",
+                        "/api/v1/wishlist/price-terms",
+                        "/api/v1/admin/wishlist/settings",
                         "/api/v1/collectors/{handle}/wishlist",
                         "/api/v1/notifications",
                         "/api/v1/notifications/unread-count",
                         "/api/v1/notifications/{id}/read",
                         "/api/v1/notifications/read-all",
                         "/api/v1/me/push-tokens",
-                        "/api/v1/me/push-tokens/{token}",
-                        "/internal/jobs/wishlist-rematch")) {
+                        "/api/v1/me/push-tokens/{token}")) {
             assertThat(paths.has(path)).as(path).isTrue();
             paths.path(path)
                     .properties()
@@ -254,6 +253,40 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .isNotEmpty();
                             });
         }
+        // Stage S2: the matches feature is gone (no path, no schema, no notification type).
+        paths.propertyNames()
+                .forEach(
+                        path ->
+                                assertThat(path)
+                                        .as("no matches endpoint")
+                                        .doesNotContain("matches")
+                                        .doesNotContain("rematch"));
+        JsonNode stageTwoSchemas = document.path("components").path("schemas");
+        assertThat(stageTwoSchemas.has("WishlistMatchResponse")).isFalse();
+        assertThat(stageTwoSchemas.has("CursorPageWishlistMatchResponse")).isFalse();
+        assertThat(stageTwoSchemas.has("TradePreference")).isFalse();
+        assertThat(
+                        stageTwoSchemas
+                                .path("NotificationResponse")
+                                .path("properties")
+                                .path("type")
+                                .toString())
+                .contains("WISHLIST_ALERT");
+        assertThat(document.toString())
+                .doesNotContain("WISHLIST_MATCH")
+                .doesNotContain("WishlistMatch");
+        assertThat(stageTwoSchemas.path("WishlistItemResponse").path("properties").propertyNames())
+                .contains("note", "nearMintOnly", "priceTerm")
+                .doesNotContain(
+                        "maxPrice",
+                        "currency",
+                        "tradePreference",
+                        "notes",
+                        "conditionMin",
+                        "edition",
+                        "language",
+                        "active",
+                        "matchCount");
         // Phase 7 (ratings, references, reports, moderation, delisting, admin console).
         for (String path :
                 java.util.List.of(

@@ -24,8 +24,8 @@ this document is applied by CI: an operator runs `terraform apply` by hand, neve
 
 **Which environments to create.** Year one runs **prod only** (about US$131–142/month at list
 prices, table below). `dev` is optional (≈ US$30/month idle at the Montreal rates of ADR 0016:
-`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, seven billed
-scheduler jobs 0.70, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
+`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, six billed
+scheduler jobs 0.60, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
 (section 12). Without a dev project the images are built into the **prod** registry: point the
 repository-level GitHub variables at prod in step 3.
 
@@ -267,7 +267,7 @@ curl -fsS https://api.orenjitrade.com/actuator/health/readiness        # {"statu
 curl -fsS https://api.orenjitrade.com/api/v1/meta | jq                  # environment "production"
 curl -fsSI https://www.orenjitrade.com/ | grep -iE "^(HTTP|cf-cache-status|strict-transport)"
 curl -fsS https://www.orenjitrade.com/config.json | jq                  # apiBaseUrl, wsBaseUrl wss://api..., firebase.apiKey set
-gcloud scheduler jobs list --location "$REGION" --project "$PROJECT_ID"  # 10 jobs
+gcloud scheduler jobs list --location "$REGION" --project "$PROJECT_ID"  # 9 jobs
 gcloud scheduler jobs run orenjitrade-${ENV}-freshness --location "$REGION" --project "$PROJECT_ID"
 gcloud logging read 'resource.type="cloud_run_revision" httpRequest.requestUrl:"/internal/jobs/" ' --limit 5 --project "$PROJECT_ID"   # 200, not 401
 gcloud logging read 'resource.type="cloud_run_revision" severity>=ERROR' --limit 20 --project "$PROJECT_ID"
@@ -317,7 +317,7 @@ month. New accounts get US$300 of credit for 90 days.
 | Cloud Storage | media + card images ≤ 5 GB, ≈ 1 M reads | ≈ 1 |
 | Artifact Registry | ≈ 10 versions × 2 images + the cached sidecar image | ≈ 0.3 |
 | Secret Manager | 6 generated + up to 3 Stripe versions | ≈ 0.2 |
-| Cloud Scheduler | 10 jobs (3 free) | 0.70 |
+| Cloud Scheduler | 9 jobs (3 free) | 0.60 |
 | Pub/Sub + BigQuery analytics | < 10 GiB/month | ≈ 0–0.5 |
 | Certificate Manager, Direct VPC egress, LB addresses, Logging < 50 GiB, Monitoring, uptime checks, Firebase Auth < 50k MAU, Cloudflare Free | | 0 |
 | **Total** | | **≈ 131–142** (≈ 125 at minimal traffic) |

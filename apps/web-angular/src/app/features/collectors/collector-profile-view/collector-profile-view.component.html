@@ -24,11 +24,14 @@
           @if (p.location; as location) {
             <li class="collector__fact" data-testid="collector-public-label">
               <mat-icon aria-hidden="true">location_on</mat-icon>
-              @if (location.city) {
-                <span data-testid="collector-city">{{ location.city }}</span
-                >,
-              }
-              {{ location.label }}
+              <!-- One flex item: a separate text node would get the gap before its comma. -->
+              <span>
+                @if (location.city) {
+                  <span data-testid="collector-city">{{ location.city }}</span
+                  >,
+                }
+                {{ location.label }}</span
+              >
             </li>
           } @else {
             <li class="collector__fact collector__fact--muted">

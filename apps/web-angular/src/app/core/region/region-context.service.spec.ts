@@ -23,6 +23,9 @@ describe('RegionContext', () => {
     me.set(null);
   });
 
+  // The stored region is shared by every spec of the test worker: never leave one behind.
+  afterEach(() => localStorage.removeItem(REGION_STORAGE_KEY));
+
   it('starts signed-out visitors in americas-north and remembers their choice', () => {
     const context = create();
     expect(context.current()).toBe('americas-north');

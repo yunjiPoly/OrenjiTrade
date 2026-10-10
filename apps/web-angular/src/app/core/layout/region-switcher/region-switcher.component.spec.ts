@@ -14,6 +14,9 @@ describe('RegionSwitcherComponent', () => {
   let element: HTMLElement;
   let context: RegionContext;
 
+  // The stored region is shared by every spec of the test worker: never leave one behind.
+  afterEach(() => localStorage.removeItem(REGION_STORAGE_KEY));
+
   beforeEach(async () => {
     localStorage.clear();
     status.set('anonymous');

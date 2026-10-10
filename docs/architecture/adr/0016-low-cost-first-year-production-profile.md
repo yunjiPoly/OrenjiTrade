@@ -223,8 +223,11 @@ Schedules come from the controllers' documentation, `docs/api/contracts` and the
 | `credits-reconcile` | `35 * * * *` | hourly (`CreditJobController`) |
 | `subscriptions-period` | `40 * * * *` | hourly (`BillingJobController`) |
 | `upload-cleanup` | `2/15 * * * *` | every 15 minutes (`UploadCleanupJobController`) |
-| `wishlist-rematch` | `0 5 * * *` | nightly (`WishlistJobController`, phase 6 contract) |
 | `card-images-reconcile` | `45 4 * * *` | no documented cadence; daily chosen (idempotent, also runs at API start-up) |
+
+Amended 2026-10-09 (stage S2 of the 2026-10-08 product change): the nightly `wishlist-rematch`
+job is removed with the wishlist matches it rebuilt; wishlist alerts are sent once per listing
+from the `InventoryItemPublished` event (Spring Modulith registry, ADR 0009). 9 jobs remain.
 
 Excluded on purpose, and refused by a module validation: `POST /internal/jobs/ping` (probe),
 `POST`/`GET /internal/jobs/catalog-import` (explicit real-provider import, `npm run
@@ -303,13 +306,13 @@ has two containers), Cloud Armor, HSTS, the admin MFA rule.
 | Cloud Storage (media + card images ≤ 5 GB) | 5–8 GiB Standard, ≈ 1 M Class B ops | **≈ 1** | $0.023/GiB-month; Class A $0.005/1k, Class B $0.0004/1k; no Always Free in Montreal — [storage/pricing](https://cloud.google.com/storage/pricing) |
 | Artifact Registry | ≈ 2–4 GB after cleanup (+ the cached Valkey image) | **≈ 0.3** | 0.5 GB free, then $0.10/GiB-month — [artifact-registry/pricing](https://cloud.google.com/artifact-registry/pricing) |
 | Secret Manager | 6 generated + up to 3 Stripe versions; reads at instance start only | **≈ 0.2** | 6 active versions and 10,000 accesses free, then $0.06/version-month — [secret-manager/pricing](https://cloud.google.com/secret-manager/pricing) |
-| Cloud Scheduler | 10 jobs | **0.70** | 3 free, then $0.10/job-month — [scheduler/pricing](https://cloud.google.com/scheduler/pricing) |
+| Cloud Scheduler | 9 jobs | **0.60** | 3 free, then $0.10/job-month — [scheduler/pricing](https://cloud.google.com/scheduler/pricing) |
 | Pub/Sub + BigQuery (analytics) | well under 10 GiB/month | **≈ 0–0.5** | the 10 GiB/month free tier covers basic message delivery only, not BigQuery-subscription throughput ($50/TiB, so 10 GiB ≈ 0.49); BigQuery's 10 GiB of storage and 1 TiB of queries are free — [pubsub/pricing](https://cloud.google.com/pubsub/pricing), [bigquery/pricing](https://cloud.google.com/bigquery/pricing) |
 | Certificate Manager, Direct VPC egress, LB addresses, Cloud Logging (< 50 GiB), Monitoring, uptime checks, Firebase Auth (< 50k MAU), Cloudflare Free | | **0** | 100 certificates/month free; no compute for Direct VPC egress; [free-cloud-features](https://docs.cloud.google.com/free/docs/free-cloud-features) |
 | **Total** | | **≈ 131–142** (≈ 125 at minimal traffic) | |
 
-The total is the sum of the lines (66.7 + 1 + 31 + 19 + 8–10 + 3.6–12 + 1 + 0.3 + 0.2 + 0.7 +
-0–0.5 = 131.5–142.4); the minimal-traffic figure drops the web, egress and analytics lines to
+The total is the sum of the lines (66.7 + 1 + 31 + 19 + 8–10 + 3.6–12 + 1 + 0.3 + 0.2 + 0.6 +
+0–0.5 = 131.4–142.3); the minimal-traffic figure drops the web, egress and analytics lines to
 ≈ 0.5 in all and keeps Cloud Armor at 8. The US$115–130 target is met only at low egress: Montreal is a Cloud Run **Tier 2** region
 (20 % above Tier 1) and has no Cloud Storage Always Free allowance. The remaining levers, in
 order of what they cost in reliability: Cloud Armor (≈ 8–10, the owner chose to keep it),

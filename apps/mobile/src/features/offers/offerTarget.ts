@@ -24,7 +24,7 @@ export interface OfferSeller {
 
 /**
  * The card an offer is made on, assembled from whichever public read the entry point has (a
- * public binder item, a profile's public cards, a map "holders" listing, a wishlist match). A
+ * public binder item, a profile's public cards, a "holders" listing). A
  * view model of the form, not a server DTO: the API only needs `itemId`.
  */
 export interface OfferTarget {
@@ -44,7 +44,7 @@ export interface OfferTarget {
   seller: OfferSeller;
 }
 
-/** A public inventory item (binder page, collector page, wishlist match). */
+/** A public inventory item (binder page, collector page). */
 export function offerTargetFromItem(item: PublicInventoryItem, seller: OfferSeller): OfferTarget {
   return {
     itemId: item.id,
@@ -88,7 +88,7 @@ export function offerTargetFromMatch(
   };
 }
 
-/** Seller block from a collector result (card holders, wishlist matches). */
+/** Seller block from a collector result (card holders). */
 export function sellerFromMarker(collector: CollectorMarker): OfferSeller {
   return {
     id: collector.id,

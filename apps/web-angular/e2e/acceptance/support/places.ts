@@ -6,7 +6,7 @@ import type { LocationInput } from '../../support/stack';
  *
  * Each acceptance spec owns a state of its own (one that no seed collector and no other spec
  * uses), so a spec never meets another spec's collectors in a state's binder list. Wishlist
- * matching works per platform region, so the wishlist spec lives in Europe, where no other
+ * alerts work per platform region, so the wishlist spec lives in Europe, where no other
  * acceptance spec lists cards. Assertions are about each test's own fresh collectors, so data left
  * by earlier runs does not matter.
  */

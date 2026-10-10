@@ -115,7 +115,7 @@ Defaults favour safety: `discoverable=false`, `showOnlineStatus=false`, `profile
 `GET|PUT /me/settings/notifications`
 ```json
 { "pushEnabled": true, "emailEnabled": false, "inAppEnabled": true,
-  "categories": { "WISHLIST_MATCH": {"push":true,"email":false,"inApp":true}, "MESSAGE": {...}, "OFFER": {...},
+  "categories": { "WISHLIST_MATCH": {"push":true,"email":false,"inApp":true}, "MESSAGE": {...}, "OFFER": {...},   // stage S2: no WISHLIST_MATCH; "wishlistAlerts": true instead
                   "RATING": {...}, "TRADE": {...}, "BINDER_FRESHNESS": {...}, "REPORT_DECISION": {...}, "MARKETING": {"push":false,"email":false,"inApp":false} },
   "quietHours": { "enabled": false, "start": "22:00", "end": "08:00", "timezone": "America/Toronto" } }
 ```

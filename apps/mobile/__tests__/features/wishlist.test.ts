@@ -1,203 +1,327 @@
 import { ApiError } from '@/src/api/ApiError';
-import { holdersParamsFor } from '@/src/features/wishlist/WishMatchCard';
 import {
+  WISH_NOTE_MAX,
+  copyOptions,
+  copyValue,
   hasWishErrors,
   newWishDefaults,
-  parsePrice,
+  noteLength,
   toCreateWishRequest,
   toUpdateWishRequest,
   validateWish,
+  withCopy,
   wishFormFromItem,
   wishSaveError,
 } from '@/src/features/wishlist/wishForm';
 import {
   addedMessage,
-  matchCountLabel,
+  approximateAmount,
+  marketPriceSource,
+  priceTermLabel,
   printingOptionLabel,
-  tradePreferenceInfo,
-  wishCriteriaChips,
-  wishPrintingLabel,
+  removeConfirmation,
+  whichCopyLabel,
+  wishCardParams,
+  wishChips,
 } from '@/src/features/wishlist/wishlistLabels';
-import { filterWishes, matchReadiness, wishUsage } from '@/src/features/wishlist/WishlistNotices';
+import { copyHint, withCurrentTerm } from '@/src/features/wishlist/WishFields';
+import { printingsWithCode } from '@/src/lib/catalog';
+import { alertReadiness, wishUsage } from '@/src/features/wishlist/WishlistNotices';
 
 import {
   CARD_ID,
   PRINTING_A,
   locationFixture,
-  matchFixture,
   planFixture,
   printingFixture,
-  publicItemFixture,
   wishFixture,
 } from '../support/fixtures';
 
 describe('wish form', () => {
-  it('starts new wishes with any printing and no filter (no radius: the region, ADR 0017)', () => {
-    expect(newWishDefaults(null)).toEqual({
+  it('starts new wishes on any printing, one rarity or one printing, nothing else', () => {
+    expect(newWishDefaults()).toEqual({
       printingId: '',
-      conditionMin: '',
-      edition: '',
-      language: '',
       rarity: '',
-      maxPrice: '',
-      currency: 'CAD',
-      tradePreference: 'ANY',
-      notes: '',
-      active: true,
+      note: '',
+      nearMintOnly: false,
+      priceTerm: '',
     });
-    expect(newWishDefaults(PRINTING_A).printingId).toBe(PRINTING_A);
-    expect(wishFormFromItem(wishFixture())).toMatchObject({
-      conditionMin: 'LIGHTLY_PLAYED',
-      maxPrice: '25',
-      notes: 'For my deck.',
+    expect(newWishDefaults({ printingId: PRINTING_A, rarity: 'x' })).toMatchObject({
+      printingId: PRINTING_A,
+      rarity: '',
     });
-    expect(wishFormFromItem(wishFixture())).not.toHaveProperty('radiusKm');
+    expect(newWishDefaults({ rarity: 'Secret Rare' }).rarity).toBe('Secret Rare');
+    expect(wishFormFromItem(wishFixture())).toEqual({
+      printingId: '',
+      rarity: '',
+      note: 'For my deck.',
+      nearMintOnly: true,
+      priceTerm: '85% TCG',
+    });
+    for (const removed of [
+      'maxPrice',
+      'currency',
+      'tradePreference',
+      'notes',
+      'active',
+      'radiusKm',
+    ]) {
+      expect(wishFormFromItem(wishFixture())).not.toHaveProperty(removed);
+    }
   });
 
-  it('validates like the API', () => {
-    const value = newWishDefaults(null);
+  it('validates the public note like the API (280 characters, code points)', () => {
+    const value = newWishDefaults();
     expect(validateWish(value)).toEqual({});
-    expect(parsePrice('')).toBeNull();
-    expect(parsePrice('12,50')).toBe(12.5);
-    expect(Number.isNaN(parsePrice('abc') as number)).toBe(true);
-    const errors = validateWish({
-      ...value,
-      maxPrice: '1.234',
-      currency: 'cad',
-      notes: 'x'.repeat(501),
-    });
-    expect(errors).toEqual({
-      maxPrice: 'Use at most two decimals.',
-      currency: 'Use a three-letter currency code, like CAD.',
-      notes: 'Notes are limited to 500 characters.',
-    });
-    expect(hasWishErrors(errors)).toBe(true);
-    expect(validateWish({ ...value, maxPrice: '-3' }).maxPrice).toBe(
-      'The price cannot be negative.'
-    );
-    expect(validateWish({ ...value, maxPrice: 'abc' }).maxPrice).toBe('Enter a valid price.');
+    expect(noteLength('🃏'.repeat(WISH_NOTE_MAX))).toBe(WISH_NOTE_MAX);
+    expect(validateWish({ ...value, note: 'é'.repeat(WISH_NOTE_MAX) })).toEqual({});
+    const tooLong = validateWish({ ...value, note: 'x'.repeat(WISH_NOTE_MAX + 1) });
+    expect(tooLong.note).toBe('The note is limited to 280 characters.');
+    expect(hasWishErrors(tooLong)).toBe(true);
   });
 
-  it('builds the create body (card with any printing, rarity only then) and the full PATCH', () => {
-    const any = {
-      ...newWishDefaults(null),
-      rarity: 'Ultra Rare',
-      conditionMin: 'NEAR_MINT',
-      maxPrice: '20.5',
-      notes: ' note ',
-    };
-    expect(toCreateWishRequest(any, CARD_ID)).toEqual({
+  it('chooses which copy: any printing, any printing of one rarity, one printing', () => {
+    const printings = [
+      printingFixture({ id: 'p1', printingCode: 'AZR-EN001', rarity: 'Ultra Rare' }),
+      printingFixture({ id: 'p2', printingCode: 'AZR-EN001', rarity: 'Secret Rare' }),
+    ];
+    const options = copyOptions(printings);
+    expect(options.map((option) => option.value)).toEqual([
+      '',
+      'rarity:Ultra Rare',
+      'rarity:Secret Rare',
+      'p1',
+      'p2',
+    ]);
+    expect(options[1]?.label).toBe('Any printing · Ultra Rare');
+    // One rarity only: no rarity choices.
+    expect(copyOptions([printings[0]!]).map((option) => option.value)).toEqual(['', 'p1']);
+
+    const base = newWishDefaults();
+    const rarity = withCopy(base, 'rarity:Secret Rare');
+    expect(rarity).toMatchObject({ printingId: '', rarity: 'Secret Rare' });
+    expect(copyValue(rarity)).toBe('rarity:Secret Rare');
+    const printing = withCopy(rarity, 'p1');
+    expect(printing).toMatchObject({ printingId: 'p1', rarity: '' });
+    expect(copyValue(printing)).toBe('p1');
+    expect(withCopy(printing, '')).toMatchObject({ printingId: '', rarity: '' });
+  });
+
+  it('builds the API bodies with only the new fields', () => {
+    expect(
+      toCreateWishRequest(
+        {
+          printingId: '',
+          rarity: 'Secret Rare',
+          note: ' Mint please ',
+          nearMintOnly: true,
+          priceTerm: '90% TCG',
+        },
+        CARD_ID
+      )
+    ).toEqual({
       cardId: CARD_ID,
-      rarity: 'Ultra Rare',
-      conditionMin: 'NEAR_MINT',
-      maxPrice: 20.5,
-      notes: 'note',
-      currency: 'CAD',
-      tradePreference: 'ANY',
-      active: true,
+      rarity: 'Secret Rare',
+      note: 'Mint please',
+      nearMintOnly: true,
+      priceTerm: '90% TCG',
     });
-    const one = { ...any, printingId: PRINTING_A };
-    expect(toCreateWishRequest(one, CARD_ID)).not.toHaveProperty('cardId');
-    expect(toCreateWishRequest(one, CARD_ID)).not.toHaveProperty('rarity');
-    expect(toCreateWishRequest(one, CARD_ID).printingId).toBe(PRINTING_A);
-    expect(toUpdateWishRequest({ ...newWishDefaults(null), maxPrice: '' })).toEqual({
-      printingId: null,
-      rarity: null,
-      conditionMin: null,
-      edition: null,
-      language: null,
-      maxPrice: null,
-      currency: 'CAD',
-      tradePreference: 'ANY',
-      notes: null,
-      active: true,
-    });
+    const exact = toCreateWishRequest(
+      { printingId: PRINTING_A, rarity: 'x', note: '', nearMintOnly: false, priceTerm: '' },
+      CARD_ID
+    );
+    expect(exact).toEqual({ printingId: PRINTING_A, nearMintOnly: false });
+    expect(
+      toUpdateWishRequest({
+        printingId: '',
+        rarity: '',
+        note: '',
+        nearMintOnly: false,
+        priceTerm: '',
+      })
+    ).toEqual({ printingId: null, rarity: null, note: null, nearMintOnly: false, priceTerm: null });
   });
 
-  it('explains a refused save: full wishlist, identical wish, fields', () => {
-    const limit = (limitKey: string, limitValue?: number) =>
+  it('explains refused saves: full wishlist, same selection, field errors', () => {
+    const full = wishSaveError(
       new ApiError({
         status: 429,
         errorCode: 'LIMIT_REACHED',
-        message: 'x',
-        problem: { limitKey, limit: limitValue },
-      });
-    expect(wishSaveError(limit('wishlist.items.max', 20)).message).toBe(
+        message: 'limit',
+        problem: { limitKey: 'wishlist.items.max', limit: 20 },
+      })
+    );
+    expect(full.message).toBe(
       'Your wishlist is full: your plan allows 20 wishes. Remove one or upgrade to add more.'
     );
-    expect(wishSaveError(limit('wishlist.items.max')).message).toMatch(/current plan/);
-    expect(
-      wishSaveError(new ApiError({ status: 409, errorCode: 'CONFLICT', message: '' })).message
-    ).toBe('This card is already on your wishlist with the same filters.');
+    const conflict = wishSaveError(
+      new ApiError({ status: 409, errorCode: 'CONFLICT', message: '' })
+    );
+    expect(conflict.message).toBe(
+      'This card is already on your wishlist with the same printing or rarity.'
+    );
     const fields = wishSaveError(
       new ApiError({
         status: 400,
         errorCode: 'VALIDATION_FAILED',
-        message: 'Invalid',
-        fieldErrors: { maxPrice: 'must be positive', cardId: 'unknown card' },
+        message: 'Validation failed',
+        fieldErrors: { note: 'contains a term that is not allowed', cardId: 'unknown card' },
       })
     );
-    expect(fields.fields).toEqual({ maxPrice: 'must be positive' });
-    expect(fields.message).toBe('Invalid (cardId: unknown card)');
+    expect(fields.fields).toEqual({ note: 'contains a term that is not allowed' });
+    expect(fields.message).toContain('cardId: unknown card');
   });
 });
 
-describe('wishlist labels and notices', () => {
-  it('words the criteria as chips, most selective first', () => {
-    expect(wishCriteriaChips(wishFixture()).map((chip) => chip.label)).toEqual([
-      'Lightly Played or better',
-      'Up to $25.00',
-      'Trade or buy',
-    ]);
-    expect(
-      wishCriteriaChips(
-        wishFixture({
-          conditionMin: null,
-          maxPrice: null,
-          edition: 'FIRST_EDITION',
-          language: 'fr',
-          rarity: 'Ultra Rare',
-          tradePreference: 'TRADE',
-        })
-      ).map((chip) => chip.label)
-    ).toEqual(['1st Edition', 'French', 'Ultra Rare', 'Trade only']);
-    expect(tradePreferenceInfo('SALE').label).toBe('Buy only');
-    expect(tradePreferenceInfo('nope').value).toBe('ANY');
+describe('wishlist labels', () => {
+  it('shows the price term with its approximate amount for one printing only', () => {
+    const term = { label: '85% TCG', percent: 85, orMore: false };
+    const price = { amount: 25, currency: 'USD', source: 'YGOPRODECK' as const };
+    expect(approximateAmount(term, price)).toBe('≈ 21.25 USD');
+    expect(priceTermLabel(term, price)).toBe('85% TCG ≈ 21.25 USD');
+    expect(priceTermLabel(term, null)).toBe('85% TCG');
+    expect(marketPriceSource({ ...price, updatedAt: '2026-10-01T00:00:00Z' })).toBe(
+      'TCG market price: YGOPRODeck set price (TCGplayer-based, USD) · updated 2026-10-01'
+    );
+    expect(marketPriceSource({ amount: 1, currency: 'CAD', source: 'SAMPLE' })).toContain(
+      'Sample market price'
+    );
+    expect(marketPriceSource(null)).toBeNull();
   });
 
-  it('names printings, match counts and new wishes', () => {
-    expect(wishPrintingLabel(null)).toBe('Any printing');
+  it('keeps offering a term the admin list removed, on the wish that chose it', () => {
+    const terms = [{ label: '85% TCG', percent: 85, orMore: false }];
+    expect(withCurrentTerm(terms, '85% TCG')).toBe(terms);
+    expect(withCurrentTerm(terms, '110% TCG+')).toEqual([
+      ...terms,
+      { label: '110% TCG+', percent: 110, orMore: true },
+    ]);
+    // The kept term sits at its percent, not at the end.
+    const list = [
+      { label: '80% TCG', percent: 80, orMore: false },
+      { label: '100% TCG', percent: 100, orMore: false },
+      { label: '100% TCG+', percent: 100, orMore: true },
+    ];
+    expect(withCurrentTerm(list, '90% TCG').map((term) => term.label)).toEqual([
+      '80% TCG',
+      '90% TCG',
+      '100% TCG',
+      '100% TCG+',
+    ]);
+    expect(withCurrentTerm(terms, 'cheap')).toBe(terms);
+  });
+
+  it('shows Near Mint only and the price term as chips', () => {
+    expect(wishChips(wishFixture()).map((chip) => chip.label)).toEqual([
+      'Near Mint only',
+      '85% TCG',
+    ]);
     expect(
-      wishPrintingLabel(printingFixture({ printingCode: 'AZR-EN001', setName: 'Azure Dawn' }))
-    ).toBe('AZR-EN001 · Azure Dawn');
-    expect(printingOptionLabel(printingFixture())).toBe(
-      'SVX-001 · Stellar Vortex · Ultra Rare · Unlimited · English'
+      wishChips(
+        wishFixture({
+          printing: printingFixture(),
+          nearMintOnly: false,
+          priceTerm: { label: '100% TCG+', percent: 100, orMore: true },
+        })
+      ).map((chip) => chip.label)
+    ).toEqual(['100% TCG+ ≥ 38.00 CAD']);
+    expect(wishChips(wishFixture({ nearMintOnly: false, priceTerm: undefined }))).toEqual([]);
+  });
+
+  it('words which copy and links to the card page with the selection', () => {
+    expect(whichCopyLabel(undefined)).toBe('Any printing');
+    expect(whichCopyLabel(undefined, 'Secret Rare')).toBe('Any printing · Secret Rare');
+    expect(
+      whichCopyLabel(
+        printingFixture({
+          printingCode: 'AZR-EN001',
+          setName: 'Azure Dawn',
+          rarity: 'Ultra Rare',
+          finish: 'NORMAL',
+        })
+      )
+    ).toBe('AZR-EN001 · Ultra Rare · Azure Dawn');
+    // Two printings of a set often differ only by their edition or finish: a special one is
+    // named (Unlimited and Normal, the usual ones, are not).
+    expect(whichCopyLabel(printingFixture({ finish: 'REVERSE_HOLO' }))).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · Reverse holo'
     );
-    expect(matchCountLabel(0)).toBe('No matches yet');
-    expect(matchCountLabel(1)).toBe('1 match');
-    expect(matchCountLabel(3)).toBe('3 matches');
+    expect(whichCopyLabel(printingFixture({ edition: 'FIRST_EDITION', finish: 'NORMAL' }))).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · 1st Edition'
+    );
+    expect(printingOptionLabel(printingFixture())).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo'
+    );
+    expect(printingOptionLabel(printingFixture({ finish: 'NORMAL' }))).toBe(
+      'SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Normal'
+    );
+    // "Any printing" is a selection too: the link says it, so the page picks no printing.
+    expect(wishCardParams(wishFixture())).toEqual({ id: CARD_ID, printing: 'any' });
+    expect(wishCardParams(wishFixture({ rarity: 'Secret Rare' }))).toEqual({
+      id: CARD_ID,
+      rarity: 'Secret Rare',
+    });
+    expect(wishCardParams(wishFixture({ printing: printingFixture({ id: PRINTING_A }) }))).toEqual({
+      id: CARD_ID,
+      printing: PRINTING_A,
+    });
     expect(addedMessage(wishFixture())).toBe(
       "Azure-Eyes Sky Dragon is on your wishlist. We'll tell you when a collector of your region lists it."
     );
-    expect(addedMessage(wishFixture({ matchCount: 2 }))).toBe(
-      'Azure-Eyes Sky Dragon is on your wishlist: 2 matches in your region already.'
-    );
-    expect(addedMessage(wishFixture({ active: false }))).toMatch(/alerts paused/);
   });
 
-  it('tells whether matches can arrive and filters wishes', () => {
-    expect(matchReadiness(undefined)).toBe('unknown');
-    expect(matchReadiness(locationFixture({ location: undefined }))).toBe('no-location');
-    // The matcher pairs regions: a hidden collector with a location still gets matches.
-    expect(matchReadiness(locationFixture({ discoverable: false }))).toBe('ready');
-    const items = [
-      wishFixture({ id: '1', matchCount: 2 }),
-      wishFixture({ id: '2', active: false }),
-      wishFixture({ id: '3' }),
-    ];
-    expect(filterWishes(items, 'matches').map((item) => item.id)).toEqual(['1']);
-    expect(filterWishes(items, 'paused').map((item) => item.id)).toEqual(['2']);
-    expect(filterWishes(items, 'all')).toHaveLength(3);
+  it('words the remove confirmation with the card and which copy', () => {
+    expect(removeConfirmation(wishFixture())).toBe(
+      'Your wish for Azure-Eyes Sky Dragon (any printing) will be removed. You can add the card again later.'
+    );
+    expect(removeConfirmation(wishFixture({ rarity: 'Secret Rare' }))).toContain(
+      '(any printing in Secret Rare) will be removed.'
+    );
+    expect(removeConfirmation(wishFixture({ printing: printingFixture() }))).toContain(
+      '(SVX-001 · Ultra Rare · Stellar Vortex · Holo) will be removed.'
+    );
+  });
+
+  it('never takes a typed code that several printings share for one of them', () => {
+    const english = printingFixture();
+    const french = printingFixture({ id: 'p-fr', language: 'fr', finish: 'REVERSE_HOLO' });
+    const other = printingFixture({ id: 'p-2', printingCode: 'SVX-002', rarity: 'Common' });
+    const printings = [other, english, french];
+    expect(printingsWithCode(printings, 'SVX-001').map((printing) => printing.id)).toEqual([
+      PRINTING_A,
+      'p-fr',
+    ]);
+    expect(printingsWithCode(printings, 'SVX-002')).toHaveLength(1);
+    expect(printingsWithCode(printings, null)).toEqual([]);
+    // "Which copy" lists the printings of the typed code first, marked as such.
+    const options = copyOptions(printings, 'SVX-001');
+    expect(options.map((option) => option.value)).toEqual([
+      '',
+      'rarity:Common',
+      'rarity:Ultra Rare',
+      PRINTING_A,
+      'p-fr',
+      'p-2',
+    ]);
+    expect(options[3]?.detail).toBe('The code you typed (SVX-001)');
+    expect(options[5]?.detail).toBeUndefined();
+    // The hint says why no printing was picked, and writes a chosen printing out in full.
+    expect(copyHint({ printingId: '', rarity: '' }, printings, 'SVX-001')).toBe(
+      'Any printing of the card. 2 printings share the code SVX-001: choose one in “Which copy” for that copy only.'
+    );
+    expect(copyHint({ printingId: '', rarity: '' }, printings)).toBe('Any printing of the card.');
+    expect(copyHint({ printingId: '', rarity: 'Common' }, printings)).toBe(
+      'Any printing in Common.'
+    );
+    expect(copyHint({ printingId: 'p-fr', rarity: '' }, printings, 'SVX-001')).toBe(
+      'Only SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · French · Reverse holo.'
+    );
+  });
+
+  it('knows when alerts can arrive (a location) and reads the plan usage', () => {
+    expect(alertReadiness(undefined)).toBe('unknown');
+    expect(alertReadiness(locationFixture({ location: undefined }))).toBe('no-location');
+    expect(alertReadiness(locationFixture())).toBe('ready');
     expect(wishUsage(planFixture())).toBeNull();
     expect(
       wishUsage({
@@ -214,18 +338,5 @@ describe('wishlist labels and notices', () => {
         ],
       })
     ).toEqual({ used: 3, limit: 20, planName: 'Free' });
-  });
-
-  it('opens the holders of the matched printing (or card) in the region', () => {
-    expect(holdersParamsFor(matchFixture())).toEqual({
-      printing: publicItemFixture().printing.id,
-    });
-    expect(
-      holdersParamsFor(
-        matchFixture({
-          item: { ...publicItemFixture(), printing: { ...printingFixture(), id: undefined } },
-        })
-      )
-    ).toEqual({ card: CARD_ID });
   });
 });

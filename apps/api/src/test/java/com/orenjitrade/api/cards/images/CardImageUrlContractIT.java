@@ -240,7 +240,7 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                 Map.of("cardId", dragon.toString()),
                 201);
 
-        // The seller lists another printing of the dragon: WISHLIST_MATCH for the wisher.
+        // The seller lists another printing of the dragon: WISHLIST_ALERT for the wisher.
         Map<String, Object> listing = InventoryTestSupport.item(printingId("ZTS2-EN010"));
         listing.put("visibility", "PUBLIC");
         listing.put("availability", "TRADE_OR_SALE");
@@ -250,7 +250,7 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                 callJson(HttpMethod.POST, "/api/v1/inventory/items", seller, listing, 201)
                         .path("id")
                         .asString();
-        assertCardNotification(awaitNotification(wisher, "WISHLIST_MATCH"), dragonPicture);
+        assertCardNotification(awaitNotification(wisher, "WISHLIST_ALERT"), dragonPicture);
 
         // The wisher makes an offer: OFFER_RECEIVED for the seller, SYSTEM message with the link.
         Map<String, Object> offer = new LinkedHashMap<>();
