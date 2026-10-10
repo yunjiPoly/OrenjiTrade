@@ -2720,7 +2720,7 @@ Final independent verification, 2026-09-30, from a clean local state (`npm run i
 no cloud deployment) · **DEFERRED-MOBILE** (owner decision: web first) · **ON-HOLD-ML** · **FAIL**.
 "Acceptance" = `apps/web-angular/e2e/acceptance/*.spec.ts`; "walkthrough" = the manual `npm run dev`
 walkthrough above. No criterion is FAIL; none is ON-HOLD-ML (card scanning is not one of the 44).
-Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): stages M1–M7 (2026-10-04/06) implement the mobile half of every user-facing criterion, and each row names its mobile evidence: `apps/mobile/e2e/*.spec.ts` (Playwright on the Expo web build against the isolated stack, 60 specs after stage M8, every JSON answer of the API scanned for coordinate, radius and distance keys and every request checked for map providers since S1) and `apps/mobile/.maestro/*.yaml` (Maestro in Expo Go on the Android emulator, 24 flows after stage M8), plus the jest suites named. DEFERRED-MOBILE now remains only for device push (25: needs an EAS project and a real FCM sender) and iOS (40: no macOS); the admin and moderator criteria (30–34) are web-only by scope (the admin consoles stay on the web; their mobile part is what a collector sees). The statuses are those of the final web verification, with the mobile results added; the mobile evidence is the builder's of each stage; M1–M6 were verified and merged into `main` as #41, #45, #46, #47, #48 and #51; the stage M7 evidence (branch `feature/mobile-m7`) and the stage M8 evidence (branch `feature/launch-readiness`, the 18+ rule and the legal pages in both languages) are the builder's. After stage M7 every row's mobile half matches the web's or states the exact difference: 1 (Google sign-in proven only against the Auth emulator), 25 (device push), 30–34 (admin consoles web-only), 38 (draft texts, same as the web), 40 (iOS not run).
+Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): stages M1–M7 (2026-10-04/06) implement the mobile half of every user-facing criterion, and each row names its mobile evidence: `apps/mobile/e2e/*.spec.ts` (Playwright on the Expo web build against the isolated stack, 60 specs after stage M8, every JSON answer of the API scanned for coordinate, radius and distance keys and every request checked for map providers since S1) and `apps/mobile/.maestro/*.yaml` (Maestro in Expo Go on the Android emulator, 24 flows after stage M8), plus the jest suites named. DEFERRED-MOBILE now remains only for device push (25: needs an EAS project and a real FCM sender); iOS (40) is proven on the simulator since 2026-10-10 (the same Maestro flows in Expo Go on the iOS 27 simulator of the owner's Mac, see "Mobile app on the iOS simulator"), a physical iPhone and a store build are not; the admin and moderator criteria (30–34) are web-only by scope (the admin consoles stay on the web; their mobile part is what a collector sees). The statuses are those of the final web verification, with the mobile results added; the mobile evidence is the builder's of each stage; M1–M6 were verified and merged into `main` as #41, #45, #46, #47, #48 and #51; the stage M7 evidence (branch `feature/mobile-m7`) and the stage M8 evidence (branch `feature/launch-readiness`, the 18+ rule and the legal pages in both languages) are the builder's. After stage M7 every row's mobile half matches the web's or states the exact difference: 1 (Google sign-in proven only against the Auth emulator), 25 (device push), 30–34 (admin consoles web-only), 38 (draft texts, same as the web), 40 (iOS on the simulator only).
 
 | # | Criterion | Status | Evidence |
 | --- | --- | --- | --- |
@@ -2762,9 +2762,9 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 36 | Premium entitlements override | PASS | acceptance `freemium.spec.ts` (fake billing checkout → Premium lifts `binders.max`), `freemium.spec.ts`, `credits-ads.spec.ts`; LimitsIT, SubscriptionFlowIT, CreditLedgerIT; walkthrough (FREE → PREMIUM → no ads → FREE); mobile (M6): `billing.spec.ts` (fake billing checkout, a decline then a payment → PREMIUM lifts `binders.max` (sixth binder), no "Sponsored" result → "Cancel now" → FREE; a credits unlock adds a day's boost), Maestro `premium.yaml` (plan checked on the API) |
 | 37 | Account deletion works | PASS | acceptance `account-deletion.spec.ts` (hidden at once; deletion job anonymises, identity deleted, consents/audit kept), `settings.spec.ts`; DeletionIT, ExportIT; mobile (M1): `account.spec.ts` (deletion request with re-authentication → the deletion-pending screen → cancelled; data export), jest `screens/account-states` |
 | 38 | Legal pages exist | PARTIAL | 9 pages served under `/legal/*` in English and French (EN/FR switch, French by default for a French browser, `launch-safety.spec.ts`) with versioned consent recording the language shown (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); mobile (M8): the same 9 texts in-app in both languages, synced from the web files, an EN/FR switch on the index and every document, French by default on a French device, the draft banner on both and the translation marking in French, consents with the language shown (`legal-french.spec.ts`, Maestro `legal-french.yaml`, jest `screens/legal`, `features/legalLanguage`); texts are drafts until counsel review and the French translation awaits the lawyer's validation (owner action) |
-| 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally; mobile: CI runs the mobile typecheck, lint, jest and the `mobile-web` Playwright job; the Maestro flows are local only (they need an Android emulator) |
-| 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android) · DEFERRED-MOBILE (iOS: no macOS) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium |
-| 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials; mobile: Expo Go on a local Android emulator against the local stack; `npm run test:mobile:e2e` (isolated API :8090, web build :19006) and `npm run test:mobile:maestro` (Metro :8082) run locally and free (no EAS, no Expo account, no Maestro Cloud) |
+| 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally; mobile: CI runs the mobile typecheck, lint, jest and the `mobile-web` Playwright job; the Maestro flows are local only (they need an Android emulator or a Mac's iOS simulator) |
+| 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android emulator and iOS simulator) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium; iOS (2026-10-10): the 24 Maestro flows of today's suite, one set for both platforms, in Expo Go 57 on an iOS 27.0 simulator (`npm run test:mobile:maestro -- --platform ios`: 24/24 passed in one run from a cold start, 33 min 28 s), with the iOS defects they found fixed (the back button's "(tabs)", dialogs opened from a sheet, photo picking and upload, the doubled home-indicator inset); the Android run was not repeated on the Mac (no Android SDK), a physical iPhone and a store build are not proven |
+| 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials; mobile: Expo Go on a local Android emulator, or on the iOS simulator of a Mac, against the local stack; `npm run test:mobile:e2e` (isolated API :8090, web build :19006) and `npm run test:mobile:maestro` (Metro :8082; `-- --platform android\|ios`, the iOS simulator created and booted by the harness) run locally and free (no EAS, no Expo account, no Maestro Cloud) |
 | 42 | Deploys to Google Cloud | DEFERRED-CLOUD | owner decision (docs/deployment/DEFERRED.md); Terraform validates (`npm run infra:validate`), never planned or applied |
 | 43 | Cloudflare configuration documented | PASS | `infrastructure/cloudflare/README.md` + Cloudflare Terraform (validated by `npm run infra:validate`); applying it is DEFERRED-CLOUD |
 | 44 | Production architecture supports www.orenjitrade.com | DEFERRED-CLOUD | designed (ARCHITECTURE.md, ADRs, Terraform for Cloud Run + Cloudflare, validated); not deployed |
@@ -2772,7 +2772,7 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 ### Remaining gaps (after the final verification)
 
 - **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
-- **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), iOS runs (no macOS), fonts; EAS stays unused (project id placeholder).
+- **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), fonts; EAS stays unused (project id placeholder). **iOS (2026-10-10):** proven in Expo Go on the iOS 27 simulator with the whole native suite (`npm run test:mobile:maestro -- --platform ios`, "Mobile app on the iOS simulator"); not proven: a physical iPhone and a store or TestFlight build (an Apple developer account and a native build, owner cost rule). **Android on the Mac:** not re-run (no Android SDK; skipped by owner decision); photo uploads from the Android app are expected to fail as they did on iOS (same Expo fetch) and keep their old code until an Android run can prove the fix; the API drops the EXIF orientation of uploaded photos on every client (see that section's "Open").
 - **ML (on hold):** Phase 11 card recognition and scanning.
 - **Legal:** counsel review of the 9 draft legal pages and validation of their French translation (criterion 38); the `[to confirm]` placeholders of the Privacy Policy (privacy officer, data locations).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
@@ -2801,11 +2801,141 @@ Temurin 27 as the only system JDK). The per-item record is in `docs/development/
   path case on macOS; `test:e2e -- --stop` recognises java and node there.
 - **Docs:** OrbStack as a supported engine, the JDK statements, the Playwright cache path, macOS
   examples; `claude-handoff.md` names the real machine.
-- **Not verified on the Mac yet:** the full `npm run test:api`, the web and mobile E2E suites, the
-  Maestro suite (no Android SDK installed), iOS, and Docker Desktop.
-- **Open:** an iOS path for the Maestro harness (macos-setup.md 12 item 2, next), the arm64 PostGIS
-  image decision before macOS 28, and the owner items of `claude-handoff.md` section 6 (OrbStack
-  licence terms, dev ports exposed on the LAN, Android SDK, git identity).
+- **Not verified on the Mac in that first session:** the full `npm run test:api`, the web and
+  mobile E2E suites, the Maestro suite, iOS, and Docker Desktop. The Maestro suite and iOS followed
+  the same day: see "Mobile app on the iOS simulator" below.
+- **Open:** the arm64 PostGIS image decision before macOS 28, and the owner items of
+  `claude-handoff.md` section 6 (OrbStack licence terms, dev ports exposed on the LAN, the Android
+  SDK). The iOS path of the Maestro harness (macos-setup.md 12 item 2) is done (next section).
+
+---
+
+## Mobile app on the iOS simulator (2026-10-10)
+
+Owner decision (2026-10-10): on the Mac the native tests run on the iOS simulator (the Android SDK
+is skipped for now). Branch `feature/ios-maestro-harness`, on top of stage S2 and the macOS fixes.
+The Expo app had only ever been proven natively on an Android emulator; the same Maestro flows now
+run in Expo Go 57 (57.0.9) on an iOS 27.0 simulator (iPhone 17), locally and for free (no EAS, no
+native build, no Maestro Cloud).
+
+- **Harness** (`npm run test:mobile:maestro -- --platform ios|android`, or
+  `ORENJI_MAESTRO_PLATFORM`; without a choice: Android when a device is ready, otherwise iOS on a
+  Mac with Xcode). `scripts/lib/mobile-maestro.mjs` keeps its Android path as it was and gains an
+  iOS one; `scripts/lib/ios-simulator.mjs` owns the simulator and `scripts/lib/host-tools.mjs` the
+  pure helpers (platform choice, app id and URLs per platform, runtime and iPhone model choice,
+  the simulator's preferences), unit-tested in `host-tools.test.mjs` and `mobile-maestro.test.mjs`
+  (`npm run test:scripts`: 133 tests, 111 before).
+  - **A simulator of its own**, "OrenjiTrade Maestro": created when missing (the newest standard
+    iPhone on the newest installed iOS runtime), booted with `simctl` alone (no Simulator /
+    DeviceHub window), awaited with `simctl bootstatus`, shut down at the end unless
+    `--keep-running`. A developer's simulators are never booted or changed.
+    `ORENJI_IOS_SIMULATOR_NAME`, `_TYPE` and `_UDID` choose another one.
+  - **Settings inside that simulator only**, never in the Mac's: AutoFill Passwords off (iOS put
+    its "Save Password?" sheet over the app after a sign-in), US English (a simulator inherits the
+    Mac's languages and region), a keyboard without auto-correction or predictions, `exp://` links
+    that open in Expo Go without a question. iOS reads them at boot, so the first run restarts the
+    simulator once.
+  - **Expo Go** is installed on that simulator by Expo CLI's own installer
+    (`scripts/lib/expo-go-ios.mjs`), whatever other simulator is booted; `expo start --ios` is not
+    used (it opens the project on the first booted simulator and brings its window forward).
+  - Metro points the app at `http://localhost:8090` and the Auth emulator at `localhost:9099`; the
+    iOS bundle is checked for that API address before any flow runs; a Metro kept for the other
+    platform is refused (the address is inlined into the bundle); `--stop` also shuts the kept
+    simulator down; the run's emulator accounts are deleted at the end as on Android.
+- **Flows: one set for both platforms, no copies.** Every flow and subflow takes Expo Go's id from
+  the harness (`appId: ${APP_ID}`). What the platforms do differently sits in
+  `apps/mobile/.maestro/subflows/`, in `when: platform:` blocks: `hide-keyboard.yaml` and
+  `hide-keyboard-in-dialog.yaml` (Maestro's own `hideKeyboard` flicks the middle of the screen on
+  iOS and pressed "Forgot your password?"), `go-back.yaml` (the header's back button),
+  the three scroll subflows (iOS also lists what a page holds under the tab bar and the header, so
+  the element is brought clear of them with `scrollUntilVisible` and `centerElement`),
+  `assert-checked.yaml` / `assert-unchecked.yaml` (iOS has no checkbox control: React Native puts
+  "checkbox, checked" in the element's value), `dismiss-dev-menu.yaml` and
+  `hide-tools-button.yaml` (Expo Go 57 on iOS floats its developer-tools gear over the notification
+  bell: the flows switch it off, as the Expo SDK 58 branch does on Android). No flow is skipped
+  on iOS.
+- **What an Android run would notice** (the Android steps could not be re-run: no Android SDK on
+  the Mac). Every step that ran before still runs, in the same order, with these exceptions:
+  1. `appId` comes from `${APP_ID}`: the harness passes `host.exp.exponent`, the value the flows
+     had; a manual `maestro test` now needs `-e APP_ID=host.exp.exponent`.
+  2. `hideKeyboard`, `back`, `assertVisible … checked:` and the edge-swipe scroll loops moved into
+     the subflows' Android blocks, unchanged; the two Android-only steps of `dismiss-dev-menu.yaml`
+     (the "isn't responding" dialog, the back key) carry `platform: Android`.
+  3. Two patterns are wider: `'.*Je confirme avoir 18 ans ou plus'`
+     (`age-step-existing-account.yaml`) and `'Wishlist alert: Emberfang Fox.*'`
+     (`wishlist-alert-notification.yaml`). Both still match the text Android lists.
+  4. `google-sign-in.yaml` hides the keyboard through `hide-keyboard-in-dialog.yaml` (the same
+     `hideKeyboard` on Android).
+  5. The harness records the platform of a kept Metro and refuses the other platform's; without
+     `--platform` a Mac with Xcode and no Android device now runs on iOS instead of stopping with
+     "No Android device is ready".
+  6. The app: nothing. Every fix below is behind `Platform.OS === 'ios'` or an iOS-only property.
+- **Defects of the app on iOS, found by these runs and fixed** (each with a jest test; Android and
+  the web render and behave as before):
+  1. **The back button said "‹ (tabs)"** on every screen opened from a tab, and "‹ (auth)" on the
+     legal pages opened from sign-in (iOS shows the previous screen's title; the route groups had
+     none). It now names the screen behind it: "‹ Profile", "‹ Messages", "‹ Sign in"
+     (`src/navigation/backTitles.ts`).
+  2. **A dialog or sheet opened from a sheet never appeared.** "Block" in a conversation's menu
+     did nothing: iOS refuses a second modal while the first is still sliding away. The app's
+     modals now take turns on iOS (`src/components/ui/modalTurns.tsx`, used by `BottomSheet`,
+     `ConfirmDialog`, `FormDialog`, `ReasonDialog`); the bulk bar's "Temporarily public" sheet,
+     which follows another sheet, is fixed by the same change. Found by `blocked-users.yaml`.
+  3. **Photos could not be attached or uploaded at all** (no flow picks a photo; found and proven
+     by hand on the simulator with a photo sent in a conversation, a card photo and a profile
+     picture): "Attach a photo" in a conversation did nothing (the picker left with the attach
+     sheet); an iPhone's HEIC photos were refused with "Use a JPEG, PNG or WebP photo." (the picker
+     is now asked for its "compatible" representation, `src/lib/photoPicker.ts`); and every upload
+     ended in "We could not reach OrenjiTrade." because Expo's fetch does not take React Native's
+     `{ uri }` file part (iOS now sends an `expo-file-system` File, `src/api/localFilePart.ts`).
+  4. **Forms ended 34 pt too high** (the home-indicator inset was applied twice on scrolling
+     screens), which put the last button exactly under the snackbar: after "Save changes" on a
+     card, "Card saved." covered "Delete card" until it faded (`ownSafeBottom` in `Screen.tsx`).
+     Found by `inventory-add-edit-delete.yaml`.
+  5. **The icon of a form message was part of its VoiceOver name** ("<glyph>, No account matches
+     these credentials."); the icon is hidden from iOS accessibility (`FormControls.tsx`).
+  6. **The 18+ checkbox was named in English only** for VoiceOver although it shows both languages
+     (Bill 96); on iOS its name carries both (`ageConfirmationAccessibleLabel`).
+- **Result:** **24/24 flows passed in one run from a cold start** on the owner's Mac mini
+  (`npm run test:mobile:maestro -- --platform ios` with nothing running and no dedicated simulator:
+  the harness created the simulator, built and started the API, started Metro and installed Expo
+  Go): 31 min 52 s of flows, 33 min 28 s in all; afterwards the simulator was shut down, ports
+  8082 and 8090 were free and the run's 29 emulator accounts were deleted. The cold run before it
+  had 22/24: `search-card-detail.yaml` and `safety-notice.yaml` failed in the keyboard subflow
+  (the right edge is not inside the Search results nor a conversation's message list), fixed in
+  `hide-keyboard.yaml` before the passing run. `--keep-running`, `--stop`, `--skip-build`,
+  `ORENJI_MAESTRO_PLATFORM` and the choice without `--platform` were exercised by hand
+  afterwards.
+- **Checks**, on the code of the passing run (the commit after it adds documents only):
+  `npm run test:scripts` (133 tests); `node --check` on the changed scripts;
+  `npm run typecheck -w apps/mobile`; `npm run lint -w apps/mobile`;
+  `npm run format:check -w apps/mobile`; `npm run test:mobile` (jest: 676 tests in 79 suites, 662
+  in 77 before; 28 harness guard tests); `npx expo export --platform android`, `--platform ios`
+  and `--platform web` into throw-away directories; `npm run test:mobile:e2e` (52 passed on the
+  first attempt); the full `npm run test:mobile:maestro -- --platform ios` above.
+- **Not verified:** the Android run of the flows and of the harness (no Android SDK on the Mac:
+  the Android steps are the ones that ran before, read but not executed); a physical iPhone and a
+  store or TestFlight build (Expo Go on the simulator only: no Apple developer account, no native
+  build, owner cost rule); photo picking in a permanent flow (the system photo picker is outside
+  the app's accessibility tree: checked by hand, see defect 3) and the camera (none on a
+  simulator); dispute evidence photos (same upload code as the three proven ones, not driven);
+  device push (needs an EAS project and a real sender); Google sign-in against a real Firebase
+  project (emulator only, as on Android); Maestro on Java 27 (the runs used a JDK 21 as
+  `JAVA_HOME`).
+- **Open (owner):**
+  - **Photo uploads on Android.** Android runs the same Expo fetch, so by reading the code every
+    native photo upload fails there the same way ("We could not reach OrenjiTrade."). The iOS fix
+    was not applied to Android because nothing here can prove it: `localFilePart` needs its
+    platform check removed and one Android run with a photo.
+  - **Uploaded photos can come out rotated (API, every client).** The API re-encodes an upload and
+    drops its metadata without applying the EXIF orientation first (`ItemImageProcessor`,
+    `AvatarImageProcessor`, the message upload): a photo stored rotated by its camera, which is
+    how phones store portrait shots, is shown sideways or upside down. Seen with a simulator
+    sample photo sent in a conversation. Not changed here (backend, outside this branch).
+  - A notification row's name ends in "Uruguay.. Unread" (two full stops, both platforms):
+    cosmetic, left as it is.
+  - Installing the Android SDK on the Mac stays optional; until then nothing there proves the
+    Android half of a mobile change (`docs/development/claude-handoff.md`).
 
 ---
 
@@ -2828,13 +2958,17 @@ Temurin 27 as the only system JDK). The per-item record is in `docs/development/
 > (re-check of fix 3, merge `origin/main`, push, PR, merge when CI is green); V112 freezes at
 > that merge.
 >
-> **Exact next task after the S2 ship step: an iOS path for the native Maestro harness on the
-> Mac** (no Android SDK or emulator here), and a run of the 24 flows: they were not re-run after
-> `be24294` nor after review fix 3.
+> **The iOS path of the native Maestro harness (2026-10-10, branch `feature/ios-maestro-harness`
+> on top of S2 and the macOS fixes, not pushed):** builder done (see "Mobile app on the iOS
+> simulator"): `npm run test:mobile:maestro -- --platform ios` runs the 24 flows in Expo Go on a
+> simulator the harness creates and boots itself; the flows are one set for both platforms and
+> the iOS defects they found are fixed. This also re-ran the 24 flows after `be24294` and review
+> fix 3, on iOS. Next for this branch: the lead's review and ship step (it merges after the S2 and
+> macOS pull requests). The Android steps were not executed (no Android SDK on the Mac).
 >
-> **Then stage S3 — search, the card page, have/want and search history (spec
-> sections 2 and 2b of the 2026-10-08 product change), on a new branch from the S2 branch (or
-> `main` once S1 and S2 are merged).** Reuse `shared/catalog/printing-picker` on the card page
+> **Exact next task after this branch: stage S3 — search, the card page, have/want and search
+> history (spec sections 2 and 2b of the 2026-10-08 product change), on a new branch from the S2
+> branch (or `main` once S1 and S2 are merged).** Reuse `shared/catalog/printing-picker` on the card page
 > (feed its `holderCounts` input from a new grouped per-printing holder count, read `?printing=` /
 > `?rarity=` into it, replace "Selected printing" and "Who has this near me" with "Find this
 > card"), extend `/search/card-holders` (rarity, country/subdivision filters, per-printing counts,

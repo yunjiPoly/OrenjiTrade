@@ -852,7 +852,7 @@ Brew alternative [docs]: `brew tap mobile-dev-inc/tap && brew install mobile-dev
 
 **iOS (what the owner's Mac runs) [proven 2026-10-10].** Xcode with an iOS runtime (9.2) is all it needs. Nothing has to be started or opened:
 ```bash
-caffeinate -dimsu npm run test:mobile:maestro -- --platform ios      # about 30 min for the 24 flows
+caffeinate -dimsu npm run test:mobile:maestro -- --platform ios      # 33 min 28 s for the 24 flows from a cold start (2026-10-10)
 npm run test:mobile:maestro -- --platform ios --keep-running apps/mobile/.maestro/sign-in.yaml   # one flow, keep the stack
 npm run test:mobile:maestro -- --stop                                # stop what --keep-running left (API, Metro, simulator)
 ```

@@ -179,7 +179,9 @@ stage M8): `test:mobile` about 1–2.5 min (748 jest tests in 85 suites + 28 har
 `test:mobile:e2e` about 3–4 min (60 specs, including the API jar and the web export; about 2 min
 when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 `Pixel_6_API_34` emulator, including the API and Metro start; add a few minutes the first time,
-while Expo CLI installs Expo Go).
+while Expo CLI installs Expo Go). On the iOS simulator of a Mac mini (Apple M6, 2026-10-10):
+`test:mobile:maestro -- --platform ios` 33 min 28 s for the 24 flows from a cold start (the
+simulator created, the API jar built, Expo Go installed), `test:mobile:e2e` 1 min 14 s (52 specs).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
