@@ -1,15 +1,45 @@
-# OrenjiTrade on a MacBook, from zero
+# OrenjiTrade on a Mac, from zero
 
-The goal: a new Apple Silicon MacBook (M-series, macOS 27 "Golden Gate") that (a) runs Claude Code on your Max plan with bypass permissions and Ultracode, and (b) compiles, runs and tests the whole OrenjiTrade monorepo, locally and for free (no EAS, no cloud).
+The goal: a new Apple Silicon Mac (M-series, macOS 27 "Golden Gate"; the owner's is a Mac mini with an Apple M6) that (a) runs Claude Code on your Max plan with bypass permissions and Ultracode, and (b) compiles, runs and tests the whole OrenjiTrade monorepo, locally and for free (no EAS, no cloud).
 
 To continue the work on the Mac after setup, start Claude in the repo and ask it to read [claude-handoff.md](claude-handoff.md).
 
-Researched 2026-10-09 by reading the repo (main @ 7420905 and the regions worktree `feature/regions-s2-wishlist` @ d76f8a4) and the official docs, then reviewed against the Homebrew, Docker Hub and Node APIs and the Claude Code, Expo, Apple, Docker and Maestro docs. Nothing was installed or run on a Mac. Tags used below:
+Researched 2026-10-09 by reading the repo (main @ 7420905 and the regions worktree `feature/regions-s2-wishlist` @ d76f8a4) and the official docs, then reviewed against the Homebrew, Docker Hub and Node APIs and the Claude Code, Expo, Apple, Docker and Maestro docs. Nothing was installed or run on a Mac at that time; the first run on the owner's Mac followed on 2026-10-10 (next section). Tags used below:
 - **[repo]** read in the repo. Line numbers are `main` unless labelled "regions".
 - **[docs]** from the tool's official page or API.
 - **[memory]** standard command, not re-checked on an official page.
 - **(unverified)** not confirmed. Check it on the Mac.
+- **[proven 2026-10-10]** run on the owner's Mac that day.
 - **Intel Mac:** marks the only places where an Intel Mac differs.
+
+### First run on the owner's Mac (2026-10-10)
+
+Mac mini, Apple M6 (12 cores), 24 GB RAM, macOS 27.0.1. What it has:
+
+| Tool | Installed |
+|---|---|
+| Docker | **OrbStack 2.2.3** (Docker Engine 29.4.0, Compose v5.1.2), not Docker Desktop: section 4.4 |
+| Java | Temurin 27 is the only system JDK and `JAVA_HOME` is unset. Gradle provisioned Temurin 21.0.12 under `~/.gradle/jdks`: section 5 |
+| Node | 24.21.0 with npm 11.19.0 (nvm) |
+| Xcode | 27.0 with iOS 27 simulators |
+| Maestro | 2.11.0 in `~/.maestro/bin` |
+| Terraform | 1.16.5 (Homebrew) |
+| Playwright | Chromium in `~/Library/Caches/ms-playwright` |
+
+Not installed yet:
+- **The Android SDK** (no adb, no emulator, no AVD). `npm run test:mobile:maestro` cannot run until 9.3 is done.
+- Python 3.12 (ML is on hold; the system `python3` is 3.9.6), watchman, gcloud.
+- git `user.name` and `user.email` are not set (3.1): a commit made by hand gets `<user>@<host>.local` as its author.
+- macOS Rosetta 2 (`arch -x86_64 /usr/bin/true` fails). The containers do not need it under OrbStack (4.4).
+
+Proven that day:
+- `npm run dev` runs on OrbStack (the owner's stack was up: three healthy containers and the API) once `docker-compose.yml` names `platform: linux/amd64` for PostGIS (committed that day).
+- Testcontainers works under OrbStack with no extra setting: `FlywayMigrationIT` and `FeatureFlagsIT` (12 tests) passed twice, 16 s and 19 s for the whole Gradle run. The emulated PostGIS container started in 3.5 s, 44 migrations took 0.6 s, the Spring context 10 s.
+- Gradle works with Temurin 27 as the only system JDK: the daemon runs on Java 21 and `spotlessCheck` passes (section 5).
+- The API image's build stage builds (`docker build --target build apps/api`, 3 min).
+- `npm run test:scripts` passes (101 tests).
+
+Not run that day: the full `npm run test:api`, the web and mobile E2E suites, the Maestro suite (no Android SDK) and anything on the iOS simulator.
 
 ---
 
@@ -99,7 +129,7 @@ brew --version && brew doctor
 Intel Mac: the path is `/usr/local/bin/brew`.
 
 ### 1.4 Rosetta 2 (Apple Silicon only)
-Why: `postgis/postgis:17-3.5` exists only for linux/amd64 [docs: Docker Hub, 2026-10-09]. Every PostGIS container, in `npm run dev` and in Testcontainers, runs under x86 emulation, and Docker Desktop's Rosetta option needs Rosetta installed.
+Why: `postgis/postgis:17-3.5` exists only for linux/amd64 [docs: Docker Hub, 2026-10-09; `docker manifest inspect` shows one linux/amd64 image, proven 2026-10-10]. Every PostGIS container, in `npm run dev` and in Testcontainers, runs under x86 emulation, and Docker Desktop's Rosetta option needs Rosetta installed.
 ```bash
 softwareupdate --install-rosetta --agree-to-license   # [memory]
 ```
@@ -107,6 +137,8 @@ Verify [memory]:
 ```bash
 arch -x86_64 /usr/bin/true && echo "rosetta ok"
 ```
+- On the owner's Mac this check fails ("Bad CPU type in executable"): macOS Rosetta 2 is not installed there. OrbStack runs amd64 containers through Rosetta for Linux all the same [proven 2026-10-10]; the check that matters for this repo is the container one in 4.4. Install Rosetta 2 as above if you use Docker Desktop, or if you need an Intel macOS program.
+
 macOS 27 is the last release with full Rosetta. After that Docker falls back to QEMU, which still works but is much slower. Plan the arm64 PostGIS image decision (an owner/ADR item, see 12) before upgrading to macOS 28 (fall 2027).
 
 ### 1.5 zsh profile
@@ -386,7 +418,9 @@ grep -nE 'D:\\|LOCALAPPDATA|maestro\.bat|python3|JDK 17|Start-Process' "$P"/memo
 
 ---
 
-## 4. Docker Desktop
+## 4. Docker: Docker Desktop or OrbStack
+
+Pick one engine. 4.1 and 4.2 describe Docker Desktop (researched, never run on the owner's Mac). 4.4 describes OrbStack, which the owner's Mac runs [proven 2026-10-10]. 4.3 (Colima) is a fallback.
 
 ### 4.1 Install and first launch
 Why: PostGIS, Redis and the Firebase Auth emulator run in Docker (`npm run infra:up`), and so do the Testcontainers tests.
@@ -434,24 +468,54 @@ export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 export TESTCONTAINERS_HOST_OVERRIDE=$(colima ls -j | jq -r '.address')
 ```
 - Also wire up `docker compose` (the `cliPluginsExtraDirs` entry in `~/.docker/config.json` [memory]).
-- **OrbStack is not free** for commercial or freelance use.
+- **OrbStack is not free** for commercial or freelance use [docs, 2026-10-09]. It works with this repo (4.4): check its current licence terms yourself before relying on it for OrenjiTrade as a business.
 
 Verify:
 ```bash
 docker compose version && docker run --rm hello-world
 ```
 
+### 4.4 OrbStack (supported; what the owner's Mac runs)
+Why: it is a lighter Docker engine for macOS, and the repo needs nothing special for it. Everything below is [proven 2026-10-10] on OrbStack 2.2.3 (Docker Engine 29.4.0, Compose v5.1.2).
+
+**Licence first.** The caution in 4.3 stands: OrbStack's free use is limited. **Owner: read OrbStack's current licence and pricing terms on its website and decide whether your use of it for OrenjiTrade needs a paid licence.** This guide states no price on purpose, because the terms change. Docker Desktop (4.1) and Colima (4.3) are the alternatives.
+
+How it fits the repo:
+- **Docker context.** OrbStack adds the context `orbstack` and makes it current (`docker.set_context: true`). Every npm script only calls `docker`, so nothing changes.
+- **Socket.** `/var/run/docker.sock` is a symlink to `~/.orbstack/run/docker.sock`. Testcontainers finds it without any environment variable ("Found Docker environment with local Unix socket (unix:///var/run/docker.sock)"), and Ryuk works.
+- **Rosetta.** `orbctl config show` prints `rosetta: true` on the owner's Mac. amd64 containers then run through Rosetta for Linux: `/proc/cpuinfo` in such a container says `VirtualApple`.
+- **Resources.** `cpu: 12` and `memory_mib: 12288` (12 GB of the Mac's 24 GB) on the owner's Mac. The repo asks for at least 4 GB, and 6 GB+ when `test:api` and the dev stack run together.
+- **Compose.** `docker-compose.yml` names `platform: linux/amd64` for PostGIS. Without that line an Apple Silicon engine refuses the pull: "no matching manifest for linux/arm64/v8 in the manifest list entries". Testcontainers needs no such line: after the same refusal it pulls linux/amd64 by itself (it logs the refusal once as an error on the very first pull).
+
+Verify:
+```bash
+docker context ls              # orbstack *   unix:///Users/<you>/.orbstack/run/docker.sock
+ls -l /var/run/docker.sock     # -> /Users/<you>/.orbstack/run/docker.sock
+orbctl status                  # Running
+orbctl config show | grep -E '^(rosetta|cpu|memory_mib|app.start_at_login|docker.expose_ports_to_lan):'
+docker compose version         # Compose v2 or newer is required
+docker run --rm --platform linux/amd64 alpine sh -c 'uname -m; grep -m1 "model name" /proc/cpuinfo'
+#   x86_64 and "VirtualApple": Rosetta. A QEMU model name means Rosetta is off (much slower).
+```
+
+Three settings to look at on the owner's Mac (`orbctl config set <key> <value>` changes one; not run here, so (unverified)):
+- **`app.start_at_login: false`.** After a restart every npm script stops with "Docker is not running" until you open OrbStack or run `orbctl start`.
+- **`docker.expose_ports_to_lan: true`, and the macOS firewall is off.** OrbStack listens on every network interface for the published ports (`lsof` shows `*:5432`, `*:6379`, `*:9099`), so the local PostgreSQL (default local password), Redis (no password) and the Auth emulator are probably reachable from other devices on the same network. The data is fictional seed data, but on a shared network turn this setting off or turn the firewall on. A physical phone (9.6) needs the Auth emulator on the LAN, so decide with that in mind. **Owner decision.**
+- **Never run `orbctl reset`** (or `orb reset`): it deletes all Docker data, the database volumes included. If you use the deny rules of 2.6, add `"Bash(orbctl reset*)"` and `"Bash(orb reset*)"`.
+
 ---
 
 ## 5. Java 21
 
-Why it must be 21 and on PATH/JAVA_HOME (not only a Gradle toolchain):
-- `scripts/lib/util.mjs:182-190` runs `sh ./gradlew`, which needs a JDK to start the Gradle daemon. On a fresh Mac `/usr/bin/java` is only a stub [repo].
-- Spotless runs **google-java-format 1.30.0 inside the Gradle daemon** (`apps/api/build.gradle.kts:157-170`, the JDK 21+ comment at :160; regions :177-191 and :180). The `languageVersion 21` toolchain only covers compilation, so a daemon on JDK 17 fails `spotlessCheck`/`check` [repo].
-- The E2E harnesses look for JDK 21 through `findJava21()` (`scripts/lib/util.mjs:626-658`: `ORENJI_JAVA_HOME`, then `JAVA_HOME`, then `java` on PATH, then `~/.gradle/jdks/*/Contents/Home`) [repo].
-- Maestro needs Java 17+, and openapi-generator needs Java 11+.
-- Ignore `docs/development/local-setup.md:18` and `README.md:67`, which say "JDK 17+". That is wrong (12).
+Since 2026-10-10 the repo no longer needs the machine's default JDK to be 21:
+- **The Gradle daemon is pinned to Java 21** by `apps/api/gradle/gradle-daemon-jvm.properties` (Gradle's Daemon JVM criteria, written by `./gradlew updateDaemonJvm --jvm-version=21`). The default `java` only launches `./gradlew` (`gradleInvocation` in `scripts/lib/util.mjs` runs `sh ./gradlew`). Gradle then starts its daemon on a Java 21 it finds on the machine, any vendor, or downloads one through the foojay resolver into `~/.gradle/jdks` (Temurin 21, about 200 MB, once).
+- **Why the pin:** Spotless runs google-java-format 1.30.0 inside the daemon (`apps/api/build.gradle.kts`, the `spotless` block). On a JDK 27 daemon it fails with `NoSuchFieldError ... EndPosTable endPositions` [proven 2026-10-10], and on a JDK 17 daemon it fails as well [repo]. The `languageVersion 21` toolchain only covers compilation, tests and `bootRun`.
+- **[proven 2026-10-10]** with Temurin 27 as the only system JDK and `JAVA_HOME` unset: `./gradlew spotlessCheck --rerun-tasks` failed before the pin and passes with it. `./gradlew --version` prints "Launcher JVM: 27" and "Daemon JVM: Compatible with Java 21, any vendor (from gradle/gradle-daemon-jvm.properties)", and the daemon process is `~/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.12.1+1/Contents/Home/bin/java`.
+- **The E2E harnesses run the API jar on Java 21 too.** `findJava21()` (`scripts/lib/util.mjs`) takes `ORENJI_JAVA_HOME`, then `JAVA_HOME`, when one of them is Java 21 or newer. Otherwise it prefers an exact Java 21 from `java` on PATH, `/usr/libexec/java_home` or `~/.gradle/jdks`, and falls back to a newer Java only with a warning in the log. On the owner's Mac it picks the Temurin 21 that Gradle provisioned [proven 2026-10-10].
+- **A machine still needs some JDK.** On a fresh Mac `/usr/bin/java` is only a stub [repo], and `./gradlew`, Maestro (Java 17+), `sdkmanager` and openapi-generator (Java 11+) all need a real `java`.
+- **Older branches:** a branch without `apps/api/gradle/gradle-daemon-jvm.properties` (anything not merged with `main` after this change, for example `feature/regions-s2-wishlist` on 2026-10-10) still needs `JAVA_HOME` set to a JDK 21 for `spotlessCheck` and `npm run test:api`.
 
+**Recommended: install Temurin 21 and make it `JAVA_HOME`.** One JDK then serves everything, it is the Java of CI and of the production image, and Gradle downloads nothing:
 ```bash
 brew install --cask temurin@21     # [docs]
 echo 'export JAVA_HOME="$(/usr/libexec/java_home -v 21)"' >> ~/.zprofile && source ~/.zprofile
@@ -461,9 +525,15 @@ Verify:
 /usr/libexec/java_home -v 21     # /Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home [memory]
 java -version                    # openjdk version "21.0.x" ... Temurin
 echo $JAVA_HOME
+cd apps/api && ./gradlew --version   # Daemon JVM: Compatible with Java 21, any vendor ... (from gradle/gradle-daemon-jvm.properties)
 ```
-- No global Gradle is needed. The wrapper downloads Gradle 9.7.1.
-- If no JDK 21 is found, Gradle's foojay resolver can auto-download one into `~/.gradle/jdks`. With Temurin installed, that doesn't happen.
+
+**Keeping a newer default JDK instead** (the owner's Mac: Temurin 27, `JAVA_HOME` unset). That works [proven 2026-10-10]. Three things to know:
+- Without a JDK 21 installed, `/usr/libexec/java_home -v 21` does not fail: it answers with the default JDK (Temurin 27 on the owner's Mac, even for `-v 28`). So it does not prove that a JDK 21 is installed, and the `JAVA_HOME` line above would export the newer JDK there. `/usr/libexec/java_home -F -v 21` fails when there is none.
+- With `JAVA_HOME` exported to a JDK newer than 21, the E2E harnesses run the API jar on that JDK (the two override variables win) and warn about it. Set `ORENJI_JAVA_HOME` to a JDK 21, for example the one under `~/.gradle/jdks`, to test on the Java of CI and production.
+- Gradle keeps using Java 21 for the build whatever `JAVA_HOME` says.
+
+No global Gradle is needed. The wrapper downloads Gradle 9.7.1.
 
 ---
 
@@ -523,7 +593,7 @@ Key local values:
 - `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099`, `FIREBASE_PROJECT_ID=orenjitrade-local`
 - `STORAGE_PROVIDER=local`, `CARD_IMAGE_LOCAL_CACHE_MAX_MB=5120`
 - Payments, billing and donations use `fake`.
-- `ORENJI_JAVA_HOME` (optional): a JDK 21 for the E2E jar.
+- `ORENJI_JAVA_HOME` (optional): a JDK 21 for the E2E jar. It wins over `JAVA_HOME` and the automatic choice (5).
 - **Regions branch:** `GOOGLE_MAPS_API_KEY`, `GOOGLE_MAPS_MAP_ID`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and `LOCATION_JITTER_SECRET` are removed.
 
 Verify: `diff <(grep -o '^[A-Z_]*=' .env.example) <(grep -o '^[A-Z_]*=' .env)` prints nothing.
@@ -537,8 +607,8 @@ Verify:
 ```bash
 docker ps --format '{{.Names}}\t{{.Status}}'   # orenjitrade-postgres, redis, firebase-auth: healthy
 ```
-- Expect a platform warning for postgis (`linux/amd64` on `arm64`). That is normal.
-- "Docker is not running" means Docker Desktop isn't started (4.1).
+- `docker-compose.yml` names `platform: linux/amd64` for PostGIS (since 2026-10-10), so the pull works on Apple Silicon and Compose prints no platform warning. A plain `docker run postgis/postgis:17-3.5` still warns (`linux/amd64` on `arm64`) or, when the image is not cached, fails with "no matching manifest for linux/arm64/v8": add `--platform linux/amd64`.
+- "Docker is not running" means Docker Desktop (4.1) or OrbStack (4.4) isn't started.
 - Firebase emulator UI: http://localhost:4000
 
 ### 7.5 Optional: restore the Windows database and card cache
@@ -626,7 +696,7 @@ Run all of these from the repo root with Docker running. Wrap the long ones in `
 | Command | What it does | Mac notes |
 |---|---|---|
 | `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | Pure Node. Run it first as a smoke test. |
-| `npm run test:api` | `gradlew check`, re-run every time: Spotless + unit + Testcontainers (`postgis/postgis:17-3.5`, `redis:7-alpine`, Ryuk) | Needs JDK 21 as JAVA_HOME and `/var/run/docker.sock`. PostGIS is emulated, so expect it to be slower than about 5 min / 704 tests on Windows. **Main:** `gradlew test --rerun check` (scripts/test.mjs:60). **Regions:** `gradlew test --rerun catalogTest --rerun check` (scripts/test.mjs:61), so the containers start twice. |
+| `npm run test:api` | `gradlew check`, re-run every time: Spotless + unit + Testcontainers (`postgis/postgis:17-3.5`, `redis:7-alpine`, Ryuk) | Needs `/var/run/docker.sock` (Docker Desktop or OrbStack) and any JDK to launch Gradle: the daemon is pinned to Java 21 (5). PostGIS is emulated, so expect it to be slower than about 5 min / 704 tests on Windows. It runs `gradlew test --rerun catalogTest --rerun check` (scripts/test.mjs), so the containers start twice. A slice of two integration test classes took 16-19 s under OrbStack [proven 2026-10-10]; the full suite was not timed that day. On a Mac that never pulled PostGIS, the first run logs one "no matching manifest for linux/arm64/v8" error before Testcontainers pulls linux/amd64 by itself. |
 | `npm run test:web` | Angular Vitest + lint | No extra steps. |
 | `npm run test:e2e` | Isolated stack: API jar on :8180 (DB `orenjitrade_e2e`), web on :4300, Playwright Chromium | Installs Chromium itself (`scripts/lib/web-e2e.mjs:521`). It never touches your dev DB or cache. |
 | `npm run test:mobile` | Typecheck (typed routes + `tsc`) + `expo lint` + Jest (jest-expo 57) + the harness guard tests (`node --test`) | No device needed. |
@@ -651,10 +721,10 @@ Verify:
 ```bash
 ls ~/Library/Caches/ms-playwright
 ```
-`docs/development/local-setup.md:507-508` says `~/.cache/ms-playwright`; that path is wrong on macOS. `--with-deps` is only needed on Linux.
+`docs/development/local-setup.md` names this path for macOS since 2026-10-10 (it used to give only the Linux one). `--with-deps` is only needed on Linux.
 
 ### Terraform (validate only, never apply)
-Why: every `versions.tf` requires `>= 1.9`, and CI uses 1.16.x. **`brew install terraform` fails** ("No available formula"): homebrew-core removed the formula on 2026-04-13 [docs: formulae.brew.sh], although `scripts/infra-validate.mjs:32` still suggests it.
+Why: every `versions.tf` requires `>= 1.9`, and CI uses 1.16.x. **`brew install terraform` fails** ("No available formula"): homebrew-core removed the formula on 2026-04-13 [docs: formulae.brew.sh]. `scripts/infra-validate.mjs` suggests the tap below since 2026-10-10.
 ```bash
 brew tap hashicorp/tap
 brew install hashicorp/tap/terraform     # 1.16.5 [docs]
@@ -724,7 +794,7 @@ Why: the Maestro harness drives an **Android** emulator. Your Windows x86_64 AVD
    EOF
    source ~/.zprofile
    ```
-   Verify: `echo $ANDROID_HOME && sdkmanager --version` (sdkmanager and Maestro both use `JAVA_HOME`, Temurin 21).
+   Verify: `echo $ANDROID_HOME && sdkmanager --version` (sdkmanager and Maestro use `JAVA_HOME`, or the default `java` when it is unset).
 4. Accept the licences **first**, then install an **arm64-v8a** image and create the AVD (package IDs and flags [memory]; check them with `sdkmanager --list`):
    ```bash
    yes | sdkmanager --licenses
@@ -759,8 +829,9 @@ echo 'export PATH="$PATH:$HOME/.maestro/bin"' >> ~/.zprofile && source ~/.zprofi
 ```
 Verify:
 ```bash
-maestro --version     # needs JAVA_HOME (Temurin 21 is fine)
+maestro --version     # needs a java: JAVA_HOME, or the default JDK
 ```
+- With Temurin 27 as the default JDK, `maestro --version` prints 2.11.0 after two JDK warnings about final-field mutation [proven 2026-10-10]. Running flows on Java 27 was not tried; if Maestro misbehaves there, start it with `JAVA_HOME` set to a JDK 21.
 Brew alternative [docs]: `brew tap mobile-dev-inc/tap && brew install mobile-dev-inc/tap/maestro`. If brew refuses the tap formula as untrusted, run `brew trust --formula mobile-dev-inc/tap/maestro` (in Maestro's macOS docs) and install again.
 
 ### 9.5 Environment the mobile harnesses need on macOS
@@ -768,13 +839,13 @@ Brew alternative [docs]: `brew tap mobile-dev-inc/tap && brew install mobile-dev
 | Harness | Needs |
 |---|---|
 | `npm run test:mobile` | Nothing extra: typecheck + expo lint + Jest + harness guard tests, no device. |
-| `npm run test:mobile:e2e` | Docker running; JDK 21 (`JAVA_HOME`, or `ORENJI_JAVA_HOME`); ports 8090 and 19006 free. The harness runs `expo export --platform web`, then `expo serve` on :19006, the API jar on :8090 (DB `orenjitrade_mobile_e2e`, Redis db 1), then Playwright. |
+| `npm run test:mobile:e2e` | Docker running; a Java 21 for the API jar (found automatically, `ORENJI_JAVA_HOME` overrides: 5); ports 8090 and 19006 free. The harness runs `expo export --platform web`, then `expo serve` on :19006, the API jar on :8090 (DB `orenjitrade_mobile_e2e`, Redis db 1), then Playwright. |
 | `npm run test:mobile:maestro` | See the list below. |
 
 `test:mobile:maestro` needs:
-- **`ANDROID_HOME=$HOME/Library/Android/sdk`**, or `adb` on PATH. Without it, the harness falls back to the Linux path `~/Android/Sdk` (`scripts/lib/mobile-maestro.mjs:78-81`) and reports "No Android device is ready".
-- `maestro` on PATH or in `~/.maestro/bin`. Otherwise set `MAESTRO_BIN=$HOME/.maestro/bin/maestro`. Ignore the `maestro.bat` hint.
-- `JAVA_HOME` (for Maestro) and a JDK 21 for the API jar.
+- **The Android SDK in `~/Library/Android/sdk`** (Android Studio's default), which the harness finds by itself since 2026-10-10. Set `ANDROID_HOME` only when the SDK is somewhere else; `adb` on PATH is the last resort. "No Android device is ready" now says whether adb itself is missing or only the emulator. **The owner's Mac has no Android SDK yet (2026-10-10), so this suite cannot run there until 9.3 is done.**
+- `maestro` on PATH or in `~/.maestro/bin` (both found automatically). Otherwise set `MAESTRO_BIN=$HOME/.maestro/bin/maestro`.
+- A `java` for Maestro (17+), and a Java 21 for the API jar, which the harness picks by itself (5).
 - **Docker running:** the harness starts or reuses the isolated API on :8090 (DB `orenjitrade_mobile_e2e`) and calls `ensureInfrastructure` [repo].
 - A **fully booted** arm64 AVD (`sys.boot_completed` = 1, 9.3 step 5). Set `ANDROID_SERIAL` if more than one device is attached.
 - Expo Go installed on the emulator once:
@@ -815,7 +886,7 @@ curl -s http://$(ipconfig getifaddr en0):8080/actuator/health    # {"status":"UP
 ### 10.1 Python ML service: ON HOLD (Phase 11)
 Only the Phase 0 skeleton tests run. Do not start Phase 11 work, and keep `mlScanning` off.
 
-Why the venv matters: without `apps/ml/.venv`, `scripts/test.mjs:112-126` (`mlPython`) falls back to the system `python3`, which is 3.9 from the Command Line Tools and fails.
+Why the venv matters: `apps/ml` needs Python 3.12+, and the `python3` of the Command Line Tools is 3.9. Since 2026-10-10 `npm run test:ml` checks the version: without `apps/ml/.venv` it also looks for `python3.12` to `python3.14` on PATH, and when nothing fits it says which Python it found ("python3 on PATH is Python 3.9.6" on the owner's Mac [proven 2026-10-10]) and prints the commands below.
 ```bash
 brew install python@3.12
 cd apps/ml && python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
@@ -826,7 +897,7 @@ Verify:
 ```bash
 apps/ml/.venv/bin/python --version    # 3.12.x
 ```
-`apps/ml/README.md:49-71` and the `scripts/test.mjs:137` error message show Windows `.venv/Scripts` paths. On a Mac they are `.venv/bin`.
+`apps/ml/README.md` and the `npm run test:ml` messages show `.venv/bin` paths on macOS since 2026-10-10 (they were Windows `.venv/Scripts` paths).
 
 ### 10.2 Card catalogue
 - Seeds, tests and CI never call YGOPRODeck.
@@ -859,23 +930,25 @@ Verify (only if you use them): `npm run generate:api && git status --short packa
 | macOS | 27 (or Tahoe 26.6+) | `sw_vers -productVersion` |
 | Xcode CLT | current | `xcode-select -p` |
 | Homebrew | current | `brew --version` |
-| Rosetta 2 (Apple Silicon) | n/a | `arch -x86_64 /usr/bin/true && echo ok` |
+| Rosetta 2 (Apple Silicon) | n/a | `arch -x86_64 /usr/bin/true && echo ok` (needed for Docker Desktop; with OrbStack use the container check of 4.4) |
 | Claude Code CLI | ≥ 2.1.284 (2.1.296 on 2026-10-09) | `claude --version && claude doctor` |
 | Claude login | Max account, no API key | `/status`, `/usage`; `echo $ANTHROPIC_API_KEY` is empty |
 | Bypass + Ultracode | `orenji` alias (or 2.7 settings) | `type orenji && cat ~/.claude/settings.json` |
 | gh | current | `gh auth status` |
 | git | CLT or brew, on `main` | `git -C ~/dev/OrenjiTrade branch --show-current` |
-| Docker Desktop | current, Compose v2, Rosetta on, socket on, starts at sign-in | `docker run --rm hello-world && docker compose version && ls /var/run/docker.sock` |
-| Temurin JDK | 21 | `java -version && echo $JAVA_HOME` |
+| Docker Desktop, or OrbStack (4.4) | current, Compose v2, Rosetta on, socket on, starts at sign-in | `docker run --rm hello-world && docker compose version && ls -l /var/run/docker.sock` |
+| amd64 emulation | Rosetta, not QEMU | `docker run --rm --platform linux/amd64 alpine sh -c 'uname -m; grep -m1 "model name" /proc/cpuinfo'` prints `x86_64` and `VirtualApple` |
+| JDK | Temurin 21 recommended; a newer default JDK also works (5) | `java -version && echo $JAVA_HOME` |
+| Gradle daemon JVM | Java 21, pinned in the repo | `cd apps/api && ./gradlew --version` shows "Daemon JVM: Compatible with Java 21" |
 | Node | 24.21.0 (24.15+) | `node -v` |
 | npm | 11.19.0 (bundled) | `npm -v` |
 | Playwright Chromium | for 1.63.0 | `ls ~/Library/Caches/ms-playwright` |
 | Terraform | 1.16.x via hashicorp/tap (≥ 1.9) | `terraform version` |
 | Xcode | 27.x (or 26.4+) | `xcodebuild -version` |
 | iOS runtime | iOS 27 (or 26.x) | `xcrun simctl list runtimes` |
-| Android Studio + SDK tools | current | `adb version && sdkmanager --version` |
+| Android Studio + SDK tools | current (not on the owner's Mac yet, 2026-10-10) | `adb version && sdkmanager --version` |
 | AVD | arm64-v8a, API 35/34 | `emulator -list-avds && adb devices` |
-| ANDROID_HOME | `~/Library/Android/sdk` | `echo $ANDROID_HOME` |
+| ANDROID_HOME | `~/Library/Android/sdk` (for `sdkmanager`, `emulator` and Expo CLI; the Maestro harness finds that folder by itself) | `echo $ANDROID_HOME` |
 | Maestro | latest | `maestro --version` |
 | Watchman (opt.) | latest | `watchman --version` |
 | Python (opt.) | 3.12 | `apps/ml/.venv/bin/python --version` |
@@ -888,42 +961,53 @@ Start `orenji`, then type at the prompt:
 ```
 !node -v && java -version && echo $JAVA_HOME $ANDROID_HOME && which maestro terraform adb
 ```
-Verify: v24.21.0, Temurin 21, both paths set, and three paths printed. Repeat it once in the desktop app's Code tab. If something is missing only there, move that export (fnm included) into `~/.zprofile` and restart the app (unverified).
+Verify: v24.21.0, a JDK (Temurin 21, or a newer one), both paths set, and three paths printed. Repeat it once in the desktop app's Code tab. If something is missing only there, move that export (fnm included) into `~/.zprofile` and restart the app (unverified).
 
 ---
 
-## 12. Known repo issues on macOS (to be fixed in the repo)
+## 12. Known repo issues on macOS
 
-Each item: where, what breaks, the workaround today, and the fix to make later in the repo.
+Each item: where, what breaks, the workaround, and the fix to make in the repo. Items marked **Fixed 2026-10-10** were fixed in the repo that day; their original description stays for the record (the file and line references are those of 2026-10-09), and the workaround is only needed on a branch that does not have the fix yet. Items 14-21 are not code bugs. Items 22-24 were found on the first Mac run.
 
 ### 12.1 Scripts
 1. **`scripts/lib/mobile-maestro.mjs:78-81`** (same on main and regions): `adbPath()` falls back to the Linux path `~/Android/Sdk/platform-tools/adb` on every non-Windows OS, so `test:mobile:maestro` reports "No Android device is ready".
    Workaround: `export ANDROID_HOME=$HOME/Library/Android/sdk` with `$ANDROID_HOME/platform-tools` on PATH (bare `adb` is the last resort), or `ln -s ~/Library/Android/sdk ~/Android/Sdk`. Fix later: add a `~/Library/Android/sdk` branch for darwin.
+   **Fixed 2026-10-10.** The harness looks in `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk` on macOS (`adbCandidates` in `scripts/lib/host-tools.mjs`, unit-tested). Not run against a device: the owner's Mac has no Android SDK yet.
 2. **`scripts/lib/mobile-maestro.mjs:63,65,172` and every `apps/mobile/.maestro/*.yaml`** (`appId host.exp.exponent`): the Maestro harness is Android-only (`EMULATOR_HOST 10.0.2.2`, `expo start --port 8082 --android --clear`). No harness drives the iOS simulator.
    Workaround: run native E2E on an arm64 Android AVD and check iOS by hand (`npm run ios -w apps/mobile`).
 3. **`scripts/lib/mobile-maestro.mjs:16, 252, 259-261`**: the hints point to `%LOCALAPPDATA%/Android/Sdk/emulator` and `MAESTRO_BIN=D:/maestro/bin/maestro.bat`, which mislead on a Mac.
    Workaround: ignore them; put `maestro` on PATH or in `~/.maestro/bin` (found automatically, line 92), or set `MAESTRO_BIN=$HOME/.maestro/bin/maestro`. Fix later: platform-specific hints.
+   **Fixed 2026-10-10.** The messages are per platform (`noAndroidDeviceMessage`, `maestroNotFoundMessage` in `scripts/lib/host-tools.mjs`, unit-tested), and "No Android device is ready" also says when adb itself is missing. Seen on the owner's Mac: `npm run test:mobile:maestro` prints the macOS emulator path and "adb was not found in ANDROID_HOME, ANDROID_SDK_ROOT or ~/Library/Android/sdk".
 4. **`scripts/infra-validate.mjs:32`**: tells you to `brew install terraform`. That is now a broken instruction: homebrew-core removed the formula on 2026-04-13, and the command fails with "No available formula".
    Workaround: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform` (1.16.5, matching CI's 1.16.x). Fix later: change the hint to the tap.
+   **Fixed 2026-10-10.** The hint is per platform (`terraformInstallHint`, unit-tested): the tap on macOS, winget on Windows, the install page on Linux.
 5. **`docker-compose.yml:14` and `apps/api/src/test/java/com/orenjitrade/api/TestcontainersConfiguration.java:23`**: `postgis/postgis:17-3.5` (and every 17-3.x tag) is linux/amd64 only. On Apple Silicon, `npm run dev` and `test:api` run it emulated: slower, with platform-mismatch warnings. macOS 27 is the last release with full Rosetta; after that Docker falls back to QEMU, which is slow but not a hard block.
    Workaround: Rosetta 2 (1.4) and Docker's Rosetta option (4.2). Fix later: a native arm64 image (e.g. `imresamu/postgis:17-3.5-alpine`) is a code + CLAUDE.md/ADR change and needs an owner decision before macOS 28 (fall 2027).
+   **Partly fixed 2026-10-10.** `docker-compose.yml` names `platform: linux/amd64` for PostGIS: on an Apple Silicon engine an unpinned pull is refused ("no matching manifest for linux/arm64/v8", HTTP 404 from Docker 29.4 under OrbStack). Testcontainers needs no change: version 2.0.5 retries the refused pull with linux/amd64 by itself, proven with an amd64-only image that was not cached, and `TestcontainersConfiguration` records this. The emulation and the arm64 image decision stay open (owner).
 6. **Testcontainers socket** (no repo config: no `testcontainers.properties`, no `DOCKER_HOST`): on macOS Testcontainers needs `/var/run/docker.sock` or `~/.docker/run/docker.sock`.
-   Workaround: Docker Desktop > Settings > Advanced > "Allow the default Docker socket to be used" (4.2). With Colima, the three exports in 4.3.
+   Workaround: Docker Desktop > Settings > Advanced > "Allow the default Docker socket to be used" (4.2). With Colima, the three exports in 4.3. With OrbStack nothing: it links `/var/run/docker.sock` to its own socket and Testcontainers finds it [proven 2026-10-10] (4.4).
 7. **`scripts/test.mjs:112-126`** (`mlPython`; regions :113-126): uses `apps/ml/.venv/bin/python`, otherwise the first `python3`/`python` on PATH, with no version check. On a Mac without the venv that is the CLT `/usr/bin/python3` (about 3.9), and `test:ml` fails.
    Workaround: create `apps/ml/.venv` with `python3.12` (10.1). Fix later: check the version and say so.
+   **Fixed 2026-10-10.** `npm run test:ml` reads the Python version, also tries `python3.12` to `python3.14`, and says which Python it found when none is 3.12+ (`chooseMlPython`, `mlPythonMissingMessage`, unit-tested). Seen on the owner's Mac: "Python 3.12+ not found: python3 on PATH is Python 3.9.6". The ML tests themselves were not run (no Python 3.12 there; ML is on hold).
 8. **`scripts/test.mjs:137`**: the error message says `.venv/Scripts/pip` (with only a parenthetical for `bin/pip`); `apps/ml/README.md:49-71` also uses Windows `.venv/Scripts` paths.
    Workaround: use `.venv/bin/pip` and `.venv/bin/uvicorn`. Fix later: print the platform's path.
+   **Fixed 2026-10-10.** The messages print `.venv/bin/pip` on macOS and Linux and `.venv\Scripts\pip` on Windows (`mlVenvCommands`, unit-tested), and `apps/ml/README.md` shows the macOS and Linux commands first.
 9. **`scripts/lib/web-e2e.mjs:257-258`**: the process-name checks `/^java(\.exe)?$/` and `/^node(\.exe)?$/` never match on macOS, because `ps -o comm=` (`scripts/lib/util.mjs:496-504`) prints the full executable path. `npm run test:e2e -- --stop` then relies only on the lsof listener check. Low impact.
    Workaround: if a kept stack isn't stopped, kill the PIDs from `lsof -nP -iTCP:8180 -sTCP:LISTEN` and `-iTCP:4300`. Fix later: match the basename.
+   **Fixed 2026-10-10.** `--stop` compares the base name of the executable (`isProcessImage` in `scripts/lib/web-e2e-guard.mjs`, unit-tested and checked against a live `java` process on the owner's Mac). A real `--keep-running` / `--stop` round trip was not run that day.
 10. **`scripts/lib/web-e2e-guard.mjs:58` and `106-110`**: `SAME_CASE = process.platform !== 'win32'`, so the dev-directory isolation guard compares paths case-sensitively on macOS, although APFS is case-insensitive by default. A differently cased `CARD_IMAGE_CACHE_DIR` or `STORAGE_LOCAL_ROOT` override could slip past the guard that protects your card-image cache.
     Workaround: keep the default paths, or override them with exactly the same casing. Fix later: fold case on darwin too (`web-e2e-guard.test.mjs:80` only asserts win32).
+    **Fixed 2026-10-10.** The web and mobile guards compare paths case-insensitively on macOS as on Windows (`ignoresPathCase`, `comparablePath`). The new tests fail without the change on the owner's Mac (APFS). On a case-sensitive volume the guards are only stricter.
 
 ### 12.2 Docs
 11. **`docs/development/local-setup.md:18` and `README.md:67`** say "JDK 17 or newer", but `apps/api/build.gradle.kts:160` (regions :180) and `apps/api/README.md:9` say Gradle must run on JDK 21+ (Spotless with google-java-format 1.30.0). With JDK 17 as JAVA_HOME, `spotlessCheck`/`check` fails.
     Workaround: `brew install --cask temurin@21` and `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` (5).
+    **Fixed 2026-10-10.** Both documents now say that a JDK only launches `./gradlew` and that Gradle runs on Java 21 by itself (item 22).
 12. **`docs/development/local-setup.md:507-508`** gives the Playwright cache as `~/.cache/ms-playwright` for non-Windows; on macOS it is `~/Library/Caches/ms-playwright`. Harmless otherwise.
+    **Fixed 2026-10-10.** The document names the three locations.
 13. **`docs/development/local-setup.md:338` and `apps/mobile/README.md:526-530`** (regions: :335 and :489-494): the emulator and Maestro examples are Windows-only (`%LOCALAPPDATA%` emulator path, `MAESTRO_BIN=D:/maestro/bin/maestro.bat`). `local-setup.md:21` and `README.md:69` say "`python` on Windows" with no macOS equivalent.
     Workaround: `$ANDROID_HOME/emulator/emulator`, `maestro` on PATH, and `python3.12`. Fix later: add a macOS section to the docs.
+    **Fixed 2026-10-10.** `local-setup.md` and `README.md` give the macOS form of the emulator, Maestro and Python lines. **Still open:** `apps/mobile/README.md` keeps its Windows-only Maestro examples; it is rewritten with the iOS harness (item 2).
 
 ### 12.3 Not code bugs, but they block a Mac
 14. **Android AVDs from Windows** (`Pixel_6_API_34`, `Pixel_3a`, x86_64 images) do not carry over, and x86_64 images do not run on Apple Silicon.
@@ -943,6 +1027,14 @@ Each item: where, what breaks, the workaround today, and the fix to make later i
 21. **Git-ignored local data does not travel with a clone:** `apps/api/.local-storage` (695 MB card-image cache) and `apps/api/.local-dev` (72 MB YGOPRODeck snapshots). Copying the folders alone gives orphan files, because the catalogue and image rows live in the Postgres volume.
     Workaround: move the DB with them (`pg_dump`/`pg_restore`, then `npm run card-images:reconcile` with the API running; "Before you switch" step 3 and 7.5), or re-run the explicit, rate-limited `npm run catalog:import` with the API running (10.2).
 
+### 12.4 Found on the first Mac run (2026-10-10)
+22. **`apps/api` Gradle build:** the Gradle daemon followed the machine's default JDK. With Temurin 27 as the only system JDK, `npm run test:api` failed in `spotlessCheck` (google-java-format 1.30.0: `NoSuchFieldError ... EndPosTable endPositions`).
+    **Fixed 2026-10-10.** `apps/api/gradle/gradle-daemon-jvm.properties` pins the daemon to Java 21 (5). Until a branch has that file: `export JAVA_HOME=<a JDK 21>` before Gradle or an npm script, and if the error stays, it is a cached result: `cd apps/api && ./gradlew spotlessCheck --rerun-tasks`.
+23. **`scripts/lib/util.mjs` `findJava21()`:** it took the first Java 21 or newer, so the E2E harnesses ran the API jar on Java 27 here, and it never saw the JDK Gradle provisions on macOS, which sits one directory deeper (`~/.gradle/jdks/<install>/jdk-21.x/Contents/Home`) than the paths it checked.
+    **Fixed 2026-10-10.** Override variables first, then an exact Java 21, a newer Java only with a warning (5); unit-tested in `scripts/lib/util.test.mjs`. A full E2E run with it was not done that day.
+24. **`scripts/lib/util.mjs` "Docker is not running":** the hint named only Docker Desktop and its "Engine running" label.
+    **Fixed 2026-10-10.** It names OrbStack too.
+
 ---
 
 ## 13. Troubleshooting (likely Mac issues)
@@ -957,12 +1049,15 @@ Each item: where, what breaks, the workaround today, and the fix to make later i
 | Mac slows down during workflows | 16 agents + Docker + emulators | `export CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS=6`, `workflowSizeGuideline=small`, or `/effort ultracode off`. |
 | A long run stopped overnight | The Mac slept | `caffeinate -dimsu <command>` (1.6). |
 | Clone is on `master` / `git log` shows f13b686 | GitHub's default branch is `master` | `git switch main` (3.3). |
-| "Docker is not running (docker info failed)" | Docker Desktop not started | Start it; turn on "Start Docker Desktop when you sign in" (4.1). |
+| "Docker is not running (docker info failed)" | Docker Desktop or OrbStack not started | Start it; turn on "Start Docker Desktop when you sign in" (4.1). OrbStack: open the app or `orbctl start`; `app.start_at_login` is off on the owner's Mac (4.4). |
 | `The operation couldn't be completed. Unable to locate a Java Runtime` | `/usr/bin/java` stub, no JDK | Section 5. |
-| `spotlessCheck` / google-java-format error | Gradle daemon on JDK 17 | `JAVA_HOME` = 21; `cd apps/api && sh ./gradlew --stop`, then retry. |
+| `spotlessCheck`: `NoSuchFieldError ... EndPosTable endPositions`, or another google-java-format error | A Gradle daemon on JDK 27 (or 17): a branch without `apps/api/gradle/gradle-daemon-jvm.properties`, or a cached result of such a run | Merge `main` into the branch (the daemon is pinned to Java 21 since 2026-10-10), or `export JAVA_HOME=<a JDK 21>`. Then `cd apps/api && ./gradlew spotlessCheck --rerun-tasks`. `./gradlew --stop` stops every Gradle daemon of that version, a running `npm run dev` API included. |
+| E2E harness warns "The API jar will run on Java 27 ..., but CI and production run Java 21" | `JAVA_HOME` (or `ORENJI_JAVA_HOME`) points at a newer JDK, or no Java 21 exists | Set `ORENJI_JAVA_HOME` to a JDK 21, or unset `JAVA_HOME` so the Gradle-provisioned one is used (5). |
+| `docker compose up` / `docker pull`: "no matching manifest for linux/arm64/v8 in the manifest list entries" | PostGIS is amd64-only and the platform was not named (a branch whose `docker-compose.yml` lacks `platform: linux/amd64`, or a manual pull) | Merge `main`, or pull it once: `docker pull --platform linux/amd64 postgis/postgis:17-3.5`. |
+| First `npm run test:api` on a Mac logs `NotFoundException ... no matching manifest for linux/arm64/v8` once | Testcontainers' first, unpinned pull of PostGIS is refused | Expected: it pulls linux/amd64 by itself right after. Nothing to do. |
 | `The requested image's platform (linux/amd64) does not match…` | postgis is amd64-only | Expected warning. Keep Docker's Rosetta option on. |
-| PostGIS or `test:api` very slow or timing out | QEMU instead of Rosetta (Rosetta is off by default), or too little Docker RAM | Turn Rosetta on, use the Apple Virtualization framework, give Docker 6-8 GB+. |
-| Testcontainers: "Could not find a valid Docker environment" | No socket at `/var/run/docker.sock` | Enable "Allow the default Docker socket" (4.2), or Colima's environment variables (4.3). |
+| PostGIS or `test:api` very slow or timing out | QEMU instead of Rosetta (off by default in Docker Desktop), or too little Docker RAM | Docker Desktop: turn Rosetta on, use the Apple Virtualization framework, give Docker 6-8 GB+ (4.2). OrbStack: `orbctl config show` must print `rosetta: true`. Either way, the container check of 4.4 must print `VirtualApple`, not a QEMU CPU. |
+| Testcontainers: "Could not find a valid Docker environment" | No socket at `/var/run/docker.sock` | Enable "Allow the default Docker socket" (4.2), or Colima's environment variables (4.3). OrbStack creates the link itself (4.4): start OrbStack. |
 | `infra:up`: port 5432 or 6379 in use | Homebrew postgres/redis running | `brew services stop postgresql@17 redis`, or set `POSTGRES_PORT`/`REDIS_PORT` in `.env`. |
 | Firebase emulator image build fails | No internet on first build, or CRLF `entrypoint.sh` | Connect; never copy files from the Windows tree; `git checkout -- infrastructure/docker`. |
 | Bind-mount error for the postgres init folder | Repo outside `/Users` | Clone under `~/`, or add the path in Docker > Resources > File sharing. |
@@ -971,9 +1066,9 @@ Each item: where, what breaks, the workaround today, and the fix to make later i
 | `catalog:import` / `card-images:*` cannot connect | No running API | `npm run api:dev` in another terminal first. |
 | Every seed account asks for an "Age" step | Seeds have no `AGE_CONFIRMATION` consent | Expected once per account (7.6). |
 | macOS asks whether "java" or "node" may accept connections | Firewall on | Allow (7.6). |
-| `test:mobile:maestro`: "No Android device is ready" with %LOCALAPPDATA% hints | `ANDROID_HOME` unset (falls back to `~/Android/Sdk`) or no booted AVD | Export `ANDROID_HOME`, boot the AVD, check `adb devices`. |
+| `test:mobile:maestro`: "No Android device is ready" | No booted AVD; when it adds "adb was not found ...", no Android SDK at all (the owner's Mac on 2026-10-10) | Install the SDK and an arm64 AVD (9.3), boot it, check `adb devices`. Set `ANDROID_HOME` only when the SDK is not in `~/Library/Android/sdk`. |
 | Maestro or `expo start --android` fails right after the emulator starts | Android had not finished booting | Wait for `sys.boot_completed` = 1 (9.3 step 5). |
-| "Maestro CLI not found … maestro.bat" | Not on PATH | Add `~/.maestro/bin` to PATH, or `MAESTRO_BIN=$HOME/.maestro/bin/maestro`. |
+| "Maestro CLI not found" | Not on PATH and not in `~/.maestro/bin` | Install it (9.4), or `MAESTRO_BIN=$HOME/.maestro/bin/maestro`. |
 | `sdkmanager` stops at a licence prompt or "licenses not accepted" | Licences not accepted before install | `yes \| sdkmanager --licenses`, then install again (9.3). |
 | Emulator won't start / "x86 emulation currently requires hardware acceleration" | x86_64 system image | Use an arm64-v8a image. |
 | Expo Go "incompatible SDK" on the simulator/emulator | Old Expo Go on the device | Delete it; `npx expo start` reinstalls the SDK 57 build. |
@@ -982,9 +1077,10 @@ Each item: where, what breaks, the workaround today, and the fix to make later i
 | `expo start --ios` fails / no simulator | Xcode < 26.4 or no iOS runtime | Install Xcode 27 (macOS 26.6+) or Xcode 26.4-26.6 from developer.apple.com/download (Tahoe 26.2+); `xcodebuild -downloadPlatform iOS`. |
 | `open -a Simulator`: "Unable to find application" | Xcode 27 renamed it DeviceHub | `open -a DeviceHub`, or `xcrun simctl boot "iPhone 17"`. |
 | `brew install terraform`: "No available formula" | Formula removed from homebrew-core (2026-04-13) | `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`. |
-| `test:ml`: pytest/fastapi not installed for python3 | No venv; system Python 3.9 | Section 10.1. |
+| `test:ml`: "Python 3.12+ not found: python3 on PATH is Python 3.9.6" | No venv; the system Python is 3.9 | Section 10.1 (the message prints the commands). |
 | `audit:gate` fails after 2026-11-30 | Allowlist entries expired | Re-evaluate node-forge/braces and update `security/npm-audit-allowlist.json` (repo task). |
-| `npm run test:e2e -- --stop` doesn't recognise the kept stack | `ps -o comm=` prints full paths on macOS | Falls back to the lsof listener check; otherwise stop the PIDs from `lsof -nP -iTCP:8180 -sTCP:LISTEN`. |
+| `npm run test:e2e -- --stop` doesn't recognise the kept stack | A branch from before 2026-10-10: `ps -o comm=` prints full paths on macOS | Merge `main` (fixed, 12 item 9); otherwise stop the PIDs from `lsof -nP -iTCP:8180 -sTCP:LISTEN`. |
+| A commit shows `<user>@<host>.local` as its author | git `user.name` / `user.email` are not set (the owner's Mac on 2026-10-10) | Section 3.1. |
 | `npm ci` EBADENGINE / Angular errors | Node < 24.15 | `fnm install 24 && fnm use 24`. |
 | Claude's `!java -version` differs from your terminal | Claude (or the desktop app) doesn't load the same profile | 11.1. |
 | Branch S2 missing after clone | Never pushed | Push from Windows ("Before you switch", step 1). |
