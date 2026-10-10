@@ -25,6 +25,11 @@ database accounts (stable ids `00000000-0000-4000-8000-0000000000NN`, provider u
 users (password from `SEED_EMULATOR_PASSWORD`, default `LocalDev!2026`, email verified).
 Handles must match `[a-z0-9_]{3,24}`, hence `premium_user`.
 
+The table describes a freshly seeded database **and** one seeded before stage S2 and migrated
+since: at the first start after the migration the seed fills collector2's three untouched seed
+wishes (public note, Near Mint only, price terms) and sends the sample wishlist alert once. No
+`npm run infra:reset` is needed for that; wishes you edited yourself are left as they are.
+
 Seed locations are **declared places** (ADR 0017): a country, an ISO 3166-2 state or province
 and an optional city, never a coordinate or an address (`db/seed/locations.json`). Others only
 see the state or province; the city shows on the collector's own profile while "show my city" is

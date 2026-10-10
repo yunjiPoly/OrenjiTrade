@@ -35,6 +35,13 @@ import org.springframework.transaction.annotation.Transactional;
  * platform regions (ADR 0017). The first run also makes collector2's wishlist visible on their
  * profile. Items are inserted once ({@code ON CONFLICT DO NOTHING}); later runs leave local edits
  * alone.
+ *
+ * <p>A database seeded before stage S2 and migrated since (V112) already holds the three wishes,
+ * with the migration's defaults (no note, no "Near Mint only", no price term) and no wishlist
+ * alert. Such a wish gets its S2 seed values while it is still untouched (the three fields at their
+ * defaults and {@code updated_at = created_at}: a wish edited locally is never changed), and the
+ * sample alert is run until collector2 has been alerted about collector1's listing (the sent-alert
+ * key makes that once).
  */
 @Component
 public class WishlistSeedContributor implements SeedContributor {
@@ -78,17 +85,12 @@ public class WishlistSeedContributor implements SeedContributor {
         Instant created =
                 timeProvider.now().minus(Duration.ofDays(2)).truncatedTo(ChronoUnit.SECONDS);
         int inserted = 0;
+        int upgraded = 0;
         Optional<Printing> azure = printing("ygo-p001a");
         if (azure.isPresent()) {
-            inserted +=
-                    insert(
-                            WISH_AZURE,
-                            azure.get(),
-                            true,
-                            "Looking for a clean copy for my Azure-Eyes deck.",
-                            true,
-                            "90% TCG",
-                            created);
+            String note = "Looking for a clean copy for my Azure-Eyes deck.";
+            inserted += insert(WISH_AZURE, azure.get(), true, note, true, "90% TCG", created);
+            upgraded += fillMigrated(WISH_AZURE, note, true, "90% TCG");
         }
         Optional<Printing> promo = printing("pkm-p002a");
         if (promo.isPresent()) {
@@ -104,26 +106,68 @@ public class WishlistSeedContributor implements SeedContributor {
         }
         Optional<Printing> magic = printing("mtg-p005b");
         if (magic.isPresent()) {
+            String note = "Any printing is fine.";
             inserted +=
                     insert(
                             WISH_MAGIC,
                             magic.get(),
                             false,
-                            "Any printing is fine.",
+                            note,
                             false,
                             "100% TCG+",
                             created.plus(Duration.ofMinutes(10)));
+            upgraded += fillMigrated(WISH_MAGIC, note, false, "100% TCG+");
         }
-        if (inserted == 0) {
-            return;
+        if (inserted > 0) {
+            jdbc.sql(
+                            "UPDATE privacy_settings SET wishlist_visible = true, updated_at ="
+                                    + " now() WHERE user_id = :id AND NOT wishlist_visible")
+                    .param("id", COLLECTOR2)
+                    .update();
         }
-        jdbc.sql(
-                        "UPDATE privacy_settings SET wishlist_visible = true, updated_at = now()"
-                                + " WHERE user_id = :id AND NOT wishlist_visible")
-                .param("id", COLLECTOR2)
+        if (!alreadyAlerted()) {
+            alerts.alertForPublishedItem(COLLECTOR1_AZURE_ITEM);
+        }
+        if (inserted > 0 || upgraded > 0) {
+            log.info(
+                    "Seeded {} wishlist items for collector2 ({} migrated ones filled in)",
+                    inserted,
+                    upgraded);
+        }
+    }
+
+    /**
+     * Gives a wish that predates stage S2 its seed values: only while it still holds V112's
+     * defaults and was never edited.
+     */
+    private int fillMigrated(UUID id, String note, boolean nearMintOnly, String priceTerm) {
+        return jdbc.sql(
+                        """
+                        UPDATE wishlist_item
+                           SET public_note = :note, near_mint_only = :nearMintOnly,
+                               price_term = :priceTerm
+                         WHERE id = :id AND owner_id = :owner
+                           AND public_note = '' AND NOT near_mint_only AND price_term IS NULL
+                           AND updated_at = created_at
+                        """)
+                .param("id", id)
+                .param("owner", COLLECTOR2)
+                .param("note", note)
+                .param("nearMintOnly", nearMintOnly)
+                .param("priceTerm", priceTerm)
                 .update();
-        alerts.alertForPublishedItem(COLLECTOR1_AZURE_ITEM);
-        log.info("Seeded {} wishlist items for collector2", inserted);
+    }
+
+    /** Whether collector2 was already alerted (or deliberately not) about collector1's listing. */
+    private boolean alreadyAlerted() {
+        return jdbc.sql(
+                                "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = :user"
+                                        + " AND inventory_item_id = :item")
+                        .param("user", COLLECTOR2)
+                        .param("item", COLLECTOR1_AZURE_ITEM)
+                        .query(Long.class)
+                        .single()
+                > 0;
     }
 
     private int insert(

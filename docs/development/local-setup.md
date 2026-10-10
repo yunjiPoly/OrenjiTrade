@@ -473,7 +473,9 @@ PostgreSQL/Redis is the usual culprit: stop it or move the compose port (`POSTGR
 
 **The API does not become ready.** Read `.local-dev/logs/api.log`. Common causes: infrastructure
 not healthy (`docker compose ps`), a database migrated by another branch (Flyway validation error,
-e.g. a checksum mismatch: `npm run infra:reset`), or the first Gradle run still downloading (be
+e.g. a checksum mismatch: `npm run infra:reset`; for a scratch or E2E database only, drop and
+recreate that one database instead, which keeps the dev database and the card-image cache; never
+`flyway repair`), or the first Gradle run still downloading (be
 patient; later runs use the cache). The readiness endpoint returns 503 while the database or Redis is down.
 
 **Emulator warning "/data is not writable".** The `firebase-data` volume was created by an old

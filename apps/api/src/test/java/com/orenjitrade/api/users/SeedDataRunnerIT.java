@@ -175,6 +175,96 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .isEqualTo(notifications);
     }
 
+    /**
+     * A database seeded before stage S2 and then migrated (the owner's own dev database): the three
+     * stable-id wishes exist with V112's defaults and no wishlist alert was ever sent. The seed
+     * gives them their S2 values and runs the sample alert, once; a wish the collector edited is
+     * left alone.
+     */
+    @Test
+    void anUpgradedDatabaseGetsTheSeedWishValuesAndTheSampleAlertOnce() {
+        UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
+        String azureWish = "00000000-0000-4000-8f00-000000000201";
+        String promoWish = "00000000-0000-4000-8f00-000000000202";
+        String magicWish = "00000000-0000-4000-8f00-000000000203";
+        String azureItem = "00000000-0000-4000-8c00-000000010101";
+        String alertKey = "wishlist-alert:" + collector2 + ":" + azureItem;
+        String sentAlerts =
+                "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ? AND"
+                        + " inventory_item_id = ?::uuid";
+        String alertNotifications =
+                "SELECT count(*) FROM notification WHERE user_id = ? AND type = 'WISHLIST_ALERT'"
+                        + " AND dedup_key = ?";
+        // What V112 leaves of wishes seeded under the old model.
+        testUsers.update(
+                "UPDATE wishlist_item SET public_note = '', near_mint_only = false,"
+                        + " price_term = NULL, updated_at = created_at"
+                        + " WHERE id::text LIKE '00000000-0000-4000-8f00-%'");
+        testUsers.update(
+                "DELETE FROM wishlist_alert_sent WHERE user_id = ? AND inventory_item_id ="
+                        + " ?::uuid",
+                collector2,
+                azureItem);
+        testUsers.update(
+                "DELETE FROM notification WHERE user_id = ? AND dedup_key = ?",
+                collector2,
+                alertKey);
+
+        seedDataRunner.seedAll();
+
+        assertThat(wishRow(azureWish))
+                .containsEntry("public_note", "Looking for a clean copy for my Azure-Eyes deck.")
+                .containsEntry("near_mint_only", true)
+                .containsEntry("price_term", "90% TCG");
+        assertThat(wishRow(promoWish))
+                .as("this seed wish has no note, flag or term")
+                .containsEntry("public_note", "")
+                .containsEntry("near_mint_only", false)
+                .containsEntry("price_term", null);
+        assertThat(wishRow(magicWish))
+                .containsEntry("public_note", "Any printing is fine.")
+                .containsEntry("near_mint_only", false)
+                .containsEntry("price_term", "100% TCG+");
+        assertThat(testUsers.count(sentAlerts, collector2, azureItem)).isEqualTo(1);
+        assertThat(testUsers.count(alertNotifications, collector2, alertKey)).isEqualTo(1);
+
+        // A wish the collector emptied on purpose (edited: updated_at moved) stays as it is.
+        testUsers.update(
+                "UPDATE wishlist_item SET public_note = '', price_term = NULL,"
+                        + " updated_at = created_at + interval '1 hour' WHERE id = ?::uuid",
+                magicWish);
+        int notifications =
+                testUsers.count("SELECT count(*) FROM notification WHERE user_id = ?", collector2);
+
+        seedDataRunner.seedAll();
+
+        assertThat(wishRow(magicWish))
+                .containsEntry("public_note", "")
+                .containsEntry("price_term", null);
+        assertThat(wishRow(azureWish)).containsEntry("price_term", "90% TCG");
+        assertThat(testUsers.count(sentAlerts, collector2, azureItem)).isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM notification WHERE user_id = ?", collector2))
+                .as("seeding again notifies nobody")
+                .isEqualTo(notifications);
+
+        // Back to the seed state for the other tests of this class.
+        testUsers.update(
+                "UPDATE wishlist_item SET updated_at = created_at WHERE id = ?::uuid", magicWish);
+        seedDataRunner.seedAll();
+        assertThat(wishRow(magicWish)).containsEntry("price_term", "100% TCG+");
+    }
+
+    private Map<String, Object> wishRow(String id) {
+        return testUsers
+                .query(
+                        "SELECT public_note, near_mint_only, price_term FROM wishlist_item"
+                                + " WHERE id = ?",
+                        UUID.fromString(id))
+                .get(0);
+    }
+
     private Map<String, Object> binderRow(String id) {
         return testUsers
                 .query(

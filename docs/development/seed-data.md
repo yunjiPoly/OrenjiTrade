@@ -65,7 +65,11 @@ entries. Nothing happens while the real catalog is absent.
   North; public note, Near Mint only, "90% TCG"), the Pokémon printing `pkm-p002a` that collector1
   keeps private (publishing it locally triggers a fresh alert) and any printing of a Magic card
   ("100% TCG+"); the seed runs the real alert pipeline on collector1's listing, so collector2 has
-  one wishlist alert.
+  one wishlist alert. The same holds for a database seeded before stage S2 and migrated since
+  (V112 left its three seed wishes without note, flag or term): at the next start the seed gives
+  each of them its values above while the wish is still untouched (the three fields empty and
+  never edited), and sends the sample alert once. A seed wish edited locally is never changed; a
+  seed wish that was paused before S2 was deleted by V112 and is simply seeded again.
 - Notifications: a few read/unread for collector1.
 - Plans: FREE and PREMIUM with limits (binder views/day 30 vs unlimited, wishlist alerts 5 vs
   unlimited, advanced filters off/on); premium-user subscribed.
