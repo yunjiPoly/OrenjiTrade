@@ -220,7 +220,9 @@ public class BinderRepository {
     /**
      * Locks binders in ascending id order, before any of their items is written (the lock order).
      * {@code FOR UPDATE}, the mode {@link #lockOwned} takes, so a later statement of the
-     * transaction never has to strengthen the lock while another session holds a weaker one.
+     * transaction never has to strengthen the lock while another session holds a weaker one (a
+     * binder delete needs the full lock). Unlike items, binders are referenced only by rows the
+     * same collector's writes and the freshness job insert, so the full lock keeps nobody else out.
      *
      * @param ownerId only this owner's binders when given
      * @return the binders locked (unknown ids and other owners' binders are absent)

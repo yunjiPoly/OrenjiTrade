@@ -527,6 +527,94 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     }
 
     // ---------------------------------------------------------------------------------------
+    // Item writes against rows of other modules that reference the items
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Offers, trade lines, trades and wishlist matches reference inventory items, and inserting
+     * such a row takes a key-share lock on the item (the foreign key check). An item write does not
+     * wait for a transaction that has inserted a reference to its item and is not committed yet: it
+     * locks the row without claiming its key.
+     */
+    @ParameterizedTest
+    @EnumSource(ItemWrite.class)
+    void anItemWriteDoesNotWaitForAReferenceToItsItem(ItemWrite write) throws Exception {
+        String uid = uniqueUid("lock-ref");
+        UUID ownerId = collector(uid);
+        String binderId = createBinder(uid, "Listed", "PUBLIC");
+        String otherBinderId = createBinder(uid, "Other", "PUBLIC");
+        String kept = createItem(uid, binderId, Map.of());
+        String written = createItem(uid, binderId, Map.of());
+
+        endsWhile(
+                () -> reference(ownerId, written),
+                () -> perform(write, uid, ownerId, written, otherBinderId));
+
+        assertItemCountsMatch(ownerId);
+        assertThat(isLive(kept)).isTrue();
+    }
+
+    /** The same for an item photo, which locks the item row and nothing else. */
+    @Test
+    void aPhotoUploadDoesNotWaitForAReferenceToItsItem() throws Exception {
+        String uid = uniqueUid("lock-ref-photo");
+        UUID ownerId = collector(uid);
+        String item = createItem(uid, null, Map.of());
+
+        endsWhile(
+                () -> reference(ownerId, item),
+                () ->
+                        inventoryService.addImage(
+                                ownerId, uuid(item), InventoryTestSupport.png(64, 64)));
+
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item_image WHERE item_id = ?",
+                                uuid(item)))
+                .isEqualTo(1);
+    }
+
+    /**
+     * A new offer references the seller's card first and the buyer's trade card second; the
+     * transfer of a completed trade between the same two collectors locks both items in ascending
+     * id, which can be the other way round. Each then held the item the other one needed next (the
+     * transfer answered 500, "deadlock detected") as long as the transfer claimed the full row
+     * lock.
+     */
+    @Test
+    void aTradeTransferNeverDeadlocksWithReferencesInsertedInOfferOrder() throws Exception {
+        String oneUid = uniqueUid("lock-ref-one");
+        String twoUid = uniqueUid("lock-ref-two");
+        UUID one = collector(oneUid);
+        UUID two = collector(twoUid);
+        String itemOfOne = createItem(oneUid, null, Map.of());
+        String itemOfTwo = createItem(twoUid, null, Map.of());
+        // The seller's card is the higher id: the transfer takes the buyer's card first.
+        boolean oneSells =
+                ascending("inventory_item", itemOfOne, itemOfTwo).get(1).equals(itemOfOne);
+        UUID seller = oneSells ? one : two;
+        UUID buyer = oneSells ? two : one;
+        String sellerItem = oneSells ? itemOfOne : itemOfTwo;
+        String buyerItem = oneSells ? itemOfTwo : itemOfOne;
+
+        interleave(
+                () -> reference(seller, sellerItem),
+                () -> reference(buyer, buyerItem),
+                () ->
+                        assertThat(
+                                        inventoryService.reserveAndTransfer(
+                                                List.of(
+                                                        new TransferLine(
+                                                                uuid(sellerItem), seller, 1),
+                                                        new TransferLine(
+                                                                uuid(buyerItem), buyer, 1))))
+                                .allMatch(result -> result.removed()));
+
+        assertThat(isLive(sellerItem)).isFalse();
+        assertThat(isLive(buyerItem)).isFalse();
+    }
+
+    // ---------------------------------------------------------------------------------------
     // The owner lock in front of every write
     // ---------------------------------------------------------------------------------------
 
@@ -1321,6 +1409,19 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     private void lockRow(String table, String id) {
         jdbc.queryForObject(
                 "SELECT id FROM " + table + " WHERE id = ? FOR UPDATE", UUID.class, uuid(id));
+    }
+
+    /**
+     * Inserts a row that references the item, in the current transaction. Its foreign key check
+     * takes the key-share lock on the item that an offer, a trade line, a trade or a wishlist match
+     * takes (a freshness event here: the one referencing table without rows of its own to set up).
+     */
+    private void reference(UUID ownerId, String itemId) {
+        jdbc.update(
+                "INSERT INTO inventory_freshness_event (owner_id, item_id, event) VALUES (?, ?,"
+                        + " 'AGED')",
+                ownerId,
+                uuid(itemId));
     }
 
     /** A stale row in its warning window: only the warning step of the job writes it. */

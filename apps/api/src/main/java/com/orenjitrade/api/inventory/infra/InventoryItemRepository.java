@@ -40,6 +40,12 @@ import org.springframework.stereotype.Repository;
  * updates the binder of an item whose {@code binder_id} or {@code deleted_at} changes, so callers
  * of those writes hold the binder first ({@code InventoryService.lockForWrite}); every statement
  * here that locks several items takes them through an {@code ORDER BY id} locking clause.
+ *
+ * <p>Item rows are locked {@code FOR NO KEY UPDATE}, the lock an {@code UPDATE} of these columns
+ * takes anyway: offers, trade lines, trades and wishlist matches reference items, and the key-share
+ * lock of their foreign key checks conflicts with {@code FOR UPDATE} only. A write here and a
+ * transaction that inserts such references therefore never wait for each other. The account purge
+ * is the one write that deletes item rows and takes them {@code FOR UPDATE} ({@link #lockAllOf}).
  */
 @Repository
 public class InventoryItemRepository {
@@ -161,6 +167,8 @@ public class InventoryItemRepository {
      * Locks the live items among {@code ids} in ascending id order and returns them with the binder
      * they are filed in now (it cannot change while the lock is held). The id order is the second
      * line behind the owner lock, which already keeps the collector's other writes off these rows.
+     * {@code FOR NO KEY UPDATE}: no item write changes the key or deletes the row, so it does not
+     * conflict with the foreign key checks of rows that reference the items.
      *
      * @param ownerId only this owner's items when given
      */
@@ -173,7 +181,7 @@ public class InventoryItemRepository {
                                 "SELECT id, owner_id, binder_id FROM inventory_item"
                                         + " WHERE id IN (:ids) AND deleted_at IS NULL"
                                         + (ownerId == null ? "" : " AND owner_id = :ownerId")
-                                        + " ORDER BY id FOR UPDATE")
+                                        + " ORDER BY id FOR NO KEY UPDATE")
                         .param("ids", ids);
         if (ownerId != null) {
             statement = statement.param("ownerId", ownerId);
@@ -192,7 +200,7 @@ public class InventoryItemRepository {
     public boolean lockOwned(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT id FROM inventory_item WHERE id = :id AND owner_id = :ownerId"
-                                + " AND deleted_at IS NULL FOR UPDATE")
+                                + " AND deleted_at IS NULL FOR NO KEY UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(UUID.class)
@@ -363,7 +371,7 @@ public class InventoryItemRepository {
     public Optional<UUID> lockOwnerOf(UUID id) {
         return jdbc.sql(
                         "SELECT owner_id FROM inventory_item WHERE id = :id AND deleted_at IS NULL"
-                                + " FOR UPDATE")
+                                + " FOR NO KEY UPDATE")
                 .param("id", id)
                 .query(UUID.class)
                 .optional();
@@ -703,7 +711,7 @@ public class InventoryItemRepository {
                                 "WITH previous AS (SELECT id, freshness_state FROM inventory_item"
                                         + " WHERE owner_id = :ownerId AND deleted_at IS NULL AND "
                                         + scope
-                                        + " ORDER BY id FOR UPDATE)"
+                                        + " ORDER BY id FOR NO KEY UPDATE)"
                                         + " UPDATE inventory_item i SET confirmed_at = :now,"
                                         + " last_owner_activity_at = :now, warned_at = NULL,"
                                         + " freshness_state = 'ACTIVE', hidden_reason = NULL"
@@ -738,7 +746,7 @@ public class InventoryItemRepository {
     public Optional<Integer> lockQuantity(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT quantity FROM inventory_item WHERE id = :id AND owner_id ="
-                                + " :ownerId AND deleted_at IS NULL FOR UPDATE")
+                                + " :ownerId AND deleted_at IS NULL FOR NO KEY UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(Integer.class)
@@ -912,7 +920,8 @@ public class InventoryItemRepository {
 
     /**
      * Every item of an owner, deleted or not, locked in ascending id order (purge: the delete that
-     * follows takes the rows in no particular order).
+     * follows takes the rows in no particular order). {@code FOR UPDATE}, the lock of the delete,
+     * so the delete never has to strengthen a lock it holds.
      */
     public List<UUID> lockAllOf(UUID ownerId) {
         return jdbc.sql(
