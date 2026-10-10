@@ -18,7 +18,7 @@ export interface NotificationResponse {
     title: string;
     body: string;
     /**
-     * Ids of the objects concerned and `deepLink` (web path, e.g. /cards/<cardId>?printing=<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_ALERT, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade\'s own card picture or placeholder URL; API-relative in realtime pushes)
+     * Ids of the objects concerned and `deepLink` (web path, e.g. /messages/<conversationId>, or the card page with a wishlist alert\'s selection: /cards/<cardId>?printing=<id>, ?rarity=<rarity> or ?printing=any for any printing). Notifications about one card (WISHLIST_ALERT, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade\'s own card picture or placeholder URL; API-relative in realtime pushes)
      */
     data: { [key: string]: any | null; };
     createdAt: string;

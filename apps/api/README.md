@@ -725,8 +725,9 @@ key `wishlist_alert_sent` (`ON CONFLICT DO NOTHING`), then `NotificationService.
 `WISHLIST_ALERT` and dedup key `wishlist-alert:<userId>:<inventoryItemId>`, so re-publications,
 redelivered events and several fitting wishes never alert twice. Body example: "Azure-Eyes Sky
 Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada."; `deepLink`
-`/cards/<cardId>?printing=<id>` (one-printing wish), `?rarity=<rarity>` (rarity wish) or the bare
-card page. `WishlistItemCreated` feeds the analytics event `wishlist_item_created` (game, target
+`/cards/<cardId>?printing=<id>` (one-printing wish), `?rarity=<rarity>` (rarity wish) or
+`?printing=any` (any-printing wish: the selection is always said, so the card page never shows a
+printing nobody chose). `WishlistItemCreated` feeds the analytics event `wishlist_item_created` (game, target
 kind card / rarity / printing, Near Mint only, price term set; never the note).
 
 ### Notifications

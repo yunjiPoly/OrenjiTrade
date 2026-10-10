@@ -141,7 +141,10 @@ class WishlistRulesTest {
                 .matches("^/(?!/)[\\w\\-/?=&.%~]*$");
 
         Candidate any = candidate(card, null, null, "AZR-EN001", null, quebec);
-        assertThat(WishlistAlerts.deepLink(any)).isEqualTo("/cards/" + card);
+        assertThat(WishlistAlerts.deepLink(any))
+                .as("any printing is said explicitly, so the card page picks no printing")
+                .isEqualTo("/cards/" + card + "?printing=any")
+                .matches("^/(?!/)[\\w\\-/?=&.%~]*$");
         assertThat(WishlistAlerts.request(any, null).dedupKey())
                 .isEqualTo("wishlist-alert:" + any.wisherId() + ":" + any.itemId());
     }

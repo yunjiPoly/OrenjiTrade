@@ -81,11 +81,17 @@ Default chosen by the owner's spec: wishes drive no stored matches. They drive "
 - `WISHLIST_ALERT` notification: title "Wishlist alert: <card>", body "<card> <code> <rarity> was
   just listed by @handle in <state>, <country>." (never a city, a price or a distance), data
   `{wishlistItemId, inventoryItemId, cardId, printingId?, rarity?, collectorId, cardName, game,
-  cardImageUrl, regionCode, deepLink}`; `deepLink` = `/cards/<cardId>?printing=<id>` (one-printing
-  wish), `/cards/<cardId>?rarity=<rarity>` (rarity wish) or `/cards/<cardId>`. The card page (web
-  and mobile) reads both: `?printing=` shows that printing, `?rarity=` shows "Any printing in
-  <rarity>" with the printings of that rarity and picks none of them; the printing picker of stage
-  S3 replaces that block.
+  cardImageUrl, regionCode, deepLink}`; `deepLink` always says the wish's selection:
+  `/cards/<cardId>?printing=<id>` (one-printing wish), `/cards/<cardId>?rarity=<rarity>` (rarity
+  wish) or `/cards/<cardId>?printing=any` (any-printing wish; review fix 3: a bare `/cards/<id>`
+  let the page show its first printing as "Selected printing", which was not the listed copy).
+  The card page (web and mobile) reads the three: `?printing=<id>` shows that printing,
+  `?rarity=` shows "Any printing in <rarity>" with the printings of that rarity, `?printing=any`
+  shows "Any printing"; the last two select no printing, highlight no single row and show no price
+  of one printing. A wish's own link (wishlist page, public "Looking for") uses the same three
+  shapes. Without any parameter the card page still shows its first printing: stage S3 replaces
+  that block with the printing picker ("Any printing" by default, the selection kept in
+  `?printing=` / `?rarity=`), and `?printing=any` then simply names the default.
 - Settings: one switch, `wishlistAlerts` in `GET|PUT /me/settings/notifications` (default true;
   `notification_preferences.wishlist_alerts`). A `PUT` that leaves the member out keeps the stored
   value (the rest of the body is still a full replacement), so a client that does not know the
@@ -140,5 +146,13 @@ and recreate that database (the E2E harnesses do so on every run); never `flyway
   Notifications "Wishlist alerts", `/admin/wishlist` (price terms). `/wishlist/<id>` links open the
   list.
 - Mobile: the wish editor ("Which copy" chooser, note, Near Mint only, terms), the Wishlist tab,
-  Settings → Notifications "Wishlist alerts", alerts open the card screen with `?printing=` /
-  `?rarity=`.
+  Settings → Notifications "Wishlist alerts", alerts open the card screen with `?printing=<id>`,
+  `?rarity=` or `?printing=any`.
+- Adding a wish by typing a printing code (web and mobile; `GET /cards/suggest` returns one
+  PRINTING entry per printing, the clients show one row per card and code): a code is not a
+  printing. The form preselects a printing only when exactly one printing of the card carries the
+  code. When several share it (a 1st Edition and an Unlimited `SHV-EN003`, one code in several
+  rarities) the wish starts on "Any printing", the web picker is narrowed to the printings of
+  that code ("2 printings share the code SHV-EN003: choose one below for that copy only", with
+  "Show every printing") and the mobile "Which copy" lists them first, each with its rarity and
+  edition: never a silent pick (spec section 2).

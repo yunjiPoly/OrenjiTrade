@@ -152,8 +152,8 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         assertThat(alerts.get(0).path("body").asString()).endsWith(" in Île-de-France, France.");
         assertThat(alerts.get(0).path("data").path("regionCode").asString()).isEqualTo("europe");
         assertThat(alerts.get(0).path("data").path("deepLink").asString())
-                .as("any printing: the card page without a selection")
-                .isEqualTo("/cards/" + cardOf(azure));
+                .as("any printing: the card page told to pick no printing")
+                .isEqualTo("/cards/" + cardOf(azure) + "?printing=any");
     }
 
     @Test

@@ -99,10 +99,15 @@ public class WishlistAlerts {
                 .toString();
     }
 
+    /** The {@code ?printing=} value of an "any printing" wish: an explicit "no printing picked". */
+    static final String ANY_PRINTING = "any";
+
     /**
-     * The card page with the wish's selection: {@code /cards/<cardId>}, plus {@code ?printing=<id>}
-     * for a one-printing wish or {@code ?rarity=<rarity>} for a rarity wish (the card page's
-     * printing picker reads them).
+     * The card page with the wish's selection, always said explicitly: {@code
+     * /cards/<cardId>?printing=<id>} for a one-printing wish, {@code ?rarity=<rarity>} for a rarity
+     * wish, {@code ?printing=any} for an "any printing" wish. The card page then shows that
+     * selection and never a printing nobody chose (a bare {@code /cards/<cardId>} would leave the
+     * choice to the page).
      */
     static String deepLink(Candidate candidate) {
         StringBuilder link = new StringBuilder("/cards/").append(candidate.wishCardId());
@@ -113,6 +118,8 @@ public class WishlistAlerts {
                     .append(
                             URLEncoder.encode(candidate.wishRarity(), StandardCharsets.UTF_8)
                                     .replace("+", "%20"));
+        } else {
+            link.append("?printing=").append(ANY_PRINTING);
         }
         return link.toString();
     }
