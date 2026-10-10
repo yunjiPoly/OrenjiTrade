@@ -497,6 +497,7 @@ docker compose version         # Compose v2 or newer is required
 docker run --rm --platform linux/amd64 alpine sh -c 'uname -m; grep -m1 "model name" /proc/cpuinfo'
 #   x86_64 and "VirtualApple": Rosetta. A QEMU model name means Rosetta is off (much slower).
 ```
+- If `alpine` was only ever pulled by this check, the local `alpine:latest` is the amd64 image, and a later plain `docker run alpine` runs emulated with a platform warning. `docker pull alpine` fetches the native image; after that both are cached and a plain run is `aarch64` again [proven 2026-10-10].
 
 Three settings to look at on the owner's Mac (`orbctl config set <key> <value>` changes one; not run here, so (unverified)):
 - **`app.start_at_login: false`.** After a restart every npm script stops with "Docker is not running" until you open OrbStack or run `orbctl start`.
