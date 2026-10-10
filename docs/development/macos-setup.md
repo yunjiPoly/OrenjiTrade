@@ -515,6 +515,7 @@ Since 2026-10-10 the repo no longer needs the machine's default JDK to be 21:
 - **The E2E harnesses run the API jar on Java 21 too.** `findJava21()` (`scripts/lib/util.mjs`) takes `ORENJI_JAVA_HOME` when it is Java 21 or newer (exported, or set in `.env`). Otherwise it takes an exact Java 21 from `JAVA_HOME`, `java` on PATH, `/usr/libexec/java_home` or `~/.gradle/jdks`, in that order, and falls back to a newer Java only with a warning in the log. On the owner's Mac it picks the Temurin 21 that Gradle provisioned, with `JAVA_HOME` unset and with `JAVA_HOME` exported to the Temurin 27 [proven 2026-10-10].
 - **A machine still needs some JDK.** On a fresh Mac `/usr/bin/java` is only a stub [repo], and `./gradlew`, Maestro (Java 17+), `sdkmanager` and openapi-generator (Java 11+) all need a real `java`.
 - **Older branches:** a branch without `apps/api/gradle/gradle-daemon-jvm.properties` (anything that does not contain the 2026-10-10 macOS fixes yet, for example `feature/regions-s2-wishlist` that day) still needs `JAVA_HOME` set to a JDK 21 for `spotlessCheck` and `npm run test:api`.
+- **After the pin reaches such a branch**, run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in every worktree that already ran Gradle on JDK 27. The pin alone is not enough there: Gradle reports `:spotlessJava UP-TO-DATE` and fails again with the stored `NoSuchFieldError` lint errors, and `npm run test:api` reruns only the tests. Each worktree keeps its own stored result, and a new worktree can receive the failed one from the machine-wide Gradle build cache (`:spotlessJava FROM-CACHE`) [proven 2026-10-10 in scratch copies with their own build cache].
 
 **Recommended: install Temurin 21 and make it `JAVA_HOME`.** One JDK then serves everything, it is the Java of CI and of the production image, and Gradle downloads nothing:
 ```bash
@@ -699,7 +700,7 @@ Run all of these from the repo root with Docker running. Wrap the long ones in `
 | `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | Pure Node. Run it first as a smoke test. |
 | `npm run test:api` | `gradlew check`, re-run every time: Spotless + unit + Testcontainers (`postgis/postgis:17-3.5`, `redis:7-alpine`, Ryuk) | Needs `/var/run/docker.sock` (Docker Desktop or OrbStack) and any JDK to launch Gradle: the daemon is pinned to Java 21 (5). PostGIS is emulated, so expect it to be slower than about 5 min / 704 tests on Windows. It runs `gradlew test --rerun catalogTest --rerun check` (scripts/test.mjs), so the containers start twice. A slice of two integration test classes took 16-19 s under OrbStack [proven 2026-10-10]; the full suite was not timed that day. On a Mac that never pulled PostGIS, the first run logs one "no matching manifest for linux/arm64/v8" error before Testcontainers pulls linux/amd64 by itself. |
 | `npm run test:web` | Angular Vitest + lint | No extra steps. |
-| `npm run test:e2e` | Isolated stack: API jar on :8180 (DB `orenjitrade_e2e`), web on :4300, Playwright Chromium | Installs Chromium itself (`scripts/lib/web-e2e.mjs:521`). It never touches your dev DB or cache. |
+| `npm run test:e2e` | Isolated stack: API jar on :8180 (DB `orenjitrade_e2e`), web on :4300, Playwright Chromium | Installs Chromium itself (`playwright install chromium` in `runWebE2e`, `scripts/lib/web-e2e.mjs`). It never touches your dev DB or cache. |
 | `npm run test:mobile` | Typecheck (typed routes + `tsc`) + `expo lint` + Jest (jest-expo 57) + the harness guard tests (`node --test`) | No device needed. |
 | `npm run test:mobile:e2e` | Expo web export on :19006 + API on :8090 + Playwright | Section 9.5. |
 | `npm run test:mobile:maestro` | Native Maestro flows on an Android emulator | Section 9.5. |
@@ -832,7 +833,7 @@ Verify:
 ```bash
 maestro --version     # needs a java: JAVA_HOME, or the default JDK
 ```
-- With Temurin 27 as the default JDK, `maestro --version` prints 2.11.0 after two JDK warnings about final-field mutation [proven 2026-10-10]. Running flows on Java 27 was not tried; if Maestro misbehaves there, start it with `JAVA_HOME` set to a JDK 21.
+- With Temurin 27 as the default JDK, `maestro --version` prints 2.11.0 after three JDK `WARNING` lines about final-field mutation [proven 2026-10-10]. Running flows on Java 27 was not tried; if Maestro misbehaves there, start it with `JAVA_HOME` set to a JDK 21.
 Brew alternative [docs]: `brew tap mobile-dev-inc/tap && brew install mobile-dev-inc/tap/maestro`. If brew refuses the tap formula as untrusted, run `brew trust --formula mobile-dev-inc/tap/maestro` (in Maestro's macOS docs) and install again.
 
 ### 9.5 Environment the mobile harnesses need on macOS
@@ -1030,7 +1031,7 @@ Each item: where, what breaks, the workaround, and the fix to make in the repo. 
 
 ### 12.4 Found on the first Mac run (2026-10-10)
 22. **`apps/api` Gradle build:** the Gradle daemon followed the machine's default JDK. With Temurin 27 as the only system JDK, `npm run test:api` failed in `spotlessCheck` (google-java-format 1.30.0: `NoSuchFieldError ... EndPosTable endPositions`).
-    **Fixed 2026-10-10.** `apps/api/gradle/gradle-daemon-jvm.properties` pins the daemon to Java 21 (5). Until a branch has that file: `export JAVA_HOME=<a JDK 21>` before Gradle or an npm script, and if the error stays, it is a cached result: `cd apps/api && ./gradlew spotlessCheck --rerun-tasks`.
+    **Fixed 2026-10-10.** `apps/api/gradle/gradle-daemon-jvm.properties` pins the daemon to Java 21 (5). Until a branch has that file: `export JAVA_HOME=<a JDK 21>` before Gradle or an npm script, and if the error stays, it is a cached result: `cd apps/api && ./gradlew spotlessCheck --rerun-tasks`. A worktree that failed before needs that command once more after the file arrives (5).
 23. **`scripts/lib/util.mjs` `findJava21()`:** it took the first Java 21 or newer, so the E2E harnesses ran the API jar on Java 27 here, and it never saw the JDK Gradle provisions on macOS, which sits one directory deeper (`~/.gradle/jdks/<install>/jdk-21.x/Contents/Home`) than the paths it checked.
     **Fixed 2026-10-10.** `ORENJI_JAVA_HOME` first (it also works from `.env`), then an exact Java 21 (`JAVA_HOME` first), a newer Java only with a warning (5); unit-tested in `scripts/lib/util.test.mjs`. A full E2E run with it was not done that day.
 24. **`scripts/lib/util.mjs` "Docker is not running":** the hint named only Docker Desktop and its "Engine running" label.

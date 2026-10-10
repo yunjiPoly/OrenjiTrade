@@ -14,7 +14,13 @@ simulator is available**), Maestro 2.11.0. **No Android SDK is installed yet** (
 emulator), so the Android Maestro suite cannot run until the owner installs it
 ([macos-setup.md](macos-setup.md) 9.3). Python 3.12 is not installed either (ML is on hold). The
 macOS and OrbStack fixes of 2026-10-10 are on branch `chore/macos-ios-dev` until it is merged; a
-branch without them needs `JAVA_HOME` set to a JDK 21 for Gradle.
+branch without them needs `JAVA_HOME` set to a JDK 21 for Gradle. **After the fixes reach a branch,
+run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in every worktree that ever ran
+Gradle on JDK 27** (`OrenjiTrade-regions` did on 2026-10-10). Gradle keeps the failed Spotless
+result there (`:spotlessJava UP-TO-DATE`, then the same `NoSuchFieldError` lint errors) although
+its daemon now runs on Java 21, and `npm run test:api` fails the same way because it reruns only
+the tests. A new worktree can receive that failed result from the machine-wide Gradle build cache
+(`:spotlessJava FROM-CACHE`); the same command clears it.
 
 ## 1. Where things stand
 
