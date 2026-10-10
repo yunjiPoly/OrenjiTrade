@@ -37,6 +37,7 @@ of the 2026-10-08 change** (platform regions replace geolocation; ADR 0017). Mer
 | What | Where | State |
 | --- | --- | --- |
 | Stage S2 — simplified wishlist, matches removed, region wishlist alerts (spec section 4) | branch `feature/regions-s2-wishlist` (no PR yet) | Built; two review rounds. Round 1 blockers (alert link landed on a silent printing pick; wish-dialog error out of view) fixed and re-approved by the product/UX reviewer. The last functional review found that migration V112 failed on a populated pre-V112 database (rarity cleared after the duplicate collapse, so the unique index failed). **Fix round 2 is committed** (`c1b9df7` V112 normalises the selection before collapsing, proven by `SimplifiedWishlistMigrationIT`; `be24294` review polish; `b52211a` status notes) **but not re-reviewed yet.** |
+| The iOS path of the native Maestro suite (2026-10-10) | branch `feature/ios-maestro-harness`, on top of S2 and the macOS fixes | Built: `npm run test:mobile:maestro -- --platform ios` runs the 24 flows on a simulator of its own (24/24 from a cold start), one set of flows for both platforms, six iOS defects of the app fixed. Waits for review and for the two pull requests under it. |
 | Stages S3–S6 | — | Not started. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
@@ -174,6 +175,13 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
 - Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3): skipped for now
   (2026-10-10), the native suite runs on the iOS simulator there. Until it is installed, nothing
   on this Mac proves the Android half of a mobile change.
+- Photo uploads from the Android app: on iOS no photo could be uploaded (Expo's fetch refuses
+  React Native's file part) and that is fixed and proven on the simulator; Android runs the same
+  fetch and is expected to fail the same way, but keeps its old code until an Android run can
+  prove the fix (`apps/mobile/src/api/localFilePart.ts`; IMPLEMENTATION_STATUS.md, "Mobile app on
+  the iOS simulator", Open).
+- Uploaded photos can come out rotated on every client: the API drops a photo's EXIF orientation
+  when it re-encodes the upload (same section). A backend fix, not started.
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
   review, backup-restore drill, failure tests).
 - The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1 to 4 and 7 to 13 were
