@@ -30,6 +30,7 @@ import {
   PrintingSelection,
   facetOptions,
   normaliseSelection,
+  printingsWithCode,
   sameSelection,
   selectionForRarity,
   visiblePrintings,
@@ -64,7 +65,7 @@ let nextId = 0;
       <legend class="pp__legend">{{ legend() }}</legend>
       <p class="pp__hint" [id]="hintId">{{ hint() }}</p>
 
-      @if (facets().length) {
+      @if (facets().length || filtered()) {
         <div class="pp__filters" data-testid="printing-filters">
           @for (facet of facets(); track facet.key) {
             <mat-form-field
@@ -88,7 +89,7 @@ let nextId = 0;
           }
           @if (filtered()) {
             <button matButton type="button" class="pp__clear" (click)="clearFilters()">
-              Clear filters
+              {{ onlyCodeFilter() ? 'Show every printing' : 'Clear filters' }}
             </button>
           }
         </div>
@@ -317,6 +318,11 @@ export class PrintingPickerComponent {
   readonly legend = input('Which copy');
   /** Collectors in the region per printing id (stage S3 card page); `null` hides the counts. */
   readonly holderCounts = input<Readonly<Record<string, number>> | null>(null);
+  /**
+   * A printing code the collector typed that several printings share (editions, rarities): the
+   * list starts narrowed to them and the hint says so. It never selects one of them.
+   */
+  readonly codeFilter = input<string | null>(null);
 
   readonly valueChange = output<PrintingSelection>();
 
@@ -327,17 +333,34 @@ export class PrintingPickerComponent {
     normaliseSelection(this.value(), this.printings()),
   );
   /**
-   * The list filters: reset for another card; a rarity the parent selects shows as the rarity
-   * filter; a printing selection keeps the filters the collector set.
+   * The list filters: reset for another card (to the typed printing code, when printings carry
+   * it); a rarity the parent selects shows as the rarity filter; a printing selection keeps the
+   * filters the collector set.
    */
   protected readonly filters = linkedSignal<
-    { printings: readonly PrintingSummary[]; selection: PrintingSelection },
+    {
+      printings: readonly PrintingSummary[];
+      selection: PrintingSelection;
+      code: string | null;
+    },
     PrintingFilters
   >({
-    source: () => ({ printings: this.printings(), selection: this.selection() }),
+    source: () => ({
+      printings: this.printings(),
+      selection: this.selection(),
+      code: this.codeFilter(),
+    }),
     computation: (source, previous) => {
-      const base =
-        previous && previous.source.printings === source.printings ? previous.value : NO_FILTERS;
+      const same =
+        previous &&
+        previous.source.printings === source.printings &&
+        previous.source.code === source.code;
+      const base = same
+        ? previous.value
+        : {
+            ...NO_FILTERS,
+            code: printingsWithCode(source.printings, source.code).length ? source.code! : '',
+          };
       return source.selection.printingId
         ? base
         : { ...base, rarity: source.selection.rarity ?? '' };
@@ -356,9 +379,27 @@ export class PrintingPickerComponent {
       .map((facet) => ({ ...facet, options: facetOptions(printings, facet.key) }))
       .filter((facet) => facet.options.length > 1);
   });
+  /** The printings sharing the typed code, while the list is narrowed to it. */
+  private readonly codePrintings = computed(() =>
+    printingsWithCode(this.printings(), this.filters().code),
+  );
+  /** Whether the typed code leaves printings out (a card whose every printing has it: no). */
+  private readonly codeNarrows = computed(() => {
+    const count = this.codePrintings().length;
+    return count > 0 && count < this.printings().length;
+  });
   protected readonly filtered = computed(() => {
     const filters = this.filters();
-    return !!(filters.rarity || filters.set || filters.edition || filters.language);
+    return (
+      !!(filters.rarity || filters.set || filters.edition || filters.language) || this.codeNarrows()
+    );
+  });
+  /** Only the typed code narrows the list: the reset button says what it brings back. */
+  protected readonly onlyCodeFilter = computed(() => {
+    const filters = this.filters();
+    return (
+      this.codeNarrows() && !(filters.rarity || filters.set || filters.edition || filters.language)
+    );
   });
   protected readonly visible = computed(() =>
     visiblePrintings(
@@ -368,8 +409,13 @@ export class PrintingPickerComponent {
       this.holderCounts(),
     ),
   );
+  /**
+   * What choosing "Any printing" selects: any printing of the rarity filter while one is set (a
+   * selected printing keeps the filter), every printing of the card otherwise. Read from the
+   * filter, like {@link chooseAny}, so the row says what the click does.
+   */
   protected readonly anyDescription = computed(() => {
-    const rarity = this.selection().rarity;
+    const rarity = this.filters().rarity;
     return rarity ? `Any printing in ${rarity}` : 'Every printing of the card';
   });
   protected readonly hint = computed(() => {
@@ -379,6 +425,14 @@ export class PrintingPickerComponent {
       return printing ? `Only ${this.optionLabel(printing)}.` : 'One printing.';
     }
     const filters = this.filters();
+    const any = selection.rarity
+      ? `Any printing in ${selection.rarity}`
+      : 'Any printing of the card';
+    const sharing = this.codePrintings();
+    if (filters.code && sharing.length > 1) {
+      // A typed code several printings share never picks one of them: say so.
+      return `${any}. ${sharing.length} printings share the code ${filters.code}: choose one below for that copy only.`;
+    }
     if (filters.set || filters.edition || filters.language) {
       // Only the rarity is part of an "any printing" choice: say so while other filters are set.
       return selection.rarity

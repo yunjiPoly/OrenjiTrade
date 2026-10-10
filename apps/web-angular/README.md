@@ -160,7 +160,8 @@ the Emulator UI (http://localhost:4000/auth).
   suggestion searches `/cards?q=`; deferred chunk with the plain search field as placeholder);
   `/cards` (query + game pills + set/rarity/language/edition from the game's `GameSchema`,
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
-  (`?printing=` selects a printing, `?rarity=` shows "Any printing in <rarity>" without picking one;
+  (`?printing=<id>` selects a printing, `?rarity=` shows "Any printing in <rarity>" and
+  `?printing=any` shows "Any printing", both without picking, highlighting or pricing one;
   hero picture, attributes rendered from the schema's
   `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
   dialog on that printing), "Who has this in my region" (opens `/search?card=<id>`, the holders
@@ -357,8 +358,10 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   matches, filters or per-wish alert switch any more.
 - **Add/edit dialog** (`shared/wishlist`, a lazy chunk opened by `WishlistActions` from the
   wishlist page, card detail (with its `?printing=` or `?rarity=`) and the card holders view;
-  signed-out visitors go to sign in first): card autocomplete (`GET /cards/suggest`; a printing
-  suggestion preselects it) → `WishFieldsComponent` (public note first, ≤ 280 characters;
+  signed-out visitors go to sign in first): card autocomplete (`GET /cards/suggest`; a typed
+  printing code preselects a printing only when exactly one printing of the card carries it,
+  otherwise the form starts on "Any printing" with the picker narrowed to that code) →
+  `WishFieldsComponent` (public note first, ≤ 280 characters;
   "Near Mint only"; at most one price term from `GET /wishlist/price-terms` (`PriceTermsStore`),
   "85% TCG ≈ 21.25 USD" with one printing's market price, its source and date in a tooltip) →
   the shared `PrintingPickerComponent` (`shared/catalog/printing-picker`: "Any printing" first
@@ -366,12 +369,15 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   market price; rarity / set / edition / language filters, the rarity alone meaning any printing
   of that rarity; optional holder counts for the card page of stage S3). `wishlist-form.ts`:
   form, defaults, create / PATCH bodies, messages. Inline errors: 409 same selection, 429
-  `LIMIT_REACHED` (the limit dialog opens as well), field errors of a 400.
+  `LIMIT_REACHED` (the limit dialog opens as well), field errors of a 400; after a refused save
+  the keyboard focus stays on the save button; a click on the backdrop does not close the dialog
+  while the form holds unsaved input (Escape and Cancel do).
 - **Collector page**: "Looking for" (`GET /collectors/{handle}/wishlist`, only when the collector
   shows it; 404 hides the section): which copy, public note, chips.
 - **Wishlist alerts (API)**: a public listing alerts the collectors of the same platform region
   whose wishes it fits, once per collector and listing; the `WISHLIST_ALERT` notification opens
-  the card page with the wish's `?printing=` / `?rarity=`. Settings → Notifications has one
+  the card page with the wish's selection (`?printing=<id>`, `?rarity=` or `?printing=any`); the
+  bell menu never cuts an alert before the place. Settings → Notifications has one
   "Wishlist alerts" switch; `/admin/wishlist` edits the price terms.
 
 ## Ratings, collector reports and the admin console (Phase 7)
@@ -903,9 +909,15 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     only) then a Near Mint one: A's bell badge rises live without a reload, the bell entry
     ("… was just listed by @B in Montevideo, Uruguay.") opens `/cards/<id>?printing=<id>`,
     `/notifications` holds one alert, Settings → Notifications shows the "Wishlist alerts" switch,
-    A's profile shows the public wishlist with the note and chips; B's binder is unpublished
-    afterwards. A second test fills a FREE wishlist (20 wishes), sees the prompt to set a location
-    for alerts and gets the limit dialog (429 `wishlist.items.max`) with the inline explanation.
+    A's profile shows the public wishlist with the note and chips (and never scrolls sideways at
+    375 px); B's binder is unpublished afterwards. A second test types a printing code that a 1st
+    Edition and an Unlimited printing share (the wish starts on "Any printing"; a code only one
+    printing has preselects it), then follows the alert for that "Any printing" wish: shown in
+    full in the bell menu at 1280 px and 375 px, it opens `/cards/<id>?printing=any` on "Any
+    printing" (no selected printing, no highlighted row, no price). A third test fills a FREE
+    wishlist (20 wishes), sees the prompt to set a location for alerts and gets the limit dialog
+    (429, without the technical limit key) with the inline explanation and the focus back on the
+    save button.
     No JSON response carries a coordinate.
   - `e2e/community.spec.ts`: `/community` opens the channel of the browsed platform region (the
     former city channels show as archived); a collector posts with a card link, is refused a duplicate (409) and a banned term

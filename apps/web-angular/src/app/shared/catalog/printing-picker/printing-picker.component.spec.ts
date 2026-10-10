@@ -6,7 +6,10 @@ import {
   PrintingSelection,
   facetOptions,
   normaliseSelection,
+  onlyPrintingWithCode,
+  printingsWithCode,
   selectionForRarity,
+  selectionQuery,
   visiblePrintings,
 } from './printing-selection';
 
@@ -108,6 +111,26 @@ describe('printing selection', () => {
       printingId: null,
       rarity: null,
     });
+  });
+
+  it('never takes a printing code shared by several printings for one of them', () => {
+    // MACR-EN036 exists as a Secret Rare and as a Quarter Century Secret Rare.
+    expect(printingsWithCode(PRINTINGS, 'MACR-EN036').map((p) => p.id)).toEqual(['p1', 'p2']);
+    expect(onlyPrintingWithCode(PRINTINGS, 'MACR-EN036')).toBeNull();
+    expect(onlyPrintingWithCode(PRINTINGS, 'RA03-FR036')?.id).toBe('p3');
+    expect(onlyPrintingWithCode(PRINTINGS, 'NOPE-001')).toBeNull();
+    expect(onlyPrintingWithCode(PRINTINGS, null)).toBeNull();
+    expect(visiblePrintings(PRINTINGS, { ...NO_FILTERS, code: 'MACR-EN036' }, null)).toHaveLength(
+      2,
+    );
+  });
+
+  it('writes a selection into the card page link explicitly, any printing included', () => {
+    expect(selectionQuery({ printingId: 'p1', rarity: null })).toEqual({ printing: 'p1' });
+    expect(selectionQuery({ printingId: null, rarity: 'Secret Rare' })).toEqual({
+      rarity: 'Secret Rare',
+    });
+    expect(selectionQuery({ printingId: null, rarity: null })).toEqual({ printing: 'any' });
   });
 });
 
@@ -214,6 +237,56 @@ describe('PrintingPickerComponent', () => {
     expect(element.querySelector('.pp__hint')?.textContent).toContain(
       'The set, edition and language filters only narrow the list',
     );
+  });
+
+  it('says on the "Any printing" row what the click does while a rarity filter is set', async () => {
+    await render();
+    const anyRow = () =>
+      element.querySelector('[data-testid="printing-option-any"]')?.closest('label')?.textContent;
+    expect(anyRow()).toContain('Every printing of the card');
+    // Filter by Secret Rare, then choose the Secret Rare printing: the filter stays.
+    (
+      fixture.componentInstance as unknown as { setFilter(facet: string, value: string): void }
+    ).setFilter('rarity', 'Secret Rare');
+    await fixture.whenStable();
+    radios()[1].click();
+    await fixture.whenStable();
+    expect(emitted.at(-1)).toEqual({ printingId: 'p1', rarity: null });
+    // The row announces "Any printing in Secret Rare", which is what choosing it selects.
+    expect(anyRow()).toContain('Any printing in Secret Rare');
+    expect(anyRow()).not.toContain('Every printing of the card');
+    radios()[0].click();
+    await fixture.whenStable();
+    expect(emitted.at(-1)).toEqual({ printingId: null, rarity: 'Secret Rare' });
+    expect(anyRow()).toContain('Any printing in Secret Rare');
+  });
+
+  it('points at a typed code that several printings share without choosing one', async () => {
+    fixture.componentRef.setInput('codeFilter', 'MACR-EN036');
+    await render();
+    // "Any printing" stays selected; the list shows the two printings of the code only.
+    expect(radios()).toHaveLength(3);
+    expect(radios()[0].checked).toBe(true);
+    expect(radios().filter((radio) => radio.checked)).toHaveLength(1);
+    expect(element.querySelector('[data-testid="printing-option-p3"]')).toBeNull();
+    expect(emitted).toEqual([]);
+    expect(element.querySelector('.pp__hint')?.textContent).toContain(
+      'Any printing of the card. 2 printings share the code MACR-EN036: choose one below for that copy only.',
+    );
+    // The narrowing is undone with one button that says what it brings back.
+    const reset = element.querySelector<HTMLButtonElement>('.pp__clear')!;
+    expect(reset.textContent).toContain('Show every printing');
+    reset.click();
+    await fixture.whenStable();
+    expect(radios()).toHaveLength(4);
+    expect(emitted).toEqual([]);
+  });
+
+  it('ignores a typed code no printing of the card has', async () => {
+    fixture.componentRef.setInput('codeFilter', 'NOPE-001');
+    await render();
+    expect(radios()).toHaveLength(4);
+    expect(element.querySelector('.pp__clear')).toBeNull();
   });
 
   it('reports an unknown printing as "any printing"', async () => {

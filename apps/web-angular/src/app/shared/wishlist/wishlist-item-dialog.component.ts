@@ -20,6 +20,8 @@ import {
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { ReactiveFormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { hasModifierKey } from '@angular/cdk/keycodes';
 import {
   CardDetail,
   CatalogService,
@@ -34,7 +36,10 @@ import { silentErrors } from '../../core/http/http-context';
 import { limitReachedInfo } from '../../core/limits/limit-reached';
 import { CardImageComponent } from '../ui/card-image/card-image.component';
 import { PrintingPickerComponent } from '../catalog/printing-picker/printing-picker.component';
-import type { PrintingSelection } from '../catalog/printing-picker/printing-selection';
+import {
+  type PrintingSelection,
+  printingsWithCode,
+} from '../catalog/printing-picker/printing-selection';
 import { ErrorStateComponent } from '../ui/error-state/error-state.component';
 import { GameChipComponent } from '../ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../ui/skeleton/skeleton.component';
@@ -153,11 +158,13 @@ export function openWishlistDialog(
               [termsError]="priceTerms.status() === 'error'"
               [marketPrice]="selectedPrinting()?.marketPrice ?? null"
               [onePrinting]="!!selection().printingId"
+              (retryTerms)="priceTerms.load()"
             />
             <app-printing-picker
               [printings]="printings()"
               [value]="selection()"
               [game]="card.game ?? ''"
+              [codeFilter]="sharedCode()"
               (valueChange)="choose($event)"
             />
             @if (selectionError(); as message) {
@@ -187,7 +194,15 @@ export function openWishlistDialog(
     }
     <mat-dialog-actions align="end">
       <button matButton type="button" mat-dialog-close>Cancel</button>
-      <button matButton="filled" type="submit" form="wish-form" [disabled]="!form() || saving()">
+      <!-- Still focusable while saving: a refused save leaves the focus here, in the dialog. -->
+      <button
+        #submitButton
+        matButton="filled"
+        type="submit"
+        form="wish-form"
+        [disabled]="!form() || saving()"
+        [disabledInteractive]="saving()"
+      >
         <mat-icon aria-hidden="true">{{ editing ? 'save' : 'favorite' }}</mat-icon>
         {{ saveLabel() }}
       </button>
@@ -247,6 +262,9 @@ export function openWishlistDialog(
     .wd__change {
       flex: 0 0 auto;
     }
+    .wd__error mat-icon {
+      flex: 0 0 auto;
+    }
     .wd__error {
       display: flex;
       flex: 0 0 auto;
@@ -278,6 +296,7 @@ export class WishlistItemDialogComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly priceTerms = inject(PriceTermsStore);
   private readonly cardHeading = viewChild<ElementRef<HTMLElement>>('cardHeading');
+  private readonly submitButton = viewChild('submitButton', { read: ElementRef });
 
   protected readonly editing = this.data.mode === 'edit';
 
@@ -304,12 +323,37 @@ export class WishlistItemDialogComponent {
     return this.editing ? 'Save changes' : 'Add to wishlist';
   });
 
+  /**
+   * A printing code typed in the autocomplete that several printings of the card share: the form
+   * starts on "Any printing" and the picker is narrowed to that code (never a silent pick).
+   */
+  protected readonly sharedCode = signal<string | null>(null);
+
   private cardSubscription: Subscription | null = null;
-  private cardRequest: { cardId: string | null; printingId: string | null } | null = null;
+  private formSubscription: Subscription | null = null;
+  private cardRequest: {
+    cardId: string | null;
+    printingId: string | null;
+    code: string | null;
+  } | null = null;
 
   constructor() {
     void this.priceTerms.load();
-    inject(DestroyRef).onDestroy(() => this.cardSubscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.cardSubscription?.unsubscribe();
+      this.formSubscription?.unsubscribe();
+    });
+    // While the form holds unsaved input a click outside must not discard it (`disableClose`,
+    // see setForm): Escape, which that switch also turns off, still closes the dialog.
+    this.dialogRef
+      .keydownEvents()
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => {
+        if (this.dialogRef.disableClose && event.key === 'Escape' && !hasModifierKey(event)) {
+          event.preventDefault();
+          this.dialogRef.close();
+        }
+      });
     if (this.data.mode === 'edit') {
       const item = this.data.item;
       this.setForm(wishFormFromItem(item));
@@ -335,20 +379,34 @@ export class WishlistItemDialogComponent {
     this.selection.set(selection);
   }
 
+  /**
+   * Installs the form. From its first change on (a typed note, a box, another copy) a click on
+   * the backdrop no longer closes the dialog; back on its initial value it does again.
+   */
   private setForm(value: WishFormValue): void {
-    this.form.set(createWishForm(value));
+    const form = createWishForm(value);
+    this.form.set(form);
     this.selection.set(selectionOf(value));
+    const initial = JSON.stringify(form.getRawValue());
+    this.formSubscription?.unsubscribe();
+    this.dialogRef.disableClose = false;
+    this.formSubscription = form.valueChanges.subscribe(() => {
+      this.dialogRef.disableClose = JSON.stringify(form.getRawValue()) !== initial;
+    });
   }
 
   protected pick(picked: PickedCard): void {
-    this.openCard(picked.cardId, picked.printingId, true);
+    this.openCard(picked.cardId, null, true, picked.printingCode);
   }
 
   protected changeCard(): void {
     this.cardSubscription?.unsubscribe();
+    this.formSubscription?.unsubscribe();
+    this.dialogRef.disableClose = false;
     this.card.set(null);
     this.form.set(null);
     this.selection.set({ printingId: null, rarity: null });
+    this.sharedCode.set(null);
     this.selectionError.set(null);
     this.cardError.set(null);
     this.error.set(null);
@@ -357,7 +415,8 @@ export class WishlistItemDialogComponent {
 
   protected reloadCard(): void {
     if (this.cardRequest) {
-      this.openCard(this.cardRequest.cardId, this.cardRequest.printingId);
+      const { cardId, printingId, code } = this.cardRequest;
+      this.openCard(cardId, printingId, false, code);
     }
   }
 
@@ -404,6 +463,10 @@ export class WishlistItemDialogComponent {
   }
 
   private showError(error: ApiError, form: WishForm): void {
+    if (error.errorCode === 'LIMIT_REACHED' || error.errorCode === 'CONFLICT') {
+      // No field to send the focus to: it stays on (or returns to) the save button.
+      this.keepFocusInDialog();
+    }
     if (error.errorCode === 'LIMIT_REACHED') {
       // The limit dialog explains the plan limit as well (global interceptor).
       const info = limitReachedInfo(error);
@@ -466,6 +529,25 @@ export class WishlistItemDialogComponent {
   }
 
   /**
+   * After the next render: when a refused save left the focus nowhere (on the page's body), the
+   * save button takes it, so the keyboard stays in the dialog next to the error. A focus held
+   * elsewhere (a field, or the plan-limit dialog that opens on top) is left alone.
+   */
+  private keepFocusInDialog(): void {
+    afterNextRender(
+      {
+        write: () => {
+          const active = this.document.activeElement;
+          if (!active || active === this.document.body) {
+            (this.submitButton()?.nativeElement as HTMLElement | undefined)?.focus();
+          }
+        },
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /**
    * After the next render: the chosen card's name takes the focus when it was picked in the
    * autocomplete (which is gone now) or when the focus was lost while it loaded.
    */
@@ -490,10 +572,19 @@ export class WishlistItemDialogComponent {
     );
   }
 
-  /** Loads the card (from a printing id when only that is known) and prepares the form. */
-  private openCard(cardId: string | null, printingId: string | null, picked = false): void {
+  /**
+   * Loads the card (from a printing id when only that is known) and prepares the form. `code` is
+   * a printing code typed in the autocomplete: it preselects a printing only when exactly one
+   * printing of the card carries it.
+   */
+  private openCard(
+    cardId: string | null,
+    printingId: string | null,
+    picked = false,
+    code: string | null = null,
+  ): void {
     this.cardSubscription?.unsubscribe();
-    this.cardRequest = { cardId, printingId };
+    this.cardRequest = { cardId, printingId, code };
     this.loadingCard.set(true);
     this.cardError.set(null);
     this.error.set(null);
@@ -511,9 +602,15 @@ export class WishlistItemDialogComponent {
           this.loadingCard.set(false);
           this.card.set(card);
           if (!this.form()) {
-            const known = (card.printings ?? []).some((printing) => printing.id === printingId);
+            const printings = card.printings ?? [];
+            const coded = printingsWithCode(printings, code);
+            const wanted = coded.length === 1 ? (coded[0].id ?? null) : printingId;
+            const known = !!wanted && printings.some((printing) => printing.id === wanted);
             const rarity = this.data.mode === 'create' ? (this.data.rarity ?? null) : null;
-            this.setForm(newWishDefaults(known ? { printingId } : { printingId: null, rarity }));
+            this.sharedCode.set(coded.length > 1 ? code : null);
+            this.setForm(
+              newWishDefaults(known ? { printingId: wanted } : { printingId: null, rarity }),
+            );
           }
           this.focusCard(picked);
         },
