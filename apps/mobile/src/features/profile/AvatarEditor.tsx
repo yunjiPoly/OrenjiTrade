@@ -8,6 +8,7 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { spacing } from '@/src/theme';
 
 export interface AvatarEditorProps {
@@ -31,7 +32,7 @@ export function AvatarEditor({ avatarUrl, name }: AvatarEditorProps) {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      ...LIBRARY_PHOTO_OPTIONS,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.85,
