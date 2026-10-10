@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory.domain;
 
 import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.binders.domain.ListingScope;
 import com.orenjitrade.api.binders.events.BinderFreshnessWarning;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.DelistPolicyService;
@@ -24,7 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The freshness job's work (Phase 3 contract "Jobs"), in one transaction:
+ * The freshness job's work (Phase 3 contract "Jobs"), in one transaction. The binder half of each
+ * step runs before the first item is written (lock order: binder rows before item rows; nothing a
+ * binder step decides depends on the items):
  *
  * <ol>
  *   <li>expired temporary publications (items and binders) become PRIVATE;
@@ -75,7 +78,11 @@ public class FreshnessService {
         FreshnessPolicy policy = policies.active();
         Instant now = timeProvider.now();
 
+        // Binders first, to the end: expiry and freshness, effective visibility, warnings.
         BinderService.FreshnessRun binderRun = binders.runFreshness(policy, now);
+        binders.reconcileListing(new ListingScope.All());
+        Map<UUID, BinderService.Warning> binderWarnings = binders.warn(policy, now);
+
         int expiredItems = items.normaliseExpired(now);
         List<StateChange> changes = items.recomputeFreshness(policy, now);
         int aged = 0;
@@ -105,7 +112,7 @@ public class FreshnessService {
         }
         freshnessEvents.record(entries);
 
-        ListingReconciler.Counts counts = reconciler.all();
+        ListingReconciler.Counts counts = reconciler.allItems();
         for (Map.Entry<WarningKey, Integer> group : hiddenListings.entrySet()) {
             events.publishEvent(
                     new InventoryListingsHidden(
@@ -115,7 +122,6 @@ public class FreshnessService {
                             now));
         }
 
-        Map<UUID, BinderService.Warning> binderWarnings = binders.warn(policy, now);
         List<Warned> itemWarnings = items.warn(policy, now);
         List<FreshnessEventLog.Entry> warned = new ArrayList<>();
         Map<WarningKey, WarningGroup> groups = new LinkedHashMap<>();

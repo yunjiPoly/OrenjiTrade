@@ -100,11 +100,13 @@ public class ListingReconciler {
                 publishEvents);
     }
 
-    /** Everything (freshness job: expiries, freshness, time-based suspension ends). */
+    /**
+     * Every item (freshness job: expiries, freshness, time-based suspension ends). The job
+     * reconciles every binder itself ({@code ListingScope.All}) before it writes any item.
+     */
     @Transactional
-    public Counts all() {
+    public Counts allItems() {
         flush();
-        binderService.reconcileListing(new ListingScope.All());
         return publish(
                 items.reconcile("(i.deleted_at IS NULL OR i.publicly_listed)", Map.of(), now()),
                 true);
