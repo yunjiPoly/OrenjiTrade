@@ -574,8 +574,8 @@ export function ensureDocker() {
   }
   if (info.status !== 0) {
     fail(
-      'Docker is not running (docker info failed). Start Docker Desktop and wait until it reports ' +
-        '"Engine running", then retry.\n' +
+      'Docker is not running (docker info failed). Start your Docker engine (Docker Desktop, or OrbStack on ' +
+        'macOS) and wait until it reports that it is running, then retry.\n' +
         (info.stderr.trim().split(/\r?\n/).slice(-3).join('\n') || ''),
     );
   }
