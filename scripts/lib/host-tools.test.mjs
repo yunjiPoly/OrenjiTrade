@@ -132,12 +132,10 @@ describe('Python for the ML tests', () => {
     assert.equal(mlVenvPython('C:\\repo\\apps\\ml', 'win32'), 'C:\\repo\\apps\\ml\\.venv\\Scripts\\python.exe');
   });
 
-  it('tries versioned interpreter names after python3 on macOS and Linux', () => {
+  it('tries versioned interpreter names after python3 on macOS and Linux, python3.12 (CI) first', () => {
     assert.deepEqual(pythonCommands('win32'), ['python', 'py']);
     for (const platform of ['darwin', 'linux']) {
-      const commands = pythonCommands(platform);
-      assert.deepEqual(commands.slice(0, 2), ['python3', 'python']);
-      assert.ok(commands.includes('python3.12'));
+      assert.deepEqual(pythonCommands(platform), ['python3', 'python', 'python3.12', 'python3.13', 'python3.14']);
     }
   });
 

@@ -120,10 +120,11 @@ export function mlVenvPython(mlDir, platform) {
 /**
  * Interpreter names to try on PATH when apps/ml has no virtual environment. macOS ships
  * /usr/bin/python3 3.9 with the Command Line Tools while Homebrew's 3.12 is `python3.12`, hence the
- * versioned names after the plain ones.
+ * versioned names after the plain ones. 3.12 comes first among them: it is the Python of CI and of
+ * the ML image, and the one the documents tell a developer to install.
  */
 export function pythonCommands(platform) {
-  return platform === 'win32' ? ['python', 'py'] : ['python3', 'python', 'python3.14', 'python3.13', 'python3.12'];
+  return platform === 'win32' ? ['python', 'py'] : ['python3', 'python', 'python3.12', 'python3.13', 'python3.14'];
 }
 
 /**
