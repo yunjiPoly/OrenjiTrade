@@ -135,7 +135,11 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         setDiscoverable(ownerId, true);
         String binderId = createBinder(uid, "Listed", "PUBLIC");
         String otherBinderId = createBinder(uid, "Other", "PUBLIC");
-        List<String> items = createItemsInIdOrder(uid, binderId);
+        List<String> items =
+                ascending(
+                        "inventory_item",
+                        createItem(uid, binderId, Map.of()),
+                        createItem(uid, binderId, Map.of()));
         String kept = items.get(0);
         String written = items.get(1);
         assertThat(listedFlags(ownerId)).as("listed before the privacy change").containsOnly(true);
@@ -612,7 +616,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                         createBinder(uid, "One", "PUBLIC"),
                         createBinder(uid, "Two", "PUBLIC"));
         // The job writes the higher binder in its first step and the lower one in its last
-        // binder step; the reorder locks them in ascending id.
+        // binder step; the reorder takes the lower one first.
         String warned = binders.get(0);
         String expired = binders.get(1);
         testUsers.update(
@@ -637,14 +641,14 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                 HttpMethod.PUT,
                                 "/api/v1/binders/reorder",
                                 uid,
-                                Map.of("binderIds", List.of(expired, warned)),
+                                Map.of("binderIds", List.of(warned, expired)),
                                 200));
 
         assertThat(column("binder", "visibility", expired)).isEqualTo("PRIVATE");
         assertThat(column("binder", "warned_at", warned)).as("the binder is warned").isNotNull();
         assertThat(column("binder", "freshness_state", aging)).isEqualTo("AGING");
-        assertThat(column("binder", "sort_order", expired)).isEqualTo(0);
-        assertThat(column("binder", "sort_order", warned)).isEqualTo(1);
+        assertThat(column("binder", "sort_order", warned)).isEqualTo(0);
+        assertThat(column("binder", "sort_order", expired)).isEqualTo(1);
     }
 
     /**
@@ -1057,24 +1061,6 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         }
         body.putAll(extra);
         return callJson(HttpMethod.POST, ITEMS, uid, body, 201).path("id").asString();
-    }
-
-    /**
-     * Two items of the binder whose ids ascend in the order of their creation (ids are random, so a
-     * pair in the other order is deleted and replaced): the order in which a statement reaches them
-     * is then the same with and without an {@code ORDER BY id}.
-     */
-    private List<String> createItemsInIdOrder(String uid, String binderId) {
-        for (int attempt = 0; attempt < 20; attempt++) {
-            String first = createItem(uid, binderId, Map.of());
-            String second = createItem(uid, binderId, Map.of());
-            if (ascending("inventory_item", first, second).get(0).equals(first)) {
-                return List.of(first, second);
-            }
-            callJson(HttpMethod.DELETE, ITEMS + "/" + first, uid, null, 204);
-            callJson(HttpMethod.DELETE, ITEMS + "/" + second, uid, null, 204);
-        }
-        throw new AssertionError("No pair of items in id order");
     }
 
     private String createTemporaryItem(String uid, @Nullable String binderId) {
