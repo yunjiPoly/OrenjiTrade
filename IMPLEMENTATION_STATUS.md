@@ -2329,7 +2329,7 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 
 ---
 
-## Binder count deadlock: one lock order for binders and inventory items (2026-10-10)
+## Binder count deadlock: owner lock, job lock and one row order (2026-10-10)
 
 Branch `fix/binder-count-deadlock`, no migration. `DELETE /api/v1/inventory/items/{id}` answered 500
 ("deadlock detected" in `inventory_item_binder_count()`) when it met the listing reconciliation of a
@@ -2337,33 +2337,52 @@ privacy change: the delete held the item and waited for its binder (the item cou
 reconciler held the binder and waited for the item. Seen once in `BinderIT` on 2026-10-10; in
 production a collector deleting a card right after changing a privacy setting.
 
-- **Rule** (docs/database/schema.md, "Lock order of binders and inventory items"): binder rows
-  before item rows, each in ascending id. Item writes (`InventoryService.lockForWrite`: update, move,
-  delete, confirm, bulk, admin restore, trade transfer, create in a binder) lock the binders of
-  their items and the move target first; an item moved by another request in between has its new
-  binder taken without waiting, or the request answers 409. `ListingReconciler.owner`, binder
-  reorder and the account purge lock every binder of the owner first. Every statement that locks
-  several rows orders them by id. The freshness job writes its binders (expiry, freshness, effective
-  visibility, warnings) before its first item.
+- **Rule** (docs/database/schema.md, "Locks of binders and inventory items"), three layers:
+  1. **Owner lock.** Every write to a collector's binders or inventory items first takes a
+     transaction-scoped advisory lock of that collector (`BinderService.lockOwners`): item create,
+     update, move, delete, confirm, bulk, admin restore, trade transfer (both collectors, in one
+     order), every binder write, `ListingReconciler.owner`, the account purge. The writes of one
+     collector run one after the other.
+  2. **Lock of all owners.** The freshness job writes every collector's rows, so it takes the
+     exclusive half of a second advisory lock (`BinderService.lockAllOwners`) whose shared half
+     every `lockOwners` takes: the job runs alone and writes wait for its commit. The job waits at
+     most 10 seconds for the writes in progress, then the run fails without having written anything
+     and the next run does the work.
+  3. **Row order** below both: binder rows before item rows, each in ascending id
+     (`InventoryService.lockForWrite`, ordered locking clauses in every multi-row statement, the job
+     writes its binders before its first item). It is the second line behind the two locks.
 - **Also fixed on the way:** requests adding cards to the same binder at the same moment could
   deadlock with each other (each held the foreign key's key-share lock on the binder and then asked
   for the full row lock; seen with four parallel requests); the bulk endpoint read its items before
   it locked them; the freshness job wrote the state it had computed before waiting for a row, so a
-  confirmation committed during the wait was overwritten until the next run.
-- **Tests:** `InventoryLockOrderIT` (15): each item write against a reconciler stopped between its
-  binder and item statements (9 cases, all "deadlock detected" before the fix), an item moved
-  meanwhile, the no-wait binder lock, the freshness job stopped mid-run (both directions), the job
-  re-reading a row it waited for, and a bounded run of seven concurrent writers of one collector.
-- **Known limit (not fixed):** the freshness job locks rows of every collector without holding
-  their binders and orders the rows of each statement, not of its whole run. A request that writes
-  an item and then re-lists or unlists the rest of its binder, or that holds several rows the job
-  writes in different statements, can still meet the job in a lock cycle. The hourly job makes
-  that unlikely, but it is easy to provoke: with the job looping in two threads next to the seven
-  writers of the stress test and a privacy change every round, seven of eight local runs hit a
-  deadlock, always the job's item reconciliation against a bulk write's binder reconciliation.
-  Options, none chosen: keep inventory writes out while the job runs (shared/exclusive advisory
-  lock), let the job skip locked rows until its next run, give the job a short lock timeout and a
-  retry, or retry the request on SQLSTATE 40P01.
+  confirmation committed during the wait was overwritten until the next run; an item or binder
+  created while the listing reconciliation of a privacy change ran could keep a stale listed flag
+  until the next job run.
+- **Review round (same day):** the first version had the row order only. The reviewer showed that a
+  bulk write (or a trade transfer of several cards) could still deadlock with two other requests of
+  the same collector, because it read the binders of its items before another request filed them;
+  the freshness job could still deadlock with a write that takes several binders; and item writes
+  could answer a 409 that the OpenAPI did not declare. The owner lock closes the first, the lock of
+  all owners the second, and the 409 is gone (no API change: nothing can move an item between the
+  read and the locks any more).
+- **Tests:** `InventoryLockOrderIT` (30): each item write against the reconciliation of a privacy
+  change stopped at one of its items (9 cases, real entry points) and against a transaction that
+  takes no owner lock (9 cases, the row order alone), a bulk write and a trade transfer of items
+  filed meanwhile, a card and a binder created during a privacy change, a write waiting for a move
+  of its item, the owner locks of two collectors in one order, the job stopped mid-run against an
+  item delete, a binder reorder and a transaction without advisory locks, the job's bounded wait,
+  the job re-reading a row it waited for, and a bounded run of seven writers of one collector next
+  to two job workers. Three parts of the row order are a second line no test can reach any more
+  with the owner lock in front (the owner reconciliation locking every binder first, the id order
+  of the item locks, the binder row lock of a create); so is the owner lock of the single-binder
+  writes, which the binder row lock already serialises with the owner reconciliation.
+- **Decision to confirm:** every binder and item write waits while the hourly job runs, and a
+  collector's own simultaneous writes wait for each other. The alternatives for the job (skip
+  locked rows, retry on a deadlock) keep writes flowing but let a run skip rows or fail a request
+  first. The job lock is a commit of its own, so it can be taken out without the owner lock.
+- **Still open:** item rows are locked `FOR UPDATE`, which conflicts with the key-share lock of a
+  foreign key check from other modules (offers, trade lines, trades); `FOR NO KEY UPDATE` on the
+  item locks outside the purge would remove it. Not analysed further, not tested.
 
 ---
 
