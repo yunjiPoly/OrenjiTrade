@@ -13,12 +13,33 @@ DELETE FROM notification
  WHERE type = 'SYSTEM' AND data ->> 'kind' = 'LIMIT_REACHED'
    AND data ->> 'notificationType' = 'WISHLIST_MATCH';
 
+-- The local analytics aggregate of the removed 'wishlist_matched' event (admin summary).
+DELETE FROM analytics_daily_count WHERE event_type = 'wishlist_matched';
+
+-- Transactional outbox (V002): a publication that is still incomplete (a crash between the commit
+-- and the listener) is republished at the next start. The new code cannot read one of the removed
+-- WishlistMatched class (a warning at every start) nor one of WishlistItemCreated in its old shape
+-- (it lost hasMaxPrice / tradePreference and gained the primitive nearMintOnly / hasPriceTerm: the
+-- first start fails on it and the row stays incomplete for ever). Every such row predates this
+-- migration, so they are completed here (their listeners only fed analytics).
+UPDATE event_publication
+   SET completion_date = now(), status = 'COMPLETED'
+ WHERE completion_date IS NULL
+   AND event_type IN ('com.orenjitrade.api.wishlist.events.WishlistMatched',
+                      'com.orenjitrade.api.wishlist.events.WishlistItemCreated');
+
 -- ---------------------------------------------------------------------------------------------
 -- wishlist_item: which copy (card, optional printing, optional rarity), a public note,
 -- "Near Mint only" and at most one price term. Removed: minimum condition, edition, language,
 -- maximum price and currency, trade/buy preference, private notes, the per-wish alert switch
 -- (active) and the match timestamp.
 -- ---------------------------------------------------------------------------------------------
+-- A wish its owner had paused (active = false) was hidden from the public wishlist and from
+-- matching. There is no paused wish any more, and a paused wish must not become public and
+-- alerting behind its owner's back: paused wishes are deleted (lead decision of 2026-10-10; the
+-- spec drops data rather than migrating it, and only fictional data exists).
+DELETE FROM wishlist_item WHERE NOT active;
+
 DROP INDEX IF EXISTS ix_wishlist_item_active_card;
 DROP INDEX IF EXISTS ix_wishlist_item_active_printing;
 DROP INDEX IF EXISTS ix_wishlist_item_updated;
@@ -42,19 +63,40 @@ ALTER TABLE wishlist_item
 
 -- Normalise the selection BEFORE collapsing duplicates, so that rows which only become equal
 -- through the normalisation are collapsed too (the unique index below needs it):
--- 1. The card of a printing wish is the printing's card (the old schema allowed a printing wish
---    without card_id; the API always filled it).
-UPDATE wishlist_item w SET card_id = p.card_id
-  FROM card_printing p
- WHERE w.card_id IS NULL AND p.id = w.printing_id;
+-- 1. Rarity strings are trimmed (spaces, tabs, line breaks) and an empty one means "any rarity"
+--    (the old API checked the rarity against the game's list; this only guards rows written by
+--    hand).
+UPDATE wishlist_item
+   SET rarity = NULLIF(btrim(rarity, ' ' || chr(9) || chr(10) || chr(13)), '')
+ WHERE rarity IS NOT NULL
+   AND rarity IS DISTINCT FROM NULLIF(btrim(rarity, ' ' || chr(9) || chr(10) || chr(13)), '');
 
--- 2. A printing fixes its rarity: a rarity is kept only on "any printing" wishes. The old form
+-- 2. The card (and game) of a printing wish are the printing's: the old schema allowed a printing
+--    wish without card_id, or with the card of another printing (the API always filled it right).
+UPDATE wishlist_item w
+   SET card_id = p.card_id, game_slug = g.slug
+  FROM card_printing p
+  JOIN card c ON c.id = p.card_id
+  JOIN game g ON g.id = c.game_id
+ WHERE p.id = w.printing_id
+   AND (w.card_id IS DISTINCT FROM p.card_id OR w.game_slug <> g.slug);
+
+-- 3. A printing fixes its rarity: a rarity is kept only on "any printing" wishes. The old form
 --    allowed a rarity filter next to one printing, so (P, 'Ultra Rare') and (P, NULL) become the
 --    same wish here.
 UPDATE wishlist_item SET rarity = NULL WHERE printing_id IS NOT NULL AND rarity IS NOT NULL;
 
--- 3. Wishes that differed only by a removed filter (or by the normalisation above) are now the
---    same wish: keep the oldest.
+-- 4. "Any printing of a rarity" must name a rarity one of the card's printings has (the old API
+--    only checked the game's rarity list, so "any Ghost Rare" of a card without one was accepted):
+--    such a wish could never alert and could not be saved again. Its rarity is cleared, which
+--    makes it a plain "any printing" wish.
+UPDATE wishlist_item w SET rarity = NULL
+ WHERE w.printing_id IS NULL AND w.rarity IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM card_printing p
+                    WHERE p.card_id = w.card_id AND p.rarity = w.rarity);
+
+-- 5. Wishes that differed only by a removed filter (or by the normalisation above) are now the
+--    same wish: keep the oldest (ties on created_at: the smallest id).
 DELETE FROM wishlist_item w
  USING wishlist_item older
  WHERE older.owner_id = w.owner_id
@@ -63,8 +105,10 @@ DELETE FROM wishlist_item w
    AND older.rarity IS NOT DISTINCT FROM w.rarity
    AND (older.created_at, older.id) < (w.created_at, w.id);
 
+-- card_id NOT NULL makes the old "card or printing" check redundant.
 ALTER TABLE wishlist_item
     ALTER COLUMN card_id SET NOT NULL,
+    DROP CONSTRAINT ck_wishlist_item_target,
     ADD COLUMN public_note    text    NOT NULL DEFAULT '',
     ADD COLUMN near_mint_only boolean NOT NULL DEFAULT false,
     ADD COLUMN price_term     text,
@@ -115,6 +159,12 @@ INSERT INTO platform_settings (key, value, description) VALUES
 -- the WISHLIST_MATCH category of the channel matrix).
 -- ---------------------------------------------------------------------------------------------
 ALTER TABLE notification_preferences ADD COLUMN wishlist_alerts boolean NOT NULL DEFAULT true;
+-- An opt-out is carried over: a collector who had switched the old WISHLIST_MATCH category off on
+-- both channels the new alert uses (in-app and push) starts with wishlist alerts off. With either
+-- of the two still on, alerts stay on (email never carried wishlist alerts in the new model).
+UPDATE notification_preferences SET wishlist_alerts = false
+ WHERE categories #>> '{WISHLIST_MATCH,inApp}' = 'false'
+   AND categories #>> '{WISHLIST_MATCH,push}' = 'false';
 UPDATE notification_preferences SET categories = categories - 'WISHLIST_MATCH'
  WHERE categories ? 'WISHLIST_MATCH';
 

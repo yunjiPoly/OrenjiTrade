@@ -44,8 +44,8 @@ update it in the same change.
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
-| `wishlist_item.notes` | Private owner notes | Owner only (`GET /wishlist`, `GET /me/export`); never in the public wishlist summary, matches, notifications, events, analytics or logs |
-| `wishlist_item` (rows) | What a collector is looking for | Owner only; others see card, printing and minimum condition through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block |
+| `wishlist_item.public_note` | **Public** note of a wish (there is no private wishlist note any more: V112 dropped `wishlist_item.notes` without copying it) | Public wherever the wish is visible: the owner (`GET /wishlist`, `GET /me/export`) and, when the wishlist is shown, everyone who can see it (`GET /collectors/{handle}/wishlist`; "Who wants it" in stage S3). Plain text, moderated like profile text; never in notifications, events, analytics or logs |
+| `wishlist_item` (rows) | What a collector is looking for | The owner always; others see the card, which copy (printing, or any printing with its optional rarity), the public note, "Near Mint only" and the price term through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block. Wishlist alerts work for hidden wishlists and tell the wisher only |
 | `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
 | `push_token.token` | Device secret | Never returned by the API (export lists platform and dates only), never logged (the log provider logs the device count) |
 | `collector_report.details`, `moderator_note.body`, `collector_report.resolution_note` | Reporter and moderator free text | Moderators and admins only (`/admin/reports/**`); never returned to the reporter or the reported collector, never in events or analytics (`collector_reported` carries reason and context source only); report details of decided reports are erased when the reporter's account is deleted |
@@ -170,7 +170,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V109 | `V109__remove_distance_features.sql` | ADR 0017: `wishlist_item.radius_km` and `wishlist_match.distance_bucket` dropped (matches and match alerts deleted), the `map.radius.max_km` limit, entitlements and `map_radius_day` credit product deleted, plan copy updated, ad targeting by `REGION` / `COUNTRY` / `SUBDIVISION` (no `REGION_LABEL` / `GEO_CELL`), `ad_impression` / `ad_click` record `region_code` and `subdivision_code` instead of `geo_cell` |
 | V110 | `V110__platform_region_channels.sql` | ADR 0017: the city REGION channels are archived; one REGION channel per platform region (`americas-north`, `americas-south`, `europe`) |
 | V111 | `V111__region_model_comments.sql` | ADR 0017: database comments only (`rating_summary` no longer mentions the nearby ranking) |
-| V112 | `V112__simplified_wishlist.sql` | Stage S2 (owner change of 2026-10-08, section 4): `wishlist_match` dropped with the WISHLIST_MATCH notifications and their limit notices; `wishlist_item` keeps only which copy (card, printing or any, rarity of "any printing" wishes) and gains `public_note` (≤ 280), `near_mint_only`, `price_term` (condition, edition, language, max price, currency, trade preference, private notes, `active`, `last_matched_at` dropped, data not migrated; same-selection duplicates collapsed to the oldest; `uq_wishlist_item_selection`); `wishlist_alert_sent` (sent-alert key); `platform_settings` `wishlist.price_terms`; `notification_preferences.wishlist_alerts` (the `WISHLIST_MATCH` category key removed from `categories`) |
+| V112 | `V112__simplified_wishlist.sql` | Stage S2 (owner change of 2026-10-08, section 4): `wishlist_match` dropped with the WISHLIST_MATCH notifications and their limit notices; `wishlist_item` keeps only which copy (card, printing or any, rarity of "any printing" wishes) and gains `public_note` (≤ 280), `near_mint_only`, `price_term` (condition, edition, language, max price, currency, trade preference, private notes, `active`, `last_matched_at` dropped, data not migrated; paused wishes deleted; the selection normalised and same-selection duplicates collapsed to the oldest; `uq_wishlist_item_selection`; `ck_wishlist_item_target` dropped); `wishlist_alert_sent` (sent-alert key); `platform_settings` `wishlist.price_terms`; `notification_preferences.wishlist_alerts` (off for a collector whose `WISHLIST_MATCH` category had in-app and push off; the category key removed from `categories`); incomplete `event_publication` rows of `WishlistMatched` / `WishlistItemCreated` completed; `analytics_daily_count` rows of `wishlist_matched` deleted |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -458,7 +458,7 @@ A missing row means the defaults (push and in-app on, email off, `MARKETING` ful
 | `user_id` | `uuid` | PK, FK → `user_account.id` (cascade) |
 | `push_enabled`, `email_enabled`, `in_app_enabled` | `boolean` | master switches (`true`, `false`, `true`) |
 | `categories` | `jsonb` | object `{CATEGORY: {push, email, inApp}}` keyed by `MESSAGE`, `OFFER`, `RATING`, `TRADE`, `BINDER_FRESHNESS`, `REPORT_DECISION`, `MARKETING` (`WISHLIST_MATCH` until V112); missing keys mean the defaults, unknown keys are ignored when reading (`ck_notification_preferences_categories`: must be an object). Never filtered in SQL, so no GIN index |
-| `wishlist_alerts` | `boolean` | V112: the one on/off switch of wishlist alerts (default `true`); in-app and push follow the master switches and quiet hours, never email |
+| `wishlist_alerts` | `boolean` | V112: the one on/off switch of wishlist alerts (default `true`; V112 starts it `false` for a collector whose old `WISHLIST_MATCH` category had both in-app and push off); in-app and push follow the master switches and quiet hours, never email |
 | `quiet_hours` | `jsonb` | object `{enabled, start "HH:mm", end "HH:mm", timezone}` (IANA zone validated by the service), default disabled 22:00-08:00 America/Toronto |
 | `created_at`, `updated_at` | `timestamptz` | |
 
@@ -1095,8 +1095,8 @@ mirror); there is no separate notification rate-limit table.
 | `id` | `uuid` | PK |
 | `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
 | `game_slug` | `text` | game of the card (slug pattern check) |
-| `card_id` | `uuid` | FK → `card.id` (cascade); `NOT NULL` since V112 (V112 fills it from the printing where an old row lacked it); derived from the printing by the API |
-| `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card; `ck_wishlist_item_target`: card or printing required |
+| `card_id` | `uuid` | FK → `card.id` (cascade); `NOT NULL` since V112 (V112 takes it from the printing where an old row lacked it or named another card); derived from the printing by the API |
+| `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card (`ck_wishlist_item_target`, "card or printing required", was dropped by V112: `card_id` is `NOT NULL`) |
 | `rarity` | `text` | "any printing" wishes only (`ck_wishlist_item_rarity_any_printing`): any printing of this rarity, one of the rarities of the card's printings (validated by the API), 1-40 characters; `NULL` = any rarity |
 | `public_note` | `text` | V112: **public** note, plain text, ≤ 280 (`ck_wishlist_item_public_note`), moderated by the API; `''` = none |
 | `near_mint_only` | `boolean` | V112: only Near Mint or better copies fit (alerts, "Who wants it") |
@@ -1106,8 +1106,15 @@ mirror); there is no separate notification rate-limit table.
 Dropped by V109: `radius_km`. Dropped by V112 (data not migrated; private notes were not copied):
 `condition_min`, `edition`, `language`, `max_price`, `currency`, `trade_preference`, `notes`,
 `active`, `last_matched_at`.
-V112 normalises the selection before collapsing duplicates (card filled from the printing, a
-rarity stored next to a printing cleared), then keeps the oldest of the wishes that became equal.
+V112, in one transaction: deletes the wishes their owner had paused (`active = false`: a hidden
+wish must not become public and alerting; lead decision of 2026-10-10, fictional data only); then
+normalises the selection (rarity strings trimmed, an empty one `NULL`; the card and game of a
+printing wish taken from the printing; a rarity stored next to a printing cleared; a rarity no
+printing of the card has cleared), and only then keeps the oldest (ties: the smallest id) of the
+wishes that became equal. It also completes the incomplete `event_publication` rows of the removed
+`WishlistMatched` class and of `WishlistItemCreated` (whose record changed shape), so the first
+start after the upgrade neither fails on them nor leaves them incomplete for ever, and deletes the
+`analytics_daily_count` rows of the removed `wishlist_matched` event.
 
 Indexes: `uq_wishlist_item_selection (owner_id, card_id, printing_id, rarity) NULLS NOT DISTINCT`
 (one wish per selection; 409 at the API), `ix_wishlist_item_card (card_id)`,

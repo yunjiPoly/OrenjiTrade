@@ -105,6 +105,32 @@ sent_at)` cascades with the account and the item and is cleared by the wishlist'
 participant. The owner's data export section `wishlist` lists every wish with its note, Near Mint
 flag and term.
 
+### What V112 does to data of the old model
+
+There are no real users; V112 drops rather than migrates, in one transaction:
+
+- Removed fields are dropped; private notes are never copied into the public note.
+- **Paused wishes are deleted** (`active = false`; lead decision of 2026-10-10): a wish its owner
+  had hidden from the public wishlist and from matching must not become public and alerting.
+- The selection is normalised before duplicates collapse: a rarity string is trimmed (an empty one
+  means any rarity); a printing wish takes its printing's card and game; a rarity stored next to a
+  printing is cleared; "any printing of a rarity" no printing of the card has becomes a plain "any
+  printing" wish. Wishes of one collector that are then equal collapse to the oldest (ties: the
+  smallest id).
+- **Alert opt-outs are carried over:** a collector whose old `WISHLIST_MATCH` category had both
+  in-app and push off starts with `wishlistAlerts` false; with either of the two on it stays true
+  (email never carries wishlist alerts).
+- Matches, the WISHLIST_MATCH notifications and their limit notices, and the local analytics
+  counts of `wishlist_matched` are deleted.
+- Incomplete outbox rows (`event_publication`) of the removed `WishlistMatched` class and of
+  `WishlistItemCreated` in its old shape are marked completed, so the first start after the
+  upgrade neither fails on them nor republishes them for ever.
+
+V112 was edited on the branch before any merge (it freezes at the merge). A scratch or E2E database
+that applied an earlier version of the file fails Flyway validation with a checksum mismatch: drop
+and recreate that database (the E2E harnesses do so on every run); never `flyway repair`, and
+`npm run infra:reset` is not needed for it.
+
 ## Clients
 
 - Web: the shared printing picker (`shared/catalog/printing-picker`, reused by the card page in
