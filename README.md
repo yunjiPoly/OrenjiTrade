@@ -64,11 +64,11 @@ OrenjiTrade/
 
 | Tool | Version | Notes |
 | --- | --- | --- |
-| Docker Desktop | 4.x+ (Compose v2) | PostGIS, Redis, Firebase Auth emulator, Testcontainers |
+| Docker Desktop (or OrbStack on macOS) | 4.x+ (Compose v2) | PostGIS, Redis, Firebase Auth emulator, Testcontainers |
 | Node.js | 24 (see `.nvmrc`), npm 11 | scripts, web, mobile, packages |
-| JDK | 17+ installed | Gradle auto-provisions JDK 21 for the API (foojay toolchain) |
+| JDK | 21 recommended; a newer default JDK also works | only launches `./gradlew`: Gradle runs its daemon and the API build on Java 21, found on the machine or auto-provisioned (daemon JVM criteria + foojay toolchain) |
 | Terraform | 1.9+ | optional: `npm run infra:validate` only |
-| Python | 3.12+ | optional: ML service (on hold), `python` on Windows |
+| Python | 3.12+ | optional: ML service (on hold); `python` on Windows, `python3.12` on macOS and Linux |
 
 No Google Cloud, Stripe, Firebase, FCM, e-mail or map credentials are required locally:
 every provider has a local fake or log implementation selected by default.
