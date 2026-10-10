@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
 import { elevation, fontWeight, motion, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
+import { InsideModal, useModalOnScreen, useModalTurn } from './modalTurns';
+
 export interface BottomSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -27,12 +29,14 @@ export interface BottomSheetProps {
  * `Animated` API: no gesture/sheet library until Phase 4 needs snap points.
  */
 export function BottomSheet({
-  visible,
+  visible: wanted,
   onClose,
   title,
   children,
   testID = 'bottom-sheet',
 }: BottomSheetProps) {
+  // iOS: a sheet asked for while another modal is on screen waits for its turn (modalTurns.tsx).
+  const visible = useModalTurn(wanted);
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -55,7 +59,10 @@ export function BottomSheet({
     return () => animation.stop();
   }, [reducedMotion, translateY, visible, windowHeight]);
 
-  if (!visible && closed) {
+  // On screen until the close animation has played: the next modal waits for that on iOS.
+  const mounted = visible || !closed;
+  useModalOnScreen(mounted);
+  if (!mounted) {
     return null;
   }
 
@@ -86,7 +93,7 @@ export function BottomSheet({
               {title}
             </Text>
           ) : null}
-          {children}
+          <InsideModal>{children}</InsideModal>
         </Animated.View>
       </View>
     </Modal>

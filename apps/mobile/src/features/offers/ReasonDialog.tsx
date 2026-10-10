@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
+import { useModalOnScreen, useModalTurn } from '@/src/components/ui/modalTurns';
 import { TextField } from '@/src/components/ui/TextField';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -64,7 +65,10 @@ export function ReasonDialog({
     }
   }
 
-  if (!visible) {
+  // iOS: asked for from a sheet row, the dialog waits until the sheet has left (modalTurns.tsx).
+  const present = useModalTurn(visible);
+  useModalOnScreen(present);
+  if (!present) {
     return null;
   }
   const trimmed = reason.trim();
