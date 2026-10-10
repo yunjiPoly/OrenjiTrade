@@ -1,9 +1,20 @@
-# Claude Code handoff (2026-10-09): continuing OrenjiTrade on the MacBook
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
 and the working agreements with the owner that are not written anywhere else (they lived in the
 Windows machine's Claude memory). Machine setup: [macos-setup.md](macos-setup.md).
+
+**The machine (2026-10-10).** A Mac mini (Apple M6, 12 cores, 24 GB RAM, macOS 27.0.1), not a
+MacBook. Docker is **OrbStack** (Docker context `orbstack`, `/var/run/docker.sock` linked to it,
+Rosetta on, 12 CPUs / 12 GB), not Docker Desktop. The only system JDK is Temurin 27, which works:
+the Gradle daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`) and the E2E
+harnesses pick a Java 21 for the API jar. Node 24.21.0, Xcode 27 with iOS 27 simulators (**the iOS
+simulator is available**), Maestro 2.11.0. **No Android SDK is installed yet** (no adb, no
+emulator), so the Android Maestro suite cannot run until the owner installs it
+([macos-setup.md](macos-setup.md) 9.3). Python 3.12 is not installed either (ML is on hold). The
+macOS and OrbStack fixes of 2026-10-10 are on branch `chore/macos-ios-dev` until it is merged; a
+branch without them needs `JAVA_HOME` set to a JDK 21 for Gradle.
 
 ## 1. Where things stand
 
@@ -52,7 +63,8 @@ never store Collectr prices).
 
 1. Set the machine up with [macos-setup.md](macos-setup.md) (Claude Code with the `orenji` alias:
    bypass permissions + `--effort ultracode`, Docker with Rosetta, Java 21, Node 24, Android arm64
-   AVD, Maestro).
+   AVD, Maestro). Done on 2026-10-10 except the Android SDK and its arm64 AVD (see "The machine"
+   above).
 2. Start Claude in the repo and point it here: *"Read CLAUDE.md, docs/development/claude-handoff.md
    and IMPLEMENTATION_STATUS.md, then continue the 2026-10-08 change from stage S2."*
 3. **Finish S2:** `git switch feature/regions-s2-wishlist`, `npm ci`, then an **independent
@@ -72,8 +84,9 @@ Checks every stage must pass before its PR (run them, retries off): `./gradlew e
 `npm run audit:gate`; `npm run test:scripts`; exactly what GitHub CI runs:
 `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
 `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`; and, when `apps/mobile` changed,
-the full Maestro set on the Android emulator (`npm run test:mobile:maestro`; on macOS set
-`ANDROID_HOME=$HOME/Library/Android/sdk`, see macos-setup.md section 12).
+the full Maestro set on the Android emulator (`npm run test:mobile:maestro`; the harness finds the
+SDK in `~/Library/Android/sdk` by itself). As long as the Mac has no Android SDK this check cannot
+run: say so in the PR report as "could not be verified", never skip it silently.
 
 ## 4. How the work has been done (keep doing it)
 
@@ -94,6 +107,11 @@ the full Maestro set on the Android emulator (`npm run test:mobile:maestro`; on 
   8480/4480 (db `orenjitrade_regions_check`, Redis db 5) and 8490/4490 (`orenjitrade_regions_ux`,
   Redis db 6). Every E2E API gets its own card-image cache and media directories (start-up
   reconciliation deletes files its own database does not reference).
+- **Gradle daemons are shared by every worktree.** Never run `./gradlew --stop`: it stops every
+  daemon of that Gradle version, the one behind the owner's `npm run dev` API and other worktrees'
+  running builds included. A build that needs its own daemon passes
+  `-Dorg.gradle.daemon.registry.base=<a scratch directory>` and stops only that one with the same
+  flag.
 - **Stop every process you start**; leave no emulator, Metro or test stack running.
 
 ## 5. Owner working agreements (from the Windows Claude memory)
@@ -132,6 +150,14 @@ the full Maestro set on the Android emulator (`npm run test:mobile:maestro`; on 
   re-evaluate before then or `npm run audit:gate` fails everywhere.
 - The `[to confirm]` placeholders for the owner and the lawyer listed in PR #52 (privacy officer,
   effective dates, data locations, retention periods, governing law, the French texts).
+- OrbStack: its free use is limited; the owner checks OrbStack's current licence terms for
+  commercial use and decides (macos-setup.md 4.4). On the owner's Mac it also publishes the dev
+  ports (PostgreSQL, Redis, Auth emulator) on every network interface while the macOS firewall is
+  off, and it does not start at login.
+- Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3), which the Android
+  Maestro suite needs, and setting git `user.name` / `user.email` there (3.1).
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
-  review, backup-restore drill, failure tests) and fixing the 21 macOS issues listed in
-  [macos-setup.md](macos-setup.md) section 12.
+  review, backup-restore drill, failure tests).
+- The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1, 3, 4 and 7 to 13 were
+  fixed on 2026-10-10. Still open: item 2 (an iOS path for the Maestro harness, built next) and the
+  Windows-only Maestro examples of `apps/mobile/README.md` that go with it.
