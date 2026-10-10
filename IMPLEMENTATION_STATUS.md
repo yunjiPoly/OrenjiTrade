@@ -2329,6 +2329,33 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 
 ---
 
+## macOS / Apple Silicon development (2026-10-10)
+
+First run on the owner's Mac mini (Apple M6, macOS 27.0.1, OrbStack 2.2.3 with Docker Engine 29.4,
+Temurin 27 as the only system JDK). The per-item record is in `docs/development/macos-setup.md`
+(first-run section, 4.4, 5 and 12).
+
+- **Docker:** `docker-compose.yml` names `platform: linux/amd64` for the amd64-only PostGIS image
+  (an Apple Silicon engine refuses the unpinned pull). Testcontainers needs no change: it pulls
+  linux/amd64 by itself after the refusal. Proven under OrbStack with `FlywayMigrationIT` and
+  `FeatureFlagsIT` (12 tests, 16-19 s for the Gradle run, PostGIS container up in 3.5 s).
+- **Gradle:** the daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`), so
+  `spotlessCheck` passes when the default JDK is newer (it failed on a JDK 27 daemon). CI and the
+  Dockerfile launch with Temurin 21 and are unaffected; the image's build stage was built locally.
+- **Scripts** (unit-tested, `npm run test:scripts`: 101 tests): the E2E harnesses run the API jar on
+  an exact Java 21 when one exists (override variables first, a newer Java only with a warning);
+  macOS paths and hints for adb, Maestro, Terraform and the ML Python; the E2E isolation guard folds
+  path case on macOS; `test:e2e -- --stop` recognises java and node there.
+- **Docs:** OrbStack as a supported engine, the JDK statements, the Playwright cache path, macOS
+  examples; `claude-handoff.md` names the real machine.
+- **Not verified on the Mac yet:** the full `npm run test:api`, the web and mobile E2E suites, the
+  Maestro suite (no Android SDK installed), iOS, and Docker Desktop.
+- **Open:** an iOS path for the Maestro harness (macos-setup.md 12 item 2, next), the arm64 PostGIS
+  image decision before macOS 28, and the owner items of `claude-handoff.md` section 6 (OrbStack
+  licence terms, dev ports exposed on the LAN, Android SDK, git identity).
+
+---
+
 ## NEXT TASK
 
 > **Stage S1 — geography (2026-10-08, branch `feature/regions-geography`, not pushed):** builder
