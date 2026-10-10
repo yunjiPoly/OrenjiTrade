@@ -6,7 +6,7 @@ package per module under `com.orenjitrade.api` (see `CLAUDE.md` and
 
 | | |
 | --- | --- |
-| Runtime | Java 21 (Gradle toolchain, auto-provisioned by the foojay resolver). Gradle itself must run on JDK 21+ too: Spotless uses google-java-format 1.30, which needs it |
+| Runtime | Java 21 (Gradle toolchain, auto-provisioned by the foojay resolver). The Gradle daemon is pinned to Java 21 too (`gradle/gradle-daemon-jvm.properties`): Spotless runs google-java-format 1.30 inside it, which needs JDK 21+ and fails on JDK 27. The machine's default `java` only launches `./gradlew`, so a newer default JDK is fine |
 | Framework | Spring Boot 4.1.1, Spring Framework 7, Security 7, Hibernate 7 (+ `hibernate-spatial`), Jackson 3 (`tools.jackson.*`) |
 | Build | Gradle 9.7 Kotlin DSL (`./gradlew`), Spotless (google-java-format, AOSP style) |
 | Data | PostgreSQL 17 + PostGIS via Flyway (`src/main/resources/db/migration`), Redis (Lettuce) |

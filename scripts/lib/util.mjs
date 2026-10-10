@@ -114,10 +114,10 @@ export function parseFlags(argv, known) {
 
 /**
  * Reads the optional repository-root `.env` (copied from `.env.example`). Values already set in
- * the environment win; empty values are skipped so the application defaults apply.
+ * the environment win; empty values are skipped so the application defaults apply. `file` exists
+ * for the unit tests.
  */
-export function loadDotEnv() {
-  const file = path.join(ROOT, '.env');
+export function loadDotEnv(file = path.join(ROOT, '.env')) {
   const values = {};
   if (!fs.existsSync(file)) {
     return values;
@@ -574,8 +574,8 @@ export function ensureDocker() {
   }
   if (info.status !== 0) {
     fail(
-      'Docker is not running (docker info failed). Start Docker Desktop and wait until it reports ' +
-        '"Engine running", then retry.\n' +
+      'Docker is not running (docker info failed). Start your Docker engine (Docker Desktop, or OrbStack on ' +
+        'macOS) and wait until it reports that it is running, then retry.\n' +
         (info.stderr.trim().split(/\r?\n/).slice(-3).join('\n') || ''),
     );
   }
@@ -619,42 +619,197 @@ function javaMajor(javaBin) {
   return major === 1 ? Number(match[2]) : major;
 }
 
-/**
- * A Java >= 21 runtime for the API jar: ORENJI_JAVA_HOME, JAVA_HOME, `java` on PATH, then the
- * JDKs Gradle auto-provisioned under ~/.gradle/jdks (the toolchain used to build the API).
- */
-export function findJava21() {
-  const exe = IS_WINDOWS ? 'java.exe' : 'java';
-  const candidates = [];
-  for (const home of [process.env.ORENJI_JAVA_HOME, process.env.JAVA_HOME]) {
-    if (home) {
-      candidates.push(path.join(home, 'bin', exe));
-    }
-  }
-  candidates.push('java');
-  const gradleHome = process.env.GRADLE_USER_HOME ?? path.join(os.homedir(), '.gradle');
-  const jdks = path.join(gradleHome, 'jdks');
-  if (fs.existsSync(jdks)) {
-    const dirs = fs
-      .readdirSync(jdks, { withFileTypes: true })
+/** The Java release the API is built for and runs on in CI and in the production image. */
+export const API_JAVA_MAJOR = 21;
+
+function subdirectories(dir) {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
+      .map((entry) => path.join(dir, entry.name))
       .sort()
       .reverse();
-    for (const dir of dirs) {
-      candidates.push(path.join(jdks, dir, 'bin', exe));
-      candidates.push(path.join(jdks, dir, 'Contents', 'Home', 'bin', exe));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The `java` binaries of the JDKs Gradle provisioned under `jdksDir` (~/.gradle/jdks). Gradle
+ * unpacks each archive inside its own directory, so the JDK home is that directory or one level
+ * below it, and on macOS the home is the bundle's Contents/Home:
+ * `<vendor-21-arch-os>/jdk-21.0.x+y/Contents/Home/bin/java`.
+ */
+export function gradleJdkJavaBins(jdksDir, exe = IS_WINDOWS ? 'java.exe' : 'java') {
+  const bins = [];
+  for (const install of subdirectories(jdksDir)) {
+    for (const root of [install, ...subdirectories(install)]) {
+      for (const home of [root, path.join(root, 'Contents', 'Home')]) {
+        const bin = path.join(home, 'bin', exe);
+        if (fs.existsSync(bin)) {
+          bins.push(bin);
+        }
+      }
     }
   }
-  for (const candidate of candidates) {
-    if (candidate !== 'java' && !fs.existsSync(candidate)) {
-      continue;
-    }
-    if (javaMajor(candidate) >= 21) {
-      return candidate;
+  return bins;
+}
+
+/**
+ * macOS: the home of an installed JDK 21 according to `/usr/libexec/java_home`, else null. `-F`
+ * matters: without it java_home answers with the default JDK (a newer one) when no JDK 21 exists.
+ */
+function macJavaHome() {
+  const result = capture('/usr/libexec/java_home', ['-F', '-v', String(API_JAVA_MAJOR)], { timeout: 20_000 });
+  const home = result.status === 0 ? result.stdout.trim().split(/\r?\n/)[0] : '';
+  return home || null;
+}
+
+/**
+ * Where the Java runtime of the API jar is looked for, in priority order: ORENJI_JAVA_HOME (the
+ * override), JAVA_HOME, `java` on PATH, on macOS an installed JDK 21 that `/usr/libexec/java_home`
+ * knows, then the JDKs Gradle provisioned under ~/.gradle/jdks. The two variables carry their name
+ * in `variable`. `fromDotEnv(name)` tells whether a variable came from the repository `.env`, so
+ * the log can say where a value is set.
+ */
+export function javaCandidates(
+  env = process.env,
+  { platform = process.platform, home = os.homedir(), javaHomeOfMac = macJavaHome, fromDotEnv = () => false } = {},
+) {
+  const exe = platform === 'win32' ? 'java.exe' : 'java';
+  const candidates = [];
+  for (const name of ['ORENJI_JAVA_HOME', 'JAVA_HOME']) {
+    if (env[name]) {
+      const source = fromDotEnv(name) ? `${name} in .env` : name;
+      candidates.push({
+        javaBin: path.join(env[name], 'bin', exe),
+        source,
+        variable: name,
+        override: name === 'ORENJI_JAVA_HOME',
+      });
     }
   }
-  return null;
+  candidates.push({ javaBin: 'java', source: '`java` on PATH', override: false });
+  if (platform === 'darwin') {
+    const macHome = javaHomeOfMac();
+    if (macHome) {
+      candidates.push({ javaBin: path.join(macHome, 'bin', exe), source: '/usr/libexec/java_home', override: false });
+    }
+  }
+  const jdks = path.join(env.GRADLE_USER_HOME || path.join(home, '.gradle'), 'jdks');
+  for (const javaBin of gradleJdkJavaBins(jdks, exe)) {
+    candidates.push({ javaBin, source: 'the JDKs Gradle provisioned (~/.gradle/jdks)', override: false });
+  }
+  return candidates;
+}
+
+/**
+ * Picks the Java runtime of the API jar among `candidates` (see javaCandidates), in their order:
+ * 1. ORENJI_JAVA_HOME when it points at a usable Java (>= 21): the explicit override, even when
+ *    that Java is newer.
+ * 2. Otherwise an exact Java 21 wherever it is found (JAVA_HOME first), so the jar runs on what CI
+ *    and production run. A JAVA_HOME that holds a newer Java does not win over it: it is a
+ *    machine-wide setting, and Gradle does not follow it for the build either (daemon JVM criteria).
+ * 3. A newer Java only as the last resort (JAVA_HOME first again).
+ * `probe(javaBin)` returns the major version (0 when it cannot run) and is called lazily, once per
+ * binary. Returns `{ javaBin, source, variable, override, major, exact, ignored, passedOver }`, or
+ * null when nothing fits. `ignored`: the variables that were looked at but are unusable.
+ * `passedOver`: the variables that hold a newer Java while an exact Java 21 was taken.
+ */
+export function selectJava(candidates, probe, wanted = API_JAVA_MAJOR) {
+  const majors = new Map();
+  const majorOf = (candidate) => {
+    if (!majors.has(candidate.javaBin)) {
+      majors.set(candidate.javaBin, probe(candidate.javaBin));
+    }
+    return majors.get(candidate.javaBin);
+  };
+  const chosen =
+    candidates.find((candidate) => candidate.override && majorOf(candidate) >= wanted) ??
+    candidates.find((candidate) => majorOf(candidate) === wanted) ??
+    candidates.find((candidate) => majorOf(candidate) > wanted);
+  if (!chosen) {
+    return null;
+  }
+  const major = majorOf(chosen);
+  const exact = major === wanted;
+  const withMajor = (candidate) => ({ ...candidate, major: majorOf(candidate) });
+  // Only what the search looked at: nothing behind a winning override is probed.
+  const lookedAt = candidates.filter((candidate) => candidate.variable && majors.has(candidate.javaBin));
+  const ignored = lookedAt.filter((candidate) => majorOf(candidate) < wanted).map(withMajor);
+  const passedOver =
+    exact && !chosen.override
+      ? lookedAt.filter((candidate) => candidate !== chosen && majorOf(candidate) > wanted).map(withMajor)
+      : [];
+  return { ...chosen, major, exact, ignored, passedOver };
+}
+
+/** The log lines a Java choice deserves: ignored variables, and a runtime newer than 21. */
+export function javaChoiceWarnings(choice, wanted = API_JAVA_MAJOR) {
+  const warnings = choice.ignored.map(
+    (candidate) =>
+      `${candidate.source} is set, but ${candidate.javaBin} is ` +
+      `${candidate.major > 0 ? `Java ${candidate.major}` : 'not a working Java'}; ignoring it (the API jar needs Java ${wanted}+).`,
+  );
+  if (!choice.exact) {
+    const remedy =
+      choice.variable === 'ORENJI_JAVA_HOME'
+        ? `Point ORENJI_JAVA_HOME at a JDK ${wanted} to test on the same Java.`
+        : `No Java ${wanted} was found: install a JDK ${wanted} or set ORENJI_JAVA_HOME to one to test on the same Java.`;
+    warnings.push(
+      `The API jar will run on Java ${choice.major} (${choice.source}: ${choice.javaBin}), but CI and production run Java ${wanted}. ${remedy}`,
+    );
+  }
+  return warnings;
+}
+
+/** The log lines that explain a choice without being a problem: a newer JAVA_HOME that was not taken. */
+export function javaChoiceNotes(choice, wanted = API_JAVA_MAJOR) {
+  return choice.passedOver.map(
+    (candidate) =>
+      `${candidate.source} is Java ${candidate.major}, so it is not used: the API jar runs on Java ${wanted} like CI and ` +
+      `production (${choice.source}: ${choice.javaBin}). Set ORENJI_JAVA_HOME to run it on another Java.`,
+  );
+}
+
+function probeJava(javaBin) {
+  return javaBin !== 'java' && !fs.existsSync(javaBin) ? 0 : javaMajor(javaBin);
+}
+
+/** The variables the Java lookup reads (javaCandidates). */
+const JAVA_LOOKUP_VARIABLES = ['ORENJI_JAVA_HOME', 'JAVA_HOME', 'GRADLE_USER_HOME'];
+
+/**
+ * The Java runtime for the API jar (E2E harnesses, test-data purge): see selectJava for the rules
+ * (ORENJI_JAVA_HOME first, then an exact Java 21, a newer Java as the last resort with a
+ * warning). Returns the path of the `java` binary, or null when no Java 21+ is found.
+ *
+ * The variables are read from the shell and, when the shell does not define them, from the
+ * repository `.env`: `.env.example` lists ORENJI_JAVA_HOME, and child processes get `.env` the
+ * same way (childEnv). The parameters exist for the unit tests.
+ */
+export function findJava21({
+  shellEnv = process.env,
+  dotEnv = loadDotEnv(),
+  probe = probeJava,
+  lookup = {},
+  report = log,
+} = {}) {
+  // Read name by name: on Windows process.env finds a variable whatever its letter case.
+  const env = Object.fromEntries(JAVA_LOOKUP_VARIABLES.map((name) => [name, shellEnv[name] ?? dotEnv[name]]));
+  const fromDotEnv = (name) => shellEnv[name] === undefined && dotEnv[name] !== undefined;
+  const choice = selectJava(javaCandidates(env, { ...lookup, fromDotEnv }), probe);
+  if (!choice) {
+    return null;
+  }
+  for (const warning of javaChoiceWarnings(choice)) {
+    report.warn(warning);
+  }
+  for (const note of javaChoiceNotes(choice)) {
+    report.info(note);
+  }
+  return choice.javaBin;
 }
 
 // ------------------------------------------------------------------------------- prompting
