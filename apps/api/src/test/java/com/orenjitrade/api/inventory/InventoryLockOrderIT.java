@@ -119,6 +119,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BULK_MOVE,
         BULK_CONFIRM,
         ADMIN_RESTORE,
+        ADMIN_HIDE,
         TRADE_TRANSFER
     }
 
@@ -158,7 +159,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         assertThat(itemCount(binderId))
                 .isEqualTo(
                         switch (write) {
-                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE -> 2;
+                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE, ADMIN_HIDE -> 2;
                             default -> 1;
                         });
         assertThat(isLive(kept)).isTrue();
@@ -193,7 +194,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         assertThat(itemCount(binderId))
                 .isEqualTo(
                         switch (write) {
-                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE -> 2;
+                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE, ADMIN_HIDE -> 2;
                             default -> 1;
                         });
         assertThat(isLive(kept)).isTrue();
@@ -218,6 +219,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             case BULK_CONFIRM -> bulk(uid, "CONFIRM", List.of(itemId), Map.of());
             case ADMIN_RESTORE ->
                     assertThat(inventoryService.restoreListing(uuid(itemId))).isPresent();
+            case ADMIN_HIDE -> assertThat(inventoryService.hideListing(uuid(itemId))).isPresent();
             case TRADE_TRANSFER ->
                     assertThat(
                                     inventoryService
@@ -450,6 +452,31 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     }
 
     /**
+     * An admin hides a listing while the reconciliation of a privacy change of its owner runs (the
+     * collector has just become discoverable). The reconciliation waits for the hide and finds the
+     * item PRIVATE. Next to the uncommitted hide it decided "listed" on the item as it was before,
+     * waited for the row and stored that: a hidden card flagged as listed, and announced as
+     * published, until the next freshness job.
+     */
+    @Test
+    void anItemHiddenByAnAdminDuringAPrivacyChangeIsNotListed() throws Exception {
+        String uid = uniqueUid("lock-hide");
+        UUID ownerId = collector(uid);
+        String item = createItem(uid, null, Map.of());
+        assertThat(listedFlags(ownerId)).as("not discoverable yet").containsExactly(false);
+        // The privacy change itself (no event: the test runs the listener's reconciliation).
+        setDiscoverable(ownerId, true);
+
+        interleave(
+                () -> assertThat(inventoryService.hideListing(uuid(item))).isPresent(),
+                () -> {},
+                () -> reconciler.owner(ownerId));
+
+        assertThat(column("inventory_item", "visibility", item)).isEqualTo("PRIVATE");
+        assertThat(listedFlags(ownerId)).as("the hidden item").containsExactly(false);
+    }
+
+    /**
      * A trade transfer writes items of two collectors and takes both owner locks, in one order
      * whatever the order in which the collectors are named. Seen from outside: while one of the two
      * locks is held elsewhere, a request for both either waits with nothing in hand or holds the
@@ -627,6 +654,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         ITEM_CONFIRM,
         ITEM_BULK,
         ITEM_ADMIN_RESTORE,
+        ITEM_ADMIN_HIDE,
         TRADE_TRANSFER,
         BINDER_CREATE,
         BINDER_UPDATE,
@@ -732,6 +760,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                             Map.of("availability", "TRADE"));
             case ITEM_ADMIN_RESTORE ->
                     assertThat(inventoryService.restoreListing(uuid(filed))).isPresent();
+            case ITEM_ADMIN_HIDE ->
+                    assertThat(inventoryService.hideListing(uuid(filed))).isPresent();
             case TRADE_TRANSFER ->
                     assertThat(
                                     inventoryService.reserveAndTransfer(

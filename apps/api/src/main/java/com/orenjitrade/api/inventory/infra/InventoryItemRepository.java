@@ -367,16 +367,6 @@ public class InventoryItemRepository {
                 .optional();
     }
 
-    /** The owner of a live item, locking it; empty for unknown or deleted items. */
-    public Optional<UUID> lockOwnerOf(UUID id) {
-        return jdbc.sql(
-                        "SELECT owner_id FROM inventory_item WHERE id = :id AND deleted_at IS NULL"
-                                + " FOR NO KEY UPDATE")
-                .param("id", id)
-                .query(UUID.class)
-                .optional();
-    }
-
     private static AdminRow adminRow(ResultSet rs, int rowNum) throws SQLException {
         Timestamp warnedAt = rs.getTimestamp("warned_at");
         return new AdminRow(

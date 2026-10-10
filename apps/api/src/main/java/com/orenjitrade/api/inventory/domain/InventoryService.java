@@ -84,8 +84,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * reconciliation of a binder's items) first takes the owner lock of the collector, so the writes of
  * one collector run one after the other, then the binder rows before the item rows, both in
  * ascending id ({@link #lockForWrite}). The listing reconciler and the binder writes do the same.
- * Item photos and the admin hide write one item row, never reach a binder and wait for nothing
- * else: they lock only that row.
+ * Item photos write one item row, never reach a binder and decide nothing about the listing: they
+ * lock only that row.
  */
 @Service
 public class InventoryService {
@@ -438,13 +438,17 @@ public class InventoryService {
 
     /**
      * Admin hide (Phase 7 console "Listings"): makes any owner's live item PRIVATE (the owner may
-     * publish it again). The caller audits.
+     * publish it again). The caller audits. Like every write that changes whether an item is
+     * listed, it runs under the owner lock: the reconciliation of a privacy change of the same
+     * collector then decides on the item as the hide left it.
      *
      * @return the owner and the state before; empty for unknown or deleted items
      */
     @Transactional
     public Optional<AdminChange> hideListing(UUID itemId) {
-        Optional<UUID> owner = items.lockOwnerOf(itemId);
+        Optional<UUID> owner =
+                Optional.ofNullable(lockForWrite(null, List.of(itemId), List.of()).get(itemId))
+                        .map(LockedItem::ownerId);
         if (owner.isEmpty()) {
             return Optional.empty();
         }
