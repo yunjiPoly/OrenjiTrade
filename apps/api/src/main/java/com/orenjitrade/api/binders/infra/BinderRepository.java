@@ -301,14 +301,6 @@ public class BinderRepository {
                 .map(Timestamp::toInstant);
     }
 
-    /** Serialises binder creation per owner (limit check + insert) until the transaction ends. */
-    public void lockOwnerForCreation(UUID ownerId) {
-        jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended('binder-create:' || :ownerId, 0))")
-                .param("ownerId", ownerId.toString())
-                .query()
-                .singleRow();
-    }
-
     public int nextSortOrder(UUID ownerId) {
         Integer max =
                 jdbc

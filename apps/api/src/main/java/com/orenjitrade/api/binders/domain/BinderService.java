@@ -133,8 +133,8 @@ public class BinderService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
+        // The owner lock also keeps two creations apart (limit check + insert).
         repository.lockOwners(List.of(ownerId));
-        repository.lockOwnerForCreation(ownerId);
         limits.consume(ownerId, BINDERS_MAX);
         UUID id = UUID.randomUUID();
         repository.insert(
