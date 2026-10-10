@@ -1,10 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 import ResetPasswordScreen from '@/app/(auth)/reset-password';
 import SignInScreen from '@/app/(auth)/sign-in';
 import SignUpScreen from '@/app/(auth)/sign-up';
 import { useFlowLock } from '@/src/account/flowLock';
 import { AuthError } from '@/src/auth/authErrors';
+import { ageConfirmationAccessibleLabel } from '@/src/features/legal/ageConfirmation';
 import { useAppStore } from '@/src/store/useAppStore';
 
 import { FakeAuthPort } from '../support/fakeAuthPort';
@@ -23,7 +25,8 @@ beforeEach(() => {
   mockLocales('en-CA');
 });
 
-const AGE_LABEL = 'I confirm I am 18 years of age or older';
+// The checkbox's accessible name on the platform the tests run as (iOS: both languages).
+const AGE_LABEL = ageConfirmationAccessibleLabel(Platform.OS);
 const AGE_ERROR = 'You must confirm that you are 18 years of age or older to use OrenjiTrade.';
 
 describe('Sign in', () => {

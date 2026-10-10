@@ -34,7 +34,9 @@ tags:
       id: 'onboarding-age'
     timeout: 60000
 - assertVisible: 'Are you 18 or older?'
-- assertVisible: 'Je confirme avoir 18 ans ou plus'
+# (On iOS the checkbox is one element named in both languages; on Android the French line is a
+# text of its own: the pattern fits both.)
+- assertVisible: '.*Je confirme avoir 18 ans ou plus'
 - assertNotVisible:
     id: 'onboarding-profile'
 - extendedWaitUntil:

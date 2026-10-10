@@ -65,7 +65,7 @@ tags:
 - tapOn:
     id: 'google-name'
 - inputText: 'Maestro Googler'
-- runFlow: subflows/hide-keyboard.yaml
+- runFlow: subflows/hide-keyboard-in-dialog.yaml
 - takeScreenshot: google-simulated-account
 - tapOn:
     id: 'google-dialog-confirm'

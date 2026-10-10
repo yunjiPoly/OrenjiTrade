@@ -1,8 +1,10 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 import OnboardingScreen from '@/app/onboarding';
 import { usePendingLink } from '@/src/account/pendingLink';
 import type { UpdateLocationRequest } from '@/src/api/types';
+import { ageConfirmationAccessibleLabel } from '@/src/features/legal/ageConfirmation';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -245,7 +247,8 @@ describe('Onboarding', () => {
 });
 
 describe('Onboarding age step (18+ rule)', () => {
-  const AGE_LABEL = 'I confirm I am 18 years of age or older';
+  // The checkbox's accessible name on the platform the tests run as (iOS: both languages).
+  const AGE_LABEL = ageConfirmationAccessibleLabel(Platform.OS);
   const unconfirmed = (rest: Record<string, boolean>) =>
     meFixture({ onboarding: { ...NOT_ONBOARDED, ...rest, ageConfirmed: false } });
 

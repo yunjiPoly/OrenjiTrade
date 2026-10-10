@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { Checkbox } from '@/src/components/ui/FormControls';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -8,6 +8,7 @@ import {
   AGE_CONFIRMATION_ERROR_FR,
   AGE_CONFIRMATION_LABEL_EN,
   AGE_CONFIRMATION_LABEL_FR,
+  ageConfirmationAccessibleLabel,
 } from './ageConfirmation';
 
 export interface AgeConfirmationCheckboxProps {
@@ -42,7 +43,7 @@ export function AgeConfirmationCheckbox({
       testID={`${testID}-box`}
     >
       <Checkbox
-        label={AGE_CONFIRMATION_LABEL_EN}
+        label={ageConfirmationAccessibleLabel(Platform.OS)}
         checked={checked}
         onChange={onChange}
         error={error}
