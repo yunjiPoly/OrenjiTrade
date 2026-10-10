@@ -100,8 +100,11 @@ test.describe('acceptance: wishlist', () => {
     );
     await expect(entry).not.toContainText(/\bkm\b/);
     await entry.click();
-    await expect(page).toHaveURL(new RegExp(`/cards/${cardId}$`));
+    // The wish is for any printing: the link says so and the card page picks no printing.
+    await expect(page).toHaveURL(new RegExp(`/cards/${cardId}\\?printing=any$`));
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();
+    await expect(page.getByTestId('selected-any')).toContainText('Any printing');
+    await expect(page.getByRole('heading', { name: 'Selected printing' })).toHaveCount(0);
 
     // The notification is in A's notification centre as well, once.
     const types = (await api.notifications(a)).map((notification) => notification.type);

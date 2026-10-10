@@ -28,7 +28,12 @@ import {
  * copy (no alert: Near Mint only) then a Near Mint one: A gets one wishlist alert live over STOMP
  * that opens the card page with the wish's printing. The public wishlist shows the note and
  * chips. A second test fills a FREE wishlist (20 wishes), shows the prompt to set a location for
- * alerts and the limit dialog on the 21st. No JSON response carries a coordinate.
+ * alerts and the limit dialog on the 21st. A third one covers the two places where a printing
+ * could be picked for the collector (review fix 3): a typed printing code that a 1st Edition and
+ * an Unlimited printing share starts the wish on "Any printing" (a code only one printing has
+ * still preselects it), and the alert for an "Any printing" wish opens the card page on "Any
+ * printing" (`?printing=any`: no selected printing, no highlighted row, no price). No JSON
+ * response carries a coordinate.
  *
  * A and B live in Uruguay (Americas (South), which no other spec lists cards in), and B's listing
  * is unpublished at the end so later runs never alert about it.
@@ -44,6 +49,12 @@ function suffix(): string {
 const WISHED_CARD = 'Emberfang Fox';
 const WISHED_PRINTING = 'PFT-002';
 const OTHER_CARD = 'Ember Wyrmling';
+/** A card whose printing code is shared by a 1st Edition and an Unlimited printing. */
+const SHARED_CODE_CARD = 'Mirrorblade Knight';
+const SHARED_CODE = 'SHV-EN003';
+/** A printing code only one printing has. */
+const SINGLE_CODE_CARD = 'Azure-Eyes Sky Dragon';
+const SINGLE_CODE = 'AZR-EN001';
 
 async function openSignedIn(browser: Browser, collector: OnboardedCollector): Promise<Page> {
   const context = await browser.newContext();
@@ -65,6 +76,25 @@ async function cardIdOf(api: APIRequestContext, token: string, name: string): Pr
   const card = suggestions.find((entry) => entry.kind === 'CARD' && entry.name === name);
   expect(card, `${name} in the seed catalog`).toBeTruthy();
   return card!.id;
+}
+
+interface CatalogPrinting {
+  id: string;
+  printingCode: string;
+  edition: string;
+}
+
+/** The printings of a seed catalog card (`GET /cards/{id}`). */
+async function printingsOf(
+  api: APIRequestContext,
+  token: string,
+  cardId: string,
+): Promise<CatalogPrinting[]> {
+  const response = await api.get(`${API_URL}/api/v1/cards/${cardId}`, {
+    headers: authHeader(token),
+  });
+  expect(response.ok(), `GET /cards/${cardId}`).toBeTruthy();
+  return ((await response.json()) as { printings: CatalogPrinting[] }).printings;
 }
 
 /** B lists one copy of the wished printing in their public binder (publication → alert). */
@@ -199,6 +229,9 @@ test.describe('wishlist and notifications', () => {
       );
       // Next to the buttons, outside the scrolling content: in view whatever the scroll position.
       await expect(dialog.getByTestId('wish-error')).toBeInViewport();
+      // The keyboard focus stays in the dialog, on the button that was refused (it used to drop
+      // to the page behind while the button was disabled for the save).
+      await expect(dialog.getByRole('button', { name: 'Add to wishlist' })).toBeFocused();
       // Escape closes it and gives the focus back to the button that opened it.
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
@@ -212,7 +245,9 @@ test.describe('wishlist and notifications', () => {
         .getByRole('button', { name: `Remove ${OTHER_CARD} (Any printing) from your wishlist` })
         .click();
       const confirm = page.getByRole('dialog', { name: `Remove ${OTHER_CARD}?` });
-      await expect(confirm).toContainText('The wish for Any printing is removed.');
+      await expect(confirm).toContainText(
+        `Your wish for ${OTHER_CARD} (any printing) will be removed.`,
+      );
       await confirm.getByRole('button', { name: 'Remove' }).click();
       await expect(
         page.getByText(`${OTHER_CARD} (Any printing) removed from your wishlist.`),
@@ -272,6 +307,174 @@ test.describe('wishlist and notifications', () => {
       await expect(lookingFor).toContainText('Fictional E2E wish.');
       await expect(lookingFor).toContainText('Near Mint only');
       await expect(lookingFor).toContainText('85% TCG');
+      // The profile never scrolls sideways on a phone-sized screen.
+      await page.setViewportSize({ width: 375, height: 812 });
+      await expect(lookingFor).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+        'horizontal overflow of the profile at 375 px',
+      ).toBeLessThanOrEqual(0);
+      await page.setViewportSize({ width: 1280, height: 720 });
+
+      await watcher.settle();
+      expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
+      await page.context().close();
+    } finally {
+      // Later runs must never be alerted about B's listing.
+      await request.post(`${API_URL}/api/v1/binders/${binder.id}/unpublish`, {
+        headers: authHeader(b.idToken),
+      });
+    }
+  });
+
+  test('a typed printing code and an "Any printing" alert never pick a printing nobody chose', async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(180_000);
+    const a = await createOnboardedCollector(request, 'wishany', {
+      location: SOUTH,
+      displayName: `Ana Anyprint ${suffix()}`,
+    });
+    const b = await createOnboardedCollector(request, 'wishunl', {
+      location: SOUTH,
+      displayName: `Uli Unlimited ${suffix()}`,
+    });
+    await apiUpdatePrivacy(request, b.idToken, { discoverable: true });
+    const binder = await apiCreateBinder(request, b.idToken, {
+      name: `E2E any-printing binder ${suffix()}`,
+      kind: 'TRADE',
+      description: 'Fictional binder for the wishlist E2E suite.',
+    });
+    await apiPublishBinder(request, b.idToken, binder.id, 'UNTIL_DISABLED');
+    const cardId = await cardIdOf(request, a.idToken, SHARED_CODE_CARD);
+    const printings = await printingsOf(request, a.idToken, cardId);
+    const sharing = printings.filter((printing) => printing.printingCode === SHARED_CODE);
+    expect(sharing.map((printing) => printing.edition).sort()).toEqual([
+      'FIRST_EDITION',
+      'UNLIMITED',
+    ]);
+    const firstEdition = sharing.find((printing) => printing.edition === 'FIRST_EDITION')!;
+    const unlimited = sharing.find((printing) => printing.edition === 'UNLIMITED')!;
+    const singlePrintingId = await printingIdOf(request, a.idToken, SINGLE_CODE);
+
+    try {
+      const page = await openSignedIn(browser, a);
+      const watcher = watchCoordinates(page);
+      await page.goto('/wishlist');
+      await expect(page.getByRole('heading', { name: 'Your wishlist is empty' })).toBeVisible();
+      const bell = page.getByTestId('notification-bell');
+      await expect(bell).toHaveAttribute('data-realtime', 'connected', { timeout: 20_000 });
+
+      // A typed code that two printings share: one suggestion for the code, and the wish starts
+      // on "Any printing" with the picker pointing at the code. Neither printing is picked.
+      await page.getByRole('button', { name: 'Add a card' }).first().click();
+      const dialog = page.getByRole('dialog', { name: 'Add to wishlist' });
+      const search = dialog.getByRole('combobox', { name: 'Card name or printing code' });
+      await search.fill(SHARED_CODE);
+      const codeOption = page.getByRole('option', {
+        name: new RegExp(`^${SHARED_CODE_CARD} .*${SHARED_CODE}`),
+      });
+      await expect(codeOption).toHaveCount(1);
+      await expect(codeOption).toContainText('Printing code');
+      await codeOption.click();
+      await expect(dialog.getByTestId('wish-card')).toContainText(SHARED_CODE_CARD);
+      await expect(dialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
+      await expect(dialog.getByRole('radio', { checked: true })).toHaveCount(1);
+      await expect(dialog.getByTestId(`printing-option-${firstEdition.id}`)).toContainText(
+        '1st Edition',
+      );
+      await expect(dialog.getByTestId(`printing-option-${unlimited.id}`)).toContainText(
+        'Unlimited',
+      );
+      await expect(dialog).toContainText(
+        `Any printing of the card. 2 printings share the code ${SHARED_CODE}: choose one below for that copy only.`,
+      );
+      await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
+      await expect(dialog).toBeHidden();
+      const wish = page.locator('[data-wish]').filter({ hasText: SHARED_CODE_CARD });
+      await expect(wish.getByTestId('wish-copy')).toHaveText('Any printing');
+
+      // A code only one printing has still preselects that printing.
+      await page.getByRole('button', { name: 'Add a card' }).first().click();
+      await search.fill(SINGLE_CODE);
+      await page
+        .getByRole('option', { name: new RegExp(`^${SINGLE_CODE_CARD} .*${SINGLE_CODE}`) })
+        .click();
+      await expect(dialog.getByTestId('wish-card')).toContainText(SINGLE_CODE_CARD);
+      await expect(
+        dialog.getByTestId(`printing-option-${singlePrintingId}`).getByRole('radio'),
+      ).toBeChecked();
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      await expect(dialog).toBeHidden();
+
+      // B lists the Unlimited copy: A's alert, for an "Any printing" wish, is shown in full in
+      // the bell menu (the place is never cut off), on a wide and on a phone-sized screen.
+      await listCopy(request, b, binder.id, unlimited.id, { condition: 'NEAR_MINT', price: 12.5 });
+      await expect(page.getByTestId('notification-badge')).toHaveText('1', { timeout: 20_000 });
+      const menu = page.getByRole('menu', { name: 'Notifications' });
+      const entry = menu.getByRole('menuitem', {
+        name: new RegExp(`Wishlist alert: ${SHARED_CODE_CARD}`),
+      });
+      for (const viewport of [
+        { width: 1280, height: 720 },
+        { width: 375, height: 812 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await bell.click();
+        await expect(entry).toContainText(
+          `${SHARED_CODE_CARD} ${SHARED_CODE} Super Rare was just listed by @${b.handle} in Montevideo, Uruguay.`,
+        );
+        const cut = await entry
+          .locator('.ne__body')
+          .evaluate((body) => body.scrollHeight > body.clientHeight + 1);
+        expect(cut, `alert text cut off at ${viewport.width} px`).toBe(false);
+        if (viewport.width > 375) {
+          await page.keyboard.press('Escape');
+          await expect(menu).toBeHidden();
+        }
+      }
+
+      // The alert opens the card page on "Any printing": no printing is selected for A, no row
+      // is highlighted and no price of one printing is shown (the listed copy is the Unlimited
+      // one; the catalog's first printing is the 1st Edition).
+      await entry.click();
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await expect(page).toHaveURL(new RegExp(`/cards/${cardId}\\?printing=any$`));
+      await expect(page.getByRole('heading', { level: 1, name: SHARED_CODE_CARD })).toBeVisible();
+      const any = page.getByTestId('selected-any');
+      await expect(any.getByRole('heading', { name: 'Any printing' })).toBeVisible();
+      await expect(any).toContainText('2 printings of this card: any of them fits.');
+      await expect(page.getByRole('heading', { name: 'Selected printing' })).toHaveCount(0);
+      await expect(page.getByTestId('selected-price')).toHaveCount(0);
+      const table = page.getByRole('table', { name: `Printings of ${SHARED_CODE_CARD}` });
+      await expect(table.getByRole('row')).toHaveCount(3);
+      await expect(table.locator('tr[aria-current]')).toHaveCount(0);
+      await expect(table.locator('.printings__row--selected')).toHaveCount(0);
+      await expect(table.getByRole('button', { pressed: true })).toHaveCount(0);
+
+      // Choosing a printing replaces "any": that printing, and only then, is selected.
+      await table
+        .getByRole('row', { name: /Unlimited/ })
+        .getByRole('button', { name: `Show printing ${SHARED_CODE}` })
+        .click();
+      await expect(page).toHaveURL(new RegExp(`/cards/${cardId}\\?printing=${unlimited.id}$`));
+      await expect(page.getByRole('heading', { name: 'Selected printing' })).toBeVisible();
+      await expect(page.getByTestId('selected-any')).toHaveCount(0);
+      await expect(table.locator('tr[aria-current]')).toHaveCount(1);
+
+      // The wish's own link on the wishlist page says "any printing" too.
+      await page.goto('/wishlist');
+      await page
+        .locator('[data-wish]')
+        .filter({ hasText: SHARED_CODE_CARD })
+        .getByRole('link', { name: SHARED_CODE_CARD })
+        .first()
+        .click();
+      await expect(page).toHaveURL(new RegExp(`/cards/${cardId}\\?printing=any$`));
+      await expect(page.getByTestId('selected-any')).toBeVisible();
 
       await watcher.settle();
       expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
@@ -341,13 +544,16 @@ test.describe('wishlist and notifications', () => {
     // 429 LIMIT_REACHED: the limit dialog explains it, and the wish dialog says why inline.
     const limit = page.getByRole('alertdialog', { name: 'You reached a plan limit' });
     await expect(limit).toBeVisible();
-    await expect(limit).toContainText('wishlist.items.max');
     await expect(limit).toContainText('you used 20 of 20');
+    // The technical limit key is not shown to collectors.
+    await expect(limit).not.toContainText('wishlist.items.max');
     await limit.getByRole('button', { name: 'Not now' }).click();
     await expect(limit).toBeHidden();
     await expect(dialog.getByTestId('wish-error')).toContainText(
       'Your wishlist is full: your plan allows 20 wishes',
     );
+    // Back in the wish dialog, the focus is on its save button, not on the page behind.
+    await expect(dialog.getByRole('button', { name: 'Add to wishlist' })).toBeFocused();
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('[data-wish]')).toHaveCount(20);
 

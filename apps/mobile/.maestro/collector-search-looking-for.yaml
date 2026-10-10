@@ -79,7 +79,13 @@ tags:
 - assertVisible:
     id: 'collector-wish-${output.card.id}'
     text: '.*Near Mint only.*'
-- assertNotVisible: '.*30.*CAD.*'
+# The wish's public note and its price term are shown (a wish has no private price any more).
+- assertVisible:
+    id: 'collector-wish-${output.card.id}'
+    text: '.*Fictional Maestro wish.*'
+- assertVisible:
+    id: 'collector-wish-${output.card.id}'
+    text: '.*85% TCG.*'
 - takeScreenshot: collector-looking-for
 - tapOn:
     id: 'collector-wish-${output.card.id}'

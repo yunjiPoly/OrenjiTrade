@@ -128,4 +128,14 @@ tags:
       id: 'card-name'
       text: 'Emberfang Fox'
     timeout: 60000
+# The wish is for any printing: the alert says so (?printing=any) and the card screen shows
+# "Any printing", never a printing picked for the collector.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-selected-any'
+- assertVisible:
+    id: 'card-selected-any'
+- assertNotVisible:
+    id: 'card-selected-printing'
 - takeScreenshot: wishlist-alert-card
