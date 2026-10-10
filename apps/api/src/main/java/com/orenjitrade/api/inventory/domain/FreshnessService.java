@@ -52,9 +52,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class FreshnessService {
 
     /**
-     * How long a run waits for the binder and item writes in progress before it gives up (the next
-     * run does the work). Writes that arrive during the wait queue behind the job, so this is also
-     * the longest time a write that does not end can hold the others up.
+     * How long a run waits for the binder and item writes in progress, and afterwards for any
+     * single row lock, before it gives up (the next run does the work). Writes that arrive
+     * meanwhile wait for the job, so this bounds how long one transaction that does not end can
+     * hold them up.
      */
     private static final Duration WRITES_WAIT = Duration.ofSeconds(10);
 

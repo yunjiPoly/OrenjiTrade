@@ -674,7 +674,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     /**
      * The job waits for the writes in progress, and the writes that arrive meanwhile queue behind
      * it: the wait is bounded. A job that cannot get the lock of all owners in time fails without
-     * having written anything; one that gets it leaves the session's lock timeout as it was.
+     * having written anything. One that gets it keeps the bound for every lock it waits for until
+     * its transaction ends (it holds every other write up), and not beyond.
      */
     @Test
     void theFreshnessJobWaitsABoundedTimeForTheWritesInProgress() throws Exception {
@@ -714,14 +715,15 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             pool.shutdownNow();
         }
 
-        String afterTheLock =
+        String underTheLock =
                 transaction.execute(
                         status -> {
                             binderService.lockAllOwners(bound);
                             return jdbc.queryForObject("SHOW lock_timeout", String.class);
                         });
-        assertThat(afterTheLock)
-                .as("the lock timeout after the job took the lock")
+        assertThat(underTheLock).as("while the job holds the lock").isEqualTo("300ms");
+        assertThat(jdbc.queryForObject("SHOW lock_timeout", String.class))
+                .as("after the job's transaction")
                 .isEqualTo(sessionTimeout);
     }
 

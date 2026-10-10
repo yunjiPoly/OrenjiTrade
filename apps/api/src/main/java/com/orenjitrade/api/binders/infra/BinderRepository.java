@@ -234,16 +234,20 @@ public class BinderRepository {
      * half every {@link #lockOwners} takes. The job then runs alone, and the writes that arrive
      * meanwhile wait for its commit.
      *
-     * <p>Waits at most {@code maxWait} for the writes in progress ({@code lock_timeout}, put back
-     * afterwards). Writes that arrive during that wait queue behind this request, so the bound is
-     * also the longest time a write that does not end can hold the other writes up.
+     * <p>Waits at most {@code maxWait} for the writes in progress. Writes that arrive during that
+     * wait queue behind this request, so the bound is also the longest time a write that does not
+     * end can hold the other writes up. The bound stays in force for the rest of the transaction
+     * ({@code lock_timeout}, transaction-local): the holder of this lock keeps every other write
+     * waiting, so it must not wait long for a row either (an item photo upload and the admin hide
+     * lock one item row without the owner lock).
      *
      * @throws CannotAcquireLockException when a write was still running after {@code maxWait}
      */
     public void lockAllOwners(Duration maxWait) {
-        String previous =
-                jdbc.sql("SELECT current_setting('lock_timeout')").query(String.class).single();
-        setLockTimeout(maxWait.toMillis() + "ms");
+        jdbc.sql("SELECT set_config('lock_timeout', :value, true)")
+                .param("value", maxWait.toMillis() + "ms")
+                .query()
+                .listOfRows();
         try {
             jdbc.sql("SELECT pg_advisory_xact_lock(" + ALL_OWNERS_KEY + ")").query().listOfRows();
         } catch (DataAccessException e) {
@@ -254,14 +258,6 @@ public class BinderRepository {
             }
             throw e;
         }
-        setLockTimeout(previous);
-    }
-
-    private void setLockTimeout(String value) {
-        jdbc.sql("SELECT set_config('lock_timeout', :value, true)")
-                .param("value", value)
-                .query()
-                .listOfRows();
     }
 
     /**

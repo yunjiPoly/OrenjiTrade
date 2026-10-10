@@ -398,7 +398,9 @@ public class BinderService {
      * collector: takes the lock of all owners until the transaction ends. The job then runs alone;
      * writes that take {@link #lockOwners} meanwhile wait for its commit.
      *
-     * @param maxWait how long to wait for the writes in progress
+     * @param maxWait how long to wait for the writes in progress, and afterwards for any row lock
+     *     until the transaction ends (the job keeps every other write waiting, so it never waits
+     *     long itself)
      * @throws org.springframework.dao.CannotAcquireLockException when one of them was still running
      *     after {@code maxWait} (nothing was written yet; the next run does the work)
      */
