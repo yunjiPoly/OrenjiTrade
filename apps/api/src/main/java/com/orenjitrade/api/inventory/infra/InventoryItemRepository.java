@@ -772,14 +772,18 @@ public class InventoryItemRepository {
     // Freshness job
     // ---------------------------------------------------------------------------------------
 
-    /** Expired temporary publications become PRIVATE; returns the number of items changed. */
+    /**
+     * Expired temporary publications become PRIVATE; returns the number of items changed. Like
+     * every statement of the job, it skips the items another transaction holds ({@code SKIP
+     * LOCKED}): the job never waits for a row, and its next run handles them.
+     */
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
                         WITH expired AS MATERIALIZED (
                             SELECT id FROM inventory_item
                              WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
-                             ORDER BY id FOR NO KEY UPDATE)
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
                         UPDATE inventory_item i SET visibility = 'PRIVATE', public_until = NULL
                           FROM expired e
                          WHERE i.id = e.id
@@ -788,7 +792,10 @@ public class InventoryItemRepository {
                 .update();
     }
 
-    /** Re-derives the freshness of every non-deleted item; returns the changes. */
+    /**
+     * Re-derives the freshness of every non-deleted item; returns the changes. The state is
+     * computed in the locking clause, so it is the state of the row as locked.
+     */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
@@ -796,7 +803,7 @@ public class InventoryItemRepository {
                                 + " AS new_state FROM inventory_item WHERE deleted_at IS NULL"
                                 + " AND freshness_state <> "
                                 + FRESHNESS_CASE
-                                + " ORDER BY id FOR NO KEY UPDATE)"
+                                + " ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)"
                                 + " UPDATE inventory_item i SET freshness_state = c.new_state,"
                                 + " hidden_reason = CASE WHEN c.new_state = 'HIDDEN'"
                                 + " THEN 'STALE_UNCONFIRMED' ELSE NULL END"
@@ -828,7 +835,7 @@ public class InventoryItemRepository {
                              WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
                                AND freshness_state <> 'HIDDEN'
                                AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                             ORDER BY id FOR NO KEY UPDATE)
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
                         UPDATE inventory_item i SET warned_at = :now
                           FROM due d
                          WHERE i.id = d.id
@@ -851,8 +858,12 @@ public class InventoryItemRepository {
      * Stores the effective public visibility of the items matching {@code scopeSql} (a condition on
      * alias {@code i}) and returns those whose value flipped. The flipped rows are locked in
      * ascending id order before they are written.
+     *
+     * @param skipLocked leave the items another transaction holds to a later call instead of
+     *     waiting for them (the freshness job, which reconciles every item)
      */
-    public List<ListingChange> reconcile(String scopeSql, Map<String, ?> params, Instant now) {
+    public List<ListingChange> reconcile(
+            String scopeSql, Map<String, ?> params, boolean skipLocked, Instant now) {
         JdbcClient.StatementSpec statement =
                 jdbc.sql(
                                 "WITH computed AS (SELECT i.id, "
@@ -865,7 +876,9 @@ public class InventoryItemRepository {
                                         + " c.card_id, c.game"
                                         + " FROM inventory_item t JOIN computed c ON c.id = t.id"
                                         + " WHERE t.publicly_listed <> c.listed"
-                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t)"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t"
+                                        + (skipLocked ? " SKIP LOCKED" : "")
+                                        + ")"
                                         + " UPDATE inventory_item t SET publicly_listed ="
                                         + " f.listed, listing_changed_at = :now"
                                         + " FROM flipped f"

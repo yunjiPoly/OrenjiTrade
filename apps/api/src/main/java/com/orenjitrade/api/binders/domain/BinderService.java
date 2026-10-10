@@ -20,7 +20,6 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,12 +52,13 @@ import org.springframework.transaction.annotation.Transactional;
  * binder.publicly_listed} and events are emitted when it flips ({@link #reconcileListing}).
  *
  * <p>Locks: every write to a collector's binders or inventory items starts with that collector's
- * owner lock ({@link #lockOwners}), so the writes of one collector run one after the other; the
- * freshness job, which writes every collector's rows, takes the lock of all owners ({@link
- * #lockAllOwners}) and runs alone. Below them, a transaction locks the binder rows first, in
- * ascending id ({@link #lockInOrder}, {@link #lockAllInOrder}; every write here starts with the
- * binder it changes), and only then the item rows: the item count trigger and the listing
- * reconciliation both end in binder rows.
+ * owner lock ({@link #lockOwners}), so the writes of one collector run one after the other. Below
+ * it, a transaction locks the binder rows first, in ascending id ({@link #lockInOrder}, {@link
+ * #lockAllInOrder}; every write here starts with the binder it changes), and only then the item
+ * rows: the item count trigger and the listing reconciliation both end in binder rows. The
+ * freshness job ({@link #runFreshness}, {@link #reconcileListing} of {@link ListingScope.All},
+ * {@link #warn}) writes every collector's binders without an owner lock: it skips the binders
+ * another transaction holds instead of waiting for them, and handles them at its next run.
  */
 @Service
 public class BinderService {
@@ -394,22 +394,6 @@ public class BinderService {
     }
 
     /**
-     * The first step of the freshness job, which writes binders and inventory items of every
-     * collector: takes the lock of all owners until the transaction ends. The job then runs alone;
-     * writes that take {@link #lockOwners} meanwhile wait for its commit.
-     *
-     * @param maxWait how long to wait for the writes in progress, and afterwards for any row lock
-     *     until the transaction ends (the job keeps every other write waiting, so it never waits
-     *     long itself)
-     * @throws org.springframework.dao.CannotAcquireLockException when one of them was still running
-     *     after {@code maxWait} (nothing was written yet; the next run does the work)
-     */
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void lockAllOwners(Duration maxWait) {
-        repository.lockAllOwners(maxWait);
-    }
-
-    /**
      * Locks binders before their items are written, in ascending id order (the lock order of every
      * inventory and binder write). Call it before the first item row is locked, with every binder
      * the transaction is going to reach: the binders the items are filed in (the item count trigger
@@ -448,7 +432,9 @@ public class BinderService {
 
     /**
      * Stores the effective public visibility of the binders in {@code scope} and emits {@link
-     * BinderPublished} / {@link BinderUnpublished} for each flip.
+     * BinderPublished} / {@link BinderUnpublished} for each flip. {@link ListingScope.All} (the
+     * freshness job) leaves the binders another transaction holds to the next run; the other scopes
+     * wait for them.
      *
      * @return the flips
      */
@@ -467,6 +453,7 @@ public class BinderService {
                             repository.reconcile(
                                     "b.owner_id = :ownerId",
                                     Map.of("ownerId", owner.ownerId()),
+                                    false,
                                     now);
                     case ListingScope.Binders binders ->
                             binders.binderIds().isEmpty()
@@ -474,8 +461,9 @@ public class BinderService {
                                     : repository.reconcile(
                                             "b.id IN (:ids)",
                                             Map.of("ids", binders.binderIds()),
+                                            false,
                                             now);
-                    case ListingScope.All all -> repository.reconcile("TRUE", Map.of(), now);
+                    case ListingScope.All all -> repository.reconcile("TRUE", Map.of(), true, now);
                 };
         List<ListingFlip> flips = new ArrayList<>();
         for (ListingChange change : changes) {
@@ -497,7 +485,8 @@ public class BinderService {
      * Freshness job, binder part: expired temporary publications become PRIVATE and freshness
      * states are re-derived from the policy (AGED / STALED / HIDDEN / RESTORED events, {@link
      * BinderFreshnessChanged}). The caller reconciles the effective visibility afterwards, then
-     * calls {@link #warn}.
+     * calls {@link #warn}. Binders another transaction holds are skipped, here and in {@link
+     * #warn}: the next run handles them.
      */
     @Transactional
     public FreshnessRun runFreshness(FreshnessPolicy policy, Instant now) {

@@ -33,7 +33,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * lock of the collector and those rows. {@link #owner} is a write of its own (the listener of a
  * privacy or account state change): it takes the owner lock, so it never runs between two
  * statements of another write of that collector, and then every binder of the owner before the
- * items (binder rows before item rows, each in ascending id).
+ * items (binder rows before item rows, each in ascending id). {@link #allItems} is the freshness
+ * job's: it takes no owner lock and skips the items another transaction holds.
  */
 @Component
 public class ListingReconciler {
@@ -64,7 +65,8 @@ public class ListingReconciler {
         }
         flush();
         return publish(
-                items.reconcile("i.id IN (:ids)", Map.of("ids", List.copyOf(itemIds)), now()),
+                items.reconcile(
+                        "i.id IN (:ids)", Map.of("ids", List.copyOf(itemIds)), false, now()),
                 true);
     }
 
@@ -80,6 +82,7 @@ public class ListingReconciler {
                 items.reconcile(
                         "i.binder_id IN (:binderIds)",
                         Map.of("binderIds", List.copyOf(binderIds)),
+                        false,
                         now()),
                 true);
     }
@@ -99,19 +102,21 @@ public class ListingReconciler {
         binderService.lockAllInOrder(ownerId);
         binderService.reconcileListing(new ListingScope.Owner(ownerId), publishEvents);
         return publish(
-                items.reconcile("i.owner_id = :ownerId", Map.of("ownerId", ownerId), now()),
+                items.reconcile("i.owner_id = :ownerId", Map.of("ownerId", ownerId), false, now()),
                 publishEvents);
     }
 
     /**
      * Every item (freshness job: expiries, freshness, time-based suspension ends). The job
-     * reconciles every binder itself ({@code ListingScope.All}) before it writes any item.
+     * reconciles every binder itself ({@code ListingScope.All}) before it writes any item. An item
+     * another transaction holds is left to the next run: the job never waits for a row.
      */
     @Transactional
     public Counts allItems() {
         flush();
         return publish(
-                items.reconcile("(i.deleted_at IS NULL OR i.publicly_listed)", Map.of(), now()),
+                items.reconcile(
+                        "(i.deleted_at IS NULL OR i.publicly_listed)", Map.of(), true, now()),
                 true);
     }
 

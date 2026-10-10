@@ -13,7 +13,6 @@ import com.orenjitrade.api.inventory.events.InventoryListingsHidden;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.StateChange;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Warned;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,10 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The freshness job's work (Phase 3 contract "Jobs"), in one transaction. The job writes binders
- * and items of every collector, so it first takes the lock of all owners ({@link
- * BinderService#lockAllOwners}): no other binder or item write runs meanwhile. Below that lock the
- * binder half of each step runs before the first item is written (binder rows before item rows;
- * nothing a binder step decides depends on the items):
+ * and items of every collector next to the collectors' own writes and takes no lock in front of
+ * them: every statement below skips the rows another transaction holds ({@code SKIP LOCKED}). The
+ * job therefore never waits for a row and cannot be part of a lock cycle; a binder or item that is
+ * being written at that moment is aged, warned, hidden or unlisted by the next run. The binder half
+ * of each step runs before the first item is written (nothing a binder step decides depends on the
+ * items):
  *
  * <ol>
  *   <li>expired temporary publications (items and binders) become PRIVATE;
@@ -50,14 +51,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class FreshnessService {
-
-    /**
-     * How long a run waits for the binder and item writes in progress, and afterwards for any
-     * single row lock, before it gives up (the next run does the work). Writes that arrive
-     * meanwhile wait for the job, so this bounds how long one transaction that does not end can
-     * hold them up.
-     */
-    private static final Duration WRITES_WAIT = Duration.ofSeconds(10);
 
     private final DelistPolicyService policies;
     private final BinderService binders;
@@ -86,7 +79,6 @@ public class FreshnessService {
 
     @Transactional
     public Result run() {
-        binders.lockAllOwners(WRITES_WAIT);
         FreshnessPolicy policy = policies.active();
         Instant now = timeProvider.now();
 

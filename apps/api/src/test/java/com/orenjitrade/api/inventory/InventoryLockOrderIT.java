@@ -3,7 +3,6 @@ package com.orenjitrade.api.inventory;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.binders.domain.BinderChanges.NewBinder;
@@ -31,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.IntConsumer;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpMethod;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,9 +50,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * trg_inventory_item_binder_count} keeps {@code binder.item_count}, confirmations and moves refresh
  * the binder) and the listing reconciler writes binders before items, so a path that took the item
  * first deadlocked with it ({@code DELETE /inventory/items/{id}} answered 500 right after a privacy
- * change). Two locks stand in front of the rows now: the owner lock (the writes of one collector
- * run one after the other) and the lock of all owners (the freshness job runs alone). Below them
- * the rows are still taken in one order, binder rows first, then item rows, each in ascending id.
+ * change). The owner lock stands in front of the rows now (the writes of one collector run one
+ * after the other); below it the rows are still taken in one order, binder rows first, then item
+ * rows, each in ascending id. The freshness job writes every collector's rows without an owner
+ * lock: it skips the rows another transaction holds, so it never waits for one.
  *
  * <p>The interleaving tests drive real transactions through the order of events that used to end in
  * a lock cycle: one transaction is stopped in the middle of its work (at a row another session
@@ -526,87 +526,45 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     }
 
     // ---------------------------------------------------------------------------------------
-    // Item writes against the freshness job
+    // The freshness job next to the writes
     // ---------------------------------------------------------------------------------------
 
     /**
      * The job has aged a binder and is about to age one of its items while the owner deletes that
-     * item: the job holds the binder and wants the item, so the delete must not hold the item while
-     * it waits. It waits for the whole job (the lock of all owners).
+     * item. The delete waits for the binder the job holds, with nothing in hand; the job goes on to
+     * the items and ends, then the delete does.
      */
     @Test
-    void anItemWriteNeverDeadlocksWithTheFreshnessJob() throws Exception {
+    void anItemWriteWaitsForTheFreshnessJobAndBothEnd() throws Exception {
+        UUID stopAt = collectorWithAnAgingBinder();
         String uid = uniqueUid("lock-job");
         UUID ownerId = collector(uid);
         setDiscoverable(ownerId, true);
         String binderId = createBinder(uid, "Aging", "PUBLIC");
         String kept = createItem(uid, binderId, Map.of());
         String written = createItem(uid, binderId, Map.of());
-        // The job expires this unfiled item first; holding its row stops the job there.
-        String expiring = createTemporaryItem(uid, null);
-        expire(expiring);
         confirmedDaysAgo("binder", binderId, 20);
         confirmedDaysAgo("inventory_item", kept, 20);
         confirmedDaysAgo("inventory_item", written, 20);
 
-        runJobStoppedAt(
-                uuid(expiring),
-                () -> callJson(HttpMethod.DELETE, ITEMS + "/" + written, uid, null, 204));
+        runJobStoppedAfterItsFirstBinders(
+                stopAt, () -> callJson(HttpMethod.DELETE, ITEMS + "/" + written, uid, null, 204));
 
         assertThat(isLive(written)).isFalse();
         assertThat(column("binder", "freshness_state", binderId)).isEqualTo("AGING");
         assertThat(column("inventory_item", "freshness_state", kept)).isEqualTo("AGING");
-        assertThat(column("inventory_item", "visibility", expiring)).isEqualTo("PRIVATE");
         assertItemCountsMatch(ownerId);
     }
 
     /**
-     * The second line behind the lock of all owners: the job writes every binder before its first
-     * item. Here it has turned an expired item PRIVATE and has to warn the binder of that item. The
-     * other side is a transaction that takes the binder and then the item, the row order of every
-     * write, but no advisory lock (as a write path added later might). Were the warning written
-     * after the item, that transaction would wait for the job and the job for it.
+     * The lock cycle the job used to close with a write of several binders: the job has made an
+     * expired binder PRIVATE and still has to warn another binder of the same collector when that
+     * collector reorders the binders. The reorder holds the binder the job wants next and waits for
+     * the one the job holds. The job does not wait for it: it leaves that binder to its next run.
      */
     @Test
-    void theFreshnessJobWritesItsBindersBeforeItsItems() throws Exception {
-        String uid = uniqueUid("lock-job-order");
-        UUID ownerId = collector(uid);
-        setDiscoverable(ownerId, true);
-        String binderId = createBinder(uid, "Stale", "PUBLIC");
-        String expired = createTemporaryItem(uid, binderId);
-        // The job ages this unfiled item after the expiries; holding its row stops the job there.
-        String aging = createItem(uid, null, Map.of());
-        expire(expired);
-        confirmedDaysAgo("inventory_item", aging, 20);
-        // A stale binder in its warning window: only the warning step writes it.
-        confirmedDaysAgo("binder", binderId, 42);
-        testUsers.update(
-                "UPDATE binder SET freshness_state = 'STALE' WHERE id = ?", uuid(binderId));
-
-        runJobStoppedAt(
-                uuid(aging),
-                () ->
-                        transaction.executeWithoutResult(
-                                status -> {
-                                    lockRow("binder", binderId);
-                                    lockRow("inventory_item", expired);
-                                }));
-
-        assertThat(column("inventory_item", "visibility", expired)).isEqualTo("PRIVATE");
-        assertThat(column("binder", "warned_at", binderId)).as("the binder is warned").isNotNull();
-        assertThat(column("inventory_item", "freshness_state", aging)).isEqualTo("AGING");
-        assertItemCountsMatch(ownerId);
-    }
-
-    /**
-     * The job has made an expired binder PRIVATE and still has to warn another binder of the same
-     * collector when that collector reorders the binders, a write that takes both. The job is
-     * stopped in between at a binder of another collector. Without one lock that keeps writes out
-     * while the job runs, the reorder holds the binder the job wants next and waits for the one the
-     * job holds.
-     */
-    @Test
-    void theFreshnessJobNeverDeadlocksWithAWriteOfSeveralBinders() throws Exception {
+    void theFreshnessJobLeavesABinderAWriteHoldsToItsNextRun() throws Exception {
+        UUID stopAt = collectorWithAnAgingBinder();
         String uid = uniqueUid("lock-job-binders");
         UUID ownerId = collector(uid);
         setDiscoverable(ownerId, true);
@@ -623,19 +581,10 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                 "UPDATE binder SET visibility = 'TEMPORARILY_PUBLIC', public_until = now() -"
                         + " interval '1 minute' WHERE id = ?",
                 uuid(expired));
-        confirmedDaysAgo("binder", warned, 42);
-        testUsers.update("UPDATE binder SET freshness_state = 'STALE' WHERE id = ?", uuid(warned));
-        // The job ages this binder of another collector between the two; holding its row stops
-        // the job there.
-        String otherUid = uniqueUid("lock-job-other");
-        collector(otherUid);
-        String aging = createBinder(otherUid, "Aging", "PRIVATE");
-        confirmedDaysAgo("binder", aging, 20);
+        dueForAWarning("binder", warned);
 
-        runStoppedAt(
-                "binder",
-                uuid(aging),
-                () -> freshnessService.run(),
+        runJobStoppedAfterItsFirstBinders(
+                stopAt,
                 () ->
                         callJson(
                                 HttpMethod.PUT,
@@ -645,86 +594,158 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                 200));
 
         assertThat(column("binder", "visibility", expired)).isEqualTo("PRIVATE");
-        assertThat(column("binder", "warned_at", warned)).as("the binder is warned").isNotNull();
-        assertThat(column("binder", "freshness_state", aging)).isEqualTo("AGING");
         assertThat(column("binder", "sort_order", warned)).isEqualTo(0);
         assertThat(column("binder", "sort_order", expired)).isEqualTo(1);
+        assertThat(column("binder", "warned_at", warned))
+                .as("held by the reorder while the job ran")
+                .isNull();
+
+        freshnessService.run();
+        assertThat(column("binder", "warned_at", warned)).as("the next run").isNotNull();
+    }
+
+    /** A statement of the freshness job, by the table it writes and what it does there. */
+    enum JobStep {
+        BINDER_EXPIRY("binder"),
+        BINDER_FRESHNESS("binder"),
+        BINDER_LISTING("binder"),
+        BINDER_WARNING("binder"),
+        ITEM_EXPIRY("inventory_item"),
+        ITEM_FRESHNESS("inventory_item"),
+        ITEM_LISTING("inventory_item"),
+        ITEM_WARNING("inventory_item");
+
+        private final String table;
+
+        JobStep(String table) {
+            this.table = table;
+        }
     }
 
     /**
-     * The job waits for a row another transaction holds and then decides on the row as it is now:
-     * an item the owner confirmed in the meantime keeps its fresh state instead of receiving the
-     * state the job computed before it waited.
+     * No statement of the job waits for a row: with a row it has to write held by another
+     * transaction, the run ends while the row is still held, having written the other row that was
+     * due in the same statement. The next run writes the row that was held.
      */
-    @Test
-    void theFreshnessJobReReadsARowItWaitedFor() throws Exception {
-        String uid = uniqueUid("lock-job-reread");
+    @ParameterizedTest
+    @EnumSource(JobStep.class)
+    void theFreshnessJobNeverWaitsForARow(JobStep step) throws Exception {
+        String uid = uniqueUid("lock-job-skip");
         UUID ownerId = collector(uid);
-        String confirmed = createItem(uid, null, Map.of());
-        confirmedDaysAgo("inventory_item", confirmed, 20);
+        boolean warning = step == JobStep.BINDER_WARNING || step == JobStep.ITEM_WARNING;
+        // Only listed rows are warned.
+        setDiscoverable(ownerId, warning);
+        String held = dueFor(step, uid);
+        String free = dueFor(step, uid);
+        if (step == JobStep.BINDER_LISTING || step == JobStep.ITEM_LISTING) {
+            // Created unlisted; listed by the rules from now on (no reconciliation ran).
+            setDiscoverable(ownerId, true);
+        }
+        assertThat(isWritten(step, held)).isFalse();
+        assertThat(isWritten(step, free)).isFalse();
 
-        interleave(
-                () -> inventoryService.confirm(ownerId, uuid(confirmed)),
-                () -> {},
+        endsWhile(() -> lockRow(step.table, held), () -> freshnessService.run());
+
+        assertThat(isWritten(step, free)).as("the row nobody held").isTrue();
+        assertThat(isWritten(step, held)).as("the row that was held").isFalse();
+
+        freshnessService.run();
+        assertThat(isWritten(step, held)).as("the next run").isTrue();
+    }
+
+    /** A row the given statement of the job has to write, and no other statement before it. */
+    private String dueFor(JobStep step, String uid) {
+        return switch (step) {
+            case BINDER_EXPIRY -> {
+                String id = createBinder(uid, "Expired", "PRIVATE");
+                testUsers.update(
+                        "UPDATE binder SET visibility = 'TEMPORARILY_PUBLIC', public_until = now()"
+                                + " - interval '1 minute' WHERE id = ?",
+                        uuid(id));
+                yield id;
+            }
+            case BINDER_FRESHNESS -> {
+                String id = createBinder(uid, "Aging", "PRIVATE");
+                confirmedDaysAgo("binder", id, 20);
+                yield id;
+            }
+            case BINDER_LISTING -> createBinder(uid, "Listed", "PUBLIC");
+            case BINDER_WARNING -> {
+                String id = createBinder(uid, "Stale", "PUBLIC");
+                dueForAWarning("binder", id);
+                yield id;
+            }
+            case ITEM_EXPIRY -> {
+                String id = createTemporaryItem(uid, null);
+                expire(id);
+                yield id;
+            }
+            case ITEM_FRESHNESS -> {
+                String id = createItem(uid, null, Map.of());
+                confirmedDaysAgo("inventory_item", id, 20);
+                yield id;
+            }
+            case ITEM_LISTING -> createItem(uid, null, Map.of());
+            case ITEM_WARNING -> {
+                String id = createItem(uid, null, Map.of());
+                dueForAWarning("inventory_item", id);
+                yield id;
+            }
+        };
+    }
+
+    /** Whether the given statement of the job has written the row. */
+    private boolean isWritten(JobStep step, String id) {
+        return switch (step) {
+            case BINDER_EXPIRY, ITEM_EXPIRY ->
+                    "PRIVATE".equals(column(step.table, "visibility", id));
+            case BINDER_FRESHNESS, ITEM_FRESHNESS ->
+                    "AGING".equals(column(step.table, "freshness_state", id));
+            case BINDER_LISTING, ITEM_LISTING ->
+                    Boolean.TRUE.equals(column(step.table, "publicly_listed", id));
+            case BINDER_WARNING, ITEM_WARNING -> column(step.table, "warned_at", id) != null;
+        };
+    }
+
+    /** A write of one item that is in progress when the job runs. */
+    enum WriteInProgress {
+        OWNER_CONFIRMATION,
+        PHOTO_UPLOAD
+    }
+
+    /**
+     * The job runs while a write of an item it has to age is not committed yet. It does not wait
+     * for the write and leaves the item alone; its next run decides on the item as the write left
+     * it: a confirmed item stays fresh, any other is aged then.
+     */
+    @ParameterizedTest
+    @EnumSource(WriteInProgress.class)
+    void theFreshnessJobLeavesAnItemBeingWrittenToItsNextRun(WriteInProgress write)
+            throws Exception {
+        String uid = uniqueUid("lock-job-write");
+        UUID ownerId = collector(uid);
+        String item = createItem(uid, null, Map.of());
+        confirmedDaysAgo("inventory_item", item, 20);
+
+        endsWhile(
+                () -> {
+                    switch (write) {
+                        case OWNER_CONFIRMATION -> inventoryService.confirm(ownerId, uuid(item));
+                        case PHOTO_UPLOAD ->
+                                inventoryService.addImage(
+                                        ownerId, uuid(item), InventoryTestSupport.png(64, 64));
+                    }
+                },
                 () -> freshnessService.run());
 
-        assertThat(column("inventory_item", "freshness_state", confirmed)).isEqualTo("ACTIVE");
-    }
+        assertThat(column("inventory_item", "freshness_state", item))
+                .as("held by the write while the job ran")
+                .isEqualTo("ACTIVE");
 
-    /**
-     * The job waits for the writes in progress, and the writes that arrive meanwhile queue behind
-     * it: the wait is bounded. A job that cannot get the lock of all owners in time fails without
-     * having written anything. One that gets it keeps the bound for every lock it waits for until
-     * its transaction ends (it holds every other write up), and not beyond.
-     */
-    @Test
-    void theFreshnessJobWaitsABoundedTimeForTheWritesInProgress() throws Exception {
-        UUID ownerId = collector(uniqueUid("lock-job-wait"));
-        Duration bound = Duration.ofMillis(300);
-        String sessionTimeout = jdbc.queryForObject("SHOW lock_timeout", String.class);
-
-        ExecutorService pool = Executors.newSingleThreadExecutor();
-        try {
-            CompletableFuture<Integer> writerPid = new CompletableFuture<>();
-            CountDownLatch commit = new CountDownLatch(1);
-            Future<?> writer =
-                    pool.submit(
-                            () ->
-                                    transaction.executeWithoutResult(
-                                            status -> {
-                                                announce(
-                                                        writerPid,
-                                                        () ->
-                                                                binderService.lockOwners(
-                                                                        List.of(ownerId)));
-                                                awaitQuietly(commit);
-                                            }));
-            try {
-                writerPid.get(STEP.toSeconds(), TimeUnit.SECONDS);
-                assertThatThrownBy(
-                                () ->
-                                        transaction.executeWithoutResult(
-                                                status -> binderService.lockAllOwners(bound)))
-                        .as("a write is still in progress after the bound")
-                        .isInstanceOf(CannotAcquireLockException.class);
-            } finally {
-                commit.countDown();
-            }
-            writer.get(STEP.toSeconds(), TimeUnit.SECONDS);
-        } finally {
-            pool.shutdownNow();
-        }
-
-        String underTheLock =
-                transaction.execute(
-                        status -> {
-                            binderService.lockAllOwners(bound);
-                            return jdbc.queryForObject("SHOW lock_timeout", String.class);
-                        });
-        assertThat(underTheLock).as("while the job holds the lock").isEqualTo("300ms");
-        assertThat(jdbc.queryForObject("SHOW lock_timeout", String.class))
-                .as("after the job's transaction")
-                .isEqualTo(sessionTimeout);
+        freshnessService.run();
+        assertThat(column("inventory_item", "freshness_state", item))
+                .as("the next run")
+                .isEqualTo(write == WriteInProgress.OWNER_CONFIRMATION ? "ACTIVE" : "AGING");
     }
 
     // ---------------------------------------------------------------------------------------
@@ -962,9 +983,61 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         }
     }
 
-    /** Runs the freshness job stopped at an item it has to write ({@link #runStoppedAt}). */
-    private void runJobStoppedAt(UUID heldItemId, Runnable contender) throws Exception {
-        runStoppedAt("inventory_item", heldItemId, () -> freshnessService.run(), contender);
+    /**
+     * Runs the freshness job stopped between two of its statements, lets {@code contender} run
+     * until it waits for a row the job holds (or ends), then lets the job go on. The job never
+     * waits for a binder or an item, so it is stopped at the one other lock it takes: the foreign
+     * key check of a freshness event, on the account row of {@code agingOwnerId} ({@link
+     * #collectorWithAnAgingBinder}), which another session holds here. By then the job has written
+     * the expired and the aged binders and nothing else.
+     */
+    private void runJobStoppedAfterItsFirstBinders(UUID agingOwnerId, Runnable contender)
+            throws Exception {
+        runStoppedAt("user_account", agingOwnerId, () -> freshnessService.run(), contender);
+    }
+
+    /** A collector whose only binder the next run of the job ages. */
+    private UUID collectorWithAnAgingBinder() {
+        String uid = uniqueUid("lock-job-stop");
+        UUID ownerId = collector(uid);
+        confirmedDaysAgo("binder", createBinder(uid, "Aging", "PRIVATE"), 20);
+        return ownerId;
+    }
+
+    /**
+     * Runs {@code inProgress} in a transaction and, before that transaction ends, {@code work},
+     * which must run to its end meanwhile: it may not wait for anything {@code inProgress} holds.
+     * Fails when either of the two ends with an error.
+     */
+    private void endsWhile(Runnable inProgress, Runnable work) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            CompletableFuture<Integer> holderPid = new CompletableFuture<>();
+            CountDownLatch release = new CountDownLatch(1);
+            Future<?> holder =
+                    pool.submit(
+                            () ->
+                                    transaction.executeWithoutResult(
+                                            status -> {
+                                                announce(holderPid, inProgress);
+                                                awaitQuietly(release);
+                                            }));
+            try {
+                holderPid.get(STEP.toSeconds(), TimeUnit.SECONDS);
+                Future<?> running = pool.submit(work);
+                try {
+                    running.get(STEP.toSeconds() / 2, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    throw new AssertionError(
+                            "Still running: it waits for the transaction in progress", e);
+                }
+            } finally {
+                release.countDown();
+            }
+            holder.get(STEP.toSeconds(), TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     /** Runs {@code work} and publishes the backend pid of the current transaction. */
@@ -1080,6 +1153,13 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     private void lockRow(String table, String id) {
         jdbc.queryForObject(
                 "SELECT id FROM " + table + " WHERE id = ? FOR UPDATE", UUID.class, uuid(id));
+    }
+
+    /** A stale row in its warning window: only the warning step of the job writes it. */
+    private void dueForAWarning(String table, String id) {
+        confirmedDaysAgo(table, id, 42);
+        testUsers.update(
+                "UPDATE " + table + " SET freshness_state = 'STALE' WHERE id = ?", uuid(id));
     }
 
     private void expire(String itemId) {

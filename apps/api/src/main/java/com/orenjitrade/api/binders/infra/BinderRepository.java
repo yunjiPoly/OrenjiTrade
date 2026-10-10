@@ -10,7 +10,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -19,8 +18,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.dao.CannotAcquireLockException;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -31,10 +28,14 @@ import org.springframework.stereotype.Repository;
  *
  * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): a write to a
  * collector's binders or inventory items first takes that collector's owner lock ({@link
- * #lockOwners}), so the writes of one collector run one after the other; the freshness job takes
- * the lock of all owners ({@link #lockAllOwners}) and runs alone. Below them, binder rows are
+ * #lockOwners}), so the writes of one collector run one after the other. Below it, binder rows are
  * locked before inventory item rows and, within the table, in ascending {@code id}: every statement
  * here that locks several binders takes them through an {@code ORDER BY id} locking clause.
+ *
+ * <p>The freshness job writes binders of every collector and takes no owner lock. Its statements
+ * ({@link #normaliseExpired}, {@link #recomputeFreshness}, {@link #warn} and the {@link #reconcile}
+ * of every binder) skip the rows another transaction holds ({@code SKIP LOCKED}): the job never
+ * waits for a row, so it cannot be part of a lock cycle, and its next run handles what it skipped.
  */
 @Repository
 public class BinderRepository {
@@ -50,12 +51,6 @@ public class BinderRepository {
 
     private static final String FROM =
             " FROM binder b" + PublicVisibilityRules.ownerJoins("b.owner_id");
-
-    /** Advisory key of the lock of all owners ({@link #lockAllOwners}). */
-    private static final String ALL_OWNERS_KEY = "hashtextextended('inventory-owners', 0)";
-
-    /** SQLSTATE {@code lock_not_available}: a lock wait ran into {@code lock_timeout}. */
-    private static final String LOCK_NOT_AVAILABLE = "55P03";
 
     private static final String FRESHNESS_CASE =
             """
@@ -202,17 +197,11 @@ public class BinderRepository {
      * items of two collectors). Every write to a collector's binders or inventory items takes the
      * lock before its first row lock, so those writes run one after the other and none of them
      * reads a state that another one is still changing.
-     *
-     * <p>The shared half of the lock of all owners comes first ({@link #lockAllOwners}): no such
-     * write runs while the freshness job does.
      */
     public void lockOwners(Collection<UUID> ownerIds) {
         if (ownerIds.isEmpty()) {
             return;
         }
-        jdbc.sql("SELECT pg_advisory_xact_lock_shared(" + ALL_OWNERS_KEY + ")")
-                .query()
-                .listOfRows();
         // The keys are sorted in a subquery, so the locks are taken in that order whatever the
         // order of the ids.
         jdbc.sql(
@@ -226,38 +215,6 @@ public class BinderRepository {
                 .param("ownerIds", ownerIds.stream().map(UUID::toString).distinct().toList())
                 .query()
                 .listOfRows();
-    }
-
-    /**
-     * Takes the lock of all owners until the transaction ends (the freshness job, which writes
-     * binders and items of every collector): the exclusive half of the advisory lock whose shared
-     * half every {@link #lockOwners} takes. The job then runs alone, and the writes that arrive
-     * meanwhile wait for its commit.
-     *
-     * <p>Waits at most {@code maxWait} for the writes in progress. Writes that arrive during that
-     * wait queue behind this request, so the bound is also the longest time a write that does not
-     * end can hold the other writes up. The bound stays in force for the rest of the transaction
-     * ({@code lock_timeout}, transaction-local): the holder of this lock keeps every other write
-     * waiting, so it must not wait long for a row either (an item photo upload and the admin hide
-     * lock one item row without the owner lock).
-     *
-     * @throws CannotAcquireLockException when a write was still running after {@code maxWait}
-     */
-    public void lockAllOwners(Duration maxWait) {
-        jdbc.sql("SELECT set_config('lock_timeout', :value, true)")
-                .param("value", maxWait.toMillis() + "ms")
-                .query()
-                .listOfRows();
-        try {
-            jdbc.sql("SELECT pg_advisory_xact_lock(" + ALL_OWNERS_KEY + ")").query().listOfRows();
-        } catch (DataAccessException e) {
-            if (e.getRootCause() instanceof SQLException cause
-                    && LOCK_NOT_AVAILABLE.equals(cause.getSQLState())) {
-                throw new CannotAcquireLockException(
-                        "Binder and item writes still in progress after " + maxWait, e);
-            }
-            throw e;
-        }
     }
 
     /**
@@ -481,14 +438,17 @@ public class BinderRepository {
                 .list();
     }
 
-    /** Re-derives the freshness of every binder from the policy; returns the changes. */
+    /**
+     * Re-derives the freshness of every binder from the policy; returns the changes. A binder
+     * another transaction holds is skipped (freshness job).
+     */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
                                 + FRESHNESS_CASE
                                 + " AS new_state FROM binder WHERE freshness_state <> "
                                 + FRESHNESS_CASE
-                                + " ORDER BY id FOR NO KEY UPDATE)"
+                                + " ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)"
                                 + " UPDATE binder b SET freshness_state = c.new_state"
                                 + " FROM computed c"
                                 + " WHERE b.id = c.id"
@@ -500,7 +460,10 @@ public class BinderRepository {
                 .list();
     }
 
-    /** Marks publicly listed binders entering the warning window; returns them. */
+    /**
+     * Marks publicly listed binders entering the warning window; returns them. A binder another
+     * transaction holds is skipped (freshness job).
+     */
     public List<Warned> warn(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         """
@@ -509,7 +472,7 @@ public class BinderRepository {
                              WHERE warned_at IS NULL AND publicly_listed
                                AND freshness_state <> 'HIDDEN'
                                AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                             ORDER BY id FOR NO KEY UPDATE)
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
                         UPDATE binder b SET warned_at = :now
                           FROM due d
                          WHERE b.id = d.id
@@ -527,14 +490,17 @@ public class BinderRepository {
                 .list();
     }
 
-    /** Expired temporary publications become PRIVATE; returns the number of binders changed. */
+    /**
+     * Expired temporary publications become PRIVATE; returns the number of binders changed. A
+     * binder another transaction holds is skipped (freshness job).
+     */
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
                         WITH expired AS MATERIALIZED (
                             SELECT id FROM binder
                              WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
-                             ORDER BY id FOR NO KEY UPDATE)
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
                         UPDATE binder b SET visibility = 'PRIVATE', public_until = NULL
                           FROM expired e
                          WHERE b.id = e.id
@@ -547,9 +513,12 @@ public class BinderRepository {
      * Stores the effective public visibility of the binders matching {@code scopeSql} (a condition
      * on alias {@code b}) and returns those whose value flipped. The flipped rows are locked in
      * ascending id order before they are written.
+     *
+     * @param skipLocked leave the binders another transaction holds to a later call instead of
+     *     waiting for them (the freshness job, which reconciles every binder)
      */
     public List<ListingChange> reconcile(
-            String scopeSql, java.util.Map<String, ?> params, Instant now) {
+            String scopeSql, java.util.Map<String, ?> params, boolean skipLocked, Instant now) {
         JdbcClient.StatementSpec statement =
                 jdbc.sql(
                                 "WITH computed AS (SELECT b.id, "
@@ -561,7 +530,9 @@ public class BinderRepository {
                                         + "), flipped AS MATERIALIZED (SELECT t.id, c.listed"
                                         + " FROM binder t JOIN computed c ON c.id = t.id"
                                         + " WHERE t.publicly_listed <> c.listed"
-                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t)"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t"
+                                        + (skipLocked ? " SKIP LOCKED" : "")
+                                        + ")"
                                         + " UPDATE binder t SET publicly_listed = f.listed,"
                                         + " listing_changed_at = :now"
                                         + " FROM flipped f"
