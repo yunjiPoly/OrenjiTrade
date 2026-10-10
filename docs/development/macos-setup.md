@@ -27,7 +27,7 @@ Mac mini, Apple M6 (12 cores), 24 GB RAM, macOS 27.0.1. What it has:
 | Playwright | Chromium in `~/Library/Caches/ms-playwright` |
 
 Not installed yet:
-- **The Android SDK** (no adb, no emulator, no AVD). `npm run test:mobile:maestro` cannot run until 9.3 is done.
+- **The Android SDK** (no adb, no emulator, no AVD): skipped for now (owner decision, 2026-10-10). `npm run test:mobile:maestro` runs on the iOS simulator instead (9.5); the Android run needs 9.3.
 - Python 3.12 (ML is on hold; the system `python3` is 3.9.6), watchman, gcloud.
 - git `user.name` and `user.email` are not set (3.1): a commit made by hand gets `<user>@<host>.local` as its author.
 - macOS Rosetta 2 (`arch -x86_64 /usr/bin/true` fails). The containers do not need it under OrbStack (4.4).
@@ -39,7 +39,7 @@ Proven that day:
 - The API image's build stage builds (`docker build --target build apps/api`, 3 min).
 - `npm run test:scripts` passes (111 tests).
 
-Not run that day: the full `npm run test:api`, the web and mobile E2E suites, the Maestro suite (no Android SDK) and anything on the iOS simulator.
+Not run in that first session: the full `npm run test:api`, the web and mobile E2E suites and the Maestro suite. **Later that day the native suite got its iOS path:** the Maestro flows run in Expo Go 57 on an iOS 27.0 simulator that the harness creates and boots itself (9.5, section 12 item 2). The Android run of the suite stays unproven on a Mac (no Android SDK).
 
 ---
 
@@ -703,7 +703,7 @@ Run all of these from the repo root with Docker running. Wrap the long ones in `
 | `npm run test:e2e` | Isolated stack: API jar on :8180 (DB `orenjitrade_e2e`), web on :4300, Playwright Chromium | Installs Chromium itself (`playwright install chromium` in `runWebE2e`, `scripts/lib/web-e2e.mjs`). It never touches your dev DB or cache. |
 | `npm run test:mobile` | Typecheck (typed routes + `tsc`) + `expo lint` + Jest (jest-expo 57) + the harness guard tests (`node --test`) | No device needed. |
 | `npm run test:mobile:e2e` | Expo web export on :19006 + API on :8090 + Playwright | Section 9.5. |
-| `npm run test:mobile:maestro` | Native Maestro flows on an Android emulator | Section 9.5. |
+| `npm run test:mobile:maestro` | Native Maestro flows on the iOS simulator or an Android emulator (`-- --platform ios\|android`) | Section 9.5. On a Mac without the Android SDK it runs on iOS. |
 | `npm run test:all` | All of the above | |
 | `npm run audit:gate` | `npm audit --json` vs `security/npm-audit-allowlist.json` | Needs network. **Fails on every machine after 2026-11-30**, when the node-forge and braces allowlist entries expire. |
 | `npm run infra:validate` | `terraform fmt -check` + `init -backend=false` + `validate` on 4 root modules. No plan or apply. | Needs Terraform (below). |
@@ -741,7 +741,7 @@ npm run infra:validate     # providers are cached in .local-dev/terraform-plugin
 
 ## 9. Mobile on the Mac
 
-The app is Expo SDK 57 (expo 57.0.x, react-native 0.86.3, react 19.2.3) and runs in **Expo Go only**: no EAS, no native build.
+The app is Expo SDK 57 (expo 57.0.x, react-native 0.86.3, react 19.2.3) and runs in **Expo Go only**: no EAS, no native build. On a Mac the iOS simulator is enough for everything below, the native test suite included (9.5); Android (9.3) is optional.
 
 ### 9.1 Watchman (optional)
 Why: Expo SDK 57 no longer requires it, but React Native still recommends it for Metro file watching.
@@ -777,14 +777,14 @@ Run on the iOS simulator:
 npm run infra:up && npm run api:dev            # terminal 1
 npm run ios -w apps/mobile                     # terminal 2 [repo] (= cd apps/mobile && npx expo start --ios; or `npx expo start`, then press i)
 ```
-- Expo CLI installs the matching Expo Go on the simulator.
+- Expo CLI installs the matching Expo Go on the simulator (Expo Go 57.0.9 for SDK 57 [proven 2026-10-10]) and opens the project on the first booted simulator it finds; with none booted it boots the one DeviceHub used last.
 - The simulator app: Xcode 27 renamed it **DeviceHub** (`open -a DeviceHub`); on Xcode 26 it is `open -a Simulator` [docs]. If Expo CLI hangs waiting for a simulator, run `xcrun simctl list devices available`, then `xcrun simctl boot "iPhone 17"` (or another listed name).
 - The app reaches the API at `localhost` (the default for iOS in `apps/mobile/src/config/env.ts` `devHostFor`), so no `.env` is needed [repo].
-- **Unverified:** Expo Go SDK 57 on an iOS 27 runtime. The project has never run the iOS path, and no harness automates iOS. If Expo Go misbehaves, install an iOS 26.x runtime (Xcode > Settings > Components).
+- **Expo Go SDK 57 runs on the iOS 27 runtime [proven 2026-10-10]:** the native Maestro suite passes there (9.5). The suite uses a simulator of its own, never the one you run the app on by hand.
 - A physical iPhone: 9.6.
 
 ### 9.3 Android Studio, SDK and an arm64 AVD
-Why: the Maestro harness drives an **Android** emulator. Your Windows x86_64 AVDs do not carry over, and x86_64 images don't run on Apple Silicon.
+Why: only to run the app or the native suite on **Android**. On a Mac the native Maestro suite runs on the iOS simulator without it (9.5, owner decision of 2026-10-10: the Android SDK is skipped for now). Your Windows x86_64 AVDs do not carry over, and x86_64 images don't run on Apple Silicon.
 
 1. Download Android Studio for **Mac with Apple chip**, run the Setup Wizard, and choose **Standard**.
 2. Settings > Languages & Frameworks > Android SDK > SDK Tools: Android Emulator, Platform-Tools, **Command-line Tools (latest)**. SDK Platforms (Android 36) and Build-Tools are optional: Expo Go does no native build.
@@ -824,7 +824,7 @@ npm run android -w apps/mobile    # [repo] (= cd apps/mobile && npx expo start -
 - **Main only:** the Android Leaflet/OSM map needs internet inside the emulator. Regions uses no map tiles or keys.
 
 ### 9.4 Maestro
-Why: it runs the native E2E flows in `apps/mobile/.maestro` (Android Expo Go, `appId host.exp.exponent`). Local CLI only: never Maestro Cloud, never `maestro login`.
+Why: it runs the native E2E flows in `apps/mobile/.maestro` in Expo Go, on the iOS simulator or on an Android emulator (the harness gives the flows the app id: `host.exp.Exponent` on iOS, `host.exp.exponent` on Android). Local CLI only: never Maestro Cloud, never `maestro login`.
 ```bash
 curl -fsSL "https://get.maestro.mobile.dev" | bash     # installs to ~/.maestro/bin [docs]
 echo 'export PATH="$PATH:$HOME/.maestro/bin"' >> ~/.zprofile && source ~/.zprofile
@@ -833,7 +833,7 @@ Verify:
 ```bash
 maestro --version     # needs a java: JAVA_HOME, or the default JDK
 ```
-- With Temurin 27 as the default JDK, `maestro --version` prints 2.11.0 after three JDK `WARNING` lines about final-field mutation [proven 2026-10-10]. Running flows on Java 27 was not tried; if Maestro misbehaves there, start it with `JAVA_HOME` set to a JDK 21.
+- With Temurin 27 as the default JDK, `maestro --version` prints 2.11.0 after three JDK `WARNING` lines about final-field mutation [proven 2026-10-10]. The iOS suite was run with `JAVA_HOME` set to the JDK 21 that Gradle provisioned (`~/.gradle/jdks/...`) [proven 2026-10-10]; running flows on Java 27 was not tried, so start Maestro the same way if it misbehaves there.
 Brew alternative [docs]: `brew tap mobile-dev-inc/tap && brew install mobile-dev-inc/tap/maestro`. If brew refuses the tap formula as untrusted, run `brew trust --formula mobile-dev-inc/tap/maestro` (in Maestro's macOS docs) and install again.
 
 ### 9.5 Environment the mobile harnesses need on macOS
@@ -844,26 +844,44 @@ Brew alternative [docs]: `brew tap mobile-dev-inc/tap && brew install mobile-dev
 | `npm run test:mobile:e2e` | Docker running; a Java 21 for the API jar (found automatically, `ORENJI_JAVA_HOME` overrides: 5); ports 8090 and 19006 free. The harness runs `expo export --platform web`, then `expo serve` on :19006, the API jar on :8090 (DB `orenjitrade_mobile_e2e`, Redis db 1), then Playwright. |
 | `npm run test:mobile:maestro` | See the list below. |
 
-`test:mobile:maestro` needs:
-- **The Android SDK in `~/Library/Android/sdk`** (Android Studio's default), which the harness finds by itself since 2026-10-10. Set `ANDROID_HOME` only when the SDK is somewhere else; `adb` on PATH is the last resort. "No Android device is ready" now says whether adb itself is missing or only the emulator. **The owner's Mac has no Android SDK yet (2026-10-10), so this suite cannot run there until 9.3 is done.**
+`test:mobile:maestro` runs the native flows on the **iOS simulator** or on an **Android emulator**: `-- --platform ios|android`, or `ORENJI_MAESTRO_PLATFORM`. Without a choice it takes Android when an Android device is ready and otherwise iOS, so on a Mac without the Android SDK the plain command runs on iOS. Both need:
 - `maestro` on PATH or in `~/.maestro/bin` (both found automatically). Otherwise set `MAESTRO_BIN=$HOME/.maestro/bin/maestro`.
 - A `java` for Maestro (17+), and a Java 21 for the API jar, which the harness picks by itself (5).
 - **Docker running:** the harness starts or reuses the isolated API on :8090 (DB `orenjitrade_mobile_e2e`) and calls `ensureInfrastructure` [repo].
+- Ports 8082 and 8090 free.
+
+**iOS (what the owner's Mac runs) [proven 2026-10-10].** Xcode with an iOS runtime (9.2) is all it needs. Nothing has to be started or opened:
+```bash
+caffeinate -dimsu npm run test:mobile:maestro -- --platform ios      # about 30 min for the 24 flows
+npm run test:mobile:maestro -- --platform ios --keep-running apps/mobile/.maestro/sign-in.yaml   # one flow, keep the stack
+npm run test:mobile:maestro -- --stop                                # stop what --keep-running left (API, Metro, simulator)
+```
+- **A simulator of its own.** The harness creates the device "OrenjiTrade Maestro" when it is missing (the newest standard iPhone on the newest installed iOS runtime: an iPhone 17 on iOS 27.0 here), boots it with `xcrun simctl` and waits with `simctl bootstatus` until iOS has really booted. No Simulator / DeviceHub window is needed and none is opened. It shuts the device down at the end, unless `--keep-running` is given or the device was booted already. Your own simulators are never booted, changed or used.
+- **Settings inside that simulator only**, never in the Mac's settings: AutoFill Passwords off (iOS would put "Save Password?" over the app after every sign-in), US English as language and region (a simulator inherits the Mac's), a keyboard without auto-correction or predictions, and `exp://` links that open in Expo Go without the "Open in Expo Go?" question. They are written at the first run; iOS reads them at boot, so that first run restarts the simulator once.
+- **Expo Go** is installed on that simulator by Expo CLI's own installer (`scripts/lib/expo-go-ios.mjs`), whatever other simulator is booted. The first install downloads Expo Go from Expo's servers into `~/.expo/ios-simulator-app-cache` (free, no account).
+- **Metro** runs `expo start --port 8082` with the app pointed at `http://localhost:8090` and the Auth emulator at `localhost:9099`; the flows open `exp://127.0.0.1:8082`.
+- **Watching a run:** `open -a DeviceHub` (Xcode 27) shows the booted simulator. Typing on the Mac keyboard into that window or changing its settings can disturb a run.
+- `ORENJI_IOS_SIMULATOR_NAME`, `ORENJI_IOS_SIMULATOR_TYPE` (for example `iPhone 17 Pro`) and `ORENJI_IOS_SIMULATOR_UDID` choose another simulator; one named by UDID receives the same settings, so name one you keep for tests. `xcrun simctl delete "OrenjiTrade Maestro"` removes the dedicated device; the next run creates it again.
+
+Verify: the harness ends with every flow passed and exit code 0 (`echo $?`), and `xcrun simctl list devices | grep Booted` prints nothing afterwards.
+
+**Android** needs, on top of the common list:
+- **The Android SDK in `~/Library/Android/sdk`** (Android Studio's default), which the harness finds by itself since 2026-10-10. Set `ANDROID_HOME` only when the SDK is somewhere else; `adb` on PATH is the last resort. "No Android device is ready" says whether adb itself is missing or only the emulator. **The owner's Mac has no Android SDK (2026-10-10, skipped for now), so the Android run of the suite is not proven on a Mac.**
 - A **fully booted** arm64 AVD (`sys.boot_completed` = 1, 9.3 step 5). Set `ANDROID_SERIAL` if more than one device is attached.
 - Expo Go installed on the emulator once:
   ```bash
   cd apps/mobile && npx expo start --android --port 8082
   ```
   Stop it after Expo Go opens. The harness waits up to 6 min for Expo Go otherwise.
-- Ports 8082 and 8090 free.
 
 ```bash
 emulator -avd Pixel_6_API_35 -no-snapshot-save -no-boot-anim &
 adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done'
-caffeinate -dimsu npm run test:mobile:maestro      # about 50 min for the full suite (Windows reference)
+caffeinate -dimsu npm run test:mobile:maestro -- --platform android     # about 50 min for the full suite (Windows reference)
 ```
 Verify: the harness ends with every flow passed and exit code 0 (`echo $?`).
 - **Regions** renames some flows: `check-area.js` → `check-location.js`, `map-preview-profile` → `map-placeholder-profile`, `card-who-near-me` → `card-holders-region`, `wishlist-match-notification` → `wishlist-alert-notification`.
+- A Metro kept by `--keep-running` serves one platform (the API address is inlined into the bundle): run `npm run test:mobile:maestro -- --stop` before switching between Android and iOS.
 
 ### 9.6 Physical iPhone or Android phone (optional)
 Why: only if you want a real device; the simulator and emulator cover everything the harnesses need.
@@ -948,10 +966,11 @@ Verify (only if you use them): `npm run generate:api && git status --short packa
 | Terraform | 1.16.x via hashicorp/tap (≥ 1.9) | `terraform version` |
 | Xcode | 27.x (or 26.4+) | `xcodebuild -version` |
 | iOS runtime | iOS 27 (or 26.x) | `xcrun simctl list runtimes` |
-| Android Studio + SDK tools | current (not on the owner's Mac yet, 2026-10-10) | `adb version && sdkmanager --version` |
-| AVD | arm64-v8a, API 35/34 | `emulator -list-avds && adb devices` |
-| ANDROID_HOME | `~/Library/Android/sdk` (for `sdkmanager`, `emulator` and Expo CLI; the Maestro harness finds that folder by itself) | `echo $ANDROID_HOME` |
-| Maestro | latest | `maestro --version` |
+| Maestro | latest (2.11.0 on the owner's Mac) | `maestro --version` |
+| Native suite on iOS | every flow passes; the harness creates and boots its own simulator | `npm run test:mobile:maestro -- --platform ios` exits 0; `xcrun simctl list devices \| grep "OrenjiTrade Maestro"` shows the device, shut down |
+| Android Studio + SDK tools (optional) | current (not on the owner's Mac: skipped for now, 2026-10-10) | `adb version && sdkmanager --version` |
+| AVD (optional) | arm64-v8a, API 35/34 | `emulator -list-avds && adb devices` |
+| ANDROID_HOME (optional) | `~/Library/Android/sdk` (for `sdkmanager`, `emulator` and Expo CLI; the Maestro harness finds that folder by itself) | `echo $ANDROID_HOME` |
 | Watchman (opt.) | latest | `watchman --version` |
 | Python (opt.) | 3.12 | `apps/ml/.venv/bin/python --version` |
 | Repo smoke | n/a | `npm run test:scripts && npm run infra:up` |
@@ -963,7 +982,7 @@ Start `orenji`, then type at the prompt:
 ```
 !node -v && java -version && echo $JAVA_HOME $ANDROID_HOME && which maestro terraform adb
 ```
-Verify: v24.21.0, a JDK (Temurin 21, or a newer one), both paths set, and three paths printed. Repeat it once in the desktop app's Code tab. If something is missing only there, move that export (fnm included) into `~/.zprofile` and restart the app (unverified).
+Verify: v24.21.0, a JDK (Temurin 21, or a newer one), both paths set, and three paths printed (without the Android SDK: `$ANDROID_HOME` is empty and `adb` is not found, which the iOS run of the native suite does not need). Repeat it once in the desktop app's Code tab. If something is missing only there, move that export (fnm included) into `~/.zprofile` and restart the app (unverified).
 
 ---
 
@@ -977,6 +996,7 @@ Each item: where, what breaks, the workaround, and the fix to make in the repo. 
    **Fixed 2026-10-10.** The harness looks in `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk` on macOS (`adbCandidates` in `scripts/lib/host-tools.mjs`, unit-tested). Not run against a device: the owner's Mac has no Android SDK yet.
 2. **`scripts/lib/mobile-maestro.mjs:63,65,172` and every `apps/mobile/.maestro/*.yaml`** (`appId host.exp.exponent`): the Maestro harness is Android-only (`EMULATOR_HOST 10.0.2.2`, `expo start --port 8082 --android --clear`). No harness drives the iOS simulator.
    Workaround: run native E2E on an arm64 Android AVD and check iOS by hand (`npm run ios -w apps/mobile`).
+   **Fixed 2026-10-10.** `npm run test:mobile:maestro -- --platform ios` runs the same flows in Expo Go on the iOS simulator (9.5): a dedicated simulator created, booted without a window, configured and shut down by the harness (`scripts/lib/ios-simulator.mjs`, helpers in `host-tools.mjs`, unit-tested), Expo Go installed on that device by Expo CLI's installer, the iOS bundle checked for `http://localhost:8090`, and the app id (`host.exp.Exponent` on iOS) given to the flows as `APP_ID`. The flows are one set for both platforms: what differs (hiding the keyboard, going back, scrolling into reach, the ticked state, Expo Go's developer tools button) sits in `apps/mobile/.maestro/subflows/` in `when: platform:` blocks. The app defects the first iOS runs found are listed in `IMPLEMENTATION_STATUS.md` ("Mobile app on the iOS simulator"). The Android steps are unchanged but could not be re-run on this Mac (no Android SDK).
 3. **`scripts/lib/mobile-maestro.mjs:16, 252, 259-261`**: the hints point to `%LOCALAPPDATA%/Android/Sdk/emulator` and `MAESTRO_BIN=D:/maestro/bin/maestro.bat`, which mislead on a Mac.
    Workaround: ignore them; put `maestro` on PATH or in `~/.maestro/bin` (found automatically, line 92), or set `MAESTRO_BIN=$HOME/.maestro/bin/maestro`. Fix later: platform-specific hints.
    **Fixed 2026-10-10.** The messages are per platform (`noAndroidDeviceMessage`, `maestroNotFoundMessage` in `scripts/lib/host-tools.mjs`, unit-tested), and "No Android device is ready" also says when adb itself is missing. Seen on the owner's Mac: `npm run test:mobile:maestro` prints the macOS emulator path and "adb was not found in ANDROID_HOME, ANDROID_SDK_ROOT or ~/Library/Android/sdk".
@@ -1009,11 +1029,11 @@ Each item: where, what breaks, the workaround, and the fix to make in the repo. 
     **Fixed 2026-10-10.** The document names the three locations.
 13. **`docs/development/local-setup.md:338` and `apps/mobile/README.md:526-530`** (regions: :335 and :489-494): the emulator and Maestro examples are Windows-only (`%LOCALAPPDATA%` emulator path, `MAESTRO_BIN=D:/maestro/bin/maestro.bat`). `local-setup.md:21` and `README.md:69` say "`python` on Windows" with no macOS equivalent.
     Workaround: `$ANDROID_HOME/emulator/emulator`, `maestro` on PATH, and `python3.12`. Fix later: add a macOS section to the docs.
-    **Fixed 2026-10-10 in `local-setup.md` and `README.md`**, which give the macOS form of the emulator, Maestro and Python lines. **Still open:** `apps/mobile/README.md` keeps its Windows-only Maestro examples; it is rewritten with the iOS harness (item 2).
+    **Fixed 2026-10-10 in `local-setup.md` and `README.md`**, which give the macOS form of the emulator, Maestro and Python lines, **and in `apps/mobile/README.md`**, whose Maestro section now gives the iOS commands and the macOS, Linux and Windows forms of the Android ones (with item 2).
 
 ### 12.3 Not code bugs, but they block a Mac
 14. **Android AVDs from Windows** (`Pixel_6_API_34`, `Pixel_3a`, x86_64 images) do not carry over, and x86_64 images do not run on Apple Silicon.
-    Workaround: create an arm64-v8a AVD (9.3), then install Expo Go once with `cd apps/mobile && npx expo start --android --port 8082` (hint at `scripts/lib/mobile-maestro.mjs:211`).
+    Workaround: run the native suite on the iOS simulator (9.5), or create an arm64-v8a AVD (9.3), then install Expo Go once with `cd apps/mobile && npx expo start --android --port 8082` (the hint the harness prints).
 15. **Line endings:** the Windows clone uses `core.autocrlf=true`. Copying it would put CRLF into `infrastructure/docker/firebase-emulator/entrypoint.sh` and `apps/api/gradlew` and break the emulator image and Gradle.
     Workaround: always `gh repo clone` fresh and leave `core.autocrlf` unset (`.gitattributes` forces LF; both files are 100755 in the index).
 16. **GitHub default branch is `master`** (f13b686, same tree as `main`), so a fresh clone lands on `master`.
@@ -1071,7 +1091,10 @@ Each item: where, what breaks, the workaround, and the fix to make in the repo. 
 | `catalog:import` / `card-images:*` cannot connect | No running API | `npm run api:dev` in another terminal first. |
 | Every seed account asks for an "Age" step | Seeds have no `AGE_CONFIRMATION` consent | Expected once per account (7.6). |
 | macOS asks whether "java" or "node" may accept connections | Firewall on | Allow (7.6). |
-| `test:mobile:maestro`: "No Android device is ready" | No booted AVD; when it adds "adb was not found ...", no Android SDK at all (the owner's Mac on 2026-10-10) | Install the SDK and an arm64 AVD (9.3), boot it, check `adb devices`. Set `ANDROID_HOME` only when the SDK is not in `~/Library/Android/sdk`. |
+| `test:mobile:maestro -- --platform android`: "No Android device is ready" | No booted AVD; when it adds "adb was not found ...", no Android SDK at all (the owner's Mac on 2026-10-10). Without `--platform`, a Mac with Xcode runs on the iOS simulator instead | Run on iOS (9.5), or install the SDK and an arm64 AVD (9.3), boot it, check `adb devices`. Set `ANDROID_HOME` only when the SDK is not in `~/Library/Android/sdk`. |
+| `test:mobile:maestro -- --platform ios`: "The iOS simulator is not usable: ..." | Xcode or its iOS runtime is missing, or `xcrun simctl` fails | Section 9.2; `xcrun simctl list runtimes` must list an iOS runtime. |
+| `test:mobile:maestro`: "The Metro server kept on :8082 serves the Android app" (or the iOS app) | A `--keep-running` Metro of the other platform: the API address is inlined into its bundle | `npm run test:mobile:maestro -- --stop`, then rerun. |
+| The iOS suite fails on a text it typed, or iOS asks "Save Password?" | Another simulator was named with `ORENJI_IOS_SIMULATOR_UDID` and changed by hand, or the dedicated one was edited in its Settings app | `xcrun simctl delete "OrenjiTrade Maestro"` (the next run creates and configures it again), or unset the variable. |
 | Maestro or `expo start --android` fails right after the emulator starts | Android had not finished booting | Wait for `sys.boot_completed` = 1 (9.3 step 5). |
 | "Maestro CLI not found" | Not on PATH and not in `~/.maestro/bin` | Install it (9.4), or `MAESTRO_BIN=$HOME/.maestro/bin/maestro`. |
 | `sdkmanager` stops at a licence prompt or "licenses not accepted" | Licences not accepted before install | `yes \| sdkmanager --licenses`, then install again (9.3). |
