@@ -12,6 +12,7 @@ name: orenjitrade
 services:
   postgres:
     image: postgis/postgis:17-3.5
+    platform: linux/amd64 # postgis/postgis publishes no arm64 image; Apple Silicon runs it emulated
     container_name: orenjitrade-postgres
     environment:
       POSTGRES_DB: orenjitrade

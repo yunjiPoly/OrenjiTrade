@@ -44,10 +44,23 @@ about 10 = near duplicate, unrelated images score around 32).
 
 ## Run
 
+macOS and Linux (Python 3.12+; on macOS the system `python3` is 3.9, so name the version):
+
+```bash
+cd apps/ml
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -U pip
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env                                  # optional, defaults work
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Windows (Git Bash): the same with `python` and `.venv/Scripts/` in place of `.venv/bin/`:
+
 ```bash
 cd apps/ml
 python -m venv .venv
-.venv/Scripts/python -m pip install -U pip           # Windows; use .venv/bin/... on macOS/Linux
+.venv/Scripts/python -m pip install -U pip
 .venv/Scripts/pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env                                  # optional, defaults work
 .venv/Scripts/uvicorn app.main:app --reload --port 8000
@@ -65,10 +78,11 @@ The image runs as a non-root user, honours `PORT`, and has a `HEALTHCHECK` on `/
 ## Test, lint, type-check
 
 ```bash
-.venv/Scripts/ruff check .
-.venv/Scripts/ruff format --check .
-.venv/Scripts/mypy app
-.venv/Scripts/pytest -q --cov=app --cov-fail-under=85
+# macOS / Linux; on Windows use .venv/Scripts/ in place of .venv/bin/
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+.venv/bin/mypy app
+.venv/bin/pytest -q --cov=app --cov-fail-under=85
 ```
 
 Tests use the deterministic stub backend, generated images (Pillow) and `respx` for outbound

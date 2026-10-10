@@ -13,12 +13,15 @@ import {
   INFO_KEY,
   assertIsolated,
   assertRecreatable,
+  comparablePath,
   databaseOf,
   developerDirs,
   e2eApiEnv,
   identityArgs,
+  ignoresPathCase,
   isInside,
   isLocalUrl,
+  isProcessImage,
   isRunAccount,
   isTestDataEmail,
   isolationProblems,
@@ -45,6 +48,8 @@ fs.mkdirSync(workDir, { recursive: true });
 const devDirs = developerDirs([apiDir]);
 const DEV_CACHE = path.join(apiDir, '.local-storage', 'card-images');
 const DEV_MEDIA = path.join(apiDir, '.local-storage');
+/** This machine's default file system ignores case (stated here, not asked of the code under test). */
+const HOST_IGNORES_CASE = process.platform === 'win32' || process.platform === 'darwin';
 
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -73,12 +78,39 @@ describe('E2E API storage directories', () => {
     assert.ok(problems.some((p) => p.startsWith('STORAGE_LOCAL_ROOT') && p.includes('developer')));
   });
 
-  it('compares paths case-insensitively on Windows and through relative segments', () => {
+  it('compares paths case-insensitively on Windows and macOS, and through relative segments', () => {
     const sneaky = path.join(workDir, '..', '..', 'apps', 'api', '.local-storage', 'card-images');
     const env = safeEnv({ CARD_IMAGE_CACHE_DIR: sneaky });
     assert.ok(isolationProblems(env, { workDir, devDirs }).some((p) => p.includes('developer')));
-    if (process.platform === 'win32') {
-      assert.ok(samePath(DEV_CACHE.toUpperCase(), DEV_CACHE));
+    // NTFS and APFS ignore case by default; Linux file systems do not.
+    assert.equal(ignoresPathCase('win32'), true);
+    assert.equal(ignoresPathCase('darwin'), true);
+    assert.equal(ignoresPathCase('linux'), false);
+    assert.equal(
+      comparablePath('/Users/Me/OrenjiTrade/apps/api/.local-storage/Card-Images/', 'darwin'),
+      '/users/me/orenjitrade/apps/api/.local-storage/card-images',
+    );
+    assert.equal(comparablePath('C:\\Dev\\OrenjiTrade\\', 'win32'), 'c:\\dev\\orenjitrade');
+    assert.equal(comparablePath('/home/Me/Cache/', 'linux'), '/home/Me/Cache');
+    assert.equal(samePath(DEV_CACHE.toUpperCase(), DEV_CACHE), HOST_IGNORES_CASE);
+  });
+
+  it('a differently cased developer override is still the same directory on Windows and macOS', () => {
+    // The developer's .env names the E2E card image cache with another case. Neither directory
+    // exists yet, so resolving links cannot normalise the names: only the comparison can tell.
+    const recased = path.join(workDir, 'CARD-IMAGES');
+    const dirs = developerDirs([apiDir], { CARD_IMAGE_CACHE_DIR: recased });
+    const problems = isolationProblems(safeEnv(), { workDir, devDirs: dirs });
+    if (HOST_IGNORES_CASE) {
+      assert.ok(
+        problems.some((p) => p.startsWith('CARD_IMAGE_CACHE_DIR') && p.includes('developer')),
+        problems.join('\n'),
+      );
+      assert.ok(overlaps(path.join(workDir.toUpperCase(), 'media'), workDir));
+      assert.ok(isInside(path.join(workDir, 'MEDIA', 'avatars'), path.join(workDir, 'media')));
+    } else {
+      // A case-sensitive file system: these really are two directories.
+      assert.deepEqual(problems, []);
     }
   });
 
@@ -224,6 +256,31 @@ describe('--reuse-running', () => {
     assert.equal(webReuseRefusal('http://localhost:4300', config, 'http://localhost:8180'), null);
     assert.match(webReuseRefusal('http://localhost:4300', { apiBaseUrl: 'http://localhost:8080' }, 'http://localhost:8180'), /refusing/);
     assert.match(webReuseRefusal('http://localhost:4200', config, 'http://localhost:8180'), /developer web server/);
+  });
+});
+
+describe('recorded processes (--stop)', () => {
+  it('recognises java and node by the base name of the executable on every platform', () => {
+    // macOS: `ps -o comm=` prints the whole executable path.
+    assert.ok(isProcessImage('/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home/bin/java', 'java'));
+    assert.ok(isProcessImage('/Users/collector/.nvm/versions/node/v24.21.0/bin/node', 'node'));
+    assert.ok(isProcessImage('/Applications/Dev Tools/jdk-21/bin/java\n', 'java'));
+    // Linux: the bare name. Windows: tasklist's image name.
+    assert.ok(isProcessImage('java', 'java'));
+    assert.ok(isProcessImage('node', 'node'));
+    assert.ok(isProcessImage('java.exe', 'java'));
+    assert.ok(isProcessImage('Node.EXE', 'node'));
+    assert.ok(isProcessImage('C:\\Program Files\\Eclipse Adoptium\\jdk-21\\bin\\java.exe', 'java'));
+  });
+
+  it('never takes another program for java or node', () => {
+    assert.ok(!isProcessImage('/usr/bin/javac', 'java'));
+    assert.ok(!isProcessImage('/opt/java/bin/python3', 'java'));
+    assert.ok(!isProcessImage('/usr/local/bin/node-gyp', 'node'));
+    assert.ok(!isProcessImage('/Users/collector/node/bin/zsh', 'node'));
+    assert.ok(!isProcessImage('unknown', 'java'));
+    assert.ok(!isProcessImage('', 'java'));
+    assert.ok(!isProcessImage(undefined, 'node'));
   });
 });
 

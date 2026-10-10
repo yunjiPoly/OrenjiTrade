@@ -16,6 +16,12 @@ import org.testcontainers.utility.DockerImageName;
  * full run costs one container start-up; Testcontainers' Ryuk reaper removes them when the JVM
  * exits. Import this class ({@code @Import(TestcontainersConfiguration.class)}) rather than nesting
  * it inside a test class, which Spring Framework 7.1 would treat as the sole context configuration.
+ *
+ * <p>{@code postgis/postgis} is published for linux/amd64 only, and no platform is requested here
+ * on purpose. On an arm64 Docker engine (Apple Silicon) the engine refuses the first pull ("no
+ * matching manifest for linux/arm64/v8", logged once as an error), Testcontainers then pulls
+ * linux/amd64 by itself and the container runs emulated; amd64 hosts and CI never take that path.
+ * docker-compose.yml has to name the platform because Compose has no such fallback.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
