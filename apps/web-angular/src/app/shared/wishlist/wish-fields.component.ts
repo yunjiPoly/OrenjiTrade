@@ -33,6 +33,11 @@ export function withCurrentTerm(
     : terms;
 }
 
+/** A label inside a sentence: lower-case first letter, except an acronym ("TCG market price"). */
+export function inSentence(label: string): string {
+  return /^[A-Z]{2,}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
+}
+
 /**
  * The public part of a wish (add/edit dialog): the public note first (plain text, at most 280
  * characters, shown wherever the wish is visible), then the optional "Near Mint only" and price
@@ -102,8 +107,11 @@ export function withCurrentTerm(
               </mat-checkbox>
             }
           </div>
-        } @else if (termsError()) {
-          <p class="wf__hint" role="alert">The price terms could not load. Try again later.</p>
+        }
+        @if (termsError() && !terms().length) {
+          <p class="wf__hint" role="alert" data-testid="wish-terms-error">
+            The price terms could not load. Try again later.
+          </p>
         }
         @if (f.controls.priceTerm.errors?.['server']; as message) {
           <p class="wf__error" role="alert">{{ message }}</p>
@@ -193,7 +201,7 @@ export class WishFieldsComponent {
   protected readonly termsHint = computed(() => {
     const info = this.priceInfo();
     if (info) {
-      return `Terms relative to the ${info.label.toLowerCase()} of this printing. Sellers see them; they never filter anything.`;
+      return `Terms relative to the ${inSentence(info.label)} of this printing. Sellers see them; they never filter anything.`;
     }
     const base =
       'Terms relative to the TCG market price of the copy you get. Sellers see them; they never filter anything.';

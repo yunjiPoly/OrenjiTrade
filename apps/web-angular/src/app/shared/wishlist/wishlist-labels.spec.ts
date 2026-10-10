@@ -83,7 +83,7 @@ describe('wishlist labels', () => {
           priceTerm: { label: '100% TCG+', percent: 100, orMore: true },
         }),
       ).map((chip) => chip.label),
-    ).toEqual(['Near Mint only', '100% TCG+ ≈ 25.00 USD']);
+    ).toEqual(['Near Mint only', '100% TCG+ ≥ 25.00 USD']);
     // The amount names its source and date (tooltip / screen readers); the term alone has none.
     expect(
       wishChips(

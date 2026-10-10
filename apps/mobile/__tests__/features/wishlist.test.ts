@@ -210,7 +210,7 @@ describe('wishlist labels', () => {
           priceTerm: { label: '100% TCG+', percent: 100, orMore: true },
         })
       ).map((chip) => chip.label)
-    ).toEqual(['100% TCG+ ≈ 38.00 CAD']);
+    ).toEqual(['100% TCG+ ≥ 38.00 CAD']);
     expect(wishChips(wishFixture({ nearMintOnly: false, priceTerm: undefined }))).toEqual([]);
   });
 

@@ -30,12 +30,15 @@ describe('catalog labels', () => {
     expect(languageLabel(undefined)).toBe('—');
   });
 
-  it('formats market prices with their currency', () => {
+  it('formats market prices with their currency code, like the wish price terms', () => {
     expect(formatMarketPrice({ amount: 42, currency: 'CAD', source: Source.Sample })).toBe(
-      '$42.00',
+      '42.00 CAD',
     );
     expect(formatMarketPrice({ amount: 3.5, currency: 'USD', source: Source.Ygoprodeck })).toBe(
-      'US$3.50',
+      '3.50 USD',
+    );
+    expect(formatMarketPrice({ amount: 1234.5, currency: 'USD', source: Source.Ygoprodeck })).toBe(
+      '1,234.50 USD',
     );
     expect(formatMarketPrice(undefined)).toBeNull();
     expect(formatMarketPrice({ currency: 'CAD', source: Source.Catalog })).toBeNull();

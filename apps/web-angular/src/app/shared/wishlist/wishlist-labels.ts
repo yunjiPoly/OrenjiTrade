@@ -4,7 +4,12 @@ import type {
   WishPriceTerm,
   WishlistItemResponse,
 } from '@orenji/api-client';
-import { editionLabel, finishLabel, marketPriceInfo } from '../catalog/catalog-labels';
+import {
+  editionLabel,
+  finishLabel,
+  formatAmountWithCode,
+  marketPriceInfo,
+} from '../catalog/catalog-labels';
 import { printingCode } from '../inventory/inventory-labels';
 
 /**
@@ -22,22 +27,30 @@ export interface WishChip {
   detail?: string;
 }
 
-/** "≈ 21.25 USD": `percent` of a market price, two decimals; `null` without a price. */
+/** A price term as far as its amount goes: the percent and whether it means "or more". */
+type TermAmount = Pick<WishPriceTerm, 'percent'> & Partial<Pick<WishPriceTerm, 'orMore'>>;
+
+/**
+ * "≈ 21.25 USD": `percent` of a market price, two decimals; "≥ 42.00 CAD" for an "or more" term
+ * ("100% TCG+"); `null` without a price.
+ */
 export function approximateAmount(
-  term: Pick<WishPriceTerm, 'percent'> | null | undefined,
+  term: TermAmount | null | undefined,
   price: MarketPrice | null | undefined,
 ): string | null {
   if (!term || !price || price.amount === undefined || price.amount === null) {
     return null;
   }
   const cents = Math.round(price.amount * term.percent);
-  const amount = (cents / 100).toFixed(2);
-  return `≈ ${amount} ${price.currency ?? ''}`.trim();
+  return `${term.orMore ? '≥' : '≈'} ${formatAmountWithCode(cents / 100, price.currency)}`;
 }
 
-/** "85% TCG ≈ 21.25 USD" with a printing's market price; the term alone otherwise. */
+/**
+ * "85% TCG ≈ 21.25 USD" (or "100% TCG+ ≥ 25.00 USD") with a printing's market price; the term
+ * alone otherwise.
+ */
 export function priceTermLabel(
-  term: Pick<WishPriceTerm, 'label' | 'percent'>,
+  term: Pick<WishPriceTerm, 'label'> & TermAmount,
   price: MarketPrice | null | undefined,
 ): string {
   const amount = approximateAmount(term, price);

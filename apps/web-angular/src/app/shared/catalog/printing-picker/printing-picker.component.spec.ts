@@ -152,9 +152,9 @@ describe('PrintingPickerComponent', () => {
       'MACR-EN036, Secret Rare, Maze of Creation, 1st Edition, English, Normal',
     );
     expect(options[2].getAttribute('aria-label')).toContain('Quarter Century Secret Rare');
-    expect(element.textContent).toContain('US$25.00');
+    expect(element.textContent).toContain('25.00 USD');
     expect(element.querySelector('.pp__price')?.getAttribute('aria-label')).toBe(
-      'TCG market price US$25.00',
+      'TCG market price 25.00 USD',
     );
     expect(element.querySelector('img')?.getAttribute('src')).toContain('/p1.svg');
     expect(element.textContent).not.toContain('collector');

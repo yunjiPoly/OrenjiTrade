@@ -305,6 +305,19 @@ describe('Settings → Notifications', () => {
     expect(api.callsTo('PUT /api/v1/me/settings/notifications')).toHaveLength(0);
   });
 
+  it('says next to the wishlist alerts switch that alerts need a country and state', async () => {
+    mockApi(signedInRoutes({ 'GET /api/v1/me/location': ok({ discoverable: false }) }));
+    renderWithProviders(<NotificationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByRole('switch', { name: 'Wishlist alerts' })).toBeChecked();
+    // The help line describes the switch, never a state that is not saved yet.
+    expect(screen.getByText(/One alert per new listing that fits a wish\./)).toBeOnTheScreen();
+    expect(await screen.findByTestId('wishlist-location-prompt')).toHaveTextContent(
+      /Set your country and state to get wishlist alerts/
+    );
+    fireEvent.press(screen.getByTestId('wishlist-location-action'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
+  });
+
   it('shows the error state', async () => {
     mockApi(
       signedInRoutes({

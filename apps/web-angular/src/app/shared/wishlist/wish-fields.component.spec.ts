@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MarketPriceSourceEnum as Source, WishPriceTerm } from '@orenji/api-client';
-import { WishFieldsComponent, withCurrentTerm } from './wish-fields.component';
+import { WishFieldsComponent, inSentence, withCurrentTerm } from './wish-fields.component';
 import { WishForm, createWishForm, newWishDefaults } from './wishlist-form';
 
 const TERMS: WishPriceTerm[] = [
@@ -111,7 +111,13 @@ describe('WishFieldsComponent', () => {
     await render(true);
     expect(element.textContent).toContain('85% TCG');
     expect(element.textContent).toContain('≈ 21.25 USD');
-    expect(element.textContent).toContain('≈ 25.00 USD');
+    // "100% TCG+" means 100 % or more: the amount is a floor, not an estimate.
+    expect(element.textContent).toContain('≥ 25.00 USD');
+    expect(element.textContent).not.toContain('≈ 25.00 USD');
+    // The product name keeps its capitals inside the sentence.
+    expect(element.textContent).toContain(
+      'Terms relative to the TCG market price of this printing.',
+    );
     expect(element.querySelector('.wf__source')?.textContent).toContain(
       'TCG market price: YGOPRODeck set price (TCGplayer-based, USD)',
     );
@@ -131,6 +137,28 @@ describe('WishFieldsComponent', () => {
       '[data-testid="wish-term-75% TCG"] input',
     ) as HTMLInputElement;
     expect(kept.checked).toBe(true);
+  });
+
+  it('says the terms could not load, also while editing a wish that has one', async () => {
+    form = createWishForm({ ...newWishDefaults(), priceTerm: '85% TCG' });
+    fixture.componentRef.setInput('form', form);
+    fixture.componentRef.setInput('terms', []);
+    fixture.componentRef.setInput('termsError', true);
+    await fixture.whenStable();
+    // The wish's own term stays offered, and the missing others are explained.
+    expect(element.querySelector('[data-testid="wish-term-85% TCG"]')).not.toBeNull();
+    expect(element.querySelector('[data-testid="wish-terms-error"]')?.textContent).toContain(
+      'The price terms could not load.',
+    );
+    fixture.componentRef.setInput('terms', TERMS);
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid="wish-terms-error"]')).toBeNull();
+  });
+
+  it('words a market price label inside a sentence', () => {
+    expect(inSentence('TCG market price')).toBe('TCG market price');
+    expect(inSentence('Sample market price')).toBe('sample market price');
+    expect(inSentence('Market price')).toBe('market price');
   });
 
   it('binds Near Mint only and counts the note', async () => {

@@ -1,6 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { NotificationSettingsResponse, SettingsService } from '@orenji/api-client';
+import { provideRouter } from '@angular/router';
+import {
+  LocationService,
+  MyLocationResponse,
+  NotificationSettingsResponse,
+  SettingsService,
+} from '@orenji/api-client';
 import { of } from 'rxjs';
 import { NotificationSettingsComponent } from './notification-settings.component';
 
@@ -31,8 +37,13 @@ describe('NotificationSettingsComponent', () => {
     getNotificationSettings: ReturnType<typeof vi.fn>;
     updateNotificationSettings: ReturnType<typeof vi.fn>;
   };
+  let myLocation: MyLocationResponse;
 
   beforeEach(async () => {
+    myLocation = {
+      location: { countryCode: 'CA', subdivisionCode: 'CA-QC' },
+      discoverable: false,
+    } as MyLocationResponse;
     api = {
       getNotificationSettings: vi.fn(() => of(settings(true))),
       updateNotificationSettings: vi.fn(({ notificationSettingsRequest }) =>
@@ -43,15 +54,21 @@ describe('NotificationSettingsComponent', () => {
       imports: [NotificationSettingsComponent],
       providers: [
         { provide: SettingsService, useValue: api },
+        { provide: LocationService, useValue: { getMyLocation: vi.fn(() => of(myLocation)) } },
         { provide: MatSnackBar, useValue: { open: vi.fn() } },
+        provideRouter([]),
       ],
     }).compileComponents();
+  });
+
+  async function create(): Promise<void> {
     fixture = TestBed.createComponent(NotificationSettingsComponent);
     element = fixture.nativeElement as HTMLElement;
     await fixture.whenStable();
-  });
+  }
 
   it('turns wishlist alerts off with one switch (no per-channel row for them)', async () => {
+    await create();
     const toggle = element.querySelector<HTMLButtonElement>(
       '[data-testid="notif-wishlist-alerts"] button[role="switch"]',
     );
@@ -63,9 +80,14 @@ describe('NotificationSettingsComponent', () => {
     );
     expect(rows.some((row) => row?.toLowerCase().includes('wishlist'))).toBe(false);
 
+    // The help line describes the switch; it never announces a state that is not saved yet.
+    expect(element.textContent).toContain('One alert per new listing that fits a wish.');
+    expect(element.querySelector('[data-testid="notif-wishlist-no-location"]')).toBeNull();
     toggle!.click();
     await fixture.whenStable();
-    expect(element.textContent).toContain('Off: no wishlist alerts.');
+    expect(toggle?.getAttribute('aria-checked')).toBe('false');
+    expect(element.textContent).toContain('One alert per new listing that fits a wish.');
+    expect(element.textContent).toContain('You have unsaved changes');
     const save = Array.from(element.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
       button.textContent?.includes('Save preferences'),
     );
@@ -77,5 +99,13 @@ describe('NotificationSettingsComponent', () => {
       false,
       expect.anything(),
     );
+  });
+
+  it('says next to the switch that wishlist alerts need a country and state', async () => {
+    myLocation = { discoverable: false } as MyLocationResponse;
+    await create();
+    const hint = element.querySelector('[data-testid="notif-wishlist-no-location"]');
+    expect(hint?.textContent).toContain('set your country and state to get them');
+    expect(hint?.querySelector('a')?.getAttribute('href')).toBe('/settings/location');
   });
 });

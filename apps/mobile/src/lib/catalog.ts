@@ -111,9 +111,26 @@ export function formatMoney(
   }
 }
 
-/** Localised market price (`CA$42.00`), or `null` when the printing has none. */
+/**
+ * An amount with its currency code after it, two decimals ("1,234.50 CAD"): the wording of
+ * market prices and of the wish price term amounts ("85% TCG ≈ 21.25 USD"), so a CAD market
+ * price never reads as "$" next to a term (web: `formatAmountWithCode`). No Intl (Hermes).
+ */
+export function formatAmountWithCode(amount: number, currency: string | null | undefined): string {
+  const fixed = amount.toFixed(2);
+  const point = fixed.indexOf('.');
+  const grouped = fixed.slice(0, point).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${grouped}${fixed.slice(point)} ${currency ?? ''}`.trim();
+}
+
+/** Market price with its currency code (`42.00 CAD`), or `null` when the printing has none. */
 export function formatMarketPrice(price: MarketPrice | null | undefined): string | null {
-  return price ? formatMoney(price.amount, price.currency || 'CAD') : null;
+  if (!price || price.amount === null || price.amount === undefined) {
+    return null;
+  }
+  return Number.isFinite(price.amount)
+    ? formatAmountWithCode(price.amount, price.currency || 'CAD')
+    : null;
 }
 
 /** A metadata value rendered according to its schema field type. */

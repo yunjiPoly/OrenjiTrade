@@ -49,8 +49,10 @@ that no `matches` / `rematch` path, no `WishlistMatch*` schema and no `WISHLIST_
 The list lives in `platform_settings` key `wishlist.price_terms` (ADR 0014 pattern; seeded by V112
 with `80% TCG, 85% TCG, 90% TCG, 100% TCG, 100% TCG+`; cached 60 s in Redis, evicted on admin
 writes). Clients show the approximate amount next to a term when the wish names one printing with a
-market price: `percent × price`, two decimals ("85% TCG ≈ 21.25 USD"); with any printing, only the
-term.
+market price: `percent × price`, two decimals ("85% TCG ≈ 21.25 USD"; an "or more" term shows a
+floor, "100% TCG+ ≥ 25.00 USD"); with any printing, only the term. Market prices themselves are
+written the same way, amount then currency code ("42.00 CAD", web and mobile), so a CAD price
+never reads as a bare "$" next to a term.
 
 `MarketPrice` now carries `source`: `YGOPRODECK` (the `set_price` of the YGOPRODeck card database,
 TCGplayer-based, USD, dated by the provider database's last update — `YgoProDeckMapper`), `SAMPLE`

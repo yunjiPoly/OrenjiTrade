@@ -73,7 +73,7 @@ test.describe('card catalog', () => {
     );
     await expect(selected).toContainText('Ultra Rare');
     await expect(selected).toContainText('1st Edition');
-    await expect(page.getByTestId('selected-price')).toContainText('$42.00');
+    await expect(page.getByTestId('selected-price')).toContainText('42.00 CAD');
     // The price says what it is (the fictional sample catalog here); its source is a tooltip.
     await expect(page.getByTestId('selected-price-source')).toHaveText('Sample market price');
 
@@ -83,7 +83,7 @@ test.describe('card catalog', () => {
     await expect(printings).toContainText('French');
     await printings.getByRole('button', { name: 'Show printing AZR-FR001' }).click();
     await expect(page).toHaveURL(/printing=[0-9a-f-]{36}/);
-    await expect(page.getByTestId('selected-price')).toContainText('$33.60');
+    await expect(page.getByTestId('selected-price')).toContainText('33.60 CAD');
     await expect(selected).toContainText('Unlimited');
 
     // "Who has this in my region" opens the card holders of the browsed region (ADR 0017).

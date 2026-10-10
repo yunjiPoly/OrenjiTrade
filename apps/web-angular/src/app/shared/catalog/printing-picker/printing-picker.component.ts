@@ -67,7 +67,12 @@ let nextId = 0;
       @if (facets().length) {
         <div class="pp__filters" data-testid="printing-filters">
           @for (facet of facets(); track facet.key) {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="pp__filter">
+            <mat-form-field
+              appearance="outline"
+              subscriptSizing="dynamic"
+              class="pp__filter"
+              [class.pp__filter--wide]="facet.key === 'rarity' || facet.key === 'set'"
+            >
               <mat-label>{{ facet.label }}</mat-label>
               <mat-select
                 [value]="filters()[facet.key]"
@@ -195,6 +200,11 @@ let nextId = 0;
       flex: 1 1 150px;
       min-width: 0;
       max-width: 220px;
+    }
+    /* Rarities and set names are long ("Quarter Century Secret Rare"): room for them in full. */
+    .pp__filter--wide {
+      flex: 2 1 250px;
+      max-width: 320px;
     }
     .pp__list {
       display: flex;

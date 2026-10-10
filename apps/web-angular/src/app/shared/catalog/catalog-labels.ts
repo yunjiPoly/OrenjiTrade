@@ -53,22 +53,25 @@ export function languageLabel(code: string | null | undefined): string {
   return name && name.toLowerCase() !== code.toLowerCase() ? name : code.toUpperCase();
 }
 
-/** Localised market price (`CA$42.00`), or `null` when the printing has none. */
-export function formatMarketPrice(
-  price: MarketPrice | null | undefined,
-  locale = 'en-CA',
-): string | null {
+/**
+ * An amount with its currency code after it, two decimals ("1,234.50 CAD"): the wording of
+ * market prices and of the wish price term amounts ("85% TCG ≈ 21.25 USD"), so a CAD market
+ * price never reads as "$" next to a term in USD or CAD.
+ */
+export function formatAmountWithCode(amount: number, currency: string | null | undefined): string {
+  const digits = new Intl.NumberFormat('en-CA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${digits} ${currency ?? ''}`.trim();
+}
+
+/** Market price with its currency code (`42.00 CAD`), or `null` when the printing has none. */
+export function formatMarketPrice(price: MarketPrice | null | undefined): string | null {
   if (!price || price.amount === undefined || price.amount === null) {
     return null;
   }
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: price.currency || 'CAD',
-    }).format(price.amount);
-  } catch {
-    return `${price.amount.toFixed(2)} ${price.currency ?? ''}`.trim();
-  }
+  return formatAmountWithCode(price.amount, price.currency || 'CAD');
 }
 
 /** What a market price is and where it comes from, for its label and tooltip. */

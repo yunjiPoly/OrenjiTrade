@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
+import { useMyLocation } from '@/src/api/hooks/location';
 import {
   useNotificationSettings,
   useSaveNotificationSettings,
@@ -23,6 +24,7 @@ import {
   type Channel,
   type MasterKey,
 } from '@/src/features/settings/notificationOptions';
+import { AlertReadinessNotice, alertReadiness } from '@/src/features/wishlist/WishlistNotices';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /** Settings → Notifications (web: `/settings/notifications`): channels, topics, quiet hours. */
@@ -46,6 +48,8 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
   const { palette } = useTheme();
   const snackbar = useSnackbar();
   const save = useSaveNotificationSettings();
+  // Wishlist alerts need a country and state (ADR 0017): without them, say so next to the switch.
+  const location = useMyLocation();
   const [draft, setDraft] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,15 +115,12 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
       >
         <SwitchRow
           label="Wishlist alerts"
-          help={
-            draft.wishlistAlerts
-              ? 'On: one alert per new listing that fits a wish.'
-              : 'Off: no wishlist alerts. Your wishlist stays as it is.'
-          }
+          help="One alert per new listing that fits a wish. Turning them off keeps your wishlist as it is."
           value={draft.wishlistAlerts}
           onChange={setWishlistAlerts}
           testID="notif-wishlist-alerts"
         />
+        <AlertReadinessNotice readiness={alertReadiness(location.data)} />
       </SectionCard>
 
       <SectionCard title="What to notify me about" description="Choose per topic and channel.">
