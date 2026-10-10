@@ -619,42 +619,149 @@ function javaMajor(javaBin) {
   return major === 1 ? Number(match[2]) : major;
 }
 
-/**
- * A Java >= 21 runtime for the API jar: ORENJI_JAVA_HOME, JAVA_HOME, `java` on PATH, then the
- * JDKs Gradle auto-provisioned under ~/.gradle/jdks (the toolchain used to build the API).
- */
-export function findJava21() {
-  const exe = IS_WINDOWS ? 'java.exe' : 'java';
-  const candidates = [];
-  for (const home of [process.env.ORENJI_JAVA_HOME, process.env.JAVA_HOME]) {
-    if (home) {
-      candidates.push(path.join(home, 'bin', exe));
-    }
-  }
-  candidates.push('java');
-  const gradleHome = process.env.GRADLE_USER_HOME ?? path.join(os.homedir(), '.gradle');
-  const jdks = path.join(gradleHome, 'jdks');
-  if (fs.existsSync(jdks)) {
-    const dirs = fs
-      .readdirSync(jdks, { withFileTypes: true })
+/** The Java release the API is built for and runs on in CI and in the production image. */
+export const API_JAVA_MAJOR = 21;
+
+function subdirectories(dir) {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
+      .map((entry) => path.join(dir, entry.name))
       .sort()
       .reverse();
-    for (const dir of dirs) {
-      candidates.push(path.join(jdks, dir, 'bin', exe));
-      candidates.push(path.join(jdks, dir, 'Contents', 'Home', 'bin', exe));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The `java` binaries of the JDKs Gradle provisioned under `jdksDir` (~/.gradle/jdks). Gradle
+ * unpacks each archive inside its own directory, so the JDK home is that directory or one level
+ * below it, and on macOS the home is the bundle's Contents/Home:
+ * `<vendor-21-arch-os>/jdk-21.0.x+y/Contents/Home/bin/java`.
+ */
+export function gradleJdkJavaBins(jdksDir, exe = IS_WINDOWS ? 'java.exe' : 'java') {
+  const bins = [];
+  for (const install of subdirectories(jdksDir)) {
+    for (const root of [install, ...subdirectories(install)]) {
+      for (const home of [root, path.join(root, 'Contents', 'Home')]) {
+        const bin = path.join(home, 'bin', exe);
+        if (fs.existsSync(bin)) {
+          bins.push(bin);
+        }
+      }
     }
   }
-  for (const candidate of candidates) {
-    if (candidate !== 'java' && !fs.existsSync(candidate)) {
-      continue;
-    }
-    if (javaMajor(candidate) >= 21) {
-      return candidate;
+  return bins;
+}
+
+/** macOS: the JDK home `/usr/libexec/java_home -v 21` names (it may be a newer JDK), else null. */
+function macJavaHome() {
+  const result = capture('/usr/libexec/java_home', ['-v', String(API_JAVA_MAJOR)], { timeout: 20_000 });
+  const home = result.status === 0 ? result.stdout.trim().split(/\r?\n/)[0] : '';
+  return home || null;
+}
+
+/**
+ * Where the Java runtime of the API jar is looked for, in priority order: the two override
+ * variables (ORENJI_JAVA_HOME, JAVA_HOME), `java` on PATH, on macOS the installed JDK
+ * `/usr/libexec/java_home` names, then the JDKs Gradle provisioned under ~/.gradle/jdks.
+ */
+export function javaCandidates(
+  env = process.env,
+  { platform = process.platform, home = os.homedir(), javaHomeOfMac = macJavaHome } = {},
+) {
+  const exe = platform === 'win32' ? 'java.exe' : 'java';
+  const candidates = [];
+  for (const name of ['ORENJI_JAVA_HOME', 'JAVA_HOME']) {
+    if (env[name]) {
+      candidates.push({ javaBin: path.join(env[name], 'bin', exe), source: name, override: true });
     }
   }
-  return null;
+  candidates.push({ javaBin: 'java', source: '`java` on PATH', override: false });
+  if (platform === 'darwin') {
+    const macHome = javaHomeOfMac();
+    if (macHome) {
+      candidates.push({ javaBin: path.join(macHome, 'bin', exe), source: '/usr/libexec/java_home', override: false });
+    }
+  }
+  const jdks = path.join(env.GRADLE_USER_HOME || path.join(home, '.gradle'), 'jdks');
+  for (const javaBin of gradleJdkJavaBins(jdks, exe)) {
+    candidates.push({ javaBin, source: 'the JDKs Gradle provisioned (~/.gradle/jdks)', override: false });
+  }
+  return candidates;
+}
+
+/**
+ * Picks the Java runtime of the API jar among `candidates` (see javaCandidates). An override
+ * variable that points at a usable Java (>= 21) wins, as before. Otherwise an exact Java 21 is
+ * preferred wherever it is found, so the jar runs on what CI and production run; a newer Java is
+ * only the last resort. `probe(javaBin)` returns the major version (0 when it cannot run) and is
+ * called lazily, once per binary. Returns `{ javaBin, source, override, major, exact, ignored }`
+ * (`ignored`: the override candidates that were set but unusable), or null when nothing fits.
+ */
+export function selectJava(candidates, probe, wanted = API_JAVA_MAJOR) {
+  const majors = new Map();
+  const majorOf = (candidate) => {
+    if (!majors.has(candidate.javaBin)) {
+      majors.set(candidate.javaBin, probe(candidate.javaBin));
+    }
+    return majors.get(candidate.javaBin);
+  };
+  const chosen =
+    candidates.find((candidate) => candidate.override && majorOf(candidate) >= wanted) ??
+    candidates.find((candidate) => majorOf(candidate) === wanted) ??
+    candidates.find((candidate) => majorOf(candidate) > wanted);
+  if (!chosen) {
+    return null;
+  }
+  const ignored = candidates
+    .filter((candidate) => candidate.override && majorOf(candidate) < wanted)
+    .map((candidate) => ({ ...candidate, major: majorOf(candidate) }));
+  const major = majorOf(chosen);
+  return { ...chosen, major, exact: major === wanted, ignored };
+}
+
+/** The log lines a Java choice deserves: ignored override variables, and a runtime newer than 21. */
+export function javaChoiceWarnings(choice, wanted = API_JAVA_MAJOR) {
+  const warnings = choice.ignored.map(
+    (candidate) =>
+      `${candidate.source} is set, but ${candidate.javaBin} is ` +
+      `${candidate.major > 0 ? `Java ${candidate.major}` : 'not a working Java'}; ignoring it (the API jar needs Java ${wanted}+).`,
+  );
+  if (!choice.exact) {
+    let remedy = `No Java ${wanted} was found: install a JDK ${wanted} or set ORENJI_JAVA_HOME to one to test on the same Java.`;
+    if (choice.source === 'ORENJI_JAVA_HOME') {
+      remedy = `Point ORENJI_JAVA_HOME at a JDK ${wanted} to test on the same Java.`;
+    } else if (choice.override) {
+      remedy = `Set ORENJI_JAVA_HOME to a JDK ${wanted} to test on the same Java (it wins over ${choice.source}).`;
+    }
+    warnings.push(
+      `The API jar will run on Java ${choice.major} (${choice.source}: ${choice.javaBin}), but CI and production run Java ${wanted}. ${remedy}`,
+    );
+  }
+  return warnings;
+}
+
+function probeJava(javaBin) {
+  return javaBin !== 'java' && !fs.existsSync(javaBin) ? 0 : javaMajor(javaBin);
+}
+
+/**
+ * The Java runtime for the API jar (E2E harnesses, test-data purge): see selectJava for the rules
+ * (override variables first, then an exact Java 21, a newer Java as the last resort with a
+ * warning). Returns the path of the `java` binary, or null when no Java 21+ is found.
+ */
+export function findJava21() {
+  const choice = selectJava(javaCandidates(), probeJava);
+  if (!choice) {
+    return null;
+  }
+  for (const warning of javaChoiceWarnings(choice)) {
+    log.warn(warning);
+  }
+  return choice.javaBin;
 }
 
 // ------------------------------------------------------------------------------- prompting
