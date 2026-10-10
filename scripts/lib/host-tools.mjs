@@ -91,3 +91,84 @@ export function terraformInstallHint(platform) {
   }
   return 'https://developer.hashicorp.com/terraform/install';
 }
+
+// ------------------------------------------------------------------------------- Python
+
+/** The Python release apps/ml needs (apps/ml/pyproject.toml, CI: 3.12). */
+export const ML_PYTHON_MIN = Object.freeze([3, 12]);
+
+/** `[major, minor, patch]` out of `python --version` output ("Python 3.12.7"), or null. */
+export function parsePythonVersion(output) {
+  const match = /Python\s+(\d+)\.(\d+)(?:\.(\d+))?/i.exec(String(output ?? ''));
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3] ?? 0)] : null;
+}
+
+/** True when `version` ([major, minor, ...]) is at least `min`. */
+export function pythonIsSupported(version, min = ML_PYTHON_MIN) {
+  if (!version) {
+    return false;
+  }
+  return version[0] > min[0] || (version[0] === min[0] && version[1] >= min[1]);
+}
+
+/** The interpreter of the apps/ml virtual environment (Scripts\python.exe on Windows, bin/python elsewhere). */
+export function mlVenvPython(mlDir, platform) {
+  const p = pathFor(platform);
+  return platform === 'win32' ? p.join(mlDir, '.venv', 'Scripts', 'python.exe') : p.join(mlDir, '.venv', 'bin', 'python');
+}
+
+/**
+ * Interpreter names to try on PATH when apps/ml has no virtual environment. macOS ships
+ * /usr/bin/python3 3.9 with the Command Line Tools while Homebrew's 3.12 is `python3.12`, hence the
+ * versioned names after the plain ones.
+ */
+export function pythonCommands(platform) {
+  return platform === 'win32' ? ['python', 'py'] : ['python3', 'python', 'python3.14', 'python3.13', 'python3.12'];
+}
+
+/**
+ * Picks the interpreter for the ML tests among the ones that answered `--version`
+ * (`[{ python, source, version }]`, in preference order): the first that is Python 3.12+.
+ * `tooOld` lists the ones that were found but are older, so the caller can say so.
+ */
+export function chooseMlPython(found, min = ML_PYTHON_MIN) {
+  return {
+    chosen: found.find((candidate) => pythonIsSupported(candidate.version, min)) ?? null,
+    tooOld: found.filter((candidate) => !pythonIsSupported(candidate.version, min)),
+  };
+}
+
+/** The commands that install the apps/ml requirements into its existing virtual environment. */
+export function mlVenvInstallCommands(platform) {
+  const [cd, pip] = platform === 'win32' ? ['cd apps\\ml', '.venv\\Scripts\\pip'] : ['cd apps/ml', '.venv/bin/pip'];
+  return `${cd} && ${pip} install -r requirements.txt -r requirements-dev.txt`;
+}
+
+/** The commands that create the apps/ml virtual environment on this platform with `python`. */
+export function mlVenvCommands(platform, python) {
+  const [cd, install] = mlVenvInstallCommands(platform).split(' && ');
+  return `${cd} && ${python} -m venv .venv && ${install}`;
+}
+
+const formatVersion = (version) => (version ? version.join('.') : 'an unknown version');
+
+/** What to print when no Python 3.12+ can run the ML tests (`tooOld` from chooseMlPython). */
+export function mlPythonMissingMessage({ platform, tooOld, min = ML_PYTHON_MIN }) {
+  const wanted = `Python ${min.join('.')}+`;
+  const install =
+    { win32: 'winget install Python.Python.3.12', darwin: 'brew install python@3.12' }[platform] ??
+    'install python3.12 with your package manager';
+  const python = platform === 'win32' ? 'python' : 'python3.12';
+  const venv = tooOld.find((candidate) => candidate.source === 'apps/ml/.venv');
+  if (venv) {
+    return (
+      `apps/ml/.venv uses Python ${formatVersion(venv.version)}, but apps/ml needs ${wanted}. ` +
+      `Delete apps/ml/.venv and create it again with a newer Python (${install}): ${mlVenvCommands(platform, python)}`
+    );
+  }
+  const seen =
+    tooOld.length > 0
+      ? `${wanted} not found: ${tooOld.map((candidate) => `${candidate.source} is Python ${formatVersion(candidate.version)}`).join(', ')}.`
+      : `${wanted} not found (no apps/ml/.venv and no Python on PATH).`;
+  return `${seen} Install it (${install}), then create the virtual environment: ${mlVenvCommands(platform, python)}`;
+}
