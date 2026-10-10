@@ -833,7 +833,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         confirmedDaysAgo("inventory_item", kept, 20);
         confirmedDaysAgo("inventory_item", written, 20);
 
-        runJobStoppedAfterItsFirstBinders(
+        runJobStoppedAtTheEventsOf(
                 stopAt, () -> callJson(HttpMethod.DELETE, ITEMS + "/" + written, uid, null, 204));
 
         assertThat(isLive(written)).isFalse();
@@ -869,7 +869,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                 uuid(expired));
         dueForAWarning("binder", warned);
 
-        runJobStoppedAfterItsFirstBinders(
+        runJobStoppedAtTheEventsOf(
                 stopAt,
                 () ->
                         callJson(
@@ -888,6 +888,78 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
 
         freshnessService.run();
         assertThat(column("binder", "warned_at", warned)).as("the next run").isNotNull();
+    }
+
+    /** A write that holds the binder of an item and then needs the item. */
+    enum BinderHolder {
+        ITEM_CONFIRMATION,
+        BINDER_CONFIRMATION,
+        PRIVACY_RECONCILIATION
+    }
+
+    /**
+     * The job hides an item and then unlists it: two updates of one row in one transaction, and
+     * PostgreSQL re-runs the foreign key checks of a row the transaction itself wrote before, among
+     * them a key-share lock on the item's binder. Between the two updates a write of the owner
+     * takes that binder and waits for the item. The job does not wait for the binder, because no
+     * write takes the full row lock of a binder (while they did, each waited for the other: 500,
+     * "deadlock detected").
+     */
+    @ParameterizedTest
+    @EnumSource(BinderHolder.class)
+    void theFreshnessJobNeverWaitsForTheBinderOfAnItemItWritesTwice(BinderHolder holder)
+            throws Exception {
+        UUID stopAt = collectorWithAnAgingItem();
+        String uid = uniqueUid("lock-job-twice");
+        UUID ownerId = collector(uid);
+        setDiscoverable(ownerId, true);
+        String binderId = createBinder(uid, "Listed", "PUBLIC");
+        String item = createItem(uid, binderId, Map.of());
+        confirmedDaysAgo("inventory_item", item, 50);
+
+        runJobStoppedAtTheEventsOf(
+                stopAt,
+                () -> {
+                    switch (holder) {
+                        case ITEM_CONFIRMATION ->
+                                callJson(
+                                        HttpMethod.POST,
+                                        ITEMS + "/" + item + "/confirm",
+                                        uid,
+                                        null,
+                                        200);
+                        case BINDER_CONFIRMATION ->
+                                callJson(
+                                        HttpMethod.POST,
+                                        "/api/v1/binders/" + binderId + "/confirm",
+                                        uid,
+                                        null,
+                                        200);
+                        case PRIVACY_RECONCILIATION -> {
+                            setDiscoverable(ownerId, false);
+                            reconciler.owner(ownerId);
+                        }
+                    }
+                });
+
+        assertThat(
+                        testUsers
+                                .query(
+                                        "SELECT event FROM inventory_freshness_event WHERE item_id"
+                                                + " = ? ORDER BY created_at, id",
+                                        uuid(item))
+                                .stream()
+                                .map(row -> row.get("event")))
+                .as("the job hid the item")
+                .contains("HIDDEN");
+        if (holder == BinderHolder.PRIVACY_RECONCILIATION) {
+            assertThat(column("inventory_item", "freshness_state", item)).isEqualTo("HIDDEN");
+            assertThat(listedFlags(ownerId)).as("nothing stays listed").containsOnly(false);
+        } else {
+            // The confirmation came after the job: the item is fresh and listed again.
+            assertThat(column("inventory_item", "freshness_state", item)).isEqualTo("ACTIVE");
+            assertThat(listedFlags(ownerId)).as("listed again").containsOnly(true);
+        }
     }
 
     /** A statement of the freshness job, by the table it writes and what it does there. */
@@ -1273,13 +1345,13 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
      * Runs the freshness job stopped between two of its statements, lets {@code contender} run
      * until it waits for a row the job holds (or ends), then lets the job go on. The job never
      * waits for a binder or an item, so it is stopped at the one other lock it takes: the foreign
-     * key check of a freshness event, on the account row of {@code agingOwnerId} ({@link
-     * #collectorWithAnAgingBinder}), which another session holds here. By then the job has written
-     * the expired and the aged binders and nothing else.
+     * key check of a freshness event, on the account row of {@code ownerId}, which another session
+     * holds here. Where that is depends on the collector: after the expired and the aged binders
+     * are written and nothing else ({@link #collectorWithAnAgingBinder}), or after the items have
+     * their new freshness and before they are unlisted ({@link #collectorWithAnAgingItem}).
      */
-    private void runJobStoppedAfterItsFirstBinders(UUID agingOwnerId, Runnable contender)
-            throws Exception {
-        runStoppedAt("user_account", agingOwnerId, () -> freshnessService.run(), contender);
+    private void runJobStoppedAtTheEventsOf(UUID ownerId, Runnable contender) throws Exception {
+        runStoppedAt("user_account", ownerId, () -> freshnessService.run(), contender);
     }
 
     /** A collector whose only binder the next run of the job ages. */
@@ -1287,6 +1359,14 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         String uid = uniqueUid("lock-job-stop");
         UUID ownerId = collector(uid);
         confirmedDaysAgo("binder", createBinder(uid, "Aging", "PRIVATE"), 20);
+        return ownerId;
+    }
+
+    /** A collector without binders whose only item the next run of the job ages. */
+    private UUID collectorWithAnAgingItem() {
+        String uid = uniqueUid("lock-job-stop");
+        UUID ownerId = collector(uid);
+        confirmedDaysAgo("inventory_item", createItem(uid, null, Map.of()), 20);
         return ownerId;
     }
 

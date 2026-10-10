@@ -36,6 +36,13 @@ import org.springframework.stereotype.Repository;
  * ({@link #normaliseExpired}, {@link #recomputeFreshness}, {@link #warn} and the {@link #reconcile}
  * of every binder) skip the rows another transaction holds ({@code SKIP LOCKED}): the job never
  * waits for a row, so it cannot be part of a lock cycle, and its next run handles what it skipped.
+ *
+ * <p>Binder rows are locked {@code FOR NO KEY UPDATE}, never {@code FOR UPDATE}. A transaction that
+ * updates an item a second time re-runs the foreign key check of {@code inventory_item.binder_id}
+ * (PostgreSQL does so for a row the transaction itself wrote before), which takes a key-share lock
+ * on the binder. The job does that when it hides an item and then unlists it; against a full row
+ * lock it would wait for the write that holds the binder, which may be waiting for that item. Only
+ * {@link #delete} and {@link #deleteAllOf} take the full lock, as their last statement.
  */
 @Repository
 public class BinderRepository {
@@ -183,7 +190,9 @@ public class BinderRepository {
 
     /** Locks the owner's binder row (writes). */
     public boolean lockOwned(UUID ownerId, UUID id) {
-        return jdbc.sql("SELECT id FROM binder WHERE id = :id AND owner_id = :ownerId FOR UPDATE")
+        return jdbc.sql(
+                        "SELECT id FROM binder WHERE id = :id AND owner_id = :ownerId FOR NO KEY"
+                                + " UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(UUID.class)
@@ -219,10 +228,9 @@ public class BinderRepository {
 
     /**
      * Locks binders in ascending id order, before any of their items is written (the lock order).
-     * {@code FOR UPDATE}, the mode {@link #lockOwned} takes, so a later statement of the
-     * transaction never has to strengthen the lock while another session holds a weaker one (a
-     * binder delete needs the full lock). Unlike items, binders are referenced only by rows the
-     * same collector's writes and the freshness job insert, so the full lock keeps nobody else out.
+     * {@code FOR NO KEY UPDATE}, the mode {@link #lockOwned} takes and the lock an {@code UPDATE}
+     * of a binder needs: it keeps every other write of the binder out and lets the foreign key
+     * checks of its items through.
      *
      * @param ownerId only this owner's binders when given
      * @return the binders locked (unknown ids and other owners' binders are absent)
@@ -235,7 +243,7 @@ public class BinderRepository {
                 jdbc.sql(
                                 "SELECT id FROM binder WHERE id IN (:ids)"
                                         + (ownerId == null ? "" : " AND owner_id = :ownerId")
-                                        + " ORDER BY id FOR UPDATE")
+                                        + " ORDER BY id FOR NO KEY UPDATE")
                         .param("ids", ids);
         if (ownerId != null) {
             statement = statement.param("ownerId", ownerId);
@@ -245,7 +253,9 @@ public class BinderRepository {
 
     /** Locks every binder of an owner in ascending id order; returns their ids. */
     public List<UUID> lockAllOf(UUID ownerId) {
-        return jdbc.sql("SELECT id FROM binder WHERE owner_id = :ownerId ORDER BY id FOR UPDATE")
+        return jdbc.sql(
+                        "SELECT id FROM binder WHERE owner_id = :ownerId ORDER BY id FOR NO KEY"
+                                + " UPDATE")
                 .param("ownerId", ownerId)
                 .query(UUID.class)
                 .list();
@@ -399,6 +409,12 @@ public class BinderRepository {
                 .update();
     }
 
+    /**
+     * Deletes a binder the transaction holds ({@link #lockOwned}). The delete strengthens that lock
+     * to the full row lock and so waits for a freshness job that holds a key-share lock on the
+     * binder (see the class comment). The job never waits for this transaction in turn: the items
+     * of the binder were released first, so the job holds none of them.
+     */
     public void delete(UUID id) {
         jdbc.sql("DELETE FROM binder WHERE id = :id").param("id", id).update();
     }
@@ -425,7 +441,8 @@ public class BinderRepository {
                         """
                         WITH previous AS (
                             SELECT id, freshness_state FROM binder
-                             WHERE owner_id = :ownerId AND id IN (:ids) ORDER BY id FOR UPDATE)
+                             WHERE owner_id = :ownerId AND id IN (:ids)
+                             ORDER BY id FOR NO KEY UPDATE)
                         UPDATE binder b SET confirmed_at = :now, last_owner_activity_at = :now,
                                warned_at = NULL, freshness_state = 'ACTIVE'
                           FROM previous p
