@@ -121,8 +121,10 @@ tags:
 - assertVisible: '.*was just listed by @.* in Montevideo, Uruguay.*'
 - assertNotVisible: '.*km away.*'
 - takeScreenshot: notifications-centre
-# The title itself (a pattern would also match the row's "Mark as read: …" button).
-- tapOn: 'Wishlist alert: Emberfang Fox'
+# The alert by the start of its name: Android lists the title as a text of its own, iOS names the
+# whole row "Wishlist alert: Emberfang Fox. …" (a pattern open at the front would also match the
+# row's "Mark as read: …" button).
+- tapOn: 'Wishlist alert: Emberfang Fox.*'
 - extendedWaitUntil:
     visible:
       id: 'card-name'
