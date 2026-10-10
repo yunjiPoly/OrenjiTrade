@@ -237,6 +237,12 @@ export async function prepareIosSimulator(udid) {
     await waitForShutdown(udid);
     disablePasswordAutofill(autofill);
     await bootIosSimulator(udid);
+    if (passwordAutofillFiles(device.dataPath).length > 0) {
+      log.warn(
+        'AutoFill Passwords is still on in the simulator: iOS may put "Save Password?" over the app after a sign-in. ' +
+          'Delete the simulator (`xcrun simctl delete <udid>`) so the next run creates and configures it again.',
+      );
+    }
   }
   return booted;
 }
