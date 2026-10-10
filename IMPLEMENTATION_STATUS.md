@@ -2329,6 +2329,44 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 
 ---
 
+## Binder count deadlock: one lock order for binders and inventory items (2026-10-10)
+
+Branch `fix/binder-count-deadlock`, no migration. `DELETE /api/v1/inventory/items/{id}` answered 500
+("deadlock detected" in `inventory_item_binder_count()`) when it met the listing reconciliation of a
+privacy change: the delete held the item and waited for its binder (the item count trigger), the
+reconciler held the binder and waited for the item. Seen once in `BinderIT` on 2026-10-10; in
+production a collector deleting a card right after changing a privacy setting.
+
+- **Rule** (docs/database/schema.md, "Lock order of binders and inventory items"): binder rows
+  before item rows, each in ascending id. Item writes (`InventoryService.lockForWrite`: update, move,
+  delete, confirm, bulk, admin restore, trade transfer, create in a binder) lock the binders of
+  their items and the move target first; an item moved by another request in between has its new
+  binder taken without waiting, or the request answers 409. `ListingReconciler.owner`, binder
+  reorder and the account purge lock every binder of the owner first. Every statement that locks
+  several rows orders them by id. The freshness job writes its binders (expiry, freshness, effective
+  visibility, warnings) before its first item.
+- **Also fixed on the way:** requests adding cards to the same binder at the same moment could
+  deadlock with each other (each held the foreign key's key-share lock on the binder and then asked
+  for the full row lock; seen with four parallel requests); the bulk endpoint read its items before
+  it locked them; the freshness job wrote the state it had computed before waiting for a row, so a
+  confirmation committed during the wait was overwritten until the next run.
+- **Tests:** `InventoryLockOrderIT` (15): each item write against a reconciler stopped between its
+  binder and item statements (9 cases, all "deadlock detected" before the fix), an item moved
+  meanwhile, the no-wait binder lock, the freshness job stopped mid-run (both directions), the job
+  re-reading a row it waited for, and a bounded run of seven concurrent writers of one collector.
+- **Known limit (not fixed):** the freshness job locks rows of every collector without holding
+  their binders and orders the rows of each statement, not of its whole run. A request that writes
+  an item and then re-lists or unlists the rest of its binder, or that holds several rows the job
+  writes in different statements, can still meet the job in a lock cycle. The hourly job makes
+  that unlikely, but it is easy to provoke: with the job looping in two threads next to the seven
+  writers of the stress test and a privacy change every round, seven of eight local runs hit a
+  deadlock, always the job's item reconciliation against a bulk write's binder reconciliation.
+  Options, none chosen: keep inventory writes out while the job runs (shared/exclusive advisory
+  lock), let the job skip locked rows until its next run, give the job a short lock timeout and a
+  retry, or retry the request on SQLSTATE 40P01.
+
+---
+
 ## NEXT TASK
 
 > **Stage S1 — geography (2026-10-08, branch `feature/regions-geography`, not pushed):** builder
