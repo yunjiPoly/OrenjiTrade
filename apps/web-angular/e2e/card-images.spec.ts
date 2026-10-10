@@ -72,9 +72,12 @@ async function guardProvider(page: Page): Promise<ProviderGuard> {
         .catch(() => undefined),
     );
   });
+  // A response whose body never arrives (request aborted by a navigation) must not hang the spec.
+  const bounded = (promise: Promise<void>) =>
+    Promise.race([promise, new Promise<void>((resolve) => setTimeout(resolve, 5_000))]);
   return {
     async verify() {
-      await Promise.all(reads);
+      await Promise.all(reads.map(bounded));
       expect(requests, 'requests to a YGOPRODeck host').toEqual([]);
       expect(leaks, `API answers naming ${PROVIDER_IMAGES}`).toEqual([]);
     },
