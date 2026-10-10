@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
 **Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
 **Last updated:** 2026-10-06 (mobile stage M7: the web-vs-mobile parity gaps closed on the Expo app — Google sign-in and sign-up (proven against the Auth emulator only), the Search tab's Collectors and Binders segments, the card holders list with the web's sort and filters, "Looking for" on profiles, Settings → Blocked users, inventory owner photos and multi-select bulk actions, the visibility filter, binder reordering, the map's freshness / tags filters and search box, set pages; every acceptance row's mobile half completed; the M1–M6 verification caveats replaced with their merged PRs — branch `feature/mobile-m7` on top of `feature/mobile-m6` with `origin/main` (#49, #51) merged in, builder done; see "Mobile app (stage M7)"); 2026-10-05 (mobile stage M6: Phases 9 and 10 on the Expo app — payment protection on the trade (pay on the app's fake checkout, ship, confirm receipt, disputes with statements and photos, payouts), Premium through the fake billing checkout, credits, voluntary donations through the fake donation checkout, "Sponsored" placements, "See Premium" on every reached limit, the mobile half of the acceptance tracker, app-store purchase rules recorded as an open owner question in ADR 0011 — branch `feature/mobile-m6` on top of `feature/mobile-m5`, builder done; see "Mobile app (stage M6)"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
@@ -2226,7 +2227,8 @@ Wishes drive "Who wants it" and "Wanted by N" (stage S3, computed live from visi
 a simple **wishlist alert**: when a collector of the wish owner's platform region lists a public
 item that fits (card / printing / rarity, plus Near Mint or better when asked), the owner gets one
 `WISHLIST_ALERT` — "<card> <code> <rarity> was just listed by @handle in <state>, <country>." —
-that opens the card page with the wish's selection (`?printing=` / `?rarity=`). One on/off switch
+that opens the card page with the wish's selection (`?printing=<id>`, `?rarity=` or, since review
+fix 3, `?printing=any` for an "any printing" wish). One on/off switch
 in the notification settings; one alert per collector and item (a sent-alert key); owners without
 a location get none and the wishlist page asks them to set country and state.
 
@@ -2310,7 +2312,9 @@ wish — a match, notifications and preferences are inserted, V112 runs): the du
 the oldest, printing wishes lose their stray rarity, the card is filled in, the rarity wish keeps
 its rarity, no private note leaks, the match table and the match notifications go, the MESSAGE
 notification and the MESSAGE category stay; the scratch database is dropped. The owner's database
-`orenjitrade` is not touched (still unmigrated).
+`orenjitrade` is not touched (still unmigrated). Review fix 3 edited V112 one last time before it
+freezes at the merge (opt-outs carried over, paused wishes deleted, incomplete outbox rows
+completed, more normalisation, the test widened to 10 cases): see "Review fix 3" below.
 
 **Decisions:**
 - "Near Mint only" accepts Near Mint **or better** (Mint), by the game's ordered conditions.
@@ -2325,7 +2329,21 @@ notification and the MESSAGE category stay; the scratch database is dropped. The
   carries the percent and the "or more" flag, so a removed term still reads correctly.
 - A rarity on a one-printing wish equal to the printing's is accepted and dropped, another one is
   400; "any printing of a rarity" must name a rarity of the card's printings.
-- The public wishlist summary now lists every wish (there is no paused wish any more).
+- The public wishlist summary now lists every wish (there is no paused wish any more). **A wish
+  its owner had paused under the old model is deleted by V112** (lead decision of 2026-10-10,
+  review fix 3): a wish hidden on purpose must not become public and alerting, the spec says to
+  drop data rather than migrate it, and only fictional data exists.
+- An alert's link always says the wish's selection, "any printing" included
+  (`/cards/<id>?printing=any`), and the card page then picks no printing (review fix 3). Stage S3
+  makes "Any printing" the card page's default; the marker then names the default.
+- A typed printing code is not a printing: the wish form preselects a printing only when exactly
+  one printing of the card carries the code, otherwise it starts on "Any printing" with the
+  picker narrowed to the code (review fix 3; spec section 2, "never a silent pick").
+- V112 carries an alert opt-out over only when the old WISHLIST_MATCH category had both in-app
+  and push off (the two channels the new alert uses); email alone never keeps alerts on, because
+  wishlist alerts are never emailed.
+- `PUT /me/settings/notifications` without `wishlistAlerts` keeps the stored switch (the rest of
+  the body stays a full replacement).
 - `CollectorDiscoveryService.markersFor` (only used by the old matches) is kept for S3's "Who
   wants it" rows.
 - Mobile "Which copy" is a select sheet (any printing, one entry per rarity when the card has
@@ -2342,12 +2360,25 @@ notification and the MESSAGE category stay; the scratch database is dropped. The
 - A staff-edited price on an imported printing still reports its provider as the source (the
   printing's `external_ref`); the next import overwrites it anyway.
 - The web printings table ("Market price" column) and the mobile printing list ("Market
-  $42.00") still show prices without their source (the "Selected printing" price of the web and
-  mobile card pages names it since review fix 1): S3 replaces them with the shared picker, which
-  already labels the source.
-- The web initial bundle stays at 899.92 kB against the 900 kB warning budget (an 80-byte
-  margin): S3 has to make room (or the budget has to move, with a reason) before it adds to the
-  initial chunks.
+  42.00 CAD") still show prices without their source (the "Selected printing" price of the web
+  and mobile card pages names it since review fix 1): S3 replaces them with the shared picker,
+  which already labels the source.
+- The web initial bundle is at 899.93 kB against the 900 kB warning budget (a 70-byte margin
+  after review fix 3; 899.92 kB before): S3 has to make room (or the budget has to move, with a
+  reason) before it adds to the initial chunks.
+- `BinderIT.countsFollowTheItemsAndTheOwnersSettings` can fail with PostgreSQL's "deadlock
+  detected" (the binder-count trigger against the listing reconciler after a privacy change;
+  inventory code that S2 does not touch, the same on `main`). It is fixed on its own branch;
+  until that merges, a full `npm run test:api` can fail once on it and pass on the rerun.
+- The native Maestro suite was last run on the code of review fix 1. It was **not** re-run after
+  the round-2 polish (`be24294`) nor after review fix 3: the Mac has no Android SDK or emulator,
+  and an iOS path for the harness is the next task.
+- A wishlist alert names the printing code and rarity but not the edition, and two copies of one
+  printing listed by one collector give two alerts that read the same (one alert per item):
+  naming the edition or grouping them is for S3.
+- The mobile "Add a card" (inventory) flow still preselects the first printing of a typed code
+  in its visible printing step; S3 reworks that step ("the add dialog asks the user to pick
+  one").
 - `wishlist_alert_sent` rows are kept until the account or the item goes (no time-based purge;
   the table is small: one row per collector and listing alerted).
 - Mobile follow-ups: the full printing picker on the card screen with holder counts (S3), "Who
@@ -2470,6 +2501,129 @@ together with the cheap non-blocking ones:
   coordinate; Metro log clean; API log only Flyway's "extension already exists" notices. Metro,
   the harness API and the emulator were shut down; nothing listens on 8082, 8090, 19006, 8180,
   4300, 8480 or 4480.
+
+**Review fix 2 (2026-10-09, last work on the Windows machine):** the second functional review
+found that V112 failed on a populated pre-V112 database (the rarity of printing wishes was cleared
+after the duplicate collapse, so the unique index met duplicates). `c1b9df7` normalises the
+selection before collapsing and adds `SimplifiedWishlistMigrationIT` (see "Migration"); `be24294`
+is the review polish: market prices read amount then currency code ("42.00 CAD", web and mobile),
+an "or more" term shows a floor ("100% TCG+ ≥ 25.00 USD"), "TCG market price" keeps its capitals
+inside a sentence, the price-terms error also shows when an edited wish keeps its own term,
+Settings → Notifications explains wishlist alerts and prompts for a location when none is set
+(web and mobile), and the profile's place reads "City, State, Country". No check run was recorded
+for that round; the independent re-review of 2026-10-10 on the Mac ran every suite on `b52211a`
+(809 API + 12 catalog tests, 659 web, 651 mobile jest, 73 web E2E, 51 mobile web E2E, all green
+apart from the BinderIT deadlock described under "Known gaps") and no Maestro run.
+
+**Review fix 3 (2026-10-10, first run on the Mac mini):** the independent re-review of `b52211a`
+(functional verifier and migration auditor: approve; product/UX reviewer: changes required, two
+major findings, both silent printing picks). Every major and minor finding was reproduced first
+(the two majors by running the new E2E tests against the previous web and mobile code).
+
+- **An "Any printing" alert landed on a printing nobody chose (major, web and mobile).** The alert
+  linked to the bare card page, which shows its first printing as "Selected printing": an Unlimited
+  copy was listed and the page showed the 1st Edition at 6.75 CAD. The alert link now always says
+  the selection: `/cards/<id>?printing=any` for an any-printing wish (`b8d3750`), next to
+  `?printing=<id>` and `?rarity=`, which are unchanged. The card page (web `1b9fc32`, mobile
+  `00a07f6`) shows an "Any printing" block for it: no "Selected printing", no highlighted or
+  checked row, no price of one printing, the card's own picture; choosing a printing replaces
+  "any". A wish's own link (wishlist page, "Looking for") uses the same marker.
+- **A typed printing code picked one of the printings sharing it (major, web and mobile).**
+  `SHV-EN003` (a 1st Edition and an Unlimited printing) started the wish on "Only … 1st Edition",
+  and that wish then got no alert for an Unlimited copy. A code is no longer taken for a printing
+  (`7498baa`, `00a07f6`): the form preselects a printing only when exactly one printing of the
+  card carries the code; otherwise it starts on "Any printing", the web picker is narrowed to the
+  code's printings with the reason ("2 printings share the code SHV-EN003: choose one below for
+  that copy only", "Show every printing"), and the mobile "Which copy" lists them first.
+- **Minor, fixed:** the picker's "Any printing" row says what the click does under a rarity
+  filter; after a refused save (409, plan limit) the keyboard focus stays on the wish dialog's
+  save button; the bell menu shows a wishlist alert in full (the place was cut off); onboarding
+  tags "help collectors find you" (web and mobile); the seed fills the three stable-id wishes of a
+  database seeded before S2 while they are untouched and sends the sample alert once (`957f5b5`;
+  the owner's dev database is exactly that case); `PUT /me/settings/notifications` without
+  `wishlistAlerts` keeps the stored value (`559e116`); `schema.md`'s sensitive-data table no longer
+  lists private wishlist notes.
+- **V112, edited one last time before it freezes at the merge (`ef3ccd5`, still one
+  transaction):** a collector whose old WISHLIST_MATCH category had in-app and push off starts
+  with `wishlist_alerts = false`; paused wishes are deleted before the column is dropped (lead
+  decision, see "Decisions"); incomplete `event_publication` rows of the removed `WishlistMatched`
+  class and of the reshaped `WishlistItemCreated` are completed (the first start no longer fails
+  on them); before the duplicate collapse, rarity strings are trimmed, a printing wish takes its
+  printing's card and game, and a rarity no printing of the card has is cleared; the
+  `analytics_daily_count` rows of `wishlist_matched` go; `ck_wishlist_item_target` (redundant with
+  `card_id NOT NULL`) is dropped. `SimplifiedWishlistMigrationIT` proves each of these (10 tests:
+  one duplicate per dropped column, a `created_at` tie, the opt-outs, paused wishes, outbox rows,
+  an unknown and a padded rarity, a card / printing mismatch); 8 of the 10 fail against the
+  previous V112.
+- **V112 was edited before any merge** (`0f35296` checksum -825541891, `c1b9df7` 558235031, now
+  -323109679). Only databases that applied an earlier version are affected, and they then refuse
+  to start with a Flyway checksum mismatch: scratch and E2E databases (`orenjitrade_e2e` and
+  `orenjitrade_mobile_e2e` when kept with `--keep-db` or by a kept stack, reviewers' scratch
+  databases, on either machine). The remedy is to **drop and recreate that database** (the E2E
+  harnesses do it on every run); never `flyway repair` (an earlier V112 leaves a different
+  schema), and `npm run infra:reset` is not needed. The owner's dev database is at V105 and never
+  applied any V112.
+- **Nits, fixed:** the wish dialog's error icon keeps its size and the note counter stays on one
+  line at 375 px, with the count still shown once the note is over the limit ("281 / 280"); a
+  Retry for price terms that failed to load (web and mobile); "Your wishlist alerts work either
+  way" is not said while the collector has no location (web and mobile); "1 term"; a term the
+  admin removed is listed at its percent (web and mobile); the remove confirmation reads "Your
+  wish for <card> (any printing) will be removed."; a click on the backdrop no longer closes the
+  wish dialog while the form holds unsaved input (Escape and Cancel still do); the mobile "Which
+  copy" hint writes the chosen printing out in full; a note keeps its line breaks in "Looking
+  for"; the plan-limit dialog no longer shows the technical limit key; the profile no longer
+  scrolls sideways at 375 px (it was a one-line fix: `minmax(0, 1fr)`); the Maestro leftovers
+  (`parity.js` comment, the vacuous `assertNotVisible` of the "Looking for" flow, which now
+  asserts the note and the price term).
+- **Not in this round:** naming the edition in the alert text and grouping same-printing alerts
+  (S3); the Netty macOS DNS resolver warning at API start (the macOS branch); the duplicate
+  collapse of V112 stays quadratic per collector (20,000 wishes of one collector take about half
+  a minute on the emulated PostgreSQL; the API never allowed more than 20 or 500).
+
+**Checks after review fix 3 (2026-10-10, Mac mini: Apple M6, macOS 27, OrbStack, JDK 21, Node 24;
+code at `39e45c4`, retries off):**
+- `npm run test:scripts`: 64 / 64 (13 suites).
+- `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
+  `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: all clean.
+- `npm run audit:gate`: OK (the 2 allowlisted advisories, `braces` and `node-forge`, until
+  2026-11-30).
+- `./gradlew exportOpenApi` + `npm run generate:api`: git stays clean (the regenerated
+  descriptions of the settings request and of the notification `data` were committed with their
+  changes; no CRLF noise on macOS).
+- `npm run test:api`: BUILD SUCCESSFUL in 2 m 48 s; `test` 816 tests / 162 classes, `catalogTest`
+  12 tests / 2 classes, 0 failures, 0 errors, 0 skipped; Spotless clean. Two earlier runs of this
+  round failed: the first on `BinderIT` (the known deadlock) and on the new seed test, which
+  relied on a second alert notification while other suites had used up the seeded collector2's
+  daily alert limit in the shared test database (the test now keeps the notification and removes
+  only the sent-alert key, `39e45c4`); the second only on that seed test.
+- `npm run test:web`: lint clean, 142 files / 678 tests (new: the card page spec, the typed code,
+  the focus after a refusal, the backdrop, the picker's "Any printing" row, the note count, the
+  term order, the bell clamp). `npm run build -w apps/web-angular`: initial total 899.93 kB
+  (214.55 kB transfer), under the 900 kB budget, no warning. The first build of the round was
+  900.10 kB (104 bytes over): the two files of the initial chunks were shortened (the fallback
+  notification link, an inline class binding) instead of touching the budget.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 656 jest tests, 28 harness guard tests.
+  `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` into
+  `apps/mobile/dist/` (git-ignored, deleted afterwards): both exit 0.
+- `npm run test:e2e -- --retries=0`: 74 passed (1.3 m) on the first attempt, 0 failed / flaky /
+  skipped; the run's 72 emulator accounts were deleted.
+- `npm run test:mobile:e2e`: 52 passed (48 s), no retry used.
+- `npm run test:mobile:maestro`: **not run** (no Android SDK, adb or emulator on the Mac). The
+  flows and host scripts were read against the screens: the alert flow now also asserts the "Any
+  printing" section of the card screen, the "Looking for" flow the note and the price term.
+- V112 and the seed on real paths (scratch databases `orenjitrade_s2fix_*`, API on :8460, Redis
+  db 9, all dropped / flushed afterwards): a `pg_dump` copy of the owner's dev database (V105, 3
+  seed wishes) took V106–V112 in 0.11 s, the API started in 4.5 s, the seed logged "0 wishlist
+  items (2 migrated ones filled in)", collector2 had the note, "Near Mint only" and the price
+  terms of `test-accounts.md` and one WISHLIST_ALERT; a second start migrated nothing and added
+  nothing. On a V111 copy loaded with the migration auditor's hostile data (5,069 wishes, 1,503 of
+  them paused, opt-outs, three incomplete outbox rows) V112 took 0.69 s and left 2,031 wishes, no
+  duplicate selection, no card / printing mismatch, no rarity foreign to its card, the opt-out
+  carried over, no incomplete outbox row, and **the first start succeeded** (it failed once on
+  the outbox row before). The owner's database was only read (still V105, 3 wishes).
+- Nothing listens on 8180, 4300, 8090, 19006, 8082 or 8460; the shared containers were never
+  restarted.
 
 ## Phase 11 — ML
 
@@ -2598,10 +2752,18 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 > (see "A simpler wishlist, wishlist alerts, no matches (stage S2)"): V112, API, web (the shared
 > printing picker), mobile, seeds, docs and every suite listed there; review fix 1 (the wish
 > dialog's errors in view, the card page's "Any printing in <rarity>" for an alert's `?rarity=`,
-> focus, labels) re-ran every suite and the 24 Maestro flows. Merge order: the S1 PR first, then
-> S2.
+> focus, labels) re-ran every suite and the 24 Maestro flows. S1 is merged (#57). Review fix 2
+> (V112 on a populated database, polish) and **review fix 3 (2026-10-10, on the Mac: the two
+> silent printing picks, V112's last edit, the seed on an upgraded database, small UX fixes; see
+> "Review fix 3")** are committed on the branch, not pushed. Next for S2: the lead's ship step
+> (re-check of fix 3, merge `origin/main`, push, PR, merge when CI is green); V112 freezes at
+> that merge.
 >
-> **Exact next task: stage S3 — search, the card page, have/want and search history (spec
+> **Exact next task after the S2 ship step: an iOS path for the native Maestro harness on the
+> Mac** (no Android SDK or emulator here), and a run of the 24 flows: they were not re-run after
+> `be24294` nor after review fix 3.
+>
+> **Then stage S3 — search, the card page, have/want and search history (spec
 > sections 2 and 2b of the 2026-10-08 product change), on a new branch from the S2 branch (or
 > `main` once S1 and S2 are merged).** Reuse `shared/catalog/printing-picker` on the card page
 > (feed its `holderCounts` input from a new grouped per-printing holder count, read `?printing=` /
