@@ -13,7 +13,9 @@
 //     reused (it could point the app at the developer API); the Android bundle is checked for the
 //     isolated API URL before any flow runs;
 //   * an Android device: start an emulator first, for example
-//     `%LOCALAPPDATA%/Android/Sdk/emulator/emulator -avd Pixel_6_API_34 -no-snapshot-save`;
+//     `~/Library/Android/sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save` on macOS or
+//     `%LOCALAPPDATA%/Android/Sdk/emulator/emulator -avd Pixel_6_API_34 -no-snapshot-save` on
+//     Windows; adb comes from ANDROID_HOME, ANDROID_SDK_ROOT, the SDK's default folder, then PATH;
 //   * Maestro CLI: MAESTRO_BIN, or `maestro` on PATH, or ~/.maestro/bin.
 //
 // Every account the flows create is `m-<run id>-...@mobile-e2e.test` and is deleted from the Auth
@@ -42,6 +44,7 @@ import {
   run,
   waitForHttp,
 } from './util.mjs';
+import { adbCandidates, maestroNotFoundMessage, noAndroidDeviceMessage } from './host-tools.mjs';
 import { deleteRunAccounts, newRunId } from './mobile-e2e-guard.mjs';
 import {
   API_URL,
@@ -69,16 +72,8 @@ const SEED_EMAIL = 'collector1@orenjitrade.test';
 const SEED_PASSWORD = 'LocalDev!2026';
 
 function adbPath() {
-  const exe = IS_WINDOWS ? 'adb.exe' : 'adb';
-  for (const home of [process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT]) {
-    if (home && fs.existsSync(path.join(home, 'platform-tools', exe))) {
-      return path.join(home, 'platform-tools', exe);
-    }
-  }
-  const local = IS_WINDOWS
-    ? path.join(process.env.LOCALAPPDATA ?? '', 'Android', 'Sdk', 'platform-tools', exe)
-    : path.join(os.homedir(), 'Android', 'Sdk', 'platform-tools', exe);
-  return fs.existsSync(local) ? local : 'adb';
+  const candidates = adbCandidates({ platform: process.platform, env: process.env, home: os.homedir() });
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? 'adb';
 }
 
 function maestroPath() {
@@ -249,17 +244,13 @@ export async function testMobileMaestro(argv) {
   }
   const maestro = maestroPath();
   if (!maestro) {
-    log.error('Maestro CLI not found: set MAESTRO_BIN (e.g. D:/maestro/bin/maestro.bat) or put maestro on PATH.');
+    log.error(maestroNotFoundMessage(process.platform));
     return 1;
   }
   const adb = adbPath();
   const device = androidDevice(adb);
   if (!device) {
-    log.error(
-      'No Android device is ready. Start an emulator first, e.g. ' +
-        '`%LOCALAPPDATA%/Android/Sdk/emulator/emulator -avd Pixel_6_API_34 -no-snapshot-save -no-boot-anim`, ' +
-        'then wait for `adb wait-for-device`.',
-    );
+    log.error(noAndroidDeviceMessage({ platform: process.platform, adb }));
     return 1;
   }
   log.info(`Android device: ${device} (adb ${adb}); Maestro: ${maestro}`);
