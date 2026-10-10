@@ -2346,8 +2346,8 @@ production a collector deleting a card right after changing a privacy setting.
   2. **Lock of all owners.** The freshness job writes every collector's rows, so it takes the
      exclusive half of a second advisory lock (`BinderService.lockAllOwners`) whose shared half
      every `lockOwners` takes: the job runs alone and writes wait for its commit. The job waits at
-     most 10 seconds for the writes in progress, then the run fails without having written anything
-     and the next run does the work.
+     most 10 seconds for the writes in progress (and for any row lock afterwards), then the run
+     fails and the next run does the work.
   3. **Row order** below both: binder rows before item rows, each in ascending id
      (`InventoryService.lockForWrite`, ordered locking clauses in every multi-row statement, the job
      writes its binders before its first item). It is the second line behind the two locks.
@@ -2379,7 +2379,8 @@ production a collector deleting a card right after changing a privacy setting.
 - **Decision to confirm:** every binder and item write waits while the hourly job runs, and a
   collector's own simultaneous writes wait for each other. The alternatives for the job (skip
   locked rows, retry on a deadlock) keep writes flowing but let a run skip rows or fail a request
-  first. The job lock is a commit of its own, so it can be taken out without the owner lock.
+  first. The job lock is in commits of its own (the lock, then its timeout), so it can be taken
+  out without the owner lock.
 - **Still open:** item rows are locked `FOR UPDATE`, which conflicts with the key-share lock of a
   foreign key check from other modules (offers, trade lines, trades); `FOR NO KEY UPDATE` on the
   item locks outside the purge would remove it. Not analysed further, not tested.

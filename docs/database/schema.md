@@ -858,10 +858,12 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   binders and items of every collector, in several statements, so it takes this lock exclusively as
   its first step; every `lockOwners` takes it shared before the owner keys. The job runs alone, and
   the writes that arrive meanwhile wait for its commit. The job waits at most 10 seconds for the
-  writes in progress (`lock_timeout`, put back afterwards); writes that arrive during that wait
-  queue behind the job, so the bound is also the longest time one write that does not end can hold
-  the others up. After the bound the run fails before it has written anything (`job_run` FAILED,
-  `CannotAcquireLockException`) and the next run does the work.
+  writes in progress; writes that arrive during that wait queue behind the job, so the bound is
+  also the longest time one write that does not end can hold the others up. After the bound the
+  run fails before it has written anything (`job_run` FAILED, `CannotAcquireLockException`) and
+  the next run does the work. The same bound applies to every lock the job waits for afterwards
+  (`lock_timeout`, local to its transaction): it holds every other write up, so it gives up
+  rather than wait long for a row.
 - **Row order below the two locks:** `binder` rows first, then `inventory_item` rows, each in
   ascending `id`. Item writes (`InventoryService.lockForWrite`) read the binders of their items
   under the owner lock, lock those binders and the move target `FOR UPDATE`, then the items; binder
