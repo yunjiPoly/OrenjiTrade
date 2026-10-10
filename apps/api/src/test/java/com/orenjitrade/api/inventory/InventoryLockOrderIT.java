@@ -270,6 +270,36 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         assertItemCountsMatch(ownerId);
     }
 
+    /**
+     * An item photo locks its item row and nothing else, without the owner lock. A write that has
+     * to unlist that item waits for the upload and unlists the item then: only the freshness job
+     * skips a row that is held.
+     */
+    @Test
+    void aBinderWriteWaitsForAnItemAPhotoUploadHolds() throws Exception {
+        String uid = uniqueUid("lock-photo");
+        UUID ownerId = collector(uid);
+        setDiscoverable(ownerId, true);
+        String binderId = createBinder(uid, "Listed", "PUBLIC");
+        String item = createItem(uid, binderId, Map.of());
+        assertThat(listedFlags(ownerId)).as("listed before").containsOnly(true);
+
+        interleave(
+                () ->
+                        inventoryService.addImage(
+                                ownerId, uuid(item), InventoryTestSupport.png(64, 64)),
+                () -> {},
+                () ->
+                        callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders/" + binderId + "/unpublish",
+                                uid,
+                                null,
+                                200));
+
+        assertThat(listedFlags(ownerId)).as("nothing stays listed").containsOnly(false);
+    }
+
     /** A write of several items of one collector. */
     enum MultiItemWrite {
         BULK,
