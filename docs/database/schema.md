@@ -848,10 +848,11 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   delete, confirm, bulk actions, admin restore, trade transfer (the locks of both collectors, in
   ascending key order), every `BinderService` write (create, update, publish, unpublish, admin
   unpublish, confirm, delete, reorder), the listing reconciliation of an owner
-  (`ListingReconciler.owner`: privacy, suspension, listing pause, deletion request) and the account
-  purge. The writes of one collector therefore run one after the other: none reads the binder of an
-  item while another one moves it, and none waits in the middle of its work for a row that another
-  write of the same collector holds.
+  (`ListingReconciler.owner`: privacy, suspension, listing pause, deletion request), the account
+  purge and the two seed contributors of the `local`/`dev` profiles. The writes of one collector
+  therefore run one after the other: none reads the binder of an item while another one moves it,
+  and none waits in the middle of its work for a row that another write of the same collector
+  holds.
 - **Lock of all owners** (`BinderRepository.lockAllOwners`, key
   `hashtextextended('inventory-owners', 0)`). The freshness job (`FreshnessService.run`) writes
   binders and items of every collector, in several statements, so it takes this lock exclusively as
