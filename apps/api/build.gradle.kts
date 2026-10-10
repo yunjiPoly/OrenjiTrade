@@ -177,7 +177,9 @@ tasks.register("resolveDependencies") {
 spotless {
     java {
         target("src/**/*.java")
-        // Google Java Format 1.30+ requires JDK 21+ for Gradle/Spotless execution.
+        // google-java-format runs inside the Gradle daemon. 1.30 needs JDK 21+ and breaks on JDK 27
+        // (NoSuchFieldError on javac's EndPosTable), so the daemon is pinned to Java 21 in
+        // gradle/gradle-daemon-jvm.properties, whatever the machine's default JDK is.
         googleJavaFormat("1.30.0").aosp().reflowLongStrings()
         removeUnusedImports()
         trimTrailingWhitespace()
