@@ -2295,16 +2295,22 @@ a location get none and the wishlist page asks them to set country and state.
   architecture, seed data, test accounts, local setup, product overview, CLAUDE.md wording,
   tracker rows 23–25.
 
-**Migration:** V112 `simplified_wishlist` (drops `wishlist_match` and the removed columns, collapses
-same-selection duplicates to the oldest, clears a rarity stored with a printing, adds
+**Migration:** V112 `simplified_wishlist` (drops `wishlist_match` and the removed columns; first
+normalises the selection — a printing wish without `card_id` gets its printing's card, a rarity
+stored next to a printing is cleared — and only then collapses the wishes that became equal to the
+oldest (review fix 2: the reverse order failed the unique index); `card_id` NOT NULL; adds
 `public_note`, `near_mint_only`, `price_term`, `wishlist_alert_sent`, `wishlist.price_terms`,
 `notification_preferences.wishlist_alerts`; deletes WISHLIST_MATCH notifications and their limit
-notices and the category key). Proven on a populated pre-V112 database (V001–V111 applied with
-`psql` to a scratch database `orenjitrade_regions_check`, fictional S1-model wishes, a match,
-notifications and preferences inserted, then V112): the duplicate collapsed to the oldest, the
-printing wish lost its stray rarity, the rarity wish kept its rarity, no private note leaked, the
-match table and the match notifications went, the MESSAGE notification and the MESSAGE category
-stayed; the scratch database was dropped. The owner's database `orenjitrade` is not touched.
+notices and the category key). Proven on a populated pre-V112 database by
+`SimplifiedWishlistMigrationIT` (part of `npm run test:api`: Flyway builds a scratch database in
+the Testcontainers server up to V111, fictional S1-model wishes — removed-filter duplicates,
+(P, its rarity) next to (P, no rarity) and (P, another rarity), a printing wish without its card
+next to the same printing with its card, an any-printing rarity wish, another collector's equal
+wish — a match, notifications and preferences are inserted, V112 runs): the duplicates collapse to
+the oldest, printing wishes lose their stray rarity, the card is filled in, the rarity wish keeps
+its rarity, no private note leaks, the match table and the match notifications go, the MESSAGE
+notification and the MESSAGE category stay; the scratch database is dropped. The owner's database
+`orenjitrade` is not touched (still unmigrated).
 
 **Decisions:**
 - "Near Mint only" accepts Near Mint **or better** (Mint), by the game's ordered conditions.
