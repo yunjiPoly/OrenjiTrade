@@ -77,3 +77,17 @@ export function maestroNotFoundMessage(platform) {
     'docs/development/macos-setup.md section 9.4), or set MAESTRO_BIN (e.g. $HOME/.maestro/bin/maestro).'
   );
 }
+
+// ---------------------------------------------------------------------------- Terraform
+
+/** How to install Terraform on this platform (for `npm run infra:validate`). */
+export function terraformInstallHint(platform) {
+  if (platform === 'win32') {
+    return 'winget install Hashicorp.Terraform';
+  }
+  if (platform === 'darwin') {
+    // homebrew-core dropped the `terraform` formula: only HashiCorp's own tap still has it.
+    return 'brew tap hashicorp/tap && brew install hashicorp/tap/terraform';
+  }
+  return 'https://developer.hashicorp.com/terraform/install';
+}

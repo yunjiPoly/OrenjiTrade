@@ -1,6 +1,6 @@
 // Unit tests of the per-platform host tool helpers (node --test; npm run test:scripts): the Android
-// SDK location and the Maestro / emulator hints. Every platform is exercised on any machine;
-// nothing here runs adb or maestro.
+// SDK location and the Maestro / emulator / Terraform hints. Every platform is exercised on any
+// machine; nothing here runs adb, maestro or terraform.
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -10,6 +10,7 @@ import {
   androidSdkDirs,
   maestroNotFoundMessage,
   noAndroidDeviceMessage,
+  terraformInstallHint,
 } from './host-tools.mjs';
 
 const MAC_HOME = '/Users/collector';
@@ -80,5 +81,17 @@ describe('Android and Maestro hints', () => {
       assert.match(message, /MAESTRO_BIN \(e\.g\. \$HOME\/\.maestro\/bin\/maestro\)/);
       assert.doesNotMatch(message, /\.bat|D:\//);
     }
+  });
+});
+
+describe('Terraform install hint', () => {
+  it('macOS uses the HashiCorp tap (homebrew-core no longer has the formula)', () => {
+    assert.equal(terraformInstallHint('darwin'), 'brew tap hashicorp/tap && brew install hashicorp/tap/terraform');
+    assert.doesNotMatch(terraformInstallHint('darwin'), /brew install terraform/);
+  });
+
+  it('Windows uses winget, Linux points at the install page', () => {
+    assert.equal(terraformInstallHint('win32'), 'winget install Hashicorp.Terraform');
+    assert.match(terraformInstallHint('linux'), /^https:\/\/developer\.hashicorp\.com\/terraform\/install$/);
   });
 });
