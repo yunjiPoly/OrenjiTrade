@@ -834,6 +834,41 @@ publicly_listed`. Also `ix_inventory_item_binder`, `ix_inventory_item_owner_upda
 Trigger `trg_inventory_item_binder_count` (`AFTER INSERT OR DELETE OR UPDATE OF binder_id,
 deleted_at`, row level) keeps `binder.item_count` equal to the binder's non-deleted items.
 
+#### Lock order of binders and inventory items
+
+Every transaction that locks rows of both tables takes them in one order: **`binder` rows first,
+then `inventory_item` rows, each in ascending `id`.** The trigger above writes the binder of an item
+whose `binder_id` or `deleted_at` changes, a confirmation or a move refreshes the binder, and the
+listing reconciliation writes binders before items; a path that took an item first deadlocked with
+it (`DELETE /inventory/items/{id}` answered 500 right after a privacy change, fixed 2026-10-10).
+
+- **Item writes** (`InventoryService.lockForWrite`: update, move, delete, confirm, bulk actions,
+  admin restore, trade transfer; a create locks its binder the same way) read the binders of their
+  items, lock those binders and the move target `FOR UPDATE` in ascending id, then lock the items
+  in ascending id. An item that another request moved in between sits in a binder that is not held
+  yet: that binder is taken without waiting (`SKIP LOCKED`), and when another transaction holds it
+  the request ends with `409` instead of waiting against the order.
+- **Binder writes** (`BinderService`) start with `FOR UPDATE` on the binder they change, so its
+  items cannot be written elsewhere meanwhile. Reorder and the account purge lock every binder of
+  the owner first.
+- **Listing reconciliation of an owner** (`ListingReconciler.owner`: privacy, suspension, listing
+  pause, deletion request) locks every binder of the owner before it writes anything.
+- **Statements that lock several rows** take them through an `ORDER BY id` locking clause (the
+  reconciliation, the freshness job, confirmations, binder deletion).
+- **Freshness job** (`FreshnessService.run`): the binder half of every step (expiry, freshness,
+  effective visibility, warnings) runs before the first item is written.
+- Writes that hold one item row and never reach a binder (item photos, admin hide) lock only that
+  row.
+
+Known limit: the freshness job locks rows of every collector without holding their binders, and it
+orders the rows of each statement, not of the whole run. Two patterns can therefore still end in a
+lock cycle with the job when both run at the same instant: a request that writes one item and then
+re-lists or unlists the other items of its binder (a confirmation or a move into a binder whose
+effective visibility changes), and a request or reconciliation that locks several rows which the
+job writes in two different statements. PostgreSQL then aborts one of the two transactions (the
+hourly job runs again an hour later; the request answers 500). `InventoryLockOrderIT` covers the
+order; it leaves the job out of its concurrent mix for this reason.
+
 #### `inventory_item_image`
 
 | Column | Type | Notes |
