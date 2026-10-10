@@ -2342,8 +2342,9 @@ Temurin 27 as the only system JDK). The per-item record is in `docs/development/
 - **Gradle:** the daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`), so
   `spotlessCheck` passes when the default JDK is newer (it failed on a JDK 27 daemon). CI and the
   Dockerfile launch with Temurin 21 and are unaffected; the image's build stage was built locally.
-- **Scripts** (unit-tested, `npm run test:scripts`: 101 tests): the E2E harnesses run the API jar on
-  an exact Java 21 when one exists (override variables first, a newer Java only with a warning);
+- **Scripts** (unit-tested, `npm run test:scripts`: 111 tests): the E2E harnesses run the API jar on
+  an exact Java 21 when one exists (`ORENJI_JAVA_HOME`, exported or in `.env`, overrides the choice;
+  a newer `JAVA_HOME` does not; a newer Java only as the last resort, with a warning);
   macOS paths and hints for adb, Maestro, Terraform and the ML Python; the E2E isolation guard folds
   path case on macOS; `test:e2e -- --stop` recognises java and node there.
 - **Docs:** OrbStack as a supported engine, the JDK statements, the Playwright cache path, macOS

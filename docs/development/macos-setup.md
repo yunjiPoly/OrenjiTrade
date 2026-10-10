@@ -37,7 +37,7 @@ Proven that day:
 - Testcontainers works under OrbStack with no extra setting: `FlywayMigrationIT` and `FeatureFlagsIT` (12 tests) passed twice, 16 s and 19 s for the whole Gradle run. The emulated PostGIS container started in 3.5 s, 44 migrations took 0.6 s, the Spring context 10 s.
 - Gradle works with Temurin 27 as the only system JDK: the daemon runs on Java 21 and `spotlessCheck` passes (section 5).
 - The API image's build stage builds (`docker build --target build apps/api`, 3 min).
-- `npm run test:scripts` passes (101 tests).
+- `npm run test:scripts` passes (111 tests).
 
 Not run that day: the full `npm run test:api`, the web and mobile E2E suites, the Maestro suite (no Android SDK) and anything on the iOS simulator.
 
