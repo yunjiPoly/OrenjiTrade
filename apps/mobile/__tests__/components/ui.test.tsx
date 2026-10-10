@@ -14,7 +14,7 @@ import {
   SwitchRow,
 } from '@/src/components/ui/FormControls';
 import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen } from '@/src/components/ui/Screen';
+import { Screen, ownSafeBottom } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Stepper } from '@/src/components/ui/Stepper';
 
@@ -77,6 +77,16 @@ describe('Screen', () => {
     const scroll = within(avoiding).UNSAFE_getByType(ScrollView);
     expect(scroll.props.testID).toBe('screen-form');
     expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+  });
+
+  it('adds the home-indicator inset once: iOS already makes it for a scrolling screen', () => {
+    const inset = { safeBottom: true, insetBottom: 34 };
+    expect(ownSafeBottom('ios', { ...inset, scroll: true })).toBe(0);
+    expect(ownSafeBottom('ios', { ...inset, scroll: false })).toBe(34);
+    // Android and the web have no automatic adjustment: unchanged.
+    expect(ownSafeBottom('android', { ...inset, scroll: true })).toBe(34);
+    expect(ownSafeBottom('web', { ...inset, scroll: true })).toBe(34);
+    expect(ownSafeBottom('android', { scroll: true, safeBottom: false, insetBottom: 34 })).toBe(0);
   });
 
   it('renders a plain container without scrolling', () => {
