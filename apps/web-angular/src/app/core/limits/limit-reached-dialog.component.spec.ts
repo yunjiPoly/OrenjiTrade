@@ -102,7 +102,8 @@ describe('LimitReachedDialogComponent', () => {
       'Public binder views per day',
     );
     expect(text).toContain('you used 30 of 30 today');
-    expect(text).toContain('binder.views.per_day');
+    // Collectors read the limit's name, never its technical key.
+    expect(text).not.toContain('binder.views.per_day');
     expect(element.querySelector('[data-testid="limit-reset"]')?.textContent).toMatch(/in \d+/);
     expect(text).toContain('Premium removes this limit');
     const link = element.querySelector<HTMLAnchorElement>('a[href="/premium"]');

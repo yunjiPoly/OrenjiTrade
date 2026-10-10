@@ -1,131 +1,183 @@
-import type { PrintingSummary, TradePreference, WishlistItemResponse } from '@/src/api/types';
+import type {
+  MarketPrice,
+  PrintingSummary,
+  WishPriceTerm,
+  WishlistItemResponse,
+} from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
-import { editionLabel, formatMoney, languageName, printingCode } from '@/src/lib/catalog';
-import { conditionLabel } from '@/src/lib/inventory';
+import {
+  ANY_PRINTING_PARAM,
+  editionLabel,
+  finishLabel,
+  formatAmountWithCode,
+  languageName,
+  printingCode,
+} from '@/src/lib/catalog';
 
 /**
- * Display vocabulary of the wishlist (Phase 6 contract, mirror of the web's `wishlist-labels.ts`):
- * trade preferences, the criteria of a wish as chips, printings and match counts.
+ * Display vocabulary of the wishlist (stage S2, mirror of the web's `wishlist-labels.ts`): which
+ * copy, the "Near Mint only" and price term chips, the approximate amount of a term, the market
+ * price source and the card page link of a wish.
  */
-export interface TradePreferenceInfo {
-  value: TradePreference;
-  label: string;
-  icon: IconName;
-  hint: string;
-}
 
-export const TRADE_PREFERENCES: readonly TradePreferenceInfo[] = [
-  {
-    value: 'ANY',
-    label: 'Trade or buy',
-    icon: 'swap-horizontal',
-    hint: 'Every listing counts: for trade, for sale or both.',
-  },
-  {
-    value: 'TRADE',
-    label: 'Trade only',
-    icon: 'swap-horizontal-bold',
-    hint: 'Only listings open to trades.',
-  },
-  { value: 'SALE', label: 'Buy only', icon: 'tag-outline', hint: 'Only listings for sale.' },
-];
-
-export function isTradePreference(value: unknown): value is TradePreference {
-  return TRADE_PREFERENCES.some((option) => option.value === value);
-}
-
-export function tradePreferenceInfo(value: string | null | undefined): TradePreferenceInfo {
-  return (
-    TRADE_PREFERENCES.find((option) => option.value === value) ??
-    (TRADE_PREFERENCES[0] as TradePreferenceInfo)
-  );
-}
-
-/** One criterion of a wish, shown as a chip. */
+/** One chip of a wish. */
 export interface WishChip {
-  kind: 'condition' | 'edition' | 'language' | 'rarity' | 'price' | 'trade';
+  kind: 'near-mint' | 'price-term';
   icon: IconName;
   label: string;
 }
 
-type WishCriteria = Pick<
-  WishlistItemResponse,
-  | 'printing'
-  | 'rarity'
-  | 'conditionMin'
-  | 'edition'
-  | 'language'
-  | 'maxPrice'
-  | 'currency'
-  | 'tradePreference'
->;
+/** A price term as far as its amount goes: the percent and whether it means "or more". */
+type TermAmount = Pick<WishPriceTerm, 'percent'> & Partial<Pick<WishPriceTerm, 'orMore'>>;
 
-/** The criteria of a wish as chips, most selective first (unset filters are left out). */
-export function wishCriteriaChips(wish: WishCriteria): WishChip[] {
+/**
+ * "≈ 21.25 USD": `percent` of a market price, two decimals; "≥ 42.00 CAD" for an "or more" term
+ * ("100% TCG+"); `null` without a price.
+ */
+export function approximateAmount(
+  term: TermAmount | null | undefined,
+  price: MarketPrice | null | undefined
+): string | null {
+  if (!term || !price || price.amount === undefined || price.amount === null) {
+    return null;
+  }
+  const cents = Math.round(price.amount * term.percent);
+  return `${term.orMore ? '≥' : '≈'} ${formatAmountWithCode(cents / 100, price.currency)}`;
+}
+
+/**
+ * "85% TCG ≈ 21.25 USD" (or "100% TCG+ ≥ 25.00 USD") with a printing's market price; the term
+ * alone otherwise.
+ */
+export function priceTermLabel(
+  term: Pick<WishPriceTerm, 'label'> & TermAmount,
+  price: MarketPrice | null | undefined
+): string {
+  const amount = approximateAmount(term, price);
+  return amount ? `${term.label} ${amount}` : term.label;
+}
+
+/** The chips of a wish: Near Mint only, then the price term (with its amount for one printing). */
+export function wishChips(
+  wish: Pick<WishlistItemResponse, 'printing' | 'nearMintOnly' | 'priceTerm'>
+): WishChip[] {
   const chips: WishChip[] = [];
-  if (wish.conditionMin) {
+  if (wish.nearMintOnly) {
+    chips.push({ kind: 'near-mint', icon: 'check-decagram-outline', label: 'Near Mint only' });
+  }
+  if (wish.priceTerm) {
     chips.push({
-      kind: 'condition',
-      icon: 'check-decagram-outline',
-      label: `${conditionLabel(wish.conditionMin)} or better`,
+      kind: 'price-term',
+      icon: 'tag-outline',
+      label: priceTermLabel(wish.priceTerm, wish.printing?.marketPrice),
     });
   }
-  if (wish.edition) {
-    chips.push({ kind: 'edition', icon: 'layers-outline', label: editionLabel(wish.edition) });
-  }
-  if (wish.language) {
-    chips.push({ kind: 'language', icon: 'translate', label: languageName(wish.language) });
-  }
-  if (wish.rarity && !wish.printing) {
-    chips.push({ kind: 'rarity', icon: 'diamond-stone', label: wish.rarity });
-  }
-  const price = formatMoney(wish.maxPrice ?? null, wish.currency);
-  if (price) {
-    chips.push({ kind: 'price', icon: 'cash', label: `Up to ${price}` });
-  }
-  const trade = tradePreferenceInfo(wish.tradePreference);
-  chips.push({ kind: 'trade', icon: trade.icon, label: trade.label });
   return chips;
 }
 
-/** `AZR-EN001 · Azure Dawn`, or "Any printing" when the wish accepts every printing. */
-export function wishPrintingLabel(printing: PrintingSummary | null | undefined): string {
+/**
+ * Which copy: "Any printing", "Any printing · Quarter Century Secret Rare", or
+ * "AZR-EN001 · Ultra Rare · Azure Dawn" (plus an edition other than Unlimited and a finish other
+ * than Normal: two printings of one code can differ only by them).
+ */
+export function whichCopyLabel(
+  printing: PrintingSummary | null | undefined,
+  rarity?: string | null
+): string {
   if (!printing) {
-    return 'Any printing';
+    return rarity ? `Any printing · ${rarity}` : 'Any printing';
   }
-  const code = printingCode(printing);
-  return [code, printing.setName].filter(Boolean).join(' · ') || 'One printing';
+  return (
+    [
+      printingCode(printing),
+      printing.rarity,
+      printing.setName,
+      specialEdition(printing.edition),
+      specialFinish(printing.finish),
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'One printing'
+  );
 }
 
-/** One line describing a printing in a picker: code · set · rarity · edition · language. */
+/** The edition of a printing when it is not the usual Unlimited one ("1st Edition"), else `null`. */
+export function specialEdition(edition: string | null | undefined): string | null {
+  return edition && edition !== 'UNLIMITED' ? editionLabel(edition) : null;
+}
+
+/** The finish of a printing when it is not the normal one ("Reverse holo"), else `null`. */
+export function specialFinish(finish: string | null | undefined): string | null {
+  return finish && finish !== 'NORMAL' ? finishLabel(finish) : null;
+}
+
+/**
+ * One line describing a printing in a chooser: code · rarity · set · edition · language · finish
+ * (two printings of one set often differ only by their finish).
+ */
 export function printingOptionLabel(printing: PrintingSummary): string {
   return [
     printingCode(printing),
-    printing.setName,
     printing.rarity,
+    printing.setName,
     printing.edition ? editionLabel(printing.edition) : null,
     printing.language ? languageName(printing.language) : null,
+    printing.finish ? finishLabel(printing.finish) : null,
   ]
     .filter((part) => part && part !== '—')
     .join(' · ');
 }
 
-/** "No matches yet" / "1 match" / "3 matches". */
-export function matchCountLabel(count: number | null | undefined): string {
-  const value = count ?? 0;
-  if (value <= 0) {
-    return 'No matches yet';
+/** What a market price is and where it comes from (web: `marketPriceInfo`). */
+export function marketPriceSource(price: MarketPrice | null | undefined): string | null {
+  if (!price || price.amount === undefined || price.amount === null) {
+    return null;
   }
-  return value === 1 ? '1 match' : `${value} matches`;
+  const date = price.updatedAt ? ` · updated ${price.updatedAt.slice(0, 10)}` : '';
+  switch (price.source) {
+    case 'YGOPRODECK':
+      return `TCG market price: YGOPRODeck set price (TCGplayer-based, ${price.currency ?? 'USD'})${date}`;
+    case 'SAMPLE':
+      return `Sample market price: fictional price of the local sample catalog${date}`;
+    default:
+      return `Market price: set by OrenjiTrade${date}`;
+  }
+}
+
+/**
+ * The card page params of a wish's selection, always explicit: `printing` (an id), `rarity`, or
+ * `printing: 'any'` for an "any printing" wish (the page then picks no printing by itself).
+ */
+export function wishCardParams(
+  wish: Pick<WishlistItemResponse, 'card' | 'printing' | 'rarity'>
+): { id: string; printing?: string; rarity?: string } | null {
+  const id = wish.card?.id;
+  if (!id) {
+    return null;
+  }
+  if (wish.printing?.id) {
+    return { id, printing: wish.printing.id };
+  }
+  return wish.rarity ? { id, rarity: wish.rarity } : { id, printing: ANY_PRINTING_PARAM };
+}
+
+/**
+ * The confirmation before a wish is removed (web twin): "Your wish for Mirrorblade Knight (any
+ * printing) will be removed. You can add the card again later."
+ */
+export function removeConfirmation(
+  wish: Pick<WishlistItemResponse, 'card' | 'printing' | 'rarity'>
+): string {
+  const name = wish.card?.name ?? 'this card';
+  const copy = wish.printing
+    ? whichCopyLabel(wish.printing)
+    : wish.rarity
+      ? `any printing in ${wish.rarity}`
+      : 'any printing';
+  return `Your wish for ${name} (${copy}) will be removed. You can add the card again later.`;
 }
 
 /** The confirmation of a new wish (web: `addedMessage`). */
 export function addedMessage(item: WishlistItemResponse): string {
   const name = item.card?.name ?? 'The card';
-  if (item.matchCount > 0) {
-    return `${name} is on your wishlist: ${matchCountLabel(item.matchCount)} in your region already.`;
-  }
-  return item.active
-    ? `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`
-    : `${name} is on your wishlist (alerts paused).`;
+  return `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`;
 }

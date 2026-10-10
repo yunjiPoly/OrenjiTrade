@@ -13,13 +13,13 @@ account is fresh and fictional (`e2e-<run id>-…@example.test`); nothing needs 
 | `inventory.spec.ts`          | open inventory → add card (private) → create binder → move card in → public → condition → save → publish → another collector sees it                                                                                                         |
 | `map.spec.ts`                | A publishes (discoverable + binder) → B opens the region map → A's state is shaded, no tile or provider, no DOM coordinate → the state's panel lists A's binder (handle, never the city) → full profile (city by A's choice) → public binder |
 | `search.spec.ts`             | top-bar card search → "Who has this in my region" → card-holders view (state, price, no distance) → another region lists nothing → unified search by printing code                                                                           |
-| `wishlist.spec.ts`           | A wants a card (no radius) → B of the same region publishes it → match → A notified live (STOMP) → matches drawer with B's state                                                                                                             |
+| `wishlist.spec.ts`           | A wants a card ("Any printing" in the picker, no radius) → B of the same region publishes it → one wishlist alert live (STOMP) naming B's state → the alert opens the card page                                                              |
 | `messaging.spec.ts`          | A messages B from the profile → B receives it in realtime with an unread badge → "Seen" → B answers live                                                                                                                                     |
 | `offers.spec.ts`             | create → counter → accept (trade opens) → decline with a reason                                                                                                                                                                              |
 | `rating.spec.ts`             | no rating without interaction → qualified conversation → rating published → unrelated collector cannot rate (403)                                                                                                                            |
 | `reporting.spec.ts`          | profile → report popup → reason → confirm → admin sees → admin action (assign, warning) → audit log → reporter informed                                                                                                                      |
 | `freemium.spec.ts`           | `binders.max` reached → upgrade prompt → fake billing checkout → Premium entitlement lifts the limit                                                                                                                                         |
-| `privacy.spec.ts`            | the scanner catches planted leaks (coordinates, distances, radii, a city; HTTP + STOMP); a sweep of every place-bearing surface (region map, holders, search, profile, binder, wishlist match, live notification)                            |
+| `privacy.spec.ts`            | the scanner catches planted leaks (coordinates, distances, radii, a city; HTTP + STOMP); a sweep of every place-bearing surface (region map, holders, search, profile, binder, wishlist, live wishlist alert)                                |
 | `account-deletion.spec.ts`   | deletion request → public inventory and the state's binder gone → grace period fast-forwarded → `/internal/jobs/account-deletion` (service token) → anonymised, consents/audit kept                                                          |
 | `payment-protection.spec.ts` | payouts → protected offer → accept → fake checkout → shipment with tracking → receipt → payout                                                                                                                                               |
 | `community.spec.ts`          | post with a card → reply from another collector → delete                                                                                                                                                                                     |
@@ -53,7 +53,7 @@ account is fresh and fictional (`e2e-<run id>-…@example.test`); nothing needs 
   body, and under the load of a full run such a read failed ("No data found for resource with
   given identifier").
 - `places.ts` — one state per spec (US states no seed collector uses; the wishlist spec in Lisbon,
-  Europe, since matching works per platform region), and `cityToken()` for distinctive fictional
+  Europe, since wishlist alerts work per platform region), and `cityToken()` for distinctive fictional
   cities the scanner can trace.
 
 ## Running

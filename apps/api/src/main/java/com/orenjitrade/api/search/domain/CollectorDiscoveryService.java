@@ -28,11 +28,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The collector engine of discovery (ADR 0017): the collectors section of the unified search and
- * the markers of wishlist matches. Only discoverable, ACTIVE collectors with a location whose
- * profile is not PRIVATE appear, with their state/province and country; results are cached per
- * request key for 60 s and made viewer-specific afterwards ({@link MarkerAssembler}). Also resolves
- * the region that scopes a request: the {@code region} parameter (validated, never used for
- * authorization), else the caller's home region, else the default region.
+ * the markers of collectors listed by id. Only discoverable, ACTIVE collectors with a location
+ * whose profile is not PRIVATE appear, with their state/province and country; results are cached
+ * per request key for 60 s and made viewer-specific afterwards ({@link MarkerAssembler}). Also
+ * resolves the region that scopes a request: the {@code region} parameter (validated, never used
+ * for authorization), else the caller's home region, else the default region.
  */
 @Service
 public class CollectorDiscoveryService {
@@ -118,8 +118,9 @@ public class CollectorDiscoveryService {
     }
 
     /**
-     * Markers of the given collectors as {@code viewerId} sees them (Phase 6 wishlist matches):
-     * only discoverable collectors with a location and no block with the viewer are returned.
+     * Markers of the given collectors as {@code viewerId} sees them (collector lists built
+     * elsewhere, such as the card page's "Who wants it" of stage S3): only discoverable collectors
+     * with a location and no block with the viewer are returned.
      */
     @Transactional(readOnly = true)
     public Map<UUID, CollectorMarker> markersFor(UUID viewerId, Collection<UUID> ids) {

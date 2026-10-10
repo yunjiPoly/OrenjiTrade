@@ -15,7 +15,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Records internal job executions in {@code job_run}. Later jobs (account deletion, auto-delist,
- * wishlist matching) wrap their work in {@link #run(String, Supplier)}.
+ * binder freshness) wrap their work in {@link #run(String, Supplier)}.
  *
  * <p>The start and end rows are written in their own {@code REQUIRES_NEW} transactions (explicit
  * {@link TransactionTemplate}, so the calls from {@link #run} are not subject to proxy

@@ -8,9 +8,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Pure notification rules: channel plans from preferences (master and category switches, push held
- * back during quiet hours, SYSTEM notices in-app only), quiet hours in the collector's zone
- * (including periods across midnight), the initial channel state and the message phrases.
+ * Pure notification rules: channel plans from preferences (master and category switches, the one
+ * wishlist alerts switch, push held back during quiet hours, SYSTEM notices in-app only), quiet
+ * hours in the collector's zone (including periods across midnight), the initial channel state and
+ * the message phrases.
  */
 class NotificationRulesTest {
 
@@ -27,7 +28,7 @@ class NotificationRulesTest {
     void defaultsGiveInAppAndPushButNoEmail() {
         ChannelPlan plan =
                 ChannelPlan.of(
-                        NotificationSettings.defaults(), NotificationType.WISHLIST_MATCH, NOON);
+                        NotificationSettings.defaults(), NotificationType.WISHLIST_ALERT, NOON);
         assertThat(plan.inApp()).isTrue();
         assertThat(plan.push()).isEqualTo(DeliveryState.PENDING);
         assertThat(plan.pushReason()).isNull();
@@ -67,14 +68,14 @@ class NotificationRulesTest {
     void disabledCategoriesAndMasterSwitchesSuppressEverything() {
         NotificationSettings off =
                 settings(true, true, true, channels(false, false, false), QuietHours.DEFAULT);
-        ChannelPlan plan = ChannelPlan.of(off, NotificationType.WISHLIST_MATCH, NOON);
+        ChannelPlan plan = ChannelPlan.of(off, NotificationType.MESSAGE, NOON);
         assertThat(plan.wanted()).isFalse();
         // Other categories keep their defaults.
         assertThat(ChannelPlan.of(off, NotificationType.OFFER_RECEIVED, NOON).wanted()).isTrue();
 
         NotificationSettings masterOff =
                 settings(false, false, false, channels(true, true, true), QuietHours.DEFAULT);
-        assertThat(ChannelPlan.of(masterOff, NotificationType.WISHLIST_MATCH, NOON).wanted())
+        assertThat(ChannelPlan.of(masterOff, NotificationType.WISHLIST_ALERT, NOON).wanted())
                 .isFalse();
         // Binder freshness shares one category.
         NotificationSettings freshnessOff =
@@ -85,7 +86,8 @@ class NotificationRulesTest {
                         Map.of(
                                 NotificationCategory.BINDER_FRESHNESS,
                                 new ChannelPreferences(false, false, false)),
-                        QuietHours.DEFAULT);
+                        QuietHours.DEFAULT,
+                        true);
         assertThat(ChannelPlan.of(freshnessOff, NotificationType.BINDER_HIDDEN, NOON).wanted())
                 .isFalse();
         assertThat(
@@ -102,12 +104,39 @@ class NotificationRulesTest {
         assertThat(plan.push()).isEqualTo(DeliveryState.SKIPPED);
         assertThat(plan.email()).isEqualTo(DeliveryState.SKIPPED);
         NotificationSettings inAppOff =
-                new NotificationSettings(true, true, false, Map.of(), QuietHours.DEFAULT);
+                new NotificationSettings(true, true, false, Map.of(), QuietHours.DEFAULT, true);
         assertThat(ChannelPlan.of(inAppOff, NotificationType.SYSTEM, NOON).wanted()).isFalse();
         assertThat(NotificationType.SYSTEM.category()).isNull();
-        assertThat(NotificationType.WISHLIST_MATCH.dailyLimitKey())
+        assertThat(NotificationType.WISHLIST_ALERT.dailyLimitKey())
                 .isEqualTo("wishlist.alerts.per_day");
         assertThat(NotificationType.MESSAGE.dailyLimitKey()).isNull();
+    }
+
+    @Test
+    void wishlistAlertsFollowTheirOneSwitchInAppAndPushNeverEmail() {
+        NotificationSettings everything =
+                settings(true, true, true, channels(true, true, true), QuietHours.DEFAULT);
+        ChannelPlan on = ChannelPlan.of(everything, NotificationType.WISHLIST_ALERT, NOON);
+        assertThat(on.inApp()).isTrue();
+        assertThat(on.push()).isEqualTo(DeliveryState.PENDING);
+        assertThat(on.email()).as("never email").isEqualTo(DeliveryState.SKIPPED);
+        assertThat(NotificationType.WISHLIST_ALERT.category()).isNull();
+
+        NotificationSettings switchedOff =
+                new NotificationSettings(true, true, true, Map.of(), QuietHours.DEFAULT, false);
+        assertThat(ChannelPlan.of(switchedOff, NotificationType.WISHLIST_ALERT, NOON).wanted())
+                .isFalse();
+        assertThat(ChannelPlan.of(switchedOff, NotificationType.MESSAGE, NOON).wanted())
+                .as("other kinds keep their channels")
+                .isTrue();
+
+        // The master switches and quiet hours still apply.
+        NotificationSettings nights =
+                new NotificationSettings(true, false, false, Map.of(), NIGHTS, true);
+        ChannelPlan held = ChannelPlan.of(nights, NotificationType.WISHLIST_ALERT, NIGHT);
+        assertThat(held.inApp()).isFalse();
+        assertThat(held.pushReason()).isEqualTo(ChannelPlan.REASON_QUIET_HOURS);
+        assertThat(held.wanted()).isTrue();
     }
 
     @Test
@@ -163,15 +192,14 @@ class NotificationRulesTest {
             boolean push,
             boolean email,
             boolean inApp,
-            ChannelPreferences wishlistAndMessages,
+            ChannelPreferences messages,
             QuietHours quietHours) {
         return new NotificationSettings(
                 push,
                 email,
                 inApp,
-                Map.of(
-                        NotificationCategory.WISHLIST_MATCH, wishlistAndMessages,
-                        NotificationCategory.MESSAGE, wishlistAndMessages),
-                quietHours);
+                Map.of(NotificationCategory.MESSAGE, messages),
+                quietHours,
+                true);
     }
 }

@@ -43,7 +43,7 @@ export class AdminAnalyticsService extends BaseService implements AdminAnalytics
 
     /**
      * Analytics event counts (ADMIN)
-     * Totals and daily counts per event type (search_performed, collector_viewed, message_sent, wishlist_matched, rating_submitted, collector_reported, ...) for the last &#x60;days&#x60; UTC days including today, from the local aggregate.
+     * Totals and daily counts per event type (search_performed, collector_viewed, message_sent, wishlist_item_created, rating_submitted, collector_reported, ...) for the last &#x60;days&#x60; UTC days including today, from the local aggregate.
      * @endpoint get /api/v1/admin/analytics/summary
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

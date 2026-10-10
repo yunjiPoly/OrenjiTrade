@@ -7,7 +7,7 @@ import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { WishEditor } from '@/src/features/wishlist/WishEditor';
 
-/** Edit a wish (`/wishlist/edit?id=`): every criterion, the radius and the alerts. */
+/** Edit a wish (`/wishlist/edit?id=`): which copy, the public note, Near Mint only, the term. */
 export default function EditWishScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();

@@ -1,11 +1,15 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
+  afterNextRender,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import {
@@ -16,6 +20,8 @@ import {
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { ReactiveFormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { hasModifierKey } from '@angular/cdk/keycodes';
 import {
   CardDetail,
   CatalogService,
@@ -29,32 +35,47 @@ import { friendlyError, friendlyMessage } from '../../core/http/api-error-messag
 import { silentErrors } from '../../core/http/http-context';
 import { limitReachedInfo } from '../../core/limits/limit-reached';
 import { CardImageComponent } from '../ui/card-image/card-image.component';
-import { GamesStore } from '../catalog/games.store';
+import { PrintingPickerComponent } from '../catalog/printing-picker/printing-picker.component';
+import {
+  type PrintingSelection,
+  printingsWithCode,
+} from '../catalog/printing-picker/printing-selection';
 import { ErrorStateComponent } from '../ui/error-state/error-state.component';
 import { GameChipComponent } from '../ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../ui/skeleton/skeleton.component';
+import { PriceTermsStore } from './price-terms.store';
 import { PickedCard, WishCardPickerComponent } from './wish-card-picker.component';
-import { WishCriteriaFieldsComponent } from './wish-criteria-fields.component';
+import { WishFieldsComponent } from './wish-fields.component';
 import {
   WISH_ITEMS_LIMIT_KEY,
   WishForm,
+  WishFormValue,
   applyServerErrors,
   createWishForm,
   newWishDefaults,
+  selectionOf,
   toCreateWishRequest,
   toUpdateWishRequest,
   wishFormFromItem,
 } from './wishlist-form';
 
-/** Add a wish (optionally for a known card or printing) or edit an existing one. */
+/**
+ * Add a wish (optionally for a known card, printing or "any printing" of one rarity) or edit an
+ * existing one.
+ */
 export type WishlistDialogData =
-  | { mode: 'create'; cardId?: string | null; printingId?: string | null }
+  | { mode: 'create'; cardId?: string | null; printingId?: string | null; rarity?: string | null }
   | { mode: 'edit'; item: WishlistItemResponse };
 
-/** Opens the dialog; it closes with the saved wish, or `undefined` when cancelled. */
+/**
+ * Opens the dialog; it closes with the saved wish, or `undefined` when cancelled. `returnFocus` is
+ * the element focus goes back to on close (the trigger, which may have lost focus while the dialog
+ * chunk loaded); by default the element focused when the dialog opens.
+ */
 export function openWishlistDialog(
   injector: Injector,
   data: WishlistDialogData,
+  returnFocus: HTMLElement | null = null,
 ): MatDialogRef<WishlistItemDialogComponent, WishlistItemResponse> {
   return injector
     .get(MatDialog)
@@ -65,18 +86,21 @@ export function openWishlistDialog(
         injector,
         panelClass: 'app-dialog--lg',
         autoFocus: 'first-tabbable',
-        restoreFocus: true,
+        restoreFocus: returnFocus ?? true,
         maxHeight: '92dvh',
       },
     );
 }
 
 /**
- * The add/edit wish dialog: card autocomplete (`GET /cards/suggest`) → optional printing →
- * criteria (condition minimum, edition, language, rarity from the game's schema, maximum price
- * and currency, trade preference, notes). Matches come from collectors of the same platform
- * region (ADR 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; an identical wish
- * (409) and plan limits (429, the limit dialog opens too) are explained inline.
+ * The add/edit wish dialog (stage S2): card autocomplete (`GET /cards/suggest`), then the public
+ * note, "Near Mint only", one optional price term (`GET /wishlist/price-terms`) and which copy
+ * (the shared printing picker: any printing by default, any printing of one rarity, or one
+ * printing). Wishlist alerts come from collectors of the same platform region (ADR 0017). Saves
+ * with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409) and plan limits
+ * (429, the limit dialog opens too) are explained next to the buttons, outside the scrolling
+ * content, so the message is in view whatever the scroll position; an invalid field also gets the
+ * focus. Once a card is chosen, focus moves to its name (the autocomplete it came from is gone).
  */
 @Component({
   selector: 'app-wishlist-item-dialog',
@@ -89,8 +113,9 @@ export function openWishlistDialog(
     ErrorStateComponent,
     GameChipComponent,
     SkeletonComponent,
+    PrintingPickerComponent,
     WishCardPickerComponent,
-    WishCriteriaFieldsComponent,
+    WishFieldsComponent,
   ],
   template: `
     <h2 mat-dialog-title>{{ editing ? 'Edit wish' : 'Add to wishlist' }}</h2>
@@ -112,7 +137,7 @@ export function openWishlistDialog(
           />
           <div class="wd__card-text">
             <app-game-chip [slug]="card.game ?? ''" />
-            <h3 class="wd__card-name">{{ card.name }}</h3>
+            <h3 #cardHeading class="wd__card-name" tabindex="-1">{{ card.name }}</h3>
             <p class="wd__muted">
               {{ printings().length }} {{ printings().length === 1 ? 'printing' : 'printings' }}
               in the catalog
@@ -126,8 +151,27 @@ export function openWishlistDialog(
           }
         </div>
         @if (form(); as form) {
-          <form id="wish-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-            <app-wish-criteria-fields [form]="form" [schema]="schema()" [printings]="printings()" />
+          <form id="wish-form" [formGroup]="form" (ngSubmit)="save()" novalidate class="wd__form">
+            <app-wish-fields
+              [form]="form"
+              [terms]="priceTerms.terms()"
+              [termsError]="priceTerms.status() === 'error'"
+              [marketPrice]="selectedPrinting()?.marketPrice ?? null"
+              [onePrinting]="!!selection().printingId"
+              (retryTerms)="priceTerms.load()"
+            />
+            <app-printing-picker
+              [printings]="printings()"
+              [value]="selection()"
+              [game]="card.game ?? ''"
+              [codeFilter]="sharedCode()"
+              (valueChange)="choose($event)"
+            />
+            @if (selectionError(); as message) {
+              <p class="wd__field-error" role="alert" data-testid="wish-selection-error">
+                {{ message }}
+              </p>
+            }
           </form>
         }
       } @else if (loadingCard()) {
@@ -141,16 +185,24 @@ export function openWishlistDialog(
         </p>
         <app-wish-card-picker (picked)="pick($event)" />
       }
-      @if (error(); as error) {
-        <p class="wd__error" role="alert" data-testid="wish-error">
-          <mat-icon aria-hidden="true">error</mat-icon>
-          {{ error }}
-        </p>
-      }
     </mat-dialog-content>
+    @if (error(); as error) {
+      <p class="wd__error" role="alert" data-testid="wish-error">
+        <mat-icon aria-hidden="true">error</mat-icon>
+        {{ error }}
+      </p>
+    }
     <mat-dialog-actions align="end">
       <button matButton type="button" mat-dialog-close>Cancel</button>
-      <button matButton="filled" type="submit" form="wish-form" [disabled]="!form() || saving()">
+      <!-- Still focusable while saving: a refused save leaves the focus here, in the dialog. -->
+      <button
+        #submitButton
+        matButton="filled"
+        type="submit"
+        form="wish-form"
+        [disabled]="!form() || saving()"
+        [disabledInteractive]="saving()"
+      >
         <mat-icon aria-hidden="true">{{ editing ? 'save' : 'favorite' }}</mat-icon>
         {{ saveLabel() }}
       </button>
@@ -159,6 +211,16 @@ export function openWishlistDialog(
   styles: `
     .wd__content {
       min-height: 240px;
+    }
+    .wd__form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-4);
+    }
+    .wd__field-error {
+      margin: 0;
+      color: var(--color-danger);
+      font-size: var(--font-size-sm);
     }
     .wd__lead {
       margin: 0 0 var(--spacing-4);
@@ -189,6 +251,9 @@ export function openWishlistDialog(
     .wd__card-name {
       font-size: var(--font-size-lg);
     }
+    .wd__card-name:focus:not(:focus-visible) {
+      outline: none;
+    }
     .wd__muted {
       margin: 0;
       color: var(--color-text-muted);
@@ -197,11 +262,15 @@ export function openWishlistDialog(
     .wd__change {
       flex: 0 0 auto;
     }
+    .wd__error mat-icon {
+      flex: 0 0 auto;
+    }
     .wd__error {
       display: flex;
+      flex: 0 0 auto;
       align-items: flex-start;
       gap: var(--spacing-2);
-      margin: var(--spacing-4) 0 0;
+      margin: var(--spacing-3) 24px 0;
       padding: var(--spacing-3);
       border-radius: var(--radius-md);
       background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
@@ -222,7 +291,12 @@ export class WishlistItemDialogComponent {
     inject<MatDialogRef<WishlistItemDialogComponent, WishlistItemResponse>>(MatDialogRef);
   private readonly catalog = inject(CatalogService);
   private readonly wishlistApi = inject(WishlistService);
-  private readonly games = inject(GamesStore);
+  private readonly injector = inject(Injector);
+  private readonly document = inject(DOCUMENT);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly priceTerms = inject(PriceTermsStore);
+  private readonly cardHeading = viewChild<ElementRef<HTMLElement>>('cardHeading');
+  private readonly submitButton = viewChild('submitButton', { read: ElementRef });
 
   protected readonly editing = this.data.mode === 'edit';
 
@@ -234,7 +308,13 @@ export class WishlistItemDialogComponent {
   protected readonly error = signal<string | null>(null);
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
-  protected readonly schema = computed(() => this.games.schema(this.card()?.game));
+  /** Which copy, mirrored from the form (the picker's value). */
+  protected readonly selection = signal<PrintingSelection>({ printingId: null, rarity: null });
+  protected readonly selectedPrinting = computed(
+    () => this.printings().find((printing) => printing.id === this.selection().printingId) ?? null,
+  );
+  /** A server error about which copy (the picker has no inline error of its own). */
+  protected readonly selectionError = signal<string | null>(null);
   protected readonly cardImage = computed(() => this.card()?.primaryImageUrl ?? null);
   protected readonly saveLabel = computed(() => {
     if (this.saving()) {
@@ -243,15 +323,40 @@ export class WishlistItemDialogComponent {
     return this.editing ? 'Save changes' : 'Add to wishlist';
   });
 
+  /**
+   * A printing code typed in the autocomplete that several printings of the card share: the form
+   * starts on "Any printing" and the picker is narrowed to that code (never a silent pick).
+   */
+  protected readonly sharedCode = signal<string | null>(null);
+
   private cardSubscription: Subscription | null = null;
-  private cardRequest: { cardId: string | null; printingId: string | null } | null = null;
+  private formSubscription: Subscription | null = null;
+  private cardRequest: {
+    cardId: string | null;
+    printingId: string | null;
+    code: string | null;
+  } | null = null;
 
   constructor() {
-    void this.games.load();
-    inject(DestroyRef).onDestroy(() => this.cardSubscription?.unsubscribe());
+    void this.priceTerms.load();
+    inject(DestroyRef).onDestroy(() => {
+      this.cardSubscription?.unsubscribe();
+      this.formSubscription?.unsubscribe();
+    });
+    // While the form holds unsaved input a click outside must not discard it (`disableClose`,
+    // see setForm): Escape, which that switch also turns off, still closes the dialog.
+    this.dialogRef
+      .keydownEvents()
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => {
+        if (this.dialogRef.disableClose && event.key === 'Escape' && !hasModifierKey(event)) {
+          event.preventDefault();
+          this.dialogRef.close();
+        }
+      });
     if (this.data.mode === 'edit') {
       const item = this.data.item;
-      this.form.set(createWishForm(wishFormFromItem(item)));
+      this.setForm(wishFormFromItem(item));
       if (item.card?.id) {
         this.openCard(item.card.id, null);
       }
@@ -260,14 +365,49 @@ export class WishlistItemDialogComponent {
     }
   }
 
+  /** The picker chose another copy. */
+  protected choose(selection: PrintingSelection): void {
+    const form = this.form();
+    if (!form) {
+      return;
+    }
+    form.patchValue({
+      printingId: selection.printingId ?? '',
+      rarity: selection.printingId ? '' : (selection.rarity ?? ''),
+    });
+    this.selectionError.set(null);
+    this.selection.set(selection);
+  }
+
+  /**
+   * Installs the form. From its first change on (a typed note, a box, another copy) a click on
+   * the backdrop no longer closes the dialog; back on its initial value it does again.
+   */
+  private setForm(value: WishFormValue): void {
+    const form = createWishForm(value);
+    this.form.set(form);
+    this.selection.set(selectionOf(value));
+    const initial = JSON.stringify(form.getRawValue());
+    this.formSubscription?.unsubscribe();
+    this.dialogRef.disableClose = false;
+    this.formSubscription = form.valueChanges.subscribe(() => {
+      this.dialogRef.disableClose = JSON.stringify(form.getRawValue()) !== initial;
+    });
+  }
+
   protected pick(picked: PickedCard): void {
-    this.openCard(picked.cardId, picked.printingId);
+    this.openCard(picked.cardId, null, true, picked.printingCode);
   }
 
   protected changeCard(): void {
     this.cardSubscription?.unsubscribe();
+    this.formSubscription?.unsubscribe();
+    this.dialogRef.disableClose = false;
     this.card.set(null);
     this.form.set(null);
+    this.selection.set({ printingId: null, rarity: null });
+    this.sharedCode.set(null);
+    this.selectionError.set(null);
     this.cardError.set(null);
     this.error.set(null);
     this.cardRequest = null;
@@ -275,7 +415,8 @@ export class WishlistItemDialogComponent {
 
   protected reloadCard(): void {
     if (this.cardRequest) {
-      this.openCard(this.cardRequest.cardId, this.cardRequest.printingId);
+      const { cardId, printingId, code } = this.cardRequest;
+      this.openCard(cardId, printingId, false, code);
     }
   }
 
@@ -288,6 +429,7 @@ export class WishlistItemDialogComponent {
     if (form.invalid) {
       form.markAllAsTouched();
       this.error.set('Check the highlighted fields.');
+      this.focusFirstProblem();
       return;
     }
     this.saving.set(true);
@@ -321,6 +463,10 @@ export class WishlistItemDialogComponent {
   }
 
   private showError(error: ApiError, form: WishForm): void {
+    if (error.errorCode === 'LIMIT_REACHED' || error.errorCode === 'CONFLICT') {
+      // No field to send the focus to: it stays on (or returns to) the save button.
+      this.keepFocusInDialog();
+    }
     if (error.errorCode === 'LIMIT_REACHED') {
       // The limit dialog explains the plan limit as well (global interceptor).
       const info = limitReachedInfo(error);
@@ -337,22 +483,108 @@ export class WishlistItemDialogComponent {
     }
     if (error.errorCode === 'CONFLICT') {
       this.error.set(
-        error.message || 'This card is already on your wishlist with the same filters.',
+        error.message || 'This card is already on your wishlist with the same printing or rarity.',
       );
       return;
     }
+    const fieldErrors = error.fieldErrors ?? {};
+    this.selectionError.set(fieldErrors['printingId'] ?? fieldErrors['rarity'] ?? null);
     const unmapped = applyServerErrors(form, error.fieldErrors);
-    this.error.set(
-      unmapped.length
-        ? `${friendlyError(error).message} (${unmapped.join('; ')})`
-        : friendlyError(error).message,
+    if (unmapped.length) {
+      this.error.set(`${friendlyError(error).message} (${unmapped.join('; ')})`);
+    } else if (Object.keys(fieldErrors).length) {
+      // Every problem sits next to its field: the generic "Validation failed" adds nothing.
+      this.error.set('Check the highlighted fields.');
+    } else {
+      this.error.set(friendlyError(error).message);
+    }
+    if (Object.keys(fieldErrors).length) {
+      this.focusFirstProblem();
+    }
+  }
+
+  /**
+   * After the next render: focus the first invalid field (the browser scrolls it into view), or
+   * scroll the first inline error (price term, which copy) into view.
+   */
+  private focusFirstProblem(): void {
+    afterNextRender(
+      {
+        write: () => {
+          const root = this.host.nativeElement;
+          const field = root.querySelector<HTMLElement>(
+            'textarea.ng-invalid, input.ng-invalid:not([type="checkbox"])',
+          );
+          if (field) {
+            field.focus();
+            return;
+          }
+          root
+            .querySelector<HTMLElement>('.wf__error, .wd__field-error')
+            ?.scrollIntoView({ block: 'nearest' });
+        },
+      },
+      { injector: this.injector },
     );
   }
 
-  /** Loads the card (from a printing id when only that is known) and prepares the form. */
-  private openCard(cardId: string | null, printingId: string | null): void {
+  /**
+   * After the next render: when a refused save left the focus nowhere (on the page's body), the
+   * save button takes it, so the keyboard stays in the dialog next to the error. A focus held
+   * elsewhere (a field, or the plan-limit dialog that opens on top) is left alone.
+   */
+  private keepFocusInDialog(): void {
+    afterNextRender(
+      {
+        write: () => {
+          const active = this.document.activeElement;
+          if (!active || active === this.document.body) {
+            (this.submitButton()?.nativeElement as HTMLElement | undefined)?.focus();
+          }
+        },
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * After the next render: the chosen card's name takes the focus when it was picked in the
+   * autocomplete (which is gone now) or when the focus was lost while it loaded.
+   */
+  private focusCard(picked: boolean): void {
+    afterNextRender(
+      {
+        write: () => {
+          const heading = this.cardHeading()?.nativeElement;
+          const active = this.document.activeElement;
+          const container = this.host.nativeElement.closest('mat-dialog-container');
+          const lost =
+            !active ||
+            active === this.document.body ||
+            active === container ||
+            !(container ?? this.host.nativeElement).contains(active);
+          if (heading && (picked || lost)) {
+            heading.focus();
+          }
+        },
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * Loads the card (from a printing id when only that is known) and prepares the form. `code` is
+   * a printing code typed in the autocomplete: it preselects a printing only when exactly one
+   * printing of the card carries it.
+   */
+  private openCard(
+    cardId: string | null,
+    printingId: string | null,
+    picked = false,
+    code: string | null = null,
+  ): void {
     this.cardSubscription?.unsubscribe();
-    this.cardRequest = { cardId, printingId };
+    this.cardRequest = { cardId, printingId, code };
     this.loadingCard.set(true);
     this.cardError.set(null);
     this.error.set(null);
@@ -370,9 +602,17 @@ export class WishlistItemDialogComponent {
           this.loadingCard.set(false);
           this.card.set(card);
           if (!this.form()) {
-            const known = (card.printings ?? []).some((printing) => printing.id === printingId);
-            this.form.set(createWishForm(newWishDefaults(known ? printingId : null)));
+            const printings = card.printings ?? [];
+            const coded = printingsWithCode(printings, code);
+            const wanted = coded.length === 1 ? (coded[0].id ?? null) : printingId;
+            const known = !!wanted && printings.some((printing) => printing.id === wanted);
+            const rarity = this.data.mode === 'create' ? (this.data.rarity ?? null) : null;
+            this.sharedCode.set(coded.length > 1 ? code : null);
+            this.setForm(
+              newWishDefaults(known ? { printingId: wanted } : { printingId: null, rarity }),
+            );
           }
+          this.focusCard(picked);
         },
         error: (error: unknown) => {
           this.loadingCard.set(false);

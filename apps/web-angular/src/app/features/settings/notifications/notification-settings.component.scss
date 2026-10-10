@@ -100,3 +100,18 @@
     bottom: calc(72px + env(safe-area-inset-bottom));
   }
 }
+
+.notif__location {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-1);
+  margin-top: var(--spacing-1);
+}
+
+.notif__location-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  color: var(--color-warning);
+}

@@ -32,8 +32,8 @@ const TRADE_TYPES = new Set<string>([
 /**
  * Applies realtime pushes to the react-query caches (the web's stores subscribing to
  * `RealtimeService`): messages into their thread and the inbox, read receipts ("Seen", unread
- * counts), presence dots, notifications (badge once per push, feeds, wishlist match counts, the
- * offers, trades, disputes, ratings and reports they announce), and after every (re)connection a quiet
+ * counts), presence dots, notifications (badge once per push, feeds, the offers, trades,
+ * disputes, ratings and reports they announce), and after every (re)connection a quiet
  * re-read of what may have been missed. Renders nothing.
  */
 export function RealtimeCacheSync() {
@@ -87,10 +87,6 @@ export function RealtimeCacheSync() {
   useRealtimeEvent('notification', (notification) => {
     if (!applyPushedNotification(queryClient, uid, notification, seen.current)) {
       return;
-    }
-    if (notification.type === 'WISHLIST_MATCH') {
-      // Match counts and the matches of the wish change.
-      void queryClient.invalidateQueries({ queryKey: meKeys.wishlist(uid) });
     }
     if (notification.type.startsWith('OFFER_')) {
       // The inbox rows and the negotiation on screen (the offer screen follows a counter-offer).

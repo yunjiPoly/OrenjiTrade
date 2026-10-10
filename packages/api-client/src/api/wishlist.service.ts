@@ -19,11 +19,11 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { CreateWishlistItemRequest } from '../model/createWishlistItemRequest';
 // @ts-ignore
-import { CursorPageWishlistMatchResponse } from '../model/cursorPageWishlistMatchResponse';
-// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 // @ts-ignore
 import { UpdateWishlistItemRequest } from '../model/updateWishlistItemRequest';
+// @ts-ignore
+import { WishPriceTermsResponse } from '../model/wishPriceTermsResponse';
 // @ts-ignore
 import { WishlistItemResponse } from '../model/wishlistItemResponse';
 // @ts-ignore
@@ -37,9 +37,7 @@ import {
     WishlistServiceInterface,
     CreateWishlistItemRequestParams,
     DeleteWishlistItemRequestParams,
-    DismissWishlistMatchRequestParams,
     GetCollectorWishlistRequestParams,
-    ListWishlistMatchesRequestParams,
     UpdateWishlistItemRequestParams
 } from './wishlist.serviceInterface';
 
@@ -56,7 +54,7 @@ export class WishlistService extends BaseService implements WishlistServiceInter
 
     /**
      * Add a card to the wishlist
-     * cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller\&#39;s platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).
+     * Which copy (cardId for any printing, optionally with a rarity of the card\&#39;s printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller\&#39;s platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
      * @endpoint post /api/v1/wishlist
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -128,7 +126,6 @@ export class WishlistService extends BaseService implements WishlistServiceInter
 
     /**
      * Remove a wishlist item
-     * Its matches are removed with it.
      * @endpoint delete /api/v1/wishlist/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -188,69 +185,8 @@ export class WishlistService extends BaseService implements WishlistServiceInter
     }
 
     /**
-     * Dismiss a match
-     * Idempotent; a dismissed match never comes back for this wishlist item.
-     * @endpoint post /api/v1/wishlist/matches/{id}/dismiss
-     * @param requestParameters
-     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
-     * @param reportProgress flag to report request and response progress.
-     * @param options additional options
-     */
-    public dismissWishlistMatch(requestParameters: DismissWishlistMatchRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
-    public dismissWishlistMatch(requestParameters: DismissWishlistMatchRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
-    public dismissWishlistMatch(requestParameters: DismissWishlistMatchRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
-    public dismissWishlistMatch(requestParameters: DismissWishlistMatchRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        const id = requestParameters?.id;
-        if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling dismissWishlistMatch.');
-        }
-
-        let localVarHeaders = this.defaultHeaders;
-
-        // authentication (bearerAuth) required
-        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
-
-        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            'application/problem+json'
-        ]);
-        if (localVarHttpHeaderAcceptSelected !== undefined) {
-            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
-        }
-
-        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
-
-        const localVarTransferCache: boolean = options?.transferCache ?? true;
-
-
-        let responseType_: 'text' | 'json' | 'blob' = 'json';
-        if (localVarHttpHeaderAcceptSelected) {
-            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
-                responseType_ = 'text';
-            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
-                responseType_ = 'json';
-            } else {
-                responseType_ = 'blob';
-            }
-        }
-
-        let localVarPath = `/api/v1/wishlist/matches/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/dismiss`;
-        const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<any>('post', `${basePath}${localVarPath}`,
-            {
-                context: localVarHttpContext,
-                responseType: <any>responseType_,
-                ...(withCredentials ? { withCredentials } : {}),
-                headers: localVarHeaders,
-                observe: observe,
-                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
-                reportProgress: reportProgress
-            }
-        );
-    }
-
-    /**
      * A collector\&#39;s public wishlist
-     * Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: the active items as card, printing and minimum condition (never notes, prices or radii). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.
+     * Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: every wish as card, printing or rarity, public note, Near Mint only and price term (never a place). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.
      * @endpoint get /api/v1/collectors/{handle}/wishlist
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -298,6 +234,63 @@ export class WishlistService extends BaseService implements WishlistServiceInter
         let localVarPath = `/api/v1/collectors/${this.configuration.encodeParam({name: "handle", value: handle, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}/wishlist`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<Array<WishlistSummaryEntry>>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * The price terms a wish may choose
+     * Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.
+     * @endpoint get /api/v1/wishlist/price-terms
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listWishPriceTerms(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<WishPriceTermsResponse>;
+    public listWishPriceTerms(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<WishPriceTermsResponse>>;
+    public listWishPriceTerms(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<WishPriceTermsResponse>>;
+    public listWishPriceTerms(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/wishlist/price-terms`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<WishPriceTermsResponse>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -367,103 +360,8 @@ export class WishlistService extends BaseService implements WishlistServiceInter
     }
 
     /**
-     * Public items matching a wishlist item (newest first)
-     * Cursor-paginated. Each match carries the public item (never private notes), the owner\&#39;s marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed&#x3D;true.
-     * @endpoint get /api/v1/wishlist/{id}/matches
-     * @param requestParameters
-     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
-     * @param reportProgress flag to report request and response progress.
-     * @param options additional options
-     */
-    public listWishlistMatches(requestParameters: ListWishlistMatchesRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CursorPageWishlistMatchResponse>;
-    public listWishlistMatches(requestParameters: ListWishlistMatchesRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CursorPageWishlistMatchResponse>>;
-    public listWishlistMatches(requestParameters: ListWishlistMatchesRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CursorPageWishlistMatchResponse>>;
-    public listWishlistMatches(requestParameters: ListWishlistMatchesRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        const id = requestParameters?.id;
-        if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling listWishlistMatches.');
-        }
-        const cursor = requestParameters?.cursor;
-        const limit = requestParameters?.limit;
-        const includeDismissed = requestParameters?.includeDismissed;
-
-        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
-
-        localVarQueryParameters = this.addToHttpParams(
-            localVarQueryParameters,
-            'cursor',
-            <any>cursor,
-            QueryParamStyle.Form,
-            true,
-        );
-
-
-        localVarQueryParameters = this.addToHttpParams(
-            localVarQueryParameters,
-            'limit',
-            <any>limit,
-            QueryParamStyle.Form,
-            true,
-        );
-
-
-        localVarQueryParameters = this.addToHttpParams(
-            localVarQueryParameters,
-            'includeDismissed',
-            <any>includeDismissed,
-            QueryParamStyle.Form,
-            true,
-        );
-
-
-        let localVarHeaders = this.defaultHeaders;
-
-        // authentication (bearerAuth) required
-        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
-
-        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            'application/json',
-            'application/problem+json'
-        ]);
-        if (localVarHttpHeaderAcceptSelected !== undefined) {
-            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
-        }
-
-        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
-
-        const localVarTransferCache: boolean = options?.transferCache ?? true;
-
-
-        let responseType_: 'text' | 'json' | 'blob' = 'json';
-        if (localVarHttpHeaderAcceptSelected) {
-            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
-                responseType_ = 'text';
-            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
-                responseType_ = 'json';
-            } else {
-                responseType_ = 'blob';
-            }
-        }
-
-        let localVarPath = `/api/v1/wishlist/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/matches`;
-        const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<CursorPageWishlistMatchResponse>('get', `${basePath}${localVarPath}`,
-            {
-                context: localVarHttpContext,
-                params: localVarQueryParameters.toHttpParams(),
-                responseType: <any>responseType_,
-                ...(withCredentials ? { withCredentials } : {}),
-                headers: localVarHeaders,
-                observe: observe,
-                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
-                reportProgress: reportProgress
-            }
-        );
-    }
-
-    /**
      * Update a wishlist item (any subset of the fields)
-     * Absent fields are unchanged. Changing the criteria re-matches the item (dismissed matches stay dismissed).
+     * Absent fields are unchanged; unknown members are ignored.
      * @endpoint patch /api/v1/wishlist/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

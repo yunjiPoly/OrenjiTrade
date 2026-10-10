@@ -3,7 +3,7 @@
 **Status:** Accepted · **Date:** 2026-09-29
 
 ## Context
-Notifications, wishlist matching, analytics, auto-delisting, ML scanning and email must not
+Notifications, wishlist matching (wishlist alerts since stage S2), analytics, auto-delisting, ML scanning and email must not
 block HTTP requests (spec §46) and must survive crashes. Local development must not require
 cloud credentials.
 

@@ -24,7 +24,7 @@ import { OfferTarget } from './offer-target';
 
 /**
  * The offer dialogs shared by every entry point (public binder items, card holders, the map's
- * holders list, wishlist matches, the collector page) and by the offer and trade pages: make an
+ * holders list, the collector page) and by the offer and trade pages: make an
  * offer (with a snack-bar confirmation and a link to the offer page), counter-offer, and the
  * confirmations of accept / decline / withdraw and of the trade steps. API calls of the answers
  * stay with the pages, which own the reload on conflicts.

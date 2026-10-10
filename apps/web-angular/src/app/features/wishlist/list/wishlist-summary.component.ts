@@ -5,9 +5,9 @@ import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/featur
 import type { WishUsage } from '../data/wishlist.store';
 
 /**
- * The wishlist at a glance: number of wishes, wishes with matches, matches in total and
- * the plan usage (`wishlist.items.max`) as a meter with a link to Premium when it is close
- * (only while the `premiumPlans` flag is on: nothing offers a subscription otherwise).
+ * The wishlist at a glance: the number of wishes and the plan usage (`wishlist.items.max`) as a
+ * meter with a link to Premium when it is close (only while the `premiumPlans` flag is on:
+ * nothing offers a subscription otherwise). No matches any more (stage S2).
  */
 @Component({
   selector: 'app-wishlist-summary',
@@ -17,15 +17,7 @@ import type { WishUsage } from '../data/wishlist.store';
       <dl class="ws__stats">
         <div class="ws__stat">
           <dt>Wishes</dt>
-          <dd>{{ count() }}</dd>
-        </div>
-        <div class="ws__stat">
-          <dt>With matches</dt>
-          <dd>{{ matched() }}</dd>
-        </div>
-        <div class="ws__stat ws__stat--hot">
-          <dt>Matches</dt>
-          <dd data-testid="wishlist-total-matches">{{ totalMatches() }}</dd>
+          <dd data-testid="wishlist-count">{{ count() }}</dd>
         </div>
       </dl>
       @if (usage(); as usage) {
@@ -110,9 +102,6 @@ import type { WishUsage } from '../data/wishlist.store';
       font-size: var(--font-size-2xl);
       font-weight: var(--font-weight-bold);
     }
-    .ws__stat--hot dd {
-      color: var(--color-primary);
-    }
     .ws__usage {
       display: flex;
       flex: 0 1 280px;
@@ -165,8 +154,6 @@ import type { WishUsage } from '../data/wishlist.store';
 export class WishlistSummaryComponent {
   private readonly flags = inject(FeatureFlagsService);
   readonly count = input(0);
-  readonly matched = input(0);
-  readonly totalMatches = input(0);
   readonly usage = input<WishUsage | null>(null);
 
   protected readonly percent = computed(() => {

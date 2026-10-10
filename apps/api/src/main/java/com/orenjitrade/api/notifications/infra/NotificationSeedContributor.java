@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * and a read message notice for collector1, the unread notice of collector1's last message for
  * collector2 (matching the seeded conversation) and an unread freshness warning for collector3's
  * stale binder. Inserted once ({@code ON CONFLICT DO NOTHING}); they are history, so nothing is
- * dispatched. collector2's wishlist match notification comes from the real pipeline ({@code
+ * dispatched. collector2's wishlist alert comes from the real pipeline ({@code
  * WishlistSeedContributor}).
  */
 @Component

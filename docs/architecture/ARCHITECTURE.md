@@ -203,7 +203,7 @@ from `delist_policy` rows (ADR 0014). Nothing stale is deleted.
 ```mermaid
 flowchart LR
   S[Service @Transactional] -->|publishEvent| R[(event_publication<br/>Modulith registry)]
-  R -->|after commit, async| H1[Wishlist matcher]
+  R -->|after commit, async| H1[Wishlist alerts]
   R --> H2[Notification dispatcher]
   R --> H3[Analytics externalizer]
   R --> H4[ML scan requester]

@@ -6,16 +6,17 @@ import { useCollectorWishlist } from '@/src/api/hooks/collectorWishlist';
 import type { WishlistSummaryEntry } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { SectionCard } from '@/src/components/ui/Layout';
-import { wishPrintingLabel } from '@/src/features/wishlist/wishlistLabels';
+import { whichCopyLabel, wishCardParams, wishChips } from '@/src/features/wishlist/wishlistLabels';
 import { printingImageUrl } from '@/src/lib/catalog';
-import { cardCount, conditionLabel } from '@/src/lib/inventory';
+import { cardCount } from '@/src/lib/inventory';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * "Looking for" on a collector's profile (the web's `app-collector-wishlist`): the public wishlist
- * of a collector who enabled "Show my wishlist on my profile": card, printing or any printing,
- * minimum condition. Never prices, radii or notes. Nothing is shown while it loads, when it is
- * hidden (404), empty or failed (the binders say the rest), like the web.
+ * of a collector who enabled "Let others see what you want": card, which copy (any printing, any
+ * printing of one rarity, or one printing), the public note and the "Near Mint only" / price term
+ * chips. Never a place. Nothing is shown while it loads, when it is hidden (404), empty or failed
+ * (the binders say the rest), like the web.
  */
 export function CollectorWishlistSection({
   handle,
@@ -34,13 +35,10 @@ export function CollectorWishlistSection({
     return null;
   }
   const open = (wish: WishlistSummaryEntry) => {
-    if (!wish.card?.id) {
-      return;
+    const params = wishCardParams(wish);
+    if (params) {
+      router.push({ pathname: '/cards/[id]', params });
     }
-    router.push({
-      pathname: '/cards/[id]',
-      params: { id: wish.card.id, ...(wish.printing?.id ? { printing: wish.printing.id } : {}) },
-    });
   };
   return (
     <SectionCard title="Looking for" testID="collector-wishlist">
@@ -56,15 +54,15 @@ export function CollectorWishlistSection({
       >
         {entries.map((wish, index) => {
           const name = wish.card?.name ?? 'Card';
-          const printing = wishPrintingLabel(wish.printing);
-          const condition = wish.conditionMin
-            ? `${conditionLabel(wish.conditionMin)} or better`
-            : null;
+          const printing = whichCopyLabel(wish.printing, wish.rarity);
+          const chips = wishChips(wish)
+            .map((chip) => chip.label)
+            .join(', ');
           return (
             <Pressable
-              key={`${wish.card?.id ?? index}-${wish.printing?.id ?? 'any'}`}
+              key={`${wish.card?.id ?? index}-${wish.printing?.id ?? wish.rarity ?? 'any'}`}
               accessibilityRole="link"
-              accessibilityLabel={`${name}, ${printing}${condition ? `, ${condition}` : ''}`}
+              accessibilityLabel={[name, printing, wish.note, chips].filter(Boolean).join(', ')}
               accessibilityHint="Opens the card"
               onPress={() => open(wish)}
               testID={`collector-wish-${wish.card?.id ?? index}`}
@@ -90,14 +88,19 @@ export function CollectorWishlistSection({
                 <Text style={[textStyle('xs'), { color: palette.textMuted }]} numberOfLines={1}>
                   {printing}
                 </Text>
-                {condition ? (
+                {wish.note ? (
+                  <Text style={[textStyle('xs'), { color: palette.ink }]} numberOfLines={3}>
+                    “{wish.note}”
+                  </Text>
+                ) : null}
+                {chips ? (
                   <View style={styles.condition}>
                     <MaterialCommunityIcons
-                      name="check-decagram-outline"
+                      name="tag-outline"
                       size={14}
                       color={palette.textMuted}
                     />
-                    <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{condition}</Text>
+                    <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{chips}</Text>
                   </View>
                 ) : null}
               </View>

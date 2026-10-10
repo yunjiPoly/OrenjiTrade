@@ -37,7 +37,7 @@ export type ReadChange =
  *
  * Kept live by the realtime channel: every push on `/user/queue/notifications` (a
  * `NotificationResponse`) raises the count once and is re-emitted on {@link pushed$} so pages can
- * refresh what it concerns (a wishlist match). Pushes lost while the socket was down are covered
+ * refresh what it concerns (a new message, an offer). Pushes lost while the socket was down are covered
  * by re-reading after each (re)connection; the caller's own read receipts re-read the count
  * because reading a conversation marks its MESSAGE notifications read on the server.
  *

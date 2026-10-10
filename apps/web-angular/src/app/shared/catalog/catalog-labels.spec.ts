@@ -1,10 +1,15 @@
-import { GameMetadataField, GameMetadataFieldTypeEnum } from '@orenji/api-client';
+import {
+  GameMetadataField,
+  GameMetadataFieldTypeEnum,
+  MarketPriceSourceEnum as Source,
+} from '@orenji/api-client';
 import {
   editionLabel,
   finishLabel,
   formatMarketPrice,
   formatMetadataValue,
   languageLabel,
+  marketPriceInfo,
   metadataEntries,
 } from './catalog-labels';
 
@@ -25,11 +30,40 @@ describe('catalog labels', () => {
     expect(languageLabel(undefined)).toBe('—');
   });
 
-  it('formats market prices with their currency', () => {
-    expect(formatMarketPrice({ amount: 42, currency: 'CAD' })).toBe('$42.00');
-    expect(formatMarketPrice({ amount: 3.5, currency: 'USD' })).toBe('US$3.50');
+  it('formats market prices with their currency code, like the wish price terms', () => {
+    expect(formatMarketPrice({ amount: 42, currency: 'CAD', source: Source.Sample })).toBe(
+      '42.00 CAD',
+    );
+    expect(formatMarketPrice({ amount: 3.5, currency: 'USD', source: Source.Ygoprodeck })).toBe(
+      '3.50 USD',
+    );
+    expect(formatMarketPrice({ amount: 1234.5, currency: 'USD', source: Source.Ygoprodeck })).toBe(
+      '1,234.50 USD',
+    );
     expect(formatMarketPrice(undefined)).toBeNull();
-    expect(formatMarketPrice({ currency: 'CAD' })).toBeNull();
+    expect(formatMarketPrice({ currency: 'CAD', source: Source.Catalog })).toBeNull();
+  });
+
+  it('labels a market price with its source and date', () => {
+    expect(
+      marketPriceInfo({
+        amount: 25,
+        currency: 'USD',
+        source: Source.Ygoprodeck,
+        updatedAt: '2026-10-01T00:00:00Z',
+      }),
+    ).toEqual({
+      label: 'TCG market price',
+      detail: 'YGOPRODeck set price (TCGplayer-based, USD) · updated Oct 1, 2026',
+    });
+    expect(marketPriceInfo({ amount: 25, currency: 'CAD', source: Source.Sample })).toEqual({
+      label: 'Sample market price',
+      detail: 'Fictional price of the local sample catalog',
+    });
+    expect(marketPriceInfo({ amount: 25, currency: 'CAD', source: Source.Catalog })?.label).toBe(
+      'Market price',
+    );
+    expect(marketPriceInfo(null)).toBeNull();
   });
 
   it('formats metadata values by schema type', () => {

@@ -42,7 +42,7 @@ interface Draft {
     <div class="admin-page">
       <app-page-header
         title="Regions"
-        subtitle="Which platform region each country belongs to. Collectors browse, search and match within one region."
+        subtitle="Which platform region each country belongs to. Collectors browse, search and get wishlist alerts within one region."
       />
 
       @if (error(); as error) {

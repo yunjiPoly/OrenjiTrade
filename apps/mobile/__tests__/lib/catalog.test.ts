@@ -39,7 +39,10 @@ describe('catalog labels', () => {
     expect(formatMoney(null)).toBeNull();
     expect(formatMoney(Number.NaN)).toBeNull();
     expect(formatMoney(12.5, 'NOPE')).toMatch(/12\.50/);
-    expect(formatMarketPrice({ amount: 38, currency: 'CAD' })).toMatch(/38\.00/);
+    expect(formatMarketPrice({ amount: 38, currency: 'CAD', source: 'SAMPLE' })).toBe('38.00 CAD');
+    expect(formatMarketPrice({ amount: 1234.5, currency: 'USD', source: 'YGOPRODECK' })).toBe(
+      '1,234.50 USD'
+    );
     expect(formatMarketPrice(undefined)).toBeNull();
   });
 

@@ -110,7 +110,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsCollector2sWishlistWithANotifiedMatchAndAFewNotifications() {
+    void seedsCollector2sWishlistWithAnAlertAndAFewNotifications() {
         UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
         String azureWish = "00000000-0000-4000-8f00-000000000201";
         String azureItem = "00000000-0000-4000-8c00-000000010101";
@@ -124,23 +124,32 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM wishlist_item WHERE owner_id = ? AND"
-                                        + " active",
+                                        + " (public_note <> '' OR price_term IS NOT NULL)",
                                 collector2))
-                .isEqualTo(3);
+                .as("two seeded wishes carry a public note and a price term, one neither")
+                .isEqualTo(2);
         assertThat(
                         testUsers.count(
-                                "SELECT count(*) FROM wishlist_match WHERE wishlist_item_id ="
-                                        + " ?::uuid AND inventory_item_id = ?::uuid AND notified",
-                                azureWish,
+                                "SELECT count(*) FROM wishlist_item WHERE id = ?::uuid AND"
+                                        + " near_mint_only AND price_term = '90% TCG'",
+                                azureWish))
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ? AND"
+                                        + " inventory_item_id = ?::uuid",
+                                collector2,
                                 azureItem))
-                .as("collector1's public Azure-Eyes matches and notified collector2")
+                .as("collector1's public Azure-Eyes alerted collector2")
                 .isEqualTo(1);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM notification WHERE user_id = ? AND type ="
-                                        + " 'WISHLIST_MATCH' AND dedup_key = ?",
+                                        + " 'WISHLIST_ALERT' AND dedup_key = ? AND data ->>"
+                                        + " 'wishlistItemId' = ?",
                                 collector2,
-                                "wishlist:" + azureWish + ":" + azureItem))
+                                "wishlist-alert:" + collector2 + ":" + azureItem,
+                                azureWish))
                 .isEqualTo(1);
         assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
         assertThat(
@@ -149,10 +158,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                         + " wishlist_visible",
                                 collector2))
                 .isEqualTo(1);
-        String collector2Matches =
-                "SELECT count(*) FROM wishlist_match m JOIN wishlist_item w ON w.id ="
-                        + " m.wishlist_item_id WHERE w.owner_id = ?";
-        int matches = testUsers.count(collector2Matches, collector2);
+        String collector2Alerts = "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ?";
+        int alerts = testUsers.count(collector2Alerts, collector2);
         int notifications =
                 testUsers.count("SELECT count(*) FROM notification WHERE user_id = ?", collector2);
 
@@ -160,12 +167,105 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
 
         assertThat(testUsers.count(wishes)).isEqualTo(3);
         assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
-        assertThat(testUsers.count(collector2Matches, collector2)).isEqualTo(matches);
+        assertThat(testUsers.count(collector2Alerts, collector2)).isEqualTo(alerts);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM notification WHERE user_id = ?", collector2))
                 .as("seeding again notifies nobody")
                 .isEqualTo(notifications);
+    }
+
+    /**
+     * A database seeded before stage S2 and then migrated (the owner's own dev database): the three
+     * stable-id wishes exist with V112's defaults and collector2 was never alerted about
+     * collector1's listing. The seed gives the untouched wishes their S2 values and runs the sample
+     * alert until collector2 has been alerted, once; a wish the collector edited is left alone.
+     *
+     * <p>The notification itself is not deleted here: this database is shared with every other
+     * suite, whose listings use up collector2's daily alert limit, so a second notification could
+     * not be relied on (the first one, sent at start-up, is asserted above). What the seed owns is
+     * asked instead: the alert step runs again while the sent-alert key is missing, and the stored
+     * notification stays the only one (its dedup key).
+     */
+    @Test
+    void anUpgradedDatabaseGetsTheSeedWishValuesAndTheSampleAlertOnce() {
+        UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
+        String azureWish = "00000000-0000-4000-8f00-000000000201";
+        String promoWish = "00000000-0000-4000-8f00-000000000202";
+        String magicWish = "00000000-0000-4000-8f00-000000000203";
+        String azureItem = "00000000-0000-4000-8c00-000000010101";
+        String alertKey = "wishlist-alert:" + collector2 + ":" + azureItem;
+        String sentAlerts =
+                "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ? AND"
+                        + " inventory_item_id = ?::uuid";
+        String alertNotifications =
+                "SELECT count(*) FROM notification WHERE user_id = ? AND type = 'WISHLIST_ALERT'"
+                        + " AND dedup_key = ?";
+        String allNotifications = "SELECT count(*) FROM notification WHERE user_id = ?";
+        // What V112 leaves of wishes seeded under the old model, and no alert decided yet.
+        testUsers.update(
+                "UPDATE wishlist_item SET public_note = '', near_mint_only = false,"
+                        + " price_term = NULL, updated_at = created_at"
+                        + " WHERE id::text LIKE '00000000-0000-4000-8f00-%'");
+        testUsers.update(
+                "DELETE FROM wishlist_alert_sent WHERE user_id = ? AND inventory_item_id ="
+                        + " ?::uuid",
+                collector2,
+                azureItem);
+        int notifications = testUsers.count(allNotifications, collector2);
+
+        seedDataRunner.seedAll();
+
+        assertThat(wishRow(azureWish))
+                .containsEntry("public_note", "Looking for a clean copy for my Azure-Eyes deck.")
+                .containsEntry("near_mint_only", true)
+                .containsEntry("price_term", "90% TCG");
+        assertThat(wishRow(promoWish))
+                .as("this seed wish has no note, flag or term")
+                .containsEntry("public_note", "")
+                .containsEntry("near_mint_only", false)
+                .containsEntry("price_term", null);
+        assertThat(wishRow(magicWish))
+                .containsEntry("public_note", "Any printing is fine.")
+                .containsEntry("near_mint_only", false)
+                .containsEntry("price_term", "100% TCG+");
+        assertThat(testUsers.count(sentAlerts, collector2, azureItem))
+                .as("the alert step ran again: the Near Mint wish fits collector1's listing")
+                .isEqualTo(1);
+        assertThat(testUsers.count(alertNotifications, collector2, alertKey)).isEqualTo(1);
+        assertThat(testUsers.count(allNotifications, collector2)).isEqualTo(notifications);
+
+        // A wish the collector emptied on purpose (edited: updated_at moved) stays as it is.
+        testUsers.update(
+                "UPDATE wishlist_item SET public_note = '', price_term = NULL,"
+                        + " updated_at = created_at + interval '1 hour' WHERE id = ?::uuid",
+                magicWish);
+
+        seedDataRunner.seedAll();
+
+        assertThat(wishRow(magicWish))
+                .containsEntry("public_note", "")
+                .containsEntry("price_term", null);
+        assertThat(wishRow(azureWish)).containsEntry("price_term", "90% TCG");
+        assertThat(testUsers.count(sentAlerts, collector2, azureItem)).isEqualTo(1);
+        assertThat(testUsers.count(allNotifications, collector2))
+                .as("seeding again notifies nobody")
+                .isEqualTo(notifications);
+
+        // Back to the seed state for the other tests of this class.
+        testUsers.update(
+                "UPDATE wishlist_item SET updated_at = created_at WHERE id = ?::uuid", magicWish);
+        seedDataRunner.seedAll();
+        assertThat(wishRow(magicWish)).containsEntry("price_term", "100% TCG+");
+    }
+
+    private Map<String, Object> wishRow(String id) {
+        return testUsers
+                .query(
+                        "SELECT public_note, near_mint_only, price_term FROM wishlist_item"
+                                + " WHERE id = ?",
+                        UUID.fromString(id))
+                .get(0);
     }
 
     private Map<String, Object> binderRow(String id) {

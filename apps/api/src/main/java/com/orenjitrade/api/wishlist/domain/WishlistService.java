@@ -5,95 +5,81 @@ import com.orenjitrade.api.cards.domain.CardSummary;
 import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.common.ApiException;
-import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.ProblemFieldError;
-import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.games.domain.GameSchema;
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.games.domain.GameView;
-import com.orenjitrade.api.inventory.domain.InventoryItemView;
-import com.orenjitrade.api.inventory.domain.PublicInventoryService;
+import com.orenjitrade.api.moderation.domain.ModerationScope;
+import com.orenjitrade.api.moderation.domain.ModerationVerdict;
+import com.orenjitrade.api.moderation.domain.TextModerationService;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
 import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
-import com.orenjitrade.api.search.domain.CollectorDiscoveryService;
-import com.orenjitrade.api.search.domain.CollectorMarker;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import com.orenjitrade.api.wishlist.domain.WishlistChanges.NewWishlistItem;
 import com.orenjitrade.api.wishlist.domain.WishlistChanges.WishlistPatch;
 import com.orenjitrade.api.wishlist.domain.WishlistItemView.CardRef;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
-import com.orenjitrade.api.wishlist.infra.WishlistMatchRepository;
-import com.orenjitrade.api.wishlist.infra.WishlistMatchRepository.MatchRow;
+import com.orenjitrade.api.wishlist.infra.WishlistAlertRepository;
 import com.orenjitrade.api.wishlist.infra.WishlistRepository;
 import com.orenjitrade.api.wishlist.infra.WishlistRepository.Values;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The caller's wishlist (Phase 6 contract): items for a card (any printing) or one printing, with
- * rarity / condition / edition / language filters validated against the game's {@code GameSchema},
- * a maximum price and a trade preference; {@code wishlist.items.max} limits the number of items
- * (429); exact duplicates are 409. Matching compares platform regions (ADR 0017): no radius, no
- * distance. Creating or editing an item matches it against the current public inventory right away
- * (no notification); new publications are matched by {@link WishlistMatcher}. Matches are served
- * with the public item and the owner's marker (state/province and country) only. The public summary
- * of {@code GET /collectors/{handle}/wishlist} follows {@link PrivacyPolicyService#canSeeWishlist}.
+ * The caller's wishlist (stage S2 model, owner product change of 2026-10-08 section 4). A wish has
+ * only: which copy (the card with any printing, optionally of one rarity of its printings, or one
+ * printing), a public note (plain text, at most {@value #NOTE_MAX} characters, moderated like
+ * profile text), "Near Mint only" and at most one price term from the admin list ({@link
+ * WishlistSettings}; a display term, not a filter). {@code wishlist.items.max} limits the number of
+ * wishes (429); the same selection twice is 409. Wishes drive no stored matches: {@link
+ * WishlistAlerts} alerts collectors of the same platform region when a fitting item is listed. The
+ * public summary of {@code GET /collectors/{handle}/wishlist} follows {@link
+ * PrivacyPolicyService#canSeeWishlist}.
  */
 @Service
 public class WishlistService {
 
     public static final String ITEMS_MAX = "wishlist.items.max";
-    public static final int NOTES_MAX = 500;
-    public static final int MATCHES_DEFAULT_LIMIT = 20;
-    public static final int MATCHES_MAX_LIMIT = 50;
-    static final BigDecimal MAX_PRICE = new BigDecimal("9999999999.99");
-    static final Pattern CURRENCY = Pattern.compile("^[A-Z]{3}$");
+    public static final int NOTE_MAX = 280;
     static final String NOT_FOUND = "Wishlist item not found";
-    static final String MATCH_NOT_FOUND = "Match not found";
     static final String WISHLIST_NOT_FOUND = "Wishlist not found";
+    static final String DUPLICATE =
+            "This card is already on your wishlist with the same printing or rarity";
 
-    /** PATCH members that change what matches. */
-    static final Set<String> CRITERIA =
-            Set.of(
-                    "printingId",
-                    "rarity",
-                    "conditionMin",
-                    "edition",
-                    "language",
-                    "maxPrice",
-                    "currency",
-                    "tradePreference",
-                    "active");
+    /** Control characters other than line feed and tab: a public note is plain text. */
+    static final Pattern CONTROL = Pattern.compile("[\\p{Cc}&&[^\\n\\t]]");
+
+    private static final Logger log = LoggerFactory.getLogger(WishlistService.class);
 
     private final WishlistRepository repository;
-    private final WishlistMatchRepository matchRepository;
-    private final WishlistMatcher matcher;
+    private final WishlistAlertRepository alertRepository;
+    private final WishlistSettings settings;
     private final CatalogService catalog;
     private final GameService games;
     private final Limits limits;
-    private final PublicInventoryService publicInventory;
-    private final CollectorDiscoveryService discovery;
+    private final TextModerationService moderation;
     private final UserAccountService accounts;
     private final PrivacySettingsService privacySettings;
     private final PrivacyPolicyService privacyPolicy;
@@ -103,13 +89,12 @@ public class WishlistService {
 
     public WishlistService(
             WishlistRepository repository,
-            WishlistMatchRepository matchRepository,
-            WishlistMatcher matcher,
+            WishlistAlertRepository alertRepository,
+            WishlistSettings settings,
             CatalogService catalog,
             GameService games,
             Limits limits,
-            PublicInventoryService publicInventory,
-            CollectorDiscoveryService discovery,
+            TextModerationService moderation,
             UserAccountService accounts,
             PrivacySettingsService privacySettings,
             PrivacyPolicyService privacyPolicy,
@@ -117,13 +102,12 @@ public class WishlistService {
             ApplicationEventPublisher events,
             TimeProvider timeProvider) {
         this.repository = repository;
-        this.matchRepository = matchRepository;
-        this.matcher = matcher;
+        this.alertRepository = alertRepository;
+        this.settings = settings;
         this.catalog = catalog;
         this.games = games;
         this.limits = limits;
-        this.publicInventory = publicInventory;
-        this.discovery = discovery;
+        this.moderation = moderation;
         this.accounts = accounts;
         this.privacySettings = privacySettings;
         this.privacyPolicy = privacyPolicy;
@@ -152,20 +136,10 @@ public class WishlistService {
     public WishlistItemView create(UUID ownerId, NewWishlistItem input) {
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable Target target = target(input.cardId(), input.printingId(), errors);
-        String currency = currency(input.currency(), errors);
-        String notes = notes(input.notes(), errors);
-        validatePrice(input.maxPrice(), errors);
-        @Nullable Filters filters =
-                target == null
-                        ? null
-                        : filters(
-                                target.schema(),
-                                input.rarity(),
-                                input.conditionMin(),
-                                input.edition(),
-                                input.language(),
-                                errors);
-        if (!errors.isEmpty() || target == null || filters == null) {
+        String note = note(input.note(), errors);
+        @Nullable String priceTerm = priceTerm(input.priceTerm(), errors);
+        @Nullable String rarity = target == null ? null : rarity(target, input.rarity(), errors);
+        if (!errors.isEmpty() || target == null) {
             throw ApiException.validation("Validation failed", errors);
         }
         Values values =
@@ -173,37 +147,32 @@ public class WishlistService {
                         ownerId,
                         target.game(),
                         target.cardId(),
-                        target.printingId(),
-                        filters.rarity(),
-                        filters.conditionMin(),
-                        filters.edition(),
-                        filters.language(),
-                        input.maxPrice(),
-                        currency,
-                        input.tradePreference() == null
-                                ? TradePreference.ANY
-                                : input.tradePreference(),
-                        notes,
-                        input.active() == null || input.active());
-        if (repository.existsSameWish(values, null)) {
-            throw ApiException.conflict(
-                    "This card is already on your wishlist with the same filters");
+                        target.printing() == null ? null : target.printing().id(),
+                        rarity,
+                        note,
+                        Boolean.TRUE.equals(input.nearMintOnly()),
+                        priceTerm);
+        if (repository.existsSameSelection(values, null)) {
+            throw ApiException.conflict(DUPLICATE);
         }
         limits.consume(ownerId, ITEMS_MAX);
         UUID id = UUID.randomUUID();
         Instant now = timeProvider.now();
-        repository.insert(id, values, now);
-        if (values.active()) {
-            matcher.matchWishlistItem(id);
+        try {
+            repository.insert(id, values, now);
+        } catch (DuplicateKeyException e) {
+            throw ApiException.conflict(DUPLICATE);
         }
         events.publishEvent(
                 new WishlistItemCreated(
                         id,
                         ownerId,
                         values.gameSlug(),
-                        values.printingId() != null ? "printing" : "card",
-                        values.maxPrice() != null,
-                        values.tradePreference().name(),
+                        values.printingId() != null
+                                ? "printing"
+                                : values.rarity() != null ? "rarity" : "card",
+                        values.nearMintOnly(),
+                        values.priceTerm() != null,
                         now));
         return get(ownerId, id);
     }
@@ -213,41 +182,37 @@ public class WishlistService {
     public WishlistItemView update(UUID ownerId, UUID id, WishlistPatch patch) {
         WishlistItemRow row = requireOwned(ownerId, id);
         List<ProblemFieldError> errors = new ArrayList<>();
-        @Nullable GameSchema schema = games.find(row.gameSlug()).map(GameView::schema).orElse(null);
         UUID cardId = Objects.requireNonNull(row.cardId());
-        @Nullable UUID printingId = row.printingId();
-        if (patch.has("printingId")) {
-            printingId = patch.printingId();
-            if (printingId != null) {
-                List<PrintingSummary> found = catalog.printings(List.of(printingId));
-                if (found.isEmpty()) {
-                    errors.add(new ProblemFieldError("printingId", "unknown printing"));
-                } else if (!found.get(0).cardId().equals(cardId)) {
-                    errors.add(
-                            new ProblemFieldError(
-                                    "printingId", "must be a printing of the wished card"));
-                }
+        @Nullable PrintingSummary printing = null;
+        @Nullable UUID printingId = patch.has("printingId") ? patch.printingId() : row.printingId();
+        if (printingId != null) {
+            List<PrintingSummary> found = catalog.printingsIncludingHidden(List.of(printingId));
+            if (found.isEmpty()) {
+                errors.add(new ProblemFieldError("printingId", "unknown printing"));
+            } else if (!found.get(0).cardId().equals(cardId)) {
+                errors.add(
+                        new ProblemFieldError(
+                                "printingId", "must be a printing of the wished card"));
+            } else {
+                printing = found.get(0);
             }
         }
-        String currency =
-                patch.has("currency") ? currency(patch.currency(), errors) : row.currency();
-        @Nullable BigDecimal maxPrice = patch.has("maxPrice") ? patch.maxPrice() : row.maxPrice();
-        validatePrice(maxPrice, errors);
-        String notes = patch.has("notes") ? notes(patch.notes(), errors) : row.notes();
-        @Nullable Filters filters =
-                schema == null
-                        ? new Filters(
-                                row.rarity(), row.conditionMin(), row.edition(), row.language())
-                        : filters(
-                                schema,
-                                patch.has("rarity") ? patch.rarity() : row.rarity(),
-                                patch.has("conditionMin")
-                                        ? patch.conditionMin()
-                                        : row.conditionMin(),
-                                patch.has("edition") ? patch.edition() : row.edition(),
-                                patch.has("language") ? patch.language() : row.language(),
-                                errors);
-        if (!errors.isEmpty() || filters == null) {
+        String note = patch.has("note") ? note(patch.note(), errors) : row.publicNote();
+        // A term the admin list no longer offers stays valid on the wish that chose it.
+        @Nullable String priceTerm =
+                !patch.has("priceTerm") || isUnchanged(patch.priceTerm(), row.priceTerm())
+                        ? row.priceTerm()
+                        : priceTerm(patch.priceTerm(), errors);
+        @Nullable String rarity = null;
+        if (errors.isEmpty()) {
+            // A printing change clears a stored rarity unless the request sets one.
+            @Nullable String requested =
+                    patch.has("rarity")
+                            ? patch.rarity()
+                            : patch.has("printingId") ? null : row.rarity();
+            rarity = rarity(new Target(row.gameSlug(), cardId, printing), requested, errors);
+        }
+        if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
         Values values =
@@ -256,33 +221,24 @@ public class WishlistService {
                         row.gameSlug(),
                         cardId,
                         printingId,
-                        filters.rarity(),
-                        filters.conditionMin(),
-                        filters.edition(),
-                        filters.language(),
-                        maxPrice,
-                        currency,
-                        patch.has("tradePreference") && patch.tradePreference() != null
-                                ? patch.tradePreference()
-                                : row.tradePreference(),
-                        notes,
-                        patch.has("active") && patch.active() != null
-                                ? patch.active()
-                                : row.active());
-        if (repository.existsSameWish(values, id)) {
-            throw ApiException.conflict(
-                    "This card is already on your wishlist with the same filters");
+                        rarity,
+                        note,
+                        patch.has("nearMintOnly") && patch.nearMintOnly() != null
+                                ? patch.nearMintOnly()
+                                : row.nearMintOnly(),
+                        priceTerm);
+        if (repository.existsSameSelection(values, id)) {
+            throw ApiException.conflict(DUPLICATE);
         }
-        repository.update(id, values, timeProvider.now());
-        boolean criteriaChanged = patch.present().stream().anyMatch(CRITERIA::contains);
-        if (criteriaChanged && values.active()) {
-            List<UUID> keep = matcher.matchWishlistItem(id);
-            matchRepository.deleteUndismissedExcept(id, keep);
+        try {
+            repository.update(id, values, timeProvider.now());
+        } catch (DuplicateKeyException e) {
+            throw ApiException.conflict(DUPLICATE);
         }
         return get(ownerId, id);
     }
 
-    /** {@code DELETE /wishlist/{id}} (its matches go with it). */
+    /** {@code DELETE /wishlist/{id}}. */
     @Transactional
     public void delete(UUID ownerId, UUID id) {
         if (repository.delete(ownerId, id) == 0) {
@@ -290,71 +246,9 @@ public class WishlistService {
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Matches
-    // ---------------------------------------------------------------------------------------
-
-    /**
-     * {@code GET /wishlist/{id}/matches}: newest first; items that stopped being public and owners
-     * blocked in either direction or no longer discoverable are left out.
-     */
-    @Transactional(readOnly = true)
-    public CursorPage<WishlistMatchView> matches(
-            UUID ownerId,
-            UUID wishlistItemId,
-            @Nullable String cursor,
-            int limit,
-            boolean includeDismissed) {
-        requireOwned(ownerId, wishlistItemId);
-        @Nullable TimeCursor after = TimeCursor.decode(cursor);
-        List<MatchRow> rows =
-                matchRepository.page(wishlistItemId, includeDismissed, after, limit + 1);
-        boolean more = rows.size() > limit;
-        List<MatchRow> slice = more ? rows.subList(0, limit) : rows;
-        Map<UUID, InventoryItemView> items = new HashMap<>();
-        for (InventoryItemView item :
-                publicInventory.publicItems(
-                        slice.stream().map(MatchRow::inventoryItemId).toList())) {
-            items.put(item.row().id(), item);
-        }
-        Map<UUID, CollectorMarker> markers =
-                discovery.markersFor(
-                        ownerId,
-                        new LinkedHashSet<>(slice.stream().map(MatchRow::itemOwnerId).toList()));
-        List<WishlistMatchView> views = new ArrayList<>();
-        for (MatchRow row : slice) {
-            @Nullable InventoryItemView item = items.get(row.inventoryItemId());
-            @Nullable CollectorMarker marker = markers.get(row.itemOwnerId());
-            if (item == null || marker == null) {
-                continue;
-            }
-            views.add(
-                    new WishlistMatchView(
-                            row.id(),
-                            row.wishlistItemId(),
-                            item,
-                            marker,
-                            row.matchedAt(),
-                            row.dismissed()));
-        }
-        if (!more) {
-            return CursorPage.last(views);
-        }
-        MatchRow last = slice.get(slice.size() - 1);
-        return CursorPage.of(views, new TimeCursor(last.matchedAt(), last.id()).encode());
-    }
-
-    /** {@code POST /wishlist/matches/{id}/dismiss}: idempotent; 404 for others' matches. */
-    @Transactional
-    public void dismiss(UUID ownerId, UUID matchId) {
-        UUID owner =
-                matchRepository
-                        .ownerOfMatch(matchId)
-                        .orElseThrow(() -> ApiException.notFound(MATCH_NOT_FOUND));
-        if (!owner.equals(ownerId)) {
-            throw ApiException.notFound(MATCH_NOT_FOUND);
-        }
-        matchRepository.dismiss(matchId);
+    /** {@code GET /wishlist/price-terms}: the terms a wish may choose, in display order. */
+    public List<PriceTerm> priceTerms() {
+        return settings.current().terms();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -362,8 +256,8 @@ public class WishlistService {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * {@code GET /collectors/{handle}/wishlist}: the active items (card, printing, minimum
-     * condition only) when the collector shows their wishlist; 404 otherwise (unknown, suspended,
+     * {@code GET /collectors/{handle}/wishlist}: every wish (which copy, public note, Near Mint
+     * only, price term) when the collector shows their wishlist; 404 otherwise (unknown, suspended,
      * pending deletion, hidden wishlist, profile not visible, block).
      */
     @Transactional(readOnly = true)
@@ -384,14 +278,14 @@ public class WishlistService {
                 new ViewerContext(viewerId, false, blocked), targetId, privacy)) {
             throw ApiException.notFound(WISHLIST_NOT_FOUND);
         }
-        return views(repository.findActiveByOwner(targetId));
+        return views(repository.findByOwner(targetId));
     }
 
     // ---------------------------------------------------------------------------------------
     // Account data
     // ---------------------------------------------------------------------------------------
 
-    /** Export section {@code wishlist}: every item with its private notes (the owner's data). */
+    /** Export section {@code wishlist}: every wish of the owner. */
     @Transactional(readOnly = true)
     public List<Map<String, @Nullable Object>> export(UUID ownerId) {
         List<Map<String, @Nullable Object>> result = new ArrayList<>();
@@ -404,14 +298,9 @@ public class WishlistService {
             entry.put("cardName", view.card() == null ? null : view.card().name());
             entry.put("printingId", row.printingId());
             entry.put("rarity", row.rarity());
-            entry.put("conditionMin", row.conditionMin());
-            entry.put("edition", row.edition());
-            entry.put("language", row.language());
-            entry.put("maxPrice", row.maxPrice());
-            entry.put("currency", row.currency());
-            entry.put("tradePreference", row.tradePreference().name());
-            entry.put("notes", row.notes());
-            entry.put("active", row.active());
+            entry.put("note", row.publicNote());
+            entry.put("nearMintOnly", row.nearMintOnly());
+            entry.put("priceTerm", row.priceTerm());
             entry.put("createdAt", row.createdAt());
             entry.put("updatedAt", row.updatedAt());
             result.add(entry);
@@ -419,16 +308,112 @@ public class WishlistService {
         return result;
     }
 
-    /** Deletes the owner's items and their matches (account deletion). */
+    /** Deletes the owner's wishes and sent-alert keys (account deletion). */
     @Transactional
     public void purge(UUID ownerId) {
         repository.deleteByOwner(ownerId);
+        alertRepository.deleteSentOf(ownerId);
     }
 
     /** Number of items of the owner ({@code wishlist.items.max} usage). */
     @Transactional(readOnly = true)
     public long countOf(UUID ownerId) {
         return repository.countByOwner(ownerId);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Validation
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * The public note as stored: trimmed, line breaks normalised; {@code ""} for none. A field
+     * error when longer than {@value #NOTE_MAX} characters, not plain text (control characters) or
+     * blocked by the moderation rules (PROFILE scope, like the bio); flagged text is accepted and
+     * logged without the text.
+     */
+    String note(@Nullable String note, List<ProblemFieldError> errors) {
+        String value = note == null ? "" : note.replace("\r\n", "\n").replace('\r', '\n').strip();
+        if (value.isEmpty()) {
+            return "";
+        }
+        if (value.codePointCount(0, value.length()) > NOTE_MAX) {
+            errors.add(new ProblemFieldError("note", "at most " + NOTE_MAX + " characters"));
+            return value;
+        }
+        if (CONTROL.matcher(value).find()) {
+            errors.add(new ProblemFieldError("note", "must be plain text"));
+            return value;
+        }
+        ModerationVerdict verdict = moderation.evaluate(ModerationScope.PROFILE, value);
+        if (verdict.isBlocked()) {
+            errors.add(new ProblemFieldError("note", "contains a term that is not allowed"));
+        } else if (verdict == ModerationVerdict.FLAG) {
+            log.info("Wishlist note flagged for review");
+        }
+        return value;
+    }
+
+    private static boolean isUnchanged(@Nullable String requested, @Nullable String stored) {
+        return requested != null && stored != null && requested.strip().equals(stored);
+    }
+
+    /** One of the admin-configured terms ({@code null} for none), else a field error. */
+    private @Nullable String priceTerm(@Nullable String value, List<ProblemFieldError> errors) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        Optional<PriceTerm> term = settings.current().find(value);
+        if (term.isEmpty()) {
+            errors.add(
+                    new ProblemFieldError(
+                            "priceTerm",
+                            "must be one of "
+                                    + String.join(", ", settings.current().priceTerms())));
+            return null;
+        }
+        return term.get().label();
+    }
+
+    /**
+     * The stored rarity: {@code null} for a one-printing wish (a rarity equal to the printing's is
+     * accepted and dropped; another one is 400), else {@code null} or one of the rarities of the
+     * card's printings (400 otherwise).
+     */
+    private @Nullable String rarity(
+            Target target, @Nullable String value, List<ProblemFieldError> errors) {
+        @Nullable String rarity = value == null || value.isBlank() ? null : value.strip();
+        if (rarity == null) {
+            return null;
+        }
+        if (target.printing() != null) {
+            if (!rarity.equals(target.printing().rarity())) {
+                errors.add(
+                        new ProblemFieldError(
+                                "rarity",
+                                "a printing has its own rarity: leave rarity empty or choose any"
+                                        + " printing"));
+            }
+            return null;
+        }
+        Set<String> rarities = new LinkedHashSet<>();
+        for (PrintingSummary printing : printingsOf(target.cardId())) {
+            if (printing.rarity() != null) {
+                rarities.add(printing.rarity());
+            }
+        }
+        if (!rarities.contains(rarity)) {
+            errors.add(new ProblemFieldError("rarity", "not a rarity of this card's printings"));
+            return null;
+        }
+        return rarity;
+    }
+
+    private List<PrintingSummary> printingsOf(UUID cardId) {
+        try {
+            return catalog.printingsOfCard(cardId);
+        } catch (ApiException e) {
+            return List.of();
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -483,17 +468,19 @@ public class WishlistService {
             return null;
         }
         UUID resolvedCard = cardId;
+        @Nullable PrintingSummary printing = null;
         if (printingId != null) {
             List<PrintingSummary> found = catalog.printings(List.of(printingId));
             if (found.isEmpty()) {
                 errors.add(new ProblemFieldError("printingId", "unknown printing"));
                 return null;
             }
-            if (cardId != null && !found.get(0).cardId().equals(cardId)) {
+            printing = found.get(0);
+            if (cardId != null && !printing.cardId().equals(cardId)) {
                 errors.add(new ProblemFieldError("printingId", "must be a printing of the card"));
                 return null;
             }
-            resolvedCard = found.get(0).cardId();
+            resolvedCard = printing.cardId();
         }
         @Nullable CardSummary card =
                 catalog.cardSummariesIncludingHidden(List.of(Objects.requireNonNull(resolvedCard)))
@@ -506,79 +493,7 @@ public class WishlistService {
             errors.add(new ProblemFieldError("cardId", "unknown card"));
             return null;
         }
-        return new Target(game.slug(), card.id(), printingId, game.schema());
-    }
-
-    private static @Nullable Filters filters(
-            GameSchema schema,
-            @Nullable String rarity,
-            @Nullable String conditionMin,
-            @Nullable String edition,
-            @Nullable String language,
-            List<ProblemFieldError> errors) {
-        int before = errors.size();
-        @Nullable String rarityValue = blankToNull(rarity);
-        if (rarityValue != null && !schema.rarities().contains(rarityValue)) {
-            errors.add(new ProblemFieldError("rarity", "not a rarity of this game"));
-        }
-        @Nullable String condition = upper(conditionMin);
-        if (condition != null && !schema.conditions().contains(condition)) {
-            errors.add(new ProblemFieldError("conditionMin", "not a condition of this game"));
-        }
-        @Nullable String editionValue = upper(edition);
-        if (editionValue != null && !schema.editions().contains(editionValue)) {
-            errors.add(new ProblemFieldError("edition", "not an edition of this game"));
-        }
-        @Nullable String languageValue = blankToNull(language);
-        if (languageValue != null) {
-            languageValue = languageValue.toLowerCase(Locale.ROOT);
-            if (!schema.languages().contains(languageValue)) {
-                errors.add(new ProblemFieldError("language", "not a language of this game"));
-            }
-        }
-        if (errors.size() > before) {
-            return null;
-        }
-        return new Filters(rarityValue, condition, editionValue, languageValue);
-    }
-
-    private static String currency(@Nullable String currency, List<ProblemFieldError> errors) {
-        if (currency == null || currency.isBlank()) {
-            return "CAD";
-        }
-        String value = currency.trim().toUpperCase(Locale.ROOT);
-        if (!CURRENCY.matcher(value).matches()) {
-            errors.add(new ProblemFieldError("currency", "must be an ISO 4217 code"));
-        }
-        return value;
-    }
-
-    private static String notes(@Nullable String notes, List<ProblemFieldError> errors) {
-        String value = notes == null ? "" : notes.strip();
-        if (value.length() > NOTES_MAX) {
-            errors.add(new ProblemFieldError("notes", "at most " + NOTES_MAX + " characters"));
-        }
-        return value;
-    }
-
-    private static void validatePrice(@Nullable BigDecimal price, List<ProblemFieldError> errors) {
-        if (price == null) {
-            return;
-        }
-        if (price.signum() < 0 || price.compareTo(MAX_PRICE) > 0) {
-            errors.add(new ProblemFieldError("maxPrice", "must be between 0 and " + MAX_PRICE));
-        } else if (price.stripTrailingZeros().scale() > 2) {
-            errors.add(new ProblemFieldError("maxPrice", "at most 2 decimals"));
-        }
-    }
-
-    private static @Nullable String upper(@Nullable String value) {
-        @Nullable String text = blankToNull(value);
-        return text == null ? null : text.toUpperCase(Locale.ROOT);
-    }
-
-    private static @Nullable String blankToNull(@Nullable String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+        return new Target(game.slug(), card.id(), printing);
     }
 
     /** Active accounts, including those whose temporary suspension has already ended. */
@@ -590,13 +505,6 @@ public class WishlistService {
         };
     }
 
-    /** The resolved card of a new item. */
-    private record Target(String game, UUID cardId, @Nullable UUID printingId, GameSchema schema) {}
-
-    /** Validated filter values. */
-    private record Filters(
-            @Nullable String rarity,
-            @Nullable String conditionMin,
-            @Nullable String edition,
-            @Nullable String language) {}
+    /** The resolved card (and printing) of a wish. */
+    private record Target(String game, UUID cardId, @Nullable PrintingSummary printing) {}
 }

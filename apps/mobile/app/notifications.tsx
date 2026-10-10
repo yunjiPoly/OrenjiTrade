@@ -183,7 +183,7 @@ export default function NotificationsScreen() {
               testID="notifications-caught-up"
               icon="check-circle-outline"
               title="You're all caught up"
-              description="No unread notifications. New wishlist matches and messages will appear here."
+              description="No unread notifications. New wishlist alerts and messages will appear here."
               actionLabel="Show all notifications"
               onAction={() => setView('all')}
             />

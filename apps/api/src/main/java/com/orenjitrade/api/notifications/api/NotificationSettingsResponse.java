@@ -16,7 +16,11 @@ public record NotificationSettingsResponse(
         @Schema(requiredMode = RequiredMode.REQUIRED) boolean inAppEnabled,
         @Schema(requiredMode = RequiredMode.REQUIRED, description = "Every category, in order")
                 Map<NotificationCategory, ChannelPreferences> categories,
-        @Schema(requiredMode = RequiredMode.REQUIRED) QuietHours quietHours) {
+        @Schema(requiredMode = RequiredMode.REQUIRED) QuietHours quietHours,
+        @Schema(
+                        requiredMode = RequiredMode.REQUIRED,
+                        description = "Wishlist alerts on or off (in-app and push)")
+                boolean wishlistAlerts) {
 
     static NotificationSettingsResponse from(NotificationSettings settings) {
         return new NotificationSettingsResponse(
@@ -24,6 +28,7 @@ public record NotificationSettingsResponse(
                 settings.emailEnabled(),
                 settings.inAppEnabled(),
                 settings.categories(),
-                settings.quietHours());
+                settings.quietHours(),
+                settings.wishlistAlerts());
     }
 }

@@ -50,6 +50,10 @@
       "description": "Games, sets, cards and printings (public catalog)"
     },
     {
+      "name": "admin-wishlist",
+      "description": "Admin: wishlist settings"
+    },
+    {
       "name": "messaging",
       "description": "Private conversations, messages and read state"
     },
@@ -96,10 +100,6 @@
     {
       "name": "admin-catalog",
       "description": "Catalog administration (admin console)"
-    },
-    {
-      "name": "wishlist",
-      "description": "The caller's wishlist and its matches in their region"
     },
     {
       "name": "webhooks",
@@ -220,6 +220,10 @@
     {
       "name": "disputes",
       "description": "Disputes of protected trades"
+    },
+    {
+      "name": "wishlist",
+      "description": "The caller's wishlist"
     },
     {
       "name": "settings",
@@ -660,7 +664,7 @@
           "settings"
         ],
         "summary": "The caller's notification preferences",
-        "description": "Defaults: push and in-app on, email off, MARKETING fully off.",
+        "description": "Defaults: push and in-app on, email off, MARKETING fully off, wishlist alerts on.",
         "operationId": "getNotificationSettings",
         "responses": {
           "200": {
@@ -730,7 +734,7 @@
           "settings"
         ],
         "summary": "Replace the caller's notification preferences",
-        "description": "Full replacement. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.",
+        "description": "Full replacement, except wishlistAlerts, which keeps its stored value when left out. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.",
         "operationId": "updateNotificationSettings",
         "requestBody": {
           "content": {
@@ -1306,6 +1310,167 @@
                   "items": {
                     "$ref": "#/components/schemas/BinderResponse"
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/wishlist/settings": {
+      "get": {
+        "tags": [
+          "admin-wishlist"
+        ],
+        "summary": "The price terms a wish may choose (ADMIN)",
+        "operationId": "getAdminWishlistSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-wishlist"
+        ],
+        "summary": "Replace the price terms a wish may choose (ADMIN)",
+        "description": "1 to 10 terms \"<percent>% TCG\" with an optional \"+\" (percent 1-200), in display order; duplicates are dropped. Wishes that chose a removed term keep it. Audited (wishlist.settings.update).",
+        "operationId": "updateAdminWishlistSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWishlistSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -3647,66 +3812,6 @@
         }
       }
     },
-    "/internal/jobs/wishlist-rematch": {
-      "post": {
-        "tags": [
-          "internal"
-        ],
-        "summary": "Re-run wishlist matching for the last 24 h (service auth)",
-        "description": "Nightly safety net: inventory items published in the last 24 hours are matched again (matches and notifications are idempotent, so only publications whose event was lost produce new ones) and wishlist items edited in that window are re-matched. Records a job run.",
-        "operationId": "runWishlistRematchJob",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WishlistRematchResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthenticated (missing or invalid token)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden (role, MFA or account state)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Error (RFC 9457 problem details)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "serviceToken": []
-          },
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/internal/jobs/upload-cleanup": {
       "post": {
         "tags": [
@@ -4769,7 +4874,7 @@
           "wishlist"
         ],
         "summary": "Add a card to the wishlist",
-        "description": "cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller's platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).",
+        "description": "Which copy (cardId for any printing, optionally with a rarity of the card's printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller's platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.",
         "operationId": "createWishlistItem",
         "requestBody": {
           "content": {
@@ -4793,7 +4898,7 @@
             }
           },
           "400": {
-            "description": "VALIDATION_FAILED (target, vocabularies, price, notes)",
+            "description": "VALIDATION_FAILED (target, rarity, note, price term)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4803,7 +4908,7 @@
             }
           },
           "409": {
-            "description": "CONFLICT: the same card with the same filters is already wished",
+            "description": "CONFLICT: the same card, printing and rarity is already wished",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4844,92 +4949,6 @@
           },
           "428": {
             "description": "Terms acceptance required (extension `requiredConsents[]`)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Error (RFC 9457 problem details)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/wishlist/matches/{id}/dismiss": {
-      "post": {
-        "tags": [
-          "wishlist"
-        ],
-        "summary": "Dismiss a match",
-        "description": "Idempotent; a dismissed match never comes back for this wishlist item.",
-        "operationId": "dismissWishlistMatch",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Dismissed"
-          },
-          "404": {
-            "description": "Unknown match or not the caller's",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthenticated (missing or invalid token)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden (role, MFA or account state)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "428": {
-            "description": "Terms acceptance required (extension `requiredConsents[]`)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited (`Retry-After` header)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -15702,7 +15721,6 @@
           "wishlist"
         ],
         "summary": "Remove a wishlist item",
-        "description": "Its matches are removed with it.",
         "operationId": "deleteWishlistItem",
         "parameters": [
           {
@@ -15786,7 +15804,7 @@
           "wishlist"
         ],
         "summary": "Update a wishlist item (any subset of the fields)",
-        "description": "Absent fields are unchanged. Changing the criteria re-matches the item (dismissed matches stay dismissed).",
+        "description": "Absent fields are unchanged; unknown members are ignored.",
         "operationId": "updateWishlistItem",
         "parameters": [
           {
@@ -15832,6 +15850,16 @@
           },
           "404": {
             "description": "Unknown item or not the caller's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CONFLICT: the new selection is already wished",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16959,85 +16987,21 @@
         ]
       }
     },
-    "/api/v1/wishlist/{id}/matches": {
+    "/api/v1/wishlist/price-terms": {
       "get": {
         "tags": [
           "wishlist"
         ],
-        "summary": "Public items matching a wishlist item (newest first)",
-        "description": "Cursor-paginated. Each match carries the public item (never private notes), the owner's marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.",
-        "operationId": "listWishlistMatches",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "description": "Opaque cursor of the previous slice",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 200,
-              "minLength": 0
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 20,
-              "maximum": 50,
-              "minimum": 1
-            }
-          },
-          {
-            "name": "includeDismissed",
-            "in": "query",
-            "description": "true: also list dismissed matches",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        ],
+        "summary": "The price terms a wish may choose",
+        "description": "Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.",
+        "operationId": "listWishPriceTerms",
         "responses": {
           "200": {
-            "description": "One slice of matches",
+            "description": "The terms",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CursorPageWishlistMatchResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "VALIDATION_FAILED (invalid cursor or limit)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Unknown item or not the caller's",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
+                  "$ref": "#/components/schemas/WishPriceTermsResponse"
                 }
               }
             }
@@ -20998,7 +20962,7 @@
           "wishlist"
         ],
         "summary": "A collector's public wishlist",
-        "description": "Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: the active items as card, printing and minimum condition (never notes, prices or radii). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.",
+        "description": "Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: every wish as card, printing or rarity, public note, Near Mint only and price term (never a place). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.",
         "operationId": "getCollectorWishlist",
         "parameters": [
           {
@@ -26345,7 +26309,7 @@
           "admin-analytics"
         ],
         "summary": "Analytics event counts (ADMIN)",
-        "description": "Totals and daily counts per event type (search_performed, collector_viewed, message_sent, wishlist_matched, rating_submitted, collector_reported, ...) for the last `days` UTC days including today, from the local aggregate.",
+        "description": "Totals and daily counts per event type (search_performed, collector_viewed, message_sent, wishlist_item_created, rating_submitted, collector_reported, ...) for the last `days` UTC days including today, from the local aggregate.",
         "operationId": "getAnalyticsSummary",
         "parameters": [
           {
@@ -27390,6 +27354,13 @@
             "type": "null",
             "$ref": "#/components/schemas/QuietHoursRequest",
             "description": "Defaults to disabled 22:00-08:00 America/Toronto"
+          },
+          "wishlistAlerts": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). When absent the stored value is kept (on for a collector who never chose)"
           }
         },
         "required": [
@@ -27470,6 +27441,10 @@
           },
           "quietHours": {
             "$ref": "#/components/schemas/QuietHours"
+          },
+          "wishlistAlerts": {
+            "type": "boolean",
+            "description": "Wishlist alerts on or off (in-app and push)"
           }
         },
         "required": [
@@ -27477,7 +27452,8 @@
           "emailEnabled",
           "inAppEnabled",
           "pushEnabled",
-          "quietHours"
+          "quietHours",
+          "wishlistAlerts"
         ]
       },
       "QuietHours": {
@@ -27980,6 +27956,54 @@
           "updatedAt"
         ]
       },
+      "UpdateWishlistSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "priceTerms": {
+            "type": "array",
+            "description": "1 to 10 terms \"<percent>% TCG\" with an optional \"+\" (percent 1-200), in display order",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 0
+            },
+            "maxItems": 20,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "priceTerms"
+        ]
+      },
+      "WishlistSettingsResponse": {
+        "type": "object",
+        "description": "Wishlist settings (admin)",
+        "properties": {
+          "priceTerms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "priceTerms"
+        ]
+      },
       "UpdateRolesRequest": {
         "type": "object",
         "properties": {
@@ -28363,13 +28387,26 @@
           },
           "currency": {
             "type": "string",
-            "example": "CAD"
+            "example": "USD"
           },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "description": "YGOPRODECK: the set price of the YGOPRODeck card database (TCGplayer-based, USD), dated by its last update; SAMPLE: the fictional local sample catalog; CATALOG: entered by OrenjiTrade staff",
+            "enum": [
+              "YGOPRODECK",
+              "SAMPLE",
+              "CATALOG"
+            ],
+            "example": "YGOPRODECK"
           }
-        }
+        },
+        "required": [
+          "source"
+        ]
       },
       "PrintingDetail": {
         "type": "object",
@@ -30035,38 +30072,6 @@
           }
         }
       },
-      "WishlistRematchResponse": {
-        "type": "object",
-        "properties": {
-          "inventoryItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "wishlistItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "matchesCreated": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "notified": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "failures": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "required": [
-          "failures",
-          "inventoryItems",
-          "matchesCreated",
-          "notified",
-          "wishlistItems"
-        ]
-      },
       "UploadCleanupJobResponse": {
         "type": "object",
         "properties": {
@@ -30695,7 +30700,7 @@
       },
       "CreateWishlistItemRequest": {
         "type": "object",
-        "description": "cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. Matching compares platform regions (no radius, no distance; ADR 0017).",
+        "description": "Which copy: cardId (any printing, optionally of one rarity of the card's printings) or printingId (that printing; its card is derived). note is public (plain text, at most 280 characters, moderated). priceTerm is one of GET /wishlist/price-terms (a display term, not a filter).",
         "properties": {
           "cardId": {
             "type": "string",
@@ -30707,53 +30712,52 @@
           },
           "rarity": {
             "type": "string",
+            "description": "Any printing of this rarity (only without printingId, or equal to the printing's own rarity)",
+            "example": "Quarter Century Secret Rare",
             "maxLength": 40,
             "minLength": 0
           },
-          "conditionMin": {
+          "note": {
             "type": "string",
-            "example": "LIGHTLY_PLAYED",
-            "maxLength": 32,
+            "description": "Public note",
+            "example": "For my Azure-Eyes deck.",
+            "maxLength": 560,
             "minLength": 0
           },
-          "edition": {
+          "nearMintOnly": {
+            "type": "boolean",
+            "description": "Only Near Mint (or Mint) copies; default false"
+          },
+          "priceTerm": {
             "type": "string",
-            "maxLength": 32,
+            "example": "85% TCG",
+            "maxLength": 40,
             "minLength": 0
-          },
-          "language": {
-            "type": "string",
-            "maxLength": 2,
-            "minLength": 2
-          },
-          "maxPrice": {
-            "type": "number",
-            "example": 60.0,
-            "minimum": 0
-          },
-          "currency": {
-            "type": "string",
-            "example": "CAD",
-            "maxLength": 3,
-            "minLength": 3
-          },
-          "tradePreference": {
-            "type": "string",
-            "enum": [
-              "ANY",
-              "TRADE",
-              "SALE"
-            ]
-          },
-          "notes": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 0
-          },
-          "active": {
-            "type": "boolean"
           }
         }
+      },
+      "WishPriceTerm": {
+        "type": "object",
+        "description": "A display term relative to the TCG market price of the printing (not a filter); orMore = this percent or more (\"100% TCG+\")",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "85% TCG"
+          },
+          "percent": {
+            "type": "integer",
+            "format": "int32",
+            "example": 85
+          },
+          "orMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label",
+          "orMore",
+          "percent"
+        ]
       },
       "WishlistCardRef": {
         "type": "object",
@@ -30807,67 +30811,19 @@
               "string",
               "null"
             ],
+            "description": "Any printing of this rarity; null = any rarity",
             "example": "Ultra Rare"
           },
-          "conditionMin": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Worst acceptable condition",
-            "example": "LIGHTLY_PLAYED"
-          },
-          "edition": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "example": "FIRST_EDITION"
-          },
-          "language": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "example": "en"
-          },
-          "maxPrice": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "example": 60.0
-          },
-          "currency": {
+          "note": {
             "type": "string",
-            "example": "CAD"
+            "description": "Public note (\"\" = none)"
           },
-          "tradePreference": {
-            "type": "string",
-            "enum": [
-              "ANY",
-              "TRADE",
-              "SALE"
-            ]
-          },
-          "notes": {
-            "type": "string",
-            "description": "Private to the caller"
-          },
-          "active": {
+          "nearMintOnly": {
             "type": "boolean"
           },
-          "matchCount": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Undismissed matches whose item is public right now (blocked collectors excluded)"
-          },
-          "lastMatchedAt": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
+          "priceTerm": {
+            "type": "null",
+            "$ref": "#/components/schemas/WishPriceTerm"
           },
           "createdAt": {
             "type": "string",
@@ -30879,14 +30835,11 @@
           }
         },
         "required": [
-          "active",
           "createdAt",
-          "currency",
           "game",
           "id",
-          "matchCount",
-          "notes",
-          "tradePreference",
+          "nearMintOnly",
+          "note",
           "updatedAt"
         ]
       },
@@ -32958,7 +32911,7 @@
           "type": {
             "type": "string",
             "enum": [
-              "WISHLIST_MATCH",
+              "WISHLIST_ALERT",
               "MESSAGE",
               "OFFER_RECEIVED",
               "OFFER_ACCEPTED",
@@ -32980,16 +32933,16 @@
           },
           "title": {
             "type": "string",
-            "example": "Wishlist match: Azure-Eyes"
+            "example": "Wishlist alert: Azure-Eyes"
           },
           "body": {
             "type": "string",
-            "example": "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec, Canada."
+            "example": "Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada."
           },
           "data": {
             "type": "object",
             "additionalProperties": {},
-            "description": "Ids of the objects concerned and `deepLink` (web path, e.g. /wishlist/<id> or /messages/<conversationId>). Notifications about one card (WISHLIST_MATCH, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes)"
+            "description": "Ids of the objects concerned and `deepLink` (web path, e.g. /messages/<conversationId>, or the card page with a wishlist alert's selection: /cards/<cardId>?printing=<id>, ?rarity=<rarity> or ?printing=any for any printing). Notifications about one card (WISHLIST_ALERT, OFFER_*, TRADE_UPDATE, PAYMENT_UPDATE, SHIPMENT_STATUS, DISPUTE_UPDATE) add `cardName`, `game` and `cardImageUrl` (OrenjiTrade's own card picture or placeholder URL; API-relative in realtime pushes)"
           },
           "createdAt": {
             "type": "string",
@@ -37206,7 +37159,7 @@
       },
       "UpdateWishlistItemRequest": {
         "type": "object",
-        "description": "Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, conditionMin, edition, language, maxPrice and notes may be null to clear them. Changing the criteria re-matches the item against the current public inventory.",
+        "description": "Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, note and priceTerm may be null to clear them. Changing printingId without rarity clears the stored rarity.",
         "properties": {
           "printingId": {
             "type": [
@@ -37223,59 +37176,25 @@
             "maxLength": 40,
             "minLength": 0
           },
-          "conditionMin": {
+          "note": {
             "type": [
               "string",
               "null"
             ],
-            "maxLength": 32,
+            "maxLength": 560,
             "minLength": 0
           },
-          "edition": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 32,
-            "minLength": 0
-          },
-          "language": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 2,
-            "minLength": 2
-          },
-          "maxPrice": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "currency": {
-            "type": "string",
-            "maxLength": 3,
-            "minLength": 3
-          },
-          "tradePreference": {
-            "type": "string",
-            "enum": [
-              "ANY",
-              "TRADE",
-              "SALE"
-            ]
-          },
-          "notes": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 500,
-            "minLength": 0
-          },
-          "active": {
+          "nearMintOnly": {
             "type": "boolean"
+          },
+          "priceTerm": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "85% TCG",
+            "maxLength": 40,
+            "minLength": 0
           }
         }
       },
@@ -37617,266 +37536,20 @@
           "status"
         ]
       },
-      "CollectorMarker": {
+      "WishPriceTermsResponse": {
         "type": "object",
-        "description": "A discoverable collector with their state/province and country (never a city, a coordinate or a distance)",
+        "description": "The price terms a wish may choose",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "handle": {
-            "type": "string",
-            "example": "maika"
-          },
-          "displayName": {
-            "type": "string",
-            "example": "Maïka Tremblay"
-          },
-          "avatarUrl": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uri"
-          },
-          "place": {
-            "$ref": "#/components/schemas/Place"
-          },
-          "rating": {
-            "$ref": "#/components/schemas/CollectorRating"
-          },
-          "tags": {
+          "terms": {
             "type": "array",
-            "example": [
-              "trader"
-            ],
+            "description": "In display order",
             "items": {
-              "type": "string"
-            }
-          },
-          "games": {
-            "type": "array",
-            "example": [
-              "yugioh",
-              "pokemon"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "lastActiveBucket": {
-            "type": "string",
-            "enum": [
-              "TODAY",
-              "THIS_WEEK",
-              "THIS_MONTH",
-              "LONGER_AGO",
-              "HIDDEN"
-            ]
-          },
-          "onlineStatus": {
-            "type": "string",
-            "enum": [
-              "ONLINE",
-              "OFFLINE",
-              "HIDDEN"
-            ]
-          },
-          "binderFreshness": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Best freshness of the public listings (ACTIVE or AGING in search); null without public listings",
-            "enum": [
-              "ACTIVE",
-              "AGING",
-              "STALE",
-              "HIDDEN"
-            ]
-          },
-          "publicBinderCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "publicItemCount": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "matchingItems": {
-            "type": "array",
-            "description": "Public items matching hasPrintingId / hasCardId / availability (empty without those filters)",
-            "items": {
-              "$ref": "#/components/schemas/MatchingItem"
+              "$ref": "#/components/schemas/WishPriceTerm"
             }
           }
         },
         "required": [
-          "displayName",
-          "games",
-          "handle",
-          "id",
-          "lastActiveBucket",
-          "matchingItems",
-          "onlineStatus",
-          "place",
-          "publicBinderCount",
-          "publicItemCount",
-          "rating",
-          "tags"
-        ]
-      },
-      "CursorPageWishlistMatchResponse": {
-        "type": "object",
-        "description": "Cursor-paginated list",
-        "properties": {
-          "items": {
-            "type": "array",
-            "description": "Items of the current slice",
-            "items": {
-              "$ref": "#/components/schemas/WishlistMatchResponse"
-            }
-          },
-          "nextCursor": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data"
-          },
-          "hasMore": {
-            "type": "boolean",
-            "description": "Whether another slice exists"
-          }
-        }
-      },
-      "MatchingItem": {
-        "type": "object",
-        "description": "Public item matching the request's filters",
-        "properties": {
-          "itemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "printingId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "printingCode": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "example": "AZR-EN001"
-          },
-          "cardId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "cardName": {
-            "type": "string",
-            "example": "Azure-Eyes Sky Dragon"
-          },
-          "game": {
-            "type": "string",
-            "example": "yugioh"
-          },
-          "availability": {
-            "type": "string",
-            "enum": [
-              "COLLECTION_ONLY",
-              "TRADE",
-              "SALE",
-              "TRADE_OR_SALE",
-              "NOT_AVAILABLE"
-            ]
-          },
-          "askingPrice": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "example": 45.0
-          },
-          "currency": {
-            "type": "string",
-            "example": "CAD"
-          },
-          "condition": {
-            "type": "string",
-            "example": "NEAR_MINT"
-          },
-          "language": {
-            "type": "string",
-            "example": "en"
-          },
-          "edition": {
-            "type": "string",
-            "example": "FIRST_EDITION"
-          },
-          "acceptsOffers": {
-            "type": "boolean"
-          },
-          "freshness": {
-            "type": "string",
-            "description": "ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)",
-            "enum": [
-              "ACTIVE",
-              "AGING",
-              "STALE",
-              "HIDDEN"
-            ]
-          }
-        },
-        "required": [
-          "acceptsOffers",
-          "availability",
-          "cardId",
-          "cardName",
-          "condition",
-          "currency",
-          "edition",
-          "freshness",
-          "game",
-          "itemId",
-          "language",
-          "printingId"
-        ]
-      },
-      "WishlistMatchResponse": {
-        "type": "object",
-        "description": "A public item matching a wishlist item",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "wishlistItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "item": {
-            "$ref": "#/components/schemas/PublicInventoryItem"
-          },
-          "collector": {
-            "$ref": "#/components/schemas/CollectorMarker"
-          },
-          "matchedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dismissed": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "collector",
-          "dismissed",
-          "id",
-          "item",
-          "matchedAt",
-          "wishlistItemId"
+          "terms"
         ]
       },
       "CursorPageTradeSummary": {
@@ -38097,6 +37770,209 @@
             "$ref": "#/components/schemas/PageResponsePrintingSummary"
           }
         }
+      },
+      "CollectorMarker": {
+        "type": "object",
+        "description": "A discoverable collector with their state/province and country (never a city, a coordinate or a distance)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "place": {
+            "$ref": "#/components/schemas/Place"
+          },
+          "rating": {
+            "$ref": "#/components/schemas/CollectorRating"
+          },
+          "tags": {
+            "type": "array",
+            "example": [
+              "trader"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "games": {
+            "type": "array",
+            "example": [
+              "yugioh",
+              "pokemon"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastActiveBucket": {
+            "type": "string",
+            "enum": [
+              "TODAY",
+              "THIS_WEEK",
+              "THIS_MONTH",
+              "LONGER_AGO",
+              "HIDDEN"
+            ]
+          },
+          "onlineStatus": {
+            "type": "string",
+            "enum": [
+              "ONLINE",
+              "OFFLINE",
+              "HIDDEN"
+            ]
+          },
+          "binderFreshness": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Best freshness of the public listings (ACTIVE or AGING in search); null without public listings",
+            "enum": [
+              "ACTIVE",
+              "AGING",
+              "STALE",
+              "HIDDEN"
+            ]
+          },
+          "publicBinderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "publicItemCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "matchingItems": {
+            "type": "array",
+            "description": "Public items matching hasPrintingId / hasCardId / availability (empty without those filters)",
+            "items": {
+              "$ref": "#/components/schemas/MatchingItem"
+            }
+          }
+        },
+        "required": [
+          "displayName",
+          "games",
+          "handle",
+          "id",
+          "lastActiveBucket",
+          "matchingItems",
+          "onlineStatus",
+          "place",
+          "publicBinderCount",
+          "publicItemCount",
+          "rating",
+          "tags"
+        ]
+      },
+      "MatchingItem": {
+        "type": "object",
+        "description": "Public item matching the request's filters",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "AZR-EN001"
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cardName": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "COLLECTION_ONLY",
+              "TRADE",
+              "SALE",
+              "TRADE_OR_SALE",
+              "NOT_AVAILABLE"
+            ]
+          },
+          "askingPrice": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "example": 45.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          },
+          "condition": {
+            "type": "string",
+            "example": "NEAR_MINT"
+          },
+          "language": {
+            "type": "string",
+            "example": "en"
+          },
+          "edition": {
+            "type": "string",
+            "example": "FIRST_EDITION"
+          },
+          "acceptsOffers": {
+            "type": "boolean"
+          },
+          "freshness": {
+            "type": "string",
+            "description": "ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)",
+            "enum": [
+              "ACTIVE",
+              "AGING",
+              "STALE",
+              "HIDDEN"
+            ]
+          }
+        },
+        "required": [
+          "acceptsOffers",
+          "availability",
+          "cardId",
+          "cardName",
+          "condition",
+          "currency",
+          "edition",
+          "freshness",
+          "game",
+          "itemId",
+          "language",
+          "printingId"
+        ]
       },
       "PublicBinderOwner": {
         "type": "object",
@@ -40041,14 +39917,29 @@
             "$ref": "#/components/schemas/PrintingSummary",
             "description": "Null = any printing"
           },
-          "conditionMin": {
+          "rarity": {
             "type": [
               "string",
               "null"
             ],
-            "example": "NEAR_MINT"
+            "description": "Any printing of this rarity; null = any"
+          },
+          "note": {
+            "type": "string",
+            "description": "Public note (\"\" = none)"
+          },
+          "nearMintOnly": {
+            "type": "boolean"
+          },
+          "priceTerm": {
+            "type": "null",
+            "$ref": "#/components/schemas/WishPriceTerm"
           }
-        }
+        },
+        "required": [
+          "nearMintOnly",
+          "note"
+        ]
       },
       "CursorPageReferenceResponse": {
         "type": "object",

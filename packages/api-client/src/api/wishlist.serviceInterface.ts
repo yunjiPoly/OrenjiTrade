@@ -12,9 +12,9 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { CreateWishlistItemRequest } from '../model/models';
-import { CursorPageWishlistMatchResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { UpdateWishlistItemRequest } from '../model/models';
+import { WishPriceTermsResponse } from '../model/models';
 import { WishlistItemResponse } from '../model/models';
 import { WishlistSummaryEntry } from '../model/models';
 
@@ -30,19 +30,8 @@ export interface DeleteWishlistItemRequestParams {
     id: string;
 }
 
-export interface DismissWishlistMatchRequestParams {
-    id: string;
-}
-
 export interface GetCollectorWishlistRequestParams {
     handle: string;
-}
-
-export interface ListWishlistMatchesRequestParams {
-    id: string;
-    cursor?: string;
-    limit?: number;
-    includeDismissed?: boolean;
 }
 
 export interface UpdateWishlistItemRequestParams {
@@ -57,7 +46,7 @@ export interface WishlistServiceInterface {
 
     /**
      * Add a card to the wishlist
-     * cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller\&#39;s platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).
+     * Which copy (cardId for any printing, optionally with a rarity of the card\&#39;s printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller\&#39;s platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
      * @endpoint post /api/v1/wishlist
 * @param requestParameters
      */
@@ -65,27 +54,26 @@ export interface WishlistServiceInterface {
 
     /**
      * Remove a wishlist item
-     * Its matches are removed with it.
+     * 
      * @endpoint delete /api/v1/wishlist/{id}
 * @param requestParameters
      */
     deleteWishlistItem(requestParameters: DeleteWishlistItemRequestParams, extraHttpRequestParams?: any): Observable<{}>;
 
     /**
-     * Dismiss a match
-     * Idempotent; a dismissed match never comes back for this wishlist item.
-     * @endpoint post /api/v1/wishlist/matches/{id}/dismiss
-* @param requestParameters
-     */
-    dismissWishlistMatch(requestParameters: DismissWishlistMatchRequestParams, extraHttpRequestParams?: any): Observable<{}>;
-
-    /**
      * A collector\&#39;s public wishlist
-     * Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: the active items as card, printing and minimum condition (never notes, prices or radii). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.
+     * Only when the collector shows their wishlist (privacy setting wishlistVisible) and their profile is visible to the caller: every wish as card, printing or rarity, public note, Near Mint only and price term (never a place). 404 otherwise, and for unknown, suspended, deleted or blocked collectors.
      * @endpoint get /api/v1/collectors/{handle}/wishlist
 * @param requestParameters
      */
     getCollectorWishlist(requestParameters: GetCollectorWishlistRequestParams, extraHttpRequestParams?: any): Observable<Array<WishlistSummaryEntry>>;
+
+    /**
+     * The price terms a wish may choose
+     * Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.
+     * @endpoint get /api/v1/wishlist/price-terms
+*/
+    listWishPriceTerms(extraHttpRequestParams?: any): Observable<WishPriceTermsResponse>;
 
     /**
      * The caller\&#39;s wishlist items (newest first)
@@ -95,16 +83,8 @@ export interface WishlistServiceInterface {
     listWishlist(extraHttpRequestParams?: any): Observable<Array<WishlistItemResponse>>;
 
     /**
-     * Public items matching a wishlist item (newest first)
-     * Cursor-paginated. Each match carries the public item (never private notes), the owner\&#39;s marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed&#x3D;true.
-     * @endpoint get /api/v1/wishlist/{id}/matches
-* @param requestParameters
-     */
-    listWishlistMatches(requestParameters: ListWishlistMatchesRequestParams, extraHttpRequestParams?: any): Observable<CursorPageWishlistMatchResponse>;
-
-    /**
      * Update a wishlist item (any subset of the fields)
-     * Absent fields are unchanged. Changing the criteria re-matches the item (dismissed matches stay dismissed).
+     * Absent fields are unchanged; unknown members are ignored.
      * @endpoint patch /api/v1/wishlist/{id}
 * @param requestParameters
      */

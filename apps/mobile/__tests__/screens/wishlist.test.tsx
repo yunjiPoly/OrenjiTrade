@@ -1,26 +1,23 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import WishlistScreen from '@/app/(tabs)/wishlist';
 import EditWishScreen from '@/app/wishlist/edit';
-import WishMatchesScreen from '@/app/wishlist/[id]';
 import NewWishScreen from '@/app/wishlist/new';
-import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CARD_ID,
   PRINTING_A,
+  PRINTING_B,
   WISH_ID,
   cardDetailFixture,
   locationFixture,
-  matchFixture,
-  matchPage,
-  notificationFixture,
   planFixture,
+  printingFixture,
+  privacyFixture,
   wishFixture,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, problem, type MockRoutes } from '../support/mockApi';
-import { fakeRealtime } from '../support/realtime';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -50,13 +47,15 @@ const PLAN = {
 function routes(extra: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
     'GET /api/v1/wishlist': ok([
-      wishFixture({ matchCount: 2, lastMatchedAt: '2026-10-05T09:00:00Z' }),
+      wishFixture({ printing: printingFixture() }),
       wishFixture({
-        id: 'wish-paused',
+        id: 'wish-rarity',
         card: { id: 'card-2', name: 'Lantern Fox', imageUrl: null },
         game: 'pokemon',
-        active: false,
-        notes: '',
+        rarity: 'Secret Rare',
+        note: '',
+        nearMintOnly: false,
+        priceTerm: { label: '100% TCG+', percent: 100, orMore: true },
       }),
     ]),
     'GET /api/v1/me/plan': ok(PLAN),
@@ -69,90 +68,103 @@ function routes(extra: MockRoutes = {}): MockRoutes {
 const port = () => new FakeAuthPort(testUser());
 
 describe('Wishlist tab', () => {
-  it('lists wishes with their criteria, matches, usage and filters', async () => {
-    mockApi(
-      routes({
-        'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })),
-      })
-    );
+  it('lists wishes with which copy, the public note, the chips and the usage; no matches', async () => {
+    mockApi(routes());
     renderWithProviders(<WishlistScreen />, { port: port() });
     expect(screen.getByTestId('wishlist-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
-    expect(screen.getByTestId(`wish-criteria-${WISH_ID}`)).toHaveTextContent(
-      /Lightly Played or better.*Up to \$25\.00.*Trade or buy/
+    expect(screen.getByTestId(`wish-copy-${WISH_ID}`)).toHaveTextContent(
+      'SVX-001 · Ultra Rare · Stellar Vortex · Holo'
     );
-    expect(screen.getByTestId(`wish-match-count-${WISH_ID}`)).toHaveTextContent('2 matches');
-    expect(screen.getByTestId('wish-match-count-wish-paused')).toHaveTextContent('No matches yet');
-    expect(screen.getByTestId('wishlist-count')).toHaveTextContent('2');
-    expect(screen.getByTestId('wishlist-total-matches')).toHaveTextContent('2');
+    expect(screen.getByTestId(`wish-note-${WISH_ID}`)).toHaveTextContent('“For my deck.”');
+    expect(screen.getByTestId(`wish-chips-${WISH_ID}`)).toHaveTextContent(
+      /Near Mint only.*85% TCG ≈ 32\.30 CAD/
+    );
+    expect(screen.getByTestId('wish-copy-wish-rarity')).toHaveTextContent(
+      'Any printing · Secret Rare'
+    );
+    expect(screen.getByTestId('wish-chips-wish-rarity')).toHaveTextContent(/100% TCG\+$/);
+    expect(screen.queryByTestId('wish-note-wish-rarity')).toBeNull();
+    expect(screen.getByTestId('wishlist-count')).toHaveTextContent('2 wishes');
     expect(await screen.findByTestId('wishlist-usage')).toHaveTextContent(
       '2 of 20 wishes · Free plan'
     );
-    // Discoverable with a trading area: no readiness hint.
-    expect(screen.queryByTestId('match-readiness')).toBeNull();
+    // A location is set: no prompt. No matches, filters or alert switches any more.
+    expect(screen.queryByTestId('wishlist-location-prompt')).toBeNull();
+    expect(screen.queryByText(/match/i)).toBeNull();
+    expect(screen.queryByTestId('wishlist-filter')).toBeNull();
+    expect(screen.queryByTestId(`wish-active-${WISH_ID}`)).toBeNull();
 
-    fireEvent.press(screen.getByTestId('wishlist-filter-paused'));
-    expect(screen.queryByTestId(`wish-${WISH_ID}`)).toBeNull();
-    expect(screen.getByTestId('wish-wish-paused')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('wishlist-filter-matches'));
-    expect(screen.getByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
-
-    fireEvent.press(screen.getByTestId(`wish-matches-${WISH_ID}`));
+    fireEvent.press(screen.getByTestId(`wish-name-${WISH_ID}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/wishlist/[id]',
+      pathname: '/cards/[id]',
+      params: { id: CARD_ID, printing: PRINTING_A },
+    });
+    fireEvent.press(screen.getByTestId('wish-name-wish-rarity'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/cards/[id]',
+      params: { id: 'card-2', rarity: 'Secret Rare' },
+    });
+    fireEvent.press(screen.getByTestId(`wish-edit-${WISH_ID}`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/wishlist/edit',
       params: { id: WISH_ID },
     });
     fireEvent.press(screen.getByTestId('wishlist-add'));
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
 
-  it('explains why matches cannot arrive yet (no location)', async () => {
-    mockApi(routes({ 'GET /api/v1/me/location': ok({ discoverable: false }) }));
-    renderWithProviders(<WishlistScreen />, { port: port() });
-    expect(await screen.findByTestId('match-readiness')).toHaveTextContent(
-      /Choose your location to get matches/
-    );
-    fireEvent.press(screen.getByTestId('match-readiness-action'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
-  });
-
-  it('pauses alerts (optimistic, restored on failure) and removes a wish after confirming', async () => {
+  it('turns "Let others see what you want" off and on (privacy setting wishlistVisible)', async () => {
     const api = mockApi(
       routes({
-        'PATCH /api/v1/wishlist/{id}': [
-          ok(wishFixture({ matchCount: 2, active: false })),
-          problem(500, 'INTERNAL_ERROR', 'Boom'),
-        ],
+        'PUT /api/v1/me/settings/privacy': (request) => ok(request.body as object),
+      })
+    );
+    renderWithProviders(<WishlistScreen />, { port: port() });
+    const toggle = await screen.findByTestId('wishlist-visible');
+    expect(toggle).toHaveTextContent(/Let others see what you want/);
+    await waitFor(() => expect(toggle).toHaveTextContent(/Your wishlist alerts work either way\./));
+    fireEvent.press(toggle);
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      'Your wishlist is hidden from others.'
+    );
+    expect(api.callsTo('PUT /api/v1/me/settings/privacy')[0]?.body).toEqual({
+      ...privacyFixture(),
+      wishlistVisible: false,
+    });
+  });
+
+  it('prompts for a location so alerts can arrive, and removes a wish after confirming', async () => {
+    const api = mockApi(
+      routes({
+        'GET /api/v1/me/location': ok({ discoverable: false }),
         'DELETE /api/v1/wishlist/{id}': noContent,
       })
     );
     renderWithProviders(<WishlistScreen />, { port: port() });
-    await screen.findByTestId(`wish-${WISH_ID}`);
-    fireEvent.press(screen.getByTestId(`wish-active-${WISH_ID}`));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      'Alerts paused for Azure-Eyes Sky Dragon.'
+    expect(await screen.findByTestId('wishlist-location-prompt')).toHaveTextContent(
+      /Set your country and state to get wishlist alerts/
     );
-    expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).toEqual({ active: false });
-    expect(screen.getByTestId(`wish-active-${WISH_ID}`).props.accessibilityState?.checked).toBe(
-      false
+    // Without a location no alert can arrive: the visibility help does not promise any.
+    expect(await screen.findByTestId('wishlist-visible')).toHaveTextContent(
+      /find you on your profile and offer them\.$/
     );
-    fireEvent.press(screen.getByTestId(`wish-active-${WISH_ID}`));
-    await waitFor(() =>
-      expect(screen.getByTestId('snackbar')).toHaveTextContent(/Please try again in a moment/)
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId(`wish-active-${WISH_ID}`).props.accessibilityState?.checked).toBe(
-        false
-      )
-    );
+    expect(screen.queryByText(/wishlist alerts work either way/)).toBeNull();
+    fireEvent.press(screen.getByTestId('wishlist-location-action'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
 
-    fireEvent.press(screen.getByTestId(`wish-menu-${WISH_ID}`));
-    fireEvent.press(await screen.findByTestId('wish-remove'));
+    fireEvent.press(screen.getByTestId(`wish-remove-${WISH_ID}`));
     const dialog = await screen.findByTestId('wish-remove-dialog');
     expect(dialog).toHaveTextContent(/Remove Azure-Eyes Sky Dragon\?/);
+    expect(dialog).toHaveTextContent(
+      /Your wish for Azure-Eyes Sky Dragon \(SVX-001 · Ultra Rare · Stellar Vortex · Holo\) will be removed\./
+    );
     fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
     await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).not.toBeOnTheScreen());
     expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1);
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      'Azure-Eyes Sky Dragon (SVX-001 · Ultra Rare · Stellar Vortex · Holo) removed from your wishlist.'
+    );
   });
 
   it('shows the empty wishlist and an error with retry', async () => {
@@ -166,101 +178,110 @@ describe('Wishlist tab', () => {
     expect(await screen.findByTestId('wishlist-error')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('wishlist-empty')).toHaveTextContent(/Your wishlist is empty/);
-    expect(await screen.findByTestId('match-readiness')).toHaveTextContent(
-      /Choose your location to get matches/
-    );
+    expect(await screen.findByTestId('wishlist-location-prompt')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('Add a card'));
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
-  });
-
-  it('refreshes match counts when a match notification is pushed', async () => {
-    const rt = fakeRealtime();
-    let matches = 2;
-    mockApi(
-      routes({
-        'GET /api/v1/wishlist': () => ok([wishFixture({ matchCount: matches })]),
-        'GET /api/v1/notifications/unread-count': ok({ count: 0 }),
-      })
-    );
-    renderWithProviders(<WishlistScreen />, { port: port(), realtime: rt.client });
-    expect(await screen.findByTestId(`wish-match-count-${WISH_ID}`)).toHaveTextContent('2 matches');
-    await waitFor(() => expect(rt.client.state).toBe('connected'));
-    matches = 3;
-    act(() => rt.current().push('/user/queue/notifications', notificationFixture()));
-    await waitFor(() =>
-      expect(screen.getByTestId(`wish-match-count-${WISH_ID}`)).toHaveTextContent('3 matches')
-    );
   });
 });
 
 describe('Add and edit a wish', () => {
-  it('adds a card from its page: criteria and notes (no radius: the region, ADR 0017)', async () => {
+  it('adds a card from its page: note, Near Mint only, one price term and one printing', async () => {
     mockParams.current = { cardId: CARD_ID };
     const api = mockApi(
       routes({
-        'POST /api/v1/wishlist': (request) =>
-          ok(wishFixture({ ...(request.body as object), matchCount: 0 }), 201),
+        'POST /api/v1/wishlist': (request) => ok(wishFixture(request.body as object), 201),
       })
     );
     renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-card')).toHaveTextContent(/Emberfang Fox VMAX/);
-    expect(screen.queryByTestId('wish-radius')).toBeNull();
-    fireEvent.press(await screen.findByTestId('wish-condition'));
-    fireEvent.press(await screen.findByTestId('wish-condition-option-LIGHTLY_PLAYED'));
-    fireEvent.changeText(screen.getByTestId('wish-max-price'), '25');
-    fireEvent.press(screen.getByTestId('wish-trade-TRADE'));
-    fireEvent.changeText(screen.getByTestId('wish-notes'), 'Fictional wish');
+    // Nothing of the old form.
+    for (const removed of [
+      'wish-max-price',
+      'wish-currency',
+      'wish-trade',
+      'wish-notes',
+      'wish-active',
+      'wish-condition',
+      'wish-radius',
+    ]) {
+      expect(screen.queryByTestId(removed)).toBeNull();
+    }
+    expect(screen.getByTestId('wish-copy')).toHaveTextContent(/Any printing/);
+    // With "Any printing" the terms have no amount.
+    expect(await screen.findByTestId('wish-term-85')).toHaveTextContent('85% TCG');
+    expect(screen.getByTestId('wish-term-85')).not.toHaveTextContent(/≈/);
+
+    fireEvent.changeText(screen.getByTestId('wish-note'), 'Fictional wish');
+    fireEvent.press(screen.getByTestId('wish-near-mint'));
+    fireEvent.press(screen.getByTestId('wish-copy'));
+    fireEvent.press(await screen.findByTestId(`wish-copy-option-${PRINTING_A}`));
+    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG ≈ 32.30 CAD');
+    expect(screen.getByTestId('wish-terms')).toHaveTextContent(/Sample market price/);
+    // At most one term: the second replaces the first.
+    fireEvent.press(screen.getByTestId('wish-term-80'));
+    fireEvent.press(screen.getByTestId('wish-term-85'));
+    expect(screen.getByTestId('wish-term-80')).not.toBeChecked();
+    expect(screen.getByTestId('wish-term-85')).toBeChecked();
     fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
-      cardId: CARD_ID,
-      conditionMin: 'LIGHTLY_PLAYED',
-      maxPrice: 25,
-      currency: 'CAD',
-      tradePreference: 'TRADE',
-      notes: 'Fictional wish',
-      active: true,
+      printingId: PRINTING_A,
+      note: 'Fictional wish',
+      nearMintOnly: true,
+      priceTerm: '85% TCG',
     });
     expect(screen.getByTestId('snackbar')).toHaveTextContent(/is on your wishlist/);
   });
 
-  it('starts from the card autocomplete, keeps a picked printing, and explains refusals', async () => {
-    const api = mockApi(
-      routes({
+  it('starts from the card autocomplete, keeps the printing of a code only one printing has, and explains refusals', async () => {
+    const api = mockApi({
+      ...routes({
         'GET /api/v1/cards/suggest': ok([
           {
             kind: 'PRINTING',
             id: CARD_ID,
             printingId: PRINTING_A,
-            name: 'Azure-Eyes Sky Dragon',
-            game: 'yugioh',
-            printingCode: 'AZR-EN001',
+            name: 'Emberfang Fox VMAX',
+            game: 'pokemon',
+            printingCode: 'SVX-001',
             imageUrl: null,
           },
         ]),
         'POST /api/v1/wishlist': [
-          problem(409, 'CONFLICT', 'This card is already on your wishlist with the same filters.'),
+          problem(409, 'CONFLICT', ''),
           problem(429, 'LIMIT_REACHED', 'Limit', { limitKey: 'wishlist.items.max', limit: 20 }),
         ],
-      })
-    );
+      }),
+      // One printing only carries SVX-001 here.
+      'GET /api/v1/cards/{id}': ok(
+        cardDetailFixture({
+          printings: [
+            printingFixture(),
+            printingFixture({ id: 'printing-2', printingCode: 'SVX-002', rarity: 'Common' }),
+          ],
+        })
+      ),
+    });
     renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-card-step')).toHaveTextContent(
       /Which card are you looking for\?/
     );
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'AZR');
-    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-AZR-EN001'));
-    expect(await screen.findByTestId('wish-printing')).toHaveTextContent(/SVX-001/);
-    expect(screen.queryByTestId('wish-rarity')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'SVX');
+    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-SVX-001'));
+    expect(await screen.findByTestId('wish-copy')).toHaveTextContent(/SVX-001/);
+    // The chosen printing is written out in full under the field.
+    expect(screen.getByTestId('wish-copy-hint')).toHaveTextContent(
+      'Only SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo.'
+    );
     // Inline validation first.
-    fireEvent.changeText(screen.getByTestId('wish-max-price'), '1.234');
+    fireEvent.changeText(screen.getByTestId('wish-note'), 'x'.repeat(281));
     fireEvent.press(screen.getByTestId('wish-save'));
-    expect(await screen.findByText('Use at most two decimals.')).toBeOnTheScreen();
+    expect(await screen.findByText('The note is limited to 280 characters.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/wishlist')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('wish-max-price'), '');
+    fireEvent.changeText(screen.getByTestId('wish-note'), '');
     fireEvent.press(screen.getByTestId('wish-save'));
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
-      /This card is already on your wishlist with the same filters\.$/
+      /This card is already on your wishlist with the same printing or rarity\.$/
     );
     expect(
       (api.callsTo('POST /api/v1/wishlist')[0]?.body as { printingId?: string }).printingId
@@ -274,22 +295,86 @@ describe('Add and edit a wish', () => {
     expect(await screen.findByTestId('wish-card-step')).toBeOnTheScreen();
   });
 
-  it('edits a wish with a PATCH of every field (no radius: the region, ADR 0017)', async () => {
-    mockParams.current = { id: WISH_ID };
+  it('starts on any printing for a typed code that two printings share (never a silent pick)', async () => {
+    // The fixture card has two printings with the code SVX-001 (English holo, French reverse holo).
     const api = mockApi(
-      routes({ 'PATCH /api/v1/wishlist/{id}': ok(wishFixture({ notes: 'For my deck!' })) })
+      routes({
+        'GET /api/v1/cards/suggest': ok([
+          {
+            kind: 'PRINTING',
+            id: CARD_ID,
+            printingId: PRINTING_A,
+            name: 'Emberfang Fox VMAX',
+            game: 'pokemon',
+            printingCode: 'SVX-001',
+            imageUrl: null,
+          },
+        ]),
+        'POST /api/v1/wishlist': (request) => ok(wishFixture(request.body as object), 201),
+      })
     );
-    renderWithProviders(<EditWishScreen />, { port: port() });
-    fireEvent.changeText(await screen.findByLabelText('Private notes'), 'For my deck!');
-    expect(screen.queryByTestId('wish-radius')).toBeNull();
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    fireEvent.changeText(await screen.findByTestId('card-picker-input'), 'SVX-001');
+    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-SVX-001'));
+    expect(await screen.findByTestId('wish-copy')).toHaveTextContent(/Any printing/);
+    expect(screen.getByTestId('wish-copy')).not.toHaveTextContent(/SVX-001/);
+    expect(screen.getByTestId('wish-copy-hint')).toHaveTextContent(
+      'Any printing of the card. 2 printings share the code SVX-001: choose one in “Which copy” for that copy only.'
+    );
+    // "Which copy" offers both printings of the code, each named in full.
+    fireEvent.press(screen.getByTestId('wish-copy'));
+    expect(await screen.findByTestId(`wish-copy-option-${PRINTING_A}`)).toHaveTextContent(
+      /SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo/
+    );
+    expect(screen.getByTestId(`wish-copy-option-${PRINTING_B}`)).toHaveTextContent(
+      /SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · French · Reverse holo/
+    );
+    fireEvent.press(screen.getByTestId('wish-copy-option-'));
+    // Saved as it stands, the wish is for any printing of the card.
     fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
-    expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).not.toHaveProperty('radiusKm');
-    expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).toMatchObject({
-      conditionMin: 'LIGHTLY_PLAYED',
-      maxPrice: 25,
-      printingId: null,
-      notes: 'For my deck!',
+    expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
+      cardId: CARD_ID,
+      nearMintOnly: false,
+    });
+  });
+
+  it('starts on any printing of the rarity a link carries', async () => {
+    mockParams.current = { cardId: CARD_ID, rarity: 'Ultra Rare' };
+    const api = mockApi(
+      routes({
+        'POST /api/v1/wishlist': (request) => ok(wishFixture(request.body as object), 201),
+      })
+    );
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    expect(await screen.findByTestId('wish-copy-section')).toHaveTextContent(
+      /Any printing in Ultra Rare\./
+    );
+    fireEvent.press(screen.getByTestId('wish-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
+      cardId: CARD_ID,
+      rarity: 'Ultra Rare',
+      nearMintOnly: false,
+    });
+  });
+
+  it('edits a wish with a PATCH of every field (and only those)', async () => {
+    mockParams.current = { id: WISH_ID };
+    const api = mockApi(
+      routes({ 'PATCH /api/v1/wishlist/{id}': ok(wishFixture({ note: 'For my deck!' })) })
+    );
+    renderWithProviders(<EditWishScreen />, { port: port() });
+    fireEvent.changeText(await screen.findByTestId('wish-note'), 'For my deck!');
+    fireEvent.press(screen.getByTestId('wish-term-100-plus'));
+    fireEvent.press(screen.getByTestId('wish-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/wishlist/{id}')[0]?.body).toEqual({
+      printingId: PRINTING_A,
+      rarity: null,
+      note: 'For my deck!',
+      nearMintOnly: true,
+      priceTerm: '100% TCG+',
     });
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Wish updated.');
   });
@@ -299,101 +384,5 @@ describe('Add and edit a wish', () => {
     mockApi(routes());
     renderWithProviders(<EditWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-not-found')).toBeOnTheScreen();
-  });
-});
-
-describe('Matches of a wish', () => {
-  beforeEach(() => {
-    mockParams.current = { id: WISH_ID };
-  });
-
-  it('lists matches with the collector’s approximate place and distance bucket', async () => {
-    const api = mockApi(
-      routes({
-        'GET /api/v1/wishlist/{id}/matches': ok(matchPage()),
-        'POST /api/v1/conversations': ok(
-          {
-            id: 'conv-1',
-            other: matchFixture().collector,
-            unreadCount: 0,
-            muted: false,
-            archived: false,
-            createdAt: 'x',
-          },
-          201
-        ),
-        'POST /api/v1/wishlist/matches/{id}/dismiss': noContent,
-      })
-    );
-    renderWithProviders(<WishMatchesScreen />, { port: port() });
-    const match = matchFixture();
-    expect(await screen.findByTestId(`match-${match.id}`)).toBeOnTheScreen();
-    expect(screen.getByTestId('wish-matches-head')).toHaveTextContent(
-      /Matches for Azure-Eyes Sky Dragon/
-    );
-    expect(screen.getByTestId('match-place')).toHaveTextContent('Ontario, Canada');
-    expect(screen.queryByText(/km/)).toBeNull();
-    expect(screen.getByTestId('match-price')).toHaveTextContent('$45.00');
-
-    fireEvent.press(screen.getByTestId(`match-holders-${match.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/holders',
-      params: { printing: match.item.printing.id },
-    });
-    fireEvent.press(screen.getByTestId(`match-message-${match.id}`));
-    await waitFor(() =>
-      expect(mockRouter.push).toHaveBeenCalledWith({
-        pathname: '/messages/[id]',
-        params: { id: 'conv-1' },
-      })
-    );
-    expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({
-      recipientId: match.collector.id,
-    });
-
-    // The listing accepts offers: "Make an offer" opens the form with the card and its holder.
-    fireEvent.press(screen.getByTestId(`match-offer-${match.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/new',
-      params: { item: match.item.id },
-    });
-    expect(offerTargetFor(match.item.id)?.seller.displayName).toBe(match.collector.displayName);
-
-    fireEvent.press(screen.getByTestId(`match-dismiss-${match.id}`));
-    await waitFor(() => expect(screen.queryByTestId(`match-${match.id}`)).not.toBeOnTheScreen());
-    expect(api.callsTo('POST /api/v1/wishlist/matches/{id}/dismiss')).toHaveLength(1);
-    expect(await screen.findByTestId('wish-matches-empty')).toBeOnTheScreen();
-  });
-
-  it('shows no matches yet (with the holders), a missing wish, and an error with retry', async () => {
-    mockApi(routes({ 'GET /api/v1/wishlist/{id}/matches': ok(matchPage([])) }));
-    const first = renderWithProviders(<WishMatchesScreen />, { port: port() });
-    expect(await screen.findByTestId('wish-matches-empty')).toHaveTextContent(/No matches yet/);
-    fireEvent.press(screen.getByText('Who has it in my region'));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/holders',
-      params: { card: CARD_ID },
-    });
-    first.unmount();
-
-    mockParams.current = { id: 'gone' };
-    mockApi(routes({ 'GET /api/v1/wishlist/{id}/matches': problem(404, 'NOT_FOUND', 'Gone') }));
-    const second = renderWithProviders(<WishMatchesScreen />, { port: port() });
-    expect(await screen.findByTestId('wish-matches-not-found')).toBeOnTheScreen();
-    second.unmount();
-
-    mockParams.current = { id: WISH_ID };
-    mockApi(
-      routes({
-        'GET /api/v1/wishlist/{id}/matches': [
-          problem(500, 'INTERNAL_ERROR', 'Boom'),
-          ok(matchPage()),
-        ],
-      })
-    );
-    renderWithProviders(<WishMatchesScreen />, { port: port() });
-    expect(await screen.findByTestId('wish-matches-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId(`match-${matchFixture().id}`)).toBeOnTheScreen();
   });
 });
