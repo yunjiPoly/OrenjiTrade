@@ -834,40 +834,55 @@ publicly_listed`. Also `ix_inventory_item_binder`, `ix_inventory_item_owner_upda
 Trigger `trg_inventory_item_binder_count` (`AFTER INSERT OR DELETE OR UPDATE OF binder_id,
 deleted_at`, row level) keeps `binder.item_count` equal to the binder's non-deleted items.
 
-#### Lock order of binders and inventory items
+#### Locks of binders and inventory items
 
-Every transaction that locks rows of both tables takes them in one order: **`binder` rows first,
-then `inventory_item` rows, each in ascending `id`.** The trigger above writes the binder of an item
-whose `binder_id` or `deleted_at` changes, a confirmation or a move refreshes the binder, and the
-listing reconciliation writes binders before items; a path that took an item first deadlocked with
-it (`DELETE /inventory/items/{id}` answered 500 right after a privacy change, fixed 2026-10-10).
+Two advisory locks stand in front of the rows of both tables; below them the rows are taken in one
+order. The trigger above writes the binder of an item whose `binder_id` or `deleted_at` changes, a
+confirmation or a move refreshes the binder, and the listing reconciliation writes binders before
+items: a path that took an item first deadlocked with it (`DELETE /inventory/items/{id}` answered
+500 right after a privacy change, fixed 2026-10-10).
 
-- **Item writes** (`InventoryService.lockForWrite`: update, move, delete, confirm, bulk actions,
-  admin restore, trade transfer; a create locks its binder the same way) read the binders of their
-  items, lock those binders and the move target `FOR UPDATE` in ascending id, then lock the items
-  in ascending id. An item that another request moved in between sits in a binder that is not held
-  yet: that binder is taken without waiting (`SKIP LOCKED`), and when another transaction holds it
-  the request ends with `409` instead of waiting against the order.
-- **Binder writes** (`BinderService`) start with `FOR UPDATE` on the binder they change, so its
-  items cannot be written elsewhere meanwhile. Reorder and the account purge lock every binder of
-  the owner first.
-- **Listing reconciliation of an owner** (`ListingReconciler.owner`: privacy, suspension, listing
-  pause, deletion request) locks every binder of the owner before it writes anything.
-- **Statements that lock several rows** take them through an `ORDER BY id` locking clause (the
-  reconciliation, the freshness job, confirmations, binder deletion).
-- **Freshness job** (`FreshnessService.run`): the binder half of every step (expiry, freshness,
-  effective visibility, warnings) runs before the first item is written.
-- Writes that hold one item row and never reach a binder (item photos, admin hide) lock only that
-  row.
+- **Owner lock** (`BinderRepository.lockOwners`: `pg_advisory_xact_lock` on
+  `hashtextextended('inventory-owner:' || owner_id, 0)`, held until the transaction ends). It is the
+  first step of every write to a collector's binders or inventory items: item create, update, move,
+  delete, confirm, bulk actions, admin restore, trade transfer (the locks of both collectors, in
+  ascending key order), every `BinderService` write (create, update, publish, unpublish, admin
+  unpublish, confirm, delete, reorder), the listing reconciliation of an owner
+  (`ListingReconciler.owner`: privacy, suspension, listing pause, deletion request) and the account
+  purge. The writes of one collector therefore run one after the other: none reads the binder of an
+  item while another one moves it, and none waits in the middle of its work for a row that another
+  write of the same collector holds.
+- **Lock of all owners** (`BinderRepository.lockAllOwners`, key
+  `hashtextextended('inventory-owners', 0)`). The freshness job (`FreshnessService.run`) writes
+  binders and items of every collector, in several statements, so it takes this lock exclusively as
+  its first step; every `lockOwners` takes it shared before the owner keys. The job runs alone, and
+  the writes that arrive meanwhile wait for its commit. The job waits at most 10 seconds for the
+  writes in progress (`lock_timeout`, put back afterwards); writes that arrive during that wait
+  queue behind the job, so the bound is also the longest time one write that does not end can hold
+  the others up. After the bound the run fails before it has written anything (`job_run` FAILED,
+  `CannotAcquireLockException`) and the next run does the work.
+- **Row order below the two locks:** `binder` rows first, then `inventory_item` rows, each in
+  ascending `id`. Item writes (`InventoryService.lockForWrite`) read the binders of their items
+  under the owner lock, lock those binders and the move target `FOR UPDATE`, then the items; binder
+  writes start with `FOR UPDATE` on the binder they change; the owner reconciliation, reorder and
+  the purge lock every binder of the owner first; every statement that locks several rows takes
+  them through an `ORDER BY id` locking clause; the job runs the binder half of every step before
+  its first item. With the two locks in front, this order is the second line: a write path added
+  later that forgets a lock still cannot take an item before its binder.
+- Item photos and the admin hide write one item row, never reach a binder and wait for nothing
+  else: they take neither advisory lock and lock only that row.
 
-Known limit: the freshness job locks rows of every collector without holding their binders, and it
-orders the rows of each statement, not of the whole run. Two patterns can therefore still end in a
-lock cycle with the job when both run at the same instant: a request that writes one item and then
-re-lists or unlists the other items of its binder (a confirmation or a move into a binder whose
-effective visibility changes), and a request or reconciliation that locks several rows which the
-job writes in two different statements. PostgreSQL then aborts one of the two transactions (the
-hourly job runs again an hour later; the request answers 500). `InventoryLockOrderIT` covers the
-order; it leaves the job out of its concurrent mix for this reason.
+What the locks cost: a collector's own simultaneous writes wait for each other, and every binder
+and item write waits while the hourly job runs (one transaction). Public reads take no lock.
+
+Not covered: item rows are locked `FOR UPDATE`, which conflicts with the key-share lock that a
+foreign key check takes when a row of another module references the item (offers, trade lines,
+trades). A transaction that inserts references to two items in another order than a write holding
+both could still end in a lock cycle with it; `FOR NO KEY UPDATE` on the item locks outside the
+purge would remove that conflict. `InventoryLockOrderIT` covers the rest: the reported deadlock,
+three simultaneous writes of one collector, a row created during a privacy change, the job against
+a write of several binders, the row order against a transaction that takes no advisory lock, and a
+bounded run of every kind of write next to the job.
 
 #### `inventory_item_image`
 
