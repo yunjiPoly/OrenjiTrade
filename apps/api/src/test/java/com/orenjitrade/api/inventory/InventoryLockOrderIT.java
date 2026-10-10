@@ -894,6 +894,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     enum BinderHolder {
         ITEM_CONFIRMATION,
         BINDER_CONFIRMATION,
+        BINDER_DELETE,
         PRIVACY_RECONCILIATION
     }
 
@@ -935,6 +936,14 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                         uid,
                                         null,
                                         200);
+                        // Deletes the binder row itself, after it has unfiled the item.
+                        case BINDER_DELETE ->
+                                callJson(
+                                        HttpMethod.DELETE,
+                                        "/api/v1/binders/" + binderId,
+                                        uid,
+                                        null,
+                                        204);
                         case PRIVACY_RECONCILIATION -> {
                             setDiscoverable(ownerId, false);
                             reconciler.owner(ownerId);
@@ -952,7 +961,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                 .map(row -> row.get("event")))
                 .as("the job hid the item")
                 .contains("HIDDEN");
-        if (holder == BinderHolder.PRIVACY_RECONCILIATION) {
+        if (holder == BinderHolder.PRIVACY_RECONCILIATION || holder == BinderHolder.BINDER_DELETE) {
             assertThat(column("inventory_item", "freshness_state", item)).isEqualTo("HIDDEN");
             assertThat(listedFlags(ownerId)).as("nothing stays listed").containsOnly(false);
         } else {
