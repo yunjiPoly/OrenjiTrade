@@ -18,16 +18,14 @@
         />
         <div class="holders__titles">
           <p class="holders__eyebrow">
-            <mat-icon aria-hidden="true">near_me</mat-icon>
-            Near you
+            <mat-icon aria-hidden="true">public</mat-icon>
+            In {{ regionName() }}
           </p>
           <h2 class="holders__title" id="holders-banner-title">Who has {{ resolved.name }}</h2>
           <p class="holders__sub">
             {{ resolved.holders.length }}
-            {{ resolved.holders.length === 1 ? 'collector lists' : 'collectors list' }} it nearby.
-            @if (centre()?.city; as city) {
-              Around {{ city.label }}.
-            }
+            {{ resolved.holders.length === 1 ? 'collector lists' : 'collectors list' }} it in
+            {{ regionName() }}.
           </p>
         </div>
         <div class="holders__actions">
@@ -35,26 +33,29 @@
             <mat-icon aria-hidden="true">tune</mat-icon>
             All holders and prices
           </a>
-          <a matButton="outlined" routerLink="/map" [queryParams]="mapQuery()">
+          <a matButton="outlined" routerLink="/map" [queryParams]="{ region: region() }">
             <mat-icon aria-hidden="true">map</mat-icon>
-            Show on the map
+            Browse the map
           </a>
         </div>
       </div>
       @if (resolved.holders.length) {
-        <ul class="holders__list" aria-label="Nearby holders">
+        <ul class="holders__list" aria-label="Holders in your region">
           @for (collector of resolved.holders.slice(0, 3); track collector.id) {
             <li>
               <app-collector-result
                 [collector]="collector"
-                [signedIn]="centre()?.signedIn ?? false"
+                [signedIn]="signedIn()"
                 [pictures]="resolved.pictures"
               />
             </li>
           }
         </ul>
       } @else {
-        <p class="holders__none">Nobody nearby lists it yet. Try a larger area on the map.</p>
+        <p class="holders__none">
+          Nobody in {{ regionName() }} lists it yet. Add it to your wishlist to hear when someone
+          does.
+        </p>
       }
     </section>
   }
@@ -134,10 +135,7 @@
             <ul class="grid" aria-label="Matching collectors">
               @for (collector of result.collectors; track collector.id) {
                 <li>
-                  <app-collector-result
-                    [collector]="collector"
-                    [signedIn]="centre()?.signedIn ?? false"
-                  />
+                  <app-collector-result [collector]="collector" [signedIn]="signedIn()" />
                 </li>
               }
             </ul>
@@ -145,7 +143,7 @@
             <app-empty-state
               icon="person_search"
               title="No collectors match"
-              description="Collectors appear when they are on the map and allow name search."
+              description="Collectors of this region appear when they are on the map and allow name search."
             />
           }
         </section>
@@ -169,13 +167,8 @@
                       />
                       <span class="binder__owner-text">
                         <span class="binder__owner-name">{{ owner.displayName }}</span>
-                        @if (owner.location; as location) {
-                          <span class="chip__muted">
-                            {{ location.publicLabel }}
-                            @if (distance(location.distanceBucket); as distance) {
-                              · {{ distance }}
-                            }
-                          </span>
+                        @if (owner.place; as place) {
+                          <span class="chip__muted">{{ place.label }}</span>
                         }
                       </span>
                     </a>

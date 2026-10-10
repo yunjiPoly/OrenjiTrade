@@ -57,7 +57,7 @@ public class TestAccountPurgeRepository {
                 .list();
     }
 
-    /** Locations, discoverable public points, binders and live inventory items of {@code ids}. */
+    /** Locations, discoverable accounts, binders and live inventory items of {@code ids}. */
     public Dependents dependents(Collection<UUID> ids) {
         if (ids.isEmpty()) {
             return new Dependents(0, 0, 0, 0);
@@ -67,8 +67,8 @@ public class TestAccountPurgeRepository {
                         """
                         SELECT
                           (SELECT count(*) FROM user_location WHERE user_id IN (:ids)) AS locations,
-                          (SELECT count(*) FROM user_location WHERE user_id IN (:ids)
-                              AND public_point IS NOT NULL) AS discoverable,
+                          (SELECT count(*) FROM privacy_settings WHERE user_id IN (:ids)
+                              AND discoverable) AS discoverable,
                           (SELECT count(*) FROM binder WHERE owner_id IN (:ids)) AS binders,
                           (SELECT count(*) FROM inventory_item WHERE owner_id IN (:ids)
                               AND deleted_at IS NULL) AS items

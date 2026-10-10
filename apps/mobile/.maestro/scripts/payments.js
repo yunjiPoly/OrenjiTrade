@@ -80,14 +80,11 @@ function signIn(email, password) {
   ).idToken;
 }
 
-/** 3 decimals, never ending in 0 (like a hand-picked centre). */
-function pick(min, span) {
-  var value = Math.round((min + Math.random() * span) * 1000);
-  return (value % 10 === 0 ? value + 3 : value) / 1000;
-}
+/** The seller's declared place (ADR 0017: a state, never a coordinate). */
+var WYOMING = { countryCode: 'US', subdivisionCode: 'US-WY' };
 
-/** A fresh onboarded collector; with `area`, discoverable around it. */
-function createCollector(prefix, displayName, area) {
+/** A fresh onboarded collector; with `place` (country and state), discoverable there. */
+function createCollector(prefix, displayName, place) {
   var suffix = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   var email = 'm-' + runId + '-maestro-' + prefix + '-' + suffix + '@mobile-e2e.test';
   var password = 'Maestro-Pass-42';
@@ -127,13 +124,18 @@ function createCollector(prefix, displayName, area) {
     }),
     'PUT /me/profile'
   );
-  if (area) {
+  if (place) {
     check(
-      http.put(api + '/api/v1/me/location/trading-area', {
+      http.put(api + '/api/v1/me/location', {
         headers: jsonHeaders(token),
-        body: JSON.stringify({ lat: area.lat, lng: area.lng, radiusKm: 5, source: 'MANUAL' }),
+        body: JSON.stringify({
+          countryCode: place.countryCode,
+          subdivisionCode: place.subdivisionCode,
+          city: null,
+          showCity: true,
+        }),
       }),
-      'PUT /me/location/trading-area'
+      'PUT /me/location'
     );
     var privacy = check(
       http.get(api + '/api/v1/me/settings/privacy', { headers: jsonHeaders(token) }),
@@ -187,7 +189,7 @@ function tradeOfItem(token, itemId) {
 }
 
 if (action === 'setup') {
-  var pia = createCollector('pia', 'Pia Maestro', { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) });
+  var pia = createCollector('pia', 'Pia Maestro', WYOMING);
   var ada = createCollector('ada', 'Ada Maestro', null);
   // Payouts with the fake provider: ready at once.
   var onboarding = check(

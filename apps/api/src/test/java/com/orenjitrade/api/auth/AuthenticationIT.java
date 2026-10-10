@@ -110,7 +110,7 @@ class AuthenticationIT extends AbstractIntegrationTest {
         assertThat(Instant.parse(body.path("createdAt").asString())).isAfter(before);
         assertThat(body.path("lastActiveAt").isNull()).isFalse();
         assertThat(body.path("onboarding").path("profileComplete").asBoolean()).isFalse();
-        assertThat(body.path("onboarding").path("tradingAreaSet").asBoolean()).isFalse();
+        assertThat(body.path("onboarding").path("locationSet").asBoolean()).isFalse();
         assertThat(body.path("onboarding").path("interestsSet").asBoolean()).isFalse();
         assertThat(body.path("requiredConsents")).hasSize(4);
         assertThat(body.path("requiredConsents").get(0).path("version").asString())

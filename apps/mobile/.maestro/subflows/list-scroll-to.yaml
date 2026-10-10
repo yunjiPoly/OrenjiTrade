@@ -1,0 +1,28 @@
+# Brings the element with id ID on screen inside a list that scrolls below a fixed header (the
+# card holders list: the middle of the screen is the header, so `scrollUntilVisible`, which swipes
+# there, never moves the list). Short swipes inside the list's area: first towards the top of the
+# list, then towards its bottom.
+appId: host.exp.exponent
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+    times: 4
+    commands:
+      - swipe:
+          start: 50%, 70%
+          end: 50%, 92%
+          duration: 700
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+    times: 10
+    commands:
+      - swipe:
+          start: 50%, 92%
+          end: 50%, 70%
+          duration: 700
+- assertVisible:
+    id: ${ID}

@@ -68,9 +68,9 @@ class NotificationRealtimeIT extends AbstractWishlistIT {
 
     @Test
     void wishlistMatchesAndMessagesArePushedToTheRecipientOnly() throws Exception {
-        Centre centre = randomCentre();
-        Collector wisher = collector("nr-wisher", centre);
-        Collector seller = collector("nr-seller", centre.offset(1, 2));
+        Place place = americasNorth();
+        Collector wisher = collector("nr-wisher", place);
+        Collector seller = collector("nr-seller", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
 

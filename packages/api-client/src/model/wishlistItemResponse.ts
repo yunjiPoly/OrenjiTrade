@@ -34,10 +34,6 @@ export interface WishlistItemResponse {
     language?: string | null;
     maxPrice?: number | null;
     currency: string;
-    /**
-     * Matching radius (km), capped by the plan
-     */
-    radiusKm: number;
     tradePreference: WishlistItemResponseTradePreferenceEnum;
     /**
      * Private to the caller

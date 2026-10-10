@@ -1,29 +1,25 @@
 import { BrowserContext, Page, Response, WebSocket } from '@playwright/test';
-import { domCoordinateFindings } from '../../support/map-privacy';
-import { coordinates, decimalsOf } from '../../support/stack';
+import { MAP_PROVIDER_HOSTS, coordinates, domCoordinateFindings } from '../../support/stack';
 
 /**
- * ADR 0004 network scanner shared by every acceptance test (wired as an automatic fixture in
+ * ADR 0017 network scanner shared by every acceptance test (wired as an automatic fixture in
  * `fixtures.ts`). It reads every JSON document that reaches a browser context of the test (HTTP
  * responses and the STOMP frames of the realtime WebSocket) and every JSON answer of the API
  * seeding shortcuts, and records a violation for:
  *
- * - any `lat`/`lng`/`latitude`/`longitude` number with more than 3 decimals;
- * - any `lat`/`lng` pair equal to a stored trading-area centre registered by the test (the private
- *   centre a collector chose). The only exemption is the owner's own `/api/v1/me/location`
- *   answers, which by design return the owner's chosen area to the owner;
- * - any raw numeric distance (`distance`, `distanceKm`, `distanceMeters`, …): distances reach
- *   clients as buckets (`distanceBucket`) only;
+ * - any `lat`/`lng`/`latitude`/`longitude` number: the platform stores and returns no coordinate;
+ * - any distance or radius field (`distance`, `distanceKm`, `distanceBucket`, `radiusKm`, ...);
+ * - a city registered by the test (a collector's self-declared city) anywhere except that
+ *   collector's own public profile (`GET /collectors/{handle}`) and the owner-only answers of
+ *   `/me/location` and `/me/export`;
  * - on request ({@link PrivacyScanner.scanDom}), any DOM attribute of a page holding a number in
  *   coordinate range with more than 3 decimals (aria labels, titles, data attributes, links, ...).
  *
+ * The bundled boundary files (`/boundaries/*.json`) are static map shapes, not personal data: they
+ * have no `lat`/`lng` keys and are counted like any other document.
+ *
  * The fixture fails the test in its teardown when a violation was recorded.
  */
-
-export interface Point {
-  lat: number;
-  lng: number;
-}
 
 export interface Violation {
   source: string;
@@ -31,50 +27,45 @@ export interface Violation {
   reason: string;
 }
 
-interface Sample {
-  path: string;
-  value: number;
-}
+/** Keys that would describe a distance or a radius. */
+const DISTANCE_KEY =
+  /^(distances?|distance_?(km|m|meters|metres|bucket)|distanceBucket|radius(_?km|Km|_?m)?)$/i;
 
-/** Answers that return the caller's own chosen trading area (owner only, by design). */
-const OWNER_LOCATION = /\/api\/v1\/me\/location(\/|\?|$)/;
+/** Owner-only answers that legitimately carry the owner's own city. */
+const OWNER_ONLY = /\/api\/v1\/me\/(location|export)(\/|\?|$)/;
 
-/** Numeric fields that would be a raw (unbucketed) distance. */
-const RAW_DISTANCE = /^distances?(_?(in)?_?(km|m|meters|metres|kilometers|kilometres))?$/i;
-
-/** Every numeric field of a JSON document whose key looks like a raw distance. */
-function* rawDistances(value: unknown, path = '$'): Generator<{ path: string; value: number }> {
+/** Every key of a JSON document matching `pattern`, with its path. */
+function* keysMatching(
+  value: unknown,
+  pattern: RegExp,
+  path = '$',
+): Generator<{ path: string; value: unknown }> {
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      yield* rawDistances(value[i], `${path}[${i}]`);
+      yield* keysMatching(value[i], pattern, `${path}[${i}]`);
     }
   } else if (value && typeof value === 'object') {
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      if (RAW_DISTANCE.test(key) && typeof child === 'number') {
+      if (pattern.test(key)) {
         yield { path: `${path}.${key}`, value: child };
       } else {
-        yield* rawDistances(child, `${path}.${key}`);
+        yield* keysMatching(child, pattern, `${path}.${key}`);
       }
     }
   }
 }
 
-/** Pairs `lat`/`lng` samples of the same parent object. */
-function pairs(samples: readonly Sample[]): (Point & { path: string })[] {
-  const byParent = new Map<string, Partial<Point>>();
-  for (const sample of samples) {
-    const parent = sample.path.replace(/\.(lat|lng|latitude|longitude)$/i, '');
-    const entry = byParent.get(parent) ?? {};
-    if (/\.(lat|latitude)$/i.test(sample.path)) {
-      entry.lat = sample.value;
-    } else {
-      entry.lng = sample.value;
-    }
-    byParent.set(parent, entry);
+/** Number of objects that look like a public place (`subdivisionCode` + `label`). */
+function countPlaces(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((sum: number, entry) => sum + countPlaces(entry), 0);
   }
-  return [...byParent.entries()]
-    .filter(([, point]) => point.lat !== undefined && point.lng !== undefined)
-    .map(([path, point]) => ({ path, lat: point.lat!, lng: point.lng! }));
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const own = typeof record['subdivisionCode'] === 'string' ? 1 : 0;
+    return Object.values(record).reduce((sum: number, entry) => sum + countPlaces(entry), own);
+  }
+  return 0;
 }
 
 /** The JSON bodies of a STOMP frame (`COMMAND\nheaders\n\nbody\0`, possibly several per frame). */
@@ -99,28 +90,30 @@ export function stompBodies(payload: string): unknown[] {
 }
 
 export class PrivacyScanner {
-  private readonly centres: (Point & { owner: string })[] = [];
-  private readonly precision: Violation[] = [];
-  private readonly points: (Point & { source: string; path: string })[] = [];
+  private readonly cities: { owner: string; city: string }[] = [];
+  private readonly found: Violation[] = [];
+  /** Documents seen, kept to check cities registered after they arrived. */
+  private readonly documents: { source: string; text: string }[] = [];
   private readonly forgivenSources = new Set<string>();
   private readonly pending: Promise<void>[] = [];
   private readonly attached = new WeakSet<object>();
-  private coordinateCount = 0;
+  private placeCount = 0;
   private documentCount = 0;
   private frameCount = 0;
   private domAttributeCount = 0;
 
   /**
-   * Registers a stored (private) trading-area centre that must never reach a client. Checked
-   * against everything scanned during the test, including what arrived before the registration.
+   * Registers a collector's self-declared city (`owner` is their handle): it may appear only on
+   * that collector's own profile. Checked against everything scanned during the test, including
+   * what arrived before the registration.
    */
-  registerCentre(owner: string, centre: Point): void {
-    this.centres.push({ owner, lat: centre.lat, lng: centre.lng });
+  registerCity(owner: string, city: string): void {
+    this.cities.push({ owner, city });
   }
 
-  /** Number of coordinates checked so far (to prove a scenario really saw geo data). */
-  get checkedCoordinates(): number {
-    return this.coordinateCount;
+  /** Number of public places checked so far (to prove a scenario really saw where people are). */
+  get checkedPlaces(): number {
+    return this.placeCount;
   }
 
   /** Number of JSON documents checked so far. */
@@ -148,31 +141,31 @@ export class PrivacyScanner {
     const { findings, scanned } = await domCoordinateFindings(page);
     this.domAttributeCount += scanned;
     for (const finding of findings) {
-      this.precision.push({
+      this.found.push({
         source,
         path: `<${finding.element} ${finding.attribute}>`,
-        reason: `"${finding.value}" holds a coordinate with more than 3 decimals`,
+        reason: `"${finding.value}" holds a coordinate`,
       });
     }
     return scanned;
   }
 
-  /** Every violation recorded so far (precision, then stored centres). */
+  /** Every violation recorded so far (coordinates and distances, then cities). */
   violations(): Violation[] {
     const leaks: Violation[] = [];
-    for (const point of this.points) {
-      const centre = this.centres.find(
-        (candidate) => candidate.lat === point.lat && candidate.lng === point.lng,
-      );
-      if (centre) {
-        leaks.push({
-          source: point.source,
-          path: point.path,
-          reason: `(${point.lat}, ${point.lng}) is the stored trading-area centre of ${centre.owner}`,
-        });
+    for (const document of this.documents) {
+      for (const { owner, city } of this.cities) {
+        const ownProfile = new RegExp(`/api/v1/collectors/${owner}(\\?|$)`).test(document.source);
+        if (!ownProfile && !OWNER_ONLY.test(document.source) && document.text.includes(city)) {
+          leaks.push({
+            source: document.source,
+            path: '$',
+            reason: `the city of @${owner} ("${city}") outside their own profile`,
+          });
+        }
       }
     }
-    return [...this.precision, ...leaks].filter(
+    return [...this.found, ...leaks].filter(
       (violation) => !this.forgivenSources.has(violation.source),
     );
   }
@@ -180,31 +173,22 @@ export class PrivacyScanner {
   /** Scans one JSON document received from `source` (a URL or a WebSocket description). */
   scan(source: string, body: unknown): void {
     this.documentCount++;
-    const samples = [...coordinates(body)];
-    this.coordinateCount += samples.length;
-    for (const sample of samples) {
-      const decimals = decimalsOf(sample.value);
-      if (decimals > 3) {
-        this.precision.push({
-          source,
-          path: sample.path,
-          reason: `${sample.value} has ${decimals} decimals (at most 3 allowed)`,
-        });
-      }
-    }
-    for (const distance of rawDistances(body)) {
-      this.precision.push({
+    this.placeCount += countPlaces(body);
+    for (const sample of coordinates(body)) {
+      this.found.push({
         source,
-        path: distance.path,
-        reason: `raw distance ${distance.value} (distances reach clients as buckets only)`,
+        path: sample.path,
+        reason: `${sample.value} is a coordinate (none may reach a client)`,
       });
     }
-    if (OWNER_LOCATION.test(source)) {
-      return; // the owner's own chosen area, returned to the owner by design
+    for (const distance of keysMatching(body, DISTANCE_KEY)) {
+      this.found.push({
+        source,
+        path: distance.path,
+        reason: `distance or radius field (${JSON.stringify(distance.value)})`,
+      });
     }
-    for (const point of pairs(samples)) {
-      this.points.push({ source, ...point });
-    }
+    this.documents.push({ source, text: JSON.stringify(body) });
   }
 
   /** Scans every JSON response and STOMP frame of a browser context (current and future pages). */
@@ -214,6 +198,15 @@ export class PrivacyScanner {
     }
     this.attached.add(context);
     context.on('response', (response) => this.onResponse(response));
+    context.on('request', (request) => {
+      if (MAP_PROVIDER_HOSTS.test(request.url())) {
+        this.found.push({
+          source: request.url(),
+          path: '(request)',
+          reason: 'a map provider or tile server was called',
+        });
+      }
+    });
     for (const page of context.pages()) {
       this.attachPage(page);
     }

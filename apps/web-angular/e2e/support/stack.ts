@@ -210,25 +210,55 @@ export async function apiConfirmAge(api: APIRequestContext, token: string): Prom
   expect(response.status(), 'consent AGE_CONFIRMATION').toBe(204);
 }
 
+/** A self-declared location (ADR 0017): country, ISO 3166-2 subdivision, optional city. */
+export interface LocationInput {
+  countryCode: string;
+  subdivisionCode: string;
+  city?: string | null;
+  showCity?: boolean;
+}
+
+/** The default location of the suite's collectors: Quebec, Canada (Americas (North)). */
+export const DEFAULT_LOCATION: LocationInput = { countryCode: 'CA', subdivisionCode: 'CA-QC' };
+
 export interface OnboardedCollector extends EmulatorUser {
   id: string;
   handle: string;
   displayName: string;
-  /** Public label the server derived for the trading area (null without one). */
-  areaLabel: string | null;
+  /** Public place the server shows for the location ("Quebec, Canada"; null without one). */
+  placeLabel: string | null;
+}
+
+/** Sets the caller's location through `PUT /me/location`; returns the public label. */
+export async function apiSetLocation(
+  api: APIRequestContext,
+  token: string,
+  location: LocationInput = DEFAULT_LOCATION,
+): Promise<string> {
+  const response = await api.put(`${API_URL}/api/v1/me/location`, {
+    headers: bearer(token),
+    data: {
+      countryCode: location.countryCode,
+      subdivisionCode: location.subdivisionCode,
+      city: location.city ?? null,
+      showCity: location.showCity ?? true,
+    },
+  });
+  expect(response.ok(), 'PUT /me/location').toBeTruthy();
+  const label = ((await response.json()) as { location?: { label?: string } }).location?.label;
+  expect(label, 'public place label').toBeTruthy();
+  return label!;
 }
 
 /**
  * Creates a collector through the emulator + API with accepted terms, a saved profile (so
- * onboarding is complete) and optionally a trading area around a public Montréal landmark.
+ * onboarding is complete) and optionally a location (`true` = {@link DEFAULT_LOCATION}).
  */
 export async function createOnboardedCollector(
   api: APIRequestContext,
   prefix: string,
   options: {
-    tradingArea?: boolean;
-    /** Trading-area centre (3 decimals) instead of the default Montréal landmark. */
-    area?: { lat: number; lng: number; radiusKm?: number };
+    location?: boolean | LocationInput;
     displayName?: string;
   } = {},
 ): Promise<OnboardedCollector> {
@@ -247,49 +277,46 @@ export async function createOnboardedCollector(
     },
   });
   expect(profile.ok(), 'PUT /me/profile').toBeTruthy();
-  let areaLabel: string | null = null;
-  if (options.tradingArea || options.area) {
-    const area = await api.put(`${API_URL}/api/v1/me/location/trading-area`, {
-      headers: bearer(user.idToken),
-      // Default: the Place des Arts area, a public landmark in Montréal.
-      data: {
-        lat: options.area?.lat ?? 45.508,
-        lng: options.area?.lng ?? -73.566,
-        radiusKm: options.area?.radiusKm ?? 5,
-        source: 'MANUAL',
-      },
-    });
-    expect(area.ok(), 'PUT /me/location/trading-area').toBeTruthy();
-    areaLabel =
-      ((await area.json()) as { tradingArea?: { label?: string } }).tradingArea?.label ?? null;
-    expect(areaLabel, 'derived public label').toBeTruthy();
+  let placeLabel: string | null = null;
+  if (options.location) {
+    placeLabel = await apiSetLocation(
+      api,
+      user.idToken,
+      options.location === true ? DEFAULT_LOCATION : options.location,
+    );
   }
   const me = await apiMe(api, user.idToken);
-  return { ...user, id: me.id, handle, displayName, areaLabel };
+  return { ...user, id: me.id, handle, displayName, placeLabel };
 }
 
-/** A transparent 1×1 PNG standing in for map tiles. */
-const STUB_TILE_PNG =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+/** Hosts of map providers and tile servers the app must never call (ADR 0017). */
+export const MAP_PROVIDER_HOSTS =
+  /^https?:\/\/([a-z0-9-]+\.)*(openstreetmap\.org|maps\.googleapis\.com|maps\.gstatic\.com|mapbox\.com|arcgis\.com)\//i;
+
+const providerCalls = new WeakMap<Page, { calls: string[] }>();
 
 /**
- * Serves OpenStreetMap tiles from memory. The suite lands on `/map` after every sign-in; the OSM
- * tile usage policy discourages automated bulk loads, and the specs never assert on map imagery
- * (markers, circles and controls are DOM elements drawn by Leaflet regardless of the tiles).
+ * Aborts and records every request of the page to a map provider or a tile server: the region map
+ * draws the bundled boundary files only (ADR 0017). Idempotent per page: every caller gets the same
+ * `calls` list, which a spec expects to stay empty.
  */
-export async function stubMapTiles(page: Page): Promise<void> {
-  await page.route('https://tile.openstreetmap.org/**', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'image/png',
-      body: Buffer.from(STUB_TILE_PNG, 'base64'),
-    }),
-  );
+export async function forbidMapProviders(page: Page): Promise<{ calls: string[] }> {
+  const existing = providerCalls.get(page);
+  if (existing) {
+    return existing;
+  }
+  const record = { calls: [] as string[] };
+  providerCalls.set(page, record);
+  await page.route(MAP_PROVIDER_HOSTS, (route) => {
+    record.calls.push(route.request().url());
+    return route.abort();
+  });
+  return record;
 }
 
 /** Signs in through the UI and waits until the app left the sign-in page. */
 export async function signInThroughUi(page: Page, email: string, password: string): Promise<void> {
-  await stubMapTiles(page);
+  await forbidMapProviders(page);
   await page.goto('/auth/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
@@ -297,9 +324,82 @@ export async function signInThroughUi(page: Page, email: string, password: strin
   await expect(page).not.toHaveURL(/\/auth\/sign-in/, { timeout: 20_000 });
 }
 
+/**
+ * Chooses `option` in the Material select named `label` from the keyboard (focus, Enter, click the
+ * option): a mouse click on an empty outlined select can land on its floating label while the
+ * previous select's panel is still closing.
+ */
+export async function chooseOption(page: Page, label: string, option: string): Promise<void> {
+  const select = page.getByRole('combobox', { name: label });
+  await expect(select).toBeEnabled();
+  await select.focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('option', { name: option, exact: true }).click();
+  await expect(select).toContainText(option);
+}
+
 /** Opens the account menu of the top bar (signed in: avatar trigger). */
 export async function openAccountMenu(page: Page): Promise<void> {
   await page.getByRole('button', { name: /^Account menu for / }).click();
+}
+
+export interface DomCoordinateFinding {
+  element: string;
+  attribute: string;
+  value: string;
+}
+
+/**
+ * Every DOM attribute of the page holding a number in coordinate range (-180..180) with more than
+ * 3 decimals. Purely geometric attributes (inline styles, SVG path data and transforms, which hold
+ * screen pixels) are skipped; everything else (aria labels, titles, data-*, href, src, value, ...)
+ * is checked. Returns the findings and how many attributes were scanned.
+ */
+export async function domCoordinateFindings(
+  page: Page,
+): Promise<{ findings: DomCoordinateFinding[]; scanned: number }> {
+  return page.evaluate(() => {
+    const geometric = new Set([
+      'style',
+      'd',
+      'transform',
+      'points',
+      'viewbox',
+      'width',
+      'height',
+      'x',
+      'y',
+      'cx',
+      'cy',
+      'r',
+      'stroke-width',
+      'stroke-opacity',
+      'stroke-dasharray',
+      'fill-opacity',
+      'opacity',
+    ]);
+    const findings: { element: string; attribute: string; value: string }[] = [];
+    let scanned = 0;
+    for (const element of Array.from(document.querySelectorAll('*'))) {
+      for (const attribute of Array.from(element.attributes)) {
+        if (geometric.has(attribute.name.toLowerCase())) {
+          continue;
+        }
+        scanned++;
+        for (const match of attribute.value.matchAll(/-?\d{1,3}\.(\d{4,})/g)) {
+          if (Math.abs(Number(match[0])) <= 180) {
+            findings.push({
+              element: element.tagName.toLowerCase(),
+              attribute: attribute.name,
+              value: attribute.value.slice(0, 120),
+            });
+            break;
+          }
+        }
+      }
+    }
+    return { findings, scanned };
+  });
 }
 
 /** Recursively yields every numeric `lat`/`lng` value in a JSON document. */

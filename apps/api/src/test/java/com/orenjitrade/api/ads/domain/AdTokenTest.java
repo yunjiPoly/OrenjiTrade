@@ -23,14 +23,18 @@ class AdTokenTest {
     void aTokenIsValidForItsCreativeOnlyAndCarriesNoAccountId() {
         UUID creative = UUID.randomUUID();
         String hash = "0123456789abcdef0123456789abcdef";
-        String token = tokens.issue(creative, PlacementKey.MAP_PANEL, "r5058c-5438", hash, NOW);
+        String token =
+                tokens.issue(
+                        creative, PlacementKey.MAP_PANEL, "americas-north", "CA-QC", hash, NOW);
         AdToken.Serve serve = tokens.verify(token, creative, NOW.plusSeconds(60)).orElseThrow();
         assertThat(serve.placement()).isEqualTo(PlacementKey.MAP_PANEL);
-        assertThat(serve.geoCell()).isEqualTo("r5058c-5438");
+        assertThat(serve.regionCode()).isEqualTo("americas-north");
+        assertThat(serve.subdivisionCode()).isEqualTo("CA-QC");
         assertThat(serve.userHash()).isEqualTo(hash);
-        assertThat(tokens.issue(creative, PlacementKey.MAP_PANEL, null, null, NOW))
+        assertThat(tokens.issue(creative, PlacementKey.MAP_PANEL, null, null, null, NOW))
                 .as("each serve gets its own nonce")
-                .isNotEqualTo(tokens.issue(creative, PlacementKey.MAP_PANEL, null, null, NOW));
+                .isNotEqualTo(
+                        tokens.issue(creative, PlacementKey.MAP_PANEL, null, null, null, NOW));
 
         assertThat(tokens.verify(token, UUID.randomUUID(), NOW)).isEmpty();
         assertThat(tokens.verify(token, creative, NOW.plus(Duration.ofHours(25)))).isEmpty();
@@ -41,7 +45,7 @@ class AdTokenTest {
     @Test
     void aTamperedPayloadOrAnotherSecretIsRefused() {
         UUID creative = UUID.randomUUID();
-        String token = tokens.issue(creative, PlacementKey.SEARCH_SPONSORED, null, null, NOW);
+        String token = tokens.issue(creative, PlacementKey.SEARCH_SPONSORED, null, null, null, NOW);
         String[] parts = token.split("\\.");
         String payload =
                 new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8)

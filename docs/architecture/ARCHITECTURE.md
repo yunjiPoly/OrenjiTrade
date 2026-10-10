@@ -1,7 +1,7 @@
 # OrenjiTrade — System Architecture
 
-OrenjiTrade is a geographic discovery network for trading cards: collectors publish binders and
-find each other on a map at approximate positions. This document is the map of the system;
+OrenjiTrade is a regional discovery network for trading cards: collectors publish binders and
+find each other per platform region and per state or province (ADR 0017: no positions). This document is the map of the system;
 decisions are recorded in [ADRs](adr/README.md).
 
 ## 1. System context
@@ -29,7 +29,6 @@ flowchart LR
   FB[Firebase Auth /<br/>Identity Platform]
   FCM[Firebase Cloud Messaging]
   Stripe[Stripe Connect]
-  GMaps[Google Maps Platform]
 
   Web --> CF --> LB
   Mobile --> CF
@@ -49,8 +48,6 @@ flowchart LR
   ApiRun -. verify token .-> FB
   ApiRun --> FCM
   ApiRun --> Stripe
-  Web -. tiles .-> GMaps
-  Mobile -. tiles .-> GMaps
 ```
 
 Domains: `www.orenjitrade.com` (web + `/admin`), `api.orenjitrade.com` (REST + WebSocket).
@@ -140,19 +137,23 @@ tests use a static verifier (ADR 0008).
 
 ## 5. Geographic privacy model
 
-See [ADR 0004](adr/0004-collector-location-privacy.md). Summary:
+See [ADR 0017](adr/0017-platform-regions-instead-of-geolocation.md) (it supersedes ADR 0004).
+Summary:
 
 ```mermaid
 flowchart LR
-  A[User picks trading area<br/>or shares device location] --> B[location module<br/>trading_area_center · radius]
-  B --> C[ApproximateLocationService<br/>1 km grid snap + deterministic jitter]
-  C --> D[(user_location.public_point<br/>GiST index)]
-  D --> E[/api/v1/collectors/nearby<br/>ST_DWithin on public_point/]
-  E --> F[Clients render approximate markers<br/>bucketed distance]
+  A[Collector picks region, country,<br/>state or province, optional city] --> B[location module<br/>user_location: ISO codes + city]
+  R[(platform_region · country ·<br/>subdivision, admin-editable)] --> B
+  B --> C[search module<br/>region-scoped queries, no distance]
+  C --> D[/regions/{region}/binder-counts<br/>/subdivisions/{code}/binders/]
+  D --> E[Web: Leaflet vector map of bundled<br/>Natural Earth boundaries, no tiles]
 ```
 
-Only `public_point` is ever read by public queries. Precise fields never reach DTOs, logs or
-analytics. A contract test rejects coordinates with more than 3 decimals in any response.
+There is no coordinate anywhere: no GPS, geocoding, IP geolocation, map provider or distance.
+Others see a collector's state or province and country; the city appears only on the owner's
+profile while shown. `GeoPrivacyContractTest` signs in as every seed account and fails on any
+coordinate, distance or radius field, any number with more than 3 decimals, "km away" wording or
+a city outside its owner's profile.
 
 ### Card catalog and images
 
@@ -219,13 +220,13 @@ flowchart LR
 
 Handlers are idempotent (notification dedup key = type + subject + recipient + day). Wishlist
 matching is deterministic SQL: new public item × wishlist items (game/card/printing/condition/
-price) × `ST_DWithin(public_point, wishlist owner public_point, radius)` × preferences.
+price) of collectors in the same platform region × preferences (no distance, ADR 0017).
 Periodic jobs (`/internal/jobs/freshness`, `/internal/jobs/delist`) run via Cloud Scheduler in
 the cloud and `@Scheduled` locally.
 
 ## 8. Analytics architecture
 
-Application → `AnalyticsEvent` (schema-versioned JSON, no PII, grid-cell geography only) →
+Application → `AnalyticsEvent` (schema-versioned JSON, no PII, region and subdivision codes only) →
 `EventTransport` → Pub/Sub `analytics-events` → BigQuery subscription → dataset
 `orenjitrade_analytics` (partitioned by day, clustered by `event_type`). Transformations with
 dbt later. Never query the transactional database for analytics.

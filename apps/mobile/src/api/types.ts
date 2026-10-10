@@ -23,9 +23,14 @@ export type AvatarResponse = Schemas['AvatarResponse'];
 export type GameResponse = Schemas['GameResponse'];
 
 export type MyLocationResponse = Schemas['MyLocationResponse'];
-export type TradingAreaResponse = Schemas['TradingAreaResponse'];
-export type UpdateTradingAreaRequest = Schemas['UpdateTradingAreaRequest'];
-export type TradingAreaSource = NonNullable<UpdateTradingAreaRequest['source']>;
+export type MyLocation = Schemas['MyLocation'];
+export type UpdateLocationRequest = Schemas['UpdateLocationRequest'];
+export type Place = Schemas['Place'];
+export type ProfileLocation = Schemas['ProfileLocation'];
+export type RegionsResponse = Schemas['RegionsResponse'];
+export type PlatformRegion = Schemas['PlatformRegion'];
+export type RegionCountry = Schemas['RegionCountry'];
+export type RegionSubdivision = Schemas['RegionSubdivision'];
 export type PrivacySettings = Schemas['PrivacySettings'];
 
 export type NotificationSettingsResponse = Schemas['NotificationSettingsResponse'];
@@ -37,7 +42,6 @@ export type CreateDeletionRequest = Schemas['CreateDeletionRequest'];
 export type AccountExport = Schemas['AccountExport'];
 
 export type CollectorProfileResponse = Schemas['CollectorProfileResponse'];
-export type DistanceBucket = NonNullable<Schemas['CollectorLocation']['distanceBucket']>;
 export type LastActiveBucket = CollectorProfileResponse['lastActiveBucket'];
 
 export type UserRole = MeResponse['roles'][number];
@@ -78,13 +82,10 @@ export type PublicInventoryItem = Schemas['PublicInventoryItem'];
 export type PublicInventoryPage = Schemas['PageResponsePublicInventoryItem'];
 export type ListingStatus = Schemas['ListingStatus'];
 
-// --- Map discovery + collectors (Phase 4) -------------------------------------------------------
-export type NearbyCollectorsResponse = Schemas['NearbyCollectorsResponse'];
+// --- Collectors, search and holders (Phase 4; region-scoped since ADR 0017) ---------------------
 export type CollectorMarker = Schemas['CollectorMarker'];
 export type MatchingItem = Schemas['MatchingItem'];
-export type CollectorPreview = Schemas['CollectorPreview'];
 export type CollectorRating = Schemas['CollectorRating'];
-export type PublicPoint = Schemas['PublicPoint'];
 export type PublicBinderSummary = Schemas['PublicBinderSummary'];
 export type RatingResponse = Schemas['RatingResponse'];
 export type RatingSummaryResponse = Schemas['RatingSummaryResponse'];

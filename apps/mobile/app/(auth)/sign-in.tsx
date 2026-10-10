@@ -76,7 +76,7 @@ export default function SignInScreen() {
           <Text style={{ color: palette.ink }}>Trade</Text>
         </Text>
         <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-          Find collectors near you who own, trade or want the cards you care about.
+          Find collectors in your region who own, trade or want the cards you care about.
         </Text>
       </View>
 

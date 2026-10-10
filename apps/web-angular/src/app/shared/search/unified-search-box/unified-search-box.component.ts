@@ -39,8 +39,8 @@ import {
   SUGGEST_MIN_CHARS,
 } from '../../catalog/catalog-constants';
 import { avatarColor } from '../../discovery/discovery-labels';
-import { initialsOf, roundCoordinate } from '../../domain/location-labels';
-import type { LatLng } from '../../map/map-adapter';
+import { initialsOf } from '../../domain/location-labels';
+import { RegionContext } from '../../../core/region/region-context.service';
 import { CardImageComponent } from '../../ui/card-image/card-image.component';
 import {
   SuggestionGroup,
@@ -59,8 +59,8 @@ const LIMIT = 10;
  * Unified search with mixed autocomplete (`GET /search/suggest`): cards, printings, sets,
  * collectors, public binders and tags, grouped by kind. The parent decides what a choice does
  * (`picked`) and what Enter without a highlighted entry does (`submitted`), so the map and the
- * search page can reuse it. Suggestions are ranked around `centre` when given (otherwise around
- * the signed-in collector's trading area on the server).
+ * search page can reuse it. Collectors and binders are suggested from one platform region:
+ * `region` when given, else the region the app browses (ADR 0017).
  */
 @Component({
   selector: 'app-unified-search-box',
@@ -181,11 +181,12 @@ const LIMIT = 10;
 export class UnifiedSearchBoxComponent {
   private readonly api = inject(SearchService);
   private readonly trigger = viewChild(MatAutocompleteTrigger);
+  private readonly context = inject(RegionContext);
 
   readonly label = input('Search cards, collectors, binders and tags');
   readonly placeholder = input('Search cards, collectors, binders, tags');
-  /** Centre used to rank nearby collectors (rounded; `null` = the caller's trading area). */
-  readonly centre = input<LatLng | null>(null);
+  /** Platform region of the collector and binder suggestions (`null` = the browsed region). */
+  readonly region = input<string | null>(null);
   /** Text shown in the field (e.g. the current `q`). */
   readonly value = input('');
   /** Keep the chosen entry's label in the field (search page) or clear it (map). */
@@ -249,15 +250,9 @@ export class UnifiedSearchBoxComponent {
             return EMPTY;
           }
           this.status.set('loading');
-          const centre = this.centre();
           return this.api
             .suggestSearch(
-              {
-                q,
-                limit: LIMIT,
-                lat: centre ? roundCoordinate(centre.lat) : undefined,
-                lng: centre ? roundCoordinate(centre.lng) : undefined,
-              },
+              { q, limit: LIMIT, region: this.region() ?? this.context.current() },
               'body',
               false,
               { context: silentErrors() },

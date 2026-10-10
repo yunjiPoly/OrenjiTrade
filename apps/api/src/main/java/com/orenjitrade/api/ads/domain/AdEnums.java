@@ -48,14 +48,15 @@ public final class AdEnums {
     }
 
     /**
-     * {@code ad_targeting_rule.kind}: never a point. GAME slug, REGION_LABEL (a public region label
-     * or one of its comma-separated parts), GEO_CELL (public ~1 km grid cell id), TAG slug, PLAN
-     * code (FREE, PREMIUM, ANONYMOUS).
+     * {@code ad_targeting_rule.kind}: never a point or a city. GAME slug, REGION (platform region
+     * code), COUNTRY (ISO 3166-1 alpha-2), SUBDIVISION (ISO 3166-2), TAG slug, PLAN code (FREE,
+     * PREMIUM, ANONYMOUS); ADR 0017.
      */
     public enum TargetingKind {
         GAME,
-        REGION_LABEL,
-        GEO_CELL,
+        REGION,
+        COUNTRY,
+        SUBDIVISION,
         TAG,
         PLAN
     }

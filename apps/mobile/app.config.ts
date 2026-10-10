@@ -5,18 +5,13 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  *
  * Only public values belong here. `EXPO_PUBLIC_*` variables are inlined into the JS bundle by
  * Expo, so they must never contain secrets (see root CLAUDE.md, "Never put secrets in frontend
- * bundles"). The Google Maps Android key is a browser/app-restricted public key; when it is not
- * set the Android map renders an empty canvas instead of crashing.
+ * bundles"). The app reads no device location and draws no map provider (ADR 0017): no Google
+ * Maps key, no location permission. `react-native-maps` stays installed (its plugin runs without
+ * a key, so no Maps API key meta-data is written) for a future native boundary map.
  */
 
 const WEB_HOSTS = ['www.orenjitrade.com', 'orenjitrade.com'] as const;
 const DEEP_LINK_PATH_PREFIXES = ['/collectors/', '/cards/', '/binders/'] as const;
-
-const googleMapsAndroidApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() || undefined;
-
-const LOCATION_PURPOSE =
-  'OrenjiTrade uses your approximate location only to suggest a trading area on the map. ' +
-  'Your exact position is never shared with other collectors.';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -34,9 +29,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     associatedDomains: WEB_HOSTS.map((host) => `applinks:${host}`),
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
-      // Ask iOS for reduced-accuracy location by default: the product only ever needs an
-      // approximate trading area (ADR 0004).
-      NSLocationDefaultAccuracyReduced: true,
     },
   },
   android: {
@@ -58,9 +50,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         category: ['BROWSABLE', 'DEFAULT'],
       },
     ],
-    ...(googleMapsAndroidApiKey
-      ? { config: { googleMaps: { apiKey: googleMapsAndroidApiKey } } }
-      : {}),
   },
   web: {
     bundler: 'metro',
@@ -81,16 +70,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         resizeMode: 'contain',
         backgroundColor: '#FFFBF7',
         dark: { backgroundColor: '#141210' },
-      },
-    ],
-    [
-      'expo-location',
-      {
-        locationWhenInUsePermission: LOCATION_PURPOSE,
-        locationAlwaysAndWhenInUsePermission: LOCATION_PURPOSE,
-        locationAlwaysPermission: LOCATION_PURPOSE,
-        isIosBackgroundLocationEnabled: false,
-        isAndroidBackgroundLocationEnabled: false,
       },
     ],
     [
@@ -125,13 +104,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         faceIDPermission: 'OrenjiTrade can use Face ID to unlock your saved session.',
       },
     ],
-    [
-      'react-native-maps',
-      {
-        // Undefined => the plugin removes the meta-data entry; nothing crashes without a key.
-        androidGoogleMapsApiKey: googleMapsAndroidApiKey,
-      },
-    ],
+    // No key: the plugin removes the Maps API key meta-data entry (ADR 0017).
+    'react-native-maps',
   ],
   experiments: {
     typedRoutes: true,

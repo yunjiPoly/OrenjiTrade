@@ -11,7 +11,7 @@ import {
   usePlans,
   useStartSubscriptionCheckout,
 } from '@/src/api/hooks/billing';
-import { useMyPlan } from '@/src/api/hooks/discovery';
+import { useMyPlan } from '@/src/api/hooks/plan';
 import { FEATURE, useFeatureFlags } from '@/src/api/hooks/featureFlags';
 import type { Plan } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
@@ -246,7 +246,7 @@ export default function PremiumScreen() {
         : {
             title: 'Cancel Premium now?',
             message:
-              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist, map radius and ads).',
+              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist and ads).',
             confirm: 'Cancel now',
             cancel: 'Keep Premium',
           };
@@ -256,7 +256,7 @@ export default function PremiumScreen() {
       <View style={styles.root}>
         <ScreenHeader
           title="Premium"
-          subtitle="More binder views and alerts, a wider map radius, advanced filters and no ads."
+          subtitle="More binder views and alerts, advanced filters and no ads."
         />
         {welcome ? (
           <View

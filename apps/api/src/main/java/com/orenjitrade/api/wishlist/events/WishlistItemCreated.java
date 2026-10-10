@@ -11,7 +11,6 @@ import java.util.UUID;
  * @param ownerId owner
  * @param game game slug
  * @param target {@code card} (any printing) or {@code printing}
- * @param radiusKm matching radius
  * @param hasMaxPrice whether a maximum price is set
  * @param tradePreference ANY, TRADE or SALE
  * @param occurredAt creation time
@@ -21,7 +20,6 @@ public record WishlistItemCreated(
         UUID ownerId,
         String game,
         String target,
-        int radiusKm,
         boolean hasMaxPrice,
         String tradePreference,
         Instant occurredAt) {}

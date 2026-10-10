@@ -32,8 +32,15 @@ class LimitsIT extends AbstractIntegrationTest {
     @Autowired private PlanService planService;
     @Autowired private Entitlements entitlements;
 
+    /**
+     * No CAP limit is seeded since the map radius was removed (ADR 0017); the cap mechanism stays
+     * in {@code Limits}, so the tests insert a FREE cap of 25 under this key and drop it after.
+     */
+    static final String TEST_CAP = "test.cap.probe";
+
     @AfterEach
     void restoreMigrationValues() {
+        testUsers.update("DELETE FROM usage_limit WHERE limit_key = ?", TEST_CAP);
         testUsers.update(
                 "UPDATE usage_limit l SET max_value = 30, limit_window = 'DAY', updated_by = NULL"
                         + " FROM plan p WHERE p.id = l.plan_id AND p.code = 'FREE' AND l.limit_key"
@@ -47,6 +54,14 @@ class LimitsIT extends AbstractIntegrationTest {
         testUsers.update(
                 "UPDATE plan SET monthly_price = 4.99, name = 'Premium', active = true,"
                         + " updated_by = NULL WHERE code = 'PREMIUM'");
+        planService.invalidate();
+    }
+
+    private void insertTestCap() {
+        testUsers.update(
+                "INSERT INTO usage_limit (plan_id, limit_key, kind, limit_window, max_value)"
+                        + " SELECT id, ?, 'CAP', 'TOTAL', 25 FROM plan WHERE code = 'FREE'",
+                TEST_CAP);
         planService.invalidate();
     }
 
@@ -109,7 +124,6 @@ class LimitsIT extends AbstractIntegrationTest {
                 .containsEntry("binder.views.per_day", 30)
                 .containsEntry("wishlist.alerts.per_day", 5)
                 .containsEntry("wishlist.items.max", 20)
-                .containsEntry("map.radius.max_km", 25)
                 .containsEntry("binders.max", 5)
                 .containsEntry("saved_searches.max", 0)
                 .containsEntry("offers.per_day", 20);
@@ -126,10 +140,11 @@ class LimitsIT extends AbstractIntegrationTest {
                 .containsEntry("binder.views.per_day", null)
                 .containsEntry("wishlist.alerts.per_day", null)
                 .containsEntry("wishlist.items.max", 500)
-                .containsEntry("map.radius.max_km", 100)
                 .containsEntry("binders.max", 50)
                 .containsEntry("saved_searches.max", 50)
                 .containsEntry("offers.per_day", 100);
+        assertThat(freeLimits).doesNotContainKey("map.radius.max_km");
+        assertThat(premiumLimits).doesNotContainKey("map.radius.max_km");
         assertThat(free.path("features").toString())
                 .contains("\"key\":\"filters.advanced\",\"enabled\":false")
                 .contains("\"key\":\"ads.enabled\",\"enabled\":true");
@@ -152,10 +167,7 @@ class LimitsIT extends AbstractIntegrationTest {
         Instant resetsAt = Instant.parse(views.path("resetsAt").asString());
         assertThat(resetsAt)
                 .isEqualTo(Instant.now().truncatedTo(ChronoUnit.DAYS).plus(1, ChronoUnit.DAYS));
-        JsonNode radius = limitOf(initial, "map.radius.max_km");
-        assertThat(radius.path("kind").asString()).isEqualTo("CAP");
-        assertThat(radius.path("limit").asInt()).isEqualTo(25);
-        assertThat(radius.has("resetsAt")).isFalse();
+        assertThat(initial.path("limits").toString()).doesNotContain("map.radius");
         assertThat(initial.path("features").path("filters.advanced").asBoolean()).isFalse();
         assertThat(initial.path("features").path("ads.enabled").asBoolean()).isTrue();
 
@@ -226,7 +238,6 @@ class LimitsIT extends AbstractIntegrationTest {
         assertThat(premiumPlan.path("plan").path("code").asString()).isEqualTo("PREMIUM");
         assertThat(premiumPlan.path("features").path("filters.advanced").asBoolean()).isTrue();
         assertThat(premiumPlan.path("features").path("ads.enabled").asBoolean()).isFalse();
-        assertThat(limitOf(premiumPlan, "map.radius.max_km").path("limit").asInt()).isEqualTo(100);
 
         // FREE user blocked, then an admin grant (unlimited) beats the plan value.
         String free = uniqueUid("limits-granted");
@@ -301,12 +312,18 @@ class LimitsIT extends AbstractIntegrationTest {
     void capsCompareTheRequestedValue() {
         String user = uniqueUid("limits-cap");
         provisionCompliant(user);
-        String uri = "/api/v1/test-probes/limits/map.radius.max_km/value?requested=";
+        insertTestCap();
+        JsonNode cap =
+                limitOf(callJson(HttpMethod.GET, "/api/v1/me/plan", user, null, 200), TEST_CAP);
+        assertThat(cap.path("kind").asString()).isEqualTo("CAP");
+        assertThat(cap.path("limit").asInt()).isEqualTo(25);
+        assertThat(cap.has("resetsAt")).isFalse();
+        String uri = "/api/v1/test-probes/limits/" + TEST_CAP + "/value?requested=";
         JsonNode within = callJson(HttpMethod.GET, uri + "25", user, null, 200);
         assertThat(within.path("limit").asInt()).isEqualTo(25);
         JsonNode beyond = callJson(HttpMethod.GET, uri + "30", user, null, 429);
         assertThat(beyond.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
-        assertThat(beyond.path("limitKey").asString()).isEqualTo("map.radius.max_km");
+        assertThat(beyond.path("limitKey").asString()).isEqualTo(TEST_CAP);
         assertThat(beyond.path("used").asLong()).isEqualTo(30);
         assertThat(beyond.has("resetsAt")).isFalse();
     }
@@ -327,7 +344,7 @@ class LimitsIT extends AbstractIntegrationTest {
         assertThat(plans.get(0).path("limits").get(0).has("id")).isTrue();
         JsonNode freeLimits =
                 callJson(HttpMethod.GET, "/api/v1/admin/usage-limits?plan=FREE", admin, null, 200);
-        assertThat(freeLimits.size()).isEqualTo(7);
+        assertThat(freeLimits.size()).isEqualTo(6);
         freeLimits.forEach(
                 limit -> assertThat(limit.path("planCode").asString()).isEqualTo("FREE"));
         callJson(HttpMethod.GET, "/api/v1/admin/usage-limits?plan=free", admin, null, 400);
@@ -348,9 +365,10 @@ class LimitsIT extends AbstractIntegrationTest {
                 superAdmin,
                 Map.of("unlimited", false, "maxValue", -1),
                 400);
+        insertTestCap();
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/usage-limits/" + limitId("FREE", "map.radius.max_km"),
+                "/api/v1/admin/usage-limits/" + limitId("FREE", TEST_CAP),
                 superAdmin,
                 Map.of("unlimited", false, "maxValue", 30, "window", "DAY"),
                 400);

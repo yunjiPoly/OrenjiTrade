@@ -22,10 +22,9 @@ import tools.jackson.databind.JsonNode;
  * protectedPayments}, {@code premiumPlans}, {@code credits}, {@code donations}, {@code advertising}
  * and {@code mlScanning} all off — the migration state since V105 — every money route refuses with
  * the existing {@code 404 FEATURE_DISABLED} Problem Details (extension {@code feature}), ads answer
- * an empty list, and everything else keeps working end to end: map discovery, a public listing and
- * a binder, the wishlist, messaging, an offer as a plain proposal, the trade agreed and completed
- * in person, a rating and a report. The plan endpoints stay readable because the mobile client
- * reads the map radius cap from them.
+ * an empty list, and everything else keeps working end to end: region discovery, a public listing
+ * and a binder, the wishlist, messaging, an offer as a plain proposal, the trade agreed and
+ * completed in person, a rating and a report. The plan endpoints stay readable.
  */
 class LaunchConfigurationIT extends AbstractOffersIT {
 
@@ -61,25 +60,21 @@ class LaunchConfigurationIT extends AbstractOffersIT {
 
     @Test
     void discoveryMessagingAndPlainTradesWorkWithEveryMoneyFlagOff() {
-        Centre centre = randomCentre();
-        Collector seller = collector("launch-seller", centre);
-        Collector buyer = collector("launch-buyer", centre.offset(2, 1));
+        Place place = americasNorth();
+        Collector seller = collector("launch-seller", place);
+        Collector buyer = collector("launch-buyer", place);
 
-        // Map discovery: both are discoverable and find each other (approximate positions only).
-        JsonNode nearby =
+        // Region discovery: both are discoverable and find each other (state/province only).
+        JsonNode found =
                 callJson(
                         HttpMethod.GET,
-                        "/api/v1/collectors/nearby?lat="
-                                + centre.lat()
-                                + "&lng="
-                                + centre.lng()
-                                + "&radiusKm=10",
+                        "/api/v1/search?types=collectors&region=americas-north&q="
+                                + seller.handle(),
                         buyer.uid(),
                         null,
                         200);
         List<String> handles = new ArrayList<>();
-        (nearby.has("collectors") ? nearby.path("collectors") : nearby.path("items"))
-                .forEach(marker -> handles.add(marker.path("handle").asString()));
+        found.path("collectors").forEach(marker -> handles.add(marker.path("handle").asString()));
         assertThat(handles).contains(seller.handle());
 
         // Inventory, binder and wishlist.
@@ -146,8 +141,8 @@ class LaunchConfigurationIT extends AbstractOffersIT {
         callJson(HttpMethod.POST, "/api/v1/ratings", buyer.uid(), rating, 201);
         report(buyer, seller, "SPAM", null, 201);
 
-        // Plans stay readable (the mobile client reads the map radius cap there); the plan
-        // answer still names the upgrade page as data, clients hide it while the flag is off.
+        // Plans stay readable; the plan answer still names the upgrade page as data, clients hide
+        // it while the flag is off.
         callJson(HttpMethod.GET, "/api/v1/plans", null, null, 200);
         callJson(HttpMethod.GET, "/api/v1/me/plan", buyer.uid(), null, 200);
     }

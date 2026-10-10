@@ -1,5 +1,11 @@
 # Phase 4 contract — map discovery and unified search
 
+> **Superseded in part by ADR 0017 (2026-10-08).** `/collectors/nearby`, the collector preview,
+> `lat` / `lng` / `radiusKm`, public points, distance buckets, the distance sort and the
+> `map.radius` limit are removed. Discovery is scoped to a platform region (`region` parameter)
+> and the map is a choropleth of binder counts per state or province: see
+> [s1-regions-location.md](s1-regions-location.md). The rest of this page is kept for history.
+
 All under `/api/v1`. Discovery reads work for anonymous users with reduced detail
 (anonymous: no distance buckets, no messaging CTA). Every response obeys ADR 0004: only
 `publicPoint` (≤3 decimals) and `distanceBucket`.

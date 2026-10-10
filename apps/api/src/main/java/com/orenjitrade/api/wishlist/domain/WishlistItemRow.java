@@ -19,7 +19,6 @@ import org.jspecify.annotations.Nullable;
  * @param language required language
  * @param maxPrice maximum asking price
  * @param currency currency of the maximum price
- * @param radiusKm matching radius
  * @param tradePreference trade preference
  * @param notes private notes of the owner
  * @param active whether new publications are matched
@@ -40,7 +39,6 @@ public record WishlistItemRow(
         @Nullable String language,
         @Nullable BigDecimal maxPrice,
         String currency,
-        int radiusKm,
         TradePreference tradePreference,
         String notes,
         boolean active,

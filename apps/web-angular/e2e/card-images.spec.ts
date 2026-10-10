@@ -189,7 +189,7 @@ test.describe('card pictures', () => {
   }) => {
     test.setTimeout(150_000);
     const guard = await guardProvider(page);
-    const owner = await createOnboardedCollector(request, 'picowner', { tradingArea: true });
+    const owner = await createOnboardedCollector(request, 'picowner', { location: true });
     await apiUpdatePrivacy(request, owner.idToken, { discoverable: true });
     const binder = await apiCreateBinder(request, owner.idToken, {
       name: 'E2E picture binder',

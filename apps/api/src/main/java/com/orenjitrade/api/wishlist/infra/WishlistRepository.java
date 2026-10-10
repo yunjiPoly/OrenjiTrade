@@ -37,7 +37,7 @@ public class WishlistRepository {
     private static final String SELECT =
             "SELECT w.id, w.owner_id, w.game_slug, w.card_id, w.printing_id, w.rarity,"
                     + " w.condition_min, w.edition, w.language, w.max_price, w.currency,"
-                    + " w.radius_km, w.trade_preference, w.notes, w.active, w.created_at,"
+                    + " w.trade_preference, w.notes, w.active, w.created_at,"
                     + " w.updated_at, w.last_matched_at, "
                     + MATCH_COUNT
                     + " AS match_count FROM wishlist_item w";
@@ -112,10 +112,10 @@ public class WishlistRepository {
                         """
                         INSERT INTO wishlist_item (id, owner_id, game_slug, card_id, printing_id,
                                rarity, condition_min, edition, language, max_price, currency,
-                               radius_km, trade_preference, notes, active, created_at, updated_at)
+                               trade_preference, notes, active, created_at, updated_at)
                         VALUES (:id, :ownerId, :gameSlug, :cardId, :printingId, :rarity,
                                 :conditionMin, :edition, :language, :maxPrice, :currency,
-                                :radiusKm, :tradePreference, :notes, :active, :now, :now)
+                                :tradePreference, :notes, :active, :now, :now)
                         """)
                 .param("id", id)
                 .param("now", Timestamp.from(now))
@@ -130,7 +130,7 @@ public class WishlistRepository {
                            SET printing_id = :printingId, rarity = :rarity,
                                condition_min = :conditionMin, edition = :edition,
                                language = :language, max_price = :maxPrice, currency = :currency,
-                               radius_km = :radiusKm, trade_preference = :tradePreference,
+                               trade_preference = :tradePreference,
                                notes = :notes, active = :active, updated_at = :now
                          WHERE id = :id AND owner_id = :ownerId
                         """)
@@ -183,7 +183,6 @@ public class WishlistRepository {
         params.put("language", values.language());
         params.put("maxPrice", values.maxPrice());
         params.put("currency", values.currency());
-        params.put("radiusKm", values.radiusKm());
         params.put("tradePreference", values.tradePreference().name());
         params.put("notes", values.notes());
         params.put("active", values.active());
@@ -204,7 +203,6 @@ public class WishlistRepository {
                 rs.getString("language"),
                 rs.getBigDecimal("max_price"),
                 rs.getString("currency").trim(),
-                rs.getInt("radius_km"),
                 TradePreference.valueOf(rs.getString("trade_preference")),
                 rs.getString("notes"),
                 rs.getBoolean("active"),
@@ -227,7 +225,6 @@ public class WishlistRepository {
      * @param language language or {@code null}
      * @param maxPrice maximum price or {@code null}
      * @param currency currency
-     * @param radiusKm radius
      * @param tradePreference trade preference
      * @param notes private notes
      * @param active active
@@ -243,7 +240,6 @@ public class WishlistRepository {
             @Nullable String language,
             @Nullable BigDecimal maxPrice,
             String currency,
-            int radiusKm,
             TradePreference tradePreference,
             String notes,
             boolean active) {}

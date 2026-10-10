@@ -5,20 +5,12 @@ import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { SwitchRow } from '@/src/components/ui/FormControls';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
-import { Stepper } from '@/src/components/ui/Stepper';
 import { TextField } from '@/src/components/ui/TextField';
 import { editionLabel, languageName } from '@/src/lib/catalog';
 import { CURRENCIES, conditionLabel } from '@/src/lib/inventory';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
-import {
-  ANY,
-  WISH_NOTES_MAX,
-  WISH_RADIUS_MIN_KM,
-  nextWishRadius,
-  type WishFormErrors,
-  type WishFormValue,
-} from './wishForm';
+import { ANY, WISH_NOTES_MAX, type WishFormErrors, type WishFormValue } from './wishForm';
 import { TRADE_PREFERENCES, printingOptionLabel, tradePreferenceInfo } from './wishlistLabels';
 
 /** Options of a schema list, keeping the current value even if the schema does not list it. */
@@ -36,18 +28,15 @@ export interface WishCriteriaFieldsProps {
   errors: WishFormErrors;
   schema: GameSchema | null;
   printings: readonly PrintingSummary[];
-  /** Largest radius offered (plan cap, at most 100 km). */
-  radiusMax: number;
-  /** The plan's `map.radius.max_km` (`null` = unlimited, `undefined` = not known yet). */
-  radiusCap: number | null | undefined;
   disabled?: boolean;
 }
 
 /**
  * Every criterion of a wish (the web's `app-wish-criteria-fields`): printing or any, minimum
  * condition, edition, language and rarity from the game's `GameSchema`, maximum price and
- * currency, what the collector accepts (trade / buy), the matching radius bounded by the plan,
- * private notes and the alert switch. Inline validation messages.
+ * currency, what the collector accepts (trade / buy), private notes and the alert switch. A wish
+ * matches listings of the collector's own region (ADR 0017): no radius. Inline validation
+ * messages.
  */
 export function WishCriteriaFields({
   value,
@@ -55,18 +44,12 @@ export function WishCriteriaFields({
   errors,
   schema,
   printings,
-  radiusMax,
-  radiusCap,
   disabled = false,
 }: WishCriteriaFieldsProps) {
   const { palette } = useTheme();
   const set = <K extends keyof WishFormValue>(key: K, next: WishFormValue[K]) =>
     onChange({ ...value, [key]: next });
   const anyPrinting = !value.printingId;
-  const radiusHint =
-    radiusCap === undefined || radiusCap === null
-      ? 'Distances are measured between approximate public locations.'
-      : `Your plan matches collectors up to ${radiusCap} km away. Distances are approximate.`;
 
   const printingOptions = [
     { value: ANY, label: 'Any printing' },
@@ -200,26 +183,6 @@ export function WishCriteriaFields({
         />
       </SectionCard>
 
-      <SectionCard title="Distance">
-        <Stepper
-          label="Collectors within"
-          value={value.radiusKm}
-          format={(km) => `${km} km`}
-          min={WISH_RADIUS_MIN_KM}
-          max={radiusMax}
-          next={nextWishRadius}
-          onChange={(next) => set('radiusKm', next)}
-          disabled={disabled}
-          testID="wish-radius"
-        />
-        {errors.radiusKm ? (
-          <Text accessibilityRole="alert" style={[textStyle('xs'), { color: palette.danger }]}>
-            {errors.radiusKm}
-          </Text>
-        ) : null}
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{radiusHint}</Text>
-      </SectionCard>
-
       <SectionCard title="Notes and alerts">
         <TextField
           label="Private notes"
@@ -236,7 +199,7 @@ export function WishCriteriaFields({
           label="Match alerts on"
           help={
             value.active
-              ? 'We notify you when a collector nearby lists a match.'
+              ? 'We notify you when a collector of your region lists a match.'
               : 'Paused: this wish does not match or notify until you turn it back on.'
           }
           value={value.active}

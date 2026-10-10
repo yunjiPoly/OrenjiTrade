@@ -227,15 +227,14 @@ describe('Public binder', () => {
     });
   }
 
-  it('shows someone else’s binder: owner area, distance bucket and public cards only', async () => {
+  it('shows someone else’s binder: owner state and public cards only, never a distance', async () => {
     const api = mockApi(publicRoutes());
     renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByTestId('public-binder-title')).toHaveTextContent(
       'Yu-Gi-Oh! trade binder'
     );
-    expect(screen.getByTestId('public-binder-owner-area')).toHaveTextContent(
-      'Near Plateau-Mont-Royal, Montréal · 1–5 km away'
-    );
+    expect(screen.getByTestId('public-binder-owner-area')).toHaveTextContent('Quebec, Canada');
+    expect(screen.queryByText(/km/)).toBeNull();
     expect(await screen.findByText('Azure-Eyes Sky Dragon')).toBeOnTheScreen();
     expect(screen.getByText('“Pack fresh.”')).toBeOnTheScreen();
     // No owner actions, no coordinates.

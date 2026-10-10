@@ -3,10 +3,8 @@ import { WishlistItemResponseTradePreferenceEnum as Trade } from '@orenji/api-cl
 import {
   ANY,
   applyServerErrors,
-  clampRadius,
   createWishForm,
   newWishDefaults,
-  radiusSliderMax,
   toCreateWishRequest,
   toUpdateWishRequest,
   wishFieldError,
@@ -25,7 +23,6 @@ function item(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
     language: 'en',
     maxPrice: 25,
     currency: 'USD',
-    radiusKm: 12,
     tradePreference: Trade.Sale,
     notes: 'For my deck',
     active: false,
@@ -37,19 +34,8 @@ function item(overrides: Partial<WishlistItemResponse> = {}): WishlistItemRespon
 }
 
 describe('wishlist form', () => {
-  it('bounds the radius slider by the plan (100 km at most, unlimited plans included)', () => {
-    expect(radiusSliderMax(25)).toBe(25);
-    expect(radiusSliderMax(null)).toBe(100);
-    expect(radiusSliderMax(undefined)).toBe(100);
-    expect(radiusSliderMax(500)).toBe(100);
-    expect(radiusSliderMax(0)).toBe(1);
-    expect(clampRadius(40, 25)).toBe(25);
-    expect(clampRadius(0, 25)).toBe(1);
-    expect(clampRadius(Number.NaN, 100)).toBe(25);
-  });
-
-  it('starts a new wish on any printing (or the given one) with the default radius', () => {
-    expect(newWishDefaults(null, 25)).toEqual({
+  it('starts a new wish on any printing (or the given one), without a radius', () => {
+    expect(newWishDefaults(null)).toEqual({
       printingId: ANY,
       conditionMin: ANY,
       edition: ANY,
@@ -57,18 +43,17 @@ describe('wishlist form', () => {
       rarity: ANY,
       maxPrice: null,
       currency: 'CAD',
-      radiusKm: 25,
       tradePreference: 'ANY',
       notes: '',
       active: true,
     });
-    expect(newWishDefaults('p1', 10).printingId).toBe('p1');
-    expect(newWishDefaults('p1', 10).radiusKm).toBe(10);
+    expect(newWishDefaults('p1').printingId).toBe('p1');
+    expect(newWishDefaults('p1')).not.toHaveProperty('radiusKm');
   });
 
   it('sends the card for "any printing" (with the rarity) and the printing otherwise', () => {
     const anyPrinting = toCreateWishRequest(
-      { ...newWishDefaults(null, 25), rarity: 'Ultra Rare', maxPrice: 60, notes: '  ' },
+      { ...newWishDefaults(null), rarity: 'Ultra Rare', maxPrice: 60, notes: '  ' },
       'c1',
     );
     expect(anyPrinting).toEqual({
@@ -76,13 +61,12 @@ describe('wishlist form', () => {
       rarity: 'Ultra Rare',
       maxPrice: 60,
       currency: 'CAD',
-      radiusKm: 25,
       tradePreference: 'ANY',
       active: true,
     });
     const onePrinting = toCreateWishRequest(
       {
-        ...newWishDefaults('p1', 25),
+        ...newWishDefaults('p1'),
         rarity: 'Ultra Rare',
         conditionMin: 'LIGHTLY_PLAYED',
         language: 'fr',
@@ -96,7 +80,6 @@ describe('wishlist form', () => {
       language: 'fr',
       notes: 'Deck',
       currency: 'CAD',
-      radiusKm: 25,
       tradePreference: 'ANY',
       active: true,
     });
@@ -112,7 +95,6 @@ describe('wishlist form', () => {
       rarity: ANY,
       maxPrice: 25,
       currency: 'USD',
-      radiusKm: 12,
       tradePreference: 'SALE',
       notes: 'For my deck',
       active: false,
@@ -127,7 +109,6 @@ describe('wishlist form', () => {
       language: null,
       maxPrice: null,
       currency: 'USD',
-      radiusKm: 12,
       tradePreference: 'SALE',
       notes: 'For my deck',
       active: false,
@@ -135,7 +116,7 @@ describe('wishlist form', () => {
   });
 
   it('validates like the API with friendly messages', () => {
-    const form = createWishForm(newWishDefaults(null, 25));
+    const form = createWishForm(newWishDefaults(null));
     form.controls.maxPrice.setValue(-1);
     expect(wishFieldError('maxPrice', form.controls.maxPrice.errors)).toBe(
       'The price cannot be negative.',
@@ -152,19 +133,18 @@ describe('wishlist form', () => {
     );
     form.controls.currency.setValue('cad');
     expect(wishFieldError('currency', form.controls.currency.errors)).toContain('three-letter');
-    expect(wishFieldError('radiusKm', null)).toBeNull();
+    expect(wishFieldError('notes', null)).toBeNull();
   });
 
   it('puts the API field errors on their controls', () => {
-    const form = createWishForm(newWishDefaults(null, 25));
+    const form = createWishForm(newWishDefaults(null));
     const unmapped = applyServerErrors(form, {
-      radiusKm: 'must be between 1 and 20000',
+      notes: 'must not contain a link',
       cardId: 'unknown card',
+      radiusKm: 'no longer exists',
     });
-    expect(form.controls.radiusKm.errors).toEqual({ server: 'must be between 1 and 20000' });
-    expect(wishFieldError('radiusKm', form.controls.radiusKm.errors)).toBe(
-      'must be between 1 and 20000',
-    );
-    expect(unmapped).toEqual(['cardId: unknown card']);
+    expect(form.controls.notes.errors).toEqual({ server: 'must not contain a link' });
+    expect(wishFieldError('notes', form.controls.notes.errors)).toBe('must not contain a link');
+    expect(unmapped).toEqual(['cardId: unknown card', 'radiusKm: no longer exists']);
   });
 });

@@ -1,5 +1,10 @@
 # Phase 10 contract — plans, entitlements, usage limits, credits, ads, donations, billing abstraction
 
+> **ADR 0017 (2026-10-08):** the `map.radius.max_km` limit and the `map_radius_day` credit
+> product are removed; ad targeting kinds are `GAME`, `REGION`, `COUNTRY`, `SUBDIVISION`, `TAG`,
+> `PLAN` (no `REGION_LABEL` / `GEO_CELL`), and impressions record region and subdivision codes.
+> See [s1-regions-location.md](s1-regions-location.md).
+
 ## Plans and limits (ADR 0014)
 
 Tables: `plan(id, code FREE|PREMIUM|…, name, description, monthly_price, currency, active, sort_order)`,

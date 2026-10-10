@@ -8,7 +8,5 @@
     "appId": ""
   },
   "firebaseAuthEmulatorHost": "localhost:9099",
-  "googleMapsApiKey": "",
-  "googleMapsMapId": "",
   "environment": "local"
 }

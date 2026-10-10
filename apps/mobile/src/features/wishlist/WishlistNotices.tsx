@@ -10,25 +10,22 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 import { WISH_ITEMS_LIMIT_KEY } from './wishForm';
 
 /**
- * Whether the collector can get matches: the matcher measures distances between approximate
- * public points, and the API keeps one only for a discoverable collector with a trading area.
- * `unknown` until `GET /me/location` answers (web: `matchReadiness`).
+ * Whether the collector can get matches: the matcher pairs wishes with listings of collectors in
+ * the same platform region (ADR 0017), so the collector needs a location. `unknown` until
+ * `GET /me/location` answers (web: `matchReadiness`).
  */
-export type MatchReadiness = 'unknown' | 'ready' | 'no-area' | 'hidden';
+export type MatchReadiness = 'unknown' | 'ready' | 'no-location';
 
 export function matchReadiness(location: MyLocationResponse | null | undefined): MatchReadiness {
   if (!location) {
     return 'unknown';
   }
-  if (!location.tradingArea) {
-    return 'no-area';
-  }
-  return location.discoverable && location.publicPoint ? 'ready' : 'hidden';
+  return location.location ? 'ready' : 'no-location';
 }
 
 export type WishFilter = 'all' | 'matches' | 'paused';
 
-/** Wishes shown by a filter: all, those with matches nearby, or the paused ones. */
+/** Wishes shown by a filter: all, those with matches in the region, or the paused ones. */
 export function filterWishes(
   items: readonly WishlistItemResponse[],
   filter: WishFilter
@@ -63,23 +60,16 @@ const HINTS: Partial<
     { icon: IconName; title: string; text: string; action: string; link: string }
   >
 > = {
-  'no-area': {
+  'no-location': {
     icon: 'map-marker-off-outline',
-    title: 'Set your trading area to get matches',
-    text: 'Matches are collectors near your approximate trading area. Choose it once (a neighbourhood is enough) and new listings nearby will reach you.',
-    action: 'Set trading area',
-    link: '/settings/location',
-  },
-  hidden: {
-    icon: 'eye-off-outline',
-    title: 'Show yourself on the map to get matches',
-    text: 'Distances are measured between approximate public areas, and yours only exists while you are discoverable. Your exact location is never shown.',
-    action: 'Location settings',
+    title: 'Choose your location to get matches',
+    text: 'Matches are listings of collectors in your region. Pick your country and state or province once and new listings of your region will reach you.',
+    action: 'Choose my location',
     link: '/settings/location',
   },
 };
 
-/** Why no match can arrive yet (no trading area, or not discoverable), with the fix. */
+/** Why no match can arrive yet (no location), with the fix. */
 export function MatchReadinessNotice({ readiness }: { readiness: MatchReadiness }) {
   const { palette } = useTheme();
   const router = useRouter();

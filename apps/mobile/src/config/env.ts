@@ -24,8 +24,6 @@ export interface RawEnv {
   firebaseAppId?: string;
   /** `host:port`, or `off` to talk to the real Firebase project. */
   authEmulatorHost?: string;
-  /** The project's own Google Maps Android key (public, app-restricted), baked into a build. */
-  googleMapsApiKey?: string;
   /** Google OAuth client ids of the Firebase project (public), one per platform. */
   googleWebClientId?: string;
   googleAndroidClientId?: string;
@@ -45,11 +43,6 @@ export interface AppConfig {
   firebase: FirebaseWebConfig;
   /** `host:port` of the Firebase Auth emulator, or `null` for the real Firebase project. */
   authEmulatorHost: string | null;
-  /**
-   * Whether the build carries the project's own Google Maps Android key (app.config.ts). Without
-   * it, Android maps use the Leaflet + OpenStreetMap fallback (src/components/map/mapEngine.ts).
-   */
-  googleMapsKeyConfigured: boolean;
   /**
    * Google sign-in OAuth client ids (public values from the Firebase project; empty until the
    * project exists, see docs/deployment/DEFERRED.md): `web` for the web build and the Auth
@@ -88,7 +81,6 @@ export function readRawEnv(): RawEnv {
     firebaseProjectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
     firebaseAppId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     authEmulatorHost: process.env.EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST,
-    googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
     googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
@@ -125,7 +117,6 @@ export function resolveConfig(raw: RawEnv, platform: RuntimePlatform): AppConfig
     apiBaseUrl,
     firebase,
     authEmulatorHost,
-    googleMapsKeyConfigured: clean(raw.googleMapsApiKey) !== undefined,
     googleClientIds: {
       web: clean(raw.googleWebClientId) ?? null,
       android: clean(raw.googleAndroidClientId) ?? null,

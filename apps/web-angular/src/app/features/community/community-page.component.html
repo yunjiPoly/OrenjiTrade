@@ -4,7 +4,7 @@
       <h1 class="community__title">Community</h1>
       <p class="community__subtitle">
         Public channels by region, game and topic. Ask around, show off new listings and find trades
-        near you.
+        in your region.
       </p>
     </div>
     @if (auth.isAuthenticated() && store.channelsStatus() === 'ready') {
@@ -26,7 +26,7 @@
     <app-empty-state
       icon="forum"
       title="The community is for members"
-      description="Sign in to read and post in the channels of collectors near you."
+      description="Sign in to read and post in the channels of your region and games."
     >
       <a
         actions
@@ -94,8 +94,8 @@
                     }
                     @if (channel.regionLabel) {
                       <span class="channel-head__pill">
-                        <mat-icon aria-hidden="true">location_on</mat-icon>
-                        {{ channel.regionLabel }}
+                        <mat-icon aria-hidden="true">public</mat-icon>
+                        {{ regionName(channel.regionLabel) }}
                       </span>
                     }
                     <span class="channel-head__activity" data-testid="channel-activity">

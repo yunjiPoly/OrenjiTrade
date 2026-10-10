@@ -3,8 +3,8 @@
     <p class="onboarding__eyebrow">Welcome to OrenjiTrade</p>
     <h1 class="onboarding__title">Let's set up your collector profile</h1>
     <p class="onboarding__subtitle">
-      A few quick steps so collectors nearby can find you. You can change everything later in
-      Settings.
+      A few quick steps so collectors in your region can find you. You can change everything later
+      in Settings.
     </p>
   </header>
 
@@ -128,14 +128,19 @@
         </div>
       </mat-step>
 
-      <mat-step label="Trading area">
+      <mat-step label="Location">
         <ng-template matStepContent>
-          <h2 class="onboarding__step-title">Where do you trade?</h2>
+          <h2 class="onboarding__step-title">Where are you?</h2>
           <p class="onboarding__step-text">
-            Choose the area where you like to meet or ship from. Only an approximate point is ever
-            shown to others.
+            Pick your country and your state or province: they set your region and where your
+            binders appear on the map. Others only ever see your state or province; your city is
+            optional and shown only on your profile if you want.
           </p>
-          <app-trading-area-picker [value]="area()" (valueChange)="area.set($event)" />
+          <app-location-fields
+            [value]="location()"
+            [showErrors]="locationSubmitted()"
+            (valueChange)="location.set($event)"
+          />
 
           <div class="onboarding__discover">
             <mat-slide-toggle
@@ -146,8 +151,8 @@
               Show me on the map
             </mat-slide-toggle>
             <p class="onboarding__step-text" id="discover-help">
-              When on, collectors nearby see your approximate area and can find your public binders.
-              Off by default; change it anytime in Settings → Privacy.
+              When on, collectors of your region see your state or province and can find your public
+              binders. Off by default; change it anytime in Settings → Privacy.
             </p>
           </div>
 
@@ -165,7 +170,7 @@
               [disabled]="busy() !== null"
               (click)="finish(true)"
             >
-              @if (busy() === 'area') {
+              @if (busy() === 'location') {
                 <mat-spinner diameter="18" aria-hidden="true" />
               }
               Finish

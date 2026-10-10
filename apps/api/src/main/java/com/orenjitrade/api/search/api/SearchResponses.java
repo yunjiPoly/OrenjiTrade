@@ -1,7 +1,6 @@
 package com.orenjitrade.api.search.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.orenjitrade.api.binders.api.PublicBinderResponses.PublicBinderSummaryResponse;
 import com.orenjitrade.api.cards.domain.CardSummary;
 import com.orenjitrade.api.cards.domain.CatalogResolution;
@@ -10,17 +9,13 @@ import com.orenjitrade.api.cards.domain.SetSummary;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.api.InventoryResponses.PublicInventoryItemResponse;
 import com.orenjitrade.api.inventory.domain.Availability;
-import com.orenjitrade.api.location.domain.DistanceBucket;
-import com.orenjitrade.api.location.domain.PublicPoint;
-import com.orenjitrade.api.location.domain.SearchCentre;
+import com.orenjitrade.api.location.api.PlaceResponse;
 import com.orenjitrade.api.profiles.api.CollectorProfileResponse.CollectorRating;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
 import com.orenjitrade.api.profiles.domain.RatingSummary;
 import com.orenjitrade.api.search.domain.CollectorMarker;
 import com.orenjitrade.api.search.domain.DiscoveryResults.CardHolder;
-import com.orenjitrade.api.search.domain.DiscoveryResults.CollectorPreview;
-import com.orenjitrade.api.search.domain.DiscoveryResults.NearbyResult;
 import com.orenjitrade.api.search.domain.DiscoveryResults.Suggestion;
 import com.orenjitrade.api.search.domain.DiscoveryResults.UnifiedSearch;
 import com.orenjitrade.api.search.domain.MatchingItem;
@@ -35,63 +30,19 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Response DTOs of map discovery and search (Phase 4 contract). Geography is only ever the derived
- * public point (3 decimals), the snapped search centre (2 decimals), a region label and a distance
- * bucket (ADR 0004); never a trading-area centre, never raw distances.
+ * Response DTOs of search (Phase 4 contract). Geography is only ever a collector's state/province
+ * and country ({@link PlaceResponse}, ADR 0017): never a city, a coordinate or a distance.
  */
 public final class SearchResponses {
 
     private SearchResponses() {}
 
-    /** The centre a search looked around. */
-    @Schema(
-            name = "SearchCentre",
-            description =
-                    "Centre of a geographic search, snapped to 0.01° (about 1 km): the given"
-                            + " lat/lng or the caller's own trading area")
-    public record SearchCentreResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "45.52") double lat,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "-73.58") double lng) {
-
-        static SearchCentreResponse from(SearchCentre centre) {
-            return new SearchCentreResponse(centre.lat(), centre.lng());
-        }
-    }
-
-    /** {@code GET /collectors/nearby}. */
-    @Schema(
-            name = "NearbyCollectorsResponse",
-            description = "Collectors on the map around a centre")
-    public record NearbyCollectorsResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED) SearchCentreResponse center,
-            @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
-                            example = "10",
-                            description = "Radius used (plan-capped, 0.1 km steps)")
-                    double radiusKm,
-            @Schema(requiredMode = RequiredMode.REQUIRED) List<CollectorMarkerResponse> collectors,
-            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Matching collectors")
-                    long total,
-            @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
-                            description = "Whether more collectors match than returned (`limit`)")
-                    boolean truncated) {
-
-        static NearbyCollectorsResponse from(NearbyResult result) {
-            return new NearbyCollectorsResponse(
-                    SearchCentreResponse.from(result.centre()),
-                    result.radiusKm(),
-                    result.collectors().stream().map(CollectorMarkerResponse::from).toList(),
-                    result.total(),
-                    result.truncated());
-        }
-    }
-
-    /** A collector on the map. */
+    /** A discoverable collector in search results. */
     @Schema(
             name = "CollectorMarker",
             description =
-                    "A collector on the map at the derived public point (never the real location)")
+                    "A discoverable collector with their state/province and country (never a city,"
+                            + " a coordinate or a distance)")
     public record CollectorMarkerResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "maika") String handle,
@@ -99,16 +50,7 @@ public final class SearchResponses {
                     String displayName,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String avatarUrl,
-            @Schema(requiredMode = RequiredMode.REQUIRED) PublicPoint publicPoint,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Plateau-Mont-Royal, Montréal")
-                    String publicLabel,
-            @Schema(
-                            nullable = true,
-                            description =
-                                    "Distance class from the search centre; null for signed-out"
-                                            + " callers and collectors who hide distances")
-                    @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable DistanceBucket distanceBucket,
+            @Schema(requiredMode = RequiredMode.REQUIRED) PlaceResponse place,
             @Schema(requiredMode = RequiredMode.REQUIRED) CollectorRating rating,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "[\"trader\"]")
                     List<String> tags,
@@ -119,8 +61,8 @@ public final class SearchResponses {
             @Schema(
                             nullable = true,
                             description =
-                                    "Best freshness of the public listings (ACTIVE or AGING on the"
-                                            + " map); null without public listings")
+                                    "Best freshness of the public listings (ACTIVE or AGING in"
+                                            + " search); null without public listings")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable FreshnessState binderFreshness,
             @Schema(requiredMode = RequiredMode.REQUIRED) int publicBinderCount,
@@ -139,9 +81,7 @@ public final class SearchResponses {
                     marker.handle(),
                     marker.displayName(),
                     marker.avatarUrl(),
-                    marker.publicPoint(),
-                    marker.publicLabel(),
-                    marker.distanceBucket(),
+                    PlaceResponse.from(marker.place()),
                     ratingOf(marker.rating()),
                     marker.tags(),
                     marker.games(),
@@ -194,63 +134,6 @@ public final class SearchResponses {
         }
     }
 
-    /** {@code GET /collectors/{handle}/preview}: the marker plus messaging state. */
-    @Schema(name = "CollectorPreview", description = "Map preview card of a collector")
-    public record CollectorPreviewResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "maika") String handle,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String displayName,
-            @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String avatarUrl,
-            @Schema(requiredMode = RequiredMode.REQUIRED) PublicPoint publicPoint,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String publicLabel,
-            @Schema(
-                            nullable = true,
-                            description =
-                                    "Distance class from the given centre or the caller's trading"
-                                            + " area; null for signed-out callers")
-                    @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable DistanceBucket distanceBucket,
-            @Schema(requiredMode = RequiredMode.REQUIRED) CollectorRating rating,
-            @Schema(requiredMode = RequiredMode.REQUIRED) List<String> tags,
-            @Schema(requiredMode = RequiredMode.REQUIRED) List<String> games,
-            @Schema(requiredMode = RequiredMode.REQUIRED) LastActiveBucket lastActiveBucket,
-            @Schema(requiredMode = RequiredMode.REQUIRED) OnlineStatus onlineStatus,
-            @Schema(nullable = true, description = "Null without public listings")
-                    @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable FreshnessState binderFreshness,
-            @Schema(requiredMode = RequiredMode.REQUIRED) int publicBinderCount,
-            @Schema(requiredMode = RequiredMode.REQUIRED) long publicItemCount,
-            @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
-                            description = "Whether the caller may start a conversation")
-                    boolean canMessage,
-            @Schema(requiredMode = RequiredMode.REQUIRED) @JsonProperty("isBlocked")
-                    boolean isBlocked) {
-
-        static CollectorPreviewResponse from(CollectorPreview preview) {
-            CollectorMarker marker = preview.marker();
-            return new CollectorPreviewResponse(
-                    marker.id(),
-                    marker.handle(),
-                    marker.displayName(),
-                    marker.avatarUrl(),
-                    marker.publicPoint(),
-                    marker.publicLabel(),
-                    marker.distanceBucket(),
-                    ratingOf(marker.rating()),
-                    marker.tags(),
-                    marker.games(),
-                    marker.lastActiveBucket(),
-                    marker.onlineStatus(),
-                    marker.binderFreshness(),
-                    marker.publicBinderCount(),
-                    marker.publicItemCount(),
-                    preview.canMessage(),
-                    preview.blocked());
-        }
-    }
-
     /** What the query designates unambiguously. */
     @Schema(
             name = "SearchResolution",
@@ -277,9 +160,16 @@ public final class SearchResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) List<SetSummary> sets,
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
+                            example = "americas-north",
                             description =
-                                    "Holders of the resolved printing/card (with matchingItems),"
-                                            + " otherwise collectors matching the text")
+                                    "Platform region the collectors and binders were searched in")
+                    String region,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Holders of the resolved printing/card in the region (with"
+                                            + " matchingItems), otherwise collectors of the region"
+                                            + " matching the text")
                     List<CollectorMarkerResponse> collectors,
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
@@ -293,6 +183,7 @@ public final class SearchResponses {
                     search.cards(),
                     search.printings(),
                     search.sets(),
+                    search.region(),
                     search.collectors().stream().map(CollectorMarkerResponse::from).toList(),
                     search.binders().stream()
                             .map(hit -> PublicBinderSummaryResponse.from(hit, now))
@@ -302,7 +193,7 @@ public final class SearchResponses {
     }
 
     /** One holder of a card. */
-    @Schema(name = "CardHolderResult", description = "A collector near you holding the card")
+    @Schema(name = "CardHolderResult", description = "A collector of the region holding the card")
     public record CardHolderResultResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) CollectorMarkerResponse collector,
             @Schema(requiredMode = RequiredMode.REQUIRED) PublicInventoryItemResponse item) {

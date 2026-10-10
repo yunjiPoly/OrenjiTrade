@@ -326,7 +326,7 @@ export class ItemDetailsFieldsComponent {
       case 'PRIVATE':
         return 'Private: prepare it now and publish it later. Only you can see it.';
       case 'PUBLIC':
-        return 'Public: collectors near you can find it once its binder (if any) is public.';
+        return 'Public: collectors of your region can find it once its binder (if any) is public.';
       default:
         return 'Temporarily public: visible for the time you choose, then private again.';
     }

@@ -17,7 +17,7 @@ export type MatchesStatus = 'loading' | 'ready' | 'error';
 
 /**
  * The matches of one wish (`GET /wishlist/{id}/matches`, newest first, cursor pages): each a
- * public item with its owner's marker (public point, distance bucket) and the dismiss action
+ * public item with its owner's marker (state/province and country) and the dismiss action
  * (`POST /wishlist/matches/{id}/dismiss`, optimistic). A WISHLIST_MATCH notification pushed for
  * this wish brings the new match in without a reload.
  *

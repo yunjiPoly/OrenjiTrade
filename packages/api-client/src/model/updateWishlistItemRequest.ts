@@ -20,7 +20,6 @@ export interface UpdateWishlistItemRequest {
     language?: string | null;
     maxPrice?: number | null;
     currency?: string;
-    radiusKm?: number;
     tradePreference?: UpdateWishlistItemRequestTradePreferenceEnum;
     notes?: string | null;
     active?: boolean;

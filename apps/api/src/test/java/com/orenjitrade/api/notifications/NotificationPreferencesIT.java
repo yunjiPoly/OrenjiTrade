@@ -180,13 +180,13 @@ class NotificationPreferencesIT extends AbstractWishlistIT {
 
     // ---------------------------------------------------------------------------------------
 
-    /** A wisher with an active wish for Azure-Eyes and a seller 3 km away. */
+    /** A wisher with an active wish for Azure-Eyes and a seller of the same region. */
     private record Pair(Collector wisher, Collector seller, UUID printing, String wishId) {}
 
     private Pair pair(String prefix) {
-        Centre centre = randomCentre();
-        Collector wisher = collector(prefix + "-w", centre);
-        Collector seller = collector(prefix + "-s", centre.offset(3, 0));
+        Place place = americasNorth();
+        Collector wisher = collector(prefix + "-w", place);
+        Collector seller = collector(prefix + "-s", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
         return new Pair(wisher, seller, azure, wishId);

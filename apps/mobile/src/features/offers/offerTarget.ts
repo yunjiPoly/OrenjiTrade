@@ -1,17 +1,17 @@
 import type {
   CollectorMarker,
-  CollectorPreview,
   MatchingItem,
   OfferParty,
   PublicInventoryItem,
 } from '@/src/api/types';
 import { printingCode, printingImageUrl } from '@/src/lib/catalog';
+import { placeLabel } from '@/src/lib/place';
 
 import { allowedOfferKinds } from './offerLabels';
 
 /**
- * What the "Make an offer" form shows about the seller: identity and, when known, the
- * approximate place (a region label only; never a point). Mirror of the web's
+ * What the "Make an offer" form shows about the seller: identity and, when known, the place (a
+ * state or province, ADR 0017). Mirror of the web's
  * `shared/offers/offer-target.ts`.
  */
 export interface OfferSeller {
@@ -64,7 +64,7 @@ export function offerTargetFromItem(item: PublicInventoryItem, seller: OfferSell
   };
 }
 
-/** A matching listing of a map marker ("Who has this near me"), with the card's picture. */
+/** A matching listing of a collector result ("Who has this in my region"), with the card's picture. */
 export function offerTargetFromMatch(
   item: MatchingItem,
   seller: OfferSeller,
@@ -88,25 +88,14 @@ export function offerTargetFromMatch(
   };
 }
 
-/** Seller block from a map marker. */
+/** Seller block from a collector result (card holders, wishlist matches). */
 export function sellerFromMarker(collector: CollectorMarker): OfferSeller {
   return {
     id: collector.id,
     displayName: collector.displayName,
     handle: collector.handle,
     avatarUrl: collector.avatarUrl ?? null,
-    placeLabel: collector.publicLabel,
-  };
-}
-
-/** Seller block from a map preview. */
-export function sellerFromPreview(preview: CollectorPreview): OfferSeller {
-  return {
-    id: preview.id,
-    displayName: preview.displayName,
-    handle: preview.handle,
-    avatarUrl: preview.avatarUrl ?? null,
-    placeLabel: preview.publicLabel ?? null,
+    placeLabel: placeLabel(collector.place),
   };
 }
 
@@ -117,7 +106,7 @@ export function sellerFromParty(party: OfferParty): OfferSeller {
     displayName: party.displayName,
     handle: party.handle,
     avatarUrl: party.avatarUrl ?? null,
-    placeLabel: party.location?.publicLabel ?? null,
+    placeLabel: placeLabel(party.place),
   };
 }
 

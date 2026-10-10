@@ -38,17 +38,8 @@ export const meKeys = {
   binderItems: (uid: Uid, id: string, filters: object) =>
     [...ME_ROOT, uidKey(uid), 'binders', 'items', id, filters] as const,
   listingStatus: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'listing-status'] as const,
-  /** The caller's plan (`GET /me/plan`: limits such as `map.radius.max_km`). */
+  /** The caller's plan (`GET /me/plan`: limits such as `binders.max`). */
   plan: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'plan'] as const,
-  /**
-   * Map discovery as this viewer sees it (distance buckets, blocks and visibility depend on who
-   * asks): `GET /collectors/nearby` answers and previews.
-   */
-  discovery: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'discovery'] as const,
-  nearby: (uid: Uid, params: object) =>
-    [...ME_ROOT, uidKey(uid), 'discovery', 'nearby', params] as const,
-  preview: (uid: Uid, handle: string, centre: object | null) =>
-    [...ME_ROOT, uidKey(uid), 'discovery', 'preview', handle, centre] as const,
   /** Another collector as this viewer sees them: profile, binders, cards, ratings, references. */
   collector: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase()] as const,
@@ -67,7 +58,7 @@ export const meKeys = {
   blocks: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'blocks'] as const,
   /**
    * Unified search and card holders as this viewer sees them (`GET /search`,
-   * `GET /search/card-holders`: distance buckets and blocks depend on who asks).
+   * `GET /search/card-holders`: the platform region and blocks depend on who asks).
    */
   search: (uid: Uid, params: object) => [...ME_ROOT, uidKey(uid), 'search', params] as const,
   cardHolders: (uid: Uid, params: object) =>
@@ -141,8 +132,8 @@ export const meKeys = {
    * every placement (prefix), one placement for a game and a plan.
    */
   ads: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'ads'] as const,
-  adSlot: (uid: Uid, placement: string, game: string | null, plan: string | null) =>
-    [...ME_ROOT, uidKey(uid), 'ads', placement, game ?? '', plan ?? ''] as const,
+  adSlot: (uid: Uid, placement: string, game: string | null, plan: string | null, region: string) =>
+    [...ME_ROOT, uidKey(uid), 'ads', placement, game ?? '', plan ?? '', region] as const,
 };
 
 export const publicKeys = {
@@ -159,9 +150,11 @@ export const publicKeys = {
   featureFlags: (uid: Uid) => ['public', 'feature-flags', uidKey(uid)] as const,
   /** The public supporters wall (`GET /public/donations/supporters`). */
   supporters: ['public', 'donations', 'supporters'] as const,
+  /** Platform regions, countries and subdivisions (`GET /regions`, ADR 0017). */
+  regions: ['public', 'regions'] as const,
   /** The reasons of the "Report collector" dialog (`GET /public/report-reasons`). */
   reportReasons: ['public', 'report-reasons'] as const,
-  /** A public binder as one viewer sees it (the owner block's distance bucket depends on them). */
+  /** A public binder as one viewer sees it (blocks and the view limit depend on them). */
   publicBinder: (id: string, uid: Uid) => ['public', 'binders', id, uidKey(uid)] as const,
   publicBinderItems: (id: string, uid: Uid, filters: object) =>
     ['public', 'binders', id, uidKey(uid), 'items', filters] as const,

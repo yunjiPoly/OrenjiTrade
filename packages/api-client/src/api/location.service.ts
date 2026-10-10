@@ -21,7 +21,7 @@ import { MyLocationResponse } from '../model/myLocationResponse';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 // @ts-ignore
-import { UpdateTradingAreaRequest } from '../model/updateTradingAreaRequest';
+import { UpdateLocationRequest } from '../model/updateLocationRequest';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -29,7 +29,7 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     LocationServiceInterface,
-    UpdateMyTradingAreaRequestParams
+    UpdateMyLocationRequestParams
 } from './location.serviceInterface';
 
 
@@ -45,7 +45,7 @@ export class LocationService extends BaseService implements LocationServiceInter
 
     /**
      * Remove the caller\&#39;s location
-     * Deletes every location row; the collector disappears from the map.
+     * Deletes the location; discoverability is turned off with it (it needs a country and a state/province).
      * @endpoint delete /api/v1/me/location
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
@@ -100,8 +100,8 @@ export class LocationService extends BaseService implements LocationServiceInter
     }
 
     /**
-     * The caller\&#39;s trading area and public point
-     * The only endpoint that returns the caller\&#39;s chosen centre. &#x60;publicPoint&#x60; is what other collectors see and is null while not discoverable.
+     * The caller\&#39;s location
+     * Country, state/province, optional city and the show-city switch. &#x60;location&#x60; is null while none is set (the caller cannot be discoverable then).
      * @endpoint get /api/v1/me/location
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
@@ -157,21 +157,21 @@ export class LocationService extends BaseService implements LocationServiceInter
     }
 
     /**
-     * Set the caller\&#39;s trading area
-     * Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km grid cell and offsets it with a deterministic per-user jitter to derive &#x60;publicPoint&#x60; (3 decimals) and its region label.
-     * @endpoint put /api/v1/me/location/trading-area
+     * Set the caller\&#39;s location
+     * &#x60;countryCode&#x60; must be an active country and &#x60;subdivisionCode&#x60; one of its subdivisions (&#x60;GET /regions&#x60;); unknown codes are 400 VALIDATION_FAILED. &#x60;city&#x60; is optional free text (trimmed, at most 80 characters, moderated, never geocoded) shown only on the caller\&#39;s own public profile while &#x60;showCity&#x60; is true (default). Everywhere else other collectors see the state/province and the country only.
+     * @endpoint put /api/v1/me/location
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public updateMyTradingArea(requestParameters: UpdateMyTradingAreaRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<MyLocationResponse>;
-    public updateMyTradingArea(requestParameters: UpdateMyTradingAreaRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<MyLocationResponse>>;
-    public updateMyTradingArea(requestParameters: UpdateMyTradingAreaRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<MyLocationResponse>>;
-    public updateMyTradingArea(requestParameters: UpdateMyTradingAreaRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        const updateTradingAreaRequest = requestParameters?.updateTradingAreaRequest;
-        if (updateTradingAreaRequest === null || updateTradingAreaRequest === undefined) {
-            throw new Error('Required parameter updateTradingAreaRequest was null or undefined when calling updateMyTradingArea.');
+    public updateMyLocation(requestParameters: UpdateMyLocationRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<MyLocationResponse>;
+    public updateMyLocation(requestParameters: UpdateMyLocationRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<MyLocationResponse>>;
+    public updateMyLocation(requestParameters: UpdateMyLocationRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<MyLocationResponse>>;
+    public updateMyLocation(requestParameters: UpdateMyLocationRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const updateLocationRequest = requestParameters?.updateLocationRequest;
+        if (updateLocationRequest === null || updateLocationRequest === undefined) {
+            throw new Error('Required parameter updateLocationRequest was null or undefined when calling updateMyLocation.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -212,12 +212,12 @@ export class LocationService extends BaseService implements LocationServiceInter
             }
         }
 
-        let localVarPath = `/api/v1/me/location/trading-area`;
+        let localVarPath = `/api/v1/me/location`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<MyLocationResponse>('put', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
-                body: updateTradingAreaRequest,
+                body: updateLocationRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

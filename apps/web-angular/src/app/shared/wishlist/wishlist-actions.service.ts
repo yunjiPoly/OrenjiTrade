@@ -17,10 +17,10 @@ export interface WishPreset {
 export function addedMessage(item: WishlistItemResponse): string {
   const name = item.card?.name ?? 'The card';
   if (item.matchCount > 0) {
-    return `${name} is on your wishlist: ${matchCountLabel(item.matchCount)} nearby already.`;
+    return `${name} is on your wishlist: ${matchCountLabel(item.matchCount)} in your region already.`;
   }
   return item.active
-    ? `${name} is on your wishlist. We'll tell you when a collector nearby lists it.`
+    ? `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`
     : `${name} is on your wishlist (alerts paused).`;
 }
 

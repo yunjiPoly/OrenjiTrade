@@ -1,0 +1,83 @@
+# The Map tab and other collectors' places (ADR 0017): a seed collector (collector1, Quebec) opens
+# the app on the Map tab, which names the home region and leads to region-scoped search (the
+# region map is not drawn in the app yet; no tile server, no GPS); then Sofia's profile (seed
+# collector5, California, showing her city) shows her state and city, never a distance or a zone.
+# The seed account is only signed in to.
+appId: host.exp.exponent
+name: Map placeholder and a collector's place
+tags:
+  - mobile-m3
+  - map
+---
+# The seed predates the 18+ rule: its confirmation is recorded through the API first (the
+# onboarding age step is proven by age-step-existing-account.yaml).
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'map-placeholder'
+    timeout: 30000
+- assertVisible: 'The region map is coming to the app'
+- assertVisible: 'Americas \(North\)'
+- assertNotVisible:
+    id: 'map-choose-location'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'map-privacy-note'
+- assertVisible:
+    id: 'map-privacy-note'
+    text: '.*never uses your GPS.*'
+- takeScreenshot: map-placeholder
+
+# "Search your region" opens the Search tab.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'map-placeholder-action'
+- tapOn:
+    id: 'map-placeholder-action'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 30000
+
+# Sofia's profile (deep link): her state and the city she shows, never a distance or a zone.
+- openLink: ${APP_URL}/--/collectors/collector5
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: 'Sofia Nguyen'
+    timeout: 60000
+- assertVisible:
+    id: 'collector-location'
+    text: 'Los Angeles, California, United States'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-area-note'
+- assertVisible:
+    id: 'collector-area-note'
+    text: 'On the map in California, United States.*'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: collector-profile-place
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-binders'
+- assertVisible:
+    id: 'collector-ratings'

@@ -6,15 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
+import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,9 +23,9 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Helpers of the Phase 4 discovery and search integration tests. Every test works around its own
- * random centre far from Montréal (where the seed and the other suites place their collectors), so
- * the shared database never leaks other tests' collectors into a radius.
+ * Helpers of the region search integration tests (ADR 0017). Regions are shared by every test of
+ * the suite, so a test isolates itself with its own catalog card ({@link #isolatedPrinting}: a
+ * clone of a mock printing under a unique name and code) and its own text tokens, never by place.
  */
 abstract class AbstractSearchIT extends AbstractIntegrationTest {
 
@@ -38,33 +36,9 @@ abstract class AbstractSearchIT extends AbstractIntegrationTest {
         InventoryTestSupport.ensureCatalog(importService);
     }
 
-    /** A random centre with 2 decimals, far from the Montréal test data (and from the poles). */
-    static Centre randomCentre() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        double lat = round2(random.nextDouble(-50, 40));
-        double lng = round2(random.nextDouble(-60, 170));
-        return new Centre(lat, lng);
-    }
-
-    /**
-     * A centre with 2 decimals.
-     *
-     * @param lat latitude
-     * @param lng longitude
-     */
-    record Centre(double lat, double lng) {
-
-        /** The point {@code northKm} north and {@code eastKm} east of this centre. */
-        Centre offset(double northKm, double eastKm) {
-            double dLat = northKm / 111.2;
-            double dLng = eastKm / (111.32 * Math.cos(Math.toRadians(lat)));
-            return new Centre(lat + dLat, lng + dLng);
-        }
-
-        /** {@code lat=..&lng=..} */
-        String query() {
-            return "lat=" + lat + "&lng=" + lng;
-        }
+    /** A random alphabetic token no other test uses (names are matched by substring). */
+    static String token() {
+        return InventoryTestSupport.token();
     }
 
     /**
@@ -76,27 +50,34 @@ abstract class AbstractSearchIT extends AbstractIntegrationTest {
      */
     record Collector(String uid, UUID id, String handle) {}
 
-    /** A discoverable collector (MEMBERS profile) with a trading area at {@code at}. */
-    Collector collector(String prefix, Centre at) {
-        return collector(prefix, at, true, "MEMBERS");
+    /** A discoverable collector (MEMBERS profile) in Quebec, Canada (Americas (North)). */
+    Collector collector(String prefix) {
+        return collector(prefix, "CA", "CA-QC", true, "MEMBERS");
     }
 
-    Collector collector(String prefix, Centre at, boolean discoverable, String visibility) {
+    /** A discoverable collector (MEMBERS profile) located in {@code subdivision}. */
+    Collector collector(String prefix, String country, String subdivision) {
+        return collector(prefix, country, subdivision, true, "MEMBERS");
+    }
+
+    Collector collector(
+            String prefix,
+            String country,
+            String subdivision,
+            boolean discoverable,
+            String visibility) {
         String uid = uniqueUid(prefix);
-        UUID id = provisionCompliant(uid);
+        provisionCompliantWithoutLocation(uid);
+        setLocation(uid, country, subdivision, null);
         callJson(
                 HttpMethod.PUT,
                 "/api/v1/me/settings/privacy",
                 uid,
                 privacy(discoverable, visibility),
                 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                uid,
-                Map.of("lat", at.lat(), "lng", at.lng(), "radiusKm", 5),
-                200);
-        return new Collector(uid, id, me(uid).path("handle").asString());
+        JsonNode me = me(uid);
+        return new Collector(
+                uid, UUID.fromString(me.path("id").asString()), me.path("handle").asString());
     }
 
     /** Saves the profile (display name, games) keeping the handle. */
@@ -161,8 +142,14 @@ abstract class AbstractSearchIT extends AbstractIntegrationTest {
                         .get("card_id");
     }
 
-    JsonNode nearby(@Nullable String uid, String query) {
-        return callJson(HttpMethod.GET, "/api/v1/collectors/nearby?" + query, uid, null, 200);
+    /** A catalog card of this test only ({@link InventoryTestSupport#isolatedCard}). */
+    IsolatedCard isolatedPrinting(String ref) {
+        return InventoryTestSupport.isolatedCard(testUsers, ref);
+    }
+
+    /** Another printing of an isolated card. */
+    UUID siblingPrinting(IsolatedCard card, String ref, @Nullable String language) {
+        return InventoryTestSupport.siblingPrinting(testUsers, card, ref, language);
     }
 
     /**
@@ -183,7 +170,7 @@ abstract class AbstractSearchIT extends AbstractIntegrationTest {
         return jsonMapper.readTree(text);
     }
 
-    /** Handles of the collectors of a nearby / search response or a card-holder page. */
+    /** Handles of the collectors of a search response or a card-holder page. */
     static List<String> handles(JsonNode response) {
         List<String> handles = new ArrayList<>();
         JsonNode collectors = response.has("collectors") ? response.path("collectors") : null;
@@ -196,7 +183,7 @@ abstract class AbstractSearchIT extends AbstractIntegrationTest {
         return handles;
     }
 
-    /** The marker of {@code handle} in a nearby / search response. */
+    /** The marker of {@code handle} in a search response. */
     static JsonNode marker(JsonNode response, String handle) {
         for (JsonNode marker : response.path("collectors")) {
             if (handle.equals(marker.path("handle").asString())) {
@@ -204,18 +191,5 @@ abstract class AbstractSearchIT extends AbstractIntegrationTest {
             }
         }
         throw new AssertionError(handle + " not in " + response);
-    }
-
-    /** Stored public point of a user (tests only). */
-    double[] publicPoint(UUID id) {
-        Map<String, Object> stored = testUsers.locationOf(id);
-        return new double[] {
-            ((Number) stored.get("public_lat")).doubleValue(),
-            ((Number) stored.get("public_lng")).doubleValue()
-        };
-    }
-
-    static double round2(double value) {
-        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 }

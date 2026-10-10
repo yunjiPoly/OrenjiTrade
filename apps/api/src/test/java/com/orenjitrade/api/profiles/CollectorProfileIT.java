@@ -21,14 +21,12 @@ class CollectorProfileIT extends AbstractIntegrationTest {
 
     static Map<String, Object> privacy(
             boolean discoverable,
-            boolean showDistance,
             boolean showOnlineStatus,
             boolean showLastActive,
             String visibility,
             String messaging) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("discoverable", discoverable);
-        body.put("showDistance", showDistance);
         body.put("showOnlineStatus", showOnlineStatus);
         body.put("showLastActive", showLastActive);
         body.put("profileVisibility", visibility);
@@ -60,12 +58,18 @@ class CollectorProfileIT extends AbstractIntegrationTest {
         callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", collector.uid(), privacy, 200);
     }
 
-    private void setArea(Collector collector, double lat, double lng) {
+    private void setLocation(
+            Collector collector,
+            String country,
+            String subdivision,
+            String city,
+            boolean showCity) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("lat", lat);
-        body.put("lng", lng);
-        body.put("radiusKm", 5);
-        callJson(HttpMethod.PUT, "/api/v1/me/location/trading-area", collector.uid(), body, 200);
+        body.put("countryCode", country);
+        body.put("subdivisionCode", subdivision);
+        body.put("city", city);
+        body.put("showCity", showCity);
+        callJson(HttpMethod.PUT, "/api/v1/me/location", collector.uid(), body, 200);
     }
 
     private JsonNode view(Collector viewer, String handle, int status) {
@@ -120,7 +124,7 @@ class CollectorProfileIT extends AbstractIntegrationTest {
     @Test
     void privateProfilesExistOnlyForTheirOwner() {
         Collector target = collector("coll-private");
-        setPrivacy(target, privacy(true, true, false, true, "PRIVATE", "EVERYONE"));
+        setPrivacy(target, privacy(true, false, true, "PRIVATE", "EVERYONE"));
         Collector viewer = collector("coll-private-viewer");
 
         JsonNode notFound = view(viewer, target.handle(), 404);
@@ -128,48 +132,40 @@ class CollectorProfileIT extends AbstractIntegrationTest {
         assertThat(view(target, target.handle(), 200).path("handle").asString())
                 .isEqualTo(target.handle());
 
-        setPrivacy(target, privacy(true, true, false, true, "PUBLIC", "EVERYONE"));
+        setPrivacy(target, privacy(true, false, true, "PUBLIC", "EVERYONE"));
         view(viewer, target.handle(), 200);
     }
 
     @Test
-    void locationAndDistanceFollowDiscoverabilityAndShowDistance() {
+    void theLocationShowsStateAndCountryAndTheCityOnlyWhileShown() {
         Collector target = collector("coll-geo");
-        setArea(target, 45.522, -73.581);
+        setLocation(target, "CA", "CA-BC", "Port Coquitlam", true);
         Collector viewer = collector("coll-geo-viewer");
 
-        assertThat(view(viewer, target.handle(), 200).path("location").isNull()).isTrue();
+        assertThat(view(viewer, target.handle(), 200).path("location").isNull())
+                .as("not discoverable")
+                .isTrue();
 
-        setPrivacy(target, privacy(true, true, false, true, "MEMBERS", "MEMBERS_WITH_PROFILE"));
+        setPrivacy(target, privacy(true, false, true, "MEMBERS", "MEMBERS_WITH_PROFILE"));
         JsonNode location = view(viewer, target.handle(), 200).path("location");
-        Map<String, Object> stored = testUsers.locationOf(target.id());
-        assertThat(location.path("publicPoint").path("lat").asDouble())
-                .isEqualTo(((Number) stored.get("public_lat")).doubleValue());
-        assertThat(location.path("publicPoint").path("lng").asDouble())
-                .isEqualTo(((Number) stored.get("public_lng")).doubleValue());
-        assertThat(location.path("publicLabel").asString()).isEqualTo(stored.get("public_label"));
-        assertThat(location.has("distanceBucket")).isTrue();
-        assertThat(location.path("distanceBucket").isNull())
-                .as("the viewer has no trading area")
-                .isTrue();
+        assertThat(location.path("regionCode").asString()).isEqualTo("americas-north");
+        assertThat(location.path("countryCode").asString()).isEqualTo("CA");
+        assertThat(location.path("subdivisionCode").asString()).isEqualTo("CA-BC");
+        assertThat(location.path("label").asString()).isEqualTo("British Columbia, Canada");
+        assertThat(location.path("city").asString()).isEqualTo("Port Coquitlam");
+        assertThat(location.has("publicPoint")).isFalse();
+        assertThat(location.has("distanceBucket")).isFalse();
 
-        setArea(viewer, 45.458, -73.568); // Verdun, ~7 km away
-        assertThat(
-                        view(viewer, target.handle(), 200)
-                                .path("location")
-                                .path("distanceBucket")
-                                .asString())
-                .isEqualTo("KM_5_10");
+        // "Show my city on my profile" off: state/province + country only.
+        setLocation(target, "CA", "CA-BC", "Port Coquitlam", false);
+        JsonNode hidden = view(viewer, target.handle(), 200);
+        assertThat(hidden.path("location").path("city").isNull()).isTrue();
+        assertThat(hidden.toString()).doesNotContain("Port Coquitlam");
+        assertThat(view(target, target.handle(), 200).toString())
+                .as("the public profile hides it from its owner too")
+                .doesNotContain("Port Coquitlam");
 
-        setPrivacy(target, privacy(true, false, false, true, "MEMBERS", "MEMBERS_WITH_PROFILE"));
-        assertThat(
-                        view(viewer, target.handle(), 200)
-                                .path("location")
-                                .path("distanceBucket")
-                                .isNull())
-                .isTrue();
-
-        setPrivacy(target, privacy(false, true, false, true, "MEMBERS", "MEMBERS_WITH_PROFILE"));
+        setPrivacy(target, privacy(false, false, true, "MEMBERS", "MEMBERS_WITH_PROFILE"));
         assertThat(view(viewer, target.handle(), 200).path("location").isNull()).isTrue();
     }
 
@@ -178,7 +174,7 @@ class CollectorProfileIT extends AbstractIntegrationTest {
         Collector target = collector("coll-switches");
         Collector viewer = collector("coll-switches-viewer");
 
-        setPrivacy(target, privacy(false, true, true, false, "MEMBERS", "NOBODY"));
+        setPrivacy(target, privacy(false, true, false, "MEMBERS", "NOBODY"));
         JsonNode hidden = view(viewer, target.handle(), 200);
         assertThat(hidden.path("lastActiveBucket").asString()).isEqualTo("HIDDEN");
         assertThat(hidden.path("onlineStatus").asString()).isEqualTo("OFFLINE");
@@ -187,7 +183,7 @@ class CollectorProfileIT extends AbstractIntegrationTest {
         assertThat(view(target, target.handle(), 200).path("lastActiveBucket").asString())
                 .isNotEqualTo("HIDDEN");
 
-        setPrivacy(target, privacy(false, true, false, true, "MEMBERS", "EVERYONE"));
+        setPrivacy(target, privacy(false, false, true, "MEMBERS", "EVERYONE"));
         testUsers.setLastActive(target.id(), Instant.now().minus(Duration.ofDays(3)));
         JsonNode shown = view(viewer, target.handle(), 200);
         assertThat(shown.path("lastActiveBucket").asString()).isEqualTo("THIS_WEEK");

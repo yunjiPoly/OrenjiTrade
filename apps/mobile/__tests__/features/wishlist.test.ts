@@ -1,18 +1,13 @@
 import { ApiError } from '@/src/api/ApiError';
-import { mapParamsFor } from '@/src/features/wishlist/WishMatchCard';
+import { holdersParamsFor } from '@/src/features/wishlist/WishMatchCard';
 import {
-  DEFAULT_WISH_RADIUS_KM,
-  clampRadius,
   hasWishErrors,
   newWishDefaults,
-  nextWishRadius,
   parsePrice,
-  radiusMaxFor,
   toCreateWishRequest,
   toUpdateWishRequest,
   validateWish,
   wishFormFromItem,
-  wishRadiusCap,
   wishSaveError,
 } from '@/src/features/wishlist/wishForm';
 import {
@@ -37,24 +32,8 @@ import {
 } from '../support/fixtures';
 
 describe('wish form', () => {
-  it('bounds the radius by the plan (FREE default until known, 100 km when unlimited)', () => {
-    expect(wishRadiusCap(undefined)).toBeUndefined();
-    expect(wishRadiusCap(planFixture(25))).toBe(25);
-    expect(wishRadiusCap(planFixture(null))).toBeNull();
-    expect(wishRadiusCap({ limits: [] })).toBeNull();
-    expect(radiusMaxFor(undefined)).toBe(DEFAULT_WISH_RADIUS_KM);
-    expect(radiusMaxFor(null)).toBe(100);
-    expect(radiusMaxFor(250)).toBe(100);
-    expect(radiusMaxFor(10.7)).toBe(10);
-    expect(clampRadius(40, 25)).toBe(25);
-    expect(clampRadius(0, 25)).toBe(1);
-    expect(clampRadius(Number.NaN, 100)).toBe(25);
-    expect([1, 9, 10, 12, 15].map((km) => nextWishRadius(km, 1))).toEqual([2, 10, 15, 15, 20]);
-    expect([2, 10, 12, 15].map((km) => nextWishRadius(km, -1))).toEqual([1, 9, 10, 10]);
-  });
-
-  it('starts new wishes with any printing, no filter and the default radius', () => {
-    expect(newWishDefaults(null, 10)).toEqual({
+  it('starts new wishes with any printing and no filter (no radius: the region, ADR 0017)', () => {
+    expect(newWishDefaults(null)).toEqual({
       printingId: '',
       conditionMin: '',
       edition: '',
@@ -62,48 +41,46 @@ describe('wish form', () => {
       rarity: '',
       maxPrice: '',
       currency: 'CAD',
-      radiusKm: 10,
       tradePreference: 'ANY',
       notes: '',
       active: true,
     });
-    expect(newWishDefaults(PRINTING_A, 100).printingId).toBe(PRINTING_A);
-    expect(newWishDefaults(PRINTING_A, 100).radiusKm).toBe(25);
+    expect(newWishDefaults(PRINTING_A).printingId).toBe(PRINTING_A);
     expect(wishFormFromItem(wishFixture())).toMatchObject({
       conditionMin: 'LIGHTLY_PLAYED',
       maxPrice: '25',
-      radiusKm: 10,
       notes: 'For my deck.',
     });
+    expect(wishFormFromItem(wishFixture())).not.toHaveProperty('radiusKm');
   });
 
   it('validates like the API', () => {
-    const value = newWishDefaults(null, 25);
-    expect(validateWish(value, 25)).toEqual({});
+    const value = newWishDefaults(null);
+    expect(validateWish(value)).toEqual({});
     expect(parsePrice('')).toBeNull();
     expect(parsePrice('12,50')).toBe(12.5);
     expect(Number.isNaN(parsePrice('abc') as number)).toBe(true);
-    const errors = validateWish(
-      { ...value, maxPrice: '1.234', currency: 'cad', radiusKm: 40, notes: 'x'.repeat(501) },
-      25
-    );
+    const errors = validateWish({
+      ...value,
+      maxPrice: '1.234',
+      currency: 'cad',
+      notes: 'x'.repeat(501),
+    });
     expect(errors).toEqual({
       maxPrice: 'Use at most two decimals.',
       currency: 'Use a three-letter currency code, like CAD.',
-      radiusKm: 'Your plan matches collectors up to 25 km away.',
       notes: 'Notes are limited to 500 characters.',
     });
     expect(hasWishErrors(errors)).toBe(true);
-    expect(validateWish({ ...value, maxPrice: '-3' }, 25).maxPrice).toBe(
+    expect(validateWish({ ...value, maxPrice: '-3' }).maxPrice).toBe(
       'The price cannot be negative.'
     );
-    expect(validateWish({ ...value, maxPrice: 'abc' }, 25).maxPrice).toBe('Enter a valid price.');
-    expect(validateWish({ ...value, radiusKm: 0 }, 25).radiusKm).toBe('Choose at least 1 km.');
+    expect(validateWish({ ...value, maxPrice: 'abc' }).maxPrice).toBe('Enter a valid price.');
   });
 
   it('builds the create body (card with any printing, rarity only then) and the full PATCH', () => {
     const any = {
-      ...newWishDefaults(null, 25),
+      ...newWishDefaults(null),
       rarity: 'Ultra Rare',
       conditionMin: 'NEAR_MINT',
       maxPrice: '20.5',
@@ -116,7 +93,6 @@ describe('wish form', () => {
       maxPrice: 20.5,
       notes: 'note',
       currency: 'CAD',
-      radiusKm: 25,
       tradePreference: 'ANY',
       active: true,
     });
@@ -124,7 +100,7 @@ describe('wish form', () => {
     expect(toCreateWishRequest(one, CARD_ID)).not.toHaveProperty('cardId');
     expect(toCreateWishRequest(one, CARD_ID)).not.toHaveProperty('rarity');
     expect(toCreateWishRequest(one, CARD_ID).printingId).toBe(PRINTING_A);
-    expect(toUpdateWishRequest({ ...newWishDefaults(null, 25), maxPrice: '' })).toEqual({
+    expect(toUpdateWishRequest({ ...newWishDefaults(null), maxPrice: '' })).toEqual({
       printingId: null,
       rarity: null,
       conditionMin: null,
@@ -132,14 +108,13 @@ describe('wish form', () => {
       language: null,
       maxPrice: null,
       currency: 'CAD',
-      radiusKm: 25,
       tradePreference: 'ANY',
       notes: null,
       active: true,
     });
   });
 
-  it('explains a refused save: full wishlist, radius beyond the plan, identical wish, fields', () => {
+  it('explains a refused save: full wishlist, identical wish, fields', () => {
     const limit = (limitKey: string, limitValue?: number) =>
       new ApiError({
         status: 429,
@@ -151,9 +126,6 @@ describe('wish form', () => {
       'Your wishlist is full: your plan allows 20 wishes. Remove one or upgrade to add more.'
     );
     expect(wishSaveError(limit('wishlist.items.max')).message).toMatch(/current plan/);
-    expect(wishSaveError(limit('map.radius.max_km', 25)).message).toBe(
-      'This distance is beyond what your plan allows. Choose a smaller radius.'
-    );
     expect(
       wishSaveError(new ApiError({ status: 409, errorCode: 'CONFLICT', message: '' })).message
     ).toBe('This card is already on your wishlist with the same filters.');
@@ -175,7 +147,6 @@ describe('wishlist labels and notices', () => {
     expect(wishCriteriaChips(wishFixture()).map((chip) => chip.label)).toEqual([
       'Lightly Played or better',
       'Up to $25.00',
-      'Within 10 km',
       'Trade or buy',
     ]);
     expect(
@@ -189,7 +160,7 @@ describe('wishlist labels and notices', () => {
           tradePreference: 'TRADE',
         })
       ).map((chip) => chip.label)
-    ).toEqual(['1st Edition', 'French', 'Ultra Rare', 'Within 10 km', 'Trade only']);
+    ).toEqual(['1st Edition', 'French', 'Ultra Rare', 'Trade only']);
     expect(tradePreferenceInfo('SALE').label).toBe('Buy only');
     expect(tradePreferenceInfo('nope').value).toBe('ANY');
   });
@@ -206,18 +177,19 @@ describe('wishlist labels and notices', () => {
     expect(matchCountLabel(1)).toBe('1 match');
     expect(matchCountLabel(3)).toBe('3 matches');
     expect(addedMessage(wishFixture())).toBe(
-      "Azure-Eyes Sky Dragon is on your wishlist. We'll tell you when a collector nearby lists it."
+      "Azure-Eyes Sky Dragon is on your wishlist. We'll tell you when a collector of your region lists it."
     );
     expect(addedMessage(wishFixture({ matchCount: 2 }))).toBe(
-      'Azure-Eyes Sky Dragon is on your wishlist: 2 matches nearby already.'
+      'Azure-Eyes Sky Dragon is on your wishlist: 2 matches in your region already.'
     );
     expect(addedMessage(wishFixture({ active: false }))).toMatch(/alerts paused/);
   });
 
   it('tells whether matches can arrive and filters wishes', () => {
     expect(matchReadiness(undefined)).toBe('unknown');
-    expect(matchReadiness(locationFixture({ tradingArea: undefined }))).toBe('no-area');
-    expect(matchReadiness(locationFixture({ discoverable: false }))).toBe('hidden');
+    expect(matchReadiness(locationFixture({ location: undefined }))).toBe('no-location');
+    // The matcher pairs regions: a hidden collector with a location still gets matches.
+    expect(matchReadiness(locationFixture({ discoverable: false }))).toBe('ready');
     const items = [
       wishFixture({ id: '1', matchCount: 2 }),
       wishFixture({ id: '2', active: false }),
@@ -244,10 +216,12 @@ describe('wishlist labels and notices', () => {
     ).toEqual({ used: 3, limit: 20, planName: 'Free' });
   });
 
-  it('opens the holders of the matched printing (or card) on the map', () => {
-    expect(mapParamsFor(matchFixture())).toEqual({ printing: publicItemFixture().printing.id });
+  it('opens the holders of the matched printing (or card) in the region', () => {
+    expect(holdersParamsFor(matchFixture())).toEqual({
+      printing: publicItemFixture().printing.id,
+    });
     expect(
-      mapParamsFor(
+      holdersParamsFor(
         matchFixture({
           item: { ...publicItemFixture(), printing: { ...printingFixture(), id: undefined } },
         })

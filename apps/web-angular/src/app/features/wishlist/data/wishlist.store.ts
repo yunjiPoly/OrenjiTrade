@@ -25,23 +25,20 @@ export interface WishUsage {
 }
 
 /**
- * Whether the collector can get matches: the matcher measures distances between approximate
- * public points, and the API keeps one only for a discoverable collector with a trading area.
- * `unknown` until `GET /me/location` answers.
+ * Whether the collector can get matches: the matcher pairs wishes with listings of collectors in
+ * the same platform region (ADR 0017), so the collector needs a location. `unknown` until `GET
+ * /me/location` answers.
  */
-export type MatchReadiness = 'unknown' | 'ready' | 'no-area' | 'hidden';
+export type MatchReadiness = 'unknown' | 'ready' | 'no-location';
 
 export function matchReadiness(location: MyLocationResponse | null | undefined): MatchReadiness {
   if (!location) {
     return 'unknown';
   }
-  if (!location.tradingArea) {
-    return 'no-area';
-  }
-  return location.discoverable && location.publicPoint ? 'ready' : 'hidden';
+  return location.location ? 'ready' : 'no-location';
 }
 
-/** Wishes shown by a filter: all, those with matches nearby, or the paused ones. */
+/** Wishes shown by a filter: all, those with matches, or the paused ones. */
 export function filterWishes(
   items: readonly WishlistItemResponse[],
   wishFilter: WishFilter,
@@ -88,7 +85,7 @@ export class WishlistStore {
   readonly usage = this.usageState.asReadonly();
   readonly filter = this.filterState.asReadonly();
   readonly busy = this.busyState.asReadonly();
-  /** Whether new listings nearby can match (trading area + discoverable). */
+  /** Whether new listings of the region can match (a location is set). */
   readonly readiness = computed(() => matchReadiness(this.locationState()));
   readonly visible = computed(() => filterWishes(this.itemsState(), this.filterState()));
   readonly counts = computed(() => {
@@ -225,7 +222,7 @@ export class WishlistStore {
     }
   }
 
-  /** The caller's location state (trading area, discoverable) behind {@link readiness}. */
+  /** The caller's location state behind {@link readiness}. */
   async loadLocation(): Promise<void> {
     try {
       this.locationState.set(

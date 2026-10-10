@@ -182,11 +182,11 @@ export const FREE_PLAN: Plan = {
   limits: [
     { key: 'binders.max', kind: 'COUNTER', window: 'TOTAL', limit: 5, description: 'Binders' },
     {
-      key: 'map.radius.max_km',
+      key: 'wishlist.items.max',
       kind: 'CAP',
       window: 'TOTAL',
-      limit: 25,
-      description: 'Map radius (km)',
+      limit: 20,
+      description: 'Wishlist items',
     },
   ],
 };
@@ -194,7 +194,7 @@ export const FREE_PLAN: Plan = {
 export const PREMIUM_PLAN: Plan = {
   code: 'PREMIUM',
   name: 'Premium',
-  description: 'More views, a wider map and no ads.',
+  description: 'More views, more wishes and no ads.',
   monthlyPrice: 4.99,
   currency: 'CAD',
   features: [
@@ -203,7 +203,7 @@ export const PREMIUM_PLAN: Plan = {
   ],
   limits: [
     { key: 'binders.max', kind: 'COUNTER', window: 'TOTAL', limit: 50, description: 'Binders' },
-    { key: 'map.radius.max_km', kind: 'CAP', window: 'TOTAL', description: 'Map radius (km)' },
+    { key: 'wishlist.items.max', kind: 'CAP', window: 'TOTAL', description: 'Wishlist items' },
   ],
 };
 
@@ -243,11 +243,12 @@ export function freePlanFixture(overrides: Partial<MyPlan> = {}): MyPlan {
         planCode: 'FREE',
       },
       {
-        key: 'map.radius.max_km',
+        key: 'wishlist.items.max',
         allowed: true,
         kind: 'CAP',
         window: 'TOTAL',
-        limit: 25,
+        limit: 20,
+        used: 2,
         planCode: 'FREE',
       },
     ],
@@ -312,11 +313,11 @@ export function creditsFixture(overrides: Partial<MyCredits> = {}): MyCredits {
     transferable: false,
     products: [
       {
-        key: 'map_radius_day',
-        name: 'Wider map for a day',
-        description: 'See collectors up to 100 km away for 24 hours.',
-        featureKey: 'map.radius.max_km',
-        featureValue: '100',
+        key: 'binder_views_day',
+        name: 'Unlimited binder views',
+        description: 'Open as many public binders as you like for 24 hours.',
+        featureKey: 'binder.views.per_day',
+        featureValue: 'unlimited',
         cost: 50,
         durationHours: 24,
         active: true,

@@ -4,9 +4,9 @@ import {
   apiPublicBinder,
   cardOfPrinting,
   createOnboardedCollector,
-  nearArea,
   openInApp,
-  randomRuralArea,
+  PLACE_LABELS,
+  PLACES,
   requireStack,
   screen,
   signInThroughUi,
@@ -15,26 +15,26 @@ import {
 const HOLDERS = '/api/v1/search/card-holders?';
 
 /**
- * "Who has this near me" as a list (stage M7, the web's card-holders view on
+ * "Who has this in my region" as a list (stage M7, the web's card-holders view on
  * `GET /search/card-holders`): from the card detail, the public copies of the card held by
- * collectors around the viewer's trading area, with the sort and every filter of the web; only
- * places and distance buckets, never metres or coordinates; the map stays the alternative view.
+ * collectors of the viewer's home region (ADR 0017), with the sort and every filter of the web;
+ * holders show their state or province only, never a distance or a position. The whole region is
+ * listed, so the spec follows its own items (never counts).
  */
 test.describe('mobile card holders', () => {
   requireStack();
 
-  test('the card detail lists the holders near me with sort and filters; the map stays the alternative', async ({
+  test('the card detail lists the holders of my region with sort and filters, states only', async ({
     page,
     request,
   }) => {
     test.setTimeout(180_000);
-    const area = randomRuralArea();
     const holder = await createOnboardedCollector(request, 'hold', 'Mobile Holder', {
-      area: nearArea(area),
+      location: { ...PLACES.wyoming, city: 'Zqholdcity' },
       discoverable: true,
     });
     const viewer = await createOnboardedCollector(request, 'hview', 'Mobile Hunter', {
-      area,
+      location: PLACES.quebec,
       discoverable: true,
     });
     const { cardId, printingId, cardName } = await cardOfPrinting(
@@ -61,18 +61,21 @@ test.describe('mobile card holders', () => {
     const card = screen(page, 'card');
     await expect(card.getByTestId('card-name')).toHaveText(cardName, { timeout: 30_000 });
     const first = page.waitForRequest((candidate) => candidate.url().includes(HOLDERS));
-    await card.getByRole('button', { name: 'Who has this near me' }).click();
-    // The request names the card and the sort, never the viewer's position.
+    await expect(card.getByRole('button', { name: 'Show on the map' })).toHaveCount(0);
+    await card.getByRole('button', { name: 'Who has this in my region' }).click();
+    // The request names the card, the sort and the home region, never a position.
     const firstUrl = new URL((await first).url());
     expect(firstUrl.searchParams.get('cardId')).toBe(cardId);
-    expect(firstUrl.searchParams.get('sort')).toBe('distance');
+    expect(firstUrl.searchParams.get('sort')).toBe('freshness');
+    expect(firstUrl.searchParams.get('region')).toBe('americas-north');
     expect(firstUrl.searchParams.has('lat')).toBe(false);
 
     const holders = screen(page, 'holders');
-    await expect(holders.getByTestId('holders-title')).toHaveText(`Who has ${cardName} near you`, {
-      timeout: 30_000,
-    });
-    await expect(holders.getByTestId('holders-count')).toHaveText('2 listings near you', {
+    await expect(holders.getByTestId('holders-title')).toHaveText(
+      `Who has ${cardName} in your region`,
+      { timeout: 30_000 }
+    );
+    await expect(holders.getByTestId('holders-count')).toHaveText(/listings? in your region/, {
       timeout: 30_000,
     });
     const offersRow = holders.getByTestId(`holder-${offers.id}`);
@@ -87,7 +90,12 @@ test.describe('mobile card holders', () => {
     await expect(offersRow.getByTestId(`holder-${offers.id}-collector`)).toContainText(
       'Mobile Holder'
     );
-    await expect(offersRow.getByTestId(`holder-${offers.id}-collector`)).toContainText(/km/);
+    // The holder's state, never their city (profile only) or a distance.
+    await expect(offersRow.getByTestId(`holder-${offers.id}-collector`)).toContainText(
+      PLACE_LABELS.wyoming
+    );
+    await expect(offersRow).not.toContainText('Zqholdcity');
+    await expect(offersRow).not.toContainText(/\bkm\b|away/);
     await expect(offersRow.getByRole('button', { name: 'View binder' })).toBeVisible();
     await expect(offersRow.getByRole('button', { name: 'Make an offer' })).toBeVisible();
 
@@ -116,10 +124,7 @@ test.describe('mobile card holders', () => {
     await withOffers;
     await sheet.getByRole('button', { name: 'Show results' }).click();
     await expect(holders.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
-    await expect(holders.getByTestId('holders-count')).toHaveText('1 listing near you', {
-      timeout: 30_000,
-    });
-    await expect(offersRow).toBeVisible();
+    await expect(offersRow).toBeVisible({ timeout: 30_000 });
     await expect(cheapRow).toHaveCount(0);
 
     // A price range: validated in the sheet, then sent; the availability and condition filters.
@@ -151,29 +156,24 @@ test.describe('mobile card holders', () => {
     await conditioned;
     await sheet.getByRole('button', { name: 'Show results' }).click();
     await expect(holders.getByRole('button', { name: 'Filters (5)' })).toBeVisible();
-    // Nothing is both cheap, lightly played, for sale and open to offers above 30 CAD.
-    await expect(holders.getByTestId('holders-empty')).toBeVisible({ timeout: 30_000 });
-    await expect(holders.getByTestId('holders-count')).toHaveText('0 listings near you');
-    await holders.getByRole('button', { name: 'Clear filters' }).click();
-    await expect(holders.getByTestId('holders-count')).toHaveText('2 listings near you', {
-      timeout: 30_000,
-    });
+    // None of the holder's copies is lightly played, for sale and open to offers above 30 CAD.
+    await expect(offersRow).toHaveCount(0, { timeout: 30_000 });
+    await expect(cheapRow).toHaveCount(0);
+    await holders.getByRole('button', { name: 'Filters (5)' }).click();
+    await page.getByTestId('holder-filters-clear').click();
+    await page.getByTestId('holder-filters-done').click();
     await expect(holders.getByRole('button', { name: 'Filters', exact: true })).toBeVisible();
+    await expect(offersRow).toBeVisible({ timeout: 30_000 });
+    await expect(cheapRow).toBeVisible();
 
-    // The holder's profile from the row, then back; the map stays the alternative view.
+    // The holder's profile from the row: their state and, shown there only, their city.
     await offersRow.getByTestId(`holder-${offers.id}-collector`).click();
-    await expect(screen(page, 'collector').getByTestId('collector-name')).toHaveText(
-      'Mobile Holder',
-      { timeout: 30_000 }
+    const profile = screen(page, 'collector');
+    await expect(profile.getByTestId('collector-name')).toHaveText('Mobile Holder', {
+      timeout: 30_000,
+    });
+    await expect(profile.getByTestId('collector-location')).toHaveText(
+      `Zqholdcity, ${PLACE_LABELS.wyoming}`
     );
-    await page.goBack();
-    await screen(page, 'holders').getByRole('button', { name: 'Show on the map' }).click();
-    const map = screen(page, 'map');
-    await expect(map.getByTestId('map-holders')).toContainText(`Who has ${cardName} near you`, {
-      timeout: 30_000,
-    });
-    await expect(map.getByTestId('map-status')).toHaveText(/1 collector with this card within/, {
-      timeout: 30_000,
-    });
   });
 });

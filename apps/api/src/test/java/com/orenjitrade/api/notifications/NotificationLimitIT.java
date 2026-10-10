@@ -29,9 +29,9 @@ class NotificationLimitIT extends AbstractWishlistIT {
 
     @Test
     void freeCollectorsGetFiveAlertsAndASingleNoticePerDayWithoutAPremiumPitchWhileTheFlagIsOff() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("nl-free", centre);
-        Collector seller = collector("nl-free-seller", centre.offset(2, 1));
+        Place place = americasNorth();
+        Collector wisher = collector("nl-free", place);
+        Collector seller = collector("nl-free-seller", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
 
@@ -75,9 +75,9 @@ class NotificationLimitIT extends AbstractWishlistIT {
     @Test
     void theNoticeInvitesToUpgradeWhilePremiumPlansIsOn() {
         premiumPlans(true);
-        Centre centre = randomCentre();
-        Collector wisher = collector("nl-pitch", centre);
-        Collector seller = collector("nl-pitch-seller", centre.offset(2, -1));
+        Place place = americasNorth();
+        Collector wisher = collector("nl-pitch", place);
+        Collector seller = collector("nl-pitch-seller", place);
         UUID azure = printing(AZURE);
         createWish(wisher, wish(azure, true));
 
@@ -101,10 +101,10 @@ class NotificationLimitIT extends AbstractWishlistIT {
 
     @Test
     void premiumCollectorsAreNotLimited() {
-        Centre centre = randomCentre();
-        Collector wisher = collector("nl-premium", centre);
+        Place place = americasNorth();
+        Collector wisher = collector("nl-premium", place);
         testUsers.update("UPDATE user_account SET plan_code = 'PREMIUM' WHERE id = ?", wisher.id());
-        Collector seller = collector("nl-premium-seller", centre.offset(-2, 1));
+        Collector seller = collector("nl-premium-seller", place);
         UUID azure = printing(AZURE);
         String wishId = createWish(wisher, wish(azure, true)).path("id").asString();
 

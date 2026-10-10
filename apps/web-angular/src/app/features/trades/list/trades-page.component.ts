@@ -96,7 +96,7 @@ import { TradeSummaryRowComponent } from './trade-summary-row.component';
                   <app-empty-state
                     icon="handshake"
                     title="No trades yet"
-                    description="A trade opens when an offer is accepted. Make an offer on a card near you, or answer the ones you receive."
+                    description="A trade opens when an offer is accepted. Make an offer on a card of your region, or answer the ones you receive."
                   >
                     <a actions matButton="filled" routerLink="/offers">Open my offers</a>
                     <a actions matButton="outlined" routerLink="/map">Explore the map</a>

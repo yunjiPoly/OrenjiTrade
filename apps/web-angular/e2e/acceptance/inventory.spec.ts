@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { dialogReady, expect, signIn, test } from './support/fixtures';
-import { besides, randomCentre } from './support/places';
+import { placeOf } from './support/places';
 
 /**
  * Acceptance — inventory (spec § 50): a collector opens the dedicated inventory page from the
@@ -26,8 +26,10 @@ test.describe('acceptance: inventory', () => {
     actors,
   }) => {
     test.setTimeout(150_000);
-    const area = randomCentre('inventory');
-    const owner = await api.collector('acc-inv', { area, radiusKm: 5, discoverable: true });
+    const owner = await api.collector('acc-inv', {
+      place: placeOf('inventory'),
+      discoverable: true,
+    });
     const binderName = `Acceptance trades ${suffix()}`;
     await signIn(page, owner);
 
@@ -105,13 +107,14 @@ test.describe('acceptance: inventory', () => {
     await expect(card(page, CARD).getByTestId('quantity')).toHaveText('2');
 
     // Another collector sees the public card in the published binder.
-    const viewer = await api.collector('acc-invview', { area: besides(area), radiusKm: 10 });
+    const viewer = await api.collector('acc-invview', { place: placeOf('registration') });
     const other = await actors.open(viewer);
     await other.goto(`/binders/${binderId}`);
     await expect(other.getByRole('heading', { level: 1, name: binderName })).toBeVisible();
     const listed = card(other, CARD);
     await expect(listed.getByLabel('Condition: Lightly Played')).toBeVisible();
     await expect(listed.getByTestId('item-price')).toHaveText('$45.00');
-    await expect(other.getByTestId('owner-distance')).toHaveText(/km away/);
+    await expect(other.getByTestId('owner-public-label')).toContainText(placeOf('inventory').label);
+    await expect(other.getByTestId('owner-distance')).toHaveCount(0);
   });
 });

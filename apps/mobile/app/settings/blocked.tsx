@@ -19,7 +19,8 @@ import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 /**
  * Settings → Blocked users (web: `/settings/blocked`, `GET /me/blocks`): the collectors the caller
  * blocked, each with Unblock (`DELETE /users/{id}/block`). Blocked collectors and the caller do not
- * see each other on the map, in search or in the community, and cannot message each other.
+ * see each other's binders, profiles or posts (map, search, community) and cannot message each
+ * other.
  */
 export default function BlockedUsersScreen() {
   const { palette } = useTheme();
@@ -105,7 +106,7 @@ export default function BlockedUsersScreen() {
     <Screen scroll safeBottom testID="screen-settings-blocked">
       <SectionCard
         title="Blocked users"
-        description="Blocked collectors cannot message you, and you no longer see each other on the map, in search or in the community. They are never told."
+        description="Blocked collectors cannot message you, and you no longer see each other’s binders, profiles and posts on the map, in search or in the community. They are never told."
       >
         {content}
       </SectionCard>

@@ -1,10 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
 
 import CollectorScreen from '@/app/collectors/[id]';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
-import { zoomOfRegion } from '@/src/lib/mapGeometry';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -20,6 +18,7 @@ import {
   wishlistEntryFixture,
   PRINTING_A,
   printingFixture,
+  ONTARIO,
 } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -27,18 +26,13 @@ import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
-jest.mock('@/src/components/map/mapEngine', () => ({ currentMapEngine: () => 'native' }));
 
 const OTHER = collectorFixture({
   id: '00000000-0000-4000-8000-0000000000b1',
   handle: 'collector2',
   displayName: 'Noé Verdun',
   bio: 'Magic and Pokémon in Verdun.',
-  location: {
-    publicLabel: 'Verdun, Montréal',
-    publicPoint: { lat: 45.458, lng: -73.571 },
-    distanceBucket: 'KM_1_5',
-  },
+  location: { ...ONTARIO },
   lastActiveBucket: 'THIS_WEEK',
   onlineStatus: 'ONLINE',
   rating: { average: 4.8, count: 12 },
@@ -66,37 +60,41 @@ const render = (port = new FakeAuthPort(testUser())) =>
   renderWithProviders(<CollectorScreen />, { port });
 
 describe('Collector profile', () => {
-  it('shows a skeleton, then the public profile with a label, a bucket and a 3 km zone', async () => {
+  it('shows a skeleton, then the public profile with the state, never a distance', async () => {
     mockApi(routes());
     render();
     expect(screen.getByTestId('collector-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
     expect(screen.getByText('@collector2')).toBeOnTheScreen();
-    expect(screen.getByTestId('collector-location')).toHaveTextContent('Near Verdun, Montréal');
-    expect(screen.getByTestId('collector-distance')).toHaveTextContent('1–5 km away');
+    expect(screen.getByTestId('collector-location')).toHaveTextContent('Ontario, Canada');
+    expect(screen.queryByTestId('collector-distance')).toBeNull();
     expect(screen.getByTestId('collector-last-active')).toHaveTextContent('Active this week');
     expect(screen.getByLabelText('Online now')).toBeOnTheScreen();
     expect(screen.getByText('Magic and Pokémon in Verdun.')).toBeOnTheScreen();
     expect(screen.getByTestId('collector-tags')).toHaveTextContent('Local pickup');
     expect(screen.queryByTestId('public-preview-banner')).toBeNull();
 
-    // The approximate area: the same 1500 m zone as the map, at most zoom 14, no gestures.
-    const zone = screen.getByTestId('zone-area');
-    expect(zone.props.radius).toBe(1500);
-    expect(zone.props.center).toEqual({ latitude: 45.458, longitude: -73.571 });
-    const map = screen.getByTestId('collector-area-view');
-    expect(map.props.maxZoomLevel).toBe(14);
-    expect(map.props.scrollEnabled).toBe(false);
-    expect(map.props.zoomEnabled).toBe(false);
-    expect(
-      zoomOfRegion(map.props.initialRegion, Dimensions.get('window').width)
-    ).toBeLessThanOrEqual(14);
-    expect(screen.queryByTestId('mock-map-marker')).toBeNull();
+    // The location card: the state or province only, no map, no zone, no distance (ADR 0017).
     expect(screen.getByTestId('collector-area-note')).toHaveTextContent(
-      'Approximate area (about 3 km) around Verdun, Montréal. Exact locations are never shown.'
+      'On the map in Ontario, Canada. OrenjiTrade only shows the state or province, never a position or a distance.'
     );
-    // Coordinates are never written out.
-    expect(screen.queryByText(/45\.4|73\.5/)).toBeNull();
+    expect(screen.queryByTestId('collector-area-view')).toBeNull();
+    expect(screen.queryByText(/km/)).toBeNull();
+  });
+
+  it('shows the city only when the API sends it (its owner shows it)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': ok({
+          ...OTHER,
+          location: { ...ONTARIO, city: 'Ottawa' },
+        }),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('collector-location')).toHaveTextContent(
+      'Ottawa, Ontario, Canada'
+    );
   });
 
   it('lists the public binders and cards and opens the first binder', async () => {
@@ -137,7 +135,7 @@ describe('Collector profile', () => {
     });
     expect(offerTargetFor(item.id)).toMatchObject({
       cardName: 'Azure-Eyes Sky Dragon',
-      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Verdun, Montréal' },
+      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Ontario, Canada' },
     });
   });
 
@@ -309,7 +307,7 @@ describe('Collector profile', () => {
     expect(screen.getByTestId('collector-area-hidden')).toHaveTextContent(
       'Noé Verdun is not visible on the map.'
     );
-    expect(screen.queryByTestId('collector-area-map')).toBeNull();
+    expect(screen.queryByTestId('collector-area-note')).toBeNull();
   });
 });
 
@@ -349,23 +347,6 @@ describe('Collector profile visibility (like the web)', () => {
     // Signed out now: the buttons open the auth screens.
     fireEvent.press(screen.getByTestId('collector-sign-in'));
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-in');
-  });
-
-  it('shows the whole 3 km zone: a lower zoom further north instead of clipping it', async () => {
-    mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}': ok({
-          ...OTHER,
-          location: { ...OTHER.location, publicPoint: { lat: 60.17, lng: 24.94 } },
-        }),
-      })
-    );
-    render();
-    const map = await screen.findByTestId('collector-area-view');
-    expect(zoomOfRegion(map.props.initialRegion, Dimensions.get('window').width)).toBeCloseTo(
-      12,
-      5
-    );
   });
 
   it('shows an error with retry for other failures', async () => {

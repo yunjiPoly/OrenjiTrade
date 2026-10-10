@@ -20,7 +20,6 @@ import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
-jest.mock('@/src/components/map/mapEngine', () => ({ currentMapEngine: () => 'native' }));
 
 const OTHER = collectorFixture({ id: OTHER_ID, handle: 'collector2', displayName: 'Noé Verdun' });
 const RATING_ID = '00000000-0000-4000-8d00-000000000009';

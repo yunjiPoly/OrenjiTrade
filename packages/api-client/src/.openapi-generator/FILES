@@ -33,6 +33,8 @@ api/adminPlans.service.ts
 api/adminPlans.serviceInterface.ts
 api/adminRatings.service.ts
 api/adminRatings.serviceInterface.ts
+api/adminRegions.service.ts
+api/adminRegions.serviceInterface.ts
 api/adminReports.service.ts
 api/adminReports.serviceInterface.ts
 api/adminUsers.service.ts
@@ -52,8 +54,6 @@ api/community.service.ts
 api/community.serviceInterface.ts
 api/credits.service.ts
 api/credits.serviceInterface.ts
-api/discovery.service.ts
-api/discovery.serviceInterface.ts
 api/disputes.service.ts
 api/disputes.serviceInterface.ts
 api/donations.service.ts
@@ -70,6 +70,8 @@ api/listingHealth.service.ts
 api/listingHealth.serviceInterface.ts
 api/location.service.ts
 api/location.serviceInterface.ts
+api/map.service.ts
+api/map.serviceInterface.ts
 api/me.service.ts
 api/me.serviceInterface.ts
 api/messaging.service.ts
@@ -92,6 +94,8 @@ api/publicBinders.service.ts
 api/publicBinders.serviceInterface.ts
 api/ratings.service.ts
 api/ratings.serviceInterface.ts
+api/regions.service.ts
+api/regions.serviceInterface.ts
 api/reports.service.ts
 api/reports.serviceInterface.ts
 api/search.service.ts
@@ -199,9 +203,7 @@ model/catalogSyncRun.ts
 model/channelPreferences.ts
 model/channelPreferencesRequest.ts
 model/closeOfferRequest.ts
-model/collectorLocation.ts
 model/collectorMarker.ts
-model/collectorPreview.ts
 model/collectorProfileResponse.ts
 model/collectorRating.ts
 model/collectorRatingsPage.ts
@@ -213,6 +215,7 @@ model/consentSummary.ts
 model/conversationParticipant.ts
 model/conversationSummary.ts
 model/counterOfferRequest.ts
+model/countryRegionRequest.ts
 model/createBinderRequest.ts
 model/createCommunityChannelRequest.ts
 model/createDeletionRequest.ts
@@ -237,6 +240,7 @@ model/cursorPageMessageResponse.ts
 model/cursorPageNotificationResponse.ts
 model/cursorPageOfferSummary.ts
 model/cursorPagePostResponse.ts
+model/cursorPagePublicBinderSummary.ts
 model/cursorPageReferenceResponse.ts
 model/cursorPageReplyResponse.ts
 model/cursorPageTradeSummary.ts
@@ -315,13 +319,13 @@ model/moderationRule.ts
 model/moderatorNote.ts
 model/myCredits.ts
 model/myEntitlement.ts
+model/myLocation.ts
 model/myLocationResponse.ts
 model/myPlan.ts
 model/myProfileResponse.ts
 model/myReferral.ts
 model/myReport.ts
 model/mySubscription.ts
-model/nearbyCollectorsResponse.ts
 model/notificationResponse.ts
 model/notificationSettingsRequest.ts
 model/notificationSettingsResponse.ts
@@ -372,10 +376,12 @@ model/paymentWebhookReceipt.ts
 model/paymentsAutoReleaseJobResult.ts
 model/pingJobResponse.ts
 model/pingResponse.ts
+model/place.ts
 model/plan.ts
 model/planFeature.ts
 model/planFeatureChange.ts
 model/planLimit.ts
+model/platformRegion.ts
 model/postPayload.ts
 model/postResponse.ts
 model/printingDetail.ts
@@ -385,13 +391,12 @@ model/privacySettings.ts
 model/problemDetail.ts
 model/problemDetailErrorsInner.ts
 model/problemDetailRequiredConsentsInner.ts
+model/profileLocation.ts
 model/protectedPayment.ts
 model/publicBinderOwner.ts
 model/publicBinderResponse.ts
 model/publicBinderSummary.ts
 model/publicInventoryItem.ts
-model/publicOwnerLocation.ts
-model/publicPoint.ts
 model/publishBinderRequest.ts
 model/pushTokenRequest.ts
 model/quietHours.ts
@@ -407,6 +412,10 @@ model/referenceResponse.ts
 model/referralRedeemRequest.ts
 model/referralRedemption.ts
 model/refundPaymentRequest.ts
+model/regionBinderCounts.ts
+model/regionCountry.ts
+model/regionSubdivision.ts
+model/regionsResponse.ts
 model/removeContentRequest.ts
 model/reorderBindersRequest.ts
 model/replyResponse.ts
@@ -426,7 +435,6 @@ model/resolveDisputeRequest.ts
 model/resolveModerationFlagRequest.ts
 model/resolveReportRequest.ts
 model/resumeListingsRequest.ts
-model/searchCentre.ts
 model/searchResolution.ts
 model/searchSuggestion.ts
 model/sellerAccount.ts
@@ -439,6 +447,7 @@ model/shipTradeRequest.ts
 model/shipmentSummary.ts
 model/staleListing.ts
 model/startConversationRequest.ts
+model/subdivisionBinderCount.ts
 model/subscriptionCancelRequest.ts
 model/subscriptionCheckout.ts
 model/subscriptionCheckoutRequest.ts
@@ -452,7 +461,6 @@ model/tradeEvent.ts
 model/tradeNextAction.ts
 model/tradeResponse.ts
 model/tradeSummary.ts
-model/tradingAreaResponse.ts
 model/unifiedSearchResponse.ts
 model/unpublishBinderRequest.ts
 model/unreadNotificationCount.ts
@@ -465,6 +473,7 @@ model/updateDelistPolicyRequest.ts
 model/updateDonationSettingsRequest.ts
 model/updateFeatureFlagRequest.ts
 model/updateInventoryItemRequest.ts
+model/updateLocationRequest.ts
 model/updateModerationRuleRequest.ts
 model/updateOfferSettingsRequest.ts
 model/updatePaymentSettingsRequest.ts
@@ -474,7 +483,6 @@ model/updateProfileRequest.ts
 model/updateProfileTagsRequest.ts
 model/updateRatingRequest.ts
 model/updateRolesRequest.ts
-model/updateTradingAreaRequest.ts
 model/updateUsageLimitRequest.ts
 model/updateWishlistItemRequest.ts
 model/uploadCleanupJobResponse.ts

@@ -11,6 +11,7 @@ import { Subscription, firstValueFrom } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
+import { RegionContext } from '../../../core/region/region-context.service';
 import { defaultChannel, postErrorMessage } from './community-helpers';
 
 export type ChannelsStatus = 'loading' | 'ready' | 'error' | 'disabled';
@@ -52,6 +53,7 @@ export class CommunityStore {
   private readonly api = inject(CommunityService);
   private readonly adminApi = inject(AdminCommunityService);
   private readonly session = inject(SessionService);
+  private readonly region = inject(RegionContext);
 
   private readonly channelsState = signal<CommunityChannel[]>([]);
   private readonly channelsStatusState = signal<ChannelsStatus>('loading');
@@ -96,7 +98,7 @@ export class CommunityStore {
       );
       this.channelsState.set(channels ?? []);
       this.channelsStatusState.set('ready');
-      return defaultChannel(channels ?? [])?.slug ?? null;
+      return defaultChannel(channels ?? [], this.region.current())?.slug ?? null;
     } catch (error) {
       const apiError = toApiError(error);
       this.channelsErrorState.set(apiError);

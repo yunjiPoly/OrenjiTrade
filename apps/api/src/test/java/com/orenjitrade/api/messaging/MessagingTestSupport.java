@@ -29,7 +29,6 @@ public final class MessagingTestSupport {
     public static Map<String, Object> privacy(String messaging, boolean showOnlineStatus) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("discoverable", false);
-        body.put("showDistance", true);
         body.put("showOnlineStatus", showOnlineStatus);
         body.put("showLastActive", true);
         body.put("profileVisibility", "MEMBERS");

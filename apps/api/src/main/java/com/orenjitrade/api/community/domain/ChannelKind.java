@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(name = "CommunityChannelKind")
 public enum ChannelKind {
     GAME,
-    /** A city (optionally per game, e.g. "Montréal / Pokémon"). */
+    /** A platform region (ADR 0017); the former city channels are archived. */
     REGION,
     LOOKING_FOR,
     NEW_LISTINGS,

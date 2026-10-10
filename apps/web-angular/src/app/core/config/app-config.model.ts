@@ -21,9 +21,6 @@ export interface AppConfig {
   firebase: FirebaseWebConfig;
   /** `host:port` of the Firebase Auth emulator; empty in cloud environments. */
   firebaseAuthEmulatorHost: string;
-  /** Browser key restricted by HTTP referrer. Empty => Leaflet/OSM map adapter fallback. */
-  googleMapsApiKey: string;
-  googleMapsMapId: string;
   environment: AppEnvironment | string;
 }
 
@@ -38,8 +35,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     appId: '',
   },
   firebaseAuthEmulatorHost: '',
-  googleMapsApiKey: '',
-  googleMapsMapId: '',
   environment: 'local',
 };
 
@@ -63,8 +58,6 @@ export function normalizeAppConfig(raw: unknown): AppConfig {
       appId: str(firebase['appId'], d.firebase.appId),
     },
     firebaseAuthEmulatorHost: str(input['firebaseAuthEmulatorHost'], d.firebaseAuthEmulatorHost),
-    googleMapsApiKey: str(input['googleMapsApiKey'], d.googleMapsApiKey),
-    googleMapsMapId: str(input['googleMapsMapId'], d.googleMapsMapId),
     environment: str(input['environment'], d.environment),
   };
 }

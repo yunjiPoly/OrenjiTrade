@@ -1,5 +1,9 @@
 # Phase 3 contract — inventory, binders, public binders, freshness
 
+> **ADR 0017 (2026-10-08):** binder owners carry a `place` (state or province and country)
+> instead of `location: {publicLabel, distanceBucket}`; see
+> [s1-regions-location.md](s1-regions-location.md).
+
 All under `/api/v1`. Owner-only unless stated. Effective public visibility is computed server
 side: item visible ⇔ item.visibility ∈ {PUBLIC, TEMPORARILY_PUBLIC(not expired)} ∧ binder
 visible (or item has no binder) ∧ owner.status = ACTIVE ∧ owner discoverable-or-profile-public ∧

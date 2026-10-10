@@ -52,7 +52,7 @@ export class CreditsStore {
   readonly referral = this.referralState.asReadonly();
   readonly referralError = this.referralErrorState.asReadonly();
   readonly entitlements = this.entitlementsState.asReadonly();
-  /** Product names by key, for the ledger ("Wider map for a day"). */
+  /** Product names by key, for the ledger ("Advanced filters for a day"). */
   readonly productNames = computed(() => {
     const names: Record<string, string> = {};
     for (const product of this.productsState()) {

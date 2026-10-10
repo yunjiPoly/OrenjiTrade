@@ -11,7 +11,7 @@ import {
   useRedeemReferral,
   useSpendCredits,
 } from '@/src/api/hooks/billing';
-import { useMyPlan } from '@/src/api/hooks/discovery';
+import { useMyPlan } from '@/src/api/hooks/plan';
 import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import type { CreditProduct } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';

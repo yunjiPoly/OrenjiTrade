@@ -1,6 +1,7 @@
 # Analytics warehouse (ARCHITECTURE.md section 8). Events arrive through a Pub/Sub BigQuery
 # subscription; the table is partitioned by occurred_at (day) and clustered by event_type.
-# Events never contain PII or precise locations: actor_hash, region_label and geo_cell only.
+# Events never contain PII or any location below a state/province: actor_hash, region_code and
+# subdivision_code only (platform regions, ADR 0017).
 
 locals {
   pubsub_service_agent = "serviceAccount:service-${var.project_number}@gcp-sa-pubsub.iam.gserviceaccount.com"
@@ -11,8 +12,8 @@ locals {
     { name = "event_version", type = "INTEGER", mode = "REQUIRED", description = "Schema version of the payload." },
     { name = "occurred_at", type = "TIMESTAMP", mode = "REQUIRED", description = "When the event happened (UTC)." },
     { name = "actor_hash", type = "STRING", mode = "NULLABLE", description = "HMAC of the acting user id; never the raw id." },
-    { name = "region_label", type = "STRING", mode = "NULLABLE", description = "Coarse public region label." },
-    { name = "geo_cell", type = "STRING", mode = "NULLABLE", description = "~1 km grid cell id of the public point." },
+    { name = "region_code", type = "STRING", mode = "NULLABLE", description = "Platform region code (americas-north, americas-south, europe)." },
+    { name = "subdivision_code", type = "STRING", mode = "NULLABLE", description = "ISO 3166-2 subdivision code (state/province), never a city or a point." },
     { name = "payload", type = "JSON", mode = "NULLABLE", description = "Event-specific attributes (no PII)." },
   ]
 }

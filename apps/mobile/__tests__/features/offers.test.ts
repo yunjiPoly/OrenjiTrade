@@ -339,7 +339,7 @@ describe('offer targets', () => {
       displayName: 'Noé Verdun',
       handle: 'collector2',
       avatarUrl: null,
-      placeLabel: 'Plateau-Mont-Royal, Montréal',
+      placeLabel: 'Ontario, Canada',
     });
     const target = offerTargetFromItem(publicItemFixture(), seller);
     expect(target).toMatchObject({
@@ -357,7 +357,7 @@ describe('offer targets', () => {
       sellerFromMarker(marker),
       '/api/v1/public/card-images/x'
     );
-    expect(fromMatch.seller.placeLabel).toBe(marker.publicLabel);
+    expect(fromMatch.seller.placeLabel).toBe('Ontario, Canada');
     expect(fromMatch.imageUrl).toBe('/api/v1/public/card-images/x');
   });
 

@@ -4,11 +4,12 @@ import {
   TEST_PASSWORD,
   apiMe,
   authHeader,
+  chooseOption,
   createOnboardedCollector,
   emulatorSignIn,
+  forbidMapProviders,
   requireStack,
   stubCardImages,
-  stubMapTiles,
   uniqueEmail,
   uniqueHandle,
   verifyEmailInEmulator,
@@ -34,7 +35,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     });
     const email = uniqueEmail('safety');
     const handle = uniqueHandle('safe');
-    await stubMapTiles(page);
+    await forbidMapProviders(page);
     await stubCardImages(page);
 
     // --- Sign up: the 18+ checkbox is explicit and unticked ---------------------------------
@@ -50,7 +51,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await verifyEmailInEmulator(request, email);
     await page.getByRole('button', { name: 'I have verified my email' }).click();
 
-    // --- Onboarding: profile, interests, trading area with "Show me on the map" -----------------
+    // --- Onboarding: profile, interests, location with "Show me on the map" ---------------------
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await page.getByLabel('Handle').fill(handle);
     await page.getByLabel('Display name').fill('E2E Safety Tester');
@@ -62,11 +63,12 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
       .getByRole('button', { name: 'Pokémon' })
       .click();
     await next.filter({ visible: true }).click();
-    await expect(page.getByRole('heading', { name: 'Where do you trade?' })).toBeVisible();
-    await expect(page.locator('.orenji-map-pin--centre')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await chooseOption(page, 'Country', 'Canada');
+    await chooseOption(page, 'State or province', 'Quebec');
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/\/map$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The API confirms the account is discoverable (the age gate let the switch through) and
@@ -217,7 +219,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await french.context().close();
 
     // --- An English browser reads English, and the footer links to the new page ---------------
-    await stubMapTiles(page);
+    await forbidMapProviders(page);
     await page.goto('/legal/terms');
     await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
     await expect(page.locator('article.legal')).toHaveAttribute('lang', 'en');

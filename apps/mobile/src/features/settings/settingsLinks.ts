@@ -22,7 +22,7 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
   {
     href: '/settings/location',
     label: 'Location and discoverability',
-    detail: 'Trading area and whether you appear on the map',
+    detail: 'Country, state or province, city and whether you appear on the map',
     icon: 'map-marker-radius-outline',
   },
   {

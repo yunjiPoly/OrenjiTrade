@@ -109,9 +109,7 @@ describe('One trade', () => {
       'Your move: meet and exchange the cards'
     );
     expect(screen.getByTestId('trade-eyebrow')).toHaveTextContent('Trade with Noé Verdun');
-    expect(screen.getByTestId('trade-counterparty')).toHaveTextContent(
-      /Plateau-Mont-Royal, Montréal · 1–5 km/
-    );
+    expect(screen.getByTestId('trade-counterparty')).toHaveTextContent(/Ontario, Canada/);
     expect(
       within(screen.getByTestId('trade-timeline')).getByText(
         'Noé Verdun accepted the offer: the trade is open'

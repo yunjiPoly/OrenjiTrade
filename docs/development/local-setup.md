@@ -2,7 +2,7 @@
 
 OrenjiTrade runs completely on a developer machine: PostgreSQL + PostGIS, Redis and the Firebase
 Authentication emulator in Docker, the Spring Boot API and the Angular web app on the host (or in
-Docker too). No Google Cloud, Firebase, Stripe, FCM, e-mail or Google Maps credentials are needed:
+Docker too). No Google Cloud, Firebase, Stripe, FCM, e-mail or map credentials are needed:
 every external provider has a local fake or log implementation that is selected by default. Cloud
 deployment is deliberately postponed, see [../deployment/DEFERRED.md](../deployment/DEFERRED.md).
 
@@ -239,8 +239,8 @@ purge waits, up to `--wait-minutes` (20), while a mobile or web E2E run is activ
 is shared), and it prints how many accounts, locations, binders, items and emulator accounts it
 removed. Seed accounts (`@orenjitrade.test`), other domains (`@mobile-e2e.test`), the card catalog
 and the card image cache are never touched. The jar uses the developer's `.env` and Redis db 0, so
-the deletion path's own events invalidate the developer API's nearby cache
-(`TradingAreaChangedEvent`, `LocationRemovedEvent`); run it from the checkout whose `npm run dev`
+the deletion path's own events invalidate the developer API's discovery cache
+(`LocationRemovedEvent`, the account deletion events); run it from the checkout whose `npm run dev`
 you use, as its `apps/api/.local-storage` holds the uploaded media (avatars, item photos) the
 deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
 
@@ -249,11 +249,11 @@ deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
 The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobile/README.md)) runs
 against the same local stack. Phase 1 (accounts, onboarding, profile, settings) and Phases 2–3
 (the Search tab and card detail; the Inventory tab with adding, editing and deleting cards;
-binders, their publication and the public binder view) and Phase 4 (the Map tab with collectors
-as zones about 3 km wide, never pins, zoom capped at 14; filters, "Who has this near me", the
-preview bottom sheet and the collector profile) and Phases 5–6 (the Messages tab with the inbox,
+binders, their publication and the public binder view) and Phase 4 ("Who has this in my region"
+and the collector profile; since ADR 0017 the Map tab is a placeholder that names the home region
+until it draws the web's boundary map) and Phases 5–6 (the Messages tab with the inbox,
 conversations and the community channels, live over the realtime channel; the Wishlist tab with
-matches nearby; the notification centre with a live bell) and Phases 7–8 (reporting a
+matches in the region; the notification centre with a live bell) and Phases 7–8 (reporting a
 collector and My reports; rating a collector and writing a reference after an interaction;
 "Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
 with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
@@ -265,8 +265,7 @@ web; the admin consoles stay on the web. Stage M7 (2026-10-06) closes the web pa
 Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
-Blocked users, owner photos and bulk actions in the inventory, binder reordering, the map's
-freshness / tags filters and search box, set pages. Stage M8 (2026-10-06, launch readiness on
+Blocked users, owner photos and bulk actions in the inventory, binder reordering, set pages. Stage M8 (2026-10-06, launch readiness on
 mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a
 first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
@@ -275,14 +274,11 @@ notice in conversations and on offers / trades (dismissal kept on the device), B
 on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
-provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
-"Use map centre", city quick picks, a 1–50 km radius, or the device location (sent once to the
-API, never drawn). Maps follow ADR 0010: in Expo Go on Android (and in any Android build without
-`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) they are Leaflet + OpenStreetMap in a WebView, because the Maps
-SDK refuses Expo Go's bundled Google key and would draw an empty grey map; iOS uses Apple Maps and
-the web build Leaflet. The emulator needs internet access for the OpenStreetMap tiles and the
-pinned Leaflet script. Sign in with `collector1@orenjitrade.test` to see the seed neighbours on
-the Map tab (the seed collectors are at public neighbourhood centroids around Montréal).
+provider. The location is declared like on the web (ADR 0017): region, country, state or
+province and an optional city, with pickers fed by `GET /api/v1/regions`; there is no map picker,
+no GPS and no location permission. Region-scoped calls (search, card holders, ads) send the
+collector's home region (`americas-north` without a location). The seed collectors are spread
+over the three platform regions (see [test-accounts.md](test-accounts.md)).
 
 ```bash
 npm run infra:up && npm run api:dev     # the developer stack (API on :8080)
@@ -344,7 +340,7 @@ second collector of the messaging, wishlist, offer and report flows comes from `
 `wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the
 Premium flow from `payments.js`; `offers.js` and `payments.js` post `{}` to body-less endpoints
 because Maestro's `http.post` needs a body)
-and check the result there (`check-area.js`, `check-inventory.js`, `community.js`; the collectors,
+and check the result there (`check-location.js`, `check-inventory.js`, `community.js`; the collectors,
 listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
 run (Metro re-crawls the workspace and Expo Go may report "Packager is not running"), and restart
@@ -446,7 +442,7 @@ blocks the IP for an hour above it (OrenjiTrade paces at 5/s). Tests and CI neve
 | Domain events | in-process Spring Modulith outbox (`event_publication` table) | `EVENTS_TRANSPORT=local` | table `event_publication` in the `orenjitrade` database |
 | Object storage | `LocalFileObjectStorage` | `STORAGE_PROVIDER=local` | files under `apps/api/.local-storage/`, URLs `http://localhost:8080/api/v1/public/media/...` |
 | Identity | Firebase Auth emulator | `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099` (implied by the `local` profile) | Emulator UI <http://localhost:4000>; verification / reset e-mail links are printed in `docker compose logs firebase-auth` |
-| Maps | Leaflet + OpenStreetMap tiles in the web app | empty Google Maps key | the map page; exact coordinates never leave the API (ADR 0004) |
+| Maps | none: a Leaflet vector map of the bundled Natural Earth boundaries (`apps/web-angular/public/boundaries/`), no tiles | nothing to configure | the map page (`/map?region=...`); no coordinate exists anywhere (ADR 0017) |
 | Card recognition (ML) | none (on hold) | `mlScanning` flag off | the API does not call the ML service |
 | Card catalog | `MockCardProvider` (fictional, placeholder images) at start-up; YGOPRODeck only on request | seed + `npm run catalog:import` | `GET /api/v1/admin/catalog/sync-runs`; card images under `apps/api/.local-storage/card-images/` |
 

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OrenjiTrade API",
-    "description": "REST API of OrenjiTrade, the geographic discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
+    "description": "REST API of OrenjiTrade, the regional discovery network for trading cards. Generated from the Spring Boot application by `./gradlew exportOpenApi` (apps/api). Do not edit by hand.",
     "license": {
       "name": "Proprietary",
       "url": "https://www.orenjitrade.com/legal/terms"
@@ -40,6 +40,10 @@
     {
       "name": "ads",
       "description": "Sponsored placements (internal campaigns)"
+    },
+    {
+      "name": "map",
+      "description": "Public binders per state/province of a region (auth optional)"
     },
     {
       "name": "catalog",
@@ -94,8 +98,8 @@
       "description": "Catalog administration (admin console)"
     },
     {
-      "name": "discovery",
-      "description": "Map discovery: collectors near a centre and their preview cards (auth optional)"
+      "name": "wishlist",
+      "description": "The caller's wishlist and its matches in their region"
     },
     {
       "name": "webhooks",
@@ -108,6 +112,14 @@
     {
       "name": "admin-delisting",
       "description": "Auto-delist rules (admin console)"
+    },
+    {
+      "name": "location",
+      "description": "Country, state/province and optional city of the caller"
+    },
+    {
+      "name": "admin-regions",
+      "description": "Platform region administration (admin console)"
     },
     {
       "name": "ratings",
@@ -166,6 +178,10 @@
       "description": "Public binders of collectors (no auth required)"
     },
     {
+      "name": "search",
+      "description": "Unified search over cards, printings, sets, collectors and public binders, card holders in a region and mixed autocomplete (auth optional)"
+    },
+    {
       "name": "admin-reports",
       "description": "Collector report review (moderator console)"
     },
@@ -202,24 +218,16 @@
       "description": "Voluntary support (DonationProvider; fake locally)"
     },
     {
-      "name": "location",
-      "description": "Approximate trading area and public map position"
-    },
-    {
       "name": "disputes",
       "description": "Disputes of protected trades"
     },
     {
-      "name": "wishlist",
-      "description": "The caller's wishlist and its matches nearby"
-    },
-    {
-      "name": "search",
-      "description": "Unified search over cards, printings, sets, collectors and public binders, card holders near you and mixed autocomplete (auth optional)"
-    },
-    {
       "name": "settings",
       "description": "Privacy and notification settings of the caller"
+    },
+    {
+      "name": "regions",
+      "description": "Platform regions, their countries and subdivisions"
     },
     {
       "name": "payments",
@@ -418,7 +426,7 @@
           "settings"
         ],
         "summary": "Replace the caller's privacy settings",
-        "description": "Full replacement (every field required). Switching `discoverable` on derives the public map point from the trading area; switching it off removes the collector from the map immediately.",
+        "description": "Full replacement (every field required). `discoverable` lists the collector (state/province + country, never the city) in region search, card holder lists and the map's state binder lists; switching it on needs the 18+ confirmation (403 AGE_CONFIRMATION_REQUIRED) and a country and state/province (`PUT /me/location`, 409 LOCATION_REQUIRED); switching it off removes the collector immediately.",
         "operationId": "updatePrivacySettings",
         "requestBody": {
           "content": {
@@ -1045,24 +1053,14 @@
         }
       }
     },
-    "/api/v1/me/location/trading-area": {
-      "put": {
+    "/api/v1/me/location": {
+      "get": {
         "tags": [
           "location"
         ],
-        "summary": "Set the caller's trading area",
-        "description": "Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km grid cell and offsets it with a deterministic per-user jitter to derive `publicPoint` (3 decimals) and its region label.",
-        "operationId": "updateMyTradingArea",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateTradingAreaRequest"
-              }
-            }
-          },
-          "required": true
-        },
+        "summary": "The caller's location",
+        "description": "Country, state/province, optional city and the show-city switch. `location` is null while none is set (the caller cannot be discoverable then).",
+        "operationId": "getMyLocation",
         "responses": {
           "200": {
             "description": "OK",
@@ -1073,6 +1071,159 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "location"
+        ],
+        "summary": "Set the caller's location",
+        "description": "`countryCode` must be an active country and `subdivisionCode` one of its subdivisions (`GET /regions`); unknown codes are 400 VALIDATION_FAILED. `city` is optional free text (trimmed, at most 80 characters, moderated, never geocoded) shown only on the caller's own public profile while `showCity` is true (default). Everywhere else other collectors see the state/province and the country only.",
+        "operationId": "updateMyLocation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The saved location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyLocationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown country or subdivision, or an invalid city",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "location"
+        ],
+        "summary": "Remove the caller's location",
+        "description": "Deletes the location; discoverability is turned off with it (it needs a country and a state/province).",
+        "operationId": "deleteMyLocation",
+        "responses": {
+          "204": {
+            "description": "Removed"
           },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
@@ -1427,6 +1578,98 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SetSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/regions/countries/{code}": {
+      "put": {
+        "tags": [
+          "admin-regions"
+        ],
+        "summary": "Move a country to another region or (de)activate it (ADMIN, SUPER_ADMIN)",
+        "description": "Inactive countries cannot be chosen any more (existing locations keep them). A moved country is listed and searched in its new region at once; the map draws it only in the boundary asset of the region it was seeded in until the assets are regenerated. Audited (`region.country.update`).",
+        "operationId": "updateAdminRegionCountry",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountryRegionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionCountry"
                 }
               }
             }
@@ -3204,7 +3447,7 @@
           "admin-billing"
         ],
         "summary": "Replace a campaign's targeting rules (ADMIN)",
-        "description": "Kinds GAME, REGION_LABEL, GEO_CELL, TAG and PLAN only (never coordinates): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).",
+        "description": "Kinds GAME, REGION, COUNTRY, SUBDIVISION, TAG and PLAN only (never a city): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).",
         "operationId": "replaceAdminAdTargeting",
         "parameters": [
           {
@@ -4526,7 +4769,7 @@
           "wishlist"
         ],
         "summary": "Add a card to the wishlist",
-        "description": "cardId (any printing) or printingId is required. The new item is matched at once against the public inventory nearby (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500) or a radius beyond map.radius.max_km.",
+        "description": "cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller's platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).",
         "operationId": "createWishlistItem",
         "requestBody": {
           "content": {
@@ -4550,7 +4793,7 @@
             }
           },
           "400": {
-            "description": "VALIDATION_FAILED (target, vocabularies, price, radius, notes)",
+            "description": "VALIDATION_FAILED (target, vocabularies, price, notes)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4570,7 +4813,7 @@
             }
           },
           "429": {
-            "description": "LIMIT_REACHED (wishlist.items.max or map.radius.max_km)",
+            "description": "LIMIT_REACHED (wishlist.items.max)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -15597,16 +15840,6 @@
               }
             }
           },
-          "429": {
-            "description": "LIMIT_REACHED (radius beyond map.radius.max_km)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthenticated (missing or invalid token)",
             "content": {
@@ -15629,6 +15862,16 @@
           },
           "428": {
             "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16722,7 +16965,7 @@
           "wishlist"
         ],
         "summary": "Public items matching a wishlist item (newest first)",
-        "description": "Cursor-paginated. Each match carries the public item (never private notes), the owner's map marker at the derived public point and the distance bucket between the two collectors' public points. Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.",
+        "description": "Cursor-paginated. Each match carries the public item (never private notes), the owner's marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed=true.",
         "operationId": "listWishlistMatches",
         "parameters": [
           {
@@ -17377,7 +17620,7 @@
           "search"
         ],
         "summary": "Unified search (auth optional)",
-        "description": "Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems` (nearby when a centre is known: `lat`/`lng` or the signed-in caller's trading area); otherwise collectors matching the text. Binders carry their owner block. `radiusKm` beyond the plan cap → 429 LIMIT_REACHED. Emits the analytics events search_performed / search_no_results.",
+        "description": "Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems`; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of `region` (default: the caller's home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.",
         "operationId": "search",
         "parameters": [
           {
@@ -17415,30 +17658,14 @@
             }
           },
           {
-            "name": "lat",
+            "name": "region",
             "in": "query",
+            "description": "Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access",
             "required": false,
             "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "lng",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "radiusKm",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
             }
           },
           {
@@ -17466,7 +17693,7 @@
             }
           },
           "400": {
-            "description": "Invalid query, type, game or centre",
+            "description": "Invalid query, type, game or region",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -17476,7 +17703,7 @@
             }
           },
           "429": {
-            "description": "LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED",
+            "description": "RATE_LIMITED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -17505,7 +17732,7 @@
           "search"
         ],
         "summary": "Mixed autocomplete (auth optional)",
-        "description": "Printing codes and cards, collectors on the map who allow name search (closest first when `lat`/`lng` or the caller's trading area is known), sets, public binders and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.",
+        "description": "Printing codes and cards, discoverable collectors of `region` who allow name search, sets, public binders of the region and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.",
         "operationId": "suggestSearch",
         "parameters": [
           {
@@ -17531,21 +17758,14 @@
             }
           },
           {
-            "name": "lat",
+            "name": "region",
             "in": "query",
+            "description": "Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access",
             "required": false,
             "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "lng",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
             }
           },
           {
@@ -17576,7 +17796,7 @@
             }
           },
           "400": {
-            "description": "Invalid query or centre",
+            "description": "Invalid query or region",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -17614,8 +17834,8 @@
         "tags": [
           "search"
         ],
-        "summary": "Collectors near you holding a card (auth optional)",
-        "description": "Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by collectors on the map within `radiusKm` of the centre (`lat`/`lng`, else the signed-in caller's trading area; required when signed out). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: distance (default), price, freshness. Each row pairs the holder's marker with the public item.",
+        "summary": "Collectors of a region holding a card (auth optional)",
+        "description": "Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.",
         "operationId": "searchCardHolders",
         "parameters": [
           {
@@ -17637,30 +17857,14 @@
             }
           },
           {
-            "name": "lat",
+            "name": "region",
             "in": "query",
+            "description": "Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access",
             "required": false,
             "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "lng",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "radiusKm",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
             }
           },
           {
@@ -17757,15 +17961,14 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "distance, price or freshness",
+            "description": "freshness (newest listing first) or price",
             "required": false,
             "schema": {
               "type": "string",
-              "default": "distance",
+              "default": "freshness",
               "enum": [
-                "distance",
-                "price",
-                "freshness"
+                "freshness",
+                "price"
               ]
             }
           },
@@ -17806,7 +18009,7 @@
             }
           },
           "400": {
-            "description": "Invalid filter, sort or centre",
+            "description": "Invalid filter, sort or region",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -17816,7 +18019,213 @@
             }
           },
           "429": {
-            "description": "LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED",
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/regions": {
+      "get": {
+        "tags": [
+          "regions"
+        ],
+        "summary": "Platform regions with their countries and subdivisions (public)",
+        "description": "The three platform regions (ADR 0017) in display order, each with its active countries (ISO 3166-1 alpha-2) and their first-level subdivisions (ISO 3166-2; a country without usable subdivisions has one pseudo-subdivision coded with its alpha-2 code, `wholeCountry` true). The codes match the web map's boundary assets. Data, not code: admins move countries between regions through /admin/regions. Cached server-side 60 s.",
+        "operationId": "listRegions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionsResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/regions/{region}/subdivisions/{code}/binders": {
+      "get": {
+        "tags": [
+          "map"
+        ],
+        "summary": "Public binders of a state/province (auth optional)",
+        "description": "Public binders of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update) and owner block (handle, display name, avatar, state/province + country; never a city). 404 when the region is unknown or the subdivision is not one of its own.",
+        "operationId": "listSubdivisionBinders",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 6,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque cursor of the previous page",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of binders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPagePublicBinderSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown region or subdivision",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/regions/{region}/binder-counts": {
+      "get": {
+        "tags": [
+          "map"
+        ],
+        "summary": "Public binders per state/province of a region (auth optional)",
+        "description": "Effectively public binders holding at least one public item whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.",
+        "operationId": "getRegionBinderCounts",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binder counts per subdivision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionBinderCounts"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown region",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -18365,7 +18774,7 @@
           "public-binders"
         ],
         "summary": "A public binder (auth optional)",
-        "description": "404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries a region label and, for signed-in callers with a trading area, a distance bucket; never coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).",
+        "description": "404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).",
         "operationId": "getPublicBinder",
         "parameters": [
           {
@@ -19517,141 +19926,6 @@
         }
       }
     },
-    "/api/v1/me/location": {
-      "get": {
-        "tags": [
-          "location"
-        ],
-        "summary": "The caller's trading area and public point",
-        "description": "The only endpoint that returns the caller's chosen centre. `publicPoint` is what other collectors see and is null while not discoverable.",
-        "operationId": "getMyLocation",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MyLocationResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthenticated (missing or invalid token)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden (role, MFA or account state)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "428": {
-            "description": "Terms acceptance required (extension `requiredConsents[]`)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited (`Retry-After` header)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Error (RFC 9457 problem details)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "location"
-        ],
-        "summary": "Remove the caller's location",
-        "description": "Deletes every location row; the collector disappears from the map.",
-        "operationId": "deleteMyLocation",
-        "responses": {
-          "204": {
-            "description": "Removed"
-          },
-          "401": {
-            "description": "Unauthenticated (missing or invalid token)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden (role, MFA or account state)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "428": {
-            "description": "Terms acceptance required (extension `requiredConsents[]`)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited (`Retry-After` header)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Error (RFC 9457 problem details)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/me/listings/status": {
       "get": {
         "tags": [
@@ -19730,7 +20004,7 @@
           "account"
         ],
         "summary": "Download the caller's data",
-        "description": "JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, trading area, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.",
+        "description": "JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, location, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.",
         "operationId": "exportMyData",
         "responses": {
           "200": {
@@ -20523,7 +20797,7 @@
           "community"
         ],
         "summary": "Community channels",
-        "description": "Active channels ordered for display. `game` filters by game slug, `region` by city (accent- and case-insensitive). 404 FEATURE_DISABLED while the publicChat flag is off.",
+        "description": "Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.",
         "operationId": "listCommunityChannels",
         "parameters": [
           {
@@ -20540,7 +20814,7 @@
           {
             "name": "region",
             "in": "query",
-            "description": "City, e.g. Montréal",
+            "description": "Platform region code (GET /regions), e.g. americas-north",
             "required": false,
             "schema": {
               "type": "string",
@@ -20632,7 +20906,7 @@
           "collectors"
         ],
         "summary": "Public profile of a collector",
-        "description": "Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` is null unless the collector is discoverable; `distanceBucket` needs a trading area on the caller's side and `showDistance` on the collector's. Coordinates are the derived public point only (3 decimals).",
+        "description": "Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` (state/province + country) is null unless the collector is discoverable and set a location; its `city` is the collector's own optional city, present only while they show it on their profile. The only response with another collector's city; no coordinates or distances anywhere (ADR 0017).",
         "operationId": "getCollector",
         "parameters": [
           {
@@ -21041,89 +21315,6 @@
         }
       }
     },
-    "/api/v1/collectors/{handle}/preview": {
-      "get": {
-        "tags": [
-          "discovery"
-        ],
-        "summary": "Map preview card of a collector (auth optional)",
-        "description": "The marker payload of one collector on the map plus `canMessage` and `isBlocked`. 404 unless the collector is on the map (unknown, suspended, pending deletion, not discoverable or PRIVATE profile). `distanceBucket` is measured from `lat`/`lng` when given, else from the signed-in caller's trading area; null for signed-out callers.",
-        "operationId": "getCollectorPreview",
-        "parameters": [
-          {
-            "name": "handle",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lat",
-            "in": "query",
-            "description": "Centre latitude for the distance bucket",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "lng",
-            "in": "query",
-            "description": "Centre longitude for the distance bucket",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Preview card",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CollectorPreview"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Collector not on the map",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited (`Retry-After` header)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Error (RFC 9457 problem details)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        },
-        "security": []
-      }
-    },
     "/api/v1/collectors/{handle}/inventory": {
       "get": {
         "tags": [
@@ -21292,187 +21483,6 @@
           },
           "429": {
             "description": "Rate limited (`Retry-After` header)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Error (RFC 9457 problem details)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          }
-        },
-        "security": []
-      }
-    },
-    "/api/v1/collectors/nearby": {
-      "get": {
-        "tags": [
-          "discovery"
-        ],
-        "summary": "Collectors on the map around a centre (auth optional)",
-        "description": "Discoverable collectors (ACTIVE account, profile not PRIVATE) whose derived public point is within `radiusKm` of the centre (`ST_DWithin` on the public point). The centre is `lat`/`lng` snapped to 0.01° or, when omitted, the signed-in caller's own trading area; signed-out callers must pass it. `radiusKm` defaults to 10 (lowered to the plan cap); beyond the caller's `map.radius.max_km` (FREE 25, PREMIUM 100; signed-out: FREE) → 429 LIMIT_REACHED. Filters: `game` (plays it or lists it), `availability` (TRADE, SALE, TRADE_OR_SALE, ACCEPTS_OFFERS), `freshness` (ACTIVE or AGING), `tags` (any), `hasPrintingId` / `hasCardId` (lists it publicly), `query` (handle, display name or tag text of collectors who allow name search). Collectors whose public listings are all stale never appear; STALE and HIDDEN items never match. Ranking: freshness (ACTIVE > AGING > no listings), distance, rating. Signed-out callers get no distance buckets. Cached 60 s per rounded centre, radius and filters.",
-        "operationId": "listNearbyCollectors",
-        "parameters": [
-          {
-            "name": "lat",
-            "in": "query",
-            "description": "Centre latitude (required when signed out)",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "lng",
-            "in": "query",
-            "description": "Centre longitude (required when signed out)",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "radiusKm",
-            "in": "query",
-            "description": "Radius in km (default 10, capped by the plan)",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "format": "double"
-            }
-          },
-          {
-            "name": "game",
-            "in": "query",
-            "description": "Game slug",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 32,
-              "minLength": 0
-            }
-          },
-          {
-            "name": "availability",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "TRADE",
-                "SALE",
-                "TRADE_OR_SALE",
-                "ACCEPTS_OFFERS"
-              ]
-            }
-          },
-          {
-            "name": "freshness",
-            "in": "query",
-            "description": "ACTIVE or AGING",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "ACTIVE (recently confirmed), AGING, STALE (still public), HIDDEN (not public until confirmed)",
-              "enum": [
-                "ACTIVE",
-                "AGING",
-                "STALE",
-                "HIDDEN"
-              ]
-            }
-          },
-          {
-            "name": "tags",
-            "in": "query",
-            "description": "Tag slugs (any), repeated or comma separated",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "name": "hasPrintingId",
-            "in": "query",
-            "description": "Collectors listing this printing publicly",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "hasCardId",
-            "in": "query",
-            "description": "Collectors listing a printing of this card publicly",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "query",
-            "in": "query",
-            "description": "Handle, display name or tag text",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "maxLength": 100,
-              "minLength": 0
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 200,
-              "maximum": 500,
-              "minimum": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Markers around the centre",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NearbyCollectorsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid filter, partial centre, or no centre for a signed-out caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "LIMIT_REACHED (`map.radius.max_km`) or RATE_LIMITED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22140,7 +22150,7 @@
           "ads"
         ],
         "summary": "Sponsored ads for a placement (public)",
-        "description": "Targeting uses the requested game and grid cell and, for signed-in callers, their public grid cell and region label, interest games, tags and plan (never a precise location). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.",
+        "description": "Targeting uses the requested game and platform region and, for signed-in callers, their country and state/province, interest games, tags and plan (never a city or a coordinate). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.",
         "operationId": "listAds",
         "parameters": [
           {
@@ -22172,16 +22182,16 @@
             "example": "pokemon"
           },
           {
-            "name": "geoCell",
+            "name": "region",
             "in": "query",
-            "description": "Public grid cell of the map view",
+            "description": "Platform region of the page (GET /regions)",
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 20,
+              "maxLength": 32,
               "minLength": 0
             },
-            "example": "r5058c-5438"
+            "example": "americas-north"
           }
         ],
         "responses": {
@@ -22199,7 +22209,7 @@
             }
           },
           "400": {
-            "description": "VALIDATION_FAILED (placement, game or geoCell)",
+            "description": "VALIDATION_FAILED (placement, game or region)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23585,6 +23595,77 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/regions": {
+      "get": {
+        "tags": [
+          "admin-regions"
+        ],
+        "summary": "Regions with every country, inactive ones included (ADMIN, SUPER_ADMIN)",
+        "operationId": "listAdminRegions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionsResponse"
                 }
               }
             }
@@ -27193,11 +27274,7 @@
         "properties": {
           "discoverable": {
             "type": "boolean",
-            "description": "Appear on the map / in nearby searches (default false)"
-          },
-          "showDistance": {
-            "type": "boolean",
-            "description": "Default true"
+            "description": "Appear in region search, card holder lists and the state binder lists of the map (default false); needs a country and a state/province, 409 LOCATION_REQUIRED otherwise"
           },
           "showOnlineStatus": {
             "type": "boolean",
@@ -27239,7 +27316,6 @@
           "messagingPermission",
           "profileVisibility",
           "searchDiscoverable",
-          "showDistance",
           "showLastActive",
           "showOnlineStatus",
           "wishlistVisible"
@@ -27627,63 +27703,109 @@
           }
         }
       },
-      "UpdateTradingAreaRequest": {
+      "UpdateLocationRequest": {
         "type": "object",
         "properties": {
-          "lat": {
-            "type": "number",
-            "format": "double",
-            "description": "Centre latitude (stored rounded to 3 decimals)",
-            "example": 45.52,
-            "maximum": 85.0,
-            "minimum": -85.0
+          "countryCode": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 code of an active country of GET /regions",
+            "example": "CA",
+            "maxLength": 16,
+            "minLength": 0
           },
-          "lng": {
-            "type": "number",
-            "format": "double",
-            "description": "Centre longitude (stored rounded to 3 decimals)",
-            "example": -73.58,
-            "maximum": 180.0,
-            "minimum": -180.0
+          "subdivisionCode": {
+            "type": "string",
+            "description": "A subdivision code of that country (GET /regions)",
+            "example": "CA-QC",
+            "maxLength": 16,
+            "minLength": 0
           },
-          "radiusKm": {
-            "type": "integer",
-            "format": "int32",
-            "example": 5,
-            "maximum": 50,
-            "minimum": 1
-          },
-          "source": {
+          "city": {
             "type": [
               "string",
               "null"
             ],
-            "description": "MANUAL (default) or DEVICE; DEVICE only records where the centre came from, the server still snaps it",
-            "enum": [
-              "MANUAL",
-              "DEVICE"
-            ]
+            "description": "Optional city, at most 80 characters after trimming; never geocoded. Null or blank clears it",
+            "example": "Montréal",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "showCity": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Show the city on the public profile (default true)"
           }
         },
         "required": [
-          "lat",
-          "lng",
-          "radiusKm"
+          "countryCode",
+          "subdivisionCode"
+        ]
+      },
+      "MyLocation": {
+        "type": "object",
+        "description": "Country, state/province and optional city",
+        "properties": {
+          "regionCode": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "regionName": {
+            "type": "string",
+            "example": "Americas (North)"
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "CA"
+          },
+          "countryName": {
+            "type": "string",
+            "example": "Canada"
+          },
+          "subdivisionCode": {
+            "type": "string",
+            "example": "CA-QC"
+          },
+          "subdivisionName": {
+            "type": "string",
+            "example": "Quebec"
+          },
+          "label": {
+            "type": "string",
+            "example": "Quebec, Canada"
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Montréal"
+          },
+          "showCity": {
+            "type": "boolean",
+            "description": "Show the city on the public profile"
+          }
+        },
+        "required": [
+          "countryCode",
+          "countryName",
+          "label",
+          "regionCode",
+          "regionName",
+          "showCity",
+          "subdivisionCode",
+          "subdivisionName"
         ]
       },
       "MyLocationResponse": {
         "type": "object",
         "description": "The caller's own location settings",
         "properties": {
-          "tradingArea": {
+          "location": {
             "type": "null",
-            "$ref": "#/components/schemas/TradingAreaResponse",
-            "description": "The chosen trading area (owner only)"
-          },
-          "publicPoint": {
-            "type": "null",
-            "$ref": "#/components/schemas/PublicPoint",
-            "description": "The derived point other collectors see; null while not discoverable"
+            "$ref": "#/components/schemas/MyLocation",
+            "description": "Null while no location is set"
           },
           "discoverable": {
             "type": "boolean"
@@ -27691,67 +27813,6 @@
         },
         "required": [
           "discoverable"
-        ]
-      },
-      "PublicPoint": {
-        "type": "object",
-        "description": "Approximate public position (about 1 km grid + deterministic jitter, 3 decimals); never the collector's real location",
-        "properties": {
-          "lat": {
-            "type": "number",
-            "format": "double",
-            "example": 45.522
-          },
-          "lng": {
-            "type": "number",
-            "format": "double",
-            "example": -73.581
-          }
-        },
-        "required": [
-          "lat",
-          "lng"
-        ]
-      },
-      "TradingAreaResponse": {
-        "type": "object",
-        "description": "Trading area chosen by the owner",
-        "properties": {
-          "lat": {
-            "type": "number",
-            "format": "double",
-            "example": 45.52
-          },
-          "lng": {
-            "type": "number",
-            "format": "double",
-            "example": -73.58
-          },
-          "radiusKm": {
-            "type": "integer",
-            "format": "int32",
-            "example": 5
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "MANUAL",
-              "DEVICE"
-            ]
-          },
-          "label": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "example": "Plateau-Mont-Royal, Montréal"
-          }
-        },
-        "required": [
-          "lat",
-          "lng",
-          "radiusKm",
-          "source"
         ]
       },
       "ReorderBindersRequest": {
@@ -28112,6 +28173,80 @@
             "format": "int32"
           }
         }
+      },
+      "CountryRegionRequest": {
+        "type": "object",
+        "properties": {
+          "regionCode": {
+            "type": "string",
+            "example": "americas-north",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "active",
+          "regionCode"
+        ]
+      },
+      "RegionCountry": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "CA"
+          },
+          "name": {
+            "type": "string",
+            "example": "Canada"
+          },
+          "regionCode": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Inactive countries are listed to admins only"
+          },
+          "subdivisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegionSubdivision"
+            }
+          }
+        },
+        "required": [
+          "active",
+          "code",
+          "name",
+          "regionCode",
+          "subdivisions"
+        ]
+      },
+      "RegionSubdivision": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "CA-QC"
+          },
+          "name": {
+            "type": "string",
+            "example": "Quebec"
+          },
+          "wholeCountry": {
+            "type": "boolean",
+            "description": "Stands for the whole country (its code is the alpha-2 code)"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "wholeCountry"
+        ]
       },
       "AdminPrintingRequest": {
         "type": "object",
@@ -29682,8 +29817,9 @@
             "type": "string",
             "enum": [
               "GAME",
-              "REGION_LABEL",
-              "GEO_CELL",
+              "REGION",
+              "COUNTRY",
+              "SUBDIVISION",
               "TAG",
               "PLAN"
             ]
@@ -29819,15 +29955,16 @@
             "type": "string",
             "enum": [
               "GAME",
-              "REGION_LABEL",
-              "GEO_CELL",
+              "REGION",
+              "COUNTRY",
+              "SUBDIVISION",
               "TAG",
               "PLAN"
             ]
           },
           "value": {
             "type": "string",
-            "description": "GAME/TAG slug, REGION_LABEL text (never coordinates), GEO_CELL id r<row>c<col>, PLAN code or ANONYMOUS",
+            "description": "GAME/TAG slug, REGION code (americas-north), COUNTRY (CA), SUBDIVISION (CA-QC), PLAN code or ANONYMOUS",
             "example": "pokemon",
             "maxLength": 120,
             "minLength": 0
@@ -30558,7 +30695,7 @@
       },
       "CreateWishlistItemRequest": {
         "type": "object",
-        "description": "cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. radiusKm defaults to 25 km (lowered to the plan cap); beyond the plan's map.radius.max_km it is 429 LIMIT_REACHED.",
+        "description": "cardId or printingId is required (the card of a printing is derived). rarity, conditionMin, edition and language must belong to the game's GameSchema. Matching compares platform regions (no radius, no distance; ADR 0017).",
         "properties": {
           "cardId": {
             "type": "string",
@@ -30599,13 +30736,6 @@
             "example": "CAD",
             "maxLength": 3,
             "minLength": 3
-          },
-          "radiusKm": {
-            "type": "integer",
-            "format": "int32",
-            "example": 25,
-            "maximum": 20000,
-            "minimum": 1
           },
           "tradePreference": {
             "type": "string",
@@ -30712,12 +30842,6 @@
             "type": "string",
             "example": "CAD"
           },
-          "radiusKm": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Matching radius (km), capped by the plan",
-            "example": 25
-          },
           "tradePreference": {
             "type": "string",
             "enum": [
@@ -30762,7 +30886,6 @@
           "id",
           "matchCount",
           "notes",
-          "radiusKm",
           "tradePreference",
           "updatedAt"
         ]
@@ -31123,7 +31246,7 @@
       },
       "OfferParty": {
         "type": "object",
-        "description": "A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, a region label with a distance bucket",
+        "description": "A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, their state/province and country",
         "properties": {
           "id": {
             "type": "string",
@@ -31143,10 +31266,10 @@
             ],
             "format": "uri"
           },
-          "location": {
+          "place": {
             "type": "null",
-            "$ref": "#/components/schemas/PublicOwnerLocation",
-            "description": "Null unless the collector is discoverable"
+            "$ref": "#/components/schemas/Place",
+            "description": "State/province and country; null unless the collector is discoverable with a location"
           },
           "rating": {
             "$ref": "#/components/schemas/CollectorRating"
@@ -31562,6 +31685,46 @@
           "status"
         ]
       },
+      "Place": {
+        "type": "object",
+        "description": "State/province and country of a collector; never a city or a coordinate",
+        "properties": {
+          "regionCode": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "CA"
+          },
+          "countryName": {
+            "type": "string",
+            "example": "Canada"
+          },
+          "subdivisionCode": {
+            "type": "string",
+            "description": "ISO 3166-2 code, or the country's alpha-2 code for a whole-country pseudo-subdivision",
+            "example": "CA-QC"
+          },
+          "subdivisionName": {
+            "type": "string",
+            "example": "Quebec"
+          },
+          "label": {
+            "type": "string",
+            "description": "State/province + country, or the country alone",
+            "example": "Quebec, Canada"
+          }
+        },
+        "required": [
+          "countryCode",
+          "countryName",
+          "label",
+          "regionCode",
+          "subdivisionCode",
+          "subdivisionName"
+        ]
+      },
       "PublicInventoryItem": {
         "type": "object",
         "description": "A public inventory item",
@@ -31654,34 +31817,6 @@
           "printing",
           "publicNotes",
           "quantity"
-        ]
-      },
-      "PublicOwnerLocation": {
-        "type": "object",
-        "description": "Approximate location (never a point)",
-        "properties": {
-          "publicLabel": {
-            "type": "string",
-            "example": "Plateau-Mont-Royal, Montréal"
-          },
-          "distanceBucket": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Null unless the request is signed in, the caller has a trading area and the owner shows distances",
-            "enum": [
-              "LT_1KM",
-              "KM_1_5",
-              "KM_5_10",
-              "KM_10_25",
-              "KM_25_50",
-              "GT_50KM"
-            ]
-          }
-        },
-        "required": [
-          "publicLabel"
         ]
       },
       "ShipmentSummary": {
@@ -32849,7 +32984,7 @@
           },
           "body": {
             "type": "string",
-            "example": "Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away"
+            "example": "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec, Canada."
           },
           "data": {
             "type": "object",
@@ -36850,8 +36985,8 @@
           },
           "regionLabel": {
             "type": "string",
-            "description": "City of region channels",
-            "example": "Québec",
+            "description": "Platform region code of region channels (GET /regions)",
+            "example": "americas-north",
             "maxLength": 120,
             "minLength": 0
           },
@@ -37123,12 +37258,6 @@
             "maxLength": 3,
             "minLength": 3
           },
-          "radiusKm": {
-            "type": "integer",
-            "format": "int32",
-            "maximum": 20000,
-            "minimum": 1
-          },
           "tradePreference": {
             "type": "string",
             "enum": [
@@ -37362,7 +37491,7 @@
           },
           "regionLabel": {
             "type": "string",
-            "description": "City; blank removes it",
+            "description": "Platform region code (GET /regions); blank removes it",
             "maxLength": 120,
             "minLength": 0
           }
@@ -37490,7 +37619,7 @@
       },
       "CollectorMarker": {
         "type": "object",
-        "description": "A collector on the map at the derived public point (never the real location)",
+        "description": "A discoverable collector with their state/province and country (never a city, a coordinate or a distance)",
         "properties": {
           "id": {
             "type": "string",
@@ -37511,27 +37640,8 @@
             ],
             "format": "uri"
           },
-          "publicPoint": {
-            "$ref": "#/components/schemas/PublicPoint"
-          },
-          "publicLabel": {
-            "type": "string",
-            "example": "Plateau-Mont-Royal, Montréal"
-          },
-          "distanceBucket": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Distance class from the search centre; null for signed-out callers and collectors who hide distances",
-            "enum": [
-              "LT_1KM",
-              "KM_1_5",
-              "KM_5_10",
-              "KM_10_25",
-              "KM_25_50",
-              "GT_50KM"
-            ]
+          "place": {
+            "$ref": "#/components/schemas/Place"
           },
           "rating": {
             "$ref": "#/components/schemas/CollectorRating"
@@ -37578,7 +37688,7 @@
               "string",
               "null"
             ],
-            "description": "Best freshness of the public listings (ACTIVE or AGING on the map); null without public listings",
+            "description": "Best freshness of the public listings (ACTIVE or AGING in search); null without public listings",
             "enum": [
               "ACTIVE",
               "AGING",
@@ -37610,10 +37720,9 @@
           "lastActiveBucket",
           "matchingItems",
           "onlineStatus",
+          "place",
           "publicBinderCount",
           "publicItemCount",
-          "publicLabel",
-          "publicPoint",
           "rating",
           "tags"
         ]
@@ -37753,18 +37862,6 @@
           "collector": {
             "$ref": "#/components/schemas/CollectorMarker"
           },
-          "distanceBucket": {
-            "type": "string",
-            "description": "Approximate distance between the two collectors' public points when the item matched",
-            "enum": [
-              "LT_1KM",
-              "KM_1_5",
-              "KM_5_10",
-              "KM_10_25",
-              "KM_25_50",
-              "GT_50KM"
-            ]
-          },
           "matchedAt": {
             "type": "string",
             "format": "date-time"
@@ -37776,7 +37873,6 @@
         "required": [
           "collector",
           "dismissed",
-          "distanceBucket",
           "id",
           "item",
           "matchedAt",
@@ -38024,10 +38120,10 @@
             ],
             "format": "uri"
           },
-          "location": {
+          "place": {
             "type": "null",
-            "$ref": "#/components/schemas/PublicOwnerLocation",
-            "description": "Null unless the collector is discoverable"
+            "$ref": "#/components/schemas/Place",
+            "description": "State/province and country; null unless the collector is discoverable with a location"
           }
         },
         "required": [
@@ -38150,9 +38246,14 @@
               "$ref": "#/components/schemas/SetSummary"
             }
           },
+          "region": {
+            "type": "string",
+            "description": "Platform region the collectors and binders were searched in",
+            "example": "americas-north"
+          },
           "collectors": {
             "type": "array",
-            "description": "Holders of the resolved printing/card (with matchingItems), otherwise collectors matching the text",
+            "description": "Holders of the resolved printing/card in the region (with matchingItems), otherwise collectors of the region matching the text",
             "items": {
               "$ref": "#/components/schemas/CollectorMarker"
             }
@@ -38174,6 +38275,7 @@
           "collectors",
           "printings",
           "query",
+          "region",
           "resolved",
           "sets"
         ]
@@ -38244,7 +38346,7 @@
       },
       "CardHolderResult": {
         "type": "object",
-        "description": "A collector near you holding the card",
+        "description": "A collector of the region holding the card",
         "properties": {
           "collector": {
             "$ref": "#/components/schemas/CollectorMarker"
@@ -38294,6 +38396,118 @@
             "example": 7
           }
         }
+      },
+      "PlatformRegion": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "name": {
+            "type": "string",
+            "example": "Americas (North)"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "The default region of signed-out visitors"
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegionCountry"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "countries",
+          "isDefault",
+          "name"
+        ]
+      },
+      "RegionsResponse": {
+        "type": "object",
+        "properties": {
+          "regions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformRegion"
+            }
+          }
+        },
+        "required": [
+          "regions"
+        ]
+      },
+      "CursorPagePublicBinderSummary": {
+        "type": "object",
+        "description": "Cursor-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current slice",
+            "items": {
+              "$ref": "#/components/schemas/PublicBinderSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another slice exists"
+          }
+        }
+      },
+      "RegionBinderCounts": {
+        "type": "object",
+        "description": "Public binders per state/province",
+        "properties": {
+          "region": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Public binders in all"
+          },
+          "subdivisions": {
+            "type": "array",
+            "description": "Subdivisions holding at least one public binder",
+            "items": {
+              "$ref": "#/components/schemas/SubdivisionBinderCount"
+            }
+          }
+        },
+        "required": [
+          "region",
+          "subdivisions",
+          "total"
+        ]
+      },
+      "SubdivisionBinderCount": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "CA-QC"
+          },
+          "binderCount": {
+            "type": "integer",
+            "format": "int64",
+            "example": 3
+          }
+        },
+        "required": [
+          "binderCount",
+          "code"
+        ]
       },
       "RatingEligibility": {
         "type": "object",
@@ -38971,6 +39185,14 @@
           "plan": {
             "type": "string",
             "example": "FREE"
+          },
+          "homeRegion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Platform region of the collector's declared location (ADR 0017); null without a location. Clients browse it by default",
+            "example": "americas-north"
           }
         },
         "required": [
@@ -38992,8 +39214,9 @@
           "profileComplete": {
             "type": "boolean"
           },
-          "tradingAreaSet": {
-            "type": "boolean"
+          "locationSet": {
+            "type": "boolean",
+            "description": "Whether a country and a state/province are set (required to be discoverable; ADR 0017)"
           },
           "interestsSet": {
             "type": "boolean"
@@ -39005,8 +39228,8 @@
         },
         "required": [
           "interestsSet",
-          "profileComplete",
-          "tradingAreaSet"
+          "locationSet",
+          "profileComplete"
         ]
       },
       "RequiredConsent": {
@@ -39570,11 +39793,11 @@
           },
           "slug": {
             "type": "string",
-            "example": "montreal-pokemon"
+            "example": "americas-north"
           },
           "name": {
             "type": "string",
-            "example": "Montréal / Pokémon"
+            "example": "Americas (North)"
           },
           "kind": {
             "type": "string",
@@ -39599,7 +39822,7 @@
               "string",
               "null"
             ],
-            "example": "Montréal"
+            "example": "americas-north"
           },
           "description": {
             "type": "string"
@@ -39641,38 +39864,6 @@
             "description": "Whether another slice exists"
           }
         }
-      },
-      "CollectorLocation": {
-        "type": "object",
-        "description": "Approximate location (never precise)",
-        "properties": {
-          "publicLabel": {
-            "type": "string",
-            "example": "Plateau-Mont-Royal, Montréal"
-          },
-          "publicPoint": {
-            "$ref": "#/components/schemas/PublicPoint"
-          },
-          "distanceBucket": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Null unless the caller has a trading area and the collector shows distances",
-            "enum": [
-              "LT_1KM",
-              "KM_1_5",
-              "KM_5_10",
-              "KM_10_25",
-              "KM_25_50",
-              "GT_50KM"
-            ]
-          }
-        },
-        "required": [
-          "publicLabel",
-          "publicPoint"
-        ]
       },
       "CollectorProfileResponse": {
         "type": "object",
@@ -39717,8 +39908,8 @@
           },
           "location": {
             "type": "null",
-            "$ref": "#/components/schemas/CollectorLocation",
-            "description": "Null unless the collector is discoverable"
+            "$ref": "#/components/schemas/ProfileLocation",
+            "description": "Null unless the collector is discoverable and set a location"
           },
           "memberSince": {
             "type": "string",
@@ -39789,6 +39980,52 @@
         "required": [
           "label",
           "slug"
+        ]
+      },
+      "ProfileLocation": {
+        "type": "object",
+        "description": "State/province and country of a collector, plus the city they show on their profile; never a coordinate",
+        "properties": {
+          "regionCode": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "countryCode": {
+            "type": "string",
+            "example": "CA"
+          },
+          "countryName": {
+            "type": "string",
+            "example": "Canada"
+          },
+          "subdivisionCode": {
+            "type": "string",
+            "example": "CA-QC"
+          },
+          "subdivisionName": {
+            "type": "string",
+            "example": "Quebec"
+          },
+          "label": {
+            "type": "string",
+            "example": "Quebec, Canada"
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null unless the collector shows their city on their profile",
+            "example": "Montréal"
+          }
+        },
+        "required": [
+          "countryCode",
+          "countryName",
+          "label",
+          "regionCode",
+          "subdivisionCode",
+          "subdivisionName"
         ]
       },
       "WishlistSummaryEntry": {
@@ -39912,185 +40149,6 @@
         },
         "required": [
           "count"
-        ]
-      },
-      "CollectorPreview": {
-        "type": "object",
-        "description": "Map preview card of a collector",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "handle": {
-            "type": "string",
-            "example": "maika"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "avatarUrl": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uri"
-          },
-          "publicPoint": {
-            "$ref": "#/components/schemas/PublicPoint"
-          },
-          "publicLabel": {
-            "type": "string"
-          },
-          "distanceBucket": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Distance class from the given centre or the caller's trading area; null for signed-out callers",
-            "enum": [
-              "LT_1KM",
-              "KM_1_5",
-              "KM_5_10",
-              "KM_10_25",
-              "KM_25_50",
-              "GT_50KM"
-            ]
-          },
-          "rating": {
-            "$ref": "#/components/schemas/CollectorRating"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "games": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "lastActiveBucket": {
-            "type": "string",
-            "enum": [
-              "TODAY",
-              "THIS_WEEK",
-              "THIS_MONTH",
-              "LONGER_AGO",
-              "HIDDEN"
-            ]
-          },
-          "onlineStatus": {
-            "type": "string",
-            "enum": [
-              "ONLINE",
-              "OFFLINE",
-              "HIDDEN"
-            ]
-          },
-          "binderFreshness": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Null without public listings",
-            "enum": [
-              "ACTIVE",
-              "AGING",
-              "STALE",
-              "HIDDEN"
-            ]
-          },
-          "publicBinderCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "publicItemCount": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "canMessage": {
-            "type": "boolean",
-            "description": "Whether the caller may start a conversation"
-          },
-          "isBlocked": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "canMessage",
-          "displayName",
-          "games",
-          "handle",
-          "id",
-          "isBlocked",
-          "lastActiveBucket",
-          "onlineStatus",
-          "publicBinderCount",
-          "publicItemCount",
-          "publicLabel",
-          "publicPoint",
-          "rating",
-          "tags"
-        ]
-      },
-      "NearbyCollectorsResponse": {
-        "type": "object",
-        "description": "Collectors on the map around a centre",
-        "properties": {
-          "center": {
-            "$ref": "#/components/schemas/SearchCentre"
-          },
-          "radiusKm": {
-            "type": "number",
-            "format": "double",
-            "description": "Radius used (plan-capped, 0.1 km steps)",
-            "example": 10
-          },
-          "collectors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CollectorMarker"
-            }
-          },
-          "total": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Matching collectors"
-          },
-          "truncated": {
-            "type": "boolean",
-            "description": "Whether more collectors match than returned (`limit`)"
-          }
-        },
-        "required": [
-          "center",
-          "collectors",
-          "radiusKm",
-          "total",
-          "truncated"
-        ]
-      },
-      "SearchCentre": {
-        "type": "object",
-        "description": "Centre of a geographic search, snapped to 0.01° (about 1 km): the given lat/lng or the caller's own trading area",
-        "properties": {
-          "lat": {
-            "type": "number",
-            "format": "double",
-            "example": 45.52
-          },
-          "lng": {
-            "type": "number",
-            "format": "double",
-            "example": -73.58
-          }
-        },
-        "required": [
-          "lat",
-          "lng"
         ]
       },
       "PageResponseCardSummary": {
@@ -40420,7 +40478,7 @@
               "string",
               "null"
             ],
-            "description": "Public trading-area label; coordinates are never exposed"
+            "description": "State/province and country (never the city or a coordinate)"
           },
           "deletionRequest": {
             "type": "null",
@@ -41998,6 +42056,7 @@
               "DELETION_BLOCKED",
               "TERMS_ACCEPTANCE_REQUIRED",
               "AGE_CONFIRMATION_REQUIRED",
+              "LOCATION_REQUIRED",
               "RATE_LIMITED",
               "LIMIT_REACHED",
               "PAYLOAD_TOO_LARGE",

@@ -6,9 +6,10 @@ changing code. Keep this file concise; put detail in `docs/`.
 
 ## What OrenjiTrade is
 
-A geographic discovery network for trading cards. The product answers one question:
-**"Who near me owns, trades, sells, wants, or accepts offers for this card?"**
-Collectors publish binders; other collectors find them on a map at *approximate* positions.
+A regional discovery network for trading cards. The product answers one question:
+**"Who in my region owns, trades, sells, wants, or accepts offers for this card?"**
+Collectors publish binders; other collectors find them per platform region and per state or
+province (ADR 0017: no positions, no distances).
 Brand name is always written `OrenjiTrade`. Domain `orenjitrade.com`
 (`www.orenjitrade.com` web + `/admin`, `api.orenjitrade.com` API). Text wordmark only until
 branding assets are supplied.
@@ -30,7 +31,7 @@ branding assets are supplied.
 | Identity | Firebase Authentication / Identity Platform; backend verifies ID tokens; roles live in our DB (RBAC) |
 | Events | Domain events via Spring Modulith event registry (transactional outbox); Pub/Sub adapter for cloud + analytics |
 | Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged |
-| Maps | PostGIS is the geographic source of truth. Google Maps in production; UI map code sits behind a `MapAdapter` (Leaflet fallback when no key) |
+| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. Mobile Map tab is a placeholder for now. PostGIS stays installed but holds no personal geography |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
 ### Card images (ADR 0015, owner rule 2026-10-01, cap raised 2026-10-04)
@@ -57,20 +58,24 @@ payment data, "regulated escrow" claims.
 
 ## Privacy rule that overrides everything else
 
-**Exact collector coordinates are never exposed.** Not in REST responses, HTML, JS objects,
-logs, analytics events, admin exports, or seed screenshots.
+**OrenjiTrade handles no coordinates at all (ADR 0017).** No latitude/longitude, distance,
+radius, grid cell or geocoded value is stored, received, derived or returned: not in REST
+responses, HTML, JS objects, logs, analytics events, admin exports or seed screenshots. No GPS,
+browser/device geolocation, IP geolocation or geocoding, and no new third-party runtime network
+call for geography (boundaries are bundled static assets).
 
-- Private fields: `user_location.home_point` (optional, encrypted-at-rest by Cloud SQL) and
-  the user-selected trading-area centre. These are read only inside the `location` module.
-- Every public representation uses `user_location.public_point`, a **server-side derived**
-  point: snapped to a ~1 km grid and offset with a *deterministic* jitter seeded by user id,
-  recomputed only when the user changes their trading area. Deterministic jitter prevents
-  triangulation through repeated queries.
-- Distances returned to clients are rounded/bucketed (`~4 km`), never raw metres.
-- DTO mappers must never touch `home_point`. Add a test whenever you add a geo endpoint
-  (`GeoPrivacyContractTest` scans responses for coordinate precision > 3 decimals).
-- Users may choose their approximate trading area manually instead of GPS. Default is
-  "not discoverable" until the user opts in.
+- A collector **declares** `user_location`: country + ISO 3166-2 subdivision (from the
+  `platform_region` / `country` / `subdivision` catalogue, `GET /api/v1/regions`), an optional
+  city (≤ 80 chars, moderated, never geocoded) and `show_city`. Unknown codes are a 400.
+- Every public representation is a **place**: the state or province and the country. The city
+  appears **only on its owner's public profile, while `show_city` is on**: never in search,
+  binders, offers, messages, notifications, the map, admin lists, exports to others or analytics.
+- Discovery (search, card holders, map, wishlist matching, ads) is scoped to one **platform
+  region** (`americas-north` default, `americas-south`, `europe`); clients always send `region`.
+- `GeoPrivacyContractTest` signs in as every seed account and fails on any coordinate, distance or
+  radius key, any number with more than 3 decimals, "km away" wording, or a city outside its
+  owner's profile. Add to it whenever you add an endpoint that returns places.
+- Default is "not discoverable"; becoming discoverable needs a location.
 
 ## Backend conventions (`apps/api`)
 
@@ -112,10 +117,9 @@ logs, analytics events, admin exports, or seed screenshots.
   properties; light/dark ready. Skeleton loaders, empty states, error states with retry, and
   keyboard navigation are required for every screen. No giant components.
 - Mobile: expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile`, bottom
-  sheets for collector previews, offline-tolerant queries (`@tanstack/react-query`), typed
-  API via `packages/shared-types` + `openapi-fetch`.
-- Never put secrets in frontend bundles. Only public keys (Firebase web config, Maps browser
-  key restricted by referrer) may appear.
+  sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
+  API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the home region.
+- Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.
 
 ## Working rules for Claude Code
 

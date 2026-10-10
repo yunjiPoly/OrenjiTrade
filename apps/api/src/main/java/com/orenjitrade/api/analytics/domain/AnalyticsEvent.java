@@ -14,24 +14,25 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A schema-versioned analytics event (ARCHITECTURE.md section 8, ADR 0004). Serialised with the
+ * A schema-versioned analytics event (ARCHITECTURE.md section 8, ADR 0017). Serialised with the
  * column names of the BigQuery {@code events} table ({@code event_id}, {@code event_type}, {@code
- * event_version}, {@code occurred_at}, {@code actor_hash}, {@code region_label}, {@code geo_cell},
- * {@code payload}).
+ * event_version}, {@code occurred_at}, {@code actor_hash}, {@code region_code}, {@code
+ * subdivision_code}, {@code payload}).
  *
  * <p>Privacy by construction: the actor is an HMAC ({@link ActorHasher}), never a user id or an
- * e-mail; geography is a ~1 km grid cell id and a coarse region label only; the payload accepts
- * strings (scrubbed by {@link AnalyticsText}), whole numbers, booleans and string lists, never
- * floating-point numbers (so no coordinate can slip in), and refuses location or contact keys; keys
- * ending in {@code _hash} must hold hex digests (pseudonymous ids of other accounts).
+ * e-mail; geography is a platform region code and an ISO 3166-2 subdivision code only (never a
+ * city, a coordinate or a distance); the payload accepts strings (scrubbed by {@link
+ * AnalyticsText}), whole numbers, booleans and string lists, never floating-point numbers (so no
+ * coordinate can slip in), and refuses location or contact keys; keys ending in {@code _hash} must
+ * hold hex digests (pseudonymous ids of other accounts).
  *
  * @param eventId idempotency key
  * @param type event name, e.g. {@code search_performed}
  * @param version payload schema version
  * @param occurredAt when it happened (UTC)
  * @param actorHash pseudonymous actor, {@code null} for signed-out visitors
- * @param regionLabel coarse public region label
- * @param geoCell id of the ~1 km public grid cell ({@code r<row>c<col>})
+ * @param regionCode platform region code, e.g. {@code americas-north}
+ * @param subdivisionCode ISO 3166-2 code (or a whole-country alpha-2 pseudo-subdivision)
  * @param payload event-specific attributes (no PII)
  */
 @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -41,8 +42,8 @@ public record AnalyticsEvent(
         @JsonProperty("event_version") int version,
         @JsonProperty("occurred_at") Instant occurredAt,
         @JsonProperty("actor_hash") @Nullable String actorHash,
-        @JsonProperty("region_label") @Nullable String regionLabel,
-        @JsonProperty("geo_cell") @Nullable String geoCell,
+        @JsonProperty("region_code") @Nullable String regionCode,
+        @JsonProperty("subdivision_code") @Nullable String subdivisionCode,
         @JsonProperty("payload") Map<String, Object> payload) {
 
     /** Current payload schema version of every Phase 4 event. */
@@ -50,9 +51,9 @@ public record AnalyticsEvent(
 
     static final Pattern TYPE = Pattern.compile("^[a-z][a-z0-9_.]{2,63}$");
     static final Pattern KEY = Pattern.compile("^[a-z][a-z0-9_]{0,39}$");
-    static final Pattern GRID_CELL = Pattern.compile("^r-?\\d{1,6}c-?\\d{1,6}$");
+    static final Pattern REGION_CODE = Pattern.compile("^[a-z]+(-[a-z]+){0,3}$");
+    static final Pattern SUBDIVISION_CODE = Pattern.compile("^[A-Z]{2}(-[A-Z0-9]{1,3})?$");
     static final Pattern ACTOR_HASH = Pattern.compile("^[0-9a-f]{16,64}$");
-    static final int MAX_LABEL = 120;
 
     /** Payload keys holding pseudonymous hashes ({@link ActorHasher}): validated, not scrubbed. */
     static final String HASH_SUFFIX = "_hash";
@@ -74,6 +75,14 @@ public record AnalyticsEvent(
                     "centre",
                     "center",
                     "trading_area",
+                    "city",
+                    "distance",
+                    "distance_km",
+                    "distance_bucket",
+                    "radius",
+                    "radius_km",
+                    "grid_cell",
+                    "geo_cell",
                     "email",
                     "phone",
                     "user_id",
@@ -87,10 +96,12 @@ public record AnalyticsEvent(
         if (actorHash != null && !ACTOR_HASH.matcher(actorHash).matches()) {
             throw new IllegalArgumentException("actorHash must be a hex digest");
         }
-        if (geoCell != null && !GRID_CELL.matcher(geoCell).matches()) {
-            throw new IllegalArgumentException("geoCell must be a grid cell id");
+        if (regionCode != null && !REGION_CODE.matcher(regionCode).matches()) {
+            throw new IllegalArgumentException("regionCode must be a platform region code");
         }
-        regionLabel = AnalyticsText.sanitize(regionLabel, MAX_LABEL);
+        if (subdivisionCode != null && !SUBDIVISION_CODE.matcher(subdivisionCode).matches()) {
+            throw new IllegalArgumentException("subdivisionCode must be a subdivision code");
+        }
         payload = checkedPayload(payload);
     }
 
@@ -99,8 +110,8 @@ public record AnalyticsEvent(
             String type,
             Instant occurredAt,
             @Nullable String actorHash,
-            @Nullable String geoCell,
-            @Nullable String regionLabel,
+            @Nullable String regionCode,
+            @Nullable String subdivisionCode,
             Map<String, Object> payload) {
         return new AnalyticsEvent(
                 UUID.randomUUID(),
@@ -108,8 +119,8 @@ public record AnalyticsEvent(
                 VERSION,
                 occurredAt,
                 actorHash,
-                regionLabel,
-                geoCell,
+                regionCode,
+                subdivisionCode,
                 payload);
     }
 

@@ -13,8 +13,6 @@ api_host = "staging-api.orenjitrade.com"
 # Public web configuration (Firebase web app of the staging project; no secrets).
 firebase_web_api_key    = "AIzaSyExampleExampleExampleExampleExampl"
 firebase_web_app_id     = "1:123456789012:web:0123456789abcdef012345"
-google_maps_browser_key = ""
-google_maps_map_id      = ""
 
 # Stripe test keys only after the secret versions exist.
 stripe_secrets_enabled = false

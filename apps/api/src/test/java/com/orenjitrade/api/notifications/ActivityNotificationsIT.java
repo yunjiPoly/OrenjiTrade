@@ -23,9 +23,9 @@ class ActivityNotificationsIT extends AbstractWishlistIT {
 
     @Test
     void privateMessagesNotifyTheRecipientWithAThrottlePerConversation() {
-        Centre centre = randomCentre();
-        Collector sender = collector("an-sender", centre);
-        Collector recipient = collector("an-recipient", centre.offset(1, 0));
+        Place place = americasNorth();
+        Collector sender = collector("an-sender", place);
+        Collector recipient = collector("an-recipient", place);
         String conversationId =
                 callJson(
                                 HttpMethod.POST,
@@ -104,7 +104,7 @@ class ActivityNotificationsIT extends AbstractWishlistIT {
 
     @Test
     void theFreshnessJobWarnsThenReportsHiddenListingsOncePerBinderOrUnfiledLot() {
-        Collector owner = collector("an-fresh", randomCentre());
+        Collector owner = collector("an-fresh", americasNorth());
         String binderId =
                 callJson(
                                 HttpMethod.POST,

@@ -19,14 +19,13 @@ import {
   wishCriteriaChips,
   wishPrintingLabel,
 } from '@/src/features/wishlist/wishlistLabels';
-import { APPROXIMATE_LOCATION_NOTE } from '@/src/lib/approximateArea';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * The matches of one wish (the web's matches drawer of `/wishlist/:id`, also the deep link of
- * WISHLIST_MATCH notifications): who near you lists the card, newest first, with each
- * collector's approximate place and distance bucket, the listing and Message / View profile /
- * View binder / On the map / Dismiss. Cursor pages; new matches arrive live.
+ * WISHLIST_MATCH notifications): who in your region lists the card, newest first, with each
+ * collector's state or province (never a position or a distance, ADR 0017), the listing and
+ * Message / View profile / View binder / Dismiss. Cursor pages; new matches arrive live.
  */
 export default function WishMatchesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -99,7 +98,7 @@ export default function WishMatchesScreen() {
                 />
                 <View style={styles.grow}>
                   <Text style={[textStyle('xs'), styles.strong, { color: palette.primary }]}>
-                    Matches nearby
+                    Matches in your region
                   </Text>
                   <Text
                     accessibilityRole="header"
@@ -155,12 +154,12 @@ export default function WishMatchesScreen() {
               description={
                 wish?.active === false
                   ? 'Alerts are paused for this wish: turn them back on to get matches.'
-                  : `When a collector near you lists ${name}, it shows up here. You can also look on the map.`
+                  : `When a collector of your region lists ${name}, it shows up here.`
               }
-              actionLabel="Who has it on the map"
+              actionLabel="Who has it in my region"
               onAction={() =>
-                router.navigate({
-                  pathname: '/',
+                router.push({
+                  pathname: '/holders',
                   params: wish?.printing?.id
                     ? { printing: wish.printing.id }
                     : { card: wish?.card?.id ?? '' },
@@ -186,8 +185,8 @@ export default function WishMatchesScreen() {
                 color={palette.textMuted}
               />
               <Text style={[textStyle('xs'), styles.grow, { color: palette.textMuted }]}>
-                Places and distances are approximate to protect privacy. {APPROXIMATE_LOCATION_NOTE}
-                .
+                Collectors only ever see each other&apos;s state or province, never a position or a
+                distance.
               </Text>
             </View>
           </View>
@@ -201,7 +200,7 @@ export default function WishMatchesScreen() {
       testID="screen-wish-matches"
       style={[styles.fill, { backgroundColor: palette.background }]}
     >
-      <Stack.Screen options={{ title: wish ? `Matches · ${name}` : 'Matches nearby' }} />
+      <Stack.Screen options={{ title: wish ? `Matches · ${name}` : 'Matches' }} />
       {content}
     </View>
   );

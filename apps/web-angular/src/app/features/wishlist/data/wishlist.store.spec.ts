@@ -21,7 +21,6 @@ function wish(id: string, overrides: Partial<WishlistItemResponse> = {}): Wishli
     game: 'pokemon',
     card: { id: `card-${id}`, name: `Card ${id}` },
     currency: 'CAD',
-    radiusKm: 25,
     tradePreference: Trade.Any,
     notes: '',
     active: true,
@@ -50,18 +49,21 @@ describe('wishlist helpers', () => {
     expect(filterWishes(items, 'paused').map((item) => item.id)).toEqual(['b', 'c']);
   });
 
-  it('knows when matches can arrive', () => {
+  it('knows when matches can arrive: a location is enough (same region, ADR 0017)', () => {
     expect(matchReadiness(null)).toBe('unknown');
-    expect(matchReadiness({ discoverable: true })).toBe('no-area');
-    const tradingArea = { center: { lat: 45.5, lng: -73.6 }, radiusKm: 5, label: 'Montréal' };
-    expect(matchReadiness({ discoverable: false, tradingArea } as never)).toBe('hidden');
-    expect(
-      matchReadiness({
-        discoverable: true,
-        tradingArea,
-        publicPoint: { lat: 45.501, lng: -73.602 },
-      } as never),
-    ).toBe('ready');
+    expect(matchReadiness({ discoverable: true })).toBe('no-location');
+    const location = {
+      regionCode: 'americas-north',
+      regionName: 'Americas (North)',
+      countryCode: 'CA',
+      countryName: 'Canada',
+      subdivisionCode: 'CA-QC',
+      subdivisionName: 'Quebec',
+      label: 'Quebec, Canada',
+      showCity: true,
+    };
+    expect(matchReadiness({ discoverable: false, location })).toBe('ready');
+    expect(matchReadiness({ discoverable: true, location })).toBe('ready');
   });
 });
 
@@ -117,7 +119,7 @@ describe('WishlistStore', () => {
     expect(store.counts()).toEqual({ all: 2, matches: 1, paused: 1 });
     expect(store.totalMatches()).toBe(1);
     expect(store.usage()).toEqual({ used: 2, limit: 20, planName: 'Free' });
-    expect(store.readiness()).toBe('no-area');
+    expect(store.readiness()).toBe('no-location');
   });
 
   it('shows an error state when the list cannot load', () => {
@@ -159,8 +161,8 @@ describe('WishlistStore', () => {
     store.init();
     store.upsert(wish('c'));
     expect(store.items().map((item) => item.id)).toEqual(['c', 'a', 'b']);
-    store.upsert(wish('a', { radiusKm: 5 }));
-    expect(store.find('a')?.radiusKm).toBe(5);
+    store.upsert(wish('a', { notes: 'Edited' }));
+    expect(store.find('a')?.notes).toBe('Edited');
     expect(store.items()).toHaveLength(3);
   });
 

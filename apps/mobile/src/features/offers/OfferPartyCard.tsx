@@ -4,14 +4,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { OfferParty } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
-import { ratingLabel } from '@/src/features/map/discovery';
-import { formatDistanceBucket, isDistanceBucket } from '@/src/lib/formatDistanceBucket';
+import { ratingLabel } from '@/src/features/collectors/collectorLabels';
+import { placeLabel } from '@/src/lib/place';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * One party of an offer or trade (web: `app-offer-party-card`): avatar, role, name (opens the
- * profile), the region label and distance **bucket** when the collector is discoverable (never a
- * point) and the rating.
+ * profile), the state or province when the collector is discoverable (ADR 0017: no position, no
+ * distance) and the rating.
  */
 export function OfferPartyCard({
   party,
@@ -26,8 +26,7 @@ export function OfferPartyCard({
 }) {
   const { palette } = useTheme();
   const router = useRouter();
-  const bucket = party.location?.distanceBucket;
-  const place = party.location?.publicLabel ?? null;
+  const place = placeLabel(party.place);
   return (
     <Pressable
       accessibilityRole="link"
@@ -51,14 +50,9 @@ export function OfferPartyCard({
         </Text>
         {place ? (
           <View style={styles.line}>
-            <MaterialCommunityIcons
-              name="map-marker-radius-outline"
-              size={14}
-              color={palette.textMuted}
-            />
+            <MaterialCommunityIcons name="map-marker-outline" size={14} color={palette.textMuted} />
             <Text style={[textStyle('xs'), styles.grow, { color: palette.textMuted }]}>
               {place}
-              {isDistanceBucket(bucket) ? ` · ${formatDistanceBucket(bucket)}` : ''}
             </Text>
           </View>
         ) : null}

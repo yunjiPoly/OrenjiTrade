@@ -130,7 +130,7 @@ export function useDeleteWish() {
 
 /**
  * `GET /api/v1/wishlist/{id}/matches`, newest first, cursor pages: each a public item with its
- * owner's marker (public point, distance bucket). Never a coordinate on screen.
+ * owner's block (state or province, ADR 0017). Never a position or a distance.
  */
 export function useWishMatches(id: string | null | undefined) {
   const uid = useUid();

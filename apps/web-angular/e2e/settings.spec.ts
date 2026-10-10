@@ -1,69 +1,85 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { tooPrecise, watchCoordinates } from './support/inventory';
-import { API_URL, createOnboardedCollector, requireStack, signInThroughUi } from './support/stack';
+import { watchCoordinates } from './support/inventory';
+import {
+  chooseOption,
+  createOnboardedCollector,
+  requireStack,
+  signInThroughUi,
+} from './support/stack';
 
 /**
- * Settings against the real local stack: discoverability (and the ADR 0004 precision rule on
- * every JSON response the browser receives), the data export and the deletion grace period.
+ * Settings against the real local stack: the self-declared location and discoverability (ADR
+ * 0017: no coordinate in any JSON response the browser receives), the data export and the
+ * deletion grace period.
  */
 test.describe('settings', () => {
   requireStack();
 
-  test('turning discoverability on shows the public label and never precise coordinates', async ({
+  test('a collector declares a location, then appears on the map by state, never a coordinate', async ({
     page,
     request,
   }) => {
     test.setTimeout(90_000);
-    const collector = await createOnboardedCollector(request, 'privacy', { tradingArea: true });
-
+    const collector = await createOnboardedCollector(request, 'privacy');
+    const city = `Zqcity${Math.random().toString(36).slice(2, 7)}`;
     // Bounded body reads: a response aborted by a navigation must not hang the spec.
     const watcher = watchCoordinates(page);
 
     await signInThroughUi(page, collector.email, collector.password);
     await page.goto('/settings/privacy');
     await expect(page.getByRole('heading', { name: 'Visibility' })).toBeVisible();
-    await expect(page.getByText('You are hidden from the map.')).toBeVisible();
-
+    await expect(page.getByText('You have not chosen a location yet')).toBeVisible();
+    // Discoverability needs a location first (409 LOCATION_REQUIRED, explained).
     const discoverable = page.getByRole('switch', { name: 'Show me on the map' });
+    await discoverable.click();
+    await expect(page.getByText(/Pick your country and your state or province/)).toBeVisible();
     await expect(discoverable).toHaveAttribute('aria-checked', 'false');
+
+    // Settings → Location: region, country and state pickers, an optional city.
+    await page
+      .getByRole('navigation', { name: 'Settings sections' })
+      .getByRole('link', { name: 'Location' })
+      .click();
+    await expect(page).toHaveURL(/\/settings\/location$/);
+    await expect(page.getByTestId('location-none')).toBeVisible();
+    await chooseOption(page, 'Country', 'Canada');
+    await chooseOption(page, 'State or province', 'Quebec');
+    await page.getByLabel('City (optional)').fill(city);
+    await page.getByTestId('location-save').click();
+    await expect(page.getByTestId('location-label')).toHaveText(/Quebec, Canada/);
+    await expect(page.getByText('Hidden from the map')).toBeVisible();
+    // The old address of this page still works.
+    await page.goto('/settings/trading-area');
+    await expect(page).toHaveURL(/\/settings\/location$/);
+
+    // Now discoverable: collectors see the state and the country.
+    await page.goto('/settings/privacy');
     await discoverable.click();
     await expect(page.getByText('All changes saved')).toBeVisible();
     await expect(discoverable).toHaveAttribute('aria-checked', 'true');
-    const label = collector.areaLabel ?? '';
-    await expect(page.getByText(/Collectors see you near/)).toContainText(label);
+    await expect(page.getByText(/Collectors see you in/)).toContainText('Quebec, Canada');
 
-    // The trading-area section shows the label the server derived.
-    await page
-      .getByRole('navigation', { name: 'Settings sections' })
-      .getByRole('link', { name: 'Trading area' })
-      .click();
-    await expect(page.getByTestId('area-public-label')).toHaveText(label);
-    await expect(page.getByText('Visible on the map')).toBeVisible();
-
-    // Own public profile: approximate label and map, never an exact position.
+    // Own public profile: the city (shown by default) and the state, never a map pin.
     await page.goto(`/collectors/${collector.handle}`);
     await expect(
       page.getByRole('heading', { level: 1, name: collector.displayName }),
     ).toBeVisible();
-    await expect(page.getByTestId('collector-public-label')).toContainText(label);
+    await expect(page.getByTestId('collector-public-label')).toContainText('Quebec, Canada');
+    await expect(page.getByTestId('collector-city')).toHaveText(city);
     await expect(page.getByRole('link', { name: 'Edit profile' })).toBeVisible();
 
-    // Someone else's profile (seed data, discoverable): label + distance bucket.
+    // Someone else's profile (seed data, discoverable, city shown): state and city, no distance.
     await page.goto('/collectors/collector2');
     await expect(page.getByRole('heading', { level: 1, name: 'Devon Okafor' })).toBeVisible();
-    await expect(page.getByTestId('collector-public-label')).toContainText('Verdun, Montréal');
-    await expect(page.getByText(/km away/)).toBeVisible();
+    await expect(page.getByTestId('collector-public-label')).toContainText('Ontario, Canada');
+    await expect(page.getByTestId('collector-city')).toHaveText('Toronto');
+    await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
     // Phase 5: Devon accepts messages from members with a profile.
     await expect(page.getByRole('button', { name: 'Message Devon Okafor' })).toBeEnabled();
 
     await watcher.settle();
-    const apiSamples = watcher.samples.filter((sample) => sample.url.startsWith(API_URL));
-    expect(apiSamples.length, 'the API returned coordinates to check').toBeGreaterThan(0);
-    const precise = tooPrecise(watcher.samples);
-    expect(precise, `coordinates with more than 3 decimals: ${JSON.stringify(precise)}`).toEqual(
-      [],
-    );
+    expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
   });
 
   test('the data export downloads a JSON document', async ({ page, request }) => {

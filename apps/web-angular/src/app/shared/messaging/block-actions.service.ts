@@ -34,9 +34,9 @@ export class BlockActionsService {
           data: {
             title: `Block ${target.displayName}?`,
             message:
-              'You will stop seeing each other on the map, in search and in the community, and ' +
-              'neither of you can send messages. They are not told. You can unblock them from ' +
-              'Settings → Blocked users.',
+              'You will stop seeing each other’s binders, profiles and posts on the map, in search ' +
+              'and in the community, and neither of you can send messages. They are not told. ' +
+              'You can unblock them from Settings → Blocked users.',
             confirmLabel: 'Block',
             tone: 'danger',
           },

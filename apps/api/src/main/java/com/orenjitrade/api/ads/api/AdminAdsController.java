@@ -234,7 +234,7 @@ public class AdminAdsController {
             operationId = "replaceAdminAdTargeting",
             summary = "Replace a campaign's targeting rules (ADMIN)",
             description =
-                    "Kinds GAME, REGION_LABEL, GEO_CELL, TAG and PLAN only (never coordinates):"
+                    "Kinds GAME, REGION, COUNTRY, SUBDIVISION, TAG and PLAN only (never a city):"
                             + " kinds combine with AND, values of one kind with OR; an empty list"
                             + " targets everybody. Audited (ads.targeting.update).")
     @ApiResponse(responseCode = "200", description = "The campaign")

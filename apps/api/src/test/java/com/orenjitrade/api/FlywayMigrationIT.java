@@ -8,7 +8,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** Verifies that the Flyway migrations (V001–V003) apply cleanly to PostGIS 17. */
+/**
+ * Verifies that the Flyway migrations apply cleanly to PostGIS 17, and that the schema they build
+ * stores no coordinate (ADR 0017).
+ */
 class FlywayMigrationIT extends AbstractIntegrationTest {
 
     @Autowired private JdbcTemplate jdbc;
@@ -36,15 +39,68 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
         assertThat(extensions).contains("postgis", "pg_trgm", "unaccent", "pgcrypto");
     }
 
+    /**
+     * PostGIS stays installed (a CLAUDE.md stack decision) although location no longer uses it (ADR
+     * 0017): the extension answers, without any coordinate.
+     */
     @Test
-    void postgisGeographyDistanceWorks() {
-        Boolean within =
-                jdbc.queryForObject(
-                        "SELECT ST_DWithin(ST_MakePoint(-73.57,45.50)::geography,"
-                                + " ST_MakePoint(-73.56,45.51)::geography, 2000)",
-                        Boolean.class);
+    void postgisStaysInstalled() {
+        String version = jdbc.queryForObject("SELECT postgis_lib_version()", String.class);
 
-        assertThat(within).isTrue();
+        assertThat(version).isNotBlank();
+    }
+
+    /**
+     * ADR 0017: no coordinate is stored anywhere. Outside PostGIS's own catalogue tables, no column
+     * has a spatial type or a coordinate, radius, grid or distance name, and no GiST index remains.
+     */
+    @Test
+    void schemaStoresNoCoordinateRadiusOrDistance() {
+        List<String> columns =
+                jdbc.queryForList(
+                        "SELECT table_name || '.' || column_name || ' ' || udt_name"
+                                + " FROM information_schema.columns WHERE table_schema = 'public'"
+                                + " AND table_name NOT IN"
+                                + " ('spatial_ref_sys', 'geography_columns', 'geometry_columns')"
+                                + " AND (udt_name IN"
+                                + " ('geometry', 'geography', 'point', 'box', 'circle', 'polygon')"
+                                + " OR column_name ~ '(^|_)(point|points|lat|lng|lon|latitude"
+                                + "|longitude|radius|grid|cell|distance|centre|center|geo|gps"
+                                + "|coord|coordinates)(_|$)')",
+                        String.class);
+        List<String> gistIndexes =
+                jdbc.queryForList(
+                        "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"
+                                + " AND indexdef ~* 'using gist'",
+                        String.class);
+
+        assertThat(columns).isEmpty();
+        assertThat(gistIndexes).isEmpty();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM information_schema.columns"
+                                        + " WHERE table_schema = 'public' AND table_name ="
+                                        + " 'user_location'",
+                                Integer.class))
+                .isPositive();
+    }
+
+    /** The database comments describe the region model, not the coordinate one (V108–V111). */
+    @Test
+    void databaseCommentsNoLongerDescribeCoordinatesOrNearby() {
+        List<String> stale =
+                jdbc.queryForList(
+                        "SELECT c.relname || coalesce('.' || a.attname, '')"
+                                + " FROM pg_description d JOIN pg_class c ON c.oid = d.objoid"
+                                + " JOIN pg_namespace n ON n.oid = c.relnamespace"
+                                + " LEFT JOIN pg_attribute a ON a.attrelid = c.oid"
+                                + " AND a.attnum = d.objsubid AND d.objsubid > 0"
+                                + " WHERE n.nspname = 'public' AND d.description ~*"
+                                + " '(nearby|near me|approximate|public.point|jitter|grid cell"
+                                + "|trading.area|radius|ADR 0004)'",
+                        String.class);
+
+        assertThat(stale).isEmpty();
     }
 
     @Test

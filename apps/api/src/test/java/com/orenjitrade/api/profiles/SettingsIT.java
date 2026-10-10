@@ -31,7 +31,6 @@ class SettingsIT extends AbstractIntegrationTest {
 
         JsonNode defaults = callJson(HttpMethod.GET, "/api/v1/me/settings/privacy", uid, null, 200);
         assertThat(defaults.path("discoverable").asBoolean()).isFalse();
-        assertThat(defaults.path("showDistance").asBoolean()).isTrue();
         assertThat(defaults.path("showOnlineStatus").asBoolean()).isFalse();
         assertThat(defaults.path("showLastActive").asBoolean()).isTrue();
         assertThat(defaults.path("profileVisibility").asString()).isEqualTo("MEMBERS");
@@ -42,7 +41,6 @@ class SettingsIT extends AbstractIntegrationTest {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("discoverable", true);
-        body.put("showDistance", false);
         body.put("showOnlineStatus", true);
         body.put("showLastActive", false);
         body.put("profileVisibility", "PUBLIC");

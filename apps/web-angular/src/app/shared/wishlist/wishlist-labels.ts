@@ -44,7 +44,7 @@ export function tradePreferenceInfo(value: string | null | undefined): TradePref
 
 /** One criterion of a wish, shown as a chip. */
 export interface WishChip {
-  kind: 'condition' | 'edition' | 'language' | 'rarity' | 'price' | 'radius' | 'trade';
+  kind: 'condition' | 'edition' | 'language' | 'rarity' | 'price' | 'trade';
   icon: string;
   label: string;
 }
@@ -58,7 +58,6 @@ type WishCriteria = Pick<
   | 'language'
   | 'maxPrice'
   | 'currency'
-  | 'radiusKm'
   | 'tradePreference'
 >;
 
@@ -85,7 +84,6 @@ export function wishCriteriaChips(wish: WishCriteria): WishChip[] {
   if (price) {
     chips.push({ kind: 'price', icon: 'payments', label: `Up to ${price}` });
   }
-  chips.push({ kind: 'radius', icon: 'near_me', label: `Within ${wish.radiusKm} km` });
   const trade = tradePreferenceInfo(wish.tradePreference);
   chips.push({ kind: 'trade', icon: trade.icon, label: trade.label });
   return chips;

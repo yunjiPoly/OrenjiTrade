@@ -2,14 +2,13 @@ import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { MyLocationResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
-import { TradingAreaPicker } from '@/src/features/location/TradingAreaPicker';
-import type { AreaDraft } from '@/src/features/location/tradingArea';
+import { LocationFields } from '@/src/features/location/LocationFields';
+import type { LocationDraft } from '@/src/features/location/locationDraft';
 import { GamePicker, LanguagePicker } from '@/src/features/profile/Pickers';
 import { ProfileFields } from '@/src/features/profile/ProfileFields';
 import { TagPicker } from '@/src/features/profile/TagPicker';
@@ -218,10 +217,10 @@ export function InterestsStep({
   );
 }
 
-export interface AreaStepProps {
-  area: AreaDraft;
-  onAreaChange: (area: AreaDraft) => void;
-  location: MyLocationResponse | undefined;
+export interface LocationStepProps {
+  value: LocationDraft;
+  onChange: (draft: LocationDraft) => void;
+  showErrors: boolean;
   discoverable: boolean;
   onDiscoverableChange: (value: boolean) => void;
   busy: boolean;
@@ -231,11 +230,11 @@ export interface AreaStepProps {
   onFinish: () => void;
 }
 
-/** Step 3: trading area (manual or device, approximate only) and the map opt-in (off). */
-export function AreaStep({
-  area,
-  onAreaChange,
-  location,
+/** Step 3: "Where are you?" (country, state or province, optional city) and the map opt-in. */
+export function LocationStep({
+  value,
+  onChange,
+  showErrors,
   discoverable,
   onDiscoverableChange,
   busy,
@@ -243,17 +242,17 @@ export function AreaStep({
   onBack,
   onSkip,
   onFinish,
-}: AreaStepProps) {
+}: LocationStepProps) {
   return (
-    <View style={styles.step} testID="onboarding-area">
+    <View style={styles.step} testID="onboarding-location">
       <StepHeading
-        title="Where do you trade?"
-        text="Choose the area where you like to meet or ship from. Only an approximate area is ever shown to others."
+        title="Where are you?"
+        text="Pick your country and your state or province: they set your region and where your binders appear. Others only ever see your state or province; your city is optional and shown only on your profile."
       />
-      <TradingAreaPicker value={area} onChange={onAreaChange} location={location} disabled={busy} />
+      <LocationFields value={value} onChange={onChange} showErrors={showErrors} disabled={busy} />
       <SwitchRow
         label="Show me on the map"
-        help="When on, collectors nearby see your approximate area and can find your public binders. Off by default; change it anytime in Settings → Location."
+        help="When on, collectors of your region see your state or province and can find your public binders. Off by default; change it anytime in Settings → Privacy."
         value={discoverable}
         onChange={onDiscoverableChange}
         disabled={busy}

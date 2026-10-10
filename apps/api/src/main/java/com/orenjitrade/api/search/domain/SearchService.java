@@ -16,8 +16,7 @@ import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.PublicInventoryService;
-import com.orenjitrade.api.location.domain.RegionGeocoder;
-import com.orenjitrade.api.location.domain.SearchCentre;
+import com.orenjitrade.api.location.domain.RegionView;
 import com.orenjitrade.api.profiles.domain.TagService;
 import com.orenjitrade.api.profiles.domain.TagView;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
@@ -53,10 +52,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Unified search (Phase 4 contract): {@code GET /search} over cards, printings, sets, collectors
- * and public binders with printing/card resolution and nearby holders, {@code GET
- * /search/card-holders} ("who near me has this card") and {@code GET /search/suggest} (mixed
- * autocomplete). PostgreSQL full text and trigrams only (ADR 0012); geography through public points
- * (ADR 0004). Emits {@code SearchPerformed} for analytics.
+ * and public binders with printing/card resolution and the holders in the region, {@code GET
+ * /search/card-holders} ("who in my region has this card") and {@code GET /search/suggest} (mixed
+ * autocomplete). PostgreSQL full text and trigrams only (ADR 0012); every collector, holder and
+ * binder result is scoped to one platform region (ADR 0017: the {@code region} parameter, else the
+ * caller's home region, else the default). Emits {@code SearchPerformed} for analytics.
  */
 @Service
 public class SearchService {
@@ -73,8 +73,6 @@ public class SearchService {
     private final PublicInventoryService publicInventoryService;
     private final TagService tagService;
     private final MarkerAssembler assembler;
-    private final GeoScopeResolver geoScopes;
-    private final RegionGeocoder regionGeocoder;
     private final ObjectStorage storage;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
@@ -89,8 +87,6 @@ public class SearchService {
             PublicInventoryService publicInventoryService,
             TagService tagService,
             MarkerAssembler assembler,
-            GeoScopeResolver geoScopes,
-            RegionGeocoder regionGeocoder,
             ObjectStorage storage,
             TimeProvider timeProvider,
             ApplicationEventPublisher events) {
@@ -103,8 +99,6 @@ public class SearchService {
         this.publicInventoryService = publicInventoryService;
         this.tagService = tagService;
         this.assembler = assembler;
-        this.geoScopes = geoScopes;
-        this.regionGeocoder = regionGeocoder;
         this.storage = storage;
         this.timeProvider = timeProvider;
         this.events = events;
@@ -120,25 +114,21 @@ public class SearchService {
      * @param q query text
      * @param types sections to fill (all when empty)
      * @param game game slug
-     * @param lat centre latitude
-     * @param lng centre longitude
-     * @param radiusKm radius, capped by the plan
+     * @param region platform region code, {@code null} for the caller's home region
      * @param limit maximum entries per section
      */
     public record UnifiedQuery(
             String q,
             Set<SearchType> types,
             @Nullable String game,
-            @Nullable Double lat,
-            @Nullable Double lng,
-            @Nullable Double radiusKm,
+            @Nullable String region,
             int limit) {}
 
     /**
      * {@code GET /search}: every requested section; when {@code q} designates a printing or a card
      * unambiguously (an exact printing code, an exact card name, or a single card hit), {@code
-     * resolved} is set and {@code collectors} lists the holders of it (nearby when a centre is
-     * known), otherwise collectors matching the text.
+     * resolved} is set and {@code collectors} lists the holders of it in the region, otherwise
+     * collectors of the region matching the text.
      */
     @Transactional(readOnly = true)
     public UnifiedSearch search(@Nullable UUID viewerId, UnifiedQuery query) {
@@ -150,8 +140,7 @@ public class SearchService {
         String q = query.q().trim();
         Set<SearchType> types =
                 query.types().isEmpty() ? EnumSet.allOf(SearchType.class) : query.types();
-        GeoScope scope =
-                geoScopes.resolve(viewerId, query.lat(), query.lng(), query.radiusKm(), false);
+        RegionView region = discovery.scope(viewerId, query.region());
         Instant now = timeProvider.now();
         int limit = query.limit();
 
@@ -178,11 +167,10 @@ public class SearchService {
                         : List.of();
         List<CollectorMarker> found = List.of();
         if (types.contains(SearchType.COLLECTORS)) {
-            NearbyCriteria criteria =
+            DiscoveryCriteria criteria =
                     resolved != null
-                            ? new NearbyCriteria(
-                                    scope.centre(),
-                                    scope.radiusKm(),
+                            ? new DiscoveryCriteria(
+                                    region.code(),
                                     null,
                                     null,
                                     null,
@@ -191,9 +179,8 @@ public class SearchService {
                                     resolved.printingId() == null ? resolved.cardId() : null,
                                     null,
                                     limit)
-                            : new NearbyCriteria(
-                                    scope.centre(),
-                                    scope.radiusKm(),
+                            : new DiscoveryCriteria(
+                                    region.code(),
                                     game,
                                     null,
                                     null,
@@ -208,10 +195,11 @@ public class SearchService {
         if (types.contains(SearchType.BINDERS)) {
             binderHits =
                     publicBinderService.publicBinders(
-                            viewerId, binders.search(q, game, scope, limit, now));
+                            viewerId, binders.search(q, game, region.code(), limit, now));
         }
         UnifiedSearch result =
-                new UnifiedSearch(q, cards, printings, sets, found, binderHits, resolved);
+                new UnifiedSearch(
+                        q, cards, printings, sets, region.code(), found, binderHits, resolved);
         events.publishEvent(
                 new SearchPerformed(
                         SearchPerformed.SURFACE_SEARCH,
@@ -223,10 +211,9 @@ public class SearchService {
                                 ? "none"
                                 : resolved.printingId() != null ? "printing" : "card",
                         result.resultCount(),
-                        scope.hasCentre() ? scope.radiusKmRounded() : null,
                         game == null ? List.of() : List.of("game"),
-                        scope.hasCentre() ? scope.centre().gridCell() : null,
-                        label(scope.centre()),
+                        region.code(),
+                        null,
                         now));
         return result;
     }
@@ -240,9 +227,7 @@ public class SearchService {
      *
      * @param printingId holders of this printing (exactly one of printingId, cardId)
      * @param cardId holders of any printing of this card
-     * @param lat centre latitude (required for signed-out callers)
-     * @param lng centre longitude
-     * @param radiusKm radius, capped by the plan
+     * @param region platform region code, {@code null} for the caller's home region
      * @param availability availability filter
      * @param condition condition code
      * @param minPrice lowest asking price
@@ -251,16 +236,14 @@ public class SearchService {
      * @param edition edition code
      * @param language ISO 639-1 code
      * @param acceptsOffers offers welcome
-     * @param sort distance, price or freshness
+     * @param sort freshness or price
      * @param page zero-based page
      * @param size page size
      */
     public record HolderQuery(
             @Nullable UUID printingId,
             @Nullable UUID cardId,
-            @Nullable Double lat,
-            @Nullable Double lng,
-            @Nullable Double radiusKm,
+            @Nullable String region,
             @Nullable SearchAvailability availability,
             @Nullable String condition,
             @Nullable BigDecimal minPrice,
@@ -275,7 +258,7 @@ public class SearchService {
 
     /**
      * {@code GET /search/card-holders}: effectively public, fresh (ACTIVE or AGING) items of the
-     * printing or card held by collectors on the map within the radius (the caller's own items
+     * printing or card held by discoverable collectors of the region (the caller's own items
      * excluded), with each holder's marker.
      */
     @Transactional(readOnly = true)
@@ -308,8 +291,7 @@ public class SearchService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
-        GeoScope scope =
-                geoScopes.resolve(viewerId, query.lat(), query.lng(), query.radiusKm(), true);
+        RegionView region = discovery.scope(viewerId, query.region());
         ItemFilter filter =
                 new ItemFilter(
                         query.printingId(),
@@ -326,7 +308,13 @@ public class SearchService {
         Instant now = timeProvider.now();
         HolderPage page =
                 cardHolders.page(
-                        filter, scope, query.sort(), viewerId, query.page(), query.size(), now);
+                        filter,
+                        region.code(),
+                        query.sort(),
+                        viewerId,
+                        query.page(),
+                        query.size(),
+                        now);
         List<CardHolder> rows = new ArrayList<>();
         if (!page.holders().isEmpty()) {
             List<InventoryItemView> items =
@@ -341,7 +329,6 @@ public class SearchService {
                                     page.holders().stream()
                                             .map(CardHolderRepository.Holder::ownerId)
                                             .toList()),
-                            scope.centre(),
                             now)
                     .forEach(row -> owners.put(row.id(), row));
             ViewerContext viewer = new ViewerContext(viewerId, false, false);
@@ -362,10 +349,9 @@ public class SearchService {
                         List.of(),
                         query.printingId() != null ? "printing" : "card",
                         page.total(),
-                        scope.radiusKmRounded(),
                         filter.names(),
-                        scope.hasCentre() ? scope.centre().gridCell() : null,
-                        label(scope.centre()),
+                        region.code(),
+                        null,
                         now));
         return PageResponse.of(rows, query.page(), query.size(), page.total());
     }
@@ -376,16 +362,15 @@ public class SearchService {
 
     /**
      * {@code GET /search/suggest}: mixed autocomplete. Printing codes and cards (catalog suggest),
-     * collectors on the map who allow name search (closest first when a centre is known), sets,
-     * public binders and tags, interleaved one per kind in that order until {@code limit}.
+     * discoverable collectors of the region who allow name search, sets, public binders of the
+     * region and tags, interleaved one per kind in that order until {@code limit}.
      */
     @Transactional(readOnly = true)
     public List<Suggestion> suggest(
             @Nullable UUID viewerId,
             String q,
             @Nullable String gameSlug,
-            @Nullable Double lat,
-            @Nullable Double lng,
+            @Nullable String regionCode,
             int limit) {
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable String game = discovery.normaliseGame(gameSlug, errors);
@@ -393,10 +378,7 @@ public class SearchService {
             throw ApiException.validation("Validation failed", errors);
         }
         String text = q.trim();
-        @Nullable SearchCentre centre =
-                lat != null || lng != null || viewerId != null
-                        ? geoScopes.resolve(viewerId, lat, lng, null, false).centre()
-                        : null;
+        RegionView region = discovery.scope(viewerId, regionCode);
         Instant now = timeProvider.now();
 
         List<Deque<Suggestion>> sources = new ArrayList<>();
@@ -416,7 +398,7 @@ public class SearchService {
         }
         sources.add(catalog);
         Deque<Suggestion> people = new ArrayDeque<>();
-        for (CollectorHit hit : collectors.suggest(text, centre, limit, now)) {
+        for (CollectorHit hit : collectors.suggest(text, region.code(), limit, now)) {
             if (assembler.isBlocked(viewerId, hit.id())) {
                 continue;
             }
@@ -425,7 +407,7 @@ public class SearchService {
                             SuggestionType.COLLECTOR,
                             hit.id(),
                             hit.displayName(),
-                            joinNonBlank("@" + hit.handle(), hit.publicLabel()),
+                            joinNonBlank("@" + hit.handle(), hit.place().label()),
                             hit.avatarKey() == null ? null : storage.publicUrl(hit.avatarKey()),
                             null,
                             hit.handle(),
@@ -447,7 +429,7 @@ public class SearchService {
         }
         sources.add(sets);
         Deque<Suggestion> binderEntries = new ArrayDeque<>();
-        for (BinderName binder : binders.suggest(text, limit, now)) {
+        for (BinderName binder : binders.suggest(text, region.code(), limit, now)) {
             if (assembler.isBlocked(viewerId, binder.ownerId())) {
                 continue;
             }
@@ -503,10 +485,6 @@ public class SearchService {
     // ---------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------
-
-    private @Nullable String label(@Nullable SearchCentre centre) {
-        return centre == null ? null : regionGeocoder.labelFor(centre.lat(), centre.lng());
-    }
 
     private static @Nullable String code(
             String field, @Nullable String value, List<ProblemFieldError> errors) {

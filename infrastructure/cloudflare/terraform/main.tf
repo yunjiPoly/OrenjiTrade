@@ -297,7 +297,7 @@ resource "cloudflare_ruleset" "rate_limits" {
   rules = [
     {
       ref         = "ratelimit_api"
-      description = "Auth/session, messaging, community, search, nearby and card endpoints: ${var.rate_limit_requests_per_10s} requests per 10 s per IP"
+      description = "Auth/session, messaging, community, search, regions and card endpoints: ${var.rate_limit_requests_per_10s} requests per 10 s per IP"
       expression  = "(${local.rate_limit_paths_expr})"
       action      = "block"
       enabled     = true

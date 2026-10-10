@@ -31,10 +31,11 @@ public class CollectorController {
             description =
                     "Handle lookup is case-insensitive. 404 when the account does not exist, is"
                         + " suspended, pending deletion or deleted, or when the profile is PRIVATE"
-                        + " (for everyone but its owner). `location` is null unless the collector"
-                        + " is discoverable; `distanceBucket` needs a trading area on the caller's"
-                        + " side and `showDistance` on the collector's. Coordinates are the derived"
-                        + " public point only (3 decimals).")
+                        + " (for everyone but its owner). `location` (state/province + country) is"
+                        + " null unless the collector is discoverable and set a location; its"
+                        + " `city` is the collector's own optional city, present only while they"
+                        + " show it on their profile. The only response with another collector's"
+                        + " city; no coordinates or distances anywhere (ADR 0017).")
     @ApiResponse(responseCode = "200", description = "Public profile as seen by the caller")
     @ApiResponse(
             responseCode = "404",

@@ -119,11 +119,31 @@ tasks.withType<Test>().configureEach {
     }
 }
 
-// Regular test run: everything except the OpenAPI export (which writes into docs/).
+// Regular test run: everything except the OpenAPI export (which writes into docs/) and the
+// catalog fixture suites (catalogTest below).
 tasks.test {
     useJUnitPlatform {
-        excludeTags("openapi")
+        excludeTags("openapi", "catalog-fixture")
     }
+}
+
+// Suites asserting the exact mock catalog (fixture counts, filters, set sizes) run in their own JVM,
+// hence against fresh Testcontainers: the other suites clone per-test catalog cards to stay
+// independent now that every collector shares one of three platform regions (ADR 0017).
+val catalogTest =
+    tasks.register<Test>("catalogTest") {
+        description = "Runs the catalog fixture suites against their own fresh containers."
+        group = "verification"
+        testClassesDirs = sourceSets.test.get().output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        useJUnitPlatform {
+            includeTags("catalog-fixture")
+        }
+        shouldRunAfter(tasks.test)
+    }
+
+tasks.check {
+    dependsOn(catalogTest)
 }
 
 // ./gradlew exportOpenApi -> boots the app against Testcontainers and writes docs/api/openapi.json.

@@ -192,7 +192,7 @@ export default function NotificationsScreen() {
               testID="notifications-empty"
               icon="bell-outline"
               title="No notifications yet"
-              description="Add cards to your wishlist: we'll tell you when a collector nearby lists one."
+              description="Add cards to your wishlist: we'll tell you when a collector of your region lists one."
               actionLabel="Open my wishlist"
               onAction={() => router.navigate('/wishlist')}
             />

@@ -3,7 +3,7 @@
  *
  * <p>Public community channels and posts (per game, region, looking-for, new listings, trades,
  * general), Phase 5: {@code CommunityService} (channels, posts, replies, edits, deletions,
- * moderator console, region channels created as collectors appear), gated by the {@code publicChat}
+ * moderator console, one region channel per platform region), gated by the {@code publicChat}
  * feature flag, moderated through the moderation module. Publishes {@code CommunityPostCreated}.
  *
  * <p>Layout: {@code api/} (controllers + request/response DTOs), {@code domain/} (entities, value

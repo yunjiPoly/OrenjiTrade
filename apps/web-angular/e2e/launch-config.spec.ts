@@ -23,7 +23,7 @@ import {
   requireStack,
   signInThroughUi,
   stubCardImages,
-  stubMapTiles,
+  forbidMapProviders,
 } from './support/stack';
 
 /**
@@ -75,7 +75,7 @@ async function sellerWithListing(
   api: APIRequestContext,
 ): Promise<{ collector: OnboardedCollector; binderId: string; card: string }> {
   const collector = await createOnboardedCollector(api, 'launchsell', {
-    area: { lat: 48.431, lng: -71.067, radiusKm: 5 },
+    location: { countryCode: 'CA', subdivisionCode: 'CA-QC', city: 'Saguenay' },
     displayName: `Lou Launch ${suffix()}`,
   });
   await apiUpdatePrivacy(api, collector.idToken, { discoverable: true });
@@ -173,15 +173,15 @@ test.describe('launch configuration: every money flag off', () => {
     const buyer = await createOnboardedCollector(request, 'launchbuy', {
       displayName: `Bo Launch ${suffix()}`,
     });
-    await stubMapTiles(page);
+    await forbidMapProviders(page);
     await stubCardImages(page);
     await signInThroughUi(page, buyer.email, buyer.password);
 
-    // --- Map: the plan's radius cap is named, never sold; no sponsored placement ---------------
+    // --- Map: no radius exists any more (ADR 0017), nothing is sold, no sponsored placement -----
     await expect(page).toHaveURL(/\/map/);
-    const cap = page.getByTestId('radius-cap');
-    await expect(cap).toHaveText(/Up to \d+ km on your plan/);
-    expect(await cap.evaluate((element) => element.tagName)).toBe('SPAN');
+    await expect(page.getByTestId('boundary-map')).toBeVisible();
+    await expect(page.getByTestId('radius-cap')).toHaveCount(0);
+    await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
     await expect(page.locator('a[href="/premium"]')).toHaveCount(0);
     await expect(page.getByTestId('sponsored-ad')).toHaveCount(0);
 

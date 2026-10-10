@@ -2,6 +2,7 @@ import { ApiError } from '@/src/api/ApiError';
 import {
   activityLabel,
   channelIcon,
+  channelRegionName,
   defaultChannel,
   groupChannels,
   postErrorMessage,
@@ -10,26 +11,38 @@ import { postRequest } from '@/src/features/community/PostComposer';
 
 import { CHANNELS, channelFixture } from '../support/fixtures';
 
+const EUROPE = channelFixture({
+  id: 'eu',
+  slug: 'europe',
+  name: 'Europe',
+  regionLabel: 'europe',
+  description: 'European collectors and players.',
+});
+
 describe('community helpers', () => {
-  it('groups channels by region, game and topic, and filters by game', () => {
-    const quebec = channelFixture({
-      id: 'q',
-      slug: 'quebec-pokemon',
-      name: 'Québec · Pokémon',
-      regionLabel: 'Québec',
-    });
-    const groups = groupChannels([...CHANNELS, quebec]);
-    expect(groups.map((group) => group.label)).toEqual(['Montréal', 'Québec', 'Games', 'Topics']);
+  it('groups the platform region channels, then games and topics, and filters by game', () => {
+    const groups = groupChannels([...CHANNELS, EUROPE]);
+    expect(groups.map((group) => group.label)).toEqual(['Regions', 'Games', 'Topics']);
+    expect(groups[0]?.channels.map((channel) => channel.slug)).toEqual([
+      'americas-north',
+      'europe',
+    ]);
     expect(groups.find((group) => group.key === 'topics')?.channels[0]?.slug).toBe('looking-for');
-    // Yu-Gi-Oh!: the Pokémon regions go, topics always stay.
-    expect(groupChannels(CHANNELS, 'yugioh').map((group) => group.label)).toEqual([
-      'Games',
+    // Pokémon: the Yu-Gi-Oh! channel goes; region channels (every game) and topics stay.
+    expect(groupChannels(CHANNELS, 'pokemon').map((group) => group.label)).toEqual([
+      'Regions',
       'Topics',
     ]);
+    expect(channelRegionName('europe')).toBe('Europe');
+    // An archived city channel keeps its old label.
+    expect(channelRegionName('Montréal')).toBe('Montréal');
+    expect(channelRegionName(null)).toBeNull();
   });
 
-  it('opens the first regional channel by default and names the activity', () => {
-    expect(defaultChannel(CHANNELS)?.slug).toBe('montreal-pokemon');
+  it('opens the channel of the home region by default and names the activity', () => {
+    expect(defaultChannel(CHANNELS)?.slug).toBe('americas-north');
+    expect(defaultChannel([...CHANNELS, EUROPE], 'europe')?.slug).toBe('europe');
+    expect(defaultChannel(CHANNELS, 'europe')?.slug).toBe('americas-north');
     expect(defaultChannel([CHANNELS[2]!])?.slug).toBe('looking-for');
     expect(defaultChannel([])).toBeNull();
     expect(activityLabel(1)).toBe('1 post today');

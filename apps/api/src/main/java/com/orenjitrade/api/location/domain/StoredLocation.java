@@ -5,27 +5,18 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A {@code user_location} row as read inside the location module. Contains the PRIVATE trading-area
- * centre: never serialise it for anyone but its owner and never log it ({@link #toString()} is
- * redacted). {@code home_point} is deliberately not loaded at all.
+ * A {@code user_location} row as read inside the location module, with the names of its country and
+ * subdivision. {@link #toString()} leaves the city out: it is never logged.
  */
 public record StoredLocation(
         UUID userId,
-        double centreLat,
-        double centreLng,
-        int radiusMeters,
-        TradingAreaSource source,
-        @Nullable PublicPoint publicPoint,
-        @Nullable String publicLabel,
-        @Nullable String gridCell,
+        PublicPlace place,
+        @Nullable String city,
+        boolean showCity,
         Instant updatedAt) {
-
-    public int radiusKm() {
-        return radiusMeters / 1000;
-    }
 
     @Override
     public String toString() {
-        return "StoredLocation[userId=" + userId + ", gridCell=" + gridCell + "]";
+        return "StoredLocation[userId=" + userId + ", subdivision=" + place.subdivisionCode() + "]";
     }
 }

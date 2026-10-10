@@ -30,13 +30,13 @@ export const SETTINGS_ROUTES: Routes = [
           ),
       },
       {
-        path: 'trading-area',
-        title: 'Trading area',
+        path: 'location',
+        title: 'Location',
         loadComponent: () =>
-          import('./trading-area/trading-area-settings.component').then(
-            (m) => m.TradingAreaSettingsComponent,
-          ),
+          import('./location/location-settings.component').then((m) => m.LocationSettingsComponent),
       },
+      // Bookmarks and e-mails from before platform regions (ADR 0017).
+      { path: 'trading-area', pathMatch: 'full', redirectTo: 'location' },
       {
         path: 'offers',
         title: 'Offer settings',

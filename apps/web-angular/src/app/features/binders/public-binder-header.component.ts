@@ -11,7 +11,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { PublicBinderResponse } from '@orenji/api-client';
 import { CardImageComponent } from '../../shared/ui/card-image/card-image.component';
-import { distanceBucketLabel } from '../../shared/domain/location-labels';
 import {
   BINDER_KIND_INFO,
   BinderKind,
@@ -24,7 +23,7 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
 
 /**
  * Hero of a public binder: cover, name, kind, description, freshness and games, and the owner
- * card (avatar, name, handle, approximate area label and distance bucket, never a position) with
+ * card (avatar, name, handle, state/province and country, never a city or a distance) with
  * View profile and, for signed-in visitors, Report.
  */
 @Component({
@@ -88,17 +87,11 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
         <div class="pb__owner-text">
           <p class="pb__owner-name">{{ b.owner.displayName }}</p>
           <p class="pb__owner-handle">&#64;{{ b.owner.handle }}</p>
-          @if (b.owner.location; as location) {
+          @if (b.owner.place; as place) {
             <p class="pb__owner-fact" data-testid="owner-public-label">
               <mat-icon aria-hidden="true">location_on</mat-icon>
-              {{ location.publicLabel }}
+              {{ place.label }}
             </p>
-            @if (distance(); as distance) {
-              <p class="pb__owner-fact" data-testid="owner-distance">
-                <mat-icon aria-hidden="true">near_me</mat-icon>
-                {{ distance }}
-              </p>
-            }
           } @else {
             <p class="pb__owner-fact pb__owner-fact--muted">
               <mat-icon aria-hidden="true">location_off</mat-icon>
@@ -307,9 +300,6 @@ export class PublicBinderHeaderComponent {
     () => BINDER_KIND_INFO[this.binder().kind as BinderKind] ?? BINDER_KIND_INFO.CUSTOM,
   );
   protected readonly freshness = computed(() => badgeFreshness(this.binder().freshness.state));
-  protected readonly distance = computed(() =>
-    distanceBucketLabel(this.binder().owner.location?.distanceBucket),
-  );
   protected readonly ends = computed(() => endsLabel(this.binder().publicUntil));
   protected readonly firstGame = computed(() => this.binder().games.at(0) ?? '');
   protected readonly secondGame = computed(

@@ -5,8 +5,6 @@ import com.orenjitrade.api.wishlist.domain.WishlistChanges.NewWishlistItem;
 import com.orenjitrade.api.wishlist.domain.WishlistService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -23,9 +21,8 @@ public final class WishlistRequests {
             description =
                     "cardId or printingId is required (the card of a printing is derived)."
                             + " rarity, conditionMin, edition and language must belong to the"
-                            + " game's GameSchema. radiusKm defaults to 25 km (lowered to the plan"
-                            + " cap); beyond the plan's map.radius.max_km it is 429"
-                            + " LIMIT_REACHED.")
+                            + " game's GameSchema. Matching compares platform regions (no"
+                            + " radius, no distance; ADR 0017).")
     public record CreateWishlistItemRequest(
             @Nullable UUID cardId,
             @Nullable UUID printingId,
@@ -35,8 +32,6 @@ public final class WishlistRequests {
             @Size(min = 2, max = 2) @Nullable String language,
             @Schema(example = "60.00") @DecimalMin("0") @Nullable BigDecimal maxPrice,
             @Schema(example = "CAD") @Size(min = 3, max = 3) @Nullable String currency,
-            @Schema(example = "25") @Min(1) @Max(WishlistService.MAX_RADIUS_INPUT_KM)
-                    @Nullable Integer radiusKm,
             @Nullable TradePreference tradePreference,
             @Size(max = WishlistService.NOTES_MAX) @Nullable String notes,
             @Nullable Boolean active) {
@@ -51,7 +46,6 @@ public final class WishlistRequests {
                     language,
                     maxPrice,
                     currency,
-                    radiusKm,
                     tradePreference,
                     notes,
                     active);
@@ -75,7 +69,6 @@ public final class WishlistRequests {
             @Schema(nullable = true) @Size(min = 2, max = 2) @Nullable String language,
             @Schema(nullable = true) @Nullable BigDecimal maxPrice,
             @Size(min = 3, max = 3) @Nullable String currency,
-            @Min(1) @Max(WishlistService.MAX_RADIUS_INPUT_KM) @Nullable Integer radiusKm,
             @Nullable TradePreference tradePreference,
             @Schema(nullable = true) @Size(max = WishlistService.NOTES_MAX) @Nullable String notes,
             @Nullable Boolean active) {}

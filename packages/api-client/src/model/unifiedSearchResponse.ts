@@ -24,7 +24,11 @@ export interface UnifiedSearchResponse {
     printings: Array<PrintingSummary>;
     sets: Array<SetSummary>;
     /**
-     * Holders of the resolved printing/card (with matchingItems), otherwise collectors matching the text
+     * Platform region the collectors and binders were searched in
+     */
+    region: string;
+    /**
+     * Holders of the resolved printing/card in the region (with matchingItems), otherwise collectors of the region matching the text
      */
     collectors: Array<CollectorMarker>;
     /**

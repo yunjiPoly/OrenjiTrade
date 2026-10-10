@@ -43,7 +43,7 @@ export function tradePreferenceInfo(value: string | null | undefined): TradePref
 
 /** One criterion of a wish, shown as a chip. */
 export interface WishChip {
-  kind: 'condition' | 'edition' | 'language' | 'rarity' | 'price' | 'radius' | 'trade';
+  kind: 'condition' | 'edition' | 'language' | 'rarity' | 'price' | 'trade';
   icon: IconName;
   label: string;
 }
@@ -57,7 +57,6 @@ type WishCriteria = Pick<
   | 'language'
   | 'maxPrice'
   | 'currency'
-  | 'radiusKm'
   | 'tradePreference'
 >;
 
@@ -84,7 +83,6 @@ export function wishCriteriaChips(wish: WishCriteria): WishChip[] {
   if (price) {
     chips.push({ kind: 'price', icon: 'cash', label: `Up to ${price}` });
   }
-  chips.push({ kind: 'radius', icon: 'map-marker-distance', label: `Within ${wish.radiusKm} km` });
   const trade = tradePreferenceInfo(wish.tradePreference);
   chips.push({ kind: 'trade', icon: trade.icon, label: trade.label });
   return chips;
@@ -125,9 +123,9 @@ export function matchCountLabel(count: number | null | undefined): string {
 export function addedMessage(item: WishlistItemResponse): string {
   const name = item.card?.name ?? 'The card';
   if (item.matchCount > 0) {
-    return `${name} is on your wishlist: ${matchCountLabel(item.matchCount)} nearby already.`;
+    return `${name} is on your wishlist: ${matchCountLabel(item.matchCount)} in your region already.`;
   }
   return item.active
-    ? `${name} is on your wishlist. We'll tell you when a collector nearby lists it.`
+    ? `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`
     : `${name} is on your wishlist (alerts paused).`;
 }

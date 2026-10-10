@@ -23,17 +23,6 @@ public class PrivacyPolicyService {
         };
     }
 
-    /**
-     * Whether a (bucketed) distance to the target may be shown. The viewer additionally needs a
-     * trading area of their own, which the caller checks.
-     */
-    public boolean canSeeDistance(ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
-        return viewer.isMember()
-                && !viewer.is(targetId)
-                && target.showDistance()
-                && canViewProfile(viewer, targetId, target);
-    }
-
     public boolean canSeeLastActive(
             ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         return viewer.is(targetId)
@@ -46,18 +35,19 @@ public class PrivacyPolicyService {
                 || (target.showOnlineStatus() && canViewProfile(viewer, targetId, target));
     }
 
-    /** Whether the target's approximate position may be shown (discoverable collectors only). */
+    /** Whether the target's state/province and country may be shown (discoverable collectors). */
     public boolean canSeeLocation(ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         return target.discoverable() && canViewProfile(viewer, targetId, target);
     }
 
     /**
-     * Whether the target appears on the map and in geographic searches for {@code viewer} (Phase 4
-     * contract "Collectors nearby"): only collectors who opted in to discoverability ({@code
-     * discoverable}, the explicit consent to be shown at their approximate public point to every
-     * visitor, signed-out ones included) and whose profile is not PRIVATE; never when a block
-     * exists between them. Signed-out visitors get reduced details through the other rules of this
-     * class (no distance, no last-active for MEMBERS profiles, no messaging).
+     * Whether the target appears in region searches, card holder lists and the state binder lists
+     * of the map for {@code viewer} (ADR 0017): only collectors who opted in to discoverability
+     * ({@code discoverable}, the explicit consent to be listed with their state/province and
+     * country to every visitor, signed-out ones included) and whose profile is not PRIVATE; never
+     * when a block exists between them. The queries also require a location (country + subdivision)
+     * and an ACTIVE account. Signed-out visitors get reduced details through the other rules of
+     * this class (no last-active for MEMBERS profiles, no messaging).
      */
     public boolean canAppearOnMap(ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         if (!target.discoverable() || viewer.blocked()) {

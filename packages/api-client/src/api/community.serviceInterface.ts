@@ -104,7 +104,7 @@ export interface CommunityServiceInterface {
 
     /**
      * Community channels
-     * Active channels ordered for display. &#x60;game&#x60; filters by game slug, &#x60;region&#x60; by city (accent- and case-insensitive). 404 FEATURE_DISABLED while the publicChat flag is off.
+     * Active channels ordered for display. &#x60;game&#x60; filters by game slug, &#x60;region&#x60; by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.
      * @endpoint get /api/v1/community/channels
 * @param requestParameters
      */

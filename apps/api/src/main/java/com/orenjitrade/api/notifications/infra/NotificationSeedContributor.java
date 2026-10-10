@@ -60,8 +60,8 @@ public class NotificationSeedContributor implements SeedContributor {
                                 COLLECTOR1,
                                 "SYSTEM",
                                 "Welcome to OrenjiTrade",
-                                "Add your cards, publish a binder and collectors nearby will find"
-                                        + " you on the map.",
+                                "Add your cards, publish a binder and collectors in your region"
+                                        + " will find it.",
                                 "{\"kind\": \"WELCOME\", \"deepLink\": \"/inventory\"}",
                                 now.minus(Duration.ofDays(3)),
                                 true),

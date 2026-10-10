@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   SEED_PASSWORD,
   TEST_PASSWORD,
+  chooseOption,
   emulatorSignUp,
   openAccountMenu,
   requireStack,
@@ -19,7 +20,7 @@ import {
 test.describe('authentication and onboarding', () => {
   requireStack();
 
-  test('a new collector signs up, verifies, onboards on the map and signs out', async ({
+  test('a new collector signs up, verifies, says where they are and signs out', async ({
     page,
     request,
   }) => {
@@ -61,7 +62,7 @@ test.describe('authentication and onboarding', () => {
     await verifyEmailInEmulator(request, email);
     await page.getByRole('button', { name: 'I have verified my email' }).click();
 
-    // --- Onboarding: profile (handle conflict first), interests, trading area ---------------
+    // --- Onboarding: profile (handle conflict first), interests, location -------------------
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await expect(
       page.getByRole('heading', { level: 1, name: "Let's set up your collector profile" }),
@@ -92,30 +93,20 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByText('1 / 12')).toBeVisible();
     await continueButton.filter({ visible: true }).click();
 
-    await expect(page.getByRole('heading', { name: 'Where do you trade?' })).toBeVisible();
-    const map = page.getByTestId('trading-area-map');
-    await expect(map.locator('.leaflet-container, .leaflet-pane').first()).toBeAttached({
-      timeout: 20_000,
-    });
-    await expect(page.locator('.orenji-map-pin--centre')).toBeVisible();
-    const pinBefore = await page.locator('.orenji-map-pin--centre').boundingBox();
-    const box = await map.boundingBox();
-    expect(box).not.toBeNull();
-    await map.click({ position: { x: box!.width * 0.3, y: box!.height * 0.35 } });
-    await expect
-      .poll(async () => (await page.locator('.orenji-map-pin--centre').boundingBox())?.x)
-      .not.toBe(pinBefore?.x);
-
-    const slider = page.getByRole('slider', { name: 'Trading radius' });
-    await slider.focus();
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await expect(page.locator('output').filter({ hasText: 'km' })).toContainText('7 km');
+    // "Where are you?": simple pickers fed by GET /regions, no map, no GPS (ADR 0017).
+    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await expect(page.locator('.leaflet-container')).toHaveCount(0);
+    // Finishing without a state or province is explained, not sent.
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await expect(page.getByText('Choose your country.')).toBeVisible();
+    await chooseOption(page, 'Country', 'Canada');
+    await chooseOption(page, 'State or province', 'Ontario');
+    await page.getByLabel('City (optional)').fill('Ottawa');
 
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
 
-    await expect(page).toHaveURL(/\/map$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // --- Account menu shows the new identity; sign out ---------------------------------------
@@ -137,7 +128,7 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByLabel('Handle')).not.toBeVisible();
     await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page).toHaveURL(/\/map$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Thanks for confirming. Welcome back!')).toBeVisible();
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-name')).toHaveText('Maïka Tremblay');

@@ -72,16 +72,16 @@ const COMMON_DEFINITIONS: LegalDefinition[] = [
   {
     term: 'Listing',
     definition:
-      'A publicly visible inventory item, including its condition, availability (trade, sale, offers) and approximate location.',
+      'A publicly visible inventory item, including its condition, availability (trade, sale, offers) and the state or province of its owner.',
   },
   {
-    term: 'Trading area',
+    term: 'Location',
     definition:
-      'The approximate location a Collector chooses to be discoverable from. It is derived server-side and never reveals a precise address.',
+      'The country and state or province a Collector declares, with an optional city. OrenjiTrade never uses GPS, device location, IP addresses or geocoding to find a Collector.',
   },
 ];
 
-const LAST_UPDATED = '2026-10-05';
+const LAST_UPDATED = '2026-10-08';
 
 export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
   terms: {
@@ -118,7 +118,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'nature-of-service',
         heading: 'What OrenjiTrade is and is not',
         clauses: [
-          'OrenjiTrade is a discovery and messaging venue: it helps Collectors find who near them owns, trades, sells, wants or accepts offers for a card, and lets them talk to each other. Collectors deal with each other directly.',
+          'OrenjiTrade is a discovery and messaging venue: it helps Collectors find who in their region owns, trades, sells, wants or accepts offers for a card, and lets them talk to each other. Collectors deal with each other directly.',
           'OrenjiTrade is not a party to any trade, sale or meeting between Collectors, does not hold title to cards, and does not provide grading, authentication or valuation services.',
           'Collectors are responsible for their own trades and meetings: what they agree on, where and how they meet, how they pay and what they hand over. Read the "Trading safely" page before you meet or pay another Collector.',
           'Where payment features are enabled, they are provided through a third-party payment provider under the Payment Protection Policy. OrenjiTrade does not operate an escrow service.',
@@ -137,8 +137,8 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'location',
         heading: 'Location and discoverability',
         clauses: [
-          'Discoverability is off by default. When you enable it, other Collectors see your Trading area at an approximate position only; your precise location is never shown.',
-          'You can change or remove your Trading area at any time in Settings. Removing it stops you appearing on the map.',
+          'Discoverability is off by default and requires a Location. When you enable it, other Collectors see your state or province and your country only; your city appears only on your own profile, and only if you choose to show it.',
+          'You can change or remove your Location at any time in Settings → Location. Removing it turns discoverability off: your public Binders leave the map and you no longer appear in searches.',
         ],
       },
       {
@@ -176,8 +176,8 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     summary: 'What we collect, why, how long we keep it, and the choices you have.',
     version: '0.1-draft',
     effectiveDate: null,
-    // Public point definition: maps show an area about 3 km wide (ADR 0004, "Client rendering",
-    // owner decision 2026-10-04; it said 2 km from 2026-10-03). Law 25 additions 2026-10-05.
+    // Platform regions instead of geolocation (ADR 0017, 2026-10-08): no coordinates, no distances;
+    // the public place is the state or province. Law 25 additions 2026-10-05.
     lastUpdated: LAST_UPDATED,
     definitions: [
       ...COMMON_DEFINITIONS,
@@ -186,9 +186,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         definition: 'Any information relating to an identified or identifiable person.',
       },
       {
-        term: 'Public point',
+        term: 'Public place',
         definition:
-          'The approximate map position derived from your Trading area: snapped to a grid of roughly one kilometre and offset by a fixed, per-account jitter. Maps show it as an area about 3 km wide, never as an exact spot.',
+          'The state or province and the country of your Location: all that other Collectors see of where you are. The map counts public Binders per state or province. Your city is shown only on your own profile, and only if you choose.',
       },
     ],
     contact: CONTACT_PRIVACY,
@@ -206,7 +206,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Account data: email address, display name, avatar, the games you follow and the tags you choose. Sign-in is handled by our identity provider; we never see your password.',
           'Inventory data: the cards, conditions, prices and availability you record, and the visibility you assign to each Binder.',
-          'Location data: only the Trading area you select (or a coarse position you explicitly share). We store the derived Public point for map display. We do not track you in the background.',
+          'Location data: only the country, state or province and optional city you declare. We do not collect GPS or device location, we do not derive your location from your IP address, and we do not track you in the background.',
           'Usage data: device type, app version, diagnostic logs identified by a request id, and product analytics events that never contain precise location or message content.',
           'Communications: private messages, community channel posts, offers, ratings and reports you submit.',
         ],
@@ -224,9 +224,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'location-privacy',
         heading: 'Location privacy',
         clauses: [
-          'Your precise coordinates, if you ever provide them, are stored encrypted at rest and used only to derive your Public point. They are never returned by our APIs, shown in the apps, written to logs or included in analytics.',
-          'Distances shown to other Collectors are rounded (for example "about 4 km"). The jitter applied to your Public point is fixed so that repeated queries cannot be combined to locate you.',
-          'You can choose your Trading area manually instead of using device location.',
+          'We do not store coordinates of any kind. The map is drawn from public boundary data (Natural Earth) and counts public Binders per state or province; no pin, point or distance is ever shown for a Collector.',
+          'Your city is free text that we never geocode. It is shown only on your own public profile while “Show my city on my profile” is on, and never in search results, Binders, offers, messages, notifications, analytics or anything shared with others.',
+          'You can change or remove your Location at any time in Settings → Location; removing it turns discoverability off.',
         ],
       },
       {
@@ -234,7 +234,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Who we share data with',
         clauses: [
           'Service providers that host and operate the Service on our behalf (cloud infrastructure, identity provider, push notification delivery, payment provider where enabled), bound by data processing agreements.',
-          'Other Collectors, limited to what you make public: display name, avatar, public Binders, ratings, and your Public point.',
+          'Other Collectors, limited to what you make public: display name, avatar, public Binders, ratings, your Public place, and your city on your profile if you choose to show it.',
           'Authorities, where required by law or to protect the rights and safety of Collectors.',
         ],
       },
@@ -251,7 +251,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Your rights and how to exercise them',
         clauses: [
           'You have the right to access the personal information we hold about you, to have it corrected when it is inaccurate, incomplete or ambiguous, to receive a copy of it, and to ask for its deletion. Depending on where you live you may also have the right to restrict or object to certain processing.',
-          'Access and correction: your profile, games, tags, trading area, privacy and notification choices are shown and editable in Settings (Profile, Privacy, Trading area, Notifications). A copy of your data is available in Settings → Account ("Export my data").',
+          'Access and correction: your profile, games, tags, location, privacy and notification choices are shown and editable in Settings (Profile, Privacy, Location, Notifications). A copy of your data is available in Settings → Account ("Export my data").',
           'Deletion: Settings → Account ("Delete my account") starts the deletion. A 7-day grace period lets you cancel; afterwards your personal information is deleted or anonymised within 30 days, except what we must keep for legal, dispute or safety reasons (see Retention).',
           'You can also write to privacy@orenjitrade.com. We answer within 30 days of receiving your request, free of charge, and we explain the reasons when we cannot act on it and how to challenge that decision.',
           'You can withdraw consent for optional processing (such as push notifications or discoverability) at any time without affecting the lawfulness of prior processing.',
@@ -282,7 +282,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     key: 'community-guidelines',
     title: 'Community Guidelines',
     shortTitle: 'Community',
-    summary: 'How Collectors are expected to treat each other on the map, in chat and in trades.',
+    summary: 'How Collectors are expected to treat each other in search, in chat and in trades.',
     version: '0.1-draft',
     effectiveDate: null,
     lastUpdated: LAST_UPDATED,
@@ -310,7 +310,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'safety',
         heading: 'Meet and trade safely',
         clauses: [
-          'Meet in busy public places in daylight for in-person trades, and bring someone along for valuable cards. Never feel pressured to share your home address; the map only ever shows approximate positions. The "Trading safely" page has practical advice.',
+          'Meet in busy public places in daylight for in-person trades, and bring someone along for valuable cards. Never feel pressured to share your home address; the map only ever shows states and provinces, never positions. The "Trading safely" page has practical advice.',
           'Use the in-app offer and messaging tools so there is a record if something goes wrong.',
           'Report suspicious behaviour with the Report collector button. Reports are reviewed by moderators and never shown to the reported Collector. You can also block a Collector from their profile or from the conversation menu.',
         ],
@@ -542,7 +542,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'third-parties',
         heading: 'Third-party services',
         clauses: [
-          'Map tiles (Google Maps or OpenStreetMap) and web fonts are loaded from their providers, who may set their own cookies under their own policies.',
+          'Web fonts are loaded from their provider, who may set its own cookies under its own policies. The map is drawn from boundary data bundled with OrenjiTrade (Natural Earth): no map or tile provider is contacted.',
           'Where protected payments are enabled, the Payment provider sets cookies required for fraud prevention.',
         ],
       },
@@ -572,7 +572,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'prohibited-conduct',
         heading: 'Prohibited conduct',
         clauses: [
-          'Attempting to determine another Collector’s precise location, including by combining map positions, distances or timing across multiple queries or accounts.',
+          'Attempting to determine another Collector’s precise location or address, including by combining their profile, listings, messages or activity across multiple queries or accounts.',
           'Scraping, crawling or bulk-exporting listings, profiles or map data, or using the Service to build a competing dataset.',
           'Circumventing rate limits, plan limits, freshness rules, or moderation actions.',
           'Uploading malicious code, probing or testing the security of the Service without written authorisation, or interfering with other Collectors’ use of the Service.',
@@ -621,7 +621,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Meet in a busy public place, in daylight: a café, a shopping centre, a card shop or a library. Some police stations offer safe exchange zones; check the website of your local police service.',
           'Bring someone along when the cards are valuable, and tell a friend where you are going and when you expect to be back.',
-          'Never share your home address, your workplace or your routine. OrenjiTrade only ever shows approximate areas, and you control what you publish.',
+          'Never share your home address, your workplace or your routine. OrenjiTrade only ever shows your state or province (and your city on your profile, if you choose), and you control what you publish.',
           'Agree on the details in the app before you meet: which cards, which condition, which price or trade, and how you will pay. The conversation and the offer stay as a record.',
         ],
       },
@@ -648,8 +648,8 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         id: 'what-we-show',
         heading: 'What OrenjiTrade shows about you',
         clauses: [
-          'Other collectors see your trading area as an approximate zone about 3 km wide, never your exact position or your address. Distances are shown as ranges.',
-          'Discoverability is off by default. You choose whether to appear on the map, who can message you and what your binders show, in Settings → Privacy.',
+          'Other collectors see your state or province and your country, never your exact position or your address. Your city appears only on your own profile, if you choose to show it. No distance is ever shown.',
+          'Discoverability is off by default. You choose whether your public binders appear on the map and you appear in searches, who can message you and what your binders show, in Settings → Privacy.',
         ],
       },
       {
@@ -657,7 +657,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Report and block',
         clauses: [
           'Report a collector from their profile, from the conversation menu or from a community post ("Report collector"). Choose a reason; moderators review every report, and the reported collector is never told who reported them.',
-          'Block a collector from their profile or from the conversation menu: you stop seeing each other on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
+          'Block a collector from their profile or from the conversation menu: you stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
           'If you are in danger, contact your local emergency services first (911 in Canada).',
         ],
       },

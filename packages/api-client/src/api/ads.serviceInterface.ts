@@ -27,7 +27,7 @@ export interface ClickAdRequestParams {
 export interface ListAdsRequestParams {
     placement: 'SEARCH_SPONSORED' | 'MAP_PANEL' | 'INVENTORY_SIDEBAR' | 'COLLECTOR_PROFILE' | 'MOBILE_FEED';
     game?: string;
-    geoCell?: string;
+    region?: string;
 }
 
 export interface RecordAdImpressionRequestParams {
@@ -50,7 +50,7 @@ export interface AdsServiceInterface {
 
     /**
      * Sponsored ads for a placement (public)
-     * Targeting uses the requested game and grid cell and, for signed-in callers, their public grid cell and region label, interest games, tags and plan (never a precise location). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
+     * Targeting uses the requested game and platform region and, for signed-in callers, their country and state/province, interest games, tags and plan (never a city or a coordinate). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
      * @endpoint get /api/v1/ads
 * @param requestParameters
      */

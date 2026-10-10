@@ -33,8 +33,8 @@ export interface MatchesSheetResult {
 }
 
 /**
- * The matches drawer of one wish (a side sheet): who near you lists the card, newest first, with
- * each collector's approximate place and distance bucket, the listing and Message / View binder /
+ * The matches drawer of one wish (a side sheet): who in your region lists the card, newest first,
+ * with each collector's state/province, the listing and Message / View binder /
  * On the map / Dismiss. Cursor pages ("Load more"); new matches arrive live.
  */
 @Component({
@@ -56,7 +56,7 @@ export interface MatchesSheetResult {
       <header class="ms__head">
         <app-card-image class="ms__img" [src]="image()" [alt]="name()" [game]="item.game" />
         <div class="ms__titles">
-          <p class="ms__eyebrow">Matches nearby</p>
+          <p class="ms__eyebrow">Matches in your region</p>
           <h2 mat-dialog-title class="ms__title">Matches for {{ name() }}</h2>
           <p class="ms__sub">{{ printing() }} · {{ criteria() }}</p>
         </div>
@@ -122,12 +122,12 @@ export interface MatchesSheetResult {
                 <a
                   actions
                   matButton="outlined"
-                  routerLink="/map"
-                  [queryParams]="mapQuery()"
+                  routerLink="/search"
+                  [queryParams]="holdersQuery()"
                   (click)="close(true)"
                 >
-                  <mat-icon aria-hidden="true">map</mat-icon>
-                  Who has it on the map
+                  <mat-icon aria-hidden="true">group</mat-icon>
+                  Who has it in my region
                 </a>
               </app-empty-state>
             }
@@ -137,7 +137,7 @@ export interface MatchesSheetResult {
 
       <p class="ms__privacy">
         <mat-icon aria-hidden="true">shield_person</mat-icon>
-        Places and distances are approximate to protect privacy.
+        Collectors show their state or province only, to protect their privacy.
       </p>
     </div>
   `,
@@ -274,17 +274,17 @@ export class WishlistMatchesSheetComponent {
   );
   protected readonly emptyText = computed(() =>
     this.item.active
-      ? `We'll notify you as soon as a collector within ${this.item.radiusKm} km lists it.`
+      ? "We'll notify you as soon as a collector of your region lists it."
       : 'Alerts are paused for this wish: turn them back on to match new listings.',
   );
   protected readonly errorMessage = computed(() => {
     const error = this.store.error();
     return error ? friendlyMessage(error) : '';
   });
-  protected readonly mapQuery = computed(() =>
+  protected readonly holdersQuery = computed(() =>
     this.item.printing?.id
-      ? { printing: this.item.printing.id, view: 'list' }
-      : { card: this.item.card?.id ?? null, view: 'list' },
+      ? { printing: this.item.printing.id }
+      : { card: this.item.card?.id ?? null },
   );
 
   constructor() {

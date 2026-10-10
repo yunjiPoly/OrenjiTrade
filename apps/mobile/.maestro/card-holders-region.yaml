@@ -1,0 +1,67 @@
+# "Who has this in my region" (ADR 0017): a seed collector (collector2, Ontario) opens a card that
+# collector1 (Quebec) lists publicly in the seed data (read on the host from the public API),
+# presses "Who has this in my region", and the card holders of Americas (North) list collector1's
+# copy with their state, never a distance. Seed accounts are only signed in to.
+appId: host.exp.exponent
+name: Card detail to who has this in my region
+tags:
+  - mobile-m3
+  - map
+---
+- runScript:
+    file: scripts/public-card.js
+    env:
+      HANDLE: collector1
+# The seed predates the 18+ rule: its confirmation is recorded through the API first (the
+# onboarding age step is proven by age-step-existing-account.yaml).
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: 'collector2@orenjitrade.test'
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: 'collector2@orenjitrade.test'
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-map'
+    timeout: 60000
+
+# The card (deep link, like a shared https://www.orenjitrade.com/cards/<id>).
+- openLink: ${APP_URL}/--/cards/${output.card.id}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: ${output.card.name}
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-holders'
+- assertNotVisible:
+    id: 'card-who-has-it'
+- tapOn:
+    id: 'card-holders'
+
+# The card holders of the region: collector1's copy, with their state only.
+- extendedWaitUntil:
+    visible:
+      id: 'holders-title'
+      text: 'Who has .* in your region'
+    timeout: 60000
+- assertVisible:
+    id: 'holders-subtitle'
+    text: 'Collectors of Americas \(North\).*'
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.card.itemId}-collector'
+- assertVisible:
+    id: 'holder-${output.card.itemId}-collector'
+    text: '.*Quebec, Canada.*'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: card-holders-region

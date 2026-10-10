@@ -305,7 +305,7 @@ export interface AdminBillingServiceInterface {
 
     /**
      * Replace a campaign\&#39;s targeting rules (ADMIN)
-     * Kinds GAME, REGION_LABEL, GEO_CELL, TAG and PLAN only (never coordinates): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).
+     * Kinds GAME, REGION, COUNTRY, SUBDIVISION, TAG and PLAN only (never a city): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).
      * @endpoint put /api/v1/admin/ads/campaigns/{id}/targeting
 * @param requestParameters
      */

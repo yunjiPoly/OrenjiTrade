@@ -19,6 +19,7 @@ import {
   notificationsFixture,
   privacyFixture,
   profileFixture,
+  ONTARIO,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, problem, type MockRequest } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -29,7 +30,6 @@ jest.mock('expo-router', () => require('../support/router').expoRouterMock());
 jest.mock('@/src/features/account/exportData', () => ({
   exportMyData: jest.fn(async () => 'orenjitrade-export-maika-2026-10-04.json'),
 }));
-jest.mock('@/src/features/location/deviceLocation', () => ({ readApproximatePosition: jest.fn() }));
 
 const exportMock = () =>
   (jest.requireMock('@/src/features/account/exportData') as { exportMyData: jest.Mock })
@@ -135,42 +135,53 @@ describe('Settings → Profile', () => {
 });
 
 describe('Settings → Location and discoverability', () => {
-  it('saves a manual trading area and shows the server label', async () => {
+  it('saves a declared place with pickers and shows the server label (no map, no GPS)', async () => {
     const api = mockApi(
       signedInRoutes({
-        'PUT /api/v1/me/location/trading-area': ok(
+        'PUT /api/v1/me/location': ok(
           locationFixture({
-            tradingArea: {
-              lat: 46.813,
-              lng: -71.208,
-              radiusKm: 10,
-              source: 'MANUAL',
-              label: 'Vieux-Québec, Québec',
+            location: {
+              ...ONTARIO,
+              regionName: 'Americas (North)',
+              city: null,
+              showCity: true,
             },
           })
         ),
       })
     );
     renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByTestId('area-public-label')).toHaveTextContent(
-      'Ville-Marie, Montréal · 10 km radius'
+    expect(await screen.findByTestId('location-label')).toHaveTextContent(
+      'Quebec, Canada · Americas (North)'
     );
-    const save = screen.getByRole('button', { name: 'Save trading area' });
+    expect((await screen.findByLabelText('City (optional)')).props.value).toBe('Montréal');
+    const save = screen.getByRole('button', { name: 'Save location' });
     expect(save).toBeDisabled();
-
-    fireEvent.press(screen.getByRole('button', { name: 'Québec' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      'Trading area saved · Vieux-Québec, Québec.'
+    expect(screen.queryByTestId('collector-map-view')).toBeNull();
+    // The hint under "Show my city on my profile" says where the city appears.
+    const hint = screen.getByTestId('location-show-city-hint');
+    expect(hint).toHaveTextContent(/^Your city appears on your profile only\. Everywhere else/);
+    fireEvent.press(screen.getByRole('switch', { name: 'Show my city on my profile' }));
+    expect(screen.getByTestId('location-show-city-hint')).toHaveTextContent(
+      'Your city stays private. Others see your state or province and your country.'
     );
-    expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
-      lat: 46.813,
-      lng: -71.208,
-      radiusKm: 15,
-      source: 'MANUAL',
+    fireEvent.press(screen.getByRole('switch', { name: 'Show my city on my profile' }));
+
+    fireEvent.press(screen.getByTestId('location-subdivision'));
+    fireEvent.press(await screen.findByTestId('location-subdivision-option-CA-ON'));
+    fireEvent.changeText(screen.getByLabelText('City (optional)'), '');
+    fireEvent.press(screen.getByRole('button', { name: 'Save location' }));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      'Location saved · Ontario, Canada.'
+    );
+    expect(api.callsTo('PUT /api/v1/me/location')[0]?.body).toEqual({
+      countryCode: 'CA',
+      subdivisionCode: 'CA-ON',
+      city: null,
+      showCity: true,
     });
-    expect(screen.getByTestId('area-public-label')).toHaveTextContent(
-      'Vieux-Québec, Québec · 10 km radius'
+    expect(screen.getByTestId('location-label')).toHaveTextContent(
+      'Ontario, Canada · Americas (North)'
     );
   });
 
@@ -184,7 +195,7 @@ describe('Settings → Location and discoverability', () => {
     const optIn = await screen.findByRole('switch', { name: 'Show me on the map' });
     expect(optIn).not.toBeChecked();
     expect(screen.getByTestId('location-visibility')).toHaveTextContent(
-      /You are hidden from the map\./
+      /You are hidden from the map\. Turn on “Show me on the map” to appear in Quebec, Canada\./
     );
 
     fireEvent.press(optIn);
@@ -197,7 +208,7 @@ describe('Settings → Location and discoverability', () => {
       expect(screen.getByRole('switch', { name: 'Show me on the map' })).toBeChecked()
     );
     expect(screen.getByTestId('location-visibility')).toHaveTextContent(
-      'Collectors see you near Ville-Marie, Montréal.'
+      'Collectors see you in Quebec, Canada.'
     );
   });
 
@@ -209,25 +220,22 @@ describe('Settings → Location and discoverability', () => {
     fireEvent.press(screen.getByTestId('confirm-dialog-confirm'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Your location was removed.');
     expect(api.callsTo('DELETE /api/v1/me/location')).toHaveLength(1);
-    expect(await screen.findByTestId('area-public-label')).toHaveTextContent(
-      'No trading area saved yet.'
+    expect(await screen.findByTestId('location-none')).toHaveTextContent(
+      /You have not said where you are yet/
     );
   });
 
   it('shows a save failure inline', async () => {
     mockApi(
       signedInRoutes({
-        'PUT /api/v1/me/location/trading-area': problem(
-          400,
-          'VALIDATION_FAILED',
-          'Radius out of range.'
-        ),
+        'PUT /api/v1/me/location': problem(400, 'VALIDATION_FAILED', 'Unknown subdivision.'),
       })
     );
     renderWithProviders(<LocationSettingsScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Increase trading radius' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Save trading area' }));
-    expect(await screen.findByTestId('location-error')).toHaveTextContent(/Radius out of range\./);
+    fireEvent.press(await screen.findByTestId('location-subdivision'));
+    fireEvent.press(await screen.findByTestId('location-subdivision-option-CA-ON'));
+    fireEvent.press(screen.getByRole('button', { name: 'Save location' }));
+    expect(await screen.findByTestId('location-error')).toHaveTextContent(/Unknown subdivision\./);
   });
 });
 

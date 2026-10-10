@@ -43,7 +43,7 @@ export class CollectorsService extends BaseService implements CollectorsServiceI
 
     /**
      * Public profile of a collector
-     * Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). &#x60;location&#x60; is null unless the collector is discoverable; &#x60;distanceBucket&#x60; needs a trading area on the caller\&#39;s side and &#x60;showDistance&#x60; on the collector\&#39;s. Coordinates are the derived public point only (3 decimals).
+     * Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). &#x60;location&#x60; (state/province + country) is null unless the collector is discoverable and set a location; its &#x60;city&#x60; is the collector\&#39;s own optional city, present only while they show it on their profile. The only response with another collector\&#39;s city; no coordinates or distances anywhere (ADR 0017).
      * @endpoint get /api/v1/collectors/{handle}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

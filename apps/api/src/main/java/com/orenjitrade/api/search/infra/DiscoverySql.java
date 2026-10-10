@@ -2,21 +2,14 @@ package com.orenjitrade.api.search.infra;
 
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
-import com.orenjitrade.api.location.domain.DistanceBucket;
-import com.orenjitrade.api.location.domain.SearchCentre;
-import java.util.Map;
 
 /**
- * SQL fragments of the discovery queries (ADR 0004, ADR 0012). Every geographic predicate and
- * distance uses {@code user_location.public_point} only; the trading-area centre and the home point
- * are never selected. Public listings reuse the live rules of the binders and inventory modules
- * ({@link PublicVisibilityRules}, {@link InventoryItemRepository#LISTED}).
+ * SQL fragments of the discovery queries (ADR 0012, ADR 0017). Geography is the collector's
+ * self-declared country and subdivision only: there is no coordinate and no distance. Public
+ * listings reuse the live rules of the binders and inventory modules ({@link
+ * PublicVisibilityRules}, {@link InventoryItemRepository#LISTED}).
  */
 final class DiscoverySql {
-
-    /** The snapped search centre as a geography ({@code :centreLat}, {@code :centreLng}). */
-    static final String CENTRE =
-            "ST_SetSRID(ST_MakePoint(:centreLng, :centreLat), 4326)::geography";
 
     /**
      * Joins of an item query with the aliases {@link InventoryItemRepository#LISTED} expects
@@ -40,40 +33,30 @@ final class DiscoverySql {
             "CASE i.freshness_state WHEN 'ACTIVE' THEN 0 WHEN 'AGING' THEN 1 ELSE 2 END";
 
     /**
-     * The collector is on the map: a public point, discoverable, listed (ACTIVE account, profile
-     * not PRIVATE). Needs {@code ul}, {@code u}, {@code ps}.
+     * The location of the user aliased {@code ownerColumn} ({@code ul}), its country ({@code co})
+     * and subdivision ({@code sd}). An inner join: collectors without a location never appear.
      */
-    static final String ON_THE_MAP =
-            "ul.public_point IS NOT NULL AND ps.discoverable AND "
-                    + PublicVisibilityRules.OWNER_LISTED;
-
-    private DiscoverySql() {}
-
-    /** {@code ST_Distance} from the centre to the public point, or NULL without a centre. */
-    static String distance(boolean withCentre) {
-        return withCentre ? "ST_Distance(ul.public_point, " + CENTRE + ")" : "CAST(NULL AS float8)";
+    static String locationJoins(String ownerColumn) {
+        return " JOIN user_location ul ON ul.user_id = "
+                + ownerColumn
+                + " JOIN country co ON co.code = ul.country_code"
+                + " JOIN subdivision sd ON sd.code = ul.subdivision_code";
     }
+
+    /** The place columns of {@link #locationJoins} for {@code CollectorSearchRepository}. */
+    static final String PLACE_COLUMNS =
+            "co.region_code, ul.country_code, co.name AS country_name, ul.subdivision_code,"
+                    + " sd.name AS subdivision_name, sd.whole_country";
 
     /**
-     * Rank of the distance bucket of {@code distanceSql} (same bounds as {@link DistanceBucket}).
+     * The collector is discoverable: opted in, listed (ACTIVE account, profile not PRIVATE) and,
+     * with {@link #locationJoins}, located. Needs {@code u} and {@code ps}.
      */
-    static String bucketRank(String distanceSql) {
-        StringBuilder sql = new StringBuilder("CASE");
-        DistanceBucket[] buckets = DistanceBucket.values();
-        for (int index = 0; index < buckets.length - 1; index++) {
-            sql.append(" WHEN ")
-                    .append(distanceSql)
-                    .append(" < ")
-                    .append((long) (buckets[index].upperKm() * 1000))
-                    .append(" THEN ")
-                    .append(index);
-        }
-        return sql.append(" ELSE ").append(buckets.length - 1).append(" END").toString();
-    }
+    static final String DISCOVERABLE =
+            "COALESCE(ps.discoverable, false) AND " + PublicVisibilityRules.OWNER_LISTED;
 
-    /** Adds the centre parameters. */
-    static void centre(SearchCentre centre, Map<String, Object> params) {
-        params.put("centreLat", centre.lat());
-        params.put("centreLng", centre.lng());
-    }
+    /** The collector's country is in the platform region {@code :region}. */
+    static final String IN_REGION = "co.region_code = :region";
+
+    private DiscoverySql() {}
 }

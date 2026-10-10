@@ -197,7 +197,6 @@ export function durationLabel(hours: number | null | undefined): string {
 export const PRODUCT_ICONS: Record<string, IconName> = {
   'filters.advanced': 'tune-variant',
   'binder.views.per_day': 'book-open-page-variant-outline',
-  'map.radius.max_km': 'map-search-outline',
 };
 
 /** Readable name of an entitlement / plan feature key (`filters.advanced`). */
@@ -209,8 +208,6 @@ export function entitlementLabel(featureKey: string | null | undefined, value?: 
       return value === 'false' ? 'No ads' : 'Sponsored placements';
     case 'binder.views.per_day':
       return value === 'unlimited' ? 'Unlimited binder views' : `Binder views per day: ${value}`;
-    case 'map.radius.max_km':
-      return value ? `Map radius up to ${value} km` : 'Wider map radius';
     default: {
       const label = humanizeKey(featureKey ?? '');
       return value && value !== 'true' ? `${label}: ${value}` : label;
@@ -377,7 +374,7 @@ export function supporterMonth(month: string | null | undefined): string {
 export interface UsageRow {
   key: string;
   label: string;
-  /** "3 / 5", "Unlimited", "Up to 25 km". */
+  /** "3 / 5", "Unlimited", "Up to 10". */
   value: string;
   /** Fill of the bar in percent, `null` without a bar (caps, unlimited, zero limits). */
   percent: number | null;
@@ -389,7 +386,7 @@ export interface UsageRow {
 
 /**
  * Turns the plan's limit statuses into display rows (web: `usageRows`). Counters show
- * `used / limit` with a bar; caps (the map radius) show the value; `null` limits are unlimited.
+ * `used / limit` with a bar; caps show the value; `null` limits are unlimited.
  */
 export function usageRows(
   limits:
@@ -414,7 +411,7 @@ export function usageRows(
     let value: string;
     let percent: number | null = null;
     if (limit.kind === 'CAP') {
-      value = unlimited ? 'Unlimited' : `Up to ${max}${key.endsWith('_km') ? ' km' : ''}`;
+      value = unlimited ? 'Unlimited' : `Up to ${max}`;
     } else if (unlimited) {
       value = `${used} used · Unlimited`;
     } else {

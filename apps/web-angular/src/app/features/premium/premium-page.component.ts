@@ -63,7 +63,7 @@ import { UsageMetersComponent } from './usage-meters.component';
     <div class="page premium">
       <app-page-header
         title="Premium"
-        subtitle="More binder views and alerts, a wider map radius, advanced filters and no ads."
+        subtitle="More binder views and alerts, advanced filters and no ads."
       />
 
       @if (welcome()) {
@@ -168,8 +168,8 @@ import { UsageMetersComponent } from './usage-meters.component';
             <mat-icon aria-hidden="true">toll</mat-icon>
             <p>
               <strong>Only need it for a day?</strong>
-              Unlock advanced filters, unlimited binder views or a wider map for 24 hours with your
-              OrenjiTrade credits.
+              Unlock advanced filters or unlimited binder views for 24 hours with your OrenjiTrade
+              credits.
             </p>
             <a matButton="tonal" routerLink="/credits">Use credits</a>
           </aside>
@@ -350,7 +350,7 @@ export class PremiumPageComponent {
         : {
             title: 'Cancel Premium now?',
             message:
-              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist, map radius and ads).',
+              'Premium ends right away and the free plan’s limits apply at once (binders, wishlist and ads).',
             confirmLabel: 'Cancel now',
             cancelLabel: 'Keep Premium',
             tone: 'danger',

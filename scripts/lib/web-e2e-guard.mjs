@@ -34,7 +34,7 @@ export const RESERVED_PORTS = Object.freeze({
   19006: 'the Expo web dev server / mobile E2E web build',
 });
 /**
- * Redis logical database of the E2E API: 0 is the developer's (rate limits, nearby cache, presence),
+ * Redis logical database of the E2E API: 0 is the developer's (rate limits, discovery cache, presence),
  * 1 the mobile E2E harness's.
  */
 export const E2E_REDIS_DB = 2;
@@ -433,8 +433,6 @@ export function webRuntimeConfig({ apiUrl, emulatorHost = 'localhost:9099' }) {
       appId: '',
     },
     firebaseAuthEmulatorHost: emulatorHost,
-    googleMapsApiKey: '',
-    googleMapsMapId: '',
     environment: 'local',
   };
 }

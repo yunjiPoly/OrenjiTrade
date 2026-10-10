@@ -189,9 +189,9 @@ export function InboxView() {
           testID="inbox-empty"
           icon="forum-outline"
           title="No conversations yet"
-          description="Open a collector's preview on the map or their profile and press Message to start trading. Meetup details always stay private between the two of you."
-          actionLabel="Open the map"
-          onAction={() => router.navigate('/')}
+          description="Find a card or a binder in search, open the collector's profile and press Message to start trading. Meetup details always stay private between the two of you."
+          actionLabel="Open search"
+          onAction={() => router.navigate('/search')}
         />
       }
       contentContainerStyle={conversations.length === 0 ? styles.emptyContent : undefined}

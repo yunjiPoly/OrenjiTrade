@@ -108,21 +108,39 @@ public class TestUsers {
     }
 
     /**
-     * The stored location of a user as plain numbers (tests only; production code never reads the
-     * centre outside the location module): keys centre_lat, centre_lng, public_lat, public_lng,
-     * public_label, grid_cell. Empty map without a row.
+     * The stored location of a user (tests only): keys country_code, subdivision_code, city,
+     * show_city. Empty map without a row.
      */
     public Map<String, Object> locationOf(UUID id) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT ST_Y(trading_area_center::geometry) AS centre_lat,"
-                                + " ST_X(trading_area_center::geometry) AS centre_lng,"
-                                + " ST_Y(public_point::geometry) AS public_lat,"
-                                + " ST_X(public_point::geometry) AS public_lng,"
-                                + " public_label, grid_cell, trading_area_radius_m"
+                        "SELECT country_code, subdivision_code, city, show_city"
                                 + " FROM user_location WHERE user_id = ?",
                         id);
         return rows.isEmpty() ? Map.of() : rows.get(0);
+    }
+
+    /**
+     * Gives a user a location directly (tests only; the API path is {@code PUT /me/location}),
+     * replacing any existing one.
+     */
+    public void setLocation(
+            UUID id,
+            String countryCode,
+            String subdivisionCode,
+            @Nullable String city,
+            boolean showCity) {
+        jdbc.update(
+                "INSERT INTO user_location (user_id, country_code, subdivision_code, city,"
+                        + " show_city) VALUES (?, ?, ?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET"
+                        + " country_code = EXCLUDED.country_code, subdivision_code ="
+                        + " EXCLUDED.subdivision_code, city = EXCLUDED.city, show_city ="
+                        + " EXCLUDED.show_city, updated_at = now()",
+                id,
+                countryCode,
+                subdivisionCode,
+                city,
+                showCity);
     }
 
     public void setLastActive(UUID id, @Nullable Instant lastActiveAt) {

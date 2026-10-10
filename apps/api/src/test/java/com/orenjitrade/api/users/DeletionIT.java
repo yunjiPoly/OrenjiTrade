@@ -91,8 +91,8 @@ class DeletionIT extends AbstractIntegrationTest {
         String uid = uniqueUid("del-cancel");
         UUID id = provisionCompliant(uid);
         callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, discoverable(), 200);
-        callJson(HttpMethod.PUT, "/api/v1/me/location/trading-area", uid, area(), 200);
-        assertThat(testUsers.locationOf(id).get("public_lat")).isNotNull();
+        String handle = me(uid).path("handle").asString();
+        assertThat(searchable(handle)).as("discoverable in its region").isTrue();
 
         EntityExchangeResult<byte[]> created =
                 call(
@@ -117,7 +117,8 @@ class DeletionIT extends AbstractIntegrationTest {
         assertThat(identityAdminClient.isDisabled(uid))
                 .as("the owner must be able to sign in again to cancel")
                 .isFalse();
-        assertThat(testUsers.locationOf(id).get("public_lat")).isNull();
+        assertThat(searchable(handle)).as("hidden while the deletion is pending").isFalse();
+        assertThat(testUsers.locationOf(id)).as("kept until the purge").isNotEmpty();
         JsonNode blocked = callJson(HttpMethod.GET, "/api/v1/me/profile", uid, null, 403);
         assertThat(blocked.path("errorCode").asString()).isEqualTo("ACCOUNT_SUSPENDED");
         callJson(HttpMethod.GET, "/api/v1/me/export", uid, null, 200);
@@ -152,7 +153,7 @@ class DeletionIT extends AbstractIntegrationTest {
         callJson(HttpMethod.DELETE, "/api/v1/me/deletion-requests/" + requestId, uid, null, 204);
         assertThat(me(uid).path("status").asString()).isEqualTo("ACTIVE");
         assertThat(identityAdminClient.isDisabled(uid)).isFalse();
-        assertThat(testUsers.locationOf(id).get("public_lat")).isNotNull();
+        assertThat(searchable(handle)).as("back after the cancellation").isTrue();
         callJson(HttpMethod.GET, "/api/v1/me/profile", uid, null, 200);
         callJson(HttpMethod.DELETE, "/api/v1/me/deletion-requests/" + requestId, uid, null, 409);
         assertThat(testUsers.auditRowsFor(id))
@@ -211,7 +212,7 @@ class DeletionIT extends AbstractIntegrationTest {
                 Map.of("customLabels", List.of(customLabel)),
                 200);
         callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, discoverable(), 200);
-        callJson(HttpMethod.PUT, "/api/v1/me/location/trading-area", uid, area(), 200);
+        setLocation(uid, "CA", "CA-NB", "Moncton");
         Map<String, Object> notifications = new LinkedHashMap<>();
         notifications.put("pushEnabled", false);
         notifications.put("emailEnabled", false);
@@ -478,7 +479,6 @@ class DeletionIT extends AbstractIntegrationTest {
     static Map<String, Object> discoverable() {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("discoverable", true);
-        body.put("showDistance", true);
         body.put("showOnlineStatus", false);
         body.put("showLastActive", true);
         body.put("profileVisibility", "MEMBERS");
@@ -488,7 +488,20 @@ class DeletionIT extends AbstractIntegrationTest {
         return body;
     }
 
-    static Map<String, Object> area() {
-        return Map.of("lat", 45.5071, "lng", -73.5541, "radiusKm", 5);
+    /** Whether region search by handle lists the collector (discoverable and listed). */
+    private boolean searchable(String handle) {
+        JsonNode result =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/search?q=" + handle + "&types=collectors&region=americas-north",
+                        null,
+                        null,
+                        200);
+        for (JsonNode collector : result.path("collectors")) {
+            if (handle.equals(collector.path("handle").asString())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

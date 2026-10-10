@@ -16,7 +16,7 @@ import {
 
 import { AGE_CONFIRMATION, LEGAL_DOCUMENTS, meFixture } from '../support/fixtures';
 
-const ONBOARDED = { profileComplete: true, interestsSet: true, tradingAreaSet: true };
+const ONBOARDED = { profileComplete: true, interestsSet: true, locationSet: true };
 
 describe('the 18+ rule (launch readiness)', () => {
   it('needs onboarding while the API reports ageConfirmed === false, never without the flag', () => {

@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
-import com.orenjitrade.api.location.domain.SearchCentre;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.MessagingPermission;
 import com.orenjitrade.api.profiles.domain.ProfileVisibility;
 import com.orenjitrade.api.profiles.domain.RatingSummary;
@@ -25,19 +25,13 @@ import org.junit.jupiter.api.Test;
 /** Pure rules of the search module: ranking, cache keys, item filters, parsing, interleaving. */
 class SearchDomainTest {
 
-    private static MarkerRow row(
-            String handle, @Nullable Integer freshness, @Nullable Double metres) {
+    private static MarkerRow row(String handle, @Nullable Integer freshness) {
         return new MarkerRow(
                 UUID.nameUUIDFromBytes(handle.getBytes()),
                 handle,
                 handle,
                 null,
-                45.5,
-                -73.5,
-                "Area",
-                "r1c1",
-                metres,
-                true,
+                new PublicPlace("americas-north", "CA", "Canada", "CA-QC", "Quebec", false),
                 false,
                 true,
                 ProfileVisibility.MEMBERS,
@@ -54,37 +48,44 @@ class SearchDomainTest {
     }
 
     @Test
-    void rankingIsFreshnessThenDistanceBucketThenRatingThenDistance() {
-        MarkerRow agingNear = row("aging-near", 1, 500.0);
-        MarkerRow activeFar = row("active-far", 0, 9_000.0);
-        MarkerRow activeNear = row("active-near", 0, 2_000.0);
-        MarkerRow activeNearRated = row("active-near-rated", 0, 4_000.0);
-        MarkerRow noListings = row("no-listings", null, 100.0);
+    void rankingIsFreshnessThenRatingThenHandle() {
+        MarkerRow aging = row("aging", 1);
+        MarkerRow activeB = row("active-b", 0);
+        MarkerRow activeA = row("active-a", 0);
+        MarkerRow activeRated = row("active-rated", 0);
+        MarkerRow noListings = row("no-listings", null);
         Map<UUID, RatingSummary> ratings = new HashMap<>();
-        ratings.put(activeNearRated.id(), new RatingSummary(4.9, 12));
+        ratings.put(activeRated.id(), new RatingSummary(4.9, 12));
         List<MarkerRow> rows =
-                new ArrayList<>(
-                        List.of(noListings, agingNear, activeFar, activeNear, activeNearRated));
+                new ArrayList<>(List.of(noListings, aging, activeB, activeA, activeRated));
         rows.sort(
                 MarkerRanking.comparator(
                         row -> ratings.getOrDefault(row.id(), RatingSummary.NONE)));
         assertThat(rows.stream().map(MarkerRow::handle))
-                .containsExactly(
-                        "active-near-rated", // same bucket (1-5 km) as active-near, better rated
-                        "active-near",
-                        "active-far",
-                        "aging-near",
-                        "no-listings");
-        assertThat(MarkerRanking.bucketRank(null)).isGreaterThan(MarkerRanking.bucketRank(1e9));
+                .containsExactly("active-rated", "active-a", "active-b", "aging", "no-listings");
     }
 
     @Test
-    void cacheKeysAreCanonicalAndHideNothingButNeverTheRawCentre() {
-        SearchCentre centre = SearchCentre.snap(45.51739, -73.58914);
-        NearbyCriteria a =
-                new NearbyCriteria(
-                        centre,
-                        10,
+    void placesLabelTheSubdivisionAndTheCountryOrTheCountryAlone() {
+        assertThat(row("x", 0).place().label()).isEqualTo("Quebec, Canada");
+        assertThat(
+                        new PublicPlace(
+                                        "americas-north",
+                                        "PR",
+                                        "Puerto Rico",
+                                        "PR",
+                                        "Puerto Rico",
+                                        true)
+                                .label())
+                .isEqualTo("Puerto Rico");
+        assertThat(row("x", 0).toString()).contains("CA-QC");
+    }
+
+    @Test
+    void cacheKeysAreCanonicalPerRegionAndFilters() {
+        DiscoveryCriteria a =
+                new DiscoveryCriteria(
+                        "americas-north",
                         "yugioh",
                         null,
                         null,
@@ -93,10 +94,9 @@ class SearchDomainTest {
                         null,
                         null,
                         200);
-        NearbyCriteria b =
-                new NearbyCriteria(
-                        SearchCentre.snap(45.52, -73.59),
-                        10,
+        DiscoveryCriteria b =
+                new DiscoveryCriteria(
+                        "americas-north",
                         "yugioh",
                         null,
                         null,
@@ -106,11 +106,21 @@ class SearchDomainTest {
                         null,
                         200);
         assertThat(a.cacheKey()).isEqualTo(b.cacheKey());
-        assertThat(a.cacheKey()).doesNotContain("45.517").doesNotContain("73.589");
-        NearbyCriteria other =
-                new NearbyCriteria(
-                        centre,
-                        10,
+        DiscoveryCriteria europe =
+                new DiscoveryCriteria(
+                        "europe",
+                        "yugioh",
+                        null,
+                        null,
+                        List.of("trader", "collector"),
+                        null,
+                        null,
+                        null,
+                        200);
+        assertThat(europe.cacheKey()).isNotEqualTo(a.cacheKey());
+        DiscoveryCriteria other =
+                new DiscoveryCriteria(
+                        "americas-north",
                         "yugioh",
                         SearchAvailability.SALE,
                         null,
@@ -180,6 +190,7 @@ class SearchDomainTest {
                 .isInstanceOf(ApiException.class);
         assertThat(HolderSort.parse("Price")).contains(HolderSort.PRICE);
         assertThat(HolderSort.parse("rating")).isEmpty();
+        assertThat(HolderSort.parse("distance")).as("no distances exist").isEmpty();
     }
 
     @Test

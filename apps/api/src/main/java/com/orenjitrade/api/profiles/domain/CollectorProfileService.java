@@ -2,9 +2,8 @@ package com.orenjitrade.api.profiles.domain;
 
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.location.domain.DistanceBucket;
 import com.orenjitrade.api.location.domain.LocationService;
-import com.orenjitrade.api.location.domain.PublicLocation;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
 import com.orenjitrade.api.profiles.domain.ProfileService.PublicProfileParts;
@@ -28,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Builds the public collector profile ({@code GET /api/v1/collectors/{handle}}) for one viewer:
  * suspended, deletion-pending and deleted accounts do not exist publicly (404), PRIVATE profiles
  * exist only for their owner (404 for everyone else), the location is present only for discoverable
- * collectors and only as public point + label + distance bucket.
+ * collectors (state/province + country, plus the city only while the collector shows it; ADR 0017).
  */
 @Service
 public class CollectorProfileService {
@@ -98,17 +97,15 @@ public class CollectorProfileService {
                                                 List.of(),
                                                 List.of(),
                                                 false));
-        Optional<PublicLocation> publicLocation =
-                privacy.discoverable()
-                        ? locationService.publicLocationOf(targetId)
-                        : Optional.empty();
+        Optional<PublicPlace> publicPlace =
+                privacy.discoverable() ? locationService.publicPlaceOf(targetId) : Optional.empty();
         if (!targetId.equals(viewerId)) {
             events.publishEvent(
                     new CollectorProfileViewed(
                             viewerId,
                             targetId,
-                            publicLocation.map(PublicLocation::gridCell).orElse(null),
-                            publicLocation.map(PublicLocation::label).orElse(null),
+                            publicPlace.map(PublicPlace::regionCode).orElse(null),
+                            publicPlace.map(PublicPlace::subdivisionCode).orElse(null),
                             now));
         }
         return new CollectorProfileView(
@@ -119,7 +116,7 @@ public class CollectorProfileService {
                 parts.bio(),
                 parts.games(),
                 parts.tags(),
-                location(viewer, targetId, privacy, publicLocation),
+                location(viewer, targetId, privacy, publicPlace),
                 LocalDate.ofInstant(account.createdAt(), ZoneOffset.UTC),
                 privacyPolicy.canSeeLastActive(viewer, targetId, privacy)
                         ? lastActiveBucket(account.lastActiveAt(), now)
@@ -178,26 +175,16 @@ public class CollectorProfileService {
             ViewerContext viewer,
             UUID targetId,
             PrivacySettingsView privacy,
-            Optional<PublicLocation> publicLocationOfTarget) {
+            Optional<PublicPlace> placeOfTarget) {
         if (!privacyPolicy.canSeeLocation(viewer, targetId, privacy)) {
             return null;
         }
-        return publicLocationOfTarget
+        return placeOfTarget
                 .map(
-                        publicLocation -> {
-                            @Nullable DistanceBucket distance = null;
-                            UUID viewerId = viewer.userId();
-                            if (viewerId != null
-                                    && privacyPolicy.canSeeDistance(viewer, targetId, privacy)) {
-                                distance =
-                                        locationService
-                                                .distanceFrom(
-                                                        viewerId, publicLocation.publicPoint())
-                                                .orElse(null);
-                            }
-                            return new CollectorProfileView.Location(
-                                    publicLocation.label(), publicLocation.publicPoint(), distance);
-                        })
+                        place ->
+                                new CollectorProfileView.Location(
+                                        place,
+                                        locationService.profileCityOf(targetId).orElse(null)))
                 .orElse(null);
     }
 

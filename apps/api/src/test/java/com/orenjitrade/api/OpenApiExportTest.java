@@ -80,7 +80,11 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "/api/v1/tags",
                         "/api/v1/collectors/{handle}",
                         "/api/v1/me/location",
-                        "/api/v1/me/location/trading-area",
+                        "/api/v1/regions",
+                        "/api/v1/regions/{region}/binder-counts",
+                        "/api/v1/regions/{region}/subdivisions/{code}/binders",
+                        "/api/v1/admin/regions",
+                        "/api/v1/admin/regions/countries/{code}",
                         "/api/v1/me/settings/privacy",
                         "/api/v1/me/settings/notifications",
                         "/api/v1/me/export",
@@ -97,6 +101,21 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                             .as("summary of %s %s", operation.getKey(), path)
                                             .isNotEmpty());
         }
+        // Platform regions replaced the map radius and the coordinates (ADR 0017).
+        for (String gone :
+                java.util.List.of(
+                        "/api/v1/me/location/trading-area",
+                        "/api/v1/collectors/nearby",
+                        "/api/v1/collectors/{handle}/preview")) {
+            assertThat(paths.has(gone)).as(gone).isFalse();
+        }
+        String schemaText = document.path("components").path("schemas").toString();
+        assertThat(schemaText)
+                .doesNotContain("\"lat\"")
+                .doesNotContain("\"lng\"")
+                .doesNotContain("radiusKm")
+                .doesNotContain("distanceBucket")
+                .doesNotContain("showDistance");
         // Phase 2 (catalog, feature flags, plans and limits).
         for (String path :
                 java.util.List.of(

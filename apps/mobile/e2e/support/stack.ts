@@ -213,25 +213,65 @@ export interface OnboardedCollector extends EmulatorUser {
   displayName: string;
 }
 
-/** A trading-area centre (3 decimals, like every manual centre). */
-export interface AreaPoint {
-  lat: number;
-  lng: number;
-  radiusKm?: number;
+/** A self-declared place (ADR 0017): codes of `GET /regions`, an optional city. */
+export interface LocationInput {
+  countryCode: string;
+  subdivisionCode: string;
+  city?: string | null;
+  showCity?: boolean;
+}
+
+/**
+ * Places of the mobile specs (fictional collectors). Region-scoped answers list every collector
+ * of a platform region, so specs find their own collectors by handle or item, never by counts.
+ */
+export const PLACES = {
+  quebec: { countryCode: 'CA', subdivisionCode: 'CA-QC' },
+  ontario: { countryCode: 'CA', subdivisionCode: 'CA-ON' },
+  wyoming: { countryCode: 'US', subdivisionCode: 'US-WY' },
+  montevideo: { countryCode: 'UY', subdivisionCode: 'UY-MO' },
+  brittany: { countryCode: 'FR', subdivisionCode: 'FR-BRE' },
+} as const satisfies Record<string, LocationInput>;
+
+/** The public label the API derives for a place of `PLACES` ("Quebec, Canada"). */
+export const PLACE_LABELS: Record<keyof typeof PLACES, string> = {
+  quebec: 'Quebec, Canada',
+  ontario: 'Ontario, Canada',
+  wyoming: 'Wyoming, United States',
+  montevideo: 'Montevideo, Uruguay',
+  brittany: 'Brittany, France',
+};
+
+/** `PUT /me/location` (country, subdivision, optional city). */
+export async function apiSetLocation(
+  api: APIRequestContext,
+  token: string,
+  location: LocationInput
+): Promise<void> {
+  const response = await api.put(`${API_URL}/api/v1/me/location`, {
+    headers: authHeader(token),
+    data: {
+      countryCode: location.countryCode,
+      subdivisionCode: location.subdivisionCode,
+      city: location.city ?? null,
+      showCity: location.showCity ?? true,
+    },
+  });
+  expect(response.ok(), 'PUT /me/location').toBeTruthy();
 }
 
 /**
  * A fresh collector created through the emulator + API: accepted terms, the 18+ confirmation
  * (unless `confirmAge: false`: an account from before the rule, which the app sends to the
- * onboarding age step), a saved profile with a game (onboarding complete); without `area` no
- * trading area and not discoverable, with `area` a MANUAL trading area there and, with
- * `discoverable`, on the map.
+ * onboarding age step), a saved profile with a game (onboarding complete); without `location`
+ * no location and not discoverable, with `location` that declared place and, with
+ * `discoverable`, on the map of its region.
  */
 export async function createOnboardedCollector(
   api: APIRequestContext,
   prefix: string,
   displayName = `Mobile ${prefix} collector`,
-  options: { area?: AreaPoint; discoverable?: boolean; confirmAge?: boolean } = {}
+  options: { location?: LocationInput; discoverable?: boolean; confirmAge?: boolean } = {}
 ): Promise<OnboardedCollector> {
   const user = await emulatorSignUp(api, uniqueEmail(prefix));
   await apiAcceptConsents(api, user.idToken);
@@ -250,17 +290,8 @@ export async function createOnboardedCollector(
     },
   });
   expect(profile.ok(), 'PUT /me/profile').toBeTruthy();
-  if (options.area) {
-    const area = await api.put(`${API_URL}/api/v1/me/location/trading-area`, {
-      headers: authHeader(user.idToken),
-      data: {
-        lat: options.area.lat,
-        lng: options.area.lng,
-        radiusKm: options.area.radiusKm ?? 5,
-        source: 'MANUAL',
-      },
-    });
-    expect(area.ok(), 'PUT /me/location/trading-area').toBeTruthy();
+  if (options.location) {
+    await apiSetLocation(api, user.idToken, options.location);
   }
   if (options.discoverable) {
     await apiUpdatePrivacy(api, user.idToken, { discoverable: true });
@@ -562,26 +593,6 @@ export async function apiMyReports(
   }[];
 }
 
-/**
- * A random public point of rural Québec with 3 decimals (a region no other spec uses), so
- * parallel specs and earlier runs never match each other's listings.
- */
-export function randomRuralArea(): AreaPoint {
-  const pick = (min: number, span: number) => {
-    const value = Math.round((min + Math.random() * span) * 1000);
-    return (value % 10 === 0 ? value + 3 : value) / 1000;
-  };
-  return { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) };
-}
-
-/** A point about 1.5 km from `area`. */
-export function nearArea(area: AreaPoint): AreaPoint {
-  return {
-    lat: Math.round((area.lat + 0.011) * 1000) / 1000,
-    lng: Math.round((area.lng - 0.014) * 1000) / 1000,
-  };
-}
-
 /** Signs in through the app's sign-in screen and waits until the app left it. */
 export async function signInThroughUi(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/sign-in');
@@ -673,7 +684,6 @@ export async function apiAddWish(
     data: {
       cardId,
       conditionMin: 'LIGHTLY_PLAYED',
-      radiusKm: 10,
       tradePreference: 'ANY',
       ...extra,
     },

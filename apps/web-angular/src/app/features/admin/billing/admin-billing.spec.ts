@@ -39,11 +39,14 @@ describe('admin billing helpers', () => {
   it('validates targeting values and refuses coordinates', () => {
     expect(targetingValueError('GAME', 'pokemon')).toBeNull();
     expect(targetingValueError('GAME', 'Pokémon!')).toContain('slug');
-    expect(targetingValueError('GEO_CELL', 'r5058c-5728')).toBeNull();
-    expect(targetingValueError('GEO_CELL', '45.5,-73.5')).toContain('grid cell');
+    expect(targetingValueError('REGION', 'americas-north')).toBeNull();
+    expect(targetingValueError('REGION', 'Montréal')).toContain('region code');
+    expect(targetingValueError('COUNTRY', 'CA')).toBeNull();
+    expect(targetingValueError('COUNTRY', 'Canada')).toContain('two-letter');
+    expect(targetingValueError('SUBDIVISION', 'CA-QC')).toBeNull();
+    expect(targetingValueError('SUBDIVISION', 'Montréal')).toContain('ISO 3166-2');
     expect(targetingValueError('PLAN', 'ANONYMOUS')).toBeNull();
-    expect(targetingValueError('REGION_LABEL', 'Montréal')).toBeNull();
-    expect(targetingValueError('REGION_LABEL', '45.5081, -73.5661')).toContain('Coordinates');
+    expect(targetingValueError('SUBDIVISION', '45.5081, -73.5661')).toContain('Coordinates');
     expect(targetingValueError('TAG', '  ')).toBe('Enter a value.');
   });
 

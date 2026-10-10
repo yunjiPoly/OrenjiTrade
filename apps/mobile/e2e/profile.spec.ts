@@ -34,7 +34,7 @@ test.describe('mobile profile', () => {
     await expect(profile.getByTestId('profile-bio-text')).toHaveText(
       'Fictional mobile E2E collector.'
     );
-    await expect(profile.getByTestId('profile-area')).toHaveText('No trading area yet.');
+    await expect(profile.getByTestId('profile-area')).toHaveText('No location yet.');
     await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
 
     await profile.getByRole('button', { name: 'Edit profile' }).click();

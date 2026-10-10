@@ -51,12 +51,6 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
                 owner,
                 privacy(true, "MEMBERS"),
                 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                owner,
-                Map.of("lat", 45.53, "lng", -73.6, "radiusKm", 5),
-                200);
         UUID printingId = printing(testUsers, "rb-p004a");
         for (String name : List.of("First", "Second", "Third")) {
             String id =

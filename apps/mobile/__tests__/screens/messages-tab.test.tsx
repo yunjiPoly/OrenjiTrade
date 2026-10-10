@@ -108,9 +108,15 @@ describe('Messages tab: inbox', () => {
       /Conversations could not load/
     );
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId('inbox-empty')).toHaveTextContent(/No conversations yet/);
-    fireEvent.press(screen.getByText('Open the map'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+    const empty = await screen.findByTestId('inbox-empty');
+    expect(empty).toHaveTextContent(/No conversations yet/);
+    // ADR 0017: collectors are found through search and their profile, never on the map.
+    expect(empty).toHaveTextContent(
+      /Find a card or a binder in search, open the collector's profile and press Message/
+    );
+    expect(empty).not.toHaveTextContent(/map|preview|near/i);
+    fireEvent.press(screen.getByText('Open search'));
+    expect(mockRouter.navigate).toHaveBeenCalledWith('/search');
   });
 
   it('stays live: a pushed message moves its conversation up with one more unread', async () => {
@@ -174,14 +180,14 @@ describe('Messages tab: community', () => {
     await screen.findByTestId('conversation-row-collector2');
     fireEvent.press(screen.getByTestId('messages-view-community'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ view: 'community' });
-    expect(await screen.findByTestId('channel-montreal-pokemon')).toBeOnTheScreen();
-    expect(screen.getByText('Montréal')).toBeOnTheScreen();
+    expect(await screen.findByTestId('channel-americas-north')).toBeOnTheScreen();
+    expect(screen.getByText('Regions')).toBeOnTheScreen();
     expect(screen.getByText('Topics')).toBeOnTheScreen();
-    expect(screen.getByTestId('channel-count-montreal-pokemon')).toHaveTextContent('3');
+    expect(screen.getByTestId('channel-count-americas-north')).toHaveTextContent('3');
     expect(screen.queryByTestId('channel-count-yugioh')).toBeNull();
-    // Filtering by a game keeps the topics.
+    // Filtering by a game keeps the region channels (every game) and the topics.
     fireEvent.press(screen.getByTestId('community-game-yugioh'));
-    expect(screen.queryByTestId('channel-montreal-pokemon')).toBeNull();
+    expect(screen.getByTestId('channel-americas-north')).toBeOnTheScreen();
     expect(screen.getByTestId('channel-yugioh')).toBeOnTheScreen();
     expect(screen.getByTestId('channel-looking-for')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('channel-looking-for'));

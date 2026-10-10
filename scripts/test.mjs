@@ -55,9 +55,10 @@ const [suite, ...argv] = process.argv.slice(2);
 async function testApi() {
   ensureDocker();
   log.step('API: gradlew check (Spotless, unit and integration tests with Testcontainers)');
-  // `test --rerun`: always execute the suite (Gradle would otherwise report it UP-TO-DATE when the
-  // inputs did not change since the last run); compilation stays incremental.
-  return runGradle(['test', '--rerun', 'check'], { cwd: API_DIR });
+  // `--rerun`: always execute both test tasks (Gradle would otherwise report them UP-TO-DATE when
+  // the inputs did not change since the last run); compilation stays incremental. catalogTest runs
+  // the catalog fixture suites in their own JVM, against fresh containers (ADR 0017).
+  return runGradle(['test', '--rerun', 'catalogTest', '--rerun', 'check'], { cwd: API_DIR });
 }
 
 async function sequence(steps) {

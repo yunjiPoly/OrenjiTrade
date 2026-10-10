@@ -1,7 +1,6 @@
 package com.orenjitrade.api.profiles.domain;
 
-import com.orenjitrade.api.location.domain.DistanceBucket;
-import com.orenjitrade.api.location.domain.PublicPoint;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -9,8 +8,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The public view of a collector as computed for one viewer (privacy rules already applied).
- * Contains no private location data by construction: only the public point, its label and a
- * distance bucket.
+ * Location: state/province + country of a discoverable collector, plus their city only while they
+ * show it on their profile (ADR 0017); never a coordinate or a distance.
  */
 public record CollectorProfileView(
         UUID id,
@@ -30,14 +29,12 @@ public record CollectorProfileView(
         boolean isBlocked) {
 
     /**
-     * Approximate location of a discoverable collector.
+     * Location of a discoverable collector.
      *
-     * @param publicLabel region label
-     * @param publicPoint derived public point
-     * @param distanceBucket distance class from the viewer, when allowed and computable
+     * @param place state/province and country
+     * @param city the collector's own city, only while "Show my city on my profile" is on
      */
-    public record Location(
-            String publicLabel, PublicPoint publicPoint, @Nullable DistanceBucket distanceBucket) {}
+    public record Location(PublicPlace place, @Nullable String city) {}
 
     /** How recently the collector was active (bucketed; {@link #HIDDEN} by privacy choice). */
     public enum LastActiveBucket {

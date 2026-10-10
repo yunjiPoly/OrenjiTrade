@@ -1,14 +1,14 @@
 [
-  { "nn": "01", "lat": 45.522, "lng": -73.581, "radiusKm": 5 },
-  { "nn": "02", "lat": 45.458, "lng": -73.568, "radiusKm": 5 },
-  { "nn": "03", "lat": 45.606, "lng": -73.712, "radiusKm": 5 },
-  { "nn": "04", "lat": 45.531, "lng": -73.518, "radiusKm": 5 },
-  { "nn": "05", "lat": 45.524, "lng": -73.601, "radiusKm": 5 },
-  { "nn": "06", "lat": 45.483, "lng": -73.598, "radiusKm": 5 },
-  { "nn": "07", "lat": 45.549, "lng": -73.577, "radiusKm": 5 },
-  { "nn": "08", "lat": 45.507, "lng": -73.554, "radiusKm": 5 },
-  { "nn": "09", "lat": 45.518, "lng": -73.610, "radiusKm": 5 },
-  { "nn": "10", "lat": 45.493, "lng": -73.561, "radiusKm": 5 },
-  { "nn": "11", "lat": 45.501, "lng": -73.567, "radiusKm": 5 },
-  { "nn": "12", "lat": 45.503, "lng": -73.571, "radiusKm": 5 }
+  { "nn": "01", "countryCode": "CA", "subdivisionCode": "CA-QC", "city": "Montréal", "showCity": true },
+  { "nn": "02", "countryCode": "CA", "subdivisionCode": "CA-ON", "city": "Toronto", "showCity": true },
+  { "nn": "03", "countryCode": "AR", "subdivisionCode": "AR-C", "city": "Buenos Aires", "showCity": false },
+  { "nn": "04", "countryCode": "ES", "subdivisionCode": "ES-MD", "city": "Madrid", "showCity": true },
+  { "nn": "05", "countryCode": "US", "subdivisionCode": "US-CA", "city": "Los Angeles", "showCity": true },
+  { "nn": "06", "countryCode": "CL", "subdivisionCode": "CL-RM", "city": "Santiago", "showCity": true },
+  { "nn": "07", "countryCode": "US", "subdivisionCode": "US-NY", "city": "Brooklyn", "showCity": true },
+  { "nn": "08", "countryCode": "FR", "subdivisionCode": "FR-IDF", "city": "Paris", "showCity": true },
+  { "nn": "09", "countryCode": "BR", "subdivisionCode": "BR-SP", "city": "São Paulo", "showCity": true },
+  { "nn": "10", "countryCode": "DE", "subdivisionCode": "DE-BE", "city": "Berlin", "showCity": true },
+  { "nn": "11", "countryCode": "GB", "subdivisionCode": "GB-ENG", "city": null, "showCity": true },
+  { "nn": "12", "countryCode": "CA", "subdivisionCode": "CA-QC", "city": "Québec", "showCity": true }
 ]

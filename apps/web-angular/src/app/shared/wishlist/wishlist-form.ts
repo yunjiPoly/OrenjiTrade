@@ -13,16 +13,12 @@ import type {
 import { DEFAULT_CURRENCY } from '../inventory/inventory-labels';
 import { TradePreference, isTradePreference } from './wishlist-labels';
 
-/** Bounds mirrored from the API (`WishlistService`): notes, price, radius. */
+/**
+ * Bounds mirrored from the API (`WishlistService`): notes and price. Wishes match collectors of the
+ * same platform region (ADR 0017): there is no radius.
+ */
 export const WISH_NOTES_MAX = 500;
 export const WISH_MAX_PRICE = 9_999_999_999.99;
-export const WISH_RADIUS_MIN_KM = 1;
-/** Largest radius the slider offers (further capped by the plan's `map.radius.max_km`). */
-export const WISH_RADIUS_SLIDER_MAX_KM = 100;
-/** The API's default radius (lowered to the plan cap). */
-export const DEFAULT_WISH_RADIUS_KM = 25;
-/** The plan limit that caps the radius. */
-export const RADIUS_LIMIT_KEY = 'map.radius.max_km';
 /** The plan limit on the number of wishes. */
 export const WISH_ITEMS_LIMIT_KEY = 'wishlist.items.max';
 /** Select value meaning "no filter" (any printing, any condition, …). */
@@ -37,7 +33,6 @@ export interface WishFormValue {
   rarity: string;
   maxPrice: number | null;
   currency: string;
-  radiusKm: number;
   tradePreference: TradePreference;
   notes: string;
   active: boolean;
@@ -52,20 +47,6 @@ function twoDecimals(control: AbstractControl<number | null>): ValidationErrors 
     return null;
   }
   return Math.abs(value * 100 - Math.round(value * 100)) < 1e-6 ? null : { decimals: true };
-}
-
-/** The slider's upper bound for a plan cap (`null` = unlimited). */
-export function radiusSliderMax(cap: number | null | undefined): number {
-  if (cap === null || cap === undefined || !Number.isFinite(cap)) {
-    return WISH_RADIUS_SLIDER_MAX_KM;
-  }
-  return Math.max(WISH_RADIUS_MIN_KM, Math.min(WISH_RADIUS_SLIDER_MAX_KM, Math.floor(cap)));
-}
-
-/** A radius kept within the slider bounds. */
-export function clampRadius(radiusKm: number, max: number): number {
-  const rounded = Math.round(Number.isFinite(radiusKm) ? radiusKm : DEFAULT_WISH_RADIUS_KM);
-  return Math.min(Math.max(rounded, WISH_RADIUS_MIN_KM), Math.max(max, WISH_RADIUS_MIN_KM));
 }
 
 /** The reactive form of the add/edit dialog (validators mirror the API). */
@@ -83,10 +64,6 @@ export function createWishForm(initial: WishFormValue): WishForm {
       nonNullable: true,
       validators: [Validators.required, Validators.pattern(/^[A-Z]{3}$/)],
     }),
-    radiusKm: new FormControl(initial.radiusKm, {
-      nonNullable: true,
-      validators: [Validators.required, Validators.min(WISH_RADIUS_MIN_KM)],
-    }),
     tradePreference: new FormControl<TradePreference>(initial.tradePreference, {
       nonNullable: true,
     }),
@@ -98,8 +75,8 @@ export function createWishForm(initial: WishFormValue): WishForm {
   });
 }
 
-/** Defaults of a new wish: the given printing (or any), no filter, the default radius. */
-export function newWishDefaults(printingId: string | null, radiusMax: number): WishFormValue {
+/** Defaults of a new wish: the given printing (or any), no filter. */
+export function newWishDefaults(printingId: string | null): WishFormValue {
   return {
     printingId: printingId ?? ANY,
     conditionMin: ANY,
@@ -108,7 +85,6 @@ export function newWishDefaults(printingId: string | null, radiusMax: number): W
     rarity: ANY,
     maxPrice: null,
     currency: DEFAULT_CURRENCY,
-    radiusKm: clampRadius(DEFAULT_WISH_RADIUS_KM, radiusMax),
     tradePreference: 'ANY',
     notes: '',
     active: true,
@@ -125,7 +101,6 @@ export function wishFormFromItem(item: WishlistItemResponse): WishFormValue {
     rarity: item.rarity ?? ANY,
     maxPrice: item.maxPrice ?? null,
     currency: item.currency || DEFAULT_CURRENCY,
-    radiusKm: item.radiusKm,
     tradePreference: isTradePreference(item.tradePreference) ? item.tradePreference : 'ANY',
     notes: item.notes ?? '',
     active: item.active,
@@ -150,7 +125,6 @@ export function toCreateWishRequest(
 ): CreateWishlistItemRequest {
   const request: CreateWishlistItemRequest = {
     currency: value.currency,
-    radiusKm: value.radiusKm,
     tradePreference: value.tradePreference as CreateWishlistItemRequest['tradePreference'],
     active: value.active,
   };
@@ -191,14 +165,13 @@ export function toUpdateWishRequest(value: WishFormValue): UpdateWishlistItemReq
     language: orNull(value.language),
     maxPrice: price(value.maxPrice),
     currency: value.currency,
-    radiusKm: value.radiusKm,
     tradePreference: value.tradePreference as UpdateWishlistItemRequest['tradePreference'],
     notes: orNull(value.notes),
     active: value.active,
   };
 }
 
-export type WishField = 'maxPrice' | 'currency' | 'radiusKm' | 'notes';
+export type WishField = 'maxPrice' | 'currency' | 'notes';
 
 /** Inline message of an invalid field (`server` = the API's own message). */
 export function wishFieldError(
@@ -222,8 +195,6 @@ export function wishFieldError(
       return 'Enter a valid price.';
     case 'currency':
       return 'Use a three-letter currency code, like CAD.';
-    case 'radiusKm':
-      return `Choose at least ${WISH_RADIUS_MIN_KM} km.`;
     case 'notes':
       return `Notes are limited to ${WISH_NOTES_MAX} characters.`;
   }
@@ -238,7 +209,6 @@ const SERVER_FIELDS: Record<string, keyof WishFormValue> = {
   language: 'language',
   maxPrice: 'maxPrice',
   currency: 'currency',
-  radiusKm: 'radiusKm',
   tradePreference: 'tradePreference',
   notes: 'notes',
 };

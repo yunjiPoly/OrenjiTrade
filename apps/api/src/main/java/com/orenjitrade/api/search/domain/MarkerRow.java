@@ -1,5 +1,6 @@
 package com.orenjitrade.api.search.domain;
 
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.MessagingPermission;
 import com.orenjitrade.api.profiles.domain.ProfileVisibility;
 import java.time.Instant;
@@ -8,21 +9,15 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A collector on the map as read from the database, before the viewer-specific privacy rules are
- * applied (the unit cached for 60 s). Holds the public point only, never a trading-area centre; the
- * distance is measured from the snapped search centre to the public point and is never serialised
- * to clients (they get a {@code DistanceBucket}).
+ * A discoverable collector as read from the database, before the viewer-specific privacy rules are
+ * applied (the unit cached for 60 s). Holds the public place only (state/province + country), never
+ * a city or a coordinate (ADR 0017).
  *
  * @param id account id
  * @param handle handle
  * @param displayName display name
  * @param avatarKey storage key of the avatar (the URL is derived per request)
- * @param publicLat latitude of the public point (3 decimals)
- * @param publicLng longitude of the public point (3 decimals)
- * @param publicLabel region label of the public point
- * @param gridCell grid cell of the public point
- * @param distanceMetres distance from the search centre, {@code null} without a centre
- * @param showDistance privacy switch
+ * @param place state/province and country
  * @param showOnlineStatus privacy switch
  * @param showLastActive privacy switch
  * @param profileVisibility privacy switch
@@ -43,12 +38,7 @@ public record MarkerRow(
         String handle,
         String displayName,
         @Nullable String avatarKey,
-        double publicLat,
-        double publicLng,
-        String publicLabel,
-        String gridCell,
-        @Nullable Double distanceMetres,
-        boolean showDistance,
+        PublicPlace place,
         boolean showOnlineStatus,
         boolean showLastActive,
         ProfileVisibility profileVisibility,
@@ -77,12 +67,7 @@ public record MarkerRow(
                 handle,
                 displayName,
                 avatarKey,
-                publicLat,
-                publicLng,
-                publicLabel,
-                gridCell,
-                distanceMetres,
-                showDistance,
+                place,
                 showOnlineStatus,
                 showLastActive,
                 profileVisibility,
@@ -100,6 +85,6 @@ public record MarkerRow(
 
     @Override
     public String toString() {
-        return "MarkerRow[id=" + id + ", gridCell=" + gridCell + "]";
+        return "MarkerRow[id=" + id + ", subdivision=" + place.subdivisionCode() + "]";
     }
 }

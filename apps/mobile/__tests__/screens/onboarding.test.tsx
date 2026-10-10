@@ -2,14 +2,13 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import OnboardingScreen from '@/app/onboarding';
 import { usePendingLink } from '@/src/account/pendingLink';
-import type { UpdateTradingAreaRequest } from '@/src/api/types';
+import type { UpdateLocationRequest } from '@/src/api/types';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   LEGAL_DOCUMENTS,
   NOT_ONBOARDED,
   TAGS,
-  locationFixture,
   meFixture,
   privacyFixture,
   profileFixture,
@@ -20,9 +19,6 @@ import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
-jest.mock('@/src/features/location/deviceLocation', () => ({
-  readApproximatePosition: jest.fn(),
-}));
 
 const freshProfile = profileFixture({
   handle: 'maika_x1',
@@ -42,13 +38,22 @@ function onboardingRoutes(extra = {}) {
     'PUT /api/v1/me/profile': ({ body }: MockRequest) =>
       ok({ ...freshProfile, ...(body as object), profileComplete: true }),
     'PUT /api/v1/me/profile/tags': ok([TAGS[0]]),
-    'PUT /api/v1/me/location/trading-area': ({ body }: MockRequest) => {
-      const area = body as UpdateTradingAreaRequest;
-      return ok(
-        locationFixture({
-          tradingArea: { ...area, source: area.source ?? 'MANUAL', label: 'Ville-Marie, Montréal' },
-        })
-      );
+    'PUT /api/v1/me/location': ({ body }: MockRequest) => {
+      const place = body as UpdateLocationRequest;
+      return ok({
+        discoverable: false,
+        location: {
+          regionCode: 'americas-north',
+          regionName: 'Americas (North)',
+          countryCode: place.countryCode,
+          countryName: 'Canada',
+          subdivisionCode: place.subdivisionCode,
+          subdivisionName: 'Quebec',
+          label: 'Quebec, Canada',
+          city: place.city || null,
+          showCity: place.showCity ?? true,
+        },
+      });
     },
     'PUT /api/v1/me/settings/privacy': ({ body }: MockRequest) => ok(body),
     ...extra,
@@ -59,6 +64,12 @@ beforeEach(() => {
   resetRouterMock();
   resetAppState();
 });
+
+/** Chooses `value` in the SelectSheet field `select` (opens the sheet, presses the option). */
+async function choose(select: string, value: string) {
+  fireEvent.press(await screen.findByTestId(select));
+  fireEvent.press(await screen.findByTestId(`${select}-option-${value}`));
+}
 
 describe('Onboarding', () => {
   it('shows a skeleton while loading, then an error with retry', async () => {
@@ -77,7 +88,7 @@ describe('Onboarding', () => {
     expect(api.callsTo('GET /api/v1/me/profile').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('walks profile → interests → trading area with validation and the map opt-in off by default', async () => {
+  it('walks profile → interests → location with validation and the map opt-in off by default', async () => {
     const api = mockApi(onboardingRoutes());
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
 
@@ -113,32 +124,37 @@ describe('Onboarding', () => {
     expect(screen.getByTestId('tag-count')).toHaveTextContent('1 / 12');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
-    // Step 3: trading area.
-    expect(await screen.findByText('Where do you trade?')).toBeOnTheScreen();
+    // Step 3: where are you? Pickers fed by GET /regions: no map, no GPS (ADR 0017).
+    expect(await screen.findByText('Where are you?')).toBeOnTheScreen();
     expect(api.callsTo('PUT /api/v1/me/profile/tags')[0]?.body).toEqual({
       tagIds: ['tag-1'],
       customLabels: [],
     });
-    expect(screen.getByTestId('area-public-label')).toHaveTextContent('No trading area saved yet.');
+    expect(screen.queryByTestId('collector-map-view')).toBeNull();
     const optIn = screen.getByRole('switch', { name: 'Show me on the map' });
     expect(optIn).not.toBeChecked();
 
-    // A city quick pick sets its public centre and suggested radius (10 km), like the web.
-    fireEvent.press(screen.getByRole('button', { name: 'Laval' }));
-    expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(
-      'Centre: Laval city centre.'
+    // Finish without a state: what is missing is said, nothing is saved.
+    fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
+    expect(await screen.findByTestId('location-missing')).toHaveTextContent(
+      /Choose your country\./
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    expect(api.callsTo('PUT /api/v1/me/location')).toHaveLength(0);
+
+    await choose('location-country', 'CA');
+    await choose('location-subdivision', 'CA-QC');
+    fireEvent.changeText(screen.getByLabelText('City (optional)'), ' Laval ');
     fireEvent.press(optIn);
     fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
 
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
-    expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
-      lat: 45.606,
-      lng: -73.712,
-      radiusKm: 15,
-      source: 'MANUAL',
+    expect(api.callsTo('PUT /api/v1/me/location')[0]?.body).toEqual({
+      countryCode: 'CA',
+      subdivisionCode: 'CA-QC',
+      city: 'Laval',
+      showCity: true,
     });
+    expect(api.calls.some((call) => call.path.includes('trading-area'))).toBe(false);
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')[0]?.body).toEqual({
       ...privacyFixture(),
       discoverable: true,
@@ -160,80 +176,71 @@ describe('Onboarding', () => {
     expect(screen.queryByText('What do you collect?')).toBeNull();
   });
 
-  it('lets the collector skip the trading area (nothing about location is sent)', async () => {
+  it('lets the collector skip the location (nothing about it is sent)', async () => {
     const api = mockApi(
       onboardingRoutes({
         'GET /api/v1/me': ok(
           meFixture({
-            onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
+            onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
           })
         ),
       })
     );
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('Where do you trade?')).toBeOnTheScreen();
+    expect(await screen.findByText('Where are you?')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Skip for now' }));
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
-    expect(api.callsTo('PUT /api/v1/me/location/trading-area')).toHaveLength(0);
+    expect(api.callsTo('PUT /api/v1/me/location')).toHaveLength(0);
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(0);
   });
 
-  it('sends a device position once, only to the API, and shows only the server label', async () => {
-    const { readApproximatePosition } = jest.requireMock(
-      '@/src/features/location/deviceLocation'
-    ) as {
-      readApproximatePosition: jest.Mock;
-    };
-    readApproximatePosition.mockResolvedValueOnce({ status: 'ok', lat: 45.519, lng: -73.586 });
+  it('switches the region: the countries follow, a whole-country territory needs no state', async () => {
     const api = mockApi(
       onboardingRoutes({
         'GET /api/v1/me': ok(
           meFixture({
-            onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
+            onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
           })
         ),
       })
     );
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
-
-    expect(await screen.findByTestId('area-device-message')).toHaveTextContent(
-      /Trading area set near Ville-Marie, Montréal\./
-    );
-    expect(api.callsTo('PUT /api/v1/me/location/trading-area')[0]?.body).toEqual({
-      lat: 45.519,
-      lng: -73.586,
-      radiusKm: 5,
-      source: 'DEVICE',
+    expect(await screen.findByText('Where are you?')).toBeOnTheScreen();
+    await choose('location-region', 'europe');
+    fireEvent.press(screen.getByTestId('location-country'));
+    expect(await screen.findByTestId('location-country-option-FR')).toBeOnTheScreen();
+    expect(screen.queryByTestId('location-country-option-CA')).toBeNull();
+    fireEvent.press(screen.getByTestId('location-country-option-VA'));
+    // Vatican City is one pseudo-subdivision: chosen with the country, no state picker.
+    expect(screen.queryByTestId('location-subdivision')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
+    await waitFor(() => expect(api.callsTo('PUT /api/v1/me/location')).toHaveLength(1));
+    expect(api.callsTo('PUT /api/v1/me/location')[0]?.body).toMatchObject({
+      countryCode: 'VA',
+      subdivisionCode: 'VA',
     });
-    // Never rendered as numbers, never drawn as a point.
-    expect(screen.queryByText(/45\.519|73\.586/)).toBeNull();
-    await waitFor(() => expect(screen.queryByTestId('trading-area-pin')).not.toBeOnTheScreen());
-    expect(screen.getByTestId('area-centre-summary')).toHaveTextContent(/your device location/);
   });
 
-  it('explains a denied location permission', async () => {
-    const { readApproximatePosition } = jest.requireMock(
-      '@/src/features/location/deviceLocation'
-    ) as {
-      readApproximatePosition: jest.Mock;
-    };
-    readApproximatePosition.mockResolvedValueOnce({ status: 'denied' });
-    const api = mockApi(
+  it('keeps the collector on the step when the API refuses the place', async () => {
+    mockApi(
       onboardingRoutes({
         'GET /api/v1/me': ok(
           meFixture({
-            onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
+            onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
           })
         ),
+        'PUT /api/v1/me/location': problem(400, 'VALIDATION_FAILED', 'Unknown subdivision', {
+          fieldErrors: [{ field: 'subdivisionCode', message: 'unknown subdivision' }],
+        }),
       })
     );
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    fireEvent.press(await screen.findByRole('button', { name: 'Use my current location' }));
-    expect(await screen.findByTestId('area-device-message')).toHaveTextContent(
-      /Location permission was denied/
-    );
-    expect(api.callsTo('PUT /api/v1/me/location/trading-area')).toHaveLength(0);
+    await choose('location-country', 'CA');
+    await choose('location-subdivision', 'CA-ON');
+    fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
+    expect(await screen.findByText('Unknown subdivision')).toBeOnTheScreen();
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(screen.getByText('Where are you?')).toBeOnTheScreen();
   });
 });
 
@@ -246,7 +253,7 @@ describe('Onboarding age step (18+ rule)', () => {
     const api = mockApi(
       onboardingRoutes({
         'GET /api/v1/me': [
-          ok(unconfirmed({ profileComplete: true, interestsSet: true, tradingAreaSet: true })),
+          ok(unconfirmed({ profileComplete: true, interestsSet: true, locationSet: true })),
           ok(meFixture()),
         ],
         'GET /api/v1/me/profile': ok(profileFixture()),
@@ -275,7 +282,7 @@ describe('Onboarding age step (18+ rule)', () => {
 
     // The gate remembered where the collector was sent to onboarding from.
     usePendingLink.getState().set('/collectors/collector5');
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     // The remembered link replaces onboarding (back leads to the tabs), the tabs otherwise.
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
@@ -301,7 +308,7 @@ describe('Onboarding age step (18+ rule)', () => {
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('checkbox', { name: AGE_LABEL }));
+    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 2 of 4 · Profile')).toBeOnTheScreen();
@@ -314,7 +321,7 @@ describe('Onboarding age step (18+ rule)', () => {
     mockApi(
       onboardingRoutes({
         'GET /api/v1/me': ok(
-          unconfirmed({ profileComplete: true, interestsSet: true, tradingAreaSet: true })
+          unconfirmed({ profileComplete: true, interestsSet: true, locationSet: true })
         ),
         'GET /api/v1/me/profile': ok(profileFixture()),
         'POST /api/v1/me/consents': problem(429, 'RATE_LIMITED', 'slow down'),
@@ -336,7 +343,7 @@ describe('Onboarding age step (18+ rule)', () => {
     const api = mockApi(
       onboardingRoutes({
         'GET /api/v1/me': ok(
-          unconfirmed({ profileComplete: true, interestsSet: true, tradingAreaSet: true })
+          unconfirmed({ profileComplete: true, interestsSet: true, locationSet: true })
         ),
         'GET /api/v1/me/profile': ok(profileFixture()),
         'GET /api/v1/public/legal/documents': [
@@ -358,7 +365,7 @@ describe('Onboarding age step (18+ rule)', () => {
       onboardingRoutes({
         'GET /api/v1/me': ok(
           meFixture({
-            onboarding: { profileComplete: false, interestsSet: false, tradingAreaSet: false },
+            onboarding: { profileComplete: false, interestsSet: false, locationSet: false },
           })
         ),
       })

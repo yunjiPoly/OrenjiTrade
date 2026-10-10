@@ -3,7 +3,7 @@ package com.orenjitrade.api.wishlist.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.inventory.domain.Availability;
-import com.orenjitrade.api.location.domain.DistanceBucket;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationType;
 import com.orenjitrade.api.wishlist.infra.WishlistMatchRepository.Candidate;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The matching rules of the Phase 6 contract in Java (twins of the SQL predicates): condition rank
  * against the game's ordered conditions, price and currency, trade preference against the
- * availability; notification texts carry buckets, never distances.
+ * availability; notification texts name the state/province and country, never a distance.
  */
 class WishlistRulesTest {
 
@@ -88,12 +88,9 @@ class WishlistRulesTest {
     }
 
     @Test
-    void notificationTextsUseDistanceBuckets() {
-        assertThat(WishlistRules.distanceText(DistanceBucket.LT_1KM))
-                .isEqualTo("less than 1 km away");
-        assertThat(WishlistRules.distanceText(DistanceBucket.KM_1_5)).isEqualTo("~1-5 km away");
-        assertThat(WishlistRules.distanceText(DistanceBucket.GT_50KM))
-                .isEqualTo("more than 50 km away");
+    void notificationTextsNameTheListersPlaceNeverADistance() {
+        PublicPlace quebec =
+                new PublicPlace("americas-north", "CA", "Canada", "CA-QC", "Quebec", false);
 
         UUID wish = UUID.fromString("00000000-0000-4000-8f00-000000000201");
         UUID item = UUID.fromString("00000000-0000-4000-8c00-000000010101");
@@ -113,29 +110,30 @@ class WishlistRulesTest {
                         new BigDecimal("45.00"),
                         "CAD",
                         "yugioh",
-                        7_213.456);
+                        "collector1",
+                        quebec);
         String picture = "/api/v1/public/card-images/00000000-0000-4000-8d00-000000000001";
-        NotificationRequest request =
-                WishlistMatcher.request(candidate, match, DistanceBucket.KM_5_10, picture);
+        NotificationRequest request = WishlistMatcher.request(candidate, match, picture);
         assertThat(request.userId()).isEqualTo(wisher);
         assertThat(request.type()).isEqualTo(NotificationType.WISHLIST_MATCH);
         assertThat(request.title()).isEqualTo("Wishlist match: Azure-Eyes Sky Dragon");
         assertThat(request.body())
                 .isEqualTo(
-                        "Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away for 45.00"
-                                + " CAD.");
+                        "Azure-Eyes Sky Dragon AZR-EN001 was listed by @collector1 in Quebec,"
+                                + " Canada for 45.00 CAD.");
         assertThat(request.dedupKey()).isEqualTo("wishlist:" + wish + ":" + item);
         assertThat(request.data())
                 .containsEntry("wishlistItemId", wish.toString())
                 .containsEntry("matchId", match.toString())
                 .containsEntry("inventoryItemId", item.toString())
                 .containsEntry("collectorId", owner.toString())
-                .containsEntry("distanceBucket", "KM_5_10")
+                .containsEntry("regionCode", "americas-north")
                 .containsEntry("deepLink", "/wishlist/" + wish)
                 .containsEntry("cardName", "Azure-Eyes Sky Dragon")
                 .containsEntry("game", "yugioh")
                 .containsEntry("cardImageUrl", picture);
-        assertThat(request.toString()).doesNotContain("7213").doesNotContain("7_213");
+        assertThat(request.data()).doesNotContainKey("distanceBucket");
+        assertThat(request.body()).doesNotContain("km");
 
         Candidate unpriced =
                 new Candidate(
@@ -149,10 +147,12 @@ class WishlistRulesTest {
                         null,
                         "CAD",
                         "mtg",
-                        400);
-        NotificationRequest unpricedRequest =
-                WishlistMatcher.request(unpriced, match, DistanceBucket.LT_1KM, null);
-        assertThat(unpricedRequest.body()).isEqualTo("Tidebinder was listed less than 1 km away.");
+                        "collector9",
+                        new PublicPlace(
+                                "americas-north", "PR", "Puerto Rico", "PR", "Puerto Rico", true));
+        NotificationRequest unpricedRequest = WishlistMatcher.request(unpriced, match, null);
+        assertThat(unpricedRequest.body())
+                .isEqualTo("Tidebinder was listed by @collector9 in Puerto Rico.");
         assertThat(unpricedRequest.data())
                 .containsEntry("cardName", "Tidebinder")
                 .doesNotContainKey("cardImageUrl");

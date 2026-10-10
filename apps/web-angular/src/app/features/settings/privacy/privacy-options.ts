@@ -2,12 +2,7 @@ import { PrivacySettings } from '@orenji/api-client';
 
 export type PrivacyToggleKey = keyof Pick<
   PrivacySettings,
-  | 'discoverable'
-  | 'showDistance'
-  | 'showOnlineStatus'
-  | 'showLastActive'
-  | 'searchDiscoverable'
-  | 'wishlistVisible'
+  'discoverable' | 'showOnlineStatus' | 'showLastActive' | 'searchDiscoverable' | 'wishlistVisible'
 >;
 
 export interface PrivacyToggle {
@@ -22,13 +17,8 @@ export const PRIVACY_TOGGLES: readonly PrivacyToggle[] = [
     key: 'discoverable',
     label: 'Show me on the map',
     help:
-      'Collectors nearby see an approximate point for you and can open your public binders. ' +
-      'When off, you are hidden from the map and from nearby searches.',
-  },
-  {
-    key: 'showDistance',
-    label: 'Show approximate distance',
-    help: 'Others see a range such as “1–5 km away”, never an exact distance.',
+      'Collectors of your region see your state or province and can open your public binders. ' +
+      'When off, you are hidden from the map and from searches. Needs a location.',
   },
   {
     key: 'showLastActive',

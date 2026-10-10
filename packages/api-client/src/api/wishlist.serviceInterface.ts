@@ -57,7 +57,7 @@ export interface WishlistServiceInterface {
 
     /**
      * Add a card to the wishlist
-     * cardId (any printing) or printingId is required. The new item is matched at once against the public inventory nearby (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500) or a radius beyond map.radius.max_km.
+     * cardId (any printing) or printingId is required. The new item is matched at once against the public inventory of collectors in the caller\&#39;s platform region (no notification; see matchCount and GET /wishlist/{id}/matches); later publications notify (WISHLIST_MATCH). 409 CONFLICT for an identical wish; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500).
      * @endpoint post /api/v1/wishlist
 * @param requestParameters
      */
@@ -96,7 +96,7 @@ export interface WishlistServiceInterface {
 
     /**
      * Public items matching a wishlist item (newest first)
-     * Cursor-paginated. Each match carries the public item (never private notes), the owner\&#39;s map marker at the derived public point and the distance bucket between the two collectors\&#39; public points. Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed&#x3D;true.
+     * Cursor-paginated. Each match carries the public item (never private notes), the owner\&#39;s marker (state/province and country, never a city or a distance). Items that stopped being public and collectors blocked in either direction are left out; dismissed matches only with includeDismissed&#x3D;true.
      * @endpoint get /api/v1/wishlist/{id}/matches
 * @param requestParameters
      */

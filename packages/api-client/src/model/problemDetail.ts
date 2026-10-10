@@ -129,6 +129,7 @@ export enum ProblemDetailErrorCodeEnum {
     DeletionBlocked = 'DELETION_BLOCKED',
     TermsAcceptanceRequired = 'TERMS_ACCEPTANCE_REQUIRED',
     AgeConfirmationRequired = 'AGE_CONFIRMATION_REQUIRED',
+    LocationRequired = 'LOCATION_REQUIRED',
     RateLimited = 'RATE_LIMITED',
     LimitReached = 'LIMIT_REACHED',
     PayloadTooLarge = 'PAYLOAD_TOO_LARGE',

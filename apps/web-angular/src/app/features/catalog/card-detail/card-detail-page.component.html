@@ -65,17 +65,17 @@
           </a>
           <a
             matButton="outlined"
-            routerLink="/map"
-            [queryParams]="{ card: card.id, view: 'list' }"
-            matTooltip="Collectors near you who own, trade or sell this card"
+            routerLink="/search"
+            [queryParams]="{ card: card.id }"
+            matTooltip="Collectors of your region who own, trade or sell this card"
           >
-            <mat-icon aria-hidden="true">near_me</mat-icon>
-            Who has this near me
+            <mat-icon aria-hidden="true">group</mat-icon>
+            Who has this in my region
           </a>
           <button
             matButton="outlined"
             type="button"
-            matTooltip="Get an alert when a collector nearby lists this card"
+            matTooltip="Get an alert when a collector of your region lists this card"
             [disabled]="wishlist.opening()"
             (click)="addToWishlist(card.id ?? id())"
           >

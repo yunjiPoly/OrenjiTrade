@@ -142,7 +142,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                   <app-empty-state
                     icon="notifications_none"
                     title="No notifications yet"
-                    description="Add cards to your wishlist: we'll tell you when a collector nearby lists one."
+                    description="Add cards to your wishlist: we'll tell you when a collector of your region lists one."
                   >
                     <a actions matButton="filled" routerLink="/wishlist">Open my wishlist</a>
                   </app-empty-state>

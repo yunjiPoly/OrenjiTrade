@@ -25,6 +25,19 @@
   flex: 0 0 auto;
 }
 
+.top-bar__region {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.top-bar__region--placeholder {
+  padding: 0 var(--spacing-3);
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
 .top-bar__nav {
   display: none;
   gap: var(--spacing-1);

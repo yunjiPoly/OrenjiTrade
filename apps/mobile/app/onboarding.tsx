@@ -10,8 +10,8 @@ import { useLegalDocuments } from '@/src/api/hooks/legal';
 import {
   useMyLocation,
   usePrivacySettings,
+  useSaveLocation,
   useSavePrivacy,
-  useSaveTradingArea,
 } from '@/src/api/hooks/location';
 import { useMyProfile } from '@/src/api/hooks/profile';
 import { useSession } from '@/src/auth/session';
@@ -22,35 +22,36 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { ageConfirmationOf, ageConsentFor } from '@/src/features/legal/ageConfirmation';
 import {
-  areaInput,
   draftFromLocation,
-  isAreaDirty,
-  type AreaDraft,
-} from '@/src/features/location/tradingArea';
+  isLocationDirty,
+  locationInput,
+  missingField,
+  type LocationDraft,
+} from '@/src/features/location/locationDraft';
 import {
   AgeStep,
-  AreaStep,
   InterestsStep,
+  LocationStep,
   ProfileStep,
 } from '@/src/features/onboarding/OnboardingSteps';
 import { StepIndicator } from '@/src/features/onboarding/StepIndicator';
 import { useProfileEditor } from '@/src/features/profile/useProfileEditor';
 import { spacing } from '@/src/theme';
 
-type StepName = 'age' | 'profile' | 'interests' | 'area';
+type StepName = 'age' | 'profile' | 'interests' | 'location';
 
 const STEP_LABELS: Record<StepName, string> = {
   age: 'Age',
   profile: 'Profile',
   interests: 'Interests',
-  area: 'Trading area',
+  location: 'Location',
 };
 
 /**
  * Onboarding after sign-up (web: `/onboarding`): the 18+ confirmation first when the account
  * never gave it (existing collectors confirm on their next sign-in and go straight back), then
- * profile (handle, name, bio), interests (games, languages, tags) and trading area (city or
- * device, radius) with the map opt-in, off by default.
+ * profile (handle, name, bio), interests (games, languages, tags) and "Where are you?" (country,
+ * state or province, optional city; ADR 0017) with the map opt-in, off by default.
  */
 export default function OnboardingScreen() {
   const profile = useMyProfile();
@@ -79,7 +80,7 @@ export default function OnboardingScreen() {
       <ScreenHeader
         eyebrow="Welcome to OrenjiTrade"
         title="Let's set up your collector profile"
-        subtitle="A few quick steps so collectors nearby can find you. You can change everything later in Settings."
+        subtitle="A few quick steps so collectors of your region can find you. You can change everything later in Settings."
       />
       <QueryState
         query={combined}
@@ -112,14 +113,14 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const snackbar = useSnackbar();
   const privacy = usePrivacySettings();
   const savePrivacy = useSavePrivacy();
-  const saveArea = useSaveTradingArea();
+  const saveLocation = useSaveLocation();
   const legal = useLegalDocuments();
   const editor = useProfileEditor(profile, session.user?.displayName ?? '');
 
   // The steps of this visit, decided once so indexes never shift: only an API that reports
   // `ageConfirmed === false` adds the age step; the other flags pick where to start.
   const [steps] = useState<readonly StepName[]>(() => {
-    const rest: StepName[] = ['profile', 'interests', 'area'];
+    const rest: StepName[] = ['profile', 'interests', 'location'];
     return needsAgeConfirmation(account.me ?? undefined) ? ['age', ...rest] : rest;
   });
   // An existing collector who only misses the confirmation is done right after it.
@@ -136,7 +137,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       ? 'profile'
       : !onboarding.interestsSet
         ? 'interests'
-        : 'area';
+        : 'location';
   });
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [ageSubmitted, setAgeSubmitted] = useState(false);
@@ -144,10 +145,13 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const [ageDone, setAgeDone] = useState(false);
   const [ageError, setAgeError] = useState<string | null>(null);
   const [showMissing, setShowMissing] = useState(false);
-  const [area, setArea] = useState<AreaDraft>(() => draftFromLocation(location));
+  const [place, setPlace] = useState<LocationDraft>(() =>
+    draftFromLocation(location, account.me?.homeRegion ?? undefined)
+  );
+  const [placeSubmitted, setPlaceSubmitted] = useState(false);
   const [discoverable, setDiscoverable] = useState(savedDiscoverable);
   const [finishing, setFinishing] = useState(false);
-  const [areaError, setAreaError] = useState<string | null>(null);
+  const [placeError, setPlaceError] = useState<string | null>(null);
 
   const ageConfirmation = ageConfirmationOf(legal.data);
 
@@ -240,19 +244,22 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
     }
     setShowMissing(false);
     if ((await editor.saveDetails()) && (await editor.saveTags())) {
-      setStep('area');
+      setStep('location');
     }
   };
 
-  const finish = async (withArea: boolean) => {
+  const finish = async (withLocation: boolean) => {
+    if (withLocation && missingField(place)) {
+      setPlaceSubmitted(true);
+      return;
+    }
     setFinishing(true);
-    setAreaError(null);
+    setPlaceError(null);
     const pending = takePendingLink();
     try {
-      if (withArea) {
-        const input = areaInput(area, location);
-        if (input && isAreaDirty(area, location)) {
-          await saveArea.mutateAsync(input);
+      if (withLocation) {
+        if (isLocationDirty(place, location)) {
+          await saveLocation.mutateAsync(locationInput(place));
         }
         const settings = privacy.data;
         if (settings && settings.discoverable !== discoverable) {
@@ -266,7 +273,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       if (pending) {
         usePendingLink.getState().set(pending);
       }
-      setAreaError(messageOf(caught));
+      setPlaceError(messageOf(caught));
     } finally {
       setFinishing(false);
     }
@@ -309,14 +316,14 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
           onContinue={() => void continueInterests()}
         />
       ) : (
-        <AreaStep
-          area={area}
-          onAreaChange={setArea}
-          location={location}
+        <LocationStep
+          value={place}
+          onChange={setPlace}
+          showErrors={placeSubmitted}
           discoverable={discoverable}
           onDiscoverableChange={setDiscoverable}
           busy={finishing}
-          error={areaError}
+          error={placeError}
           onBack={() => setStep('interests')}
           onSkip={() => void finish(false)}
           onFinish={() => void finish(true)}

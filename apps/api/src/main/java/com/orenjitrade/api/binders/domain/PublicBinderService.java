@@ -7,9 +7,8 @@ import com.orenjitrade.api.binders.infra.BinderRepository;
 import com.orenjitrade.api.binders.infra.BinderViewTracker;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.location.domain.DistanceBucket;
 import com.orenjitrade.api.location.domain.LocationService;
-import com.orenjitrade.api.location.domain.PublicLocation;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
@@ -107,10 +106,10 @@ public class PublicBinderService {
 
     /**
      * The owner block of a collector the viewer already deals with (Phase 8 offer and trade
-     * parties): handle, display name, avatar and, while the collector is discoverable, the region
-     * label with a distance bucket from the viewer's trading area. Unlike {@link #requireOwner} it
-     * does not hide PRIVATE profiles or blocked collectors (the parties know each other); never a
-     * point (ADR 0004). Empty for unknown accounts.
+     * parties): handle, display name, avatar and, while the collector is discoverable, their
+     * state/province and country. Unlike {@link #requireOwner} it does not hide PRIVATE profiles or
+     * blocked collectors (the parties know each other); never a city or a distance (ADR 0017).
+     * Empty for unknown accounts.
      */
     @Transactional(readOnly = true)
     public Optional<PublicOwner> ownerCard(@Nullable UUID viewerId, UUID accountId) {
@@ -165,7 +164,8 @@ public class PublicBinderService {
                             viewerId,
                             binderId,
                             binder.ownerId(),
-                            owner.location() == null ? null : owner.location().publicLabel(),
+                            owner.place() == null ? null : owner.place().regionCode(),
+                            owner.place() == null ? null : owner.place().subdivisionCode(),
                             now));
         }
         BinderDetails details = binderService.details(List.of(binder), true).get(0);
@@ -316,22 +316,11 @@ public class PublicBinderService {
                                                 ? account.handle()
                                                 : account.displayName());
         @Nullable String avatarUrl = parts.map(PublicProfileParts::avatarUrl).orElse(null);
-        PublicOwner.@Nullable Location location = null;
-        Optional<PublicLocation> publicLocation =
+        @Nullable PublicPlace place =
                 privacy.discoverable()
-                        ? locationService.publicLocationOf(account.id())
-                        : Optional.empty();
-        if (publicLocation.isPresent()) {
-            @Nullable DistanceBucket distance = null;
-            if (viewerId != null && !viewerId.equals(account.id()) && privacy.showDistance()) {
-                distance =
-                        locationService
-                                .distanceFrom(viewerId, publicLocation.get().publicPoint())
-                                .orElse(null);
-            }
-            location = new PublicOwner.Location(publicLocation.get().label(), distance);
-        }
-        return new PublicOwner(account.id(), account.handle(), displayName, avatarUrl, location);
+                        ? locationService.publicPlaceOf(account.id()).orElse(null)
+                        : null;
+        return new PublicOwner(account.id(), account.handle(), displayName, avatarUrl, place);
     }
 
     private boolean isBlocked(@Nullable UUID viewerId, UUID ownerId) {
@@ -365,7 +354,7 @@ public class PublicBinderService {
      * A public binder found by search, with its owner.
      *
      * @param summary the binder and its public statistics
-     * @param owner owner block (no coordinates)
+     * @param owner owner block (state/province and country only)
      */
     public record PublicBinderHit(PublicBinderSummary summary, PublicOwner owner) {}
 

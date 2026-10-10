@@ -67,7 +67,7 @@ import {
       @if (auth.isAuthenticated()) {
         <app-page-header
           title="Wishlist"
-          subtitle="Cards you are hunting for. We tell you when a collector nearby lists one."
+          subtitle="Cards you are hunting for. We tell you when a collector of your region lists one."
         >
           <button
             actions
@@ -142,13 +142,11 @@ import {
               } @else {
                 <app-empty-state
                   [icon]="store.filter() === 'paused' ? 'notifications_paused' : 'travel_explore'"
-                  [title]="
-                    store.filter() === 'paused' ? 'No paused wishes' : 'No matches nearby yet'
-                  "
+                  [title]="store.filter() === 'paused' ? 'No paused wishes' : 'No matches yet'"
                   [description]="
                     store.filter() === 'paused'
                       ? 'Every wish has its alerts on.'
-                      : 'When a collector near you lists a card you want, it shows up here.'
+                      : 'When a collector of your region lists a card you want, it shows up here.'
                   "
                 >
                   <button
@@ -165,7 +163,7 @@ import {
               <app-empty-state
                 icon="favorite"
                 title="Your wishlist is empty"
-                description="Add the cards you are hunting for. We'll let you know as soon as a collector nearby lists one."
+                description="Add the cards you are hunting for. We'll let you know as soon as a collector of your region lists one."
               >
                 <button actions matButton="filled" type="button" (click)="add()">
                   <mat-icon aria-hidden="true">add</mat-icon>
@@ -180,7 +178,7 @@ import {
         <app-empty-state
           icon="lock_person"
           title="Wishlists are for members"
-          description="Sign in to keep a wishlist and hear when a collector nearby lists a card you want."
+          description="Sign in to keep a wishlist and hear when a collector of your region lists a card you want."
         >
           <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }">
             Sign in

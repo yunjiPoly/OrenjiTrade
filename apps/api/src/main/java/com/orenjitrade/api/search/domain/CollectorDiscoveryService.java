@@ -1,25 +1,16 @@
 package com.orenjitrade.api.search.domain;
 
-import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.games.domain.GameView;
-import com.orenjitrade.api.location.domain.RegionGeocoder;
-import com.orenjitrade.api.location.domain.SearchCentre;
-import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
-import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
-import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
+import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.location.domain.RegionCatalog;
+import com.orenjitrade.api.location.domain.RegionView;
 import com.orenjitrade.api.profiles.domain.ProfileService;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
-import com.orenjitrade.api.search.domain.DiscoveryResults.CollectorPreview;
-import com.orenjitrade.api.search.domain.DiscoveryResults.NearbyResult;
-import com.orenjitrade.api.search.events.CollectorPreviewed;
-import com.orenjitrade.api.search.events.SearchPerformed;
 import com.orenjitrade.api.search.infra.CollectorSearchRepository;
-import com.orenjitrade.api.search.infra.NearbyCache;
-import com.orenjitrade.api.users.domain.UserAccountService;
+import com.orenjitrade.api.search.infra.DiscoveryCache;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,167 +19,78 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Map discovery (Phase 4 contract "Collectors nearby"): {@code GET /collectors/nearby} and {@code
- * GET /collectors/{handle}/preview}, plus the collector engine of the unified search. Only
- * discoverable, ACTIVE collectors whose profile is not PRIVATE appear, at their derived public
- * point (ADR 0004); results are cached per request key for 60 s and made viewer-specific afterwards
- * ({@link MarkerAssembler}).
+ * The collector engine of discovery (ADR 0017): the collectors section of the unified search and
+ * the markers of wishlist matches. Only discoverable, ACTIVE collectors with a location whose
+ * profile is not PRIVATE appear, with their state/province and country; results are cached per
+ * request key for 60 s and made viewer-specific afterwards ({@link MarkerAssembler}). Also resolves
+ * the region that scopes a request: the {@code region} parameter (validated, never used for
+ * authorization), else the caller's home region, else the default region.
  */
 @Service
 public class CollectorDiscoveryService {
 
-    static final String NOT_FOUND = "Collector not found";
     static final Pattern TAG_SLUG = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
     static final int MAX_TAGS = 12;
 
     private final CollectorSearchRepository repository;
-    private final NearbyCache cache;
+    private final DiscoveryCache cache;
     private final MarkerAssembler assembler;
-    private final GeoScopeResolver geoScopes;
     private final GameService games;
-    private final UserAccountService userAccountService;
-    private final PrivacySettingsService privacySettingsService;
-    private final PrivacyPolicyService privacyPolicy;
+    private final RegionCatalog regions;
+    private final LocationService locationService;
     private final ProfileService profileService;
-    private final RegionGeocoder regionGeocoder;
     private final SearchProperties properties;
     private final TimeProvider timeProvider;
-    private final ApplicationEventPublisher events;
 
     public CollectorDiscoveryService(
             CollectorSearchRepository repository,
-            NearbyCache cache,
+            DiscoveryCache cache,
             MarkerAssembler assembler,
-            GeoScopeResolver geoScopes,
             GameService games,
-            UserAccountService userAccountService,
-            PrivacySettingsService privacySettingsService,
-            PrivacyPolicyService privacyPolicy,
+            RegionCatalog regions,
+            LocationService locationService,
             ProfileService profileService,
-            RegionGeocoder regionGeocoder,
             SearchProperties properties,
-            TimeProvider timeProvider,
-            ApplicationEventPublisher events) {
+            TimeProvider timeProvider) {
         this.repository = repository;
         this.cache = cache;
         this.assembler = assembler;
-        this.geoScopes = geoScopes;
         this.games = games;
-        this.userAccountService = userAccountService;
-        this.privacySettingsService = privacySettingsService;
-        this.privacyPolicy = privacyPolicy;
+        this.regions = regions;
+        this.locationService = locationService;
         this.profileService = profileService;
-        this.regionGeocoder = regionGeocoder;
         this.properties = properties;
         this.timeProvider = timeProvider;
-        this.events = events;
     }
 
     /**
-     * A nearby request as received.
-     *
-     * @param lat centre latitude (required for signed-out callers)
-     * @param lng centre longitude
-     * @param radiusKm radius, capped by the plan
-     * @param game game slug
-     * @param availability availability filter
-     * @param freshness ACTIVE or AGING
-     * @param tags tag slugs
-     * @param printingId holders of this printing
-     * @param cardId holders of this card
-     * @param query name, handle or tag text
-     * @param limit maximum markers
+     * The region scoping a request: {@code requested} when given ({@code 400 VALIDATION_FAILED} on
+     * {@code region} when unknown), else the viewer's home region, else the default region.
      */
-    public record NearbyRequest(
-            @Nullable Double lat,
-            @Nullable Double lng,
-            @Nullable Double radiusKm,
-            @Nullable String game,
-            @Nullable SearchAvailability availability,
-            @Nullable FreshnessState freshness,
-            List<String> tags,
-            @Nullable UUID printingId,
-            @Nullable UUID cardId,
-            @Nullable String query,
-            int limit) {}
-
-    /** {@code GET /collectors/nearby}. */
     @Transactional(readOnly = true)
-    public NearbyResult nearby(@Nullable UUID viewerId, NearbyRequest request) {
-        List<ProblemFieldError> errors = new ArrayList<>();
-        @Nullable String game = normaliseGame(request.game(), errors);
-        List<String> tags = normaliseTags(request.tags(), errors);
-        if (request.freshness() != null
-                && request.freshness() != FreshnessState.ACTIVE
-                && request.freshness() != FreshnessState.AGING) {
-            errors.add(
-                    new ProblemFieldError(
-                            "freshness", "must be ACTIVE or AGING (stale listings never appear)"));
+    public RegionView scope(@Nullable UUID viewerId, @Nullable String requested) {
+        if (requested != null && !requested.isBlank()) {
+            return regions.requireRegion(requested, "region");
         }
-        if (!errors.isEmpty()) {
-            throw ApiException.validation("Validation failed", errors);
-        }
-        GeoScope scope =
-                geoScopes.resolve(viewerId, request.lat(), request.lng(), request.radiusKm(), true);
-        SearchCentre centre = Objects.requireNonNull(scope.centre());
-        NearbyCriteria criteria =
-                new NearbyCriteria(
-                        centre,
-                        scope.radiusKm(),
-                        game,
-                        request.availability(),
-                        request.freshness(),
-                        tags,
-                        request.printingId(),
-                        request.cardId(),
-                        blankToNull(request.query()),
-                        request.limit());
-        Instant now = timeProvider.now();
-        Found found = find(criteria, viewerId, now);
-        if (criteria.query() != null
-                || criteria.printingId() != null
-                || criteria.cardId() != null) {
-            events.publishEvent(
-                    new SearchPerformed(
-                            SearchPerformed.SURFACE_MAP,
-                            viewerId,
-                            criteria.query(),
-                            game,
-                            List.of(),
-                            criteria.printingId() != null
-                                    ? "printing"
-                                    : criteria.cardId() != null ? "card" : "none",
-                            found.total(),
-                            scope.radiusKmRounded(),
-                            criteria.filterNames(),
-                            centre.gridCell(),
-                            regionGeocoder.labelFor(centre.lat(), centre.lng()),
-                            now));
-        }
-        return new NearbyResult(
-                centre,
-                scope.radiusKm(),
-                found.markers(),
-                found.total(),
-                found.total() > found.markers().size());
+        @Nullable String home =
+                viewerId == null ? null : locationService.homeRegionOf(viewerId).orElse(null);
+        return regions.resolve(null, home);
     }
 
     /**
-     * The collector engine (also used by the unified search): cached rows, matching items, then
-     * viewer-specific markers (blocked collectors removed), at most {@code criteria.limit()}.
+     * The collector engine: cached rows, matching items, then viewer-specific markers (blocked
+     * collectors removed), at most {@code criteria.limit()}.
      */
-    Found find(NearbyCriteria criteria, @Nullable UUID viewerId, Instant now) {
-        NearbyPage page = cache.get(criteria, () -> load(criteria, now));
+    Found find(DiscoveryCriteria criteria, @Nullable UUID viewerId, Instant now) {
+        DiscoveryPage page = cache.get(criteria, () -> load(criteria, now));
         List<CollectorMarker> markers = assembler.visibleMarkers(page.rows(), viewerId, now);
         long hidden = page.rows().size() - markers.size();
         long total = Math.max(0, page.total() - hidden);
@@ -197,8 +99,8 @@ public class CollectorDiscoveryService {
         return new Found(List.copyOf(limited), total);
     }
 
-    private NearbyPage load(NearbyCriteria criteria, Instant now) {
-        NearbyPage page = repository.nearby(criteria, now);
+    private DiscoveryPage load(DiscoveryCriteria criteria, Instant now) {
+        DiscoveryPage page = repository.discover(criteria, now);
         if (!criteria.listsMatchingItems() || page.rows().isEmpty()) {
             return page;
         }
@@ -208,7 +110,7 @@ public class CollectorDiscoveryService {
                         criteria.itemFilter(),
                         properties.matchingItemsPerCollector(),
                         now);
-        return new NearbyPage(
+        return new DiscoveryPage(
                 page.rows().stream()
                         .map(row -> row.withMatchingItems(items.getOrDefault(row.id(), List.of())))
                         .toList(),
@@ -216,51 +118,8 @@ public class CollectorDiscoveryService {
     }
 
     /**
-     * {@code GET /collectors/{handle}/preview}: the marker of one collector on the map plus {@code
-     * canMessage} and {@code isBlocked}. 404 when the collector is not on the map for the viewer
-     * (unknown, suspended, pending deletion, not discoverable, PRIVATE profile).
-     */
-    @Transactional(readOnly = true)
-    public CollectorPreview preview(
-            @Nullable UUID viewerId, String handle, @Nullable Double lat, @Nullable Double lng) {
-        Instant now = timeProvider.now();
-        UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
-                        .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
-        UUID targetId = account.id();
-        PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
-        if (!privacyPolicy.canAppearOnMap(
-                new ViewerContext(viewerId, false, false), targetId, privacy)) {
-            throw ApiException.notFound(NOT_FOUND);
-        }
-        @Nullable SearchCentre centre = null;
-        if (lat != null || lng != null || viewerId != null) {
-            centre = geoScopes.resolve(viewerId, lat, lng, null, false).centre();
-        }
-        MarkerRow row =
-                repository.markersByIds(List.of(targetId), centre, now).stream()
-                        .findFirst()
-                        .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
-        boolean blocked = assembler.isBlocked(viewerId, targetId);
-        ViewerContext viewer =
-                new ViewerContext(
-                        viewerId, viewerId != null && profileService.isComplete(viewerId), blocked);
-        CollectorMarker marker = assembler.marker(row, viewer, now);
-        if (!targetId.equals(viewerId)) {
-            events.publishEvent(
-                    new CollectorPreviewed(
-                            viewerId, targetId, row.gridCell(), row.publicLabel(), now));
-        }
-        return new CollectorPreview(
-                marker, privacyPolicy.canMessage(viewer, targetId, privacy), blocked);
-    }
-
-    /**
      * Markers of the given collectors as {@code viewerId} sees them (Phase 6 wishlist matches):
-     * only collectors on the map and not blocked with the viewer are returned; distance buckets are
-     * measured from the viewer's own trading area (snapped, never exposed), when they have one.
+     * only discoverable collectors with a location and no block with the viewer are returned.
      */
     @Transactional(readOnly = true)
     public Map<UUID, CollectorMarker> markersFor(UUID viewerId, Collection<UUID> ids) {
@@ -269,11 +128,9 @@ public class CollectorDiscoveryService {
             return result;
         }
         Instant now = timeProvider.now();
-        @Nullable SearchCentre centre =
-                geoScopes.resolve(viewerId, null, null, null, false).centre();
         ViewerContext viewer =
                 new ViewerContext(viewerId, profileService.isComplete(viewerId), false);
-        List<MarkerRow> rows = repository.markersByIds(ids, centre, now);
+        List<MarkerRow> rows = repository.markersByIds(ids, now);
         Set<UUID> blocked = assembler.blockedAmong(viewerId, rows);
         for (MarkerRow row : rows) {
             if (!blocked.contains(row.id())) {

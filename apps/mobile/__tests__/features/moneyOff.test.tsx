@@ -21,7 +21,6 @@ import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
-jest.mock('@/src/components/map/mapEngine', () => ({ currentMapEngine: () => 'native' }));
 
 /** The launch configuration: every money feature off (`protectedPayments`, `premiumPlans`, ...). */
 const MONEY_OFF = flags({
