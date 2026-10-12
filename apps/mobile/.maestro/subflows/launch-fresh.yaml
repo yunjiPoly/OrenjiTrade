@@ -2,7 +2,7 @@
 # then shows its developer-menu introduction once the project is loaded; it is dismissed here.
 # Expo Go sometimes stays on "Loading from 10.0.2.2:8082…" ("New update available,
 # downloading...") although Metro served the bundle: the project is opened once more then.
-appId: host.exp.exponent
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true

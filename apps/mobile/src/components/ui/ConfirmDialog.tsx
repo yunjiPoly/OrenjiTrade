@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';
+import { useModalOnScreen, useModalTurn } from './modalTurns';
 
 export interface ConfirmDialogProps {
   visible: boolean;
@@ -34,7 +35,10 @@ export function ConfirmDialog({
   testID = 'confirm-dialog',
 }: ConfirmDialogProps) {
   const { palette } = useTheme();
-  if (!visible) {
+  // iOS: asked for from a sheet row, the dialog waits until the sheet has left (modalTurns.tsx).
+  const present = useModalTurn(visible);
+  useModalOnScreen(present);
+  if (!present) {
     return null;
   }
   return (

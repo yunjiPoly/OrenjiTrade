@@ -2,7 +2,7 @@
 # card holders list: the middle of the screen is the header, so `scrollUntilVisible`, which swipes
 # there, never moves the list). Short swipes inside the list's area: first towards the top of the
 # list, then towards its bottom.
-appId: host.exp.exponent
+appId: ${APP_ID}
 ---
 - repeat:
     while:

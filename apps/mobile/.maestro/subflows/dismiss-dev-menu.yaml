@@ -1,9 +1,11 @@
 # Closes what Expo Go may put over the app: Android's "isn't responding" dialog on a slow
-# emulator (wait), the developer-menu introduction and the developer menu itself.
-appId: host.exp.exponent
+# emulator (wait), the developer-menu introduction and the developer menu itself (Android's back
+# key when its Close button did not take; iOS has no back key and its Close button always takes).
+appId: ${APP_ID}
 ---
 - runFlow:
     when:
+      platform: Android
       visible: ".*isn't responding"
     commands:
       - tapOn: 'Wait'
@@ -19,6 +21,7 @@ appId: host.exp.exponent
       - tapOn: 'Close'
 - runFlow:
     when:
+      platform: Android
       visible: 'Go home'
     commands:
       - back

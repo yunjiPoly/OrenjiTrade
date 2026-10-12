@@ -3,7 +3,7 @@
 # 18+ confirmation (its own checkbox, never ticked by "Accept all"), verifies the email through
 # the local Auth emulator, completes the three onboarding steps (the location step with the
 # pickers: Canada, Quebec) and stays hidden from the map (discoverability defaults to off).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Sign up and onboarding
 tags:
   - mobile-m1
@@ -48,7 +48,7 @@ tags:
 - tapOn:
     id: 'sign-up-password'
 - inputText: ${output.signup.password}
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -60,9 +60,10 @@ tags:
     file: subflows/scroll-down-to.yaml
     env:
       ID: 'age-confirmation'
-- assertVisible:
-    id: 'age-confirmation'
-    checked: false
+- runFlow:
+    file: subflows/assert-unchecked.yaml
+    env:
+      ID: 'age-confirmation'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -76,9 +77,10 @@ tags:
       ID: 'age-confirmation'
 - tapOn:
     id: 'age-confirmation'
-- assertVisible:
-    id: 'age-confirmation'
-    checked: true
+- runFlow:
+    file: subflows/assert-checked.yaml
+    env:
+      ID: 'age-confirmation'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -165,9 +167,10 @@ tags:
     file: subflows/scroll-down-to.yaml
     env:
       ID: 'onboarding-discoverable'
-- assertVisible:
-    id: 'onboarding-discoverable'
-    checked: false
+- runFlow:
+    file: subflows/assert-unchecked.yaml
+    env:
+      ID: 'onboarding-discoverable'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

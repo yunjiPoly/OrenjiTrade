@@ -10,9 +10,10 @@ MacBook. Docker is **OrbStack** (Docker context `orbstack`, `/var/run/docker.soc
 Rosetta on, 12 CPUs / 12 GB), not Docker Desktop. The only system JDK is Temurin 27, which works:
 the Gradle daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`) and the E2E
 harnesses pick a Java 21 for the API jar. Node 24.21.0, Xcode 27 with iOS 27 simulators (**the iOS
-simulator is available**), Maestro 2.11.0. **No Android SDK is installed yet** (no adb, no
-emulator), so the Android Maestro suite cannot run until the owner installs it
-([macos-setup.md](macos-setup.md) 9.3). Python 3.12 is not installed either (ML is on hold). The
+simulator is available**), Maestro 2.11.0. **No Android SDK is installed** (no adb, no emulator;
+owner decision of 2026-10-10: skipped for now), so **the native Maestro check on this Mac is the
+iOS run** (`npm run test:mobile:maestro`, which picks the iOS simulator when no Android device is
+ready; [macos-setup.md](macos-setup.md) 9.5). Python 3.12 is not installed either (ML is on hold). The
 macOS and OrbStack fixes of 2026-10-10 are on branch `chore/macos-ios-dev` until it is merged; a
 branch without them needs `JAVA_HOME` set to a JDK 21 for Gradle. **After the fixes reach a branch,
 run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in every worktree that ever ran
@@ -36,6 +37,7 @@ of the 2026-10-08 change** (platform regions replace geolocation; ADR 0017). Mer
 | What | Where | State |
 | --- | --- | --- |
 | Stage S2 — simplified wishlist, matches removed, region wishlist alerts (spec section 4) | branch `feature/regions-s2-wishlist` (no PR yet) | Built; two review rounds. Round 1 blockers (alert link landed on a silent printing pick; wish-dialog error out of view) fixed and re-approved by the product/UX reviewer. The last functional review found that migration V112 failed on a populated pre-V112 database (rarity cleared after the duplicate collapse, so the unique index failed). **Fix round 2 is committed** (`c1b9df7` V112 normalises the selection before collapsing, proven by `SimplifiedWishlistMigrationIT`; `be24294` review polish; `b52211a` status notes) **but not re-reviewed yet.** |
+| The iOS path of the native Maestro suite (2026-10-10) | branch `feature/ios-maestro-harness`, on top of S2 and the macOS fixes | Built: `npm run test:mobile:maestro -- --platform ios` runs the 24 flows on a simulator of its own (24/24 from a cold start), one set of flows for both platforms, six iOS defects of the app fixed. Waits for review and for the two pull requests under it. |
 | Stages S3–S6 | — | Not started. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
@@ -90,9 +92,19 @@ Checks every stage must pass before its PR (run them, retries off): `./gradlew e
 `npm run audit:gate`; `npm run test:scripts`; exactly what GitHub CI runs:
 `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
 `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`; and, when `apps/mobile` changed,
-the full Maestro set on the Android emulator (`npm run test:mobile:maestro`; the harness finds the
-SDK in `~/Library/Android/sdk` by itself). As long as the Mac has no Android SDK this check cannot
-run: say so in the PR report as "could not be verified", never skip it silently.
+the full Maestro set (`npm run test:mobile:maestro`). **On this Mac that is the iOS run:** the
+harness creates, boots and shuts down its own simulator ("OrenjiTrade Maestro"), so nothing has to
+be started, and `npx expo export --platform ios` joins the export checks. The same flows run on
+Android (`-- --platform android` with a booted emulator; the harness finds the SDK in
+`~/Library/Android/sdk` by itself).
+
+**What still needs an Android emulator** (none on this Mac): the Android half of every change to
+`apps/mobile` or to `apps/mobile/.maestro`. The iOS run proves the flows and the app on iOS only;
+Android has its own steps in the shared subflows (the back key, `hideKeyboard`, the swipe-based
+scrolls, the `checked` state, `10.0.2.2`) and its own app behaviour (edge-to-edge insets, the
+keyboard, dialogs as windows). Say in the PR report that Android "could not be verified on this
+machine", never skip it silently; a flow change is written so that Android executes the steps it
+executed before (platform-specific steps sit in `when: platform:` blocks).
 
 ## 4. How the work has been done (keep doing it)
 
@@ -160,10 +172,19 @@ run: say so in the PR report as "could not be verified", never skip it silently.
   commercial use and decides (macos-setup.md 4.4). On the owner's Mac it also publishes the dev
   ports (PostgreSQL, Redis, Auth emulator) on every network interface while the macOS firewall is
   off, and it does not start at login.
-- Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3), which the Android
-  Maestro suite needs, and setting git `user.name` / `user.email` there (3.1).
+- Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3): skipped for now
+  (2026-10-10), the native suite runs on the iOS simulator there. Until it is installed, nothing
+  on this Mac proves the Android half of a mobile change.
+- Photo uploads from the Android app: on iOS no photo could be uploaded (Expo's fetch refuses
+  React Native's file part) and that is fixed and proven on the simulator; Android runs the same
+  fetch and is expected to fail the same way, but keeps its old code until an Android run can
+  prove the fix (`apps/mobile/src/api/localFilePart.ts`; IMPLEMENTATION_STATUS.md, "Mobile app on
+  the iOS simulator", Open).
+- Uploaded photos can come out rotated on every client: the API drops a photo's EXIF orientation
+  when it re-encodes the upload (same section). A backend fix, not started.
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
   review, backup-restore drill, failure tests).
-- The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1, 3, 4 and 7 to 13 were
-  fixed on 2026-10-10. Still open: item 2 (an iOS path for the Maestro harness, built next) and the
-  Windows-only Maestro examples of `apps/mobile/README.md` that go with it.
+- The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1 to 4 and 7 to 13 were
+  fixed on 2026-10-10 (item 2, the iOS path of the Maestro harness, and the macOS and Linux
+  examples of `apps/mobile/README.md` with it). The Android run of the native suite on a Mac
+  stays unproven until the Android SDK is installed (owner decision: skipped for now).

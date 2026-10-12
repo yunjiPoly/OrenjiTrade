@@ -1,5 +1,6 @@
 # Waits until OrenjiTrade rendered one of its screens (after the boot screen restored the session).
-appId: host.exp.exponent
+# On iOS, Expo Go's floating developer-tools button is then switched off (hide-tools-button.yaml).
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:
@@ -14,3 +15,7 @@ appId: host.exp.exponent
           notVisible:
             id: 'boot-screen'
           timeout: 60000
+- runFlow:
+    when:
+      platform: iOS
+    file: hide-tools-button.yaml

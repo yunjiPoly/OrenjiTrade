@@ -27,6 +27,25 @@ export interface ScreenProps {
   testID?: string;
 }
 
+/**
+ * Bottom safe-area padding a screen adds itself (`safeBottom`).
+ *
+ * A scrolling screen on iOS adds none: iOS already ends a scroll view above the home indicator
+ * (`contentInsetAdjustmentBehavior="automatic"`). Adding the inset a second time ended every
+ * form 34 pt too high, with a blank band under its last button, and put that button exactly
+ * under the snackbar ("Card saved." covered "Delete card" until it faded). Android and the web
+ * have no such adjustment, and a screen that does not scroll has no scroll view to make it.
+ */
+export function ownSafeBottom(
+  platform: string,
+  options: { scroll: boolean; safeBottom: boolean; insetBottom: number }
+): number {
+  if (!options.safeBottom || (options.scroll && platform === 'ios')) {
+    return 0;
+  }
+  return options.insetBottom;
+}
+
 /** Themed page container: background colour, safe-area aware, optional scrolling. */
 export function Screen({
   children,
@@ -41,12 +60,13 @@ export function Screen({
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const bottom = ownSafeBottom(Platform.OS, { scroll, safeBottom, insetBottom: insets.bottom });
   const padding: ViewStyle = edgeToEdge
-    ? { paddingBottom: safeBottom ? insets.bottom : 0 }
+    ? { paddingBottom: bottom }
     : {
         paddingHorizontal: spacing[4],
         paddingTop: spacing[4],
-        paddingBottom: (safeBottom ? insets.bottom : 0) + spacing[6],
+        paddingBottom: bottom + spacing[6],
       };
 
   if (scroll) {

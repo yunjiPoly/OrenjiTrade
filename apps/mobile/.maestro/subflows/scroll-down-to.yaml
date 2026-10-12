@@ -1,15 +1,34 @@
-# Scrolls down until the element with id ID is on screen. The swipe runs along the right edge of
-# the screen (the screens' horizontal padding), never over a text field: on a slow emulator a slow
-# swipe that starts on a filled TextInput turns into a text-selection long press instead of a scroll.
-appId: host.exp.exponent
+# Scrolls down until the element with id ID is on screen.
+# Android: the swipe runs along the right edge of the screen (the screens' horizontal padding),
+# never over a text field: on a slow emulator a slow swipe that starts on a filled TextInput turns
+# into a text-selection long press instead of a scroll.
+# iOS: its accessibility tree also lists what a scrolling page holds under the tab bar and the
+# navigation header, so "on screen" is not enough there: the page scrolls until the element sits
+# in the upper 70% of the screen, clear of the tab bar (a tap would otherwise land on a tab).
+appId: ${APP_ID}
 ---
-- repeat:
-    while:
-      notVisible:
-        id: ${ID}
-    times: 10
+- runFlow:
+    when:
+      platform: Android
     commands:
-      - swipe:
-          start: 98%, 75%
-          end: 98%, 35%
-          duration: 500
+      - repeat:
+          while:
+            notVisible:
+              id: ${ID}
+          times: 10
+          commands:
+            - swipe:
+                start: 98%, 75%
+                end: 98%, 35%
+                duration: 500
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: ${ID}
+          direction: DOWN
+          centerElement: true
+          waitToSettleTimeoutMs: 500
+          timeout: 40000

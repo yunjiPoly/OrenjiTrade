@@ -1,24 +1,40 @@
 // Unit tests of the per-platform host tool helpers (node --test; npm run test:scripts): the Android
-// SDK location, the Maestro / emulator / Terraform hints and the Python choice for the ML tests.
-// Every platform is exercised on any machine; nothing here runs adb, maestro, terraform or python.
+// SDK location, the Maestro / emulator / Terraform hints, the platform choice of the native suite,
+// the dedicated iOS simulator and the Python choice for the ML tests.
+// Every platform is exercised on any machine; nothing here runs adb, xcrun, maestro, terraform or
+// python.
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  IOS_SIMULATOR_NAME,
+  MAESTRO_PLATFORM_ENV,
   ML_PYTHON_MIN,
   adbCandidates,
   androidEmulatorCommand,
   androidSdkDirs,
+  chooseIphoneType,
+  chooseMaestroPlatform,
   chooseMlPython,
+  defaultsValueMatches,
+  defaultsWriteArgs,
+  findIosSimulator,
+  iosSimulatorDefaults,
+  iosSimulatorUnavailableMessage,
   maestroNotFoundMessage,
+  maestroTarget,
   mlPythonMissingMessage,
   mlVenvCommands,
   mlVenvInstallCommands,
   mlVenvPython,
+  newestIosRuntime,
   noAndroidDeviceMessage,
+  parseMaestroPlatform,
   parsePythonVersion,
+  passwordAutofillPlists,
   pythonCommands,
   pythonIsSupported,
+  splitPlatformArgs,
   terraformInstallHint,
 } from './host-tools.mjs';
 
@@ -90,6 +106,241 @@ describe('Android and Maestro hints', () => {
       assert.match(message, /MAESTRO_BIN \(e\.g\. \$HOME\/\.maestro\/bin\/maestro\)/);
       assert.doesNotMatch(message, /\.bat|D:\//);
     }
+  });
+});
+
+describe('Maestro platform choice', () => {
+  const never = () => {
+    throw new Error('not probed');
+  };
+
+  it('reads --platform in both spellings and leaves the other arguments alone', () => {
+    assert.deepEqual(splitPlatformArgs(['--platform', 'ios', '--keep-running', 'a.yaml']), {
+      platform: 'ios',
+      rest: ['--keep-running', 'a.yaml'],
+    });
+    assert.deepEqual(splitPlatformArgs(['a.yaml', '--platform=Android']), { platform: 'android', rest: ['a.yaml'] });
+    assert.deepEqual(splitPlatformArgs(['--stop']), { platform: null, rest: ['--stop'] });
+    // The last one wins.
+    assert.equal(splitPlatformArgs(['--platform', 'ios', '--platform=android']).platform, 'android');
+  });
+
+  it('refuses a missing or unknown platform instead of running another one', () => {
+    assert.throws(() => splitPlatformArgs(['--platform']), /needs a value \(android or ios\)/);
+    assert.throws(() => splitPlatformArgs(['--platform', '--keep-running']), /needs a value/);
+    assert.throws(() => splitPlatformArgs(['--platform=']), /needs a value/);
+    assert.throws(() => splitPlatformArgs(['--platform', 'iphone']), /"iphone" is not a platform of the native suite/);
+    assert.throws(() => parseMaestroPlatform('web', MAESTRO_PLATFORM_ENV), /ORENJI_MAESTRO_PLATFORM: "web"/);
+    assert.equal(parseMaestroPlatform('  IOS '), 'ios');
+    assert.equal(parseMaestroPlatform(''), null);
+    assert.equal(parseMaestroPlatform(undefined), null);
+  });
+
+  it('an explicit choice is taken without probing any device: the flag, then the variable', () => {
+    const base = { hostPlatform: 'darwin', androidDeviceReady: never, xcodeReady: never };
+    assert.deepEqual(chooseMaestroPlatform({ ...base, flag: 'ios', env: { [MAESTRO_PLATFORM_ENV]: 'android' } }), {
+      platform: 'ios',
+      explicit: true,
+      why: '--platform',
+    });
+    assert.deepEqual(chooseMaestroPlatform({ ...base, flag: null, env: { [MAESTRO_PLATFORM_ENV]: 'IOS' } }), {
+      platform: 'ios',
+      explicit: true,
+      why: MAESTRO_PLATFORM_ENV,
+    });
+    assert.throws(
+      () => chooseMaestroPlatform({ ...base, flag: null, env: { [MAESTRO_PLATFORM_ENV]: 'pixel' } }),
+      /ORENJI_MAESTRO_PLATFORM: "pixel" is not a platform/,
+    );
+  });
+
+  it('without a choice: Android when a device is ready, else iOS on a Mac with Xcode, else Android', () => {
+    const choose = (hostPlatform, android, xcode) =>
+      chooseMaestroPlatform({ flag: null, env: {}, hostPlatform, androidDeviceReady: () => android, xcodeReady: () => xcode });
+    // A ready Android device wins everywhere: xcrun is not even asked.
+    assert.equal(
+      chooseMaestroPlatform({ flag: null, env: {}, hostPlatform: 'darwin', androidDeviceReady: () => true, xcodeReady: never }).platform,
+      'android',
+    );
+    assert.deepEqual(choose('darwin', false, true), {
+      platform: 'ios',
+      explicit: false,
+      why: 'no Android device is ready and this Mac has Xcode with an iOS runtime',
+    });
+    // A Mac without Xcode, Windows and Linux fall back to Android (the caller explains what is missing).
+    assert.equal(choose('darwin', false, false).platform, 'android');
+    assert.equal(choose('win32', false, true).platform, 'android');
+    assert.equal(choose('linux', false, true).platform, 'android');
+  });
+
+  it('Android keeps its app id, 10.0.2.2 and the exp:// URL it always had', () => {
+    assert.deepEqual(maestroTarget('android', { metroPort: 8082, apiPort: 8090, authEmulatorPort: 9099 }), {
+      platform: 'android',
+      label: 'Android',
+      appId: 'host.exp.exponent',
+      host: '10.0.2.2',
+      appUrl: 'exp://10.0.2.2:8082',
+      apiBaseUrl: 'http://10.0.2.2:8090',
+      authEmulatorHost: '10.0.2.2:9099',
+    });
+  });
+
+  it('iOS: Expo Go has a capital E in its bundle identifier and the Mac is localhost', () => {
+    assert.deepEqual(maestroTarget('ios', { metroPort: 8082, apiPort: 8090, authEmulatorPort: 9099 }), {
+      platform: 'ios',
+      label: 'iOS',
+      appId: 'host.exp.Exponent',
+      host: 'localhost',
+      appUrl: 'exp://127.0.0.1:8082',
+      apiBaseUrl: 'http://localhost:8090',
+      authEmulatorHost: 'localhost:9099',
+    });
+  });
+});
+
+describe('dedicated iOS simulator', () => {
+  const type = (name, productFamily = 'iPhone') => ({
+    name,
+    productFamily,
+    identifier: `com.apple.CoreSimulator.SimDeviceType.${name.replace(/[ ()]/g, '-')}`,
+  });
+  // What `xcrun simctl list runtimes -j` lists for iOS 27 on the owner's Mac (2026-10-10), shortened.
+  const IOS_27_TYPES = [
+    type('iPhone 18 Pro'),
+    type('iPhone 18 Pro Max'),
+    type('iPhone 17 Pro'),
+    type('iPhone 17e'),
+    type('iPhone Air'),
+    type('iPhone 17'),
+    type('iPhone 16'),
+    type('iPhone 16 Plus'),
+    type('iPhone SE (3rd generation)'),
+    type('iPad Pro 13-inch (M5)', 'iPad'),
+  ];
+
+  it('takes the newest available iOS runtime, by version and not by text order', () => {
+    const runtimes = [
+      { platform: 'iOS', version: '26.4', identifier: 'ios-26-4', isAvailable: true },
+      { platform: 'iOS', version: '27.0', identifier: 'ios-27-0', isAvailable: true },
+      { platform: 'iOS', version: '9.3', identifier: 'ios-9-3', isAvailable: true },
+      { platform: 'iOS', version: '28.0', identifier: 'ios-28-0', isAvailable: false },
+      { platform: 'watchOS', version: '30.0', identifier: 'watchos-30', isAvailable: true },
+    ];
+    assert.equal(newestIosRuntime(runtimes).identifier, 'ios-27-0');
+    assert.equal(newestIosRuntime([{ platform: 'iOS', version: '26.10', identifier: 'b' }, { platform: 'iOS', version: '26.9', identifier: 'a' }]).identifier, 'b');
+    assert.equal(newestIosRuntime([{ platform: 'tvOS', version: '27.0' }]), null);
+    assert.equal(newestIosRuntime(undefined), null);
+  });
+
+  it('creates a current standard iPhone: the newest numbered model, then the newest Pro', () => {
+    assert.equal(chooseIphoneType(IOS_27_TYPES).name, 'iPhone 17');
+    assert.equal(chooseIphoneType([type('iPhone 18 Pro'), type('iPhone 17 Pro'), type('iPhone Air')]).name, 'iPhone 18 Pro');
+    assert.equal(chooseIphoneType([type('iPhone Air'), type('iPad (A16)', 'iPad')]).name, 'iPhone Air');
+    assert.equal(chooseIphoneType([type('iPad (A16)', 'iPad')]), null);
+    assert.equal(chooseIphoneType(undefined), null);
+  });
+
+  it('takes the model the developer names, by name or by identifier, and nothing else', () => {
+    assert.equal(chooseIphoneType(IOS_27_TYPES, 'iphone 18 pro').name, 'iPhone 18 Pro');
+    assert.equal(chooseIphoneType(IOS_27_TYPES, 'com.apple.CoreSimulator.SimDeviceType.iPhone-Air').name, 'iPhone Air');
+    assert.equal(chooseIphoneType(IOS_27_TYPES, 'iPhone 99'), null);
+    // Never an iPad: the app is a phone app and the flows are written for one.
+    assert.equal(chooseIphoneType(IOS_27_TYPES, 'iPad Pro 13-inch (M5)'), null);
+  });
+
+  it("finds the dedicated simulator by name, never a developer's own simulator", () => {
+    const devices = {
+      'ios-26-4': [{ name: IOS_SIMULATOR_NAME, udid: 'OLD', state: 'Shutdown', isAvailable: true }],
+      'ios-27-0': [
+        { name: 'iPhone 17', udid: 'OWN-1', state: 'Booted', isAvailable: true },
+        { name: IOS_SIMULATOR_NAME, udid: 'NEW', state: 'Shutdown', isAvailable: true },
+      ],
+    };
+    assert.equal(IOS_SIMULATOR_NAME, 'OrenjiTrade Maestro');
+    const found = findIosSimulator(devices, { name: IOS_SIMULATOR_NAME, runtimeIdentifier: 'ios-27-0' });
+    assert.equal(found.udid, 'NEW');
+    assert.equal(found.runtimeIdentifier, 'ios-27-0');
+    // Only an older runtime has one: it is still the dedicated device.
+    assert.equal(findIosSimulator(devices, { name: IOS_SIMULATOR_NAME, runtimeIdentifier: 'ios-28-0' }).udid, 'OLD');
+    assert.equal(findIosSimulator(devices, { name: 'Another name', runtimeIdentifier: 'ios-27-0' }), null);
+    assert.equal(findIosSimulator({}, { name: IOS_SIMULATOR_NAME }), null);
+  });
+
+  it('a simulator that became unavailable (its runtime was removed) is not the dedicated one', () => {
+    const devices = { 'ios-26-4': [{ name: IOS_SIMULATOR_NAME, udid: 'GONE', isAvailable: false }] };
+    assert.equal(findIosSimulator(devices, { name: IOS_SIMULATOR_NAME }), null);
+  });
+
+  it('a UDID names one simulator whatever it is called', () => {
+    const devices = { 'ios-27-0': [{ name: 'iPhone 17', udid: 'ABCD-12', state: 'Shutdown', isAvailable: true }] };
+    assert.equal(findIosSimulator(devices, { udid: ' abcd-12 ', name: IOS_SIMULATOR_NAME }).name, 'iPhone 17');
+    assert.equal(findIosSimulator(devices, { udid: 'FFFF', name: 'iPhone 17' }), null);
+  });
+
+  it('the password AutoFill switch lives in the simulator data directory, never in the Mac settings', () => {
+    const data = '/Users/collector/Library/Developer/CoreSimulator/Devices/UDID/data';
+    const files = passwordAutofillPlists(data);
+    assert.equal(files.length, 4);
+    for (const file of files) {
+      assert.ok(file.startsWith(`${data}/`), file);
+      assert.match(file, /UserSettings\.plist$/);
+    }
+    assert.ok(files.some((file) => file.includes('systemgroup.com.apple.configurationprofiles')));
+    assert.ok(files.some((file) => file.endsWith('UserConfigurationProfiles/EffectiveUserSettings.plist')));
+  });
+
+  it('the simulator speaks US English, types plainly and opens exp:// links in Expo Go', () => {
+    const defaults = iosSimulatorDefaults('host.exp.Exponent');
+    const value = (key) => defaults.find((entry) => entry.key === key);
+    assert.deepEqual(value('AppleLanguages'), { domain: '-g', key: 'AppleLanguages', type: 'array', value: ['en-US'], restart: true });
+    assert.equal(value('AppleLocale').value, 'en_US');
+    assert.equal(value('KeyboardAutocorrection').value, false);
+    assert.equal(value('DidShowContinuousPathIntroduction').value, true);
+    const link = value('com.apple.CoreSimulator.CoreSimulatorBridge-->exp');
+    assert.equal(link.domain, 'com.apple.launchservices.schemeapproval');
+    assert.equal(link.value, 'host.exp.Exponent');
+    assert.equal(link.restart, false);
+    // Every preference is a `defaults write` inside the simulator: a bool, a string or an array.
+    for (const entry of defaults) {
+      assert.ok(['bool', 'string', 'array'].includes(entry.type), entry.key);
+    }
+  });
+
+  it('builds `defaults write` arguments and recognises a value that is already set', () => {
+    assert.deepEqual(defaultsWriteArgs({ domain: 'com.apple.Preferences', key: 'KeyboardPrediction', type: 'bool', value: false }), [
+      'write',
+      'com.apple.Preferences',
+      'KeyboardPrediction',
+      '-bool',
+      'NO',
+    ]);
+    assert.deepEqual(defaultsWriteArgs({ domain: '-g', key: 'AppleLanguages', type: 'array', value: ['en-US'] }), [
+      'write',
+      '-g',
+      'AppleLanguages',
+      '-array',
+      'en-US',
+    ]);
+    assert.deepEqual(defaultsWriteArgs({ domain: '-g', key: 'AppleLocale', type: 'string', value: 'en_US' }).slice(3), ['-string', 'en_US']);
+
+    assert.equal(defaultsValueMatches({ type: 'bool', value: false }, '0\n'), true);
+    assert.equal(defaultsValueMatches({ type: 'bool', value: true }, '0\n'), false);
+    assert.equal(defaultsValueMatches({ type: 'string', value: 'en_US' }, 'en_US\n'), true);
+    assert.equal(defaultsValueMatches({ type: 'string', value: 'en_US' }, 'en_US@rg=cazzzz\n'), false);
+    // What `defaults read -g AppleLanguages` prints.
+    assert.equal(defaultsValueMatches({ type: 'array', value: ['en-US'] }, '(\n    "en-US"\n)\n'), true);
+    assert.equal(
+      defaultsValueMatches({ type: 'array', value: ['en-US'] }, '(\n    "en-US",\n    "en-CA",\n    en,\n    "fr-CA"\n)\n'),
+      false,
+    );
+    assert.equal(defaultsValueMatches({ type: 'array', value: ['en-US', 'en'] }, '(\n    "en-US",\n    en\n)\n'), true);
+  });
+
+  it('says why the simulator cannot be used: not a Mac, or what is missing in Xcode', () => {
+    assert.match(iosSimulatorUnavailableMessage({ hostPlatform: 'win32', reason: 'x' }), /only exists on macOS.*--platform android/);
+    const mac = iosSimulatorUnavailableMessage({ hostPlatform: 'darwin', reason: 'no iOS simulator runtime is installed' });
+    assert.match(mac, /no iOS simulator runtime is installed/);
+    assert.match(mac, /macos-setup\.md section 9\.2/);
   });
 });
 

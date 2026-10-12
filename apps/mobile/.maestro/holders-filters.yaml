@@ -5,7 +5,7 @@
 # Lightly Played copy, then every copy again. The whole region is listed, so the flow follows
 # Ben's two copies (never counts). (The availability filter "Sale" also matches "trade or sale"
 # copies, so the condition narrows here.)
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Card holders list with sort and filters
 tags:
   - mobile-m7

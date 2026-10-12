@@ -4,7 +4,7 @@
 # screen follows the counter-offer live over the realtime channel; she accepts it and the trade
 # opens. She confirms the exchange, Ben confirms too and the trade completes live; Ada rates Ben
 # from the trade (the API holds her rating).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Offer, counter-offer, trade and rating
 tags:
   - mobile-m5
@@ -51,7 +51,7 @@ tags:
 - tapOn:
     id: 'offer-amount'
 - inputText: '38'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

@@ -9,8 +9,9 @@ card image rules (ADR 0015) apply to the app exactly as to the web.
 
 ## Status
 
-Phase 1 (accounts) is implemented and verified on the web build (Playwright) and on Android
-(Expo Go on a local emulator, Maestro): sign-up with the versioned legal documents, email
+Phase 1 (accounts) is implemented and verified on the web build (Playwright), on Android
+(Expo Go on a local emulator, Maestro) and, since 2026-10-10, on iOS (Expo Go on the iOS
+simulator, the same Maestro flows): sign-up with the versioned legal documents, email
 verification, sign-in, password reset, session restore, sign-out, consent and account-state
 screens (suspended, deletion pending with cancel and export), the three-step onboarding, the
 Profile tab with a public preview, and Settings (profile, location and discoverability, privacy,
@@ -145,6 +146,19 @@ the legal texts stay drafts (banner kept).
 cd apps/mobile
 npx expo start                # a = Android emulator, i = iOS simulator, w = web; or scan the QR code
 ```
+
+On a Mac with Xcode and an iOS runtime, the iOS simulator needs nothing else (no Android SDK, no
+CocoaPods, no native build):
+
+```bash
+npm run infra:up && npm run api:dev     # terminal 1, repository root: the local stack and the API on :8080
+npm run ios -w apps/mobile              # terminal 2: = cd apps/mobile && npx expo start --ios
+```
+
+Expo CLI boots a simulator when none is booted (or uses the first booted one), installs the
+matching Expo Go on it and opens the app, which reaches the API at `localhost:8080`. DeviceHub
+(`open -a DeviceHub`; Simulator on Xcode 26) shows the device. The native test suite never uses
+that simulator: it has its own (see [Native flows](#native-flows-maestro-on-the-android-emulator-or-the-ios-simulator)).
 
 Never run `npm install` inside this folder: the root `package-lock.json` is the only lockfile, and
 dependencies are added with `npx expo install <pkg>` (SDK-compatible, pinned). Every script below
@@ -358,8 +372,10 @@ Conventions later stages reuse:
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
   and reopened after signing in.
 - **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`. Keep
-  controls off the top-right corner just below the header: Expo Go floats its tools button there
-  and a Maestro tap would open the developer menu instead.
+  controls off the top-right corner just below the header: Expo Go on Android floats its tools
+  button there and a Maestro tap would open the developer menu instead. (On iOS, Expo Go floats
+  it over the right end of the header itself; the flows switch it off, see
+  `.maestro/subflows/hide-tools-button.yaml`.)
 
 ## Scripts
 
@@ -381,7 +397,7 @@ Conventions later stages reuse:
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:mobile`         | typecheck, lint, Jest (unit + screen tests in `__tests__/`, every screen with loading / empty / error / validation states) and the E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`; `npm run test:scripts` runs every `scripts/lib` test) |
 | `npm run test:mobile:e2e`     | Playwright (`apps/mobile/e2e`) driving the Expo **web** build against a real, isolated stack                                                                                                                                                                           |
-| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator                                                                                                                                                                                        |
+| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`; a Mac without an Android device runs them on iOS)                                                                               |
 
 ### Isolation of the end-to-end suites
 
@@ -484,26 +500,86 @@ keys (none exists since ADR 0017) and fails a test on any request to a map provi
 server or the developer API; such requests are aborted (the app draws no map).
 Logs: `.local-dev/mobile-e2e/logs/`.
 
-### Native flows (Maestro on the Android emulator)
+### Native flows (Maestro on the Android emulator or the iOS simulator)
 
-Free and local: an emulator, Expo Go and the Maestro CLI; never EAS, never Maestro Cloud.
+Free and local: an emulator or a simulator, Expo Go and the Maestro CLI; never EAS, never Maestro
+Cloud. One set of flows runs on both platforms.
 
 ```bash
-# once per session: start an emulator (Windows example)
-"%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe" -avd Pixel_6_API_34 -no-snapshot-save -no-boot-anim
-adb wait-for-device
+# iOS simulator (a Mac with Xcode and an iOS runtime): nothing to start, the harness has its own simulator
+npm run test:mobile:maestro -- --platform ios
+npm run test:mobile:maestro -- --platform ios apps/mobile/.maestro/sign-in.yaml   # one flow
+npm run test:mobile:maestro -- --platform ios --keep-running    # keep API + Metro + simulator (stop: -- --stop)
 
-# then, from the repository root (MAESTRO_BIN when maestro is not on PATH)
-MAESTRO_BIN=D:/maestro/bin/maestro.bat npm run test:mobile:maestro
+# Android: start an emulator first and wait until Android has booted
+~/Library/Android/sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save -no-boot-anim &     # macOS
+~/Android/Sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save -no-boot-anim &             # Linux
+"%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe" -avd Pixel_6_API_34 -no-snapshot-save -no-boot-anim   # Windows
+adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done'
+npm run test:mobile:maestro -- --platform android
 npm run test:mobile:maestro -- apps/mobile/.maestro/sign-in.yaml        # one flow
 npm run test:mobile:maestro -- --keep-running                            # keep API + Metro (stop: -- --stop)
 ```
 
-The harness starts (or reuses) the isolated API, starts Metro on :8082 with
-`EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8090` and `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099`
-(Expo CLI installs Expo Go when it is missing; the harness waits up to 6 minutes for that install),
-checks that the Android bundle targets the isolated API, then runs the flows with
-`APP_URL=exp://10.0.2.2:8082`. Flows: `sign-in.yaml`,
+- **Platform.** `--platform ios|android` (or `ORENJI_MAESTRO_PLATFORM`). Without a choice: Android
+  when an Android device is ready, otherwise the iOS simulator on a Mac with Xcode.
+- **Maestro** is found on `PATH` or in `~/.maestro/bin`. Elsewhere, set `MAESTRO_BIN`:
+  `MAESTRO_BIN=$HOME/tools/maestro/bin/maestro` on macOS and Linux,
+  `MAESTRO_BIN=D:/maestro/bin/maestro.bat` on Windows. It needs a `java` (17 or newer).
+- **adb** is found through `ANDROID_HOME`, `ANDROID_SDK_ROOT`, the SDK's default folder of the
+  platform, then `PATH`. `ANDROID_SERIAL` picks one device when several are attached.
+
+#### The iOS simulator of the suite
+
+The harness never drives your own simulators. It has one dedicated device, **"OrenjiTrade
+Maestro"**: created when it is missing (the newest standard iPhone on the newest installed iOS
+runtime), booted with `simctl` alone (no Simulator / DeviceHub window is needed, and none is
+opened), and shut down at the end unless `--keep-running` is given. To watch a run, open DeviceHub
+(Xcode 27; Simulator on Xcode 26) yourself: it shows the booted device.
+
+What makes the runs repeatable is set **inside that simulator only**, never in the Mac's settings
+(`scripts/lib/ios-simulator.mjs`):
+
+| Setting of the dedicated simulator                                            | Why                                                                                                                   |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| AutoFill Passwords off                                                        | iOS would put its "Save Password?" sheet over the app after every sign-in                                             |
+| Language and region: US English                                               | a simulator inherits the Mac's languages and region; the app follows the device for its legal pages, dates and prices |
+| Keyboard: no auto-correction, no predictions, no "slide to type" introduction | the keyboard types exactly what a flow gives it                                                                       |
+| `exp://` links open in Expo Go                                                | iOS would otherwise ask "Open in Expo Go?" for every project and deep link                                            |
+
+Expo Go is installed on that simulator by Expo CLI's own installer (`scripts/lib/expo-go-ios.mjs`:
+the matching Expo Go from Expo's servers, cached in `~/.expo`), whatever other simulator is booted;
+`expo start --ios` is not used because it opens the project on the first booted simulator it
+finds and brings the simulator window forward.
+
+| Variable                    | Meaning                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ORENJI_IOS_SIMULATOR_NAME` | another name for the dedicated simulator (default `OrenjiTrade Maestro`)                                                                                                                   |
+| `ORENJI_IOS_SIMULATOR_TYPE` | the iPhone model to create, for example `iPhone 17 Pro` (an existing dedicated simulator is kept as it is: delete it with `xcrun simctl delete "OrenjiTrade Maestro"` to change its model) |
+| `ORENJI_IOS_SIMULATOR_UDID` | use this existing simulator instead. It receives the settings above, so name one you keep for tests                                                                                        |
+
+#### What the harness does
+
+It starts (or reuses) the isolated API, then starts Metro on :8082 with the app pointed at the
+machine as the device sees it, checks that the platform's bundle targets the isolated API, and
+runs the flows with the platform's `APP_ID` (Expo Go) and `APP_URL`:
+
+|                                           | Android emulator                                                                    | iOS simulator                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Metro                                     | `expo start --port 8082 --android --clear`                                          | `expo start --port 8082 --clear`                             |
+| `EXPO_PUBLIC_API_BASE_URL`                | `http://10.0.2.2:8090`                                                              | `http://localhost:8090`                                      |
+| `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | `10.0.2.2:9099`                                                                     | `localhost:9099`                                             |
+| Expo Go                                   | installed by `expo start --android` when missing; the harness waits up to 6 minutes | installed on the dedicated simulator by Expo CLI's installer |
+| `APP_ID`                                  | `host.exp.exponent`                                                                 | `host.exp.Exponent`                                          |
+| `APP_URL`                                 | `exp://10.0.2.2:8082`                                                               | `exp://127.0.0.1:8082`                                       |
+
+A Metro kept by `--keep-running` serves one platform (the API address is inlined into its
+bundle): `npm run test:mobile:maestro -- --stop` before switching platforms. The accounts a run
+created are deleted from the Auth emulator at the end on both platforms.
+
+#### The flows
+
+Flows: `sign-in.yaml`,
 `sign-up-onboarding.yaml` (the location step with the pickers), `profile-edit.yaml`,
 `discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
 `scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
@@ -552,7 +628,7 @@ then in English, the choice kept across a relaunch), `safety-notice.yaml` (Ada's
 shows the "Trade safely" notice, the guide opens in-app, the composer keeps working, Dismiss, gone
 after a relaunch). The seed flows (`sign-in.yaml`, `map-placeholder-profile.yaml`) first record the
 seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
-that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the edge-swipe subflows (a slow swipe in the middle can start on a text
+that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the scroll subflows (on Android an edge swipe: a slow swipe in the middle can start on a text
 field); option lists of the pickers scroll with `scrollUntilVisible`. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
@@ -563,6 +639,37 @@ collectors of the stage M7 flows and the blocks of an account in `parity.js`).
 Screenshots and reports: `.local-dev/mobile-e2e/maestro/`. Edit nothing in the repository while
 flows run (Metro re-crawls the workspace and Expo Go may lose the packager) and restart a kept
 Metro after source changes (`npm run test:mobile:maestro -- --stop`).
+
+#### One set of flows for two platforms
+
+Every flow and subflow has `appId: ${APP_ID}`; a manual `maestro test` passes `-e APP_ID=...`
+with the other variables of `.maestro/config.yaml`. What the platforms do differently sits in the
+subflows, in `when: platform:` blocks, so a flow never calls `hideKeyboard`, `back` or `checked:`
+itself:
+
+| Subflow                                                                | Android                                                                                  | iOS                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hide-keyboard.yaml`                                                   | `hideKeyboard` (the back key)                                                            | a short drag in the middle of the screen, above the keyboard (Search and the card pickers let go of the keyboard when a drag begins), then, while a keyboard is still on screen, a tap in the page's right padding (a form and a conversation close it on a tap outside their controls) |
+| `hide-keyboard-in-dialog.yaml`                                         | `hideKeyboard`                                                                           | nothing: a dialog sits above the keyboard and its buttons are pressed with the keyboard up                                                                                                                                                                                              |
+| `go-back.yaml`                                                         | `back`                                                                                   | the back button of the navigation header (`BackButton`)                                                                                                                                                                                                                                 |
+| `scroll-down-to.yaml`, `scroll-up-to.yaml`, `scroll-down-to-text.yaml` | swipes along the right edge until the element is on screen                               | `scrollUntilVisible` with `centerElement`: iOS also lists what a page holds under the tab bar and the header, so the element is brought clear of them                                                                                                                                   |
+| `assert-checked.yaml`, `assert-unchecked.yaml`                         | `checked: true / false`                                                                  | the element's value: "checkbox, checked" / "checkbox, unchecked" (a switch: 1 / 0)                                                                                                                                                                                                      |
+| `dismiss-dev-menu.yaml`                                                | the "isn't responding" dialog, the developer-menu introduction, Close, then the back key | the developer-menu introduction and Close                                                                                                                                                                                                                                               |
+| `hide-tools-button.yaml` (from `wait-for-app.yaml`)                    | not run: Expo Go 57 puts its tools button below the header                               | switches off Expo Go's floating developer-tools gear, which covers the right end of the header (the notification bell)                                                                                                                                                                  |
+
+Writing a flow that passes on both:
+
+- **iOS exposes an accessible control as one element.** A row, a button or a checkbox with an
+  accessible name is a single element on iOS (its nested texts are not listed), where Android
+  lists the texts inside it too. Match such a control by its id, or with a pattern that fits the
+  whole name (`'.*Je confirme avoir 18 ans ou plus'`).
+- **"Visible" is wider on iOS**: an element of a scrolling page that sits under the tab bar or the
+  navigation header counts as visible. Bring it into reach with a scroll subflow before a tap.
+- **The snackbar sits just above the last button of a form** and overlaps its top edge for four
+  seconds. A tap on that button right after a save lands on the button (its centre is below the
+  message) on both platforms; if the end of a form changes, check that this still holds.
+- Never add a step for one platform outside a `when: platform:` block, and keep the Android steps
+  of a subflow as they are: the Android run cannot be repeated on a Mac without the Android SDK.
 
 ## Deep links
 

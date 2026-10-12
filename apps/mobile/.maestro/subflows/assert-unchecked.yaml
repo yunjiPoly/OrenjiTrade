@@ -1,0 +1,18 @@
+# Asserts that the checkbox or switch with id ID is on screen and not ticked (see
+# assert-checked.yaml: `checked` on Android, the value "checkbox, unchecked" or 0 on iOS).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible:
+          id: ${ID}
+          checked: false
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: ${ID}
+          text: 'checkbox, unchecked|0'

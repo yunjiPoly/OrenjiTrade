@@ -1,10 +1,12 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 import ConsentScreen from '@/app/(account)/consent';
 import SuspendedScreen from '@/app/(account)/suspended';
 import AccountUnavailableScreen from '@/app/(account)/unavailable';
 import VerifyEmailScreen from '@/app/(account)/verify-email';
 import { useFlowLock } from '@/src/account/flowLock';
+import { ageConfirmationAccessibleLabel } from '@/src/features/legal/ageConfirmation';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { LEGAL_DOCUMENTS, NOT_ONBOARDED, deletionFixture, meFixture } from '../support/fixtures';
@@ -79,7 +81,7 @@ describe('Consent screen', () => {
     expect(
       screen.getByRole('checkbox', { name: 'I have read and accept the Conditions d’utilisation' })
     ).toBeChecked();
-    const age = screen.getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' });
+    const age = screen.getByRole('checkbox', { name: ageConfirmationAccessibleLabel(Platform.OS) });
     expect(age).not.toBeChecked();
     fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
     expect(

@@ -3,7 +3,7 @@
 # the same platform region; name search allowed, wishlist shown on his profile; scripts/parity.js),
 # opens his profile from the result (his state only, never a distance) and reads what he is
 # looking for; the wish opens the card.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Collector search, profile and Looking for
 tags:
   - mobile-m7
@@ -40,7 +40,7 @@ tags:
 - tapOn:
     id: 'search-collectors-input'
 - inputText: ${output.hal.displayName}
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: 'collector-result-${output.hal.handle}'

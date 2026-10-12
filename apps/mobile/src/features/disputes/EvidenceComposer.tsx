@@ -15,6 +15,7 @@ import {
   fileSize,
 } from '@/src/features/payments/paymentLabels';
 import { statementError } from '@/src/features/payments/protectedForms';
+import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 interface PendingPhoto extends PickedImage {
@@ -70,7 +71,7 @@ export function EvidenceComposer({
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      ...LIBRARY_PHOTO_OPTIONS,
       quality: 0.9,
     });
     const asset = result.canceled ? null : result.assets[0];

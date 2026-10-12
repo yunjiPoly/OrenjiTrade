@@ -260,7 +260,8 @@ export function FormMessage({
         style,
       ]}
     >
-      <MaterialCommunityIcons name={icon} size={20} color={color} />
+      {/* Decorative: iOS builds the alert's spoken name from its children, glyph included. */}
+      <MaterialCommunityIcons name={icon} size={20} color={color} accessibilityElementsHidden />
       <View style={styles.grow}>
         <Text style={[textStyle('sm'), { color: palette.ink }]}>{children}</Text>
         {detail ? (

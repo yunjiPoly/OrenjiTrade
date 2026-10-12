@@ -4,7 +4,7 @@
 # scripts/payments.js). Pia accepts; Ada pays on the app's fake checkout and the trade shows the
 # payment secured; Pia ships with tracking and Ada's trade follows it live; Ada confirms receipt
 # and the trade completes with the payout released (the API holds it).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Payment protection - pay, ship, confirm receipt
 tags:
   - mobile-m6
@@ -46,7 +46,7 @@ tags:
 - tapOn:
     id: 'offer-amount'
 - inputText: '40'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

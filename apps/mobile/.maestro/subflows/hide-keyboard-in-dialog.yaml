@@ -1,0 +1,11 @@
+# The keyboard of a form dialog. Android hides it, as on a page (hide-keyboard.yaml). On iOS there
+# is nothing to do: the dialog sits above the keyboard with its buttons on screen, and a collector
+# presses them with the keyboard up. (A dialog has no page around it to tap or drag: outside the
+# dialog there is only its backdrop, which cancels it.)
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
