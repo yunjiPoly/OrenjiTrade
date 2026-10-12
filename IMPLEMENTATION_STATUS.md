@@ -2913,6 +2913,15 @@ native build, no Maestro Cloud).
   in 77 before; 28 harness guard tests); `npx expo export --platform android`, `--platform ios`
   and `--platform web` into throw-away directories; `npm run test:mobile:e2e` (52 passed on the
   first attempt); the full `npm run test:mobile:maestro -- --platform ios` above.
+- **Independent verification (2026-10-12, by the lead, on the head merged with `main`):**
+  `npm run test:scripts`, `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile` and
+  `npm run test:mobile` green; then `npm run test:mobile:maestro -- --platform ios` on the
+  dedicated simulator **erased first** (`simctl erase`: no Expo Go, no settings): **24/24 flows in
+  32 min 2 s**, 33 min 37 s in all; `npm run test:mobile:e2e` 52 passed; `npx expo export
+  --platform ios`. The mock catalog's card pictures render in Search and on the card page on iOS
+  (the screenshots of `search-card-detail.yaml`). A first independent check on 2026-10-10 compared
+  the steps an Android run executes in every flow with the ones before the branch: the same steps
+  in the same order, apart from the exceptions listed above.
 - **Not verified:** the Android run of the flows and of the harness (no Android SDK on the Mac:
   the Android steps are the ones that ran before, read but not executed); a physical iPhone and a
   store or TestFlight build (Expo Go on the simulator only: no Apple developer account, no native
@@ -2941,34 +2950,24 @@ native build, no Maestro Cloud).
 
 ## NEXT TASK
 
-> **Stage S1 — geography (2026-10-08, branch `feature/regions-geography`, not pushed):** builder
-> done (see "Platform regions and the self-declared location (stage S1)"): ADR 0017, V106–V111,
-> API, web, mobile, seeds, docs and every suite listed there. The owner's local database
-> migrates on the next `npm run dev` and loses its trading areas by design.
+> **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
+> wishlist, wishlist alerts and no matches (#60, 2026-10-10; V112 is frozen); the first run on
+> Apple Silicon (#59, 2026-10-10). The owner's local database migrates on the next `npm run dev`
+> and loses its trading areas by design (S1).
 >
-> **Stage S2 — simplified wishlist, wishlist alerts, no matches (2026-10-09, branch
-> `feature/regions-s2-wishlist` on top of `feature/regions-geography`, not pushed):** builder done
-> (see "A simpler wishlist, wishlist alerts, no matches (stage S2)"): V112, API, web (the shared
-> printing picker), mobile, seeds, docs and every suite listed there; review fix 1 (the wish
-> dialog's errors in view, the card page's "Any printing in <rarity>" for an alert's `?rarity=`,
-> focus, labels) re-ran every suite and the 24 Maestro flows. S1 is merged (#57). Review fix 2
-> (V112 on a populated database, polish) and **review fix 3 (2026-10-10, on the Mac: the two
-> silent printing picks, V112's last edit, the seed on an upgraded database, small UX fixes; see
-> "Review fix 3")** are committed on the branch, not pushed. Next for S2: the lead's ship step
-> (re-check of fix 3, merge `origin/main`, push, PR, merge when CI is green); V112 freezes at
-> that merge.
->
-> **The iOS path of the native Maestro harness (2026-10-10, branch `feature/ios-maestro-harness`
-> on top of S2 and the macOS fixes, not pushed):** builder done (see "Mobile app on the iOS
+> **The iOS path of the native Maestro harness (branch `feature/ios-maestro-harness`, `main`
+> merged in):** builder done and independently verified on 2026-10-12 (see "Mobile app on the iOS
 > simulator"): `npm run test:mobile:maestro -- --platform ios` runs the 24 flows in Expo Go on a
 > simulator the harness creates and boots itself; the flows are one set for both platforms and
-> the iOS defects they found are fixed. This also re-ran the 24 flows after `be24294` and review
-> fix 3, on iOS. Next for this branch: the lead's review and ship step (it merges after the S2 and
-> macOS pull requests). The Android steps were not executed (no Android SDK on the Mac).
+> the iOS defects they found are fixed. Next for this branch: the pull request, merged when CI is
+> green. The Android steps were not executed (no Android SDK on the Mac).
+>
+> **In review, not on `main`:** the binder / inventory deadlock fix (branch
+> `fix/binder-count-deadlock`); it merges only with an approving final review.
 >
 > **Exact next task after this branch: stage S3 — search, the card page, have/want and search
-> history (spec sections 2 and 2b of the 2026-10-08 product change), on a new branch from the S2
-> branch (or `main` once S1 and S2 are merged).** Reuse `shared/catalog/printing-picker` on the card page
+> history (spec sections 2 and 2b of the 2026-10-08 product change), on a new branch from
+> `main`.** Reuse `shared/catalog/printing-picker` on the card page
 > (feed its `holderCounts` input from a new grouped per-printing holder count, read `?printing=` /
 > `?rarity=` into it, replace "Selected printing" and "Who has this near me" with "Find this
 > card"), extend `/search/card-holders` (rarity, country/subdivision filters, per-printing counts,
