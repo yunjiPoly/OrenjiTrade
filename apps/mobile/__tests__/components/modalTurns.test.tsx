@@ -52,6 +52,22 @@ function MenuThenConfirm({ nested = false }: { nested?: boolean }) {
   );
 }
 
+/** A sheet that can be closed and asked for again while it is still sliding away. */
+function ReopenedSheet() {
+  const [open, setOpen] = useState(true);
+  const [taps, setTaps] = useState(0);
+  return (
+    <>
+      <Button label="Open" onPress={() => setOpen(true)} testID="reopen" />
+      <BottomSheet visible={open} onClose={() => setOpen(false)} testID="sheet">
+        <Button label="Close" onPress={() => setOpen(false)} testID="sheet-close" />
+        <Button label="Tap" onPress={() => setTaps((count) => count + 1)} testID="sheet-tap" />
+      </BottomSheet>
+      <Text>{`taps ${taps}`}</Text>
+    </>
+  );
+}
+
 describe('one modal at a time on iOS', () => {
   it('a modal may be presented when none is on screen, when it holds the turn, or when nested', () => {
     expect(mayPresent({ nested: false, holdsTurn: false, others: 0 })).toBe(true);
@@ -116,6 +132,26 @@ describe('one modal at a time on iOS', () => {
     }
     expect(await screen.findByTestId('block-dialog')).toBeOnTheScreen();
     expect(screen.queryByTestId('menu')).toBeNull();
+  });
+
+  it('a sheet asked for again while it slides away comes back at once, as the same sheet', async () => {
+    renderWithProviders(<ReopenedSheet />);
+    const tap = screen.getByTestId('sheet-tap');
+    fireEvent.press(screen.getByTestId('sheet-close'));
+    fireEvent.press(screen.getByTestId('reopen'));
+    // Longer than the close animation: a sheet that waited for itself would have been taken down
+    // and put up again by now, and what was found in it before would be gone.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    });
+    expect(screen.getByTestId('sheet')).toBeOnTheScreen();
+    fireEvent.press(tap);
+    expect(screen.getByText('taps 1')).toBeOnTheScreen();
+    expect(modalsOnScreen()).toBe(1);
+
+    fireEvent.press(screen.getByTestId('sheet-close'));
+    await waitFor(() => expect(screen.queryByTestId('sheet')).toBeNull());
+    expect(modalsOnScreen()).toBe(0);
   });
 
   it('a dialog rendered inside an open sheet is presented at once (its parent presents it)', () => {

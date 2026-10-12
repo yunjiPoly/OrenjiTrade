@@ -20,7 +20,8 @@ import { Platform } from 'react-native';
  *
  * So on iOS the modals of the app take turns: a sheet or dialog that is asked for while another
  * one is on screen waits until that one has left, then appears. A modal rendered inside another
- * modal (a picker inside a dialog) is presented by its parent and does not wait.
+ * modal (a picker inside a dialog) is presented by its parent and does not wait. Nor does a sheet
+ * asked for again while it is itself still sliding away: it comes back (`BottomSheet`).
  *
  * Android stacks its dialogs as windows and the web draws them in the page: both show a modal as
  * soon as it is asked for, exactly as before (`useModalTurn` answers `visible` there).

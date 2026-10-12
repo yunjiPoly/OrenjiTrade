@@ -2922,6 +2922,16 @@ native build, no Maestro Cloud).
   (the screenshots of `search-card-detail.yaml`). A first independent check on 2026-10-10 compared
   the steps an Android run executes in every flow with the ones before the branch: the same steps
   in the same order, apart from the exceptions listed above.
+- **Found by the pull request's first CI run (2026-10-12), fixed:** `holders.test.tsx` ("applies
+  every filter and the sort to the request, then clears them") failed on the slower CI runner and
+  passed on the Mac. Cause, in the app and not in the test: a sheet asked for again while it was
+  still sliding away waited for its own turn, so it was taken down and put up again (on an iPhone:
+  "Show results" then a quick "Filters" made the sheet leave and come back), and the test pressed
+  a button of the sheet that had just gone. `BottomSheet` now brings such a sheet back at once: it
+  is the modal on screen, there is nothing to wait for. New jest test (it fails without the fix;
+  677 tests); the unit suite was re-run on throttled cores (`taskpolicy -b`), which reproduces the
+  CI timing; `blocked-users`, `holders-filters` and `inventory-add-edit-delete` re-run on the
+  simulator (3/3).
 - **Not verified:** the Android run of the flows and of the harness (no Android SDK on the Mac:
   the Android steps are the ones that ran before, read but not executed); a physical iPhone and a
   store or TestFlight build (Expo Go on the simulator only: no Apple developer account, no native

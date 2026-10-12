@@ -36,14 +36,17 @@ export function BottomSheet({
   testID = 'bottom-sheet',
 }: BottomSheetProps) {
   // iOS: a sheet asked for while another modal is on screen waits for its turn (modalTurns.tsx).
-  const visible = useModalTurn(wanted);
+  const turn = useModalTurn(wanted);
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const [translateY] = useState(() => new Animated.Value(windowHeight));
   // Stays mounted while the close animation plays; flips only from animation callbacks.
-  const [closed, setClosed] = useState(!visible);
+  const [closed, setClosed] = useState(!turn);
+  // Asked for again while it is still sliding away, the sheet comes back at once: it is the modal
+  // on screen, so there is no turn to wait for (waiting would take it down and put it up again).
+  const visible = wanted && (turn || !closed);
 
   useEffect(() => {
     const duration = reducedMotion ? 0 : motion.base;
