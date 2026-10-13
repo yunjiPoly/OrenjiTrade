@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Linking, Text } from 'react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
 import BillingCheckoutScreen from '@/app/checkout/fake-billing/[ref]';
@@ -9,9 +9,14 @@ import CollectorScreen from '@/app/collectors/[id]';
 import CreditsScreen from '@/app/credits';
 import PremiumScreen from '@/app/premium';
 import SupportScreen from '@/app/support';
+import { useAccount } from '@/src/account/AccountProvider';
 import { resetRecordedImpressions } from '@/src/api/hooks/billing';
+import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
-import { BROWSING_REGION_STORAGE_KEY } from '@/src/features/regions/browsingRegion';
+import {
+  BROWSING_REGION_STORAGE_KEY,
+  hydrateBrowsingRegion,
+} from '@/src/features/regions/browsingRegion';
 import { RegionBar } from '@/src/features/regions/RegionBar';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { ApiError } from '@/src/api/ApiError';
@@ -49,6 +54,7 @@ import { renderWithProviders, resetAppState } from '../test-utils';
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
 
 const port = () => new FakeAuthPort(testUser());
+const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 
 function routes(extra: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
@@ -481,6 +487,17 @@ describe('Support OrenjiTrade', () => {
 });
 
 describe('Sponsored placements', () => {
+  /** What a sponsored slot waits for besides the browsed region, as text. */
+  function SlotConditions() {
+    const account = useAccount();
+    const advertising = useFeature(FEATURE.advertising);
+    return (
+      <Text testID="slot-conditions">
+        {`${account.status}|advertising ${advertising.enabled ? 'on' : 'off'}`}
+      </Text>
+    );
+  }
+
   const collectorRoutes = (extra: MockRoutes = {}) =>
     routes({
       'GET /api/v1/collectors/{handle}/binders': ok([publicBinderSummaryFixture()]),
@@ -571,17 +588,59 @@ describe('Sponsored placements', () => {
   });
 
   it('waits for the region of a collector without a location before it asks for a placement', async () => {
-    await AsyncStorage.setItem(BROWSING_REGION_STORAGE_KEY, 'americas-south');
-    const api = mockApi(routes({ 'GET /api/v1/ads': ok([adFixture()]) }));
-    renderWithProviders(
-      <SponsoredSlot placement="SEARCH_SPONSORED" game={null} variant="compact" />,
-      { port: port() }
+    // A collector without a location browses the region the device kept. The device is slow to
+    // say which: the account is ready and the flags are read before it answers (the order the
+    // slot would otherwise never see, its own conditions take longer than the storage of a test).
+    let answer: (value: string | null) => void = () => undefined;
+    const readDevice = storage.getItem.getMockImplementation();
+    storage.getItem.mockImplementation((key, callback) =>
+      key === BROWSING_REGION_STORAGE_KEY
+        ? new Promise<string | null>((resolve) => {
+            answer = resolve;
+          })
+        : (readDevice?.(key, callback) ?? Promise.resolve(null))
     );
-    expect(await screen.findByTestId('sponsored-ad')).toBeOnTheScreen();
-    // One request, in the region the device kept: none in Americas (North) first.
-    expect(api.callsTo('GET /api/v1/ads').map((call) => call.query.get('region'))).toEqual([
-      'americas-south',
-    ]);
+    try {
+      const api = mockApi(
+        routes({
+          'GET /api/v1/ads': (request) =>
+            ok([adFixture({ headline: `Sleeves for ${request.query.get('region')}` })]),
+        })
+      );
+      renderWithProviders(
+        <>
+          <SlotConditions />
+          <SponsoredSlot placement="SEARCH_SPONSORED" game={null} variant="compact" />
+        </>,
+        { port: port() }
+      );
+      // Everything the slot itself waits for is there...
+      await waitFor(() =>
+        expect(screen.getByTestId('slot-conditions')).toHaveTextContent('ready|advertising on')
+      );
+      // ... and a request that was on its way has had the time to leave.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+      // Nothing was asked: a placement asked now would be one of Americas (North), and it would
+      // be asked again in the region the device kept.
+      expect(api.callsTo('GET /api/v1/ads')).toHaveLength(0);
+      expect(screen.queryByTestId('sponsored-ad')).toBeNull();
+
+      await act(async () => {
+        answer('americas-south');
+        await hydrateBrowsingRegion();
+      });
+      expect(await screen.findByText('Sleeves for americas-south')).toBeOnTheScreen();
+      // One request in all, in the region the device kept.
+      expect(api.callsTo('GET /api/v1/ads').map((call) => call.query.get('region'))).toEqual([
+        'americas-south',
+      ]);
+    } finally {
+      if (readDevice) {
+        storage.getItem.mockImplementation(readDevice);
+      }
+    }
   });
 
   it('shows nothing while advertising is off, for Premium ([]), on the own profile or unsafe links', async () => {
