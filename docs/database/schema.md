@@ -897,11 +897,12 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
     the foreign key (`ON DELETE SET NULL`) with the full lock of the binder in hand, and waits
     there when the job holds the row. **The job writes a deleted item at most once per run**: it
     clears a listed flag left on it, and its expiry, freshness and warning statements take live
-    items only. One update never re-checks the row's foreign keys, so the job does not ask for the
-    binder. (Until 2026-10-13 the expiry statement had no `deleted_at` filter: a deleted item
-    whose temporary publication had ended and which still carried a listed flag was written twice
-    in one run, and `DELETE /binders/{id}?deleteItems=true` next to it answered 500, "deadlock
-    detected". A deleted item now keeps its expired `TEMPORARILY_PUBLIC`; no read uses it.)
+    items only. A first update that leaves `binder_id` alone does not re-check the row's foreign
+    keys, so the job does not ask for the binder. (Until 2026-10-13 the expiry statement had no
+    `deleted_at` filter: a deleted item whose temporary publication had ended and which still
+    carried a listed flag was written twice in one run, and
+    `DELETE /binders/{id}?deleteItems=true` next to it answered 500, "deadlock detected". A
+    deleted item now keeps its expired `TEMPORARILY_PUBLIC`; no read uses it.)
 
   A transaction that waits for nothing a write holds cannot be part of a lock cycle with one. The
   statements of the collectors' writes do not skip: they wait for a held row.
