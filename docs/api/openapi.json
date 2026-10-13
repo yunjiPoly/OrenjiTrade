@@ -62,6 +62,10 @@
       "description": "OriEnji credits (non-cash) and referral codes"
     },
     {
+      "name": "admin-inventory-import",
+      "description": "Admin: inventory import settings"
+    },
+    {
       "name": "collectors",
       "description": "Public collector profiles"
     },
@@ -192,6 +196,10 @@
     {
       "name": "admin-plans",
       "description": "Plans and usage limits (admin console)"
+    },
+    {
+      "name": "inventory-import",
+      "description": "Import a YDK deck file or a Collectr CSV export into the caller's inventory"
     },
     {
       "name": "notifications",
@@ -2417,6 +2425,167 @@
         }
       }
     },
+    "/api/v1/admin/inventory/import-settings": {
+      "get": {
+        "tags": [
+          "admin-inventory-import"
+        ],
+        "summary": "The limits of an inventory import (ADMIN)",
+        "operationId": "getAdminInventoryImportSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-inventory-import"
+        ],
+        "summary": "Change the limits of an inventory import (ADMIN)",
+        "description": "Any subset of the fields; absent fields are unchanged. ydkMaxKb 1-1024, ydkMaxLines 10-5000, csvMaxKb 16-8192, csvMaxRows 10-20000, previewTtlMinutes 5-1440. Applied to the next upload (cached at most 60 s on other instances). Audited (inventory.import.settings.update).",
+        "operationId": "updateAdminInventoryImportSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInventoryImportSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/games/{slug}": {
       "put": {
         "tags": [
@@ -4112,13 +4281,73 @@
         ]
       }
     },
+    "/internal/jobs/inventory-import-purge": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Delete expired inventory import previews (service auth)",
+        "description": "Deletes the import previews past their time to live (inventory.import.preview_ttl_minutes), the results of finished imports past the same time, and commits nobody finished for 7 days. Never touches the inventory. Records a job run. The hourly freshness job runs it too; this route is for a run on request.",
+        "operationId": "runInventoryImportPurgeJob",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportPurgeJobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceToken": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/internal/jobs/freshness": {
       "post": {
         "tags": [
           "internal"
         ],
         "summary": "Recompute listing freshness (service auth)",
-        "description": "Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.",
+        "description": "Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes a listing. Records a job run. The same trigger then runs the inventory-import-purge job (expired import previews), as a job run of its own.",
         "operationId": "runFreshnessJob",
         "responses": {
           "200": {
@@ -9030,7 +9259,7 @@
           "inventory"
         ],
         "summary": "Add an item",
-        "description": "Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead.",
+        "description": "Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the plan's inventory size; no plan has a number for it today.",
         "operationId": "createInventoryItem",
         "requestBody": {
           "content": {
@@ -9049,6 +9278,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InventoryItemResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (`inventory.items.max`) or RATE_LIMITED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -9095,16 +9334,6 @@
           },
           "428": {
             "description": "Terms acceptance required (extension `requiredConsents[]`)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited (`Retry-After` header)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9381,6 +9610,460 @@
           },
           "400": {
             "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/imports": {
+      "get": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "The caller's imports that are still kept",
+        "description": "Newest first, at most 20: the open preview (PENDING, not expired; there is at most one), a commit that was cut and waits to be finished (COMMITTING), and the results of recent imports (COMMITTED) until they are purged. An app that was closed in the middle of an import finds it here.",
+        "operationId": "listInventoryImports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InventoryImportResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "Upload a file and get its preview",
+        "description": "Multipart part `file` and parameter `source` (in the query string, or as a form field of the same multipart body): YDK (a deck file: `#main`, `#extra`, `!side`, one passcode per line) or COLLECTR_CSV (a CSV the collector exported from Collectr; the columns are found by their titles, prices are never read). The file must be UTF-8 text; what it is, is decided from its content, never from its name or declared type. Optional `game` (COLLECTR_CSV): the game of rows that name none. The preview is stored for a limited time (`expiresAt`) and replaces the caller's previews no commit has started. Nothing is added to the inventory yet. 413 above the size limit, 415 for a file that is not UTF-8 text, 400 with `reason` for a file that cannot be imported. Rate-limited (30 per hour).",
+        "operationId": "createInventoryImport",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "description": "YDK or COLLECTR_CSV",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "YDK",
+                "COLLECTR_CSV"
+              ]
+            }
+          },
+          {
+            "name": "game",
+            "in": "query",
+            "description": "COLLECTR_CSV: game slug of rows that name no game",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (field `file`; reason EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED or NO_CARDS), or an unknown `source` or `game`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE (reason TOO_LARGE, `fileLimit` in bytes)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE (reason NOT_TEXT)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/imports/{id}/commit": {
+      "post": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "Add the rows of a preview to the inventory",
+        "description": "Idempotent: a second commit of the same import, also one sent while the first is running, adds nothing and answers with the same result. Rows that are equal (printing, condition, edition, language) are one item; a row equal to an item the caller already has raises that item's quantity instead of adding a second one; every new item is PRIVATE and unfiled. Up to 500 items are one transaction; above that the import is written in chunks of 500, in order, and a commit that was cut answers COMMITTING: commit again to finish (it continues after the last chunk written). The plan's `inventory.items.max` is checked for the whole import before the first item (429 LIMIT_REACHED, nothing written). Rows that still need a printing refuse the commit (409 IMPORT_ROWS_UNRESOLVED) unless `skipUnresolved` leaves them out. Rate-limited (30 per hour).",
+        "operationId": "commitInventoryImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitInventoryImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The import, COMMITTED, with its result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, purged or not the caller's import",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IMPORT_ROWS_UNRESOLVED (`unresolved`), IMPORT_EMPTY, or CONFLICT",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "IMPORT_EXPIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (`inventory.items.max`, with `requested`) or RATE_LIMITED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/imports/{id}/bulk": {
+      "post": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "One action on every row of a preview it applies to",
+        "description": "USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most recent printing of its card (by the release date of the set), among the printings its file narrowed it to when it did. SET_CONDITION (`condition`): every matched row whose condition nobody chose (`conditionSource` DEFAULT) gets that condition; rows of a game that does not have it are left alone.",
+        "operationId": "bulkUpdateInventoryImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkInventoryImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rows changed and the preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportBulkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IMPORT_ALREADY_COMMITTED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16198,6 +16881,446 @@
         }
       }
     },
+    "/api/v1/inventory/imports/{id}": {
+      "get": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "One of the caller's imports",
+        "description": "The import with its counts; while a commit is under way, how many chunks are written (`result`).",
+        "operationId": "getInventoryImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, purged or not the caller's import",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "IMPORT_EXPIRED: the preview is older than its time to live",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "Discard a preview",
+        "description": "Only while no commit has started; nothing was added to the inventory.",
+        "operationId": "deleteInventoryImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Discarded"
+          },
+          "404": {
+            "description": "Unknown, purged or not the caller's import",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IMPORT_ALREADY_COMMITTED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "Which sections of a deck count",
+        "description": "YDK only. A section that does not count gives none of its copies; a card that is in no section that counts leaves the import (`inScope` false). Absent fields are unchanged.",
+        "operationId": "updateInventoryImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInventoryImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The preview with its new counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (a CSV import has no sections)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IMPORT_ALREADY_COMMITTED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/imports/{id}/rows/{rowId}": {
+      "patch": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "Change a row of a preview",
+        "description": "Any subset of the fields; absent fields are unchanged. `printingId`: a printing of the row's card (null: back to \"choose a printing\"). `condition`: a condition of the card's game. `quantity`: 1-9999 (null: back to the copies of the file). `included`: false leaves the row out. A row that fits nothing in the catalog cannot be changed (409).",
+        "operationId": "updateInventoryImportRow",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rowId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInventoryImportRowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The row and the preview with its new counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportRowChange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown import or row, or not the caller's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IMPORT_ALREADY_COMMITTED, or CONFLICT for a row that fits nothing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversations/{id}": {
       "patch": {
         "tags": [
@@ -20305,6 +21428,218 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InventorySummaryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/imports/{id}/rows": {
+      "get": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "The rows of an import (pages)",
+        "description": "In file order. `status` keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED.",
+        "operationId": "listInventoryImportRows",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "READY",
+                "CHOOSE_PRINTING",
+                "UNMATCHED"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseInventoryImportRow"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, purged or not the caller's import",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "IMPORT_EXPIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/imports/limits": {
+      "get": {
+        "tags": [
+          "inventory-import"
+        ],
+        "summary": "What an import file may be",
+        "description": "The size and length limits of both sources and the time a preview is kept (admin settings). A client may check a file before it uploads it; the server applies the limits whatever the client did.",
+        "operationId": "getInventoryImportLimits",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryImportLimits"
                 }
               }
             }
@@ -28887,6 +30222,96 @@
           "updatedAt"
         ]
       },
+      "UpdateInventoryImportSettingsRequest": {
+        "type": "object",
+        "description": "Any subset of the fields; absent fields are unchanged",
+        "properties": {
+          "ydkMaxKb": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1-1024",
+            "example": 100
+          },
+          "ydkMaxLines": {
+            "type": "integer",
+            "format": "int32",
+            "description": "10-5000",
+            "example": 500
+          },
+          "csvMaxKb": {
+            "type": "integer",
+            "format": "int32",
+            "description": "16-8192",
+            "example": 2048
+          },
+          "csvMaxRows": {
+            "type": "integer",
+            "format": "int32",
+            "description": "10-20000",
+            "example": 5000
+          },
+          "previewTtlMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "5-1440",
+            "example": 60
+          }
+        }
+      },
+      "InventoryImportSettingsResponse": {
+        "type": "object",
+        "description": "The inventory.import.* settings (admin)",
+        "properties": {
+          "ydkMaxKb": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Largest YDK file in kB of 1 024 bytes",
+            "example": 100
+          },
+          "ydkMaxLines": {
+            "type": "integer",
+            "format": "int32",
+            "example": 500
+          },
+          "csvMaxKb": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Largest CSV file in kB of 1 024 bytes",
+            "example": 2048
+          },
+          "csvMaxRows": {
+            "type": "integer",
+            "format": "int32",
+            "example": 5000
+          },
+          "previewTtlMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "example": 60
+          },
+          "updatedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "csvMaxKb",
+          "csvMaxRows",
+          "previewTtlMinutes",
+          "ydkMaxKb",
+          "ydkMaxLines"
+        ]
+      },
       "GameMetadataField": {
         "type": "object",
         "description": "Game-specific card attribute",
@@ -30154,6 +31579,18 @@
         },
         "required": [
           "expired"
+        ]
+      },
+      "InventoryImportPurgeJobResponse": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "removed"
         ]
       },
       "FreshnessJobResponse": {
@@ -33882,6 +35319,251 @@
           "reason"
         ]
       },
+      "InventoryImportResponse": {
+        "type": "object",
+        "description": "An inventory import of the caller: a preview, then its commit",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "YDK",
+              "COLLECTR_CSV"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "PENDING: a preview that can be edited, committed or discarded. COMMITTING: the commit wrote some chunks; commit again to finish. COMMITTED: done",
+            "enum": [
+              "PENDING",
+              "COMMITTING",
+              "COMMITTED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Until when the preview can be used; after a commit, until when its result stays readable"
+          },
+          "committedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "sections": {
+            "type": "null",
+            "$ref": "#/components/schemas/InventoryImportSections",
+            "description": "YDK only: which sections of the deck count (null for a CSV)"
+          },
+          "ignoredLines": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lines of the file that were no card (YDK: no passcode; CSV: rows without a card name)",
+            "example": 0
+          },
+          "summary": {
+            "$ref": "#/components/schemas/InventoryImportSummary"
+          },
+          "result": {
+            "type": "null",
+            "$ref": "#/components/schemas/InventoryImportResult",
+            "description": "Null until the commit starts"
+          }
+        },
+        "required": [
+          "createdAt",
+          "expiresAt",
+          "id",
+          "ignoredLines",
+          "result",
+          "source",
+          "status",
+          "summary"
+        ]
+      },
+      "InventoryImportResult": {
+        "type": "object",
+        "description": "What the commit of an import wrote",
+        "properties": {
+          "itemsCreated": {
+            "type": "integer",
+            "format": "int32",
+            "example": 28
+          },
+          "itemsMerged": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Existing items whose quantity was raised",
+            "example": 2
+          },
+          "copiesAdded": {
+            "type": "integer",
+            "format": "int32",
+            "example": 52
+          },
+          "rowsImported": {
+            "type": "integer",
+            "format": "int32",
+            "example": 31
+          },
+          "chunksDone": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "totalChunks": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Chunks of at most 500 items; done when chunksDone equals it",
+            "example": 1
+          }
+        },
+        "required": [
+          "chunksDone",
+          "copiesAdded",
+          "itemsCreated",
+          "itemsMerged",
+          "rowsImported",
+          "totalChunks"
+        ]
+      },
+      "InventoryImportSections": {
+        "type": "object",
+        "description": "The sections of a deck that count",
+        "properties": {
+          "includeMain": {
+            "type": "boolean"
+          },
+          "includeExtra": {
+            "type": "boolean"
+          },
+          "includeSide": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "includeExtra",
+          "includeMain",
+          "includeSide"
+        ]
+      },
+      "InventoryImportSummary": {
+        "type": "object",
+        "description": "The counts of an import preview",
+        "properties": {
+          "rows": {
+            "type": "integer",
+            "format": "int32",
+            "example": 40
+          },
+          "ready": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rows a commit imports: a card, a printing, not left out",
+            "example": 31
+          },
+          "toChoose": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rows that still need a printing (and are not left out)",
+            "example": 7
+          },
+          "unmatched": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rows that fit nothing in the catalog",
+            "example": 2
+          },
+          "leftOut": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Matched rows the collector took out, or whose deck sections do not count",
+            "example": 0
+          },
+          "copies": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Copies the ready rows add",
+            "example": 52
+          },
+          "items": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Inventory items the ready rows write, once rows that are equal are merged",
+            "example": 30
+          }
+        },
+        "required": [
+          "copies",
+          "items",
+          "leftOut",
+          "ready",
+          "rows",
+          "toChoose",
+          "unmatched"
+        ]
+      },
+      "CommitInventoryImportRequest": {
+        "type": "object",
+        "description": "How to commit a preview",
+        "properties": {
+          "skipUnresolved": {
+            "type": "boolean",
+            "default": false,
+            "description": "Leave out the rows that still need a printing instead of refusing the commit"
+          }
+        }
+      },
+      "BulkInventoryImportRequest": {
+        "type": "object",
+        "description": "A bulk action on a preview",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "USE_MOST_RECENT_PRINTING",
+              "SET_CONDITION"
+            ]
+          },
+          "condition": {
+            "type": "string",
+            "description": "Required for SET_CONDITION",
+            "example": "NEAR_MINT",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "InventoryImportBulkResponse": {
+        "type": "object",
+        "description": "The rows a bulk action changed and the preview with its new counts",
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "format": "int32",
+            "example": 7
+          },
+          "preview": {
+            "$ref": "#/components/schemas/InventoryImportResponse"
+          }
+        },
+        "required": [
+          "preview",
+          "updated"
+        ]
+      },
       "FakeDonationConfirmRequest": {
         "type": "object",
         "properties": {
@@ -37297,6 +38979,333 @@
           }
         }
       },
+      "UpdateInventoryImportRequest": {
+        "type": "object",
+        "description": "Which sections of a deck count; absent fields are unchanged",
+        "properties": {
+          "includeMain": {
+            "type": "boolean"
+          },
+          "includeExtra": {
+            "type": "boolean"
+          },
+          "includeSide": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateInventoryImportRowRequest": {
+        "type": "object",
+        "description": "Any subset of the fields; absent fields are unchanged. printingId null means \"to choose\" again; quantity null means the copies of the file",
+        "properties": {
+          "printingId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "condition": {
+            "type": "string",
+            "example": "NEAR_MINT",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "quantity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "maximum": 9999,
+            "minimum": 1
+          },
+          "included": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InventoryImportCard": {
+        "type": "object",
+        "description": "The card a row of an import is",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The card's picture (OrenjiTrade's own URL)"
+          }
+        },
+        "required": [
+          "game",
+          "id",
+          "name"
+        ]
+      },
+      "InventoryImportDeckCopies": {
+        "type": "object",
+        "description": "Copies per section of a deck",
+        "properties": {
+          "main": {
+            "type": "integer",
+            "format": "int32",
+            "example": 3
+          },
+          "extra": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          },
+          "side": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0
+          }
+        },
+        "required": [
+          "extra",
+          "main",
+          "side"
+        ]
+      },
+      "InventoryImportRow": {
+        "type": "object",
+        "description": "A row of an import preview",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Order in the file, from 0",
+            "example": 0
+          },
+          "status": {
+            "type": "string",
+            "description": "READY: a card and a printing. CHOOSE_PRINTING: a card, the printing is to choose. UNMATCHED: nothing in the catalog fits; never imported, never editable",
+            "enum": [
+              "READY",
+              "CHOOSE_PRINTING",
+              "UNMATCHED"
+            ]
+          },
+          "unmatchedReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the row is UNMATCHED",
+            "enum": [
+              "UNKNOWN_PASSCODE",
+              "UNKNOWN_CARD",
+              "AMBIGUOUS_CARD",
+              "UNKNOWN_GAME",
+              "NO_PRINTING",
+              "INVALID_QUANTITY",
+              "CARD_REMOVED"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/InventoryImportRowSource"
+          },
+          "deck": {
+            "type": "null",
+            "$ref": "#/components/schemas/InventoryImportDeckCopies",
+            "description": "YDK only: copies per section of the deck"
+          },
+          "card": {
+            "type": "null",
+            "$ref": "#/components/schemas/InventoryImportCard",
+            "description": "Null when UNMATCHED"
+          },
+          "printing": {
+            "type": "null",
+            "$ref": "#/components/schemas/PrintingSummary",
+            "description": "The printing chosen; null while to choose"
+          },
+          "printingChoice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "AUTO: the row fits exactly one printing. MANUAL: chosen for this row. MOST_RECENT: by the bulk action",
+            "enum": [
+              "AUTO",
+              "MANUAL",
+              "MOST_RECENT"
+            ]
+          },
+          "printingCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Printings of the card in the catalog (GET /cards/{id}/printings lists them)",
+            "example": 2
+          },
+          "suggestedPrintingIds": {
+            "type": "array",
+            "description": "CSV: the printings that fit what the row says, when that is fewer than all of them (at most 50); empty otherwise. Any printing of the card may be chosen",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "condition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null when UNMATCHED",
+            "example": "DAMAGED"
+          },
+          "conditionSource": {
+            "type": "string",
+            "description": "DEFAULT: the file names no condition, so the row has the lowest condition of the game until the collector says otherwise. FILE: from the file. EDITED: set for this row",
+            "enum": [
+              "DEFAULT",
+              "FILE",
+              "EDITED"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Language the item gets: the file's, else the printing's; null while neither is known",
+            "example": "en"
+          },
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Edition the item gets: the file's, else the printing's",
+            "example": "UNLIMITED"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Copies the row adds: the collector's number, else the copies of the file (YDK: of the sections that count)",
+            "example": 3
+          },
+          "fileQuantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Copies the file says (YDK: every section together); 0 when the file wrote no number",
+            "example": 3
+          },
+          "quantityEdited": {
+            "type": "boolean",
+            "description": "Whether the collector typed the copies of this row"
+          },
+          "included": {
+            "type": "boolean",
+            "description": "Whether the collector keeps the row in the import"
+          },
+          "inScope": {
+            "type": "boolean",
+            "description": "YDK: whether a section that counts holds the card (always true for a CSV)"
+          },
+          "willImport": {
+            "type": "boolean",
+            "description": "Whether a commit imports the row: READY, included, in scope"
+          },
+          "ownedQuantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Copies the caller already holds in an equal item (same printing, condition, edition and language): the commit raises that item instead of adding one",
+            "example": 0
+          }
+        },
+        "required": [
+          "conditionSource",
+          "fileQuantity",
+          "id",
+          "inScope",
+          "included",
+          "ownedQuantity",
+          "position",
+          "printingCount",
+          "quantity",
+          "quantityEdited",
+          "source",
+          "status",
+          "suggestedPrintingIds",
+          "willImport"
+        ]
+      },
+      "InventoryImportRowChange": {
+        "type": "object",
+        "description": "A changed row and the preview with its new counts",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/InventoryImportRow"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/InventoryImportResponse"
+          }
+        },
+        "required": [
+          "preview",
+          "row"
+        ]
+      },
+      "InventoryImportRowSource": {
+        "type": "object",
+        "description": "What the file says about a row: a passcode (YDK), or the card name, set, number and rarity as written (CSV). Never a price",
+        "properties": {
+          "passcode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "89631139"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "set": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Azure Dawn"
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "AZR-EN001"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Ultra Rare"
+          }
+        }
+      },
       "UpdateConversationRequest": {
         "type": "object",
         "properties": {
@@ -39555,6 +41564,82 @@
             "example": 7
           }
         }
+      },
+      "PageResponseInventoryImportRow": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/InventoryImportRow"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
+      },
+      "InventoryImportLimits": {
+        "type": "object",
+        "description": "What an import file may be (admin settings; the server enforces them)",
+        "properties": {
+          "ydkMaxBytes": {
+            "type": "integer",
+            "format": "int32",
+            "example": 102400
+          },
+          "ydkMaxLines": {
+            "type": "integer",
+            "format": "int32",
+            "example": 500
+          },
+          "csvMaxBytes": {
+            "type": "integer",
+            "format": "int32",
+            "example": 2097152
+          },
+          "csvMaxRows": {
+            "type": "integer",
+            "format": "int32",
+            "example": 5000
+          },
+          "previewTtlMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Minutes a preview is kept",
+            "example": 60
+          }
+        },
+        "required": [
+          "csvMaxBytes",
+          "csvMaxRows",
+          "previewTtlMinutes",
+          "ydkMaxBytes",
+          "ydkMaxLines"
+        ]
       },
       "FakeDonationCheckout": {
         "type": "object",
@@ -41942,6 +44027,10 @@
               "ALREADY_SUBSCRIBED",
               "INSUFFICIENT_CREDITS",
               "REFERRAL_NOT_ALLOWED",
+              "IMPORT_EXPIRED",
+              "IMPORT_ALREADY_COMMITTED",
+              "IMPORT_ROWS_UNRESOLVED",
+              "IMPORT_EMPTY",
               "CONFLICT",
               "HANDLE_TAKEN",
               "DELETION_BLOCKED",
@@ -42048,7 +44137,7 @@
           },
           "currentStatus": {
             "type": "string",
-            "description": "Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED)"
+            "description": "Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED, IMPORT_ALREADY_COMMITTED)"
           },
           "subscriptionId": {
             "type": "string",
@@ -42067,7 +44156,29 @@
           },
           "reason": {
             "type": "string",
-            "description": "Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT"
+            "description": "Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT. Why an inventory import file was refused (POST /inventory/imports): TOO_LARGE, NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED, NO_CARDS"
+          },
+          "fileLimit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The limit an inventory import file passed: bytes (reason TOO_LARGE), lines (TOO_MANY_LINES) or rows (TOO_MANY_ROWS)"
+          },
+          "missingColumns": {
+            "type": "array",
+            "description": "The columns an inventory import file lacks (reason MISSING_COLUMNS), e.g. card name",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unresolved": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rows of an inventory import that still need a printing (IMPORT_ROWS_UNRESOLVED)"
+          },
+          "requested": {
+            "type": "integer",
+            "format": "int64",
+            "description": "New inventory items an import would add (LIMIT_REACHED with limitKey inventory.items.max)"
           }
         },
         "required": [

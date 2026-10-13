@@ -39,6 +39,8 @@ import { FreshnessJobResponse } from '../model/freshnessJobResponse';
 // @ts-ignore
 import { InternalCardImageCacheStatus } from '../model/internalCardImageCacheStatus';
 // @ts-ignore
+import { InventoryImportPurgeJobResponse } from '../model/inventoryImportPurgeJobResponse';
+// @ts-ignore
 import { OfferExpiryJobResponse } from '../model/offerExpiryJobResponse';
 // @ts-ignore
 import { PaymentsAutoReleaseJobResult } from '../model/paymentsAutoReleaseJobResult';
@@ -726,7 +728,7 @@ export class InternalService extends BaseService implements InternalServiceInter
 
     /**
      * Recompute listing freshness (service auth)
-     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.
+     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes a listing. Records a job run. The same trigger then runs the inventory-import-purge job (expired import previews), as a job run of its own.
      * @endpoint post /internal/jobs/freshness
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
@@ -772,6 +774,66 @@ export class InternalService extends BaseService implements InternalServiceInter
         let localVarPath = `/internal/jobs/freshness`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<FreshnessJobResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Delete expired inventory import previews (service auth)
+     * Deletes the import previews past their time to live (inventory.import.preview_ttl_minutes), the results of finished imports past the same time, and commits nobody finished for 7 days. Never touches the inventory. Records a job run. The hourly freshness job runs it too; this route is for a run on request.
+     * @endpoint post /internal/jobs/inventory-import-purge
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public runInventoryImportPurgeJob(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<InventoryImportPurgeJobResponse>;
+    public runInventoryImportPurgeJob(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<InventoryImportPurgeJobResponse>>;
+    public runInventoryImportPurgeJob(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<InventoryImportPurgeJobResponse>>;
+    public runInventoryImportPurgeJob(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        // authentication (serviceToken) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('serviceToken', 'X-Service-Token', localVarHeaders);
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/internal/jobs/inventory-import-purge`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<InventoryImportPurgeJobResponse>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
