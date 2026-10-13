@@ -3,6 +3,8 @@ package com.orenjitrade.api.cards.infra;
 import com.orenjitrade.api.cards.domain.CardSearchCriteria;
 import com.orenjitrade.api.cards.domain.CardSuggestion;
 import com.orenjitrade.api.cards.domain.CardSummary;
+import com.orenjitrade.api.cards.domain.CatalogCardRef;
+import com.orenjitrade.api.cards.domain.CatalogPrintingRef;
 import com.orenjitrade.api.cards.domain.CatalogText;
 import com.orenjitrade.api.cards.domain.MarketPrice;
 import com.orenjitrade.api.cards.domain.PrintingImage;
@@ -728,6 +730,206 @@ public class CatalogQueryRepository {
                 .param("gameId", gameId, java.sql.Types.OTHER)
                 .query(UUID.class)
                 .list();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Grouped lookups (inventory import: one query per batch of file rows, never one per row)
+    // ---------------------------------------------------------------------------------------
+
+    /** Rows of one {@code IN (...)} list (far below the 65 535 parameters of a statement). */
+    static final int LOOKUP_BATCH = 1000;
+
+    private static final String REF_COLUMNS =
+            """
+            p.id, p.card_id, g.slug AS game, s.code AS set_code, s.name AS set_name,
+            s.release_date, p.collector_number, p.printing_code, p.rarity, p.edition, p.language,
+            p.finish
+            """;
+
+    /**
+     * Cards of ACTIVE games whose provider identity ({@code external_ref}) is one of {@code
+     * externalIds}, by that id (index {@code uq_card_external_ref}).
+     */
+    public Map<String, CatalogCardRef> cardsByExternalIds(
+            String provider, Collection<String> externalIds) {
+        Map<String, CatalogCardRef> result = new LinkedHashMap<>();
+        for (List<String> batch : batches(externalIds)) {
+            jdbc.sql(
+                            """
+                            SELECT c.id, g.slug AS game, c.name, c.external_ref ->> 'id' AS ref
+                              FROM card c JOIN game g ON g.id = c.game_id
+                             WHERE c.external_ref ->> 'provider' = :provider
+                               AND c.external_ref ->> 'id' IN (:ids) AND g.status = 'ACTIVE'
+                            """)
+                    .param("provider", provider)
+                    .param("ids", batch)
+                    .query(
+                            rs -> {
+                                result.put(rs.getString("ref"), cardRef(rs));
+                            });
+        }
+        return result;
+    }
+
+    /**
+     * Cards of ACTIVE games that own the provider artwork {@code provider_image_id}, by that id
+     * (index {@code uq_card_image_provider}): an alternate artwork has its own id at the provider.
+     */
+    public Map<String, CatalogCardRef> cardsByProviderImageIds(
+            String provider, Collection<String> imageIds) {
+        Map<String, CatalogCardRef> result = new LinkedHashMap<>();
+        for (List<String> batch : batches(imageIds)) {
+            jdbc.sql(
+                            """
+                            SELECT c.id, g.slug AS game, c.name, i.provider_image_id AS ref
+                              FROM card_image i
+                              JOIN card c ON c.id = i.card_id
+                              JOIN game g ON g.id = c.game_id
+                             WHERE i.provider = :provider AND i.provider_image_id IN (:ids)
+                               AND g.status = 'ACTIVE'
+                            """)
+                    .param("provider", provider)
+                    .param("ids", batch)
+                    .query(
+                            rs -> {
+                                result.put(rs.getString("ref"), cardRef(rs));
+                            });
+        }
+        return result;
+    }
+
+    /**
+     * Cards of the given (ACTIVE) games by normalised name ({@code card.normalized_name}, index
+     * {@code ix_card_game_name}); a name can belong to several cards (one per game, or reprints an
+     * admin entered twice).
+     */
+    public Map<String, List<CatalogCardRef>> cardsByNormalisedNames(
+            Collection<UUID> gameIds, Collection<String> names) {
+        Map<String, List<CatalogCardRef>> result = new LinkedHashMap<>();
+        if (gameIds.isEmpty()) {
+            return result;
+        }
+        for (List<String> batch : batches(names)) {
+            jdbc.sql(
+                            """
+                            SELECT c.id, g.slug AS game, c.name, c.normalized_name
+                              FROM card c JOIN game g ON g.id = c.game_id
+                             WHERE c.game_id IN (:gameIds) AND c.normalized_name IN (:names)
+                               AND g.status = 'ACTIVE'
+                             ORDER BY g.sort_order, c.id
+                            """)
+                    .param("gameIds", gameIds)
+                    .param("names", batch)
+                    .query(
+                            rs -> {
+                                result.computeIfAbsent(
+                                                rs.getString("normalized_name"),
+                                                name -> new ArrayList<>())
+                                        .add(cardRef(rs));
+                            });
+        }
+        return result;
+    }
+
+    /**
+     * Printings of ACTIVE games of the given cards, by card: the most recent set first (release
+     * date, unknown dates last), then code and id, so the first of a list is "the most recent
+     * printing" and the order never changes between two calls.
+     */
+    public Map<UUID, List<CatalogPrintingRef>> printingRefsOfCards(Collection<UUID> cardIds) {
+        Map<UUID, List<CatalogPrintingRef>> result = new LinkedHashMap<>();
+        for (List<UUID> batch : batches(cardIds)) {
+            jdbc.sql(
+                            "SELECT "
+                                    + REF_COLUMNS
+                                    + PRINTING_FROM
+                                    + " WHERE p.card_id IN (:ids) AND g.status = 'ACTIVE'"
+                                    + " ORDER BY p.card_id, s.release_date DESC NULLS LAST,"
+                                    + " p.printing_code NULLS LAST, p.collector_number, p.edition,"
+                                    + " p.language, p.finish, p.id")
+                    .param("ids", batch)
+                    .query(
+                            rs -> {
+                                CatalogPrintingRef ref = printingRef(rs);
+                                result.computeIfAbsent(ref.cardId(), id -> new ArrayList<>())
+                                        .add(ref);
+                            });
+        }
+        return result;
+    }
+
+    /** Printings of ACTIVE games by exact printing code (upper-case), by code. */
+    public Map<String, List<CatalogPrintingRef>> printingRefsByCodes(Collection<String> codes) {
+        Map<String, List<CatalogPrintingRef>> result = new LinkedHashMap<>();
+        for (List<String> batch : batches(codes)) {
+            jdbc.sql(
+                            "SELECT "
+                                    + REF_COLUMNS
+                                    + PRINTING_FROM
+                                    + " WHERE p.printing_code IN (:codes) AND g.status = 'ACTIVE'"
+                                    + " ORDER BY p.printing_code, s.release_date DESC NULLS LAST,"
+                                    + " p.id")
+                    .param("codes", batch)
+                    .query(
+                            rs -> {
+                                CatalogPrintingRef ref = printingRef(rs);
+                                result.computeIfAbsent(
+                                                Objects.requireNonNull(ref.printingCode()),
+                                                code -> new ArrayList<>())
+                                        .add(ref);
+                            });
+        }
+        return result;
+    }
+
+    /** Printings of ACTIVE games by id; unknown ids and hidden games are absent. */
+    public Map<UUID, CatalogPrintingRef> printingRefs(Collection<UUID> ids) {
+        Map<UUID, CatalogPrintingRef> result = new LinkedHashMap<>();
+        for (List<UUID> batch : batches(ids)) {
+            jdbc.sql(
+                            "SELECT "
+                                    + REF_COLUMNS
+                                    + PRINTING_FROM
+                                    + " WHERE p.id IN (:ids) AND g.status = 'ACTIVE'")
+                    .param("ids", batch)
+                    .query(
+                            rs -> {
+                                CatalogPrintingRef ref = printingRef(rs);
+                                result.put(ref.id(), ref);
+                            });
+        }
+        return result;
+    }
+
+    private static <T> List<List<T>> batches(Collection<T> values) {
+        List<T> distinct = values.stream().filter(Objects::nonNull).distinct().toList();
+        List<List<T>> batches = new ArrayList<>();
+        for (int from = 0; from < distinct.size(); from += LOOKUP_BATCH) {
+            batches.add(distinct.subList(from, Math.min(distinct.size(), from + LOOKUP_BATCH)));
+        }
+        return batches;
+    }
+
+    private static CatalogCardRef cardRef(ResultSet rs) throws SQLException {
+        return new CatalogCardRef(
+                rs.getObject("id", UUID.class), rs.getString("game"), rs.getString("name"));
+    }
+
+    private static CatalogPrintingRef printingRef(ResultSet rs) throws SQLException {
+        Date release = rs.getDate("release_date");
+        return new CatalogPrintingRef(
+                rs.getObject("id", UUID.class),
+                rs.getObject("card_id", UUID.class),
+                rs.getString("game"),
+                rs.getString("set_code"),
+                rs.getString("set_name"),
+                release == null ? null : release.toLocalDate(),
+                rs.getString("collector_number"),
+                rs.getString("printing_code"),
+                rs.getString("rarity"),
+                rs.getString("edition"),
+                rs.getString("language"),
+                rs.getString("finish"));
     }
 
     // ---------------------------------------------------------------------------------------
