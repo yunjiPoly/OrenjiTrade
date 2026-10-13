@@ -20,6 +20,58 @@ const AUTHORIZATION = 'Authorization';
 export const API_BASE_URL = appConfig.apiBaseUrl;
 
 /**
+ * How long a read waits for its answer. A server that accepts the connection and then says
+ * nothing (a hung network, a proxy that stalls) otherwise leaves a screen on its skeleton for
+ * minutes: the platform's own timeout is a minute or more, and the query tries three times.
+ */
+export const READ_TIMEOUT_MS = 20_000;
+
+/**
+ * Gives a read (`GET`, `HEAD`) up after `timeoutMs` without an answer: the request is aborted and
+ * fails as a network `ApiError` (`isTimeout`), so its screen reaches the error state with "Try
+ * again". Writes are left alone: an upload may rightly take longer, and a form shows that it is
+ * busy by itself.
+ */
+export function withReadTimeout(
+  fetchImpl: typeof globalThis.fetch,
+  timeoutMs: number = READ_TIMEOUT_MS
+): typeof globalThis.fetch {
+  return (input, init) => {
+    const request = typeof input === 'object' && 'method' in input ? input : null;
+    const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD') {
+      return fetchImpl(input, init);
+    }
+    const controller = new AbortController();
+    // A caller that cancels the request itself still cancels it.
+    const outer = init?.signal ?? request?.signal ?? null;
+    if (outer?.aborted) {
+      controller.abort();
+    } else {
+      outer?.addEventListener?.('abort', () => controller.abort(), { once: true });
+    }
+    return new Promise<Response>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        // Rejected here, not by the aborted request: the answer must not depend on how a
+        // platform's `fetch` reports an abort.
+        reject(ApiError.timeout(timeoutMs, request?.headers.get(REQUEST_ID_HEADER) ?? null));
+        controller.abort();
+      }, timeoutMs);
+      fetchImpl(input, { ...init, signal: controller.signal }).then(
+        (response) => {
+          clearTimeout(timer);
+          resolve(response);
+        },
+        (error: unknown) => {
+          clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
+  };
+}
+
+/**
  * A fresh UUID: the `X-Request-Id` of every call, and the `Idempotency-Key` a form keeps for
  * its lifetime (a double submit or a retry after a lost answer repeats the first answer).
  */
@@ -197,6 +249,8 @@ export interface CreateApiClientOptions {
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
   tokenSource?: (forceRefresh: boolean) => Promise<string | null>;
+  /** How long a read waits for its answer (default `READ_TIMEOUT_MS`). */
+  readTimeoutMs?: number;
 }
 
 export type ApiClient = SharedApiClient;
@@ -206,13 +260,13 @@ const lazyGlobalFetch: typeof globalThis.fetch = (input, init) => globalThis.fet
 
 /**
  * Builds a typed client (`packages/shared-types` + openapi-fetch): `X-Request-Id` from
- * `expo-crypto`, the session's ID token, RFC 9457 errors mapped to `ApiError`. Middleware order
- * matters: responses run through them in reverse, so the auth retry sees a 401 before the error
- * mapping throws it.
+ * `expo-crypto`, the session's ID token, RFC 9457 errors mapped to `ApiError`, reads given up
+ * after `READ_TIMEOUT_MS` without an answer. Middleware order matters: responses run through
+ * them in reverse, so the auth retry sees a 401 before the error mapping throws it.
  */
 export function createApiClient(options: CreateApiClientOptions = {}): ApiClient {
   const client = createSharedApiClient(options.baseUrl ?? API_BASE_URL, undefined, {
-    fetch: options.fetch ?? lazyGlobalFetch,
+    fetch: withReadTimeout(options.fetch ?? lazyGlobalFetch, options.readTimeoutMs),
     headers: { Accept: 'application/json, application/problem+json' },
     requestId: newRequestId,
   });

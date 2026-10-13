@@ -59,6 +59,11 @@ export class ApiError extends Error implements SharedApiError {
     return this.status === 0 && this.errorCode === NETWORK_ERROR_CODE;
   }
 
+  /** True when the app gave a request up because no answer came in time (see `withReadTimeout`). */
+  get isTimeout(): boolean {
+    return this.isNetworkError && this.cause instanceof RequestTimeout;
+  }
+
   get isServerError(): boolean {
     return this.status >= 500 && this.status <= 599;
   }
@@ -144,6 +149,11 @@ export class ApiError extends Error implements SharedApiError {
     });
   }
 
+  /** A request given up after `timeoutMs` without an answer: a network error like any other. */
+  static timeout(timeoutMs: number, requestId: string | null = null): ApiError {
+    return ApiError.network(new RequestTimeout(timeoutMs), requestId);
+  }
+
   /** A 2xx answer without the body the contract promises (never expected in practice). */
   static emptyResponse(): ApiError {
     return new ApiError({
@@ -151,6 +161,14 @@ export class ApiError extends Error implements SharedApiError {
       errorCode: EMPTY_RESPONSE_CODE,
       message: 'The server sent an empty answer.',
     });
+  }
+}
+
+/** Why a request was given up: the server did not answer within `timeoutMs`. */
+export class RequestTimeout extends Error {
+  override readonly name = 'RequestTimeout';
+  constructor(readonly timeoutMs: number) {
+    super(`No answer after ${timeoutMs} ms`);
   }
 }
 

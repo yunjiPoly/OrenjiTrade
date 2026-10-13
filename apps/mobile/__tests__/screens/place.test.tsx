@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import PlaceBindersScreen from '@/app/regions/[region]/[code]';
 import { placeBinderLabel } from '@/src/features/map/PlaceBinderRow';
@@ -158,7 +158,13 @@ describe('The public binders of a state or province', () => {
 
     fireEvent(list, 'endReached');
     // The second page fails once: the list keeps what it has and its footer offers a retry.
-    fireEvent.press(await screen.findByTestId('place-more-retry'));
+    const retry = await screen.findByTestId('place-more-retry');
+    // Reaching the end again asks nothing by itself (a list that stays at its end would ask a
+    // failing server over and over): only "Try again" does.
+    fireEvent(list, 'endReached');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(api.callsTo(BINDERS)).toHaveLength(2);
+    fireEvent.press(retry);
     expect(await screen.findByTestId(`place-binder-${SECOND_BINDER}`)).toBeOnTheScreen();
     expect(screen.getByTestId(`place-binder-${PUBLIC_BINDER_ID}`)).toBeOnTheScreen();
 
@@ -175,6 +181,77 @@ describe('The public binders of a state or province', () => {
     fireEvent(list, 'endReached');
     await waitFor(() => expect(screen.queryByTestId('place-more-loading')).toBeNull());
     expect(api.callsTo(BINDERS)).toHaveLength(4);
+  });
+
+  it('asks for the binders and the count of the region in its address, whatever the collector calls home', async () => {
+    // Brittany, opened while browsing Europe by a collector of Americas (North).
+    mockParams.current = { region: 'europe', code: 'FR-BRE' };
+    const api = mockApi(
+      routes({
+        'GET /api/v1/regions/{region}/binder-counts': (request) =>
+          ok(
+            request.path.includes('/europe/')
+              ? binderCountsFixture({
+                  region: 'europe',
+                  total: 1,
+                  subdivisions: [{ code: 'FR-BRE', binderCount: 1 }],
+                })
+              : binderCountsFixture()
+          ),
+        [BINDERS]: (request) => {
+          if (!request.path.includes('/europe/')) {
+            return problem(404, 'NOT_FOUND', 'Not in this region');
+          }
+          return request.query.get('cursor') === null
+            ? ok(placeBindersPage([quebecBinder({ name: 'Breton binder' })], 'cursor-2'))
+            : ok(placeBindersPage([quebecBinder({ id: SECOND_BINDER, name: 'Second binder' })]));
+        },
+      })
+    );
+    render();
+    expect(await screen.findByText(/Breton binder/)).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Brittany, France' })).toBeOnTheScreen();
+    expect(screen.getByText('Europe')).toBeOnTheScreen();
+    expect(await screen.findByTestId('place-count')).toHaveTextContent('1 public binder');
+    // The next page too.
+    fireEvent(screen.getByTestId('place-binders'), 'endReached');
+    await waitFor(() => expect(api.callsTo(BINDERS)).toHaveLength(2));
+    expect(api.callsTo(BINDERS).map((call) => call.path)).toEqual([
+      '/api/v1/regions/europe/subdivisions/FR-BRE/binders',
+      '/api/v1/regions/europe/subdivisions/FR-BRE/binders',
+    ]);
+    expect(
+      api.callsTo('GET /api/v1/regions/{region}/binder-counts').map((call) => call.path)
+    ).toEqual(['/api/v1/regions/europe/binder-counts']);
+  });
+
+  it('reaches its error state, with a retry, when the server never answers', async () => {
+    jest.useFakeTimers();
+    try {
+      const api = mockApi(
+        routes({
+          // Accepted, then nothing: a hung network.
+          [BINDERS]: [
+            () => new Promise<never>(() => undefined),
+            ok(placeBindersPage([quebecBinder()])),
+          ],
+        })
+      );
+      render();
+      expect(await screen.findByTestId('place-loading')).toBeOnTheScreen();
+      await act(() => jest.advanceTimersByTimeAsync(19_000));
+      expect(screen.getByTestId('place-loading')).toBeOnTheScreen();
+      await act(() => jest.advanceTimersByTimeAsync(1_100));
+      // Not "offline": the request left and nothing came back in time.
+      expect(await screen.findByTestId('place-error')).toHaveTextContent(
+        /No answer from OrenjiTrade.*This is taking too long\. Check your connection and try again\./
+      );
+      fireEvent.press(screen.getByTestId('place-error-retry'));
+      expect(await screen.findByTestId(`place-binder-${PUBLIC_BINDER_ID}`)).toBeOnTheScreen();
+      expect(api.callsTo(BINDERS)).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('says so when a place has no public binder', async () => {

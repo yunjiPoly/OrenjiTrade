@@ -1,6 +1,7 @@
-import { ApiError, NETWORK_ERROR_CODE } from '@/src/api/ApiError';
+import { ApiError, NETWORK_ERROR_CODE, RequestTimeout } from '@/src/api/ApiError';
 import { clearAccountSignal, useAccountSignalStore } from '@/src/api/accountSignal';
 import {
+  READ_TIMEOUT_MS,
   REQUEST_ID_HEADER,
   absoluteApiUrl,
   createApiClient,
@@ -9,6 +10,7 @@ import {
   required,
   sendsIdToken,
 } from '@/src/api/client';
+import { shouldRetryQuery } from '@/src/api/queryClient';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { setSignedIn } from '@/src/auth/tokenProvider';
 
@@ -302,6 +304,81 @@ describe('api client', () => {
     expect(error.errorCode).toBe(NETWORK_ERROR_CODE);
     expect(error.isNetworkError).toBe(true);
     expect(error.cause).toBeInstanceOf(TypeError);
+  });
+});
+
+describe('a server that does not answer', () => {
+  /** A `fetch` that accepts the request and never answers (a hung network, a stalled proxy). */
+  const silent = jest.fn<Promise<Response>, [Request, RequestInit | undefined]>(
+    () => new Promise<Response>(() => undefined)
+  );
+  const client = createApiClient({
+    baseUrl: 'http://api.test/',
+    fetch: silent as unknown as typeof fetch,
+    tokenSource: async () => null,
+  });
+
+  beforeEach(() => {
+    silent.mockClear();
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('gives a read up after twenty seconds, as a network error with the request id', async () => {
+    expect(READ_TIMEOUT_MS).toBe(20_000);
+    let settled: unknown = 'pending';
+    const call = client.GET('/api/v1/meta').catch((caught: unknown) => {
+      settled = caught;
+      return caught;
+    });
+    await jest.advanceTimersByTimeAsync(READ_TIMEOUT_MS - 1);
+    expect(settled).toBe('pending');
+    const signal = silent.mock.calls[0]?.[1]?.signal;
+    expect(signal?.aborted).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(1);
+    const error = (await call) as ApiError;
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.errorCode).toBe(NETWORK_ERROR_CODE);
+    expect(error.isNetworkError).toBe(true);
+    expect(error.isTimeout).toBe(true);
+    expect(error.cause).toBeInstanceOf(RequestTimeout);
+    expect(error.message).toMatch(/Could not reach OrenjiTrade/);
+    expect(error.requestId).toBe(silent.mock.calls[0]?.[0].headers.get(REQUEST_ID_HEADER));
+    // The request itself is let go of.
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it('does not try such a read again by itself: the screen shows its error and "Try again"', () => {
+    const timedOut = ApiError.timeout(READ_TIMEOUT_MS);
+    expect(shouldRetryQuery(0, timedOut)).toBe(false);
+    // A failed connection is tried twice more, a 4xx never, a 5xx twice.
+    const refused = ApiError.network(new TypeError('Network request failed'));
+    expect(refused.isTimeout).toBe(false);
+    expect(shouldRetryQuery(0, refused)).toBe(true);
+    expect(shouldRetryQuery(1, refused)).toBe(true);
+    expect(shouldRetryQuery(2, refused)).toBe(false);
+    expect(shouldRetryQuery(0, ApiError.fromProblem(404, { errorCode: 'NOT_FOUND' }))).toBe(false);
+    expect(shouldRetryQuery(0, ApiError.fromProblem(503, {}))).toBe(true);
+  });
+
+  it('leaves a write alone (an upload may take longer), and an answer in time untouched', async () => {
+    let settled = 'pending';
+    void client.POST('/api/v1/users/{id}/block', { params: { path: { id: 'u1' } }, body: {} }).then(
+      () => (settled = 'answered'),
+      () => (settled = 'failed')
+    );
+    await jest.advanceTimersByTimeAsync(10 * READ_TIMEOUT_MS);
+    expect(settled).toBe('pending');
+    expect(silent.mock.calls[0]?.[1]?.signal).toBeUndefined();
+
+    silent.mockImplementationOnce(async () => jsonResponse(META, 200));
+    const { data } = await client.GET('/api/v1/meta');
+    expect(data).toEqual(META);
+    // Its timer is gone with the answer: nothing fires later.
+    expect(jest.getTimerCount()).toBe(0);
   });
 });
 

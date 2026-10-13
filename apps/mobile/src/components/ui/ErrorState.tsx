@@ -39,7 +39,11 @@ export function ErrorState({
 }: ErrorStateProps) {
   const { palette } = useTheme();
   const apiError = isApiError(error) ? error : null;
-  const resolvedTitle = apiError?.isNetworkError ? 'You appear to be offline' : title;
+  const resolvedTitle = apiError?.isTimeout
+    ? 'No answer from OrenjiTrade'
+    : apiError?.isNetworkError
+      ? 'You appear to be offline'
+      : title;
 
   return (
     <View
