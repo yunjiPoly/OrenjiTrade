@@ -68,6 +68,21 @@ describe('Inventory tab', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
   });
 
+  it('opens the import of a deck file or a CSV export, also from an empty inventory', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([])),
+        'GET /api/v1/inventory/summary': ok(summaryFixture({ totalItems: 0, totalQuantity: 0 })),
+      })
+    );
+    render();
+    expect(await screen.findByText('Your inventory is empty')).toBeOnTheScreen();
+    // Nothing to select yet, but a file can be imported.
+    expect(screen.queryByTestId('inventory-select')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Import cards from a file' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/items/import');
+  });
+
   it('filters by binder, game and intent, sorts and searches', async () => {
     const api = mockApi(signedInRoutes());
     render();
