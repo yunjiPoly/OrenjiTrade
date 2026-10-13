@@ -132,6 +132,50 @@ public final class InventoryChanges {
      */
     public record BulkResult(int updated, List<Skipped> skipped) {}
 
+    /**
+     * What makes two copies one inventory item for an import: the printing, the condition, the
+     * edition and the language (owner spec 2026-10-08, section 6).
+     *
+     * @param printingId printing
+     * @param condition condition code
+     * @param edition edition code of the copy
+     * @param language language of the copy
+     */
+    public record MergeKey(UUID printingId, String condition, String edition, String language) {}
+
+    /**
+     * One line of an import, validated and normalised by the caller: the copies to add to the
+     * owner's equal item, or a new PRIVATE unfiled item when there is none.
+     *
+     * @param printingId printing (of an ACTIVE game)
+     * @param condition condition code of the game
+     * @param language language of the copy
+     * @param edition edition of the copy
+     * @param finish finish (the printing's)
+     * @param quantity copies, 1-9999
+     */
+    public record ImportLine(
+            UUID printingId,
+            String condition,
+            String language,
+            String edition,
+            String finish,
+            int quantity) {
+
+        public MergeKey key() {
+            return new MergeKey(printingId, condition, edition, language);
+        }
+    }
+
+    /**
+     * What a chunk of an import wrote.
+     *
+     * @param created new items
+     * @param merged existing items whose quantity was raised
+     * @param copies copies added (fewer than asked when an item reached 9 999)
+     */
+    public record ImportOutcome(int created, int merged, int copies) {}
+
     /** Sort keys of the owner's inventory list. */
     public enum SortKey {
         UPDATED,

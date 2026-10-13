@@ -265,7 +265,7 @@ public class OpenApiConfig {
                         .description(
                                 "Current status of the resource when a state conflicts"
                                         + " (INVALID_STATE_TRANSITION, CONFLICT,"
-                                        + " ALREADY_SUBSCRIBED)"));
+                                        + " ALREADY_SUBSCRIBED, IMPORT_ALREADY_COMMITTED)"));
         schema.addProperty(
                 "subscriptionId",
                 new StringSchema()
@@ -287,7 +287,37 @@ public class OpenApiConfig {
                         .description(
                                 "Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED):"
                                         + " SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD,"
-                                        + " REFERRER_LIMIT"));
+                                        + " REFERRER_LIMIT. Why an inventory import file was"
+                                        + " refused (POST /inventory/imports): TOO_LARGE,"
+                                        + " NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS,"
+                                        + " MISSING_COLUMNS, MALFORMED, NO_CARDS"));
+        schema.addProperty(
+                "fileLimit",
+                new IntegerSchema()
+                        .description(
+                                "The limit an inventory import file passed: bytes (reason"
+                                        + " TOO_LARGE), lines (TOO_MANY_LINES) or rows"
+                                        + " (TOO_MANY_ROWS)"));
+        schema.addProperty(
+                "missingColumns",
+                new ArraySchema()
+                        .items(new StringSchema())
+                        .description(
+                                "The columns an inventory import file lacks (reason"
+                                        + " MISSING_COLUMNS), e.g. card name"));
+        schema.addProperty(
+                "unresolved",
+                new IntegerSchema()
+                        .description(
+                                "Rows of an inventory import that still need a printing"
+                                        + " (IMPORT_ROWS_UNRESOLVED)"));
+        schema.addProperty(
+                "requested",
+                new IntegerSchema()
+                        .format("int64")
+                        .description(
+                                "New inventory items an import would add (LIMIT_REACHED with"
+                                        + " limitKey inventory.items.max)"));
         schema.required(
                 List.of(
                         "type",

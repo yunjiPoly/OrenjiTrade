@@ -344,7 +344,9 @@ class LimitsIT extends AbstractIntegrationTest {
         assertThat(plans.get(0).path("limits").get(0).has("id")).isTrue();
         JsonNode freeLimits =
                 callJson(HttpMethod.GET, "/api/v1/admin/usage-limits?plan=FREE", admin, null, 200);
-        assertThat(freeLimits.size()).isEqualTo(6);
+        // Six limits with a number or a window of their own, and inventory.items.max (V113),
+        // which no plan gives a number yet.
+        assertThat(freeLimits.size()).isEqualTo(7);
         freeLimits.forEach(
                 limit -> assertThat(limit.path("planCode").asString()).isEqualTo("FREE"));
         callJson(HttpMethod.GET, "/api/v1/admin/usage-limits?plan=free", admin, null, 400);

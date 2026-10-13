@@ -179,8 +179,17 @@ public class InventoryController {
                             + " NEAR_MINT (must be one of the game's conditions); currency to CAD."
                             + " Visibility defaults to PUBLIC inside a binder (the binder decides"
                             + " whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs"
-                            + " `publicUntil` at most 30 days ahead.")
+                            + " `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey"
+                            + " `inventory.items.max`) beyond the plan's inventory size; no plan"
+                            + " has a number for it today.")
     @ApiResponse(responseCode = "201", description = "Created")
+    @ApiResponse(
+            responseCode = "429",
+            description = "LIMIT_REACHED (`inventory.items.max`) or RATE_LIMITED",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
     @ApiResponse(
             responseCode = "400",
             description = "VALIDATION_FAILED",

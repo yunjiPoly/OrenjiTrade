@@ -1,11 +1,13 @@
 package com.orenjitrade.api.inventory.infra;
 
+import com.orenjitrade.api.billing.domain.LimitUsageSource;
 import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.ItemImage;
 import com.orenjitrade.api.inventory.domain.ItemRow;
 import com.orenjitrade.api.inventory.domain.ListingReconciler;
+import com.orenjitrade.api.inventory.domain.imports.InventoryImportService;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
 import java.time.Instant;
@@ -19,13 +21,30 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
 /**
- * The inventory module's implementations of other modules' extension points: the binders' {@link
+ * The inventory module's implementations of other modules' extension points: the {@code
+ * inventory.items.max} usage ({@link LimitUsageSource}, read straight from the repository so the
+ * limits service does not depend on the inventory service that uses it), the binders' {@link
  * BinderContents}, the deletion participant (a deletion request hides the owner's public inventory
- * at once, a cancellation restores it, the purge deletes items and photos) and the owner's export
- * section {@code inventory} (private notes included: it is the owner's own data).
+ * at once, a cancellation restores it, the purge deletes items, photos and import previews) and the
+ * owner's export section {@code inventory} (private notes included: it is the owner's own data).
  */
 @Configuration(proxyBeanMethods = false)
 public class InventoryExtensions {
+
+    @Bean
+    LimitUsageSource inventoryItemsMaxUsageSource(InventoryItemRepository repository) {
+        return new LimitUsageSource() {
+            @Override
+            public boolean supports(String limitKey) {
+                return InventoryService.INVENTORY_ITEMS_MAX.equals(limitKey);
+            }
+
+            @Override
+            public long currentUsage(UUID userId, String limitKey) {
+                return repository.countLive(userId);
+            }
+        };
+    }
 
     @Bean
     BinderContents inventoryBinderContents(
@@ -62,7 +81,9 @@ public class InventoryExtensions {
     @Bean
     @Order(400)
     DeletionParticipant inventoryDeletionParticipant(
-            InventoryService inventoryService, ListingReconciler reconciler) {
+            InventoryService inventoryService,
+            ListingReconciler reconciler,
+            InventoryImportService importService) {
         return new DeletionParticipant() {
             @Override
             public String name() {
@@ -81,6 +102,7 @@ public class InventoryExtensions {
 
             @Override
             public void purge(UUID userId) {
+                importService.purge(userId);
                 inventoryService.purge(userId);
             }
         };

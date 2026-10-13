@@ -30,7 +30,9 @@ public class FreshnessJobController {
                         + " items and binders are re-derived from confirmedAt and the active delist"
                         + " policy; public listings entering the warning window are warned once;"
                         + " hidden listings stop being public (InventoryItemUnpublished). Never"
-                        + " deletes. Records a job run.")
+                        + " deletes a listing. Records a job run. The same trigger then runs the"
+                        + " inventory-import-purge job (expired import previews), as a job run of"
+                        + " its own.")
     public FreshnessJobResponse run() {
         FreshnessService.Result result = job.run();
         return new FreshnessJobResponse(
