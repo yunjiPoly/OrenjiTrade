@@ -3521,6 +3521,46 @@ deleting a card right after changing a privacy setting.
     key-share lock on a binder the reconciliation held. "deadlock detected" on the branch, fine on
     `main`. The admin hide now takes the owner lock and the binder like every item write.
   The redundant `binder-create` advisory lock is removed (the owner lock covers it).
+- **Final review (2026-10-13) and its one fix** (branch `fix/inventory-lock-order`: this branch
+  merged with `main` of 2026-10-13). The third, independent review found no regression introduced
+  by the branch: in its stress, twelve kinds of write side by side, eleven runs of the branch
+  ended without a deadlock, where `main` ended its two runs with 77 and 72. It found one corner
+  still open, older than the branch and narrower on it than on `main`:
+  `DELETE /api/v1/binders/{id}?deleteItems=true` could answer 500 ("deadlock detected") next to
+  the job when the binder held an item deleted earlier. Such an item keeps its `binder_id`, the
+  delete locks only the live items, and its `DELETE` reaches the deleted one through
+  `ON DELETE SET NULL` with the full row lock of the binder in hand; a job that had written that
+  row twice in its run (its expired temporary publication, then a listed flag left on it) asked
+  for a key-share lock on the binder at the second write.
+  - **Fix, one line:** the locking query of `InventoryItemRepository.normaliseExpired` takes live
+    items only (`AND deleted_at IS NULL`). The job then writes a deleted item at most once per run
+    and never re-checks that row's foreign keys. Nothing reads the visibility or `public_until` of
+    a deleted item (public reads, counts, admin lists, the export, the wishlist alert rules, the
+    purge and the seed were checked); such a row now keeps its expired `TEMPORARILY_PUBLIC` until
+    the account is purged.
+  - **Test:**
+    `InventoryLockOrderIT.aBinderDeleteNeverDeadlocksWithTheFreshnessJobOverAnItemDeletedEarlier`,
+    both delete modes; with its items it failed with that deadlock before the fix. The class has
+    79 tests now. `BinderRepository.delete`, `FreshnessService` and schema.md said more than was
+    true about this path and are corrected.
+  - **Follow-ups the review left, none of them introduced by this branch:**
+    1. The stored `publicly_listed` flag can be one job run behind on an item deleted while the
+       job runs (the first point of "Still open"; the review reproduced it through the real code,
+       on the branch and on `main`). The next run clears it; public reads never use the flag.
+    2. The synchronous after-commit analytics listeners need a second pooled connection (the
+       event registry marks the publication completed in a transaction of its own while the
+       committing thread still holds its connection). Ten at once stall requests for the 10 s
+       connection timeout. Seen with the test listeners only.
+    3. No lock timeout on inventory writes: a "busy, retry" answer after a few seconds would
+       bound a queue behind the owner lock.
+    4. The rule a new bulk write must follow (the import of stage S5 is the first), now in
+       docs/database/schema.md, "Locks of binders and inventory items": one transaction per
+       bounded chunk of at most 500 items; `BinderService.lockOwners` first; then the binders,
+       every target included, and the existing items in ascending id through
+       `InventoryService.lockForWrite`; never a plain multi-row `UPDATE` or `DELETE` on these two
+       tables, never `FOR UPDATE`; reconcile in the same transaction; nothing slow and no second
+       connection while the lock is held; one collector's chunks one after the other, never in
+       parallel.
 - **Tests:** `InventoryLockOrderIT` (77): each item write against the reconciliation of a privacy
   change stopped at one of its items (10 cases, real entry points) and against a transaction that
   takes no owner lock (10 cases, the row order alone); a bulk write and a trade transfer of items
@@ -3555,7 +3595,7 @@ deleting a card right after changing a privacy setting.
   - The stored `publicly_listed` flag can be one decision behind when a job run overlaps a write of
     the same collector (the job decides from the snapshot of its statement). One publication event
     can be wrong until the next run stores the right value; public reads apply the live rules,
-    never the flag. Same on `main`; reasoned, not reproduced.
+    never the flag. Same on `main`; reproduced by the final review (follow-up 1 above).
   - The account purge takes the full lock of the collector's items; a transaction inserting
     references to two of them in another order could still close a cycle with it. The account is
     pending deletion and unlisted by then. Not tested.

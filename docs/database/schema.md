@@ -908,6 +908,27 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
   and decide nothing about the listing, so they wait for nothing else.
 
+**A new bulk write** (an import, a mass edit: anything that writes many binders or items of one
+collector) follows every part of the above. The rule of the final review (2026-10-13):
+
+1. One transaction per bounded chunk of at most 500 items (`InventoryService.BULK_MAX`, the size
+   of the bulk endpoint), never one transaction for the whole work. The owner lock is held until
+   the transaction ends, and every other write of that collector waits behind it.
+2. `BinderService.lockOwners` first, before any row and before any other lock.
+3. Then the binders, every target binder included, and then the existing items, each in ascending
+   `id`: through `InventoryService.lockForWrite`, the helper of every item write of that service,
+   which takes the three in that order.
+4. Never a plain multi-row `UPDATE` or `DELETE` on these two tables: it takes its rows in no
+   particular order (a test fixture of the review deadlocked with a bulk request that way). Take
+   the rows through an `ORDER BY id FOR NO KEY UPDATE` clause, then write the rows taken. Never
+   `FOR UPDATE`.
+5. Reconcile in the same transaction (`ListingReconciler.items` / `ListingReconciler.binders`).
+6. Nothing slow and no second connection while the lock is held: no remote call, no file parsing,
+   no `REQUIRES_NEW`. Parse and validate before the transaction starts.
+7. The chunks of one collector run one after the other, never in parallel.
+
+The new entry point gets its case in `InventoryLockOrderIT.everyWriteStartsWithTheOwnerLock`.
+
 What the locks cost: a collector's own simultaneous writes wait for each other. A write waits for
 the freshness job only at a row the job has written in the run in progress, until that run
 commits. Public reads take no lock.
