@@ -58,8 +58,10 @@ export const meKeys = {
   blocks: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'blocks'] as const,
   /**
    * Unified search and card holders as this viewer sees them (`GET /search`,
-   * `GET /search/card-holders`: the platform region and blocks depend on who asks).
+   * `GET /search/card-holders`: the platform region and blocks depend on who asks): every read
+   * (prefix), the results of one search, the holders of one card or printing.
    */
+  searches: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'search'] as const,
   search: (uid: Uid, params: object) => [...ME_ROOT, uidKey(uid), 'search', params] as const,
   cardHolders: (uid: Uid, params: object) =>
     [...ME_ROOT, uidKey(uid), 'search', 'holders', params] as const,

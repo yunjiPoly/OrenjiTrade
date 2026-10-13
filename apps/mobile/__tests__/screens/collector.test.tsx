@@ -435,6 +435,54 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
     await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
   });
 
+  it('reads search results and card holders again after a block and after an unblock', async () => {
+    // A blocked collector is no longer found, nor their binders or their copies of a card: what
+    // the Search tab and a card's holders already read (kept for a minute otherwise) is out of
+    // date at once, in whatever region it was read.
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
+        'POST /api/v1/users/{id}/block': { status: 204 },
+        'DELETE /api/v1/users/{id}/block': { status: 204 },
+      })
+    );
+    const { queryClient } = render();
+    const collectors = meKeys.search('uid-maika', {
+      q: 'noe',
+      types: ['collectors'],
+      region: 'americas-north',
+      limit: 20,
+    });
+    const binders = meKeys.search('uid-maika', {
+      q: 'extras',
+      types: ['binders'],
+      region: 'europe',
+      limit: 20,
+    });
+    const holders = meKeys.cardHolders('uid-maika', { cardId: 'card-1', region: 'americas-north' });
+    const read = () => {
+      queryClient.setQueryData(collectors, { collectors: [], binders: [] });
+      queryClient.setQueryData(binders, { collectors: [], binders: [] });
+      queryClient.setQueryData(holders, { pages: [], pageParams: [] });
+    };
+    const stale = () =>
+      [collectors, binders, holders].map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    read();
+    expect(stale()).toEqual([false, false, false]);
+
+    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
+    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
+    fireEvent.press(
+      within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Block' })
+    );
+    await waitFor(() => expect(stale()).toEqual([true, true, true]));
+
+    read();
+    expect(stale()).toEqual([false, false, false]);
+    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
+    await waitFor(() => expect(stale()).toEqual([true, true, true]));
+  });
+
   it("never offers Block on the collector's own profile", async () => {
     // The fixture's default is the signed-in collector's own profile.
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
