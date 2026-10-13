@@ -329,7 +329,10 @@ Conventions later stages reuse:
     local file it is (`localFilePart`: on iOS an `expo-file-system` `File`, what Expo's fetch
     reads). A pasted text takes the same road: it is written to a file of the cache directory,
     sent as that file and deleted once the upload answered (`importFile.ts`; the web build sends a
-    Blob, `importFile.web.ts`). The file picker is `expo-document-picker` and offers every file
+    Blob, `importFile.web.ts`). **Nothing of a file stays on the device**: the system picker
+    hands the app a copy of the chosen file in `<caches>/DocumentPicker` and never removes it, so
+    `discardUpload` deletes that copy after the upload, after a refusal before sending, on "Keep
+    it" and when the screen is left (and only ever a file of that folder). The file picker is `expo-document-picker` and offers every file
     (`*/*`): a `.ydk` has no registered type and a CSV is reported under several, so a filter
     would grey out the very file the collector looks for; the API decides from the content. A file
     larger than the admin limit (`GET /inventory/imports/limits`) is refused before any upload;
@@ -341,6 +344,13 @@ Conventions later stages reuse:
   - **The preview** (`ImportPreview.tsx`) is a `FlatList` over `useImportRows` (pages of 50, one
     list per filter). Every edit is sent as it is made and answers with the new counts; edits of
     one preview run one after the other (a mutation `scope`), so the last answer is the last edit.
+    **The commit is in that queue too** (`useCommitImport`), and the button waits while an edit is
+    on its way (`useImportEditsPending`, "Saving your changes…"): on a slow connection a commit
+    pressed right after unticking a card would otherwise reach the API first, and the card shown
+    as left out would be imported. The filter is pinned above the list (its text size capped like
+    the commit bar) and brings the first line of its list up; the counts "need a printing" and
+    "not recognised" are buttons that set it. The plan limit is read from `GET /me/plan` and said
+    on top before any commit (`planRoomText`).
     Leaving a line out shows at once and is put back if the API refuses. A row that changes its
     status reads the filtered lists again (a row that got its printing leaves "needs a printing",
     and the next page would otherwise skip a row); an action on the whole preview keeps the first
