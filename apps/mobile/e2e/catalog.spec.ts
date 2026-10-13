@@ -30,6 +30,27 @@ test.describe('mobile catalog', () => {
     const search = screen(page, 'search');
     // The whole catalog first (the 4 seed games), then a typo-tolerant search.
     await expect(search.getByTestId('search-count')).toHaveText(/^\d+ cards$/, { timeout: 30_000 });
+
+    // A screen down the catalog the field, the game pills and the filters have scrolled away with
+    // the cards (only the region switcher and the segments stay); the Search tab pressed again
+    // brings them back. One turn of the wheel takes the field far above the screen: the rows the
+    // list draws first are taller than the screen. (No deeper: on the web the list draws ten
+    // rows, then the others in an idle moment, which a wheel that keeps turning holds back.)
+    const field = search.getByLabel('Find a card');
+    await search.getByTestId('search-results').hover();
+    await expect
+      .poll(async () => {
+        await page.mouse.wheel(0, 1500);
+        return field.evaluate((node) => node.getBoundingClientRect().bottom);
+      })
+      .toBeLessThan(-200);
+    await expect(field).not.toBeInViewport();
+    await expect(search.getByRole('button', { name: 'Filters' })).not.toBeInViewport();
+    await expect(search.getByTestId('search-region')).toBeInViewport();
+    await openTab(page, 'Search');
+    await expect(field).toBeInViewport();
+    await expect(search.getByRole('button', { name: 'Filters' })).toBeInViewport();
+
     await search.getByLabel('Find a card').fill('emberfang');
     await expect(search.getByTestId('search-count')).toHaveText(/cards? for “emberfang”/);
     await expect(search.getByRole('link', { name: 'Emberfang Fox VMAX' })).toBeVisible();

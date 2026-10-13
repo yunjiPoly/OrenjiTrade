@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useCallback, type ReactElement } from 'react';
+import { useRouter, useScrollToTop } from 'expo-router';
+import { useCallback, useRef, type ReactElement } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useUnifiedSearch } from '@/src/api/hooks/search';
@@ -35,7 +35,8 @@ export interface UnifiedResultsProps {
  *
  * One list whatever it shows, with the search field as its head: the field and every result can
  * be scrolled to at any text size, and the field stays mounted (it keeps its focus) while the
- * list goes from the invitation to the skeleton to the rows.
+ * list goes from the invitation to the skeleton to the rows. The field scrolls away with the
+ * results: pressing the Search tab again brings the list back to its top, where the field is.
  */
 export function UnifiedResults({ segment, query, onSearch, controls }: UnifiedResultsProps) {
   const { palette } = useTheme();
@@ -47,6 +48,8 @@ export function UnifiedResults({ segment, query, onSearch, controls }: UnifiedRe
   const invite = segmentInvite(segment, regionPhrase(region, home));
   const items =
     segment === 'collectors' ? (results.data?.collectors ?? []) : (results.data?.binders ?? []);
+  const list = useRef<FlatList<CollectorMarker | PublicBinderSummary>>(null);
+  useScrollToTop(list);
 
   const openCollector = useCallback(
     (collector: CollectorMarker) => {
@@ -139,6 +142,7 @@ export function UnifiedResults({ segment, query, onSearch, controls }: UnifiedRe
   );
   return (
     <FlatList
+      ref={list}
       testID={`search-${segment}-results`}
       style={styles.fill}
       data={listed ? (items as (CollectorMarker | PublicBinderSummary)[]) : []}

@@ -17,7 +17,7 @@ import {
 } from '../support/fixtures';
 import { mockApi, ok, problem, type MockAnswer } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
-import { mockParams, mockRouter, resetRouterMock } from '../support/router';
+import { mockParams, mockRouter, mockScrollToTopRefs, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
@@ -304,6 +304,52 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(within(list()).getByTestId('search-collectors-input').props.value).toBe('noé');
     // The content is at least as tall as the tab, so an empty list centres what it says.
     expect(list().props.contentContainerStyle).toEqual(expect.objectContaining({ flexGrow: 1 }));
+  });
+
+  it('gives the list of each segment to the tab: pressing Search again brings the field back', async () => {
+    mockApi({
+      ...CARDS,
+      'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+      'GET /api/v1/search': ok(
+        unifiedSearchFixture({ query: 'noé', collectors: [markerFixture()] })
+      ),
+    });
+    render();
+    await screen.findByTestId('search-count');
+    // The field, the game pills and the filters scroll away with the results. The tab scrolls
+    // the lists it was given back to their top when it is pressed again (`useScrollToTop`; React
+    // Navigation calls `scrollToOffset` on a list): one list at a time, the one on screen, whose
+    // head holds the field.
+    const given = () =>
+      mockScrollToTopRefs
+        .map((ref) => ref.current as { props: { testID?: string }; scrollToOffset?: unknown })
+        .filter((list) => list != null);
+    const givenLists = () => given().map((list) => list.props.testID);
+    expect(givenLists()).toEqual(['search-results']);
+    expect(typeof given()[0]?.scrollToOffset).toBe('function');
+    const cards = screen.getByTestId('search-results');
+    expect(within(cards).getByTestId('search-input')).toBeOnTheScreen();
+    expect(within(cards).getByTestId('search-game')).toBeOnTheScreen();
+    expect(within(cards).getByTestId('search-filters')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByTestId('search-segment-collectors'));
+    await screen.findByTestId('search-collectors-invite');
+    expect(givenLists()).toEqual(['search-collectors-results']);
+    expect(typeof given()[0]?.scrollToOffset).toBe('function');
+    expect(
+      within(screen.getByTestId('search-collectors-results')).getByTestId('search-collectors-input')
+    ).toBeOnTheScreen();
+    // Still the list of the segment once it holds results.
+    fireEvent.changeText(screen.getByTestId('search-collectors-input'), 'noé');
+    expect(await screen.findByTestId('collector-result-collector2')).toBeOnTheScreen();
+    expect(givenLists()).toEqual(['search-collectors-results']);
+
+    fireEvent.press(screen.getByTestId('search-segment-binders'));
+    await screen.findByTestId('search-binders-results');
+    expect(givenLists()).toEqual(['search-binders-results']);
+    expect(
+      within(screen.getByTestId('search-binders-results')).getByTestId('search-binders-input')
+    ).toBeOnTheScreen();
   });
 
   it('keeps the keyboard while the first results arrive: the lists have their refresh control from the start', async () => {

@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter, useScrollToTop } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { EMPTY_CARD_SEARCH, useCardSearch, type CardSearchQuery } from '@/src/api/hooks/catalog';
@@ -56,7 +56,9 @@ type SearchParams = { q?: string; game?: string; set?: string; tab?: string };
  * Only the region switcher and the segments stay on screen, and they follow the system text size
  * a little (`PINNED_MAX_FONT_SCALE`): the field, the game pills, the filters and the results are
  * one list that scrolls under them, so the field and every result can be reached at any text
- * size (pinned, they took the whole screen at the accessibility sizes).
+ * size (pinned, they took the whole screen at the accessibility sizes). Deep in the results,
+ * pressing the Search tab again brings the list back to its top, where the field is
+ * (`useScrollToTop` in each segment's list).
  *
  * Cards: the card catalog
  * across games (the web's `/cards`): live, typo-tolerant search (names, text, printing codes)
@@ -150,6 +152,10 @@ function CardsSegment({ params }: { params: SearchParams }) {
   const [text, setText] = useState(params.q ?? '');
   const [query, setQuery] = useState<CardSearchQuery>(() => fromParams(params));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // The field, the game pills and the filters scroll away with the cards: pressing the Search
+  // tab again brings the list back to its top, where they are.
+  const list = useRef<FlatList<CardSummary>>(null);
+  useScrollToTop(list);
 
   // Links into the tab (a set on the card detail) replace the search, once per new link.
   const linkKey = `${params.q ?? ''}|${params.game ?? ''}|${params.set ?? ''}`;
@@ -325,6 +331,7 @@ function CardsSegment({ params }: { params: SearchParams }) {
   return (
     <>
       <FlatList
+        ref={list}
         testID="search-results"
         style={styles.fill}
         data={results.data ? cards : []}
