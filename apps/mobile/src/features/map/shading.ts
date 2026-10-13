@@ -58,3 +58,61 @@ export function countsByCode(
   }
   return counts;
 }
+
+/** A shaded state or province narrower and shorter than this many points gets a mark. */
+export const MARK_BELOW = 14;
+/** Radius of that mark, in points. */
+export const MARK_RADIUS = 5;
+/** A tap this close to a mark's centre (in points) opens its place. */
+export const MARK_REACH = 12;
+
+/** A place with binders too small to be seen on the map at the current zoom, and where to mark it. */
+export interface PlaceMark {
+  code: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * The places with public binders that are only a few points wide at the current zoom (Malta, the
+ * Paris region or Rhode Island at the first view): the map marks each with a dot, so a region whose
+ * binders are all in small places does not look empty. `unitsPerPoint` is the zoom (drawing units
+ * under one point of the screen); zoomed in far enough, a place is drawn large and needs no mark.
+ */
+export function placeMarks(
+  shapes: readonly { code: string; box: readonly number[] }[],
+  counts: ReadonlyMap<string, number>,
+  unitsPerPoint: number
+): PlaceMark[] {
+  const limit = MARK_BELOW * unitsPerPoint;
+  const marks: PlaceMark[] = [];
+  for (const shape of shapes) {
+    if (shadeLevel(counts.get(shape.code)) === 0) {
+      continue;
+    }
+    const [left = 0, top = 0, right = 0, bottom = 0] = shape.box;
+    if (right - left < limit && bottom - top < limit) {
+      marks.push({ code: shape.code, x: (left + right) / 2, y: (top + bottom) / 2 });
+    }
+  }
+  return marks;
+}
+
+/** The mark under a point of the drawing (the closest within `reach` units), or null. */
+export function markAt(
+  marks: readonly PlaceMark[],
+  x: number,
+  y: number,
+  reach: number
+): string | null {
+  let closest: string | null = null;
+  let closestGap = reach * reach;
+  for (const mark of marks) {
+    const gap = (mark.x - x) ** 2 + (mark.y - y) ** 2;
+    if (gap <= closestGap) {
+      closestGap = gap;
+      closest = mark.code;
+    }
+  }
+  return closest;
+}

@@ -135,6 +135,9 @@ describe('place privacy contract (ADR 0017)', () => {
     fireEvent(screen.getByTestId('map-scroll'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 392, height: 669 } },
     });
+    fireEvent(screen.getByTestId('map-chrome'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 221 } },
+    });
     fireEvent(screen.getByTestId('region-map-frame'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 388 } },
     });

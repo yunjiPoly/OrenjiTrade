@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter, useScrollToTop } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -9,12 +9,12 @@ import { friendlyMessage } from '@/src/api/errorMessages';
 import { useRegionBinderCounts } from '@/src/api/hooks/regionMap';
 import { useRegions } from '@/src/api/hooks/regions';
 import { Button } from '@/src/components/ui/Button';
-import { SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { MapLegend } from '@/src/features/map/MapLegend';
+import { mapFrameHeight } from '@/src/features/map/mapWindow';
 import { PlaceList } from '@/src/features/map/PlaceList';
-import { placeCodeFrom, regionOf } from '@/src/features/map/places';
+import { placeCodeFrom, placeLabelOf, regionOf } from '@/src/features/map/places';
 import { RegionMap } from '@/src/features/map/RegionMap';
 import { binderCountLabel, countsByCode } from '@/src/features/map/shading';
 import { RegionBar } from '@/src/features/regions/RegionBar';
@@ -45,7 +45,8 @@ type MapParams = { region?: string; subdivision?: string };
  * that state or province (`/regions/<region>/<code>`). The region switcher sits on top.
  *
  * `/?region=<region>&subdivision=<code>` opens the tab on a region and on one of its states (the
- * web's `/map?region=&subdivision=`).
+ * web's `/map?region=&subdivision=`). A link is used up once followed, so the same link opens the
+ * same place every time it is tapped; a link to a region that does not exist changes nothing.
  *
  * The map is drawn from files of the app: no tile, no map provider, no request for geography, and
  * the device is never asked where it is. No collector has a position: a binder appears under the
@@ -54,9 +55,10 @@ type MapParams = { region?: string; subdivision?: string };
 export default function MapScreen() {
   const params = useLocalSearchParams<MapParams>();
   const router = useRouter();
+  const navigation = useNavigation<{ setParams: (params: Partial<MapParams>) => void }>();
   const { palette } = useTheme();
   const account = useAccount();
-  const { region, ready, select } = useBrowsingRegion();
+  const { region, ready, select, knows } = useBrowsingRegion();
   const regions = useRegions();
   const counts = useRegionBinderCounts(region, ready);
   const screenReader = useScreenReader();
@@ -65,14 +67,28 @@ export default function MapScreen() {
   const view: MapViewChoice = chosenView ?? (screenReader ? 'list' : 'map');
   // The place opened last from the map or the list.
   const [picked, setPicked] = useState<{ region: string; code: string } | null>(null);
-  const [touchingMap, setTouchingMap] = useState(false);
-  // The height of the page under the header and above the tab bar, once it is laid out.
+  // The place a link asked for, until it is opened (see the link effects below).
+  const [linkedOpening, setLinkedOpening] = useState<{ region: string; code: string } | null>(null);
+  // True while the map keeps a gesture for itself (a zoomed-in map under a finger, a pinch).
+  const [mapKeepsTouch, setMapKeepsTouch] = useState(false);
+  // The height of the page under the header and above the tab bar, and of what stands above the
+  // map in it, once they are laid out.
   const [pageHeight, setPageHeight] = useState(0);
+  const [chromeHeight, setChromeHeight] = useState(0);
+  // The "Where are you?" prompt can be put away for the visit, like on the web.
+  const [promptDismissed, setPromptDismissed] = useState(false);
+  // Pressing the Map tab again brings the page back to its top.
+  const page = useRef<ScrollView>(null);
+  useScrollToTop(page);
 
   const platformRegion = regionOf(regions.data, region);
   const name = platformRegion?.name ?? regionName(region);
   const byCode = useMemo(() => countsByCode(counts.data?.subdivisions), [counts.data]);
   const withoutLocation = account.me?.onboarding.locationSet === false;
+  const nameOf = useCallback(
+    (code: string) => placeLabelOf(platformRegion, code),
+    [platformRegion]
+  );
 
   const open = useCallback(
     (code: string) => {
@@ -82,33 +98,83 @@ export default function MapScreen() {
     [region, router]
   );
 
-  // A link into the tab: its region becomes the browsed one, its state or province opens. Once
-  // per link, and only when the account is known (a pick belongs to an account).
-  const linkedRegion = isRegionCode(params.region) ? params.region : null;
-  const linkedCode = placeCodeFrom(params.subdivision);
-  const link = `${linkedRegion ?? ''}|${linkedCode ?? ''}`;
-  const followed = useRef('|');
+  // A link into the tab: its region becomes the browsed one, its state or province opens, once
+  // the account is known (a pick belongs to an account). The link is then used up: its parameters
+  // are cleared, so the same link tapped again is a new link and works again.
+  const linkedRegion = typeof params.region === 'string' ? params.region : undefined;
+  const linkedPlace = typeof params.subdivision === 'string' ? params.subdivision : undefined;
+  const hasLink = linkedRegion !== undefined || linkedPlace !== undefined;
+  const link = `${linkedRegion ?? ''}|${linkedPlace ?? ''}`;
+  // The link being followed, until its parameters are gone (the effect may run again meanwhile).
+  const followed = useRef<string | null>(null);
+  const regionsAnswered = !regions.isPending;
   useEffect(() => {
+    if (!hasLink) {
+      followed.current = null;
+      return;
+    }
     if (!ready || link === followed.current) {
       return;
     }
+    // The region of the link: the browsed one when the link names none; none when it names
+    // something the app could not ask for, or a region that does not exist.
+    let target: string | null = region;
+    if (linkedRegion !== undefined) {
+      if (!isRegionCode(linkedRegion)) {
+        target = null;
+      } else if (knows(linkedRegion)) {
+        target = linkedRegion;
+      } else if (!regionsAnswered) {
+        // Not one of the regions the app ships: the server's list will say whether it exists.
+        return;
+      } else {
+        target = null;
+      }
+    }
     followed.current = link;
-    if (linkedRegion && linkedRegion !== region) {
-      select(linkedRegion);
+    navigation.setParams({ region: undefined, subdivision: undefined });
+    if (target === null) {
+      return;
     }
-    if (linkedCode) {
-      router.push({
-        pathname: '/regions/[region]/[code]',
-        params: { region: linkedRegion ?? region, code: linkedCode },
-      });
+    if (target !== region) {
+      select(target);
     }
-  }, [link, linkedCode, linkedRegion, ready, region, router, select]);
+    const code = placeCodeFrom(linkedPlace);
+    if (code) {
+      setPicked({ region: target, code });
+      setLinkedOpening({ region: target, code });
+    }
+  }, [
+    hasLink,
+    knows,
+    link,
+    linkedPlace,
+    linkedRegion,
+    navigation,
+    ready,
+    region,
+    regionsAnswered,
+    select,
+  ]);
+
+  // The place of a link opens once the link has left the tab's address, and one turn later. On
+  // the web the address of the tab's history entry is rewritten first (to the tab without the
+  // link), so "back" from the place comes back to the tab; opened in the same turn, the entry
+  // kept the link, and "back" followed it again: the place could not be left.
+  useEffect(() => {
+    if (hasLink || !linkedOpening) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setLinkedOpening(null);
+      router.push({ pathname: '/regions/[region]/[code]', params: linkedOpening });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [hasLink, linkedOpening, router]);
 
   // Outlined on the map and marked in the list while its region is shown: the place opened last,
-  // by hand or by the link.
-  const opened =
-    picked ?? (linkedCode ? { region: linkedRegion ?? region, code: linkedCode } : null);
-  const selected = opened && opened.region === region ? opened.code : null;
+  // by hand or by a link.
+  const selected = picked && picked.region === region ? picked.code : null;
 
   let status: string;
   if (counts.data) {
@@ -120,7 +186,11 @@ export default function MapScreen() {
   }
 
   const chrome = (
-    <View style={styles.chrome}>
+    <View
+      style={styles.chrome}
+      onLayout={(event) => setChromeHeight(Math.round(event.nativeEvent.layout.height))}
+      testID="map-chrome"
+    >
       <RegionBar testID="map-region" />
       <View style={styles.titles}>
         <Text
@@ -160,19 +230,47 @@ export default function MapScreen() {
           />
         </View>
       ) : null}
-      {withoutLocation ? (
-        <SectionCard
-          title="Where are you?"
-          description="Say which state or province you are in, and collectors of your region can find your public binders here."
+      {withoutLocation && !promptDismissed ? (
+        <View
+          style={[styles.prompt, { backgroundColor: palette.surface, borderColor: palette.border }]}
           testID="map-location-prompt"
         >
+          <View style={styles.promptHead}>
+            <Text
+              accessibilityRole="header"
+              style={[
+                textStyle('md', 'heading'),
+                styles.grow,
+                styles.title,
+                { color: palette.ink },
+              ]}
+            >
+              Where are you?
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+              accessibilityHint="Hides this prompt until you open the app again"
+              onPress={() => setPromptDismissed(true)}
+              hitSlop={8}
+              testID="map-location-dismiss"
+              style={({ pressed }) => [styles.dismiss, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons name="close" size={20} color={palette.textMuted} />
+            </Pressable>
+          </View>
+          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+            Say which state or province you are in, and collectors of your region can find your
+            public binders here.
+          </Text>
           <Button
             label="Choose my location"
             icon="map-marker-outline"
             onPress={() => router.push('/settings/location')}
+            style={styles.small}
             testID="map-choose-location"
           />
-        </SectionCard>
+        </View>
       ) : null}
       <Segmented<MapViewChoice>
         label="Map or list"
@@ -189,6 +287,7 @@ export default function MapScreen() {
       {view === 'list' ? (
         <PlaceList
           region={platformRegion}
+          loaded={regions.data !== undefined}
           counts={byCode}
           countsKnown={!!counts.data}
           error={regions.error}
@@ -199,8 +298,10 @@ export default function MapScreen() {
         />
       ) : (
         <ScrollView
-          // A finger on the map moves the map, not the page.
-          scrollEnabled={!touchingMap}
+          ref={page}
+          // A finger dragged over the whole region scrolls the page; the page only stands still
+          // while the map keeps the gesture (a zoomed-in map under a finger, a pinch).
+          scrollEnabled={!mapKeepsTouch}
           onLayout={(event) => setPageHeight(event.nativeEvent.layout.height)}
           contentContainerStyle={styles.content}
           testID="map-scroll"
@@ -212,14 +313,16 @@ export default function MapScreen() {
             counts={byCode}
             selected={selected}
             onPick={open}
-            onTouching={setTouchingMap}
-            pending={pageHeight === 0}
-            style={{ height: mapHeight(pageHeight) }}
+            nameOf={nameOf}
+            onTouching={setMapKeepsTouch}
+            pending={pageHeight === 0 || chromeHeight === 0}
+            style={{ height: mapFrameHeight(pageHeight, chromeHeight + spacing[3]) }}
           />
           <MapLegend />
           <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="map-hint">
-            Tap a state or province to see its public binders. Pinch, drag or use the buttons to
-            look closer, or switch to the list.
+            Tap a state or province to see its public binders, or hold it to see its name first.
+            Pinch or use the buttons to look closer, then drag to move the map. Every place is also
+            in the list.
           </Text>
           <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="map-privacy-note">
             OrenjiTrade never uses your GPS: collectors choose their state or province, and that is
@@ -229,16 +332,6 @@ export default function MapScreen() {
       )}
     </Screen>
   );
-}
-
-/**
- * The map takes a little more than half of the page (so the region switcher, the title and the
- * legend stay on screen with it on a phone), within what stays comfortable to reach and to read.
- * Measured from the page itself, not from the window: the web build is rendered ahead of time
- * without a window, and a height from the layout is the same on the server and in the browser.
- */
-function mapHeight(pageHeight: number): number {
-  return Math.round(Math.max(240, Math.min(520, pageHeight * 0.58)));
 }
 
 const styles = StyleSheet.create({
@@ -257,4 +350,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   small: { minHeight: 40, paddingVertical: spacing[2], paddingHorizontal: spacing[3] },
+  prompt: { gap: spacing[2], padding: spacing[3], borderRadius: radius.md, borderWidth: 1 },
+  promptHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  dismiss: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  pressed: { opacity: 0.7 },
 });

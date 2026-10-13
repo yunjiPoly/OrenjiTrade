@@ -2,9 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
+  MAX_MAP_HEIGHT,
   MAX_MAP_ZOOM,
+  MIN_MAP_HEIGHT,
+  UNDER_MAP,
   baseWindow,
+  isZoomedIn,
   liveTransform,
+  mapFrameHeight,
   panWindow,
   pointToUnits,
   sameWindow,
@@ -28,10 +33,13 @@ import {
   type RegionShape,
 } from '@/src/features/map/regionOutline';
 import {
+  MARK_BELOW,
   SHADE_LEGEND,
   SHADE_OPACITY,
   binderCountLabel,
   countsByCode,
+  markAt,
+  placeMarks,
   shadeLevel,
 } from '@/src/features/map/shading';
 
@@ -422,6 +430,79 @@ describe('shading (the web steps and words)', () => {
       ['CA-ON', 1],
     ]);
     expect(countsByCode(undefined).size).toBe(0);
+  });
+});
+
+describe('marks for places too small to be seen (shading.ts)', () => {
+  // Boxes in drawing units: a large state, a small one, a small one without a binder.
+  const shapes = [
+    { code: 'BIG', box: [0, 0, 400, 300] },
+    { code: 'SMALL', box: [500, 500, 520, 530] },
+    { code: 'EMPTY', box: [600, 600, 610, 610] },
+    { code: 'LONG', box: [700, 0, 720, 400] },
+  ];
+  const counts = new Map([
+    ['BIG', 3],
+    ['SMALL', 1],
+    ['LONG', 2],
+  ]);
+
+  it('marks the places with binders that are narrower and shorter than fourteen points', () => {
+    expect(MARK_BELOW).toBe(14);
+    // Three units under a point: SMALL is 6.7 by 10 points; LONG is thin but 133 points tall
+    // (it is seen); EMPTY has no binder; BIG is large.
+    expect(placeMarks(shapes, counts, 3)).toEqual([{ code: 'SMALL', x: 510, y: 515 }]);
+    // Zoomed in (one unit under a point) SMALL is 20 by 30 points: drawn large enough.
+    expect(placeMarks(shapes, counts, 1)).toEqual([]);
+    // Far out, everything with a binder is a dot, except what is still long enough to be seen.
+    expect(placeMarks(shapes, counts, 40).map((mark) => mark.code)).toEqual([
+      'BIG',
+      'SMALL',
+      'LONG',
+    ]);
+    expect(placeMarks(shapes, new Map(), 3)).toEqual([]);
+  });
+
+  it('finds the mark under a finger: the closest one within reach', () => {
+    const marks = [
+      { code: 'A', x: 100, y: 100 },
+      { code: 'B', x: 130, y: 100 },
+    ];
+    expect(markAt(marks, 104, 97, 12)).toBe('A');
+    expect(markAt(marks, 120, 100, 12)).toBe('B');
+    expect(markAt(marks, 112, 100, 12)).toBe('A');
+    // Between two marks and out of reach of both: neither.
+    expect(markAt(marks, 115, 100, 12)).toBeNull();
+    expect(markAt(marks, 100, 113, 12)).toBeNull();
+    expect(markAt([], 100, 100, 12)).toBeNull();
+  });
+});
+
+describe('the frame of the map on the page (mapWindow.ts)', () => {
+  it('takes what the page has left under what stands above it, less a strip for the legend', () => {
+    expect([MIN_MAP_HEIGHT, MAX_MAP_HEIGHT, UNDER_MAP]).toEqual([240, 520, 48]);
+    // An iPhone 17: 659 points of page, 176 above the map: the map and its buttons fit.
+    expect(mapFrameHeight(659, 176)).toBe(435);
+    // With the "Where are you?" prompt above it (the map used to take 58 % of the page whatever
+    // stood above, and its buttons and legend ended up under the tab bar).
+    expect(mapFrameHeight(659, 346)).toBe(265);
+    expect(659 - 346 - mapFrameHeight(659, 346)).toBe(UNDER_MAP);
+    // Too little left (the largest text sizes, a small phone): a readable minimum, and the page
+    // scrolls. A tall tablet: not more than a thumb can reach.
+    expect(mapFrameHeight(659, 600)).toBe(240);
+    expect(mapFrameHeight(500, 0)).toBe(452);
+    expect(mapFrameHeight(1200, 176)).toBe(520);
+    // Before the page is laid out.
+    expect(mapFrameHeight(0, 0)).toBe(240);
+  });
+
+  it('knows a zoomed-in map from the whole region', () => {
+    const base = { x: 0, y: 0, width: 1000, height: 500 };
+    expect(isZoomedIn(base, base)).toBe(false);
+    // Moved within the first view's slack, not zoomed: still the whole region.
+    expect(isZoomedIn({ ...base, y: 40 }, base)).toBe(false);
+    expect(isZoomedIn({ x: 0, y: 0, width: 995, height: 497.5 }, base)).toBe(false);
+    expect(isZoomedIn({ x: 250, y: 125, width: 500, height: 250 }, base)).toBe(true);
   });
 });
 

@@ -58,6 +58,34 @@ export function baseWindow(outline: RegionOutline, size: MapSize): MapWindow {
   );
 }
 
+/** The map is never shorter than this (in points): a region stays readable in it. */
+export const MIN_MAP_HEIGHT = 240;
+/** Nor taller: the zoom buttons stay within a thumb's reach. */
+export const MAX_MAP_HEIGHT = 520;
+/** What the page keeps under the map for the first line of the legend: the page plainly goes on. */
+export const UNDER_MAP = 48;
+
+/**
+ * The height of the map's frame: what the page has left under what stands above the map (the
+ * region switcher, the title, a prompt, the Map | List switch) and the gap after it, so the whole
+ * map and its zoom buttons are on screen without scrolling whenever the screen allows it. When so
+ * little is left that the map would be unreadable (a small phone, the largest text sizes) it
+ * keeps its minimum and the page scrolls.
+ */
+export function mapFrameHeight(pageHeight: number, aboveMap: number): number {
+  return Math.round(
+    Math.max(MIN_MAP_HEIGHT, Math.min(MAX_MAP_HEIGHT, pageHeight - aboveMap - UNDER_MAP))
+  );
+}
+
+/**
+ * True when the map shows more than its first view: a finger then moves the map. While the whole
+ * region is on screen there is nothing to move, and a finger scrolls the page instead.
+ */
+export function isZoomedIn(window: MapWindow, base: MapWindow): boolean {
+  return zoomOf(window, base) > 1.01;
+}
+
 /** 1 when the whole first view shows, up to `MAX_MAP_ZOOM`. */
 export function zoomOf(window: MapWindow, base: MapWindow): number {
   return base.width / window.width;

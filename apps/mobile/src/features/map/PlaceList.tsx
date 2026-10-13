@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { memo, useMemo, useState, type ReactElement } from 'react';
+import { useScrollToTop } from 'expo-router';
+import { memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import type { PlatformRegion } from '@/src/api/types';
@@ -13,8 +14,10 @@ import { listPlaces, type ListedCountry, type ListedPlace } from './places';
 import { binderCountLabel } from './shading';
 
 export interface PlaceListProps {
-  /** The region of `GET /regions`; null until it answered. */
+  /** The region of `GET /regions`; null until it answered, or when it does not list the region. */
   region: PlatformRegion | null;
+  /** `GET /regions` answered: a missing region is then an empty list, not a list still loading. */
+  loaded: boolean;
   /** Public binders per place code. */
   counts: ReadonlyMap<string, number>;
   /** False until the counts answered: the rows then name the places without a number. */
@@ -39,6 +42,7 @@ export interface PlaceListProps {
  */
 export function PlaceList({
   region,
+  loaded,
   counts,
   countsKnown,
   error,
@@ -52,6 +56,15 @@ export function PlaceList({
   const [text, setText] = useState('');
   const [onlyWithBinders, setOnlyWithBinders] = useState(false);
   const filtered = text.trim() !== '' || onlyWithBinders;
+  const list = useRef<SectionList<ListedPlace, { country: ListedCountry }>>(null);
+  // Pressing the Map tab again brings the list back to its top.
+  useScrollToTop(list);
+  // Another region starts at its top: its name, the switcher and the filter are on screen, not
+  // the middle of a list the collector had scrolled in the region before.
+  const shown = region?.code ?? null;
+  useEffect(() => {
+    list.current?.getScrollResponder()?.scrollTo({ y: 0, animated: false });
+  }, [shown]);
   const sections = useMemo(
     () =>
       listPlaces(region, counts, { text, onlyWithBinders }).map((country) => ({
@@ -100,7 +113,7 @@ export function PlaceList({
         testID={`${testID}-error`}
       />
     );
-  } else if (!region) {
+  } else if (!region && !loaded) {
     empty = <SkeletonList rows={6} rowHeight={48} testID={`${testID}-loading`} />;
   } else {
     empty = (
@@ -116,6 +129,7 @@ export function PlaceList({
 
   return (
     <SectionList
+      ref={list}
       testID={testID}
       sections={sections}
       keyExtractor={(place) => place.code}
