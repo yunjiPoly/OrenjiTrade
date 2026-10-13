@@ -824,7 +824,7 @@ with `?deleteItems=true`.
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` = last owner edit |
 | `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
 | `last_owner_activity_at` | `timestamptz` | last owner write |
-| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account) |
+| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id`, `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
 
 Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
 `ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS
@@ -876,7 +876,8 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
     binder. The freshness job does that when it hides an item and then unlists it.
 
   Only the two writes that delete rows take the full lock, as their last step on those rows: a
-  binder delete (its `DELETE`, after the binder's items were released) and the account purge
+  binder delete (its `DELETE`, after the binder's items were released: all of them unfiled, or
+  the live ones soft-deleted when the items go with the binder) and the account purge
   (`InventoryItemRepository.lockAllOf`, then the deletes).
 - **The freshness job takes no lock in front of the writes** (`FreshnessService.run`, hourly, one
   transaction). It writes binders and items of every collector in several statements, so no row
@@ -886,11 +887,24 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   transaction holds is left out. The job then waits for no binder and no item: its updates touch
   only rows its locking clause took, its item updates do not fire the count trigger, the freshness
   events it inserts reference rows it holds, and the foreign key re-checks of its second updates
-  pass the `FOR NO KEY UPDATE` of every write (a binder delete takes the full lock only once it
-  holds the binder's items, which the job then cannot hold; nothing locks an account or a printing
-  row `FOR UPDATE` or changes its key). A transaction that waits for nothing a write holds cannot
-  be part of a lock cycle with one. The statements of the collectors' writes do not skip: they
-  wait for a held row.
+  pass the `FOR NO KEY UPDATE` of every write (nothing locks an account or a printing row
+  `FOR UPDATE` or changes its key). The one full row lock such a re-check could meet is that of a
+  binder delete, and it never does, for two reasons:
+  - The delete holds every live item of the binder before its `DELETE` (it unfiled or
+    soft-deleted them), so the job holds none of them and skips them from then on.
+  - An item deleted earlier keeps its `binder_id`. A binder deleted together with its items
+    (`deleteItems=true`) locks only the live ones, so its `DELETE` reaches the deleted one through
+    the foreign key (`ON DELETE SET NULL`) with the full lock of the binder in hand, and waits
+    there when the job holds the row. **The job writes a deleted item at most once per run**: it
+    clears a listed flag left on it, and its expiry, freshness and warning statements take live
+    items only. One update never re-checks the row's foreign keys, so the job does not ask for the
+    binder. (Until 2026-10-13 the expiry statement had no `deleted_at` filter: a deleted item
+    whose temporary publication had ended and which still carried a listed flag was written twice
+    in one run, and `DELETE /binders/{id}?deleteItems=true` next to it answered 500, "deadlock
+    detected". A deleted item now keeps its expired `TEMPORARILY_PUBLIC`; no read uses it.)
+
+  A transaction that waits for nothing a write holds cannot be part of a lock cycle with one. The
+  statements of the collectors' writes do not skip: they wait for a held row.
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
   and decide nothing about the listing, so they wait for nothing else.
 
@@ -923,9 +937,11 @@ simultaneous writes of one collector, a row created during a privacy change, the
 first lock of every write (one case per entry point), item writes next to an uncommitted reference
 to their item and the trade transfer against references inserted in offer order, the admin hide
 during a privacy change, each statement of the job with a row it has to write held elsewhere, the
-job between its two updates of an item while a write holds the item's binder, the job between two
-statements while a reorder holds the binder it wants next, a write waiting for a row a photo
-upload holds, and a bounded run of every kind of write next to two job workers.
+job between its two updates of an item while a write holds the item's binder, a binder deleted
+with and without its items while it holds an item deleted earlier that the job used to write
+twice, the job between two statements while a reorder holds the binder it wants next, a write
+waiting for a row a photo upload holds, and a bounded run of every kind of write next to two job
+workers.
 
 #### `inventory_item_image`
 

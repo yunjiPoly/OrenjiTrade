@@ -404,8 +404,16 @@ public class BinderRepository {
     /**
      * Deletes a binder the transaction holds ({@link #lockOwned}). The delete strengthens that lock
      * to the full row lock and so waits for a freshness job that holds a key-share lock on the
-     * binder (see the class comment). The job never waits for this transaction in turn: the items
-     * of the binder were released first, so the job holds none of them.
+     * binder (see the class comment). With the full lock in hand it can wait for the job once more:
+     * an item deleted earlier keeps its {@code binder_id}; when the binder is deleted together with
+     * its items only the live ones were released first, so this statement reaches the deleted one
+     * through the foreign key ({@code ON DELETE SET NULL}), and the job may hold that row.
+     *
+     * <p>The job never waits for this transaction in turn. The live items of the binder were
+     * released first, so the job holds none of them. And the job writes a deleted item at most once
+     * per run (it clears a listed flag left on it; {@code InventoryItemRepository.normaliseExpired}
+     * leaves deleted items alone), so it never re-runs the foreign key check of such a row and
+     * never asks for this binder.
      */
     public void delete(UUID id) {
         jdbc.sql("DELETE FROM binder WHERE id = :id").param("id", id).update();
