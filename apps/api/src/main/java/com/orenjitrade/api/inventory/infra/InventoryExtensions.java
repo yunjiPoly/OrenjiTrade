@@ -22,17 +22,19 @@ import org.springframework.core.annotation.Order;
 
 /**
  * The inventory module's implementations of other modules' extension points: the {@code
- * inventory.items.max} usage ({@link LimitUsageSource}, read straight from the repository so the
- * limits service does not depend on the inventory service that uses it), the binders' {@link
- * BinderContents}, the deletion participant (a deletion request hides the owner's public inventory
- * at once, a cancellation restores it, the purge deletes items, photos and import previews) and the
- * owner's export section {@code inventory} (private notes included: it is the owner's own data).
+ * inventory.items.max} usage ({@link LimitUsageSource}: the live items plus the room the import
+ * commits in progress reserved, read straight from the repositories so the limits service does not
+ * depend on the inventory service that uses it), the binders' {@link BinderContents}, the deletion
+ * participant (a deletion request hides the owner's public inventory at once, a cancellation
+ * restores it, the purge deletes items, photos and import previews) and the owner's export section
+ * {@code inventory} (private notes included: it is the owner's own data).
  */
 @Configuration(proxyBeanMethods = false)
 public class InventoryExtensions {
 
     @Bean
-    LimitUsageSource inventoryItemsMaxUsageSource(InventoryItemRepository repository) {
+    LimitUsageSource inventoryItemsMaxUsageSource(
+            InventoryItemRepository repository, InventoryImportRepository imports) {
         return new LimitUsageSource() {
             @Override
             public boolean supports(String limitKey) {
@@ -41,7 +43,9 @@ public class InventoryExtensions {
 
             @Override
             public long currentUsage(UUID userId, String limitKey) {
-                return repository.countLive(userId);
+                // The live items, and the new items the collector's import commits in progress
+                // have still to write: their room is taken from the moment the commit starts.
+                return repository.countLive(userId) + imports.reservedItems(userId);
             }
         };
     }
@@ -102,8 +106,10 @@ public class InventoryExtensions {
 
             @Override
             public void purge(UUID userId) {
-                importService.purge(userId);
+                // The items first: their purge starts with the owner lock, which a commit takes
+                // before an import row. The imports are deleted with that lock in hand.
                 inventoryService.purge(userId);
+                importService.purge(userId);
             }
         };
     }

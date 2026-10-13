@@ -40,7 +40,10 @@ public final class ImportChanges {
     public enum BulkAction {
         /**
          * Every matched row without a printing gets the most recent printing of its card (by the
-         * release date of the set), among the printings its file narrowed it to when it did.
+         * release date of the set), among the printings its file narrowed it to when it did. Where
+         * that most recent set holds the card in several editions or finishes, the plain copy is
+         * taken and the row is marked ({@code MOST_RECENT_ASSUMED}); where the date decides nothing
+         * otherwise (two rarities, two languages, no date), the row stays to choose.
          */
         USE_MOST_RECENT_PRINTING,
         /**
@@ -61,7 +64,12 @@ public final class ImportChanges {
      * The outcome of a bulk action.
      *
      * @param updated rows changed
+     * @param assumed {@code USE_MOST_RECENT_PRINTING}: of {@code updated}, the rows that got the
+     *     plain copy (Unlimited, normal finish) because the most recent set holds their card in
+     *     several editions or finishes
+     * @param undecided {@code USE_MOST_RECENT_PRINTING}: rows left to choose because several
+     *     printings of their card share the most recent release date and no plain copy decides
      * @param summary the preview with its counts
      */
-    public record BulkChange(int updated, ImportView summary) {}
+    public record BulkChange(int updated, int assumed, int undecided, ImportView summary) {}
 }

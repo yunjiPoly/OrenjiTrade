@@ -8,6 +8,7 @@ import com.orenjitrade.api.cards.domain.CatalogText;
 import com.orenjitrade.api.games.domain.GameSchema;
 import com.orenjitrade.api.inventory.domain.imports.CollectrCsvFormat.Column;
 import com.orenjitrade.api.inventory.domain.imports.ImportMatcher.Catalog;
+import com.orenjitrade.api.inventory.domain.imports.ImportMatcher.MostRecent;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -79,6 +80,29 @@ class ImportMatcherTest {
             String edition,
             String language,
             String finish) {
+        return printingOn(
+                LocalDate.of(2025, 1, 1),
+                card,
+                setCode,
+                setName,
+                number,
+                rarity,
+                edition,
+                language,
+                finish);
+    }
+
+    /** A printing whose set was released on {@code released} ({@code null}: nobody knows when). */
+    private CatalogPrintingRef printingOn(
+            @Nullable LocalDate released,
+            CatalogCardRef card,
+            String setCode,
+            String setName,
+            String number,
+            @Nullable String rarity,
+            String edition,
+            String language,
+            String finish) {
         String code = setCode + "-" + number;
         CatalogPrintingRef printing =
                 new CatalogPrintingRef(
@@ -87,7 +111,7 @@ class ImportMatcherTest {
                         card.game(),
                         setCode,
                         setName,
-                        LocalDate.of(2025, 1, 1),
+                        released,
                         number,
                         code,
                         rarity,
@@ -565,7 +589,7 @@ class ImportMatcherTest {
                                 null,
                                 null,
                                 null,
-                                null,
+                                "4",
                                 "Baseball Cards"),
                         null);
         ImportDraftRow wrongGame =
@@ -580,6 +604,9 @@ class ImportMatcherTest {
         assertThat(unknown.fileQuantity()).isEqualTo(3);
         assertThat(unknown.condition()).isNull();
         assertThat(otherGame.unmatchedReason()).isEqualTo(UnmatchedReason.UNKNOWN_GAME);
+        assertThat(otherGame.fileQuantity())
+                .as("what the file said, as written: its copies too")
+                .isEqualTo(4);
         assertThat(wrongGame.unmatchedReason()).isEqualTo(UnmatchedReason.UNKNOWN_CARD);
         assertThat(noPrinting.unmatchedReason()).isEqualTo(UnmatchedReason.NO_PRINTING);
     }
@@ -656,7 +683,12 @@ class ImportMatcherTest {
         assertThat(ImportMatcher.quantity("3")).isEqualTo(3);
         assertThat(ImportMatcher.quantity(" x4 ")).isEqualTo(4);
         assertThat(ImportMatcher.quantity("2.0")).isEqualTo(2);
-        assertThat(ImportMatcher.quantity("123456")).isEqualTo(ImportMatcher.QUANTITY_MAX);
+        assertThat(ImportMatcher.quantity("9999")).isEqualTo(ImportMatcher.QUANTITY_MAX);
+        assertThat(ImportMatcher.quantity("10000"))
+                .as("more than an item holds is reported, never cut down without a word")
+                .isZero();
+        assertThat(ImportMatcher.quantity("999999999")).isZero();
+        assertThat(ImportMatcher.quantity("99999999999999999999")).isZero();
         assertThat(ImportMatcher.quantity("0")).isZero();
         assertThat(ImportMatcher.quantity("-2")).isZero();
         assertThat(ImportMatcher.quantity("2.5")).isZero();
@@ -668,6 +700,73 @@ class ImportMatcherTest {
                 csv(row("Solo Sprite", null, null, null, null, null, null, "none", null), null);
         assertThat(row.unmatchedReason()).isEqualTo(UnmatchedReason.INVALID_QUANTITY);
         assertThat(row.fileQuantity()).isZero();
+        ImportDraftRow tooMany =
+                csv(row("Solo Sprite", null, null, null, null, null, null, "12000", null), null);
+        assertThat(tooMany.unmatchedReason()).isEqualTo(UnmatchedReason.INVALID_QUANTITY);
+        assertThat(tooMany.cardId()).isNull();
+    }
+
+    @Test
+    void aFinishNoneOfThePrintingsHasIsNeverDroppedSilently() {
+        CatalogCardRef card = card("pokemon", "Mossback Wurm");
+        CatalogPrintingRef english =
+                printing(card, "KRH", "Kronhold Ruins", "078", "Rare", "UNLIMITED", "en", "NORMAL");
+        CatalogPrintingRef japanese =
+                printing(card, "KRH", "Kronhold Ruins", "078", "Rare", "UNLIMITED", "ja", "HOLO");
+        CatalogCardRef lone = card("pokemon", "Lone Lantern");
+        printing(lone, "KRH", "Kronhold Ruins", "079", "Rare", "UNLIMITED", "en", "NORMAL");
+
+        ImportDraftRow englishHolo =
+                csv(
+                        row(
+                                "Mossback Wurm",
+                                null,
+                                "078",
+                                null,
+                                "Holofoil",
+                                "English",
+                                null,
+                                "2",
+                                null),
+                        null);
+        ImportDraftRow holo =
+                csv(
+                        row("Mossback Wurm", null, "078", null, "Holofoil", null, null, null, null),
+                        null);
+        ImportDraftRow normal =
+                csv(
+                        row(
+                                "Mossback Wurm",
+                                null,
+                                "078",
+                                null,
+                                "Normal",
+                                "English",
+                                null,
+                                null,
+                                null),
+                        null);
+        ImportDraftRow loneHolo =
+                csv(
+                        row("Lone Lantern", null, null, null, "Holofoil", null, null, null, null),
+                        null);
+
+        // The English printing is not a holo and the holo one is not English: the row fits no
+        // printing, so it asks, and its copies are not written as a normal copy.
+        assertThat(englishHolo.printingId()).isNull();
+        assertThat(englishHolo.printingChoice()).isNull();
+        assertThat(englishHolo.cardId()).isEqualTo(card.id());
+        assertThat(englishHolo.unmatchedReason()).isNull();
+        assertThat(englishHolo.suggestedPrintingIds())
+                .as("the number fits both printings: nothing narrower to suggest")
+                .isEmpty();
+        assertThat(englishHolo.language()).isEqualTo("en");
+        // A finish a printing has still narrows, alone or with the language.
+        assertThat(holo.printingId()).isEqualTo(japanese.id());
+        assertThat(normal.printingId()).isEqualTo(english.id());
+        // Also for a card with one printing: "Holofoil" is not its normal copy.
+        assertThat(loneHolo.printingId()).isNull();
+        assertThat(loneHolo.printingCount()).isEqualTo(1);
     }
 
     @Test
@@ -695,10 +794,11 @@ class ImportMatcherTest {
     }
 
     @Test
-    void theMostRecentPrintingIsTheFirstOfTheCatalogsOrderAmongTheOnesThatFit() {
+    void theMostRecentPrintingIsTheOneOfTheLastSetReleasedAmongTheOnesThatFit() {
         CatalogCardRef card = card("yugioh", "Mirrorblade Knight");
         CatalogPrintingRef newest =
-                printing(
+                printingOn(
+                        LocalDate.of(2026, 3, 1),
                         card,
                         "TMP",
                         "Tempest Monarchs",
@@ -708,7 +808,8 @@ class ImportMatcherTest {
                         "en",
                         "NORMAL");
         CatalogPrintingRef older =
-                printing(
+                printingOn(
+                        LocalDate.of(2025, 6, 1),
                         card,
                         "SHV",
                         "Shadowvale Legacy",
@@ -718,16 +819,235 @@ class ImportMatcherTest {
                         "en",
                         "NORMAL");
         CatalogPrintingRef oldest =
-                printing(card, "AZR", "Azure Dawn", "EN003", "Rare", "UNLIMITED", "en", "NORMAL");
+                printingOn(
+                        LocalDate.of(2024, 2, 9),
+                        card,
+                        "AZR",
+                        "Azure Dawn",
+                        "EN003",
+                        "Rare",
+                        "UNLIMITED",
+                        "en",
+                        "NORMAL");
+        CatalogPrintingRef undated =
+                printingOn(
+                        null, card, "PRM", "Promos", "EN003", "Rare", "UNLIMITED", "en", "NORMAL");
         List<CatalogPrintingRef> printings = byCard.get(card.id());
 
-        assertThat(ImportMatcher.mostRecent(printings, List.of())).contains(newest.id());
+        assertThat(ImportMatcher.mostRecent(printings, List.of()))
+                .isEqualTo(new MostRecent(newest.id(), false));
         assertThat(ImportMatcher.mostRecent(printings, List.of(oldest.id(), older.id())))
                 .as("among the printings the file narrowed the row to")
-                .contains(older.id());
+                .isEqualTo(new MostRecent(older.id(), false));
         assertThat(ImportMatcher.mostRecent(printings, List.of(UUID.randomUUID())))
                 .as("a suggestion that left the catalog narrows nothing")
-                .contains(newest.id());
-        assertThat(ImportMatcher.mostRecent(List.of(), List.of())).isEmpty();
+                .isEqualTo(new MostRecent(newest.id(), false));
+        assertThat(ImportMatcher.mostRecent(printings, List.of(oldest.id(), undated.id())))
+                .as("a set with a date is more recent than one nobody dated")
+                .isEqualTo(new MostRecent(oldest.id(), false));
+        assertThat(ImportMatcher.mostRecent(List.of(undated), List.of()))
+                .as("the only printing")
+                .isEqualTo(new MostRecent(undated.id(), false));
+        assertThat(ImportMatcher.mostRecent(List.of(), List.of()).printingId()).isNull();
+    }
+
+    @Test
+    void ofSeveralVersionsOfACardInItsMostRecentSetThePlainCopyIsTakenAndSaid() {
+        // The everyday case: a 1st Edition and an Unlimited copy of one set. The catalog lists the
+        // 1st Edition first (alphabet): taking the first would claim the dearer copy.
+        CatalogCardRef card = card("yugioh", "Ember Wyrmling");
+        LocalDate released = LocalDate.of(2026, 3, 1);
+        CatalogPrintingRef firstEdition =
+                printingOn(
+                        released,
+                        card,
+                        "TMP",
+                        "Tempest Monarchs",
+                        "EN004",
+                        "Rare",
+                        "FIRST_EDITION",
+                        "en",
+                        "NORMAL");
+        CatalogPrintingRef unlimited =
+                printingOn(
+                        released,
+                        card,
+                        "TMP",
+                        "Tempest Monarchs",
+                        "EN004",
+                        "Rare",
+                        "UNLIMITED",
+                        "en",
+                        "NORMAL");
+        CatalogPrintingRef reprintOfLastYear =
+                printingOn(
+                        LocalDate.of(2025, 6, 1),
+                        card,
+                        "SHV",
+                        "Shadowvale Legacy",
+                        "EN004",
+                        "Common",
+                        "UNLIMITED",
+                        "en",
+                        "NORMAL");
+        List<CatalogPrintingRef> printings = byCard.get(card.id());
+
+        assertThat(ImportMatcher.mostRecent(printings, List.of()))
+                .as("the date decides nothing: the Unlimited copy, marked as an assumption")
+                .isEqualTo(new MostRecent(unlimited.id(), true));
+        assertThat(
+                        ImportMatcher.mostRecent(
+                                printings, List.of(unlimited.id(), reprintOfLastYear.id())))
+                .as("the file narrowed the row to one printing of that date: nothing assumed")
+                .isEqualTo(new MostRecent(unlimited.id(), false));
+        assertThat(ImportMatcher.mostRecent(printings, List.of(firstEdition.id(), unlimited.id())))
+                .as("the file left both versions of that date")
+                .isEqualTo(new MostRecent(unlimited.id(), true));
+        assertThat(
+                        ImportMatcher.mostRecent(
+                                printings, List.of(firstEdition.id(), reprintOfLastYear.id())))
+                .as("the file says 1st Edition: that copy, by its date")
+                .isEqualTo(new MostRecent(firstEdition.id(), false));
+
+        // A holo and a normal copy of one set: the normal one.
+        CatalogCardRef druid = card("pokemon", "Thornwood Druid");
+        printingOn(
+                released,
+                druid,
+                "KRH",
+                "Kronhold Ruins",
+                "003",
+                "Uncommon",
+                "UNLIMITED",
+                "en",
+                "HOLO");
+        CatalogPrintingRef normal =
+                printingOn(
+                        released,
+                        druid,
+                        "KRH",
+                        "Kronhold Ruins",
+                        "003",
+                        "Uncommon",
+                        "UNLIMITED",
+                        "en",
+                        "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(druid.id()), List.of()))
+                .isEqualTo(new MostRecent(normal.id(), true));
+
+        // Four versions: both editions, each in both finishes. One of them is plain.
+        CatalogCardRef four = card("pokemon", "Fourfold Finch");
+        for (String edition : List.of("FIRST_EDITION", "UNLIMITED")) {
+            printingOn(
+                    released, four, "KRH", "Kronhold Ruins", "004", "Rare", edition, "en", "HOLO");
+        }
+        printingOn(
+                released,
+                four,
+                "KRH",
+                "Kronhold Ruins",
+                "004",
+                "Rare",
+                "FIRST_EDITION",
+                "en",
+                "NORMAL");
+        CatalogPrintingRef plain =
+                printingOn(
+                        released,
+                        four,
+                        "KRH",
+                        "Kronhold Ruins",
+                        "004",
+                        "Rare",
+                        "UNLIMITED",
+                        "en",
+                        "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(four.id()), List.of()))
+                .isEqualTo(new MostRecent(plain.id(), true));
+    }
+
+    @Test
+    void whereNoPlainCopyDecidesTheMostRecentPrintingIsLeftToTheCollector() {
+        LocalDate released = LocalDate.of(2026, 3, 1);
+        MostRecent undecided = new MostRecent(null, false);
+
+        // Two rarities of one set: neither claims less by any rule the catalog knows.
+        CatalogCardRef rarities = card("yugioh", "Starlit Unicorn");
+        printingOn(
+                released,
+                rarities,
+                "TMP",
+                "Tempest Monarchs",
+                "EN005",
+                "Super Rare",
+                "UNLIMITED",
+                "en",
+                "NORMAL");
+        printingOn(
+                released,
+                rarities,
+                "TMP",
+                "Tempest Monarchs",
+                "EN005",
+                "Secret Rare",
+                "UNLIMITED",
+                "en",
+                "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(rarities.id()), List.of()))
+                .isEqualTo(undecided);
+
+        // Two languages: the Unlimited copy is the French one, and nobody said French.
+        CatalogCardRef languages = card("yugioh", "Azure-Eyes Sky Dragon");
+        printingOn(
+                released,
+                languages,
+                "AZR",
+                "Azure Dawn",
+                "EN001",
+                "Ultra Rare",
+                "FIRST_EDITION",
+                "en",
+                "NORMAL");
+        printingOn(
+                released,
+                languages,
+                "AZR",
+                "Azure Dawn",
+                "FR001",
+                "Ultra Rare",
+                "UNLIMITED",
+                "fr",
+                "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(languages.id()), List.of()))
+                .isEqualTo(undecided);
+
+        // Two sets of one day, and two sets nobody dated.
+        CatalogCardRef sets = card("yugioh", "Gravehollow Fiend");
+        printingOn(released, sets, "AAA", "Alpha", "EN001", "Rare", "UNLIMITED", "en", "NORMAL");
+        printingOn(released, sets, "BBB", "Beta", "EN001", "Rare", "UNLIMITED", "en", "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(sets.id()), List.of())).isEqualTo(undecided);
+        CatalogCardRef promo = card("yugioh", "Paper Ghost");
+        printingOn(null, promo, "PRA", "Promos A", "EN001", "Rare", "UNLIMITED", "en", "NORMAL");
+        printingOn(null, promo, "PRB", "Promos B", "EN001", "Rare", "UNLIMITED", "en", "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(promo.id()), List.of()))
+                .as("no date, no most recent printing")
+                .isEqualTo(undecided);
+
+        // A 1st Edition and a Limited copy: no plain copy among them, so none is taken.
+        CatalogCardRef special = card("yugioh", "Lantern Fox Spirit");
+        printingOn(
+                released,
+                special,
+                "AZR",
+                "Azure Dawn",
+                "EN011",
+                "Rare",
+                "FIRST_EDITION",
+                "en",
+                "NORMAL");
+        printingOn(
+                released, special, "AZR", "Azure Dawn", "EN011", "Rare", "LIMITED", "en", "NORMAL");
+        assertThat(ImportMatcher.mostRecent(byCard.get(special.id()), List.of()))
+                .isEqualTo(undecided);
     }
 }

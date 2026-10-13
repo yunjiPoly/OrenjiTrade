@@ -13,8 +13,10 @@ import org.jspecify.annotations.Nullable;
  * @param printing the printing chosen; {@code null} while there is none
  * @param language the language the item gets: the file's, else the printing's
  * @param edition the edition the item gets: the file's, else the printing's
- * @param ownedQuantity copies the collector already holds in an equal item (same printing,
+ * @param ownedQuantity copies the collector already holds in an equal private item (same printing,
  *     condition, edition and language): the import adds to that item instead of a second one
+ * @param shownQuantity copies the collector holds in equal items they show (visibility other than
+ *     PRIVATE): an import never raises those, so nothing it adds is public
  */
 public record ImportRowView(
         ImportRow row,
@@ -23,4 +25,5 @@ public record ImportRowView(
         @Nullable PrintingSummary printing,
         @Nullable String language,
         @Nullable String edition,
-        int ownedQuantity) {}
+        int ownedQuantity,
+        int shownQuantity) {}

@@ -18,6 +18,7 @@ import com.orenjitrade.api.inventory.domain.InventoryChanges.NewItem;
 import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.InventoryService.TransferLine;
 import com.orenjitrade.api.inventory.domain.ListingReconciler;
+import com.orenjitrade.api.users.domain.DeletionParticipant;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpMethod;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -76,6 +78,10 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     @Autowired private FreshnessService freshnessService;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    @Qualifier("inventoryDeletionParticipant")
+    private DeletionParticipant inventoryDeletion;
 
     private UUID printingId;
 
@@ -707,14 +713,18 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BINDER_REORDER,
         OWNER_RECONCILIATION,
         ITEM_PURGE,
-        BINDER_PURGE
+        BINDER_PURGE,
+        ACCOUNT_PURGE
     }
 
     /**
      * The owner lock is the first lock of every write to a collector's binders or items. While
-     * another transaction holds it, the write waits, and it waits with no row in hand: every binder
-     * and item of the collector can still be locked. A write that skipped the lock would run next
-     * to the collector's other writes; one that took a row first would hold it while it waits.
+     * another transaction holds it, the write waits, and it waits with no row in hand: every
+     * binder, item and import preview of the collector can still be locked. A write that skipped
+     * the lock would run next to the collector's other writes; one that took a row first would hold
+     * it while it waits. The import preview is one of those rows: a commit that locked it, read the
+     * limit or froze its rows before the owner lock would hold it here, and so would an account
+     * purge that deleted the previews first.
      */
     @ParameterizedTest
     @EnumSource(OwnerWrite.class)
@@ -725,6 +735,15 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         String otherBinderId = createBinder(uid, "Two", "PRIVATE");
         String filed = createItem(uid, binderId, Map.of());
         String unfiled = createItem(uid, null, Map.of());
+        // A private mint card filed in the binder: the one an import adds its mint copies to (an
+        // import never raises a card its owner shows), so the commit locks a binder and an item.
+        createItem(uid, binderId, Map.of("visibility", "PRIVATE", "condition", "MINT"));
+        // The preview of the commit and of the account purge, uploaded before the owner lock is
+        // held: the write that waits for it is the commit, or the purge, itself.
+        @Nullable String importId =
+                write == OwnerWrite.IMPORT_COMMIT || write == OwnerWrite.ACCOUNT_PURGE
+                        ? uploadImport(uid, importOf(2, 1))
+                        : null;
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
@@ -755,11 +774,29 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                                 binderId,
                                                 otherBinderId,
                                                 filed,
-                                                unfiled));
+                                                unfiled,
+                                                importId));
                 awaitWaiterOf(pid, writing);
                 assertThatCode(() -> lockEveryRowOf(ownerId))
                         .as("no row is held while the write waits for the owner lock")
                         .doesNotThrowAnyException();
+                if (importId != null) {
+                    assertThat(
+                                    testUsers.query(
+                                            "SELECT i.status, (SELECT count(*) FROM"
+                                                    + " inventory_import_row r WHERE r.import_id ="
+                                                    + " i.id AND r.commit_chunk IS NOT NULL) AS"
+                                                    + " frozen FROM inventory_import i WHERE i.id"
+                                                    + " = ?",
+                                            uuid(importId)))
+                            .as("the preview is untouched while its write waits")
+                            .singleElement()
+                            .satisfies(
+                                    row -> {
+                                        assertThat(row.get("status")).isEqualTo("PENDING");
+                                        assertThat(row.get("frozen")).isEqualTo(0L);
+                                    });
+                }
             } finally {
                 release.countDown();
             }
@@ -778,7 +815,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             String binderId,
             String otherBinderId,
             String filed,
-            String unfiled) {
+            String unfiled,
+            @Nullable String importId) {
         String binder = "/api/v1/binders/" + binderId;
         switch (write) {
             case ITEM_CREATE -> createItem(uid, null, Map.of());
@@ -800,9 +838,10 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                             List.of(filed, unfiled),
                             Map.of("availability", "TRADE"));
             case IMPORT_COMMIT -> {
-                // One row is added to the filed item (its binder and the item are locked), the
-                // others become new items. The upload itself writes no binder and no item.
-                JsonNode result = commitImport(uid, importOf(2, 1));
+                // The mint row is added to the private filed card (its binder and the item are
+                // locked), the others become new items: the cards the collector shows are not
+                // raised.
+                JsonNode result = commit(uid, importId);
                 assertThat(result.path("itemsMerged").asInt()).isEqualTo(1);
                 assertThat(result.path("itemsCreated").asInt()).isEqualTo(2);
             }
@@ -841,14 +880,21 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             case OWNER_RECONCILIATION -> reconciler.owner(ownerId);
             case ITEM_PURGE -> inventoryService.purge(ownerId);
             case BINDER_PURGE -> binderService.purge(ownerId);
+            // The inventory's part of the account purge, in one transaction as the purge runs it:
+            // the items and then the import previews.
+            case ACCOUNT_PURGE ->
+                    transaction.executeWithoutResult(status -> inventoryDeletion.purge(ownerId));
         }
     }
 
-    /** Locks every binder and item of the collector for a moment; fails when one is held. */
+    /**
+     * Locks every binder, item and import preview of the collector for a moment; fails when one is
+     * held.
+     */
     private void lockEveryRowOf(UUID ownerId) {
         transaction.executeWithoutResult(
                 status -> {
-                    for (String table : List.of("binder", "inventory_item")) {
+                    for (String table : List.of("binder", "inventory_item", "inventory_import")) {
                         jdbc.queryForList(
                                 "SELECT id FROM "
                                         + table
@@ -857,6 +903,84 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                 ownerId);
                     }
                 });
+    }
+
+    /**
+     * A commit plans what it writes before its transaction, without a lock. An edit of the preview
+     * that is saved while the commit waits for the owner lock is part of that commit: it finds
+     * another revision than it planned from and plans again. Without that check the row the
+     * collector has just left out, and was told is left out, would be imported.
+     */
+    @Test
+    void aCommitThatWaitedPlansAgainAfterAnEditOfItsPreview() throws Exception {
+        String uid = uniqueUid("lock-replan");
+        UUID ownerId = collector(uid);
+        String importId = uploadImport(uid, importOf(2, 1));
+        String base = ImportTestSupport.IMPORTS + "/" + importId;
+        JsonNode rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
+        assertThat(rows).hasSize(3);
+        String mintRow = rows.get(1).path("id").asString();
+        assertThat(rows.get(1).path("condition").asString()).isEqualTo("MINT");
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            CompletableFuture<Integer> holderPid = new CompletableFuture<>();
+            CountDownLatch release = new CountDownLatch(1);
+            Future<?> holder =
+                    pool.submit(
+                            () ->
+                                    transaction.executeWithoutResult(
+                                            status -> {
+                                                announce(
+                                                        holderPid,
+                                                        () ->
+                                                                binderService.lockOwners(
+                                                                        List.of(ownerId)));
+                                                awaitQuietly(release);
+                                            }));
+            Future<JsonNode> committing;
+            try {
+                int pid = holderPid.get(STEP.toSeconds(), TimeUnit.SECONDS);
+                committing = pool.submit(() -> commit(uid, importId));
+                // The commit has planned its three rows and waits for the owner lock.
+                awaitWaiterOf(pid, committing);
+                JsonNode edited =
+                        callJson(
+                                HttpMethod.PATCH,
+                                base + "/rows/" + mintRow,
+                                uid,
+                                Map.of("included", false),
+                                200);
+                assertThat(edited.path("row").path("included").asBoolean())
+                        .as("the edit was saved and answered while the commit waited")
+                        .isFalse();
+            } finally {
+                release.countDown();
+            }
+            holder.get(STEP.toSeconds(), TimeUnit.SECONDS);
+            JsonNode result = committing.get(STEP.toSeconds(), TimeUnit.SECONDS);
+
+            assertThat(result.path("rowsImported").asInt())
+                    .as("the commit planned again: the row left out is not in it")
+                    .isEqualTo(2);
+            assertThat(result.path("itemsCreated").asInt()).isEqualTo(2);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(
+                        testUsers.query(
+                                "SELECT condition FROM inventory_item WHERE owner_id = ? AND"
+                                        + " deleted_at IS NULL ORDER BY condition",
+                                ownerId))
+                .extracting(row -> row.get("condition"))
+                .as("no mint card: the collector left that row out")
+                .containsExactly("LIGHTLY_PLAYED", "NEAR_MINT");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_import_row WHERE id = ? AND"
+                                        + " commit_chunk IS NULL",
+                                uuid(mintRow)))
+                .isEqualTo(1);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -1389,16 +1513,17 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         setDiscoverable(ownerId, true);
         String first = createBinder(uid, "First", "PUBLIC");
         String second = createBinder(uid, "Second", "PUBLIC");
-        // The items the imports add copies to; another worker moves both between the binders.
-        String nearMint = createItem(uid, first, Map.of());
-        String mint = createItem(uid, first, Map.of("condition", "MINT"));
+        // The items the imports add copies to (private ones: an import never raises a card its
+        // owner shows); another worker moves both between the binders.
+        String nearMint = createItem(uid, first, Map.of("visibility", "PRIVATE"));
+        String mint = createItem(uid, first, Map.of("visibility", "PRIVATE", "condition", "MINT"));
         List<String> movers = List.of(nearMint, mint);
         List<String> doomed = new ArrayList<>();
         for (int index = 0; index < rounds; index++) {
             doomed.add(createItem(uid, index % 2 == 0 ? first : second, Map.of()));
         }
         // Deleting a doomed near mint item must never take the copies an import adds: the import
-        // adds them to the oldest equal item, which is the first one created above.
+        // adds them to the private equal item created above, never to one of these public ones.
         List<IntConsumer> writers =
                 List.of(
                         round -> {
@@ -1505,11 +1630,20 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
 
     /** Uploads a CSV import and commits it; returns the result of the commit. */
     private JsonNode commitImport(String uid, String csv) {
+        return commit(uid, uploadImport(uid, csv));
+    }
+
+    /** Uploads a CSV import; returns the id of its preview. */
+    private String uploadImport(String uid, String csv) {
         EntityExchangeResult<byte[]> uploaded =
                 ImportTestSupport.upload(
                         http, bearer(uid), "COLLECTR_CSV", csv.getBytes(StandardCharsets.UTF_8));
         assertThat(uploaded.getStatus().value()).isEqualTo(201);
-        String id = json(uploaded).path("id").asString();
+        return json(uploaded).path("id").asString();
+    }
+
+    /** Commits an import; returns the result of the commit. */
+    private JsonNode commit(String uid, @Nullable String id) {
         JsonNode committed =
                 callJson(
                         HttpMethod.POST,

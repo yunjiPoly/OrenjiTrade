@@ -42,7 +42,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.MissingNode;
 
@@ -62,6 +65,8 @@ class InventoryImportIT extends AbstractIntegrationTest {
     @Autowired private InventoryImportService importService;
     @Autowired private InventoryImportSettings importSettings;
     @Autowired private Entitlements entitlements;
+    @Autowired private JdbcTemplate jdbc;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     @AfterEach
     void defaultSettings() {
@@ -611,6 +616,11 @@ class InventoryImportIT extends AbstractIntegrationTest {
         JsonNode rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
         String thirdRow = rows.get(2).path("id").asString();
         assertThat(rows.get(1).path("suggestedPrintingIds").size()).isEqualTo(2);
+        JsonNode counts = callJson(HttpMethod.GET, base, uid, null, 200).path("summary");
+        assertThat(counts.path("defaultConditions").asInt()).isEqualTo(2);
+        assertThat(counts.path("defaultCondition").asString())
+                .as("the rows without a condition all start at the lowest grade")
+                .isEqualTo("DAMAGED");
         // The collector chose the third card's printing by hand: the bulk action leaves it.
         callJson(
                 HttpMethod.PATCH,
@@ -628,6 +638,10 @@ class InventoryImportIT extends AbstractIntegrationTest {
                         200);
 
         assertThat(recent.path("updated").asInt()).isEqualTo(2);
+        assertThat(recent.path("assumed").asInt())
+                .as("each of these cards has one printing of its most recent date")
+                .isZero();
+        assertThat(recent.path("undecided").asInt()).isZero();
         assertThat(recent.path("preview").path("summary").path("ready").asInt()).isEqualTo(3);
         assertThat(recent.path("preview").path("summary").path("toChoose").asInt()).isZero();
         rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
@@ -671,6 +685,12 @@ class InventoryImportIT extends AbstractIntegrationTest {
                         Map.of("action", "SET_CONDITION", "condition", "near_mint"),
                         200);
         assertThat(conditioned.path("updated").asInt()).isEqualTo(1);
+        assertThat(conditioned.path("undecided").asInt()).isZero();
+        assertThat(conditioned.path("preview").path("summary").path("defaultConditions").asInt())
+                .isEqualTo(1);
+        assertThat(conditioned.path("preview").path("summary").path("defaultCondition").asString())
+                .as("what the rows nobody gave a condition are set to now")
+                .isEqualTo("NEAR_MINT");
         rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
         assertThat(rows.get(0).path("condition").asString()).isEqualTo("NEAR_MINT");
         assertThat(rows.get(0).path("conditionSource").asString())
@@ -702,6 +722,110 @@ class InventoryImportIT extends AbstractIntegrationTest {
                 .isEqualTo("VALIDATION_FAILED");
     }
 
+    @Test
+    void theMostRecentPrintingTakesThePlainCopyOfSeveralVersionsAndGuessesNothingElse() {
+        String uid = uniqueUid("import-tie");
+        provisionCompliant(uid);
+        TestSet older = ImportTestSupport.set(testUsers, YUGIOH, LocalDate.of(2024, 7, 20));
+        TestSet newest = ImportTestSupport.set(testUsers, YUGIOH, LocalDate.of(2026, 2, 5));
+        // One set, a 1st Edition and an Unlimited copy: the everyday case of the game. The
+        // catalog lists the 1st Edition first.
+        TestCard versions = ImportTestSupport.card(testUsers, YUGIOH, null);
+        TestPrinting firstEdition =
+                ImportTestSupport.printing(
+                        testUsers, versions, newest, "EN020", "Rare", "FIRST_EDITION", "en");
+        TestPrinting unlimited =
+                ImportTestSupport.printing(
+                        testUsers, versions, newest, "EN020", "Rare", "UNLIMITED", "en");
+        ImportTestSupport.printing(testUsers, versions, older, "EN020", "Common");
+        // One set, two rarities: nothing says which one the collector has.
+        TestCard rarities = ImportTestSupport.card(testUsers, YUGIOH, null);
+        ImportTestSupport.printing(testUsers, rarities, newest, "EN022", "Super Rare");
+        ImportTestSupport.printing(testUsers, rarities, newest, "EN022", "Secret Rare");
+        TestCard clear = ImportTestSupport.card(testUsers, YUGIOH, null);
+        ImportTestSupport.printing(testUsers, clear, older, "EN021", "Rare");
+        TestPrinting clearNewest =
+                ImportTestSupport.printing(testUsers, clear, newest, "EN021", "Rare");
+        String file =
+                "Product Name,Quantity\n"
+                        + versions.name()
+                        + ",1\n"
+                        + rarities.name()
+                        + ",1\n"
+                        + clear.name()
+                        + ",1\n";
+        String id = upload(uid, "COLLECTR_CSV", file, 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+
+        JsonNode recent =
+                callJson(
+                        HttpMethod.POST,
+                        base + "/bulk",
+                        uid,
+                        Map.of("action", "USE_MOST_RECENT_PRINTING"),
+                        200);
+
+        assertThat(recent.path("updated").asInt()).isEqualTo(2);
+        assertThat(recent.path("assumed").asInt())
+                .as("two versions of one printing: the plain copy, and it is said")
+                .isEqualTo(1);
+        assertThat(recent.path("undecided").asInt())
+                .as("two rarities of the most recent date: the date decides nothing")
+                .isEqualTo(1);
+        assertThat(recent.path("preview").path("summary").path("toChoose").asInt()).isEqualTo(1);
+        JsonNode rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
+        assertThat(rows.get(0).path("printing").path("id").asString())
+                .as("the Unlimited copy, not the 1st Edition the catalog lists first")
+                .isEqualTo(unlimited.id().toString());
+        assertThat(rows.get(0).path("printing").path("id").asString())
+                .isNotEqualTo(firstEdition.id().toString());
+        assertThat(rows.get(0).path("printingChoice").asString())
+                .as("the row says the copy was assumed")
+                .isEqualTo("MOST_RECENT_ASSUMED");
+        assertThat(rows.get(1).path("status").asString())
+                .as("neither rarity was taken for the collector")
+                .isEqualTo("CHOOSE_PRINTING");
+        assertThat(rows.get(1).path("printing").isNull()).isTrue();
+        assertThat(rows.get(2).path("printing").path("id").asString())
+                .isEqualTo(clearNewest.id().toString());
+        assertThat(rows.get(2).path("printingChoice").asString()).isEqualTo("MOST_RECENT");
+        JsonNode again =
+                callJson(
+                        HttpMethod.POST,
+                        base + "/bulk",
+                        uid,
+                        Map.of("action", "USE_MOST_RECENT_PRINTING"),
+                        200);
+        assertThat(again.path("updated").asInt()).isZero();
+        assertThat(again.path("assumed").asInt()).isZero();
+        assertThat(again.path("undecided").asInt()).as("said every time").isEqualTo(1);
+
+        // The collector's own choice replaces the assumption, and the import goes in as that copy.
+        JsonNode chosen =
+                callJson(
+                        HttpMethod.PATCH,
+                        base + "/rows/" + rows.get(0).path("id").asString(),
+                        uid,
+                        Map.of("printingId", firstEdition.id().toString()),
+                        200);
+        assertThat(chosen.path("row").path("printingChoice").asString()).isEqualTo("MANUAL");
+        callJson(HttpMethod.POST, base + "/commit", uid, Map.of("skipUnresolved", true), 200);
+        assertThat(
+                        testUsers.query(
+                                "SELECT printing_id, edition FROM inventory_item WHERE owner_id ="
+                                        + " (SELECT owner_id FROM inventory_import WHERE id = ?)"
+                                        + " AND printing_id IN (?, ?)",
+                                UUID.fromString(id),
+                                firstEdition.id(),
+                                unlimited.id()))
+                .singleElement()
+                .satisfies(
+                        item -> {
+                            assertThat(item.get("printing_id")).isEqualTo(firstEdition.id());
+                            assertThat(item.get("edition")).isEqualTo("FIRST_EDITION");
+                        });
+    }
+
     // ---------------------------------------------------------------------------------------
     // Commit
     // ---------------------------------------------------------------------------------------
@@ -711,7 +835,8 @@ class InventoryImportIT extends AbstractIntegrationTest {
         String uid = uniqueUid("import-commit");
         UUID ownerId = provisionCompliant(uid);
         Deck deck = deck();
-        // The collector already has two damaged copies of the single card, in a public binder.
+        // The collector already has two damaged copies of the single card, filed in a public
+        // binder and kept private: the card an import adds its copies to.
         String binderId =
                 callJson(
                                 HttpMethod.POST,
@@ -725,6 +850,7 @@ class InventoryImportIT extends AbstractIntegrationTest {
         existing.put("condition", "DAMAGED");
         existing.put("quantity", 2);
         existing.put("binderId", binderId);
+        existing.put("visibility", "PRIVATE");
         String existingId =
                 callJson(HttpMethod.POST, ITEMS, uid, existing, 201).path("id").asString();
         // And a near mint copy: another condition, so another item.
@@ -826,6 +952,8 @@ class InventoryImportIT extends AbstractIntegrationTest {
         JsonNode merged = callJson(HttpMethod.GET, ITEMS + "/" + existingId, uid, null, 200);
         assertThat(merged.path("quantity").asInt()).as("2 + 3, not a second item").isEqualTo(5);
         assertThat(merged.path("binder").path("id").asString()).isEqualTo(binderId);
+        assertThat(merged.path("visibility").asString()).isEqualTo("PRIVATE");
+        assertThat(merged.path("effectivePublic").asBoolean()).isFalse();
         assertThat(
                         callJson(HttpMethod.GET, ITEMS + "/" + otherId, uid, null, 200)
                                 .path("quantity")
@@ -925,6 +1053,122 @@ class InventoryImportIT extends AbstractIntegrationTest {
                                 .path("quantity")
                                 .asInt())
                 .isEqualTo(1);
+    }
+
+    @Test
+    void anImportNeverRaisesACardTheCollectorShows() {
+        String uid = uniqueUid("import-shown");
+        UUID ownerId = provisionCompliant(uid);
+        Deck deck = deck();
+        // The collector shows one damaged copy; the deck holds two more of that card.
+        Map<String, Object> shown = InventoryTestSupport.item(deck.only.id());
+        shown.put("condition", "DAMAGED");
+        shown.put("visibility", "PUBLIC");
+        String publicId = callJson(HttpMethod.POST, ITEMS, uid, shown, 201).path("id").asString();
+        String file = "#main\n" + deck.single.passcode() + "\n" + deck.single.passcode() + "\n";
+        String id = upload(uid, "YDK", file, 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+
+        JsonNode preview = callJson(HttpMethod.GET, base, uid, null, 200);
+        assertThat(preview.path("summary").path("items").asInt()).isEqualTo(1);
+        assertThat(preview.path("summary").path("mergedItems").asInt())
+                .as("the copies do not join the card the collector shows")
+                .isZero();
+        JsonNode row =
+                callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items").get(0);
+        assertThat(row.path("ownedQuantity").asInt()).isZero();
+        assertThat(row.path("shownQuantity").asInt())
+                .as("the preview says the collector shows a copy of this card")
+                .isEqualTo(1);
+
+        JsonNode committed = callJson(HttpMethod.POST, base + "/commit", uid, null, 200);
+
+        assertThat(committed.path("result").path("itemsCreated").asInt()).isEqualTo(1);
+        assertThat(committed.path("result").path("itemsMerged").asInt()).isZero();
+        assertThat(
+                        callJson(HttpMethod.GET, ITEMS + "/" + publicId, uid, null, 200)
+                                .path("quantity")
+                                .asInt())
+                .as("the public card is as its owner left it")
+                .isEqualTo(1);
+        assertThat(
+                        testUsers.query(
+                                "SELECT quantity, visibility, publicly_listed FROM inventory_item"
+                                        + " WHERE owner_id = ? AND id <> ? AND deleted_at IS NULL",
+                                ownerId,
+                                UUID.fromString(publicId)))
+                .as("the imported copies are a private card of their own")
+                .singleElement()
+                .satisfies(
+                        item -> {
+                            assertThat(item.get("quantity")).isEqualTo(2);
+                            assertThat(item.get("visibility")).isEqualTo("PRIVATE");
+                            assertThat(item.get("publicly_listed")).isEqualTo(false);
+                        });
+
+        // The same deck again: its copies join the private card, still not the public one.
+        String again = upload(uid, "YDK", file, 201).path("id").asString();
+        JsonNode second =
+                callJson(HttpMethod.GET, IMPORTS + "/" + again + "/rows", uid, null, 200)
+                        .path("items")
+                        .get(0);
+        assertThat(second.path("ownedQuantity").asInt()).isEqualTo(2);
+        assertThat(second.path("shownQuantity").asInt()).isEqualTo(1);
+        JsonNode merged =
+                callJson(HttpMethod.POST, IMPORTS + "/" + again + "/commit", uid, null, 200);
+        assertThat(merged.path("result").path("itemsMerged").asInt()).isEqualTo(1);
+        assertThat(merged.path("result").path("itemsCreated").asInt()).isZero();
+        assertThat(liveItems(ownerId)).isEqualTo(2);
+        assertThat(
+                        callJson(HttpMethod.GET, ITEMS + "/" + publicId, uid, null, 200)
+                                .path("quantity")
+                                .asInt())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void copiesAboveWhatOneCardHoldsAreReportedNotLostSilently() {
+        String uid = uniqueUid("import-cap");
+        UUID ownerId = provisionCompliant(uid);
+        Deck deck = deck();
+        Map<String, Object> owned = InventoryTestSupport.item(deck.only.id());
+        owned.put("quantity", 9990);
+        String ownedId = callJson(HttpMethod.POST, ITEMS, uid, owned, 201).path("id").asString();
+        // Two equal rows: 20 and 9,999 near mint copies of a card the collector has 9,990 of.
+        String file =
+                "Product Name,Card Condition,Quantity\n"
+                        + deck.single.name()
+                        + ",Near Mint,20\n"
+                        + deck.single.name()
+                        + ",Near Mint,9999\n"
+                        + deck.single.name()
+                        + ",Near Mint,10000\n";
+        String id = upload(uid, "COLLECTR_CSV", file, 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+        JsonNode rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
+        assertThat(rows.get(2).path("status").asString())
+                .as("more copies than a card holds: reported, not cut down to 9,999")
+                .isEqualTo("UNMATCHED");
+        assertThat(rows.get(2).path("unmatchedReason").asString()).isEqualTo("INVALID_QUANTITY");
+
+        JsonNode result =
+                callJson(HttpMethod.POST, base + "/commit", uid, null, 200).path("result");
+
+        assertThat(result.path("itemsMerged").asInt()).isEqualTo(1);
+        assertThat(result.path("rowsImported").asInt()).isEqualTo(2);
+        assertThat(result.path("copiesAdded").asInt()).isEqualTo(9);
+        assertThat(result.path("copiesNotAdded").asInt())
+                .as("10,019 copies asked for, 9 added: the rest is said")
+                .isEqualTo(10_010);
+        assertThat(
+                        callJson(HttpMethod.GET, ITEMS + "/" + ownedId, uid, null, 200)
+                                .path("quantity")
+                                .asInt())
+                .isEqualTo(9999);
+        assertThat(liveItems(ownerId)).isEqualTo(1);
+        assertThat(callJson(HttpMethod.POST, base + "/commit", uid, null, 200).path("result"))
+                .as("a repeated commit answers the same")
+                .isEqualTo(result);
     }
 
     @Test
@@ -1324,6 +1568,98 @@ class InventoryImportIT extends AbstractIntegrationTest {
         callJson(HttpMethod.GET, IMPORTS + "/" + committed, uid, null, 404);
     }
 
+    @Test
+    void uploadsOfOneCollectorAtTheSameMomentLeaveOnePreview() throws Exception {
+        String uid = uniqueUid("import-uploads");
+        UUID ownerId = provisionCompliant(uid);
+        Deck deck = deck();
+        String file = "#main\n" + deck.single.passcode() + "\n";
+        int callers = 6;
+        ExecutorService pool = Executors.newFixedThreadPool(callers);
+        try {
+            for (int round = 0; round < 3; round++) {
+                CountDownLatch start = new CountDownLatch(1);
+                List<Future<JsonNode>> answers = new ArrayList<>();
+                for (int index = 0; index < callers; index++) {
+                    answers.add(
+                            pool.submit(
+                                    () -> {
+                                        start.await(30, TimeUnit.SECONDS);
+                                        return upload(uid, "YDK", file, 201);
+                                    }));
+                }
+                start.countDown();
+                for (Future<JsonNode> answer : answers) {
+                    answer.get(60, TimeUnit.SECONDS);
+                }
+                assertThat(
+                                testUsers.count(
+                                        "SELECT count(*) FROM inventory_import WHERE owner_id = ?"
+                                                + " AND status = 'PENDING'",
+                                        ownerId))
+                        .as("a collector has one open preview, however the uploads arrive")
+                        .isEqualTo(1);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(callJson(HttpMethod.GET, IMPORTS, uid, null, 200)).hasSize(1);
+    }
+
+    @Test
+    void aNewUploadWaitsForAnEditOfThePreviewItReplaces() throws Exception {
+        String uid = uniqueUid("import-upload-edit");
+        UUID ownerId = provisionCompliant(uid);
+        Deck deck = deck();
+        String file = "#main\n" + deck.single.passcode() + "\n";
+        String first = upload(uid, "YDK", file, 201).path("id").asString();
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            CountDownLatch held = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
+            // An edit of the first preview that is still being saved: it holds the import row.
+            Future<?> edit =
+                    pool.submit(
+                            () ->
+                                    transaction.executeWithoutResult(
+                                            status -> {
+                                                jdbc.queryForObject(
+                                                        "SELECT id FROM inventory_import WHERE id"
+                                                                + " = ? FOR UPDATE",
+                                                        UUID.class,
+                                                        UUID.fromString(first));
+                                                held.countDown();
+                                                try {
+                                                    release.await(30, TimeUnit.SECONDS);
+                                                } catch (InterruptedException e) {
+                                                    Thread.currentThread().interrupt();
+                                                }
+                                            }));
+            assertThat(held.await(30, TimeUnit.SECONDS)).isTrue();
+            Future<JsonNode> second = pool.submit(() -> upload(uid, "YDK", file, 201));
+            try {
+                second.get(400, TimeUnit.MILLISECONDS);
+            } catch (java.util.concurrent.TimeoutException expected) {
+                // The upload waits for the edit instead of leaving a second open preview behind.
+            }
+            release.countDown();
+            edit.get(30, TimeUnit.SECONDS);
+            String replaced = second.get(30, TimeUnit.SECONDS).path("id").asString();
+
+            assertThat(
+                            testUsers.query(
+                                    "SELECT id FROM inventory_import WHERE owner_id = ? AND status"
+                                            + " = 'PENDING'",
+                                    ownerId))
+                    .as("the preview that was being edited is replaced, not left next to the new")
+                    .extracting(row -> row.get("id").toString())
+                    .containsExactly(replaced);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     // ---------------------------------------------------------------------------------------
     // Limits
     // ---------------------------------------------------------------------------------------
@@ -1428,6 +1764,264 @@ class InventoryImportIT extends AbstractIntegrationTest {
         assertThat(form.path("limitKey").asString()).isEqualTo("inventory.items.max");
         assertThat(form.path("used").asInt()).isEqualTo(3);
         assertThat(liveItems(ownerId)).isEqualTo(3);
+    }
+
+    @Test
+    void anImportOfSeveralChunksIsRefusedAsAWholeBeyondTheLimit() {
+        String uid = uniqueUid("import-limit-chunks");
+        UUID ownerId = provisionCompliant(uid);
+        int cards = 1000;
+        String word = bulkCards(cards);
+        limitInventory(ownerId, 600);
+        String id =
+                upload(uid, "COLLECTR_CSV", bulkFile(word, 1, cards), 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+
+        JsonNode refused = callJson(HttpMethod.POST, base + "/commit", uid, null, 429);
+
+        assertThat(refused.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
+        assertThat(refused.path("limit").asInt()).isEqualTo(600);
+        assertThat(refused.path("used").asInt()).isZero();
+        assertThat(refused.path("requested").asInt())
+                .as("every chunk of the import counts, not the first 500 lines")
+                .isEqualTo(cards);
+        assertThat(liveItems(ownerId)).as("nothing was written").isZero();
+        JsonNode still = callJson(HttpMethod.GET, base, uid, null, 200);
+        assertThat(still.path("status").asString()).isEqualTo("PENDING");
+        assertThat(still.path("result").isNull()).isTrue();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_import_row WHERE import_id = ? AND"
+                                        + " commit_chunk IS NOT NULL",
+                                UUID.fromString(id)))
+                .as("no row was given a chunk")
+                .isZero();
+    }
+
+    @Test
+    void theCardsACommitHasStillToWriteKeepTheirRoomUnderTheLimit() {
+        String uid = uniqueUid("import-reserve");
+        UUID ownerId = provisionCompliant(uid);
+        int cards = 520;
+        String word = bulkCards(cards);
+        Deck deck = deck();
+        limitInventory(ownerId, cards);
+        String id =
+                upload(uid, "COLLECTR_CSV", bulkFile(word, 1, cards), 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+
+        // The second chunk fails once: 500 cards are in, 20 are still to come.
+        try (AutoCloseable failure = refusedItem("INSERT", bulkPrinting(word, cards))) {
+            assertThat(call(HttpMethod.POST, base + "/commit", uid, null).getStatus().value())
+                    .isEqualTo(500);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+        assertThat(liveItems(ownerId)).isEqualTo(500);
+        assertThat(callJson(HttpMethod.GET, base, uid, null, 200).path("status").asString())
+                .isEqualTo("COMMITTING");
+        assertThat(
+                        testUsers.query(
+                                "SELECT chunk_new_items::text AS reserved FROM inventory_import"
+                                        + " WHERE id = ?",
+                                UUID.fromString(id)))
+                .extracting(row -> row.get("reserved"))
+                .as("the new cards each chunk creates, recorded when the commit started")
+                .containsExactly("{500,20}");
+
+        // A card added by hand does not take the room of the 20 cards still to come.
+        JsonNode form =
+                callJson(
+                        HttpMethod.POST,
+                        ITEMS,
+                        uid,
+                        InventoryTestSupport.item(deck.only.id()),
+                        429);
+        assertThat(form.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
+        assertThat(form.path("limit").asInt()).isEqualTo(cards);
+        assertThat(form.path("used").asInt())
+                .as("500 cards in the inventory and 20 the commit has still to write")
+                .isEqualTo(cards);
+        JsonNode plan = null;
+        for (JsonNode candidate :
+                callJson(HttpMethod.GET, "/api/v1/me/plan", uid, null, 200).path("limits")) {
+            if (candidate.path("key").asString().equals("inventory.items.max")) {
+                plan = candidate;
+            }
+        }
+        assertThat(plan).isNotNull();
+        assertThat(plan.path("used").asInt()).isEqualTo(cards);
+        assertThat(plan.path("remaining").asInt()).isZero();
+
+        // Neither does a second import.
+        String other =
+                upload(uid, "YDK", "#main\n" + deck.single.passcode() + "\n", 201)
+                        .path("id")
+                        .asString();
+        JsonNode second =
+                callJson(HttpMethod.POST, IMPORTS + "/" + other + "/commit", uid, null, 429);
+        assertThat(second.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
+        assertThat(second.path("used").asInt()).isEqualTo(cards);
+        assertThat(second.path("requested").asInt()).isEqualTo(1);
+        assertThat(liveItems(ownerId)).isEqualTo(500);
+
+        // The repeat finishes the first import: exactly the limit, never beyond.
+        JsonNode done = callJson(HttpMethod.POST, base + "/commit", uid, null, 200);
+        assertThat(done.path("status").asString()).isEqualTo("COMMITTED");
+        assertThat(done.path("result").path("itemsCreated").asInt()).isEqualTo(cards);
+        assertThat(liveItems(ownerId)).isEqualTo(cards);
+        assertThat(
+                        callJson(
+                                        HttpMethod.POST,
+                                        ITEMS,
+                                        uid,
+                                        InventoryTestSupport.item(deck.only.id()),
+                                        429)
+                                .path("used")
+                                .asInt())
+                .as("nothing is reserved once the import is in")
+                .isEqualTo(cards);
+        assertThat(liveItems(ownerId)).isEqualTo(cards);
+    }
+
+    @Test
+    void cardsAddedByHandWhileAnImportIsWrittenNeverPassTheLimit() throws Exception {
+        String uid = uniqueUid("import-race");
+        UUID ownerId = provisionCompliant(uid);
+        int cards = 1040;
+        String word = bulkCards(cards);
+        Deck deck = deck();
+        limitInventory(ownerId, cards);
+        String id =
+                upload(uid, "COLLECTR_CSV", bulkFile(word, 1, cards), 201).path("id").asString();
+        int callers = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(callers + 1);
+        try {
+            Future<JsonNode> committing =
+                    pool.submit(
+                            () ->
+                                    callJson(
+                                            HttpMethod.POST,
+                                            IMPORTS + "/" + id + "/commit",
+                                            uid,
+                                            null,
+                                            200));
+            List<Future<Integer>> accepted = new ArrayList<>();
+            for (int index = 0; index < callers; index++) {
+                accepted.add(
+                        pool.submit(
+                                () -> {
+                                    int created = 0;
+                                    // From the first chunk on, until the import is in.
+                                    while (!committing.isDone()) {
+                                        if (testUsers.count(
+                                                        "SELECT count(*) FROM inventory_import"
+                                                                + " WHERE id = ? AND status ="
+                                                                + " 'PENDING'",
+                                                        UUID.fromString(id))
+                                                > 0) {
+                                            continue;
+                                        }
+                                        if (call(
+                                                                HttpMethod.POST,
+                                                                ITEMS,
+                                                                uid,
+                                                                InventoryTestSupport.item(
+                                                                        deck.only.id()))
+                                                        .getStatus()
+                                                        .value()
+                                                == 201) {
+                                            created++;
+                                        }
+                                    }
+                                    return created;
+                                }));
+            }
+            JsonNode done = committing.get(120, TimeUnit.SECONDS);
+            assertThat(done.path("result").path("totalChunks").asInt()).isEqualTo(3);
+            assertThat(done.path("result").path("itemsCreated").asInt()).isEqualTo(cards);
+            int byHand = 0;
+            for (Future<Integer> creator : accepted) {
+                byHand += creator.get(60, TimeUnit.SECONDS);
+            }
+            assertThat(byHand)
+                    .as("no card took the room of a chunk that was still to come")
+                    .isZero();
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(liveItems(ownerId)).as("the limit, never beyond").isEqualTo(cards);
+    }
+
+    @Test
+    void aChunkThatNeedsMoreRoomThanItsCommitReservedWaitsForIt() {
+        String uid = uniqueUid("import-guard");
+        UUID ownerId = provisionCompliant(uid);
+        int cards = 520;
+        String word = bulkCards(cards);
+        Deck deck = deck();
+        // The collector has the last card of the file: its line raises that card, 519 are new.
+        UUID lastPrinting = bulkPrinting(word, cards);
+        String ownedId =
+                callJson(HttpMethod.POST, ITEMS, uid, InventoryTestSupport.item(lastPrinting), 201)
+                        .path("id")
+                        .asString();
+        limitInventory(ownerId, cards);
+        String id =
+                upload(uid, "COLLECTR_CSV", bulkFile(word, 1, cards), 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+        assertThat(
+                        callJson(HttpMethod.GET, base, uid, null, 200)
+                                .path("summary")
+                                .path("mergedItems")
+                                .asInt())
+                .isEqualTo(1);
+        try (AutoCloseable failure = refusedItem("UPDATE", lastPrinting)) {
+            assertThat(call(HttpMethod.POST, base + "/commit", uid, null).getStatus().value())
+                    .isEqualTo(500);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+        assertThat(liveItems(ownerId)).as("the card owned and the first chunk").isEqualTo(501);
+        assertThat(
+                        testUsers.query(
+                                "SELECT chunk_new_items::text AS reserved FROM inventory_import"
+                                        + " WHERE id = ?",
+                                UUID.fromString(id)))
+                .extracting(row -> row.get("reserved"))
+                .containsExactly("{500,19}");
+
+        // The collector deletes the card the import was going to raise and gives its room away.
+        callJson(HttpMethod.DELETE, ITEMS + "/" + ownedId, uid, null, 204);
+        String takerId =
+                callJson(
+                                HttpMethod.POST,
+                                ITEMS,
+                                uid,
+                                InventoryTestSupport.item(deck.only.id()),
+                                201)
+                        .path("id")
+                        .asString();
+        assertThat(liveItems(ownerId)).isEqualTo(501);
+
+        // The second chunk now holds 20 new cards and reserved room for 19: it is not written.
+        JsonNode refused = callJson(HttpMethod.POST, base + "/commit", uid, null, 429);
+        assertThat(refused.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
+        assertThat(refused.path("limit").asInt()).isEqualTo(cards);
+        assertThat(refused.path("used").asInt()).isEqualTo(cards);
+        assertThat(refused.path("requested").asInt()).isEqualTo(1);
+        assertThat(liveItems(ownerId)).as("nothing of the chunk was written").isEqualTo(501);
+        JsonNode waiting = callJson(HttpMethod.GET, base, uid, null, 200);
+        assertThat(waiting.path("status").asString()).isEqualTo("COMMITTING");
+        assertThat(waiting.path("result").path("chunksDone").asInt()).isEqualTo(1);
+
+        // With room again the repeat finishes the import, at the limit.
+        callJson(HttpMethod.DELETE, ITEMS + "/" + takerId, uid, null, 204);
+        JsonNode done = callJson(HttpMethod.POST, base + "/commit", uid, null, 200);
+        assertThat(done.path("status").asString()).isEqualTo("COMMITTED");
+        assertThat(done.path("result").path("itemsCreated").asInt()).isEqualTo(cards);
+        assertThat(done.path("result").path("itemsMerged").asInt()).isZero();
+        assertThat(liveItems(ownerId)).isEqualTo(cards);
     }
 
     @Test
@@ -1889,6 +2483,80 @@ class InventoryImportIT extends AbstractIntegrationTest {
         String alternate = ImportTestSupport.passcode();
         ImportTestSupport.artwork(testUsers, twin, alternate);
         return new Deck(single, only, twin, older, newer, alternate);
+    }
+
+    /**
+     * {@code count} cards named "{word} Bulk n" (n from 1) with one printing each, in two
+     * statements; returns {@code word}.
+     */
+    private String bulkCards(int count) {
+        TestSet set = ImportTestSupport.set(testUsers, YUGIOH, LocalDate.of(2025, 5, 5));
+        String word = InventoryTestSupport.token();
+        testUsers.update(
+                "INSERT INTO card (id, game_id, name, slug, card_type, text) SELECT"
+                        + " gen_random_uuid(), g.id, ? || ' Bulk ' || n, lower(?) || '-bulk-' || n,"
+                        + " 'Monster', '' FROM game g, generate_series(1, ?) AS n WHERE g.slug ="
+                        + " 'yugioh'",
+                word,
+                word,
+                count);
+        testUsers.update(
+                "INSERT INTO card_printing (id, card_id, set_id, collector_number, rarity,"
+                        + " edition, language, finish, printing_code)"
+                        + " SELECT gen_random_uuid(), c.id, ?, 'EN' || lpad(split_part(c.name,"
+                        + " ' Bulk ', 2), 4, '0'), 'Common', 'UNLIMITED', 'en', 'NORMAL', ? ||"
+                        + " '-EN' || lpad(split_part(c.name, ' Bulk ', 2), 4, '0') FROM card c"
+                        + " WHERE c.name LIKE ? || ' Bulk %'",
+                set.id(), set.code(), word);
+        return word;
+    }
+
+    /** A Collectr CSV with one near mint copy of each bulk card from {@code from} to {@code to}. */
+    private static String bulkFile(String word, int from, int to) {
+        StringBuilder file = new StringBuilder("Product Name,Quantity,Card Condition\n");
+        for (int n = from; n <= to; n++) {
+            file.append(word).append(" Bulk ").append(n).append(",1,Near Mint\n");
+        }
+        return file.toString();
+    }
+
+    /** The printing of bulk card {@code n}. */
+    private UUID bulkPrinting(String word, int n) {
+        return (UUID)
+                testUsers
+                        .query(
+                                "SELECT p.id FROM card_printing p JOIN card c ON c.id = p.card_id"
+                                        + " WHERE c.name = ?",
+                                word + " Bulk " + n)
+                        .get(0)
+                        .get("id");
+    }
+
+    /**
+     * While open, every {@code INSERT} (or {@code UPDATE}) of an inventory item of this printing
+     * fails: the chunk of an import that writes it fails as a whole, as a crash would make it.
+     */
+    private AutoCloseable refusedItem(String event, UUID printingId) {
+        String trigger = "trg_" + InventoryTestSupport.token().toLowerCase(java.util.Locale.ROOT);
+        testUsers.update(
+                "CREATE FUNCTION "
+                        + trigger
+                        + "() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION"
+                        + " 'simulated failure of an import chunk'; END; $$");
+        testUsers.update(
+                "CREATE TRIGGER "
+                        + trigger
+                        + " BEFORE "
+                        + event
+                        + " ON inventory_item FOR EACH ROW WHEN (NEW.printing_id = '"
+                        + printingId
+                        + "') EXECUTE FUNCTION "
+                        + trigger
+                        + "()");
+        return () -> {
+            testUsers.update("DROP TRIGGER " + trigger + " ON inventory_item");
+            testUsers.update("DROP FUNCTION " + trigger + "()");
+        };
     }
 
     /** Gives this collector alone an inventory limit (an entitlement beats the plan's value). */

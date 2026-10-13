@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory.domain.imports;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -18,6 +19,9 @@ import org.jspecify.annotations.Nullable;
  * @param revision raised by every edit
  * @param totalChunks chunks the commit writes; {@code null} until it starts
  * @param chunksDone chunks written
+ * @param chunkNewItems the new items each chunk was planned to create when the commit started
+ *     (element 0 = chunk 1): the room the commit reserves under {@code inventory.items.max} until
+ *     the chunk is written; {@code null} when no limit applied then (or before the commit)
  * @param result counts of the commit so far
  * @param createdAt upload time
  * @param expiresAt until when the preview (or its result) is kept
@@ -35,10 +39,26 @@ public record ImportRecord(
         long revision,
         @Nullable Integer totalChunks,
         int chunksDone,
+        @Nullable List<Integer> chunkNewItems,
         ImportResult result,
         Instant createdAt,
         Instant expiresAt,
         @Nullable Instant committedAt) {
+
+    public ImportRecord {
+        chunkNewItems = chunkNewItems == null ? null : List.copyOf(chunkNewItems);
+    }
+
+    /**
+     * The new items {@code chunk} (from 1) was planned to create; {@code null} when the commit
+     * reserved nothing.
+     */
+    public @Nullable Integer plannedNewItems(int chunk) {
+        List<Integer> planned = chunkNewItems;
+        return planned == null || chunk < 1 || chunk > planned.size()
+                ? null
+                : planned.get(chunk - 1);
+    }
 
     /** Whether a PENDING preview can no longer be used. */
     public boolean expired(Instant now) {

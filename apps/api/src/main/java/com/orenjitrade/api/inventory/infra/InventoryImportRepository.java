@@ -39,7 +39,9 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>An import row is locked ({@link #lock}) by every edit and by every chunk of a commit, so an
  * edit and a commit never work on the same preview at once. A commit takes the owner lock of the
- * collector before it; an edit takes no other lock.
+ * collector before it; an edit takes no other lock. An upload takes the collector's upload lock
+ * ({@link #lockUploadsOf}) before it replaces the open preview, so two uploads of one collector run
+ * one after the other.
  */
 @Repository
 public class InventoryImportRepository {
@@ -50,8 +52,8 @@ public class InventoryImportRepository {
     private static final String IMPORT_COLUMNS =
             """
             id, owner_id, source, status, include_main, include_extra, include_side, ignored_lines,
-            revision, total_chunks, chunks_done, result::text AS result, created_at, expires_at,
-            committed_at
+            revision, total_chunks, chunks_done, chunk_new_items, result::text AS result,
+            created_at, expires_at, committed_at
             """;
 
     private static final String ROW_COLUMNS =
@@ -81,15 +83,16 @@ public class InventoryImportRepository {
     private static final String KEPT = "(r.included AND " + IN_SCOPE + " AND " + COPIES + " >= 1)";
 
     /**
-     * The items the collector of the preview {@code :id} already has, one row per printing,
+     * The private items the collector of the preview {@code :id} already has, one row per printing,
      * condition, edition and language, among the printings of the preview (needs aliases {@code r}
-     * and {@code p}): a row that joins one is added to that item instead of becoming a new one.
-     * Read only, without a lock: a count for the preview, the commit decides again under the locks.
+     * and {@code p}): a row that joins one is added to that item instead of becoming a new one. An
+     * item the collector shows (visibility other than PRIVATE) is never raised by an import. Read
+     * only, without a lock: a count for the preview, the commit decides again under the locks.
      */
     private static final String OWNED_KEYS =
             " LEFT JOIN (SELECT DISTINCT it.printing_id, it.condition, it.edition, it.language"
                     + " FROM inventory_item it"
-                    + " WHERE it.deleted_at IS NULL"
+                    + " WHERE it.deleted_at IS NULL AND it.visibility = 'PRIVATE'"
                     + " AND it.owner_id = (SELECT owner_id FROM inventory_import WHERE id = :id)"
                     + " AND it.printing_id IN (SELECT printing_id FROM inventory_import_row"
                     + " WHERE import_id = :id AND printing_id IS NOT NULL)) own"
@@ -252,6 +255,10 @@ public class InventoryImportRepository {
                                 + ") AS merged_items,"
                                 + " count(*) FILTER (WHERE r.card_id IS NOT NULL AND"
                                 + " r.condition_source = 'DEFAULT') AS default_conditions,"
+                                + " count(DISTINCT r.condition) FILTER (WHERE r.card_id IS NOT"
+                                + " NULL AND r.condition_source = 'DEFAULT') AS default_kinds,"
+                                + " min(r.condition) FILTER (WHERE r.card_id IS NOT NULL AND"
+                                + " r.condition_source = 'DEFAULT') AS default_condition,"
                                 + " COALESCE(sum(r.qty_main), 0) AS deck_main,"
                                 + " COALESCE(sum(r.qty_extra), 0) AS deck_extra,"
                                 + " COALESCE(sum(r.qty_side), 0) AS deck_side"
@@ -273,6 +280,9 @@ public class InventoryImportRepository {
                                         rs.getInt("items"),
                                         rs.getInt("merged_items"),
                                         rs.getInt("default_conditions"),
+                                        rs.getInt("default_kinds") == 1
+                                                ? rs.getString("default_condition")
+                                                : null,
                                         rs.getLong("deck_main"),
                                         rs.getLong("deck_extra"),
                                         rs.getLong("deck_side")))
@@ -415,9 +425,11 @@ public class InventoryImportRepository {
 
     /**
      * Gives rows that have no printing yet the printing chosen for them ("use the most recent
-     * printing"); returns the rows changed.
+     * printing"), with how it was chosen ({@code MOST_RECENT}, or {@code MOST_RECENT_ASSUMED} for
+     * the plain copy of several versions); returns the rows changed.
      */
-    public int choosePrintings(UUID importId, Map<UUID, UUID> printingByRow) {
+    public int choosePrintings(
+            UUID importId, Map<UUID, UUID> printingByRow, PrintingChoice choice) {
         if (printingByRow.isEmpty()) {
             return 0;
         }
@@ -425,12 +437,13 @@ public class InventoryImportRepository {
         return jdbc.sql(
                         """
                         UPDATE inventory_import_row r
-                           SET printing_id = v.printing_id, printing_choice = 'MOST_RECENT'
+                           SET printing_id = v.printing_id, printing_choice = :choice
                           FROM unnest(CAST(:rowIds AS uuid[]), CAST(:printingIds AS uuid[]))
                                AS v (id, printing_id)
                          WHERE r.id = v.id AND r.import_id = :importId AND r.printing_id IS NULL
                         """)
                 .param("importId", importId)
+                .param("choice", choice.name())
                 .param("rowIds", arrayLiteral(rowIds))
                 .param(
                         "printingIds",
@@ -476,9 +489,21 @@ public class InventoryImportRepository {
     /**
      * Starts the commit: every row that goes in gets the chunk that writes it, and the preview
      * becomes COMMITTING (no edit from here on).
+     *
+     * @param newItemsByChunk the new items each chunk will create (element 0 = chunk 1): the room
+     *     the commit reserves under {@code inventory.items.max} until the chunk is written; {@code
+     *     null} when no limit applies to the collector
+     * @param copiesNotAdded copies the rows hold that no line can: equal rows together pass the 9
+     *     999 copies of one item
      */
     public void freeze(
-            UUID importId, Map<UUID, Integer> chunkByRow, int totalChunks, int rows, Instant now) {
+            UUID importId,
+            Map<UUID, Integer> chunkByRow,
+            int totalChunks,
+            int rows,
+            @Nullable List<Integer> newItemsByChunk,
+            int copiesNotAdded,
+            Instant now) {
         List<UUID> rowIds = List.copyOf(chunkByRow.keySet());
         jdbc.sql(
                         """
@@ -495,12 +520,17 @@ public class InventoryImportRepository {
                         """
                         UPDATE inventory_import SET status = 'COMMITTING',
                                total_chunks = :totalChunks, revision = revision + 1,
+                               chunk_new_items = CAST(:newItems AS int[]),
                                result = CAST(:result AS jsonb), updated_at = :now
                          WHERE id = :id
                         """)
                 .param("id", importId)
                 .param("totalChunks", totalChunks)
-                .param("result", json(new ImportResult(0, 0, 0, rows)))
+                .param(
+                        "newItems",
+                        newItemsByChunk == null ? null : arrayLiteral(newItemsByChunk),
+                        Types.VARCHAR)
+                .param("result", json(new ImportResult(0, 0, 0, rows, copiesNotAdded)))
                 .param("now", Timestamp.from(now))
                 .update();
     }
@@ -535,9 +565,44 @@ public class InventoryImportRepository {
                 .update();
     }
 
+    /**
+     * The room the collector's commits in progress still need under {@code inventory.items.max}:
+     * the new items of the chunks not yet written of every COMMITTING import (index {@code
+     * ix_inventory_import_committing}). Each chunk is written and recorded in one transaction, so a
+     * reader sees an item either here or in the inventory, never in both and never in neither.
+     */
+    public long reservedItems(UUID ownerId) {
+        return jdbc.sql(
+                        """
+                        SELECT COALESCE(sum(c.items), 0)
+                          FROM inventory_import i
+                          CROSS JOIN LATERAL unnest(i.chunk_new_items) WITH ORDINALITY
+                               AS c (items, chunk)
+                         WHERE i.owner_id = :ownerId AND i.status = 'COMMITTING'
+                           AND c.chunk > i.chunks_done
+                        """)
+                .param("ownerId", ownerId)
+                .query(Long.class)
+                .single();
+    }
+
     // ---------------------------------------------------------------------------------------
     // Removal
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * The upload lock of a collector ({@code pg_advisory_xact_lock}, held until the transaction
+     * ends): two uploads of one collector replace the open preview one after the other, so there is
+     * never more than one. It is not the owner lock of the inventory writes: an upload writes no
+     * binder and no item, and never makes one of those writes wait.
+     */
+    public void lockUploadsOf(UUID ownerId) {
+        jdbc.sql(
+                        "SELECT pg_advisory_xact_lock(hashtextextended('inventory-import-upload:'"
+                                + " || :ownerId, 0))")
+                .param("ownerId", ownerId.toString())
+                .query(rs -> {});
+    }
 
     /** Deletes one preview (its rows go with it). */
     public void delete(UUID id) {
@@ -545,8 +610,10 @@ public class InventoryImportRepository {
     }
 
     /**
-     * Deletes the collector's previews that no commit has started: a new upload replaces them.
-     * Previews another transaction holds (an edit in progress) are left to the purge.
+     * Deletes the collector's previews that no commit has started: a new upload replaces them. A
+     * preview another transaction holds (an edit being saved, a commit that starts) is waited for:
+     * the edit is then lost with its preview, and a preview whose commit started is no longer
+     * PENDING and stays. The caller holds the collector's upload lock ({@link #lockUploadsOf}).
      */
     public int deletePendingOf(UUID ownerId) {
         return jdbc.sql(
@@ -554,7 +621,7 @@ public class InventoryImportRepository {
                         DELETE FROM inventory_import
                          WHERE id IN (SELECT id FROM inventory_import
                                        WHERE owner_id = :ownerId AND status = 'PENDING'
-                                       ORDER BY id FOR UPDATE SKIP LOCKED)
+                                       ORDER BY id FOR UPDATE)
                         """)
                 .param("ownerId", ownerId)
                 .update();
@@ -628,6 +695,7 @@ public class InventoryImportRepository {
                 rs.getLong("revision"),
                 started ? totalChunks : null,
                 rs.getInt("chunks_done"),
+                integers(rs.getArray("chunk_new_items")),
                 result(rs.getString("result")),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("expires_at").toInstant(),
@@ -674,6 +742,17 @@ public class InventoryImportRepository {
                 rs.getString("edition"),
                 rs.getBoolean("included"),
                 nullableInt(rs, "commit_chunk"));
+    }
+
+    private static @Nullable List<Integer> integers(@Nullable Array array) throws SQLException {
+        if (array == null) {
+            return null;
+        }
+        List<Integer> values = new ArrayList<>();
+        for (Object value : (Object[]) array.getArray()) {
+            values.add(((Number) value).intValue());
+        }
+        return values;
     }
 
     private static List<UUID> uuids(@Nullable Array array) throws SQLException {
