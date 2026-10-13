@@ -26,6 +26,8 @@ import {
 } from '@/src/features/inventory/itemPhotoRules';
 import { moved } from '@/src/features/binders/ReorderBindersSheet';
 import { ApiError } from '@/src/api/ApiError';
+import { previousOfSameRegion } from '@/src/api/hooks/search';
+import { meKeys } from '@/src/api/queryKeys';
 
 import { CARD_ID, PRINTING_A } from '../support/fixtures';
 
@@ -55,6 +57,33 @@ describe('search segments', () => {
       useRecentSearchesStore.getState().byUser[recentScopeKey('u1', 'collectors')]
     ).toBeUndefined();
     expect(useRecentSearchesStore.getState().byUser.u1).toEqual(['fox']);
+  });
+});
+
+describe('what a list keeps on screen while its next answer loads', () => {
+  it('keeps the previous results within one region, and nothing across a change of region', () => {
+    const previous = { collectors: ['one'] };
+    const key = (region: string, q: string) => ({
+      queryKey: meKeys.search('uid-1', { q, region, types: ['collectors'], limit: 20 }),
+    });
+    // Another text in the same region: the rows stay until the new ones arrive.
+    expect(previousOfSameRegion('europe')(previous, key('europe', 'noé'))).toBe(previous);
+    // Another region: nothing of the region before may stand under the new region's name.
+    expect(previousOfSameRegion('americas-north')(previous, key('europe', 'noé'))).toBeUndefined();
+    // The card holders name their region in the same place.
+    const holders = {
+      queryKey: meKeys.cardHolders(
+        'uid-1',
+        cardHoldersQuery({ kind: 'card', id: CARD_ID }, DEFAULT_HOLDER_FILTERS, 'europe')
+      ),
+    };
+    expect(previousOfSameRegion('europe')(previous, holders)).toBe(previous);
+    expect(previousOfSameRegion('americas-south')(previous, holders)).toBeUndefined();
+    // Nothing before, or a key that names no region: nothing is kept.
+    expect(previousOfSameRegion('europe')(undefined, undefined)).toBeUndefined();
+    expect(
+      previousOfSameRegion('europe')(previous, { queryKey: meKeys.cardHolders('uid-1', {}) })
+    ).toBeUndefined();
   });
 });
 

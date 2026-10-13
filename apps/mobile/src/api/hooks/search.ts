@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, type QueryKey } from '@tanstack/react-query';
 
 import {
   SEARCH_SECTION_LIMIT,
@@ -32,10 +32,25 @@ export function useSearchRegion(): { region: string; ready: boolean } {
 }
 
 /**
+ * What a list keeps on screen while its next answer loads: the previous results, as long as they
+ * are those of the same region (another text, another filter). After a change of region nothing
+ * is kept: the results of Europe never stand under "Region: Americas (North)", however long the
+ * new answer takes; the list shows its skeleton instead.
+ *
+ * The region is read from the last part of the query key (the request's parameters).
+ */
+export function previousOfSameRegion<T>(region: string) {
+  return (previous: T | undefined, previousQuery: { queryKey: QueryKey } | undefined) => {
+    const asked = previousQuery?.queryKey.at(-1) as { region?: unknown } | undefined;
+    return asked?.region === region ? previous : undefined;
+  };
+}
+
+/**
  * `GET /api/v1/search` for one segment of the Search tab (the web's unified results): collectors
  * matching the text (on the map, allowing name search) or public binders by name with their owner
  * block, in the browsed region. Nothing is asked without a query. Previous results stay on screen
- * while a new query loads.
+ * while a new query loads in the same region.
  */
 export function useUnifiedSearch(segment: Exclude<SearchSegment, 'cards'>, q: string) {
   const uid = useUid();
@@ -49,7 +64,7 @@ export function useUnifiedSearch(segment: Exclude<SearchSegment, 'cards'>, q: st
     queryFn: async () =>
       required((await api.GET('/api/v1/search', { params: { query: params } })).data),
     enabled: authenticated && ready && query.length > 0,
-    placeholderData: keepPreviousData,
+    placeholderData: previousOfSameRegion<UnifiedSearchResponse>(region),
     staleTime: 60_000,
   });
 }
@@ -79,7 +94,7 @@ export function useCardHolders(target: HoldersTarget | null, filters: HolderFilt
       ),
     getNextPageParam: (last) => nextPage(last),
     enabled: authenticated && ready && base !== null,
-    placeholderData: keepPreviousData,
+    placeholderData: previousOfSameRegion(region),
     staleTime: 60_000,
   });
 }
