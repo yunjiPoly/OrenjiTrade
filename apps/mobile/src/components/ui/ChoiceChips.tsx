@@ -169,7 +169,7 @@ export function ChoiceChips<T extends string>({
                 : undefined
             }
             scrollEventThrottle={follows ? 16 : undefined}
-            testID={testID ? `${testID}-row` : undefined}
+            testID={follows && testID ? `${testID}-row` : undefined}
           >
             {chips}
           </ScrollView>
