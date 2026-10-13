@@ -4124,6 +4124,80 @@ Android run (no SDK on this Mac); the "Done" bar and the drag with a software ke
 device. The earlier line "A way back to the top of a very long preview on Android" under "Not
 built, recorded" no longer applies: the filter is pinned on both platforms.
 
+### Review fix 2 (2026-10-13)
+
+The second, independent look at the branch (head `7e40bfc`) found the 23 findings of review fix 1
+fixed and approved it, with one new finding, a minor one. It is answered here. No migration; the
+commit of an import, its locks and its idempotency are not touched (a count and a read filter in
+the API, one card and one chip on the phone).
+
+**R1-1 (minor): the lines whose copy was assumed could not be listed once the snackbar was gone.**
+"Use the most recent printing" answered "115 lines got their most recent printing. Their most
+recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check them." in a
+snackbar that leaves after four seconds. After that nothing on screen counted those lines and no
+filter listed them: in the reviewer's file of 435 lines the collector scrolled past every line
+looking for the note under each copy. Nothing wrong was imported (each line is marked and the
+plain copy claims least); it was the checking that was laborious.
+
+What a collector has now:
+
+- **A card that stays**, above the lines, for as long as one such line is unchecked: "Plain copy
+  assumed for 115 lines", why the copy was taken, how to check one ("open its copy and pick yours,
+  or pick the plain copy again to confirm it"), and a button "Show these 115 lines". A deck is
+  counted in cards, as everywhere on its preview.
+- **A chip of the filter that stays on screen**: "Plain copy assumed (115)", shown while there
+  are such lines. The chips stand in the order of what they ask of the collector: All, Needs a
+  printing, Plain copy assumed, Not recognised.
+- **The list of exactly those lines**, in file order and paged like every list of the preview. A
+  line leaves it, and the count goes down, when its copy is picked again (which confirms it) or
+  changed; when the last one is checked the list says "No plain copy left to check".
+
+What was done:
+
+| Where | Change |
+| --- | --- |
+| API | `summary.assumedPrintings`: the rows that have a printing and whose `printing_choice` is still `MOST_RECENT_ASSUMED`, left out or not (`InventoryImportRepository.summary`). `GET /inventory/imports/{id}/rows` takes `printingChoice` (alone or with `status`): `MOST_RECENT_ASSUMED` lists exactly the rows the summary counts. A row whose assumed printing left the catalog has no printing any more: it is to choose again and is neither counted nor listed |
+| Phone | `ImportPreviewHeader` (the card `import-assumed`, its button sets the filter), `importLabels` (`assumedCopiesText`, `filterOptions` with the chip and the order, the empty list), the filter `MOST_RECENT_ASSUMED` of `useImportRows` (sent as `printingChoice`); a row whose assumed copy was confirmed or changed reads the filtered lists again; a line whose assumed copy left the catalog no longer says that a copy was taken |
+| Phone, found while proving the fix on the simulator | As the fourth chip of the pinned row, "Plain copy assumed" stood off screen to the right, and after the card's button had set the filter the row showed no chosen chip. Hence the order above (on a phone the third chip is cut at the edge, which says that the row scrolls) and `ChoiceChips revealSelected`: the row of the import filter brings the chosen chip whole on screen whenever the choice changes, also when the card's button or a count set it. The option is off by default: the other scrolling rows of chips (search, offers, trades, community) behave as before |
+| Contract, documents | `docs/api/contracts/s5-inventory-import.md` (the count, the parameter, "Keep what was assumed in reach"), `apps/mobile/README.md`, the OpenAPI document and both generated clients (one field, one query parameter, no path added or removed) |
+
+**Tests that would have caught it**
+
+- API: `InventoryImportIT.theRowsWhoseCopyWasAssumedAreCountedAndCanBeListedUntilEachIsChecked`
+  (the count on the preview after the answer of the bulk action; the filter alone, with a status
+  and paged; a row left out stays; a row confirmed with the same printing, or put back to
+  "choose", leaves both; a printing that leaves the catalog; an unknown value is a 400).
+- Phone jest: a screen test that opens a preview whose bulk action ran earlier (no snackbar at
+  all) and follows the card, the chip, the request for `printingChoice`, a confirmation, a change
+  and the empty list; the wording and the chip order (`inventoryImport.test.ts`); the card and the
+  line whose copy left the catalog (`importRow.test.tsx`); the row that brings its chosen chip on
+  screen (`choice.test.tsx`).
+- Mobile web E2E: a new test in `inventory-import.spec.ts` (a CSV whose two cards have a 1st
+  Edition and an Unlimited copy in one set: the snackbar goes away, the card and the chip stay,
+  the list, one line confirmed, one changed, the editions of the imported cards read on the API).
+- Native: a new flow `inventory-import-assumed.yaml`, the same walk on the owner's simulator.
+
+**Proof by mutation** (each applied to the worktree, the test run, the worktree restored): the
+count without "has a printing" and the filter without it each fail the new API test; a filter
+that sends nothing to the API, and no re-read of the filtered lists after a confirmation, each
+fail the new screen test.
+
+**Seen on the owner's simulator** (the reviewer's file of 435 lines; screenshots kept outside the
+repository): after the snackbar is gone the card "Plain copy assumed for 115 lines" and its
+button; deep in the list the pinned row with "Plain copy assumed (115)"; the chip pressed: the
+assumed lines from the first one, each with its note; one copy picked again: the line leaves the
+list, the chip says 114, and the API counts 114 and lists 114; at the largest text size the card
+and the button, and the button brings the chosen chip whole on screen; the card in the dark
+theme. The simulator was put back to light.
+
+**Not part of this fix**: the two nits the second look also noted (on a line that is left out
+the note "Taken as the plain copy…" is cut at the card's edge; a line of a game OrenjiTrade does
+not have with an unreadable quantity shows no copies) are not blockers of the reviewers and are
+recorded here. The dialog that was once seen with an empty accessibility tree (U6 of review fix
+1) is answered outside this branch: its cause was found and fixed on branch
+`fix/ios-second-modal-accessibility`, which ships after this one (not verified here). The owner
+decisions of review fix 1 (U2, U3) stand as they were.
+
 ## NEXT TASK
 
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
@@ -4160,8 +4234,10 @@ built, recorded" no longer applies: the filter is pinned on both platforms.
 > the Inventory tab: a deck file or a Collectr CSV export, chosen or pasted, previewed, edited and
 > committed; new cards are Private). Checked on the iOS simulator and the web export; the Android
 > run could not be verified on this Mac. Reviewed independently the same day; **review fix 1**
-> ("Review fix 1 (2026-10-13)" in that section, migration V114) answers every finding. **Next for
-> this branch: the second look of the reviewers, then the pull request, merged when CI is green.**
+> ("Review fix 1 (2026-10-13)" in that section, migration V114) answers every finding, and the
+> second look approved the branch with one minor finding, answered by **review fix 2** ("Review
+> fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed). **Next
+> for this branch: the pull request, merged when CI is green.**
 > Owner questions it leaves open: the default condition of a card whose file names none
 > (`DAMAGED` today), a number for `inventory.items.max`, whether an import may raise a card the
 > collector shows (today it never does: the copies become a private card), whether "use the most

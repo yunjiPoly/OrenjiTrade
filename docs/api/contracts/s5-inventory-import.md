@@ -2,7 +2,9 @@
 
 Owner product change of 2026-10-08, section 6 (stage S5, 2026-10-13). Migrations:
 `V113__inventory_import.sql` and `V114__inventory_import_review_fixes.sql` (review fix 1: the room
-a commit reserves under the plan limit, and the printing choice `MOST_RECENT_ASSUMED`). Tables and
+a commit reserves under the plan limit, and the printing choice `MOST_RECENT_ASSUMED`). Review fix
+2 added no migration: `summary.assumedPrintings` and the query parameter `printingChoice` of the
+rows are a count and a filter over what V114 stores. Tables and
 locks: `docs/database/schema.md`, "V113 — inventory import previews" and "Locks of binders and
 inventory items". The exported `../openapi.json` is the field-level truth; this document says what
 the fields mean and what a client does with them.
@@ -42,7 +44,7 @@ token's account.
 | `POST /?source=&game=` (multipart) | `createInventoryImport` | 201 `InventoryImportResponse` + `Location`. Multipart part `file`; query parameters `source` (`YDK` \| `COLLECTR_CSV`, required) and `game` (optional, `COLLECTR_CSV` only: the game slug of rows that name no game). The generated clients send both in the query string; the server also reads them as form fields of the multipart body. The declared type and the name of the file are ignored: the content decides |
 | `GET /` | `listInventoryImports` | `[InventoryImportResponse]`, newest first, at most 20: the open preview (`PENDING`, not expired; at most one), a commit that was cut (`COMMITTING`) and recent results (`COMMITTED`) until they are purged. What an app that was closed in the middle of an import picks up again |
 | `GET /{id}` | `getInventoryImport` | `InventoryImportResponse` |
-| `GET /{id}/rows?status=&page=&size=` | `listInventoryImportRows` | `PageResponse<InventoryImportRow>` in file order; `status` = `READY` \| `CHOOSE_PRINTING` \| `UNMATCHED` (optional); `page` from 0, `size` 1-100 (default 50) |
+| `GET /{id}/rows?status=&printingChoice=&page=&size=` | `listInventoryImportRows` | `PageResponse<InventoryImportRow>` in file order; `status` = `READY` \| `CHOOSE_PRINTING` \| `UNMATCHED` (optional); `printingChoice` = `AUTO` \| `MANUAL` \| `MOST_RECENT` \| `MOST_RECENT_ASSUMED` (optional: the rows that have a printing chosen that way; `MOST_RECENT_ASSUMED` lists exactly the rows `summary.assumedPrintings` counts); both together keep the rows that fit both; another value is a 400; `page` from 0, `size` 1-100 (default 50) |
 | `PATCH /{id}` | `updateInventoryImport` | `{includeMain?, includeExtra?, includeSide?}` → `InventoryImportResponse`. YDK only (400 for a CSV) |
 | `PATCH /{id}/rows/{rowId}` | `updateInventoryImportRow` | any subset of `{printingId, condition, quantity, included}` → `InventoryImportRowChange` `{row, preview}` |
 | `POST /{id}/bulk` | `bulkUpdateInventoryImport` | `{action, condition?}` → `InventoryImportBulkResponse` `{updated, assumed, undecided, preview}` |
@@ -89,7 +91,7 @@ request.
 | `createdAt`, `expiresAt`, `committedAt` (null until committed) | `expiresAt`: until when the preview can be used; after a commit, until when the result stays readable |
 | `sections` | YDK: `{includeMain, includeExtra, includeSide, mainCopies, extraCopies, sideCopies}`: which sections count, and the copies the file holds in each (recognised or not, whether the section counts or not); `null` for a CSV |
 | `ignoredLines` | lines of the file that were no card (YDK: not a passcode; CSV: rows without a card name) |
-| `summary` | `{rows, ready, toChoose, unmatched, leftOut, copies, items, mergedItems, defaultConditions, defaultCondition}`: every row; rows a commit imports; rows that still need a printing; rows that fit nothing; matched rows left out (by the collector or by the deck sections); copies the ready rows add; inventory items they write once equal rows are merged; of those items, the ones equal to a **private** item the collector already has (the commit raises it: `items - mergedItems` are new); matched rows whose condition nobody chose (the rows `SET_CONDITION` changes); the condition those rows have when they all have the same one (`DAMAGED` at first, the condition of the last `SET_CONDITION` afterwards; `null` when there is no such row or they differ). `ready + toChoose + unmatched + leftOut = rows`. `mergedItems` is a count of the preview, read without a lock: after the commit `result` says what was written |
+| `summary` | `{rows, ready, toChoose, unmatched, leftOut, copies, items, mergedItems, defaultConditions, defaultCondition, assumedPrintings}`: every row; rows a commit imports; rows that still need a printing; rows that fit nothing; matched rows left out (by the collector or by the deck sections); copies the ready rows add; inventory items they write once equal rows are merged; of those items, the ones equal to a **private** item the collector already has (the commit raises it: `items - mergedItems` are new); matched rows whose condition nobody chose (the rows `SET_CONDITION` changes); the condition those rows have when they all have the same one (`DAMAGED` at first, the condition of the last `SET_CONDITION` afterwards; `null` when there is no such row or they differ); the rows whose printing is still `MOST_RECENT_ASSUMED` (the plain copy the bulk action took), left out or not: a row leaves this count when the collector picks its printing (the same one confirms it: `MANUAL`), puts it back to choose, or when its printing left the catalog. `ready + toChoose + unmatched + leftOut = rows`. `mergedItems` is a count of the preview, read without a lock: after the commit `result` says what was written |
 | `result` | `null` until the commit starts, then `{itemsCreated, itemsMerged, copiesAdded, rowsImported, copiesNotAdded, chunksDone, totalChunks}`. `copiesNotAdded`: copies of the imported rows that were not added because one item holds at most 9 999 (equal rows together, or on top of the copies the collector had) |
 
 ## `InventoryImportRow`
@@ -194,7 +196,10 @@ A row of a game OrenjiTrade does not have (`UNKNOWN_GAME`) still says the copies
       language: a 1st Edition and an Unlimited copy, a foil and a normal one), the **plain copy**
       is taken (edition `UNLIMITED`, finish `NORMAL`: the copy that claims least, as the lowest
       condition does for a row whose file names none), the row gets `printingChoice`
-      `MOST_RECENT_ASSUMED`, and `assumed` counts those rows (they are part of `updated`);
+      `MOST_RECENT_ASSUMED`, and `assumed` counts those rows (they are part of `updated`). The
+      answer is said once; the rows stay counted in `summary.assumedPrintings` and listed by
+      `GET /{id}/rows?printingChoice=MOST_RECENT_ASSUMED` for as long as nobody confirmed or
+      changed their copy;
     - anything else (two rarities, two languages, two sets of one day, no date at all, no plain
       copy among them) is left to the collector: the row stays `CHOOSE_PRINTING` and `undecided`
       counts it. No edition, rarity, language or finish is ever taken because the alphabet put it
@@ -309,6 +314,12 @@ Learned from the review of the phone (review fix 1); a second client does the sa
 - **Say what was assumed.** A row with `conditionSource` `DEFAULT` says its condition is not from
   the file; a row with `printingChoice` `MOST_RECENT_ASSUMED` says its copy was taken as the plain
   one; a row with `shownQuantity` says the public card stays as it is.
+- **Keep what was assumed in reach.** What a bulk action answers is shown once and is gone. While
+  `summary.assumedPrintings` is above zero the client counts those rows where the collector still
+  sees it after that (the phone: a card "Plain copy assumed for 115 lines" above the lines and a
+  chip of the filter that stays on screen) and lists them with
+  `rows?printingChoice=MOST_RECENT_ASSUMED`, so a long file is not scrolled through to find them.
+  Picking the plain copy again confirms it: the row is then `MANUAL` and leaves the list.
 - **The lines that were not added stay readable.** After the commit `GET /{id}/rows?status=`
   (`UNMATCHED`, `CHOOSE_PRINTING`) still answers until the import is purged: the result lists
   them, with what the file said and what can be done about each.
@@ -346,7 +357,7 @@ Fictional data. `P1`, `P2`... stand for printing ids.
   "createdAt": "2026-10-13T12:00:00Z", "expiresAt": "2026-10-13T13:00:00Z", "committedAt": null,
   "sections": {"includeMain": true, "includeExtra": true, "includeSide": true, "mainCopies": 3, "extraCopies": 1, "sideCopies": 2},
   "ignoredLines": 0,
-  "summary": {"rows": 4, "ready": 1, "toChoose": 2, "unmatched": 1, "leftOut": 0, "copies": 2, "items": 1, "mergedItems": 0, "defaultConditions": 3, "defaultCondition": "DAMAGED"},
+  "summary": {"rows": 4, "ready": 1, "toChoose": 2, "unmatched": 1, "leftOut": 0, "copies": 2, "items": 1, "mergedItems": 0, "defaultConditions": 3, "defaultCondition": "DAMAGED", "assumedPrintings": 0},
   "result": null
 }
 ```
@@ -390,8 +401,10 @@ catalog of the seed:
 
 - `PATCH …/rows/{row 1}` `{"printingId": "P2"}` → `{"row": {"status": "READY", "printingChoice": "MANUAL", …}, "preview": {"summary": {"ready": 2, "toChoose": 0, …}}}`
   (or `POST …/bulk` `{"action": "USE_MOST_RECENT_PRINTING"}` → `{"updated": 1, "assumed": 1, "undecided": 0, …}`:
-  the knight's set holds a 1st Edition and an Unlimited copy, the Unlimited one is taken and row 1
-  says `printingChoice` `MOST_RECENT_ASSUMED`)
+  the knight's set holds a 1st Edition and an Unlimited copy, the Unlimited one is taken, row 1
+  says `printingChoice` `MOST_RECENT_ASSUMED`, the summary says `assumedPrintings` 1 and
+  `GET …/rows?printingChoice=MOST_RECENT_ASSUMED` answers row 1 alone, until the collector picks a
+  printing for it)
 - `POST …/commit` → `result` `{itemsCreated 2, itemsMerged 0, copiesAdded 3, rowsImported 2, copiesNotAdded 0, …}`.
   Committed again: the same answer, nothing added. If the collector already had two near mint first
   edition English copies of `AZR-EN001` in a **private** item: the preview says

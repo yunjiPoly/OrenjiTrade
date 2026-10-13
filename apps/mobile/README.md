@@ -351,10 +351,19 @@ Conventions later stages reuse:
     the commit bar) and brings the first line of its list up; the counts "need a printing" and
     "not recognised" are buttons that set it. The plan limit is read from `GET /me/plan` and said
     on top before any commit (`planRoomText`).
+    **The lines whose copy was assumed stay in reach** (review fix 2): "Use the most recent
+    printing" says once, in a snackbar, how many lines got the plain copy. While
+    `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
+    assumed for 115 lines", `assumedCopiesText`) and its button lists them; the pinned filter gets
+    the chip "Plain copy assumed (115)" (the filter `MOST_RECENT_ASSUMED`, sent as
+    `printingChoice`). The chips stand in the order of what they ask (All, Needs a printing, Plain
+    copy assumed, Not recognised), and the row brings the chosen chip whole on screen when
+    something else than a press on it chose it (`ChoiceChips revealSelected`). Picking the plain
+    copy again in "Which copy" confirms it: the line leaves that list and the count.
     Leaving a line out shows at once and is put back if the API refuses. A row that changes its
-    status reads the filtered lists again (a row that got its printing leaves "needs a printing",
-    and the next page would otherwise skip a row); an action on the whole preview keeps the first
-    page only and reads it again. The rows are not read again just because the app came back to
+    status, or whose assumed copy was confirmed or changed, reads the filtered lists again (a row
+    that got its printing leaves "needs a printing", and the next page would otherwise skip a
+    row); an action on the whole preview keeps the first page only and reads it again. The rows are not read again just because the app came back to
     the foreground.
   - **Which copy** is the card's printings (`GET /cards/{id}`) in `PrintingList`, the list of the
     card page and of "Add a card", in a bottom sheet; a pick is saved at once. The condition and
@@ -762,7 +771,11 @@ API before and after the commit), `inventory-import-csv.yaml` (the text of a fic
 CSV pasted by a collector who already has two copies of a card, given on the host by
 `scripts/own-printing.js`: the preview says the row goes into the card already owned, the row
 nothing fits is shown with what the file said, and the commit raises the owned card to four
-copies instead of adding a second one), `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
+copies instead of adding a second one), `inventory-import-assumed.yaml` (a pasted CSV whose two
+cards get the plain copy from "Use the most recent printing": once the snackbar is gone the
+filter that stays on screen and a card above the lines still count them, the card's button lists
+them, one is confirmed by picking its copy again, one is changed, and the commit adds the copies
+the collector chose), `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
 "Add cards", publish for 24 hours, checked on the API), `map-region-binders.yaml` (stage M9: a seed
 collector's Map tab draws Americas (North) and counts its binders, the zoom buttons, the list of
 states and provinces, a state without a binder, Quebec and its public binders with the owner and
