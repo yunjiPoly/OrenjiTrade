@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
@@ -151,6 +151,43 @@ describe('Search tab', () => {
     fireEvent.press(screen.getByTestId('search-error-retry'));
     expect(await screen.findByTestId('card-result-emberfang-fox-vmax')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/cards')).toHaveLength(2);
+  });
+
+  it('scrolls the field, the game pills and the filters with the cards, whatever the list shows', async () => {
+    // Pinned above the list, they left no room for a single card at the accessibility text
+    // sizes (and the screen did not scroll): they are the head of the list, in every state.
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/cards': [
+          problem(500, 'INTERNAL_ERROR', 'boom'),
+          ok(cardPage([FOX])),
+          ok(cardPage([])),
+        ],
+      })
+    );
+    render();
+    const list = () => screen.getByTestId('search-results');
+    const head = () => within(list()).getByTestId('search-controls');
+    // While the cards load: the skeleton is in the list, under the field.
+    expect(within(list()).getByTestId('search-loading')).toBeOnTheScreen();
+    expect(within(head()).getByTestId('search-input')).toBeOnTheScreen();
+    expect(within(head()).getByTestId('search-game')).toBeOnTheScreen();
+    expect(within(head()).getByTestId('search-filters')).toBeOnTheScreen();
+    // Only the region switcher and the segments stay above it.
+    expect(within(list()).queryByTestId('search-region')).toBeNull();
+    expect(within(list()).queryByTestId('search-segment')).toBeNull();
+    expect(screen.getByTestId('search-region')).toBeOnTheScreen();
+    expect(screen.getByTestId('search-segment')).toBeOnTheScreen();
+
+    // An error, the cards, then "no card": the same list and the same field throughout.
+    expect(await within(list()).findByTestId('search-error')).toBeOnTheScreen();
+    expect(within(head()).getByTestId('search-input')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('search-error-retry'));
+    expect(await within(list()).findByTestId('card-result-emberfang-fox-vmax')).toBeOnTheScreen();
+    fireEvent.changeText(within(head()).getByTestId('search-input'), 'zzz');
+    expect(await within(list()).findByTestId('search-empty')).toBeOnTheScreen();
+    expect(within(head()).getByTestId('search-input').props.value).toBe('zzz');
+    expect(list().props.contentContainerStyle).toEqual(expect.objectContaining({ flexGrow: 1 }));
   });
 
   it('says when the device is offline', async () => {

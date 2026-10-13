@@ -23,7 +23,16 @@ describe('useAppStore', () => {
 
   it('merges preference patches', () => {
     useAppStore.getState().updatePrefs({ lastSignedInEmail: 'ayumi@example.test' });
-    expect(useAppStore.getState().prefs).toEqual({ lastSignedInEmail: 'ayumi@example.test' });
+    expect(useAppStore.getState().prefs).toEqual({
+      ...DEFAULT_PREFS,
+      lastSignedInEmail: 'ayumi@example.test',
+    });
+    // The Map tab's view (map or list) is kept the same way; a patch leaves the rest alone.
+    useAppStore.getState().updatePrefs({ mapView: 'list' });
+    expect(useAppStore.getState().prefs).toEqual({
+      lastSignedInEmail: 'ayumi@example.test',
+      mapView: 'list',
+    });
   });
 
   it('resets to the initial state', () => {
@@ -43,7 +52,7 @@ describe('useAppStore', () => {
       state: Record<string, unknown>;
       version: number;
     };
-    expect(persisted.version).toBe(4);
+    expect(persisted.version).toBe(5);
     expect(persisted.state).toEqual({ themeOverride: 'dark', prefs: DEFAULT_PREFS });
   });
 
@@ -66,7 +75,10 @@ describe('useAppStore', () => {
     await useAppStore.persist.rehydrate();
     expect(useAppStore.getState().themeOverride).toBe('light');
     // The distance unit of versions 1 to 3 is dropped too (no distances since ADR 0017).
-    expect(useAppStore.getState().prefs).toEqual({ lastSignedInEmail: 'old@example.test' });
+    expect(useAppStore.getState().prefs).toEqual({
+      ...DEFAULT_PREFS,
+      lastSignedInEmail: 'old@example.test',
+    });
   });
 
   it('drops the distance unit version 3 kept', async () => {
@@ -83,6 +95,21 @@ describe('useAppStore', () => {
     await useAppStore.persist.rehydrate();
     expect(useAppStore.getState().prefs).toEqual(DEFAULT_PREFS);
     expect(useAppStore.getState().prefs).not.toHaveProperty('distanceUnit');
+  });
+
+  it('gives version 4 (before the Map tab had a list) no view choice yet', async () => {
+    await AsyncStorage.setItem(
+      APP_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 4,
+        state: { themeOverride: 'dark', prefs: { lastSignedInEmail: 'kept@example.test' } },
+      })
+    );
+    await useAppStore.persist.rehydrate();
+    expect(useAppStore.getState().prefs).toEqual({
+      lastSignedInEmail: 'kept@example.test',
+      mapView: null,
+    });
   });
 
   it('drops the map viewport versions 1 and 2 kept on the device', async () => {

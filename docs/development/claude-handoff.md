@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-12): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -10,9 +10,10 @@ MacBook. Docker is **OrbStack** (Docker context `orbstack`, `/var/run/docker.soc
 Rosetta on, 12 CPUs / 12 GB), not Docker Desktop. The only system JDK is Temurin 27, which works:
 the Gradle daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`) and the E2E
 harnesses pick a Java 21 for the API jar. Node 24.21.0, Xcode 27 with iOS 27 simulators (**the iOS
-simulator is available**), Maestro 2.11.0. **No Android SDK is installed yet** (no adb, no
-emulator), so the Android Maestro suite cannot run until the owner installs it
-([macos-setup.md](macos-setup.md) 9.3). Python 3.12 is not installed either (ML is on hold). The
+simulator is available**), Maestro 2.11.0. **No Android SDK is installed** (no adb, no emulator;
+owner decision of 2026-10-10: skipped for now), so **the native Maestro check on this Mac is the
+iOS run** (`npm run test:mobile:maestro`, which picks the iOS simulator when no Android device is
+ready; [macos-setup.md](macos-setup.md) 9.5). Python 3.12 is not installed either (ML is on hold). The
 macOS and OrbStack fixes of 2026-10-10 are on branch `chore/macos-ios-dev` until it is merged; a
 branch without them needs `JAVA_HOME` set to a JDK 21 for Gradle. **After the fixes reach a branch,
 run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in every worktree that ever ran
@@ -28,15 +29,18 @@ the tests. A new worktree can receive that failed result from the machine-wide G
 (Phases 1–10 + web parity, stages M1–M8), launch readiness (18+ rule, trading safety, French legal
 pages, money features off by default, Law 25 operating docs), the low-cost first-year cloud profile
 (ADR 0016, prepared only — nothing deployed), the E2E isolation from the dev database, and **stage S1
-of the 2026-10-08 change** (platform regions replace geolocation; ADR 0017). Merged PRs since
-2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57.
+of the 2026-10-08 change** (platform regions replace geolocation; ADR 0017), **stage S2** (the
+simplified wishlist and wishlist alerts, #60), the first run on Apple Silicon (#59) and the iOS
+path of the native Maestro suite with the iOS defects it found (#61, 2026-10-12). Merged PRs
+since 2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #59 #60 #61.
 
 **Not on `main`:**
 
 | What | Where | State |
 | --- | --- | --- |
-| Stage S2 — simplified wishlist, matches removed, region wishlist alerts (spec section 4) | branch `feature/regions-s2-wishlist` (no PR yet) | Built; two review rounds. Round 1 blockers (alert link landed on a silent printing pick; wish-dialog error out of view) fixed and re-approved by the product/UX reviewer. The last functional review found that migration V112 failed on a populated pre-V112 database (rarity cleared after the duplicate collapse, so the unique index failed). **Fix round 2 is committed** (`c1b9df7` V112 normalises the selection before collapsing, proven by `SimplifiedWishlistMigrationIT`; `be24294` review polish; `b52211a` status notes) **but not re-reviewed yet.** |
-| Stages S3–S6 | — | Not started. |
+| Mobile stage M9 — regions on the phone (2026-10-12): the region switcher, the region map in the Map tab, the binders of a state or province, `react-native-maps` / `react-native-webview` / `leaflet` removed from the app | branch `feature/mobile-regions-map` (worktree `OrenjiTrade-s2-ux`), on top of `main` at `00714a9`, not pushed | Built and checked on the iOS simulator and the web export (IMPLEMENTATION_STATUS.md, "Mobile app: regions and the region map"). Reviewed on 2026-10-12 (17 findings, no blocker); fixed on 2026-10-13 ("Review fix 1" in that section). The second review approved it the same day with three minors, fixed at once ("Review fix 2"). Waits for the pull request. Android could not be verified on this Mac. |
+| The binder / inventory deadlock fix | branch `fix/binder-count-deadlock` | In review; merges only with an approving final review. |
+| Stages S3–S6 | — | Not started. **Owner order of 2026-10-12: mobile only, the web app is paused until a new order. Owner decision of 2026-10-13: after the map, only S5 and S6; S3 and S4 are skipped until the owner asks for them.** Next: S5 for the phone (its API and its mobile screens), then S6. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
 
@@ -52,11 +56,11 @@ conflict). It is delivered in six stages, one PR each, in order:
 | Stage | Spec sections | Status |
 | --- | --- | --- |
 | S1 geography | 1, 3 (+ forced parts) | merged (#57) |
-| S2 simplified wishlist | 4 | branch `feature/regions-s2-wishlist`, re-review pending |
-| S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | next |
-| S4 community photos (no videos), region channels already done in S1 | 5 | — |
-| S5 inventory import: YDK + Collectr CSV | 6 | — |
-| S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | — |
+| S2 simplified wishlist | 4 | merged (#60) |
+| S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | **skipped** by the owner (2026-10-13) until asked for |
+| S4 community photos (no videos), region channels already done in S1 | 5 | **skipped** by the owner (2026-10-13) until asked for |
+| S5 inventory import: YDK + Collectr CSV | 6 | next: its API and its mobile screens (web import screen paused) |
+| S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | after S5; it lists what S3 and S4 would have delivered as not built |
 
 Facts the spec gets wrong (already handled, keep handling): section 7 says the mobile app "calls
 only GET /api/v1/meta" — it uses ~128 API paths, so every API change must adapt `apps/mobile`
@@ -73,14 +77,17 @@ never store Collectr prices).
    above).
 2. Start Claude in the repo and point it here: *"Read CLAUDE.md, docs/development/claude-handoff.md
    and IMPLEMENTATION_STATUS.md, then continue the 2026-10-08 change from stage S2."*
-3. **Finish S2:** `git switch feature/regions-s2-wishlist`, `npm ci`, then an **independent
-   re-review** (a functional verifier and a product/UX reviewer, in parallel) of the whole stage
-   with special attention to V112 on a populated database, followed by a fix loop if needed. Then
-   merge `origin/main` into the branch, push, open the S2 PR against `main`, and merge it when CI
-   is green.
-4. **S3 → S6**, each the same way (section 4 below), each its own PR.
-5. After S6: the mobile follow-ups recorded in `IMPLEMENTATION_STATUS.md` (region switcher, printing
-   picker, have/want, state binder list and search history on mobile; `react-native-maps` removal).
+3. **Finish S2:** done (merged as #60 on 2026-10-10 after the independent re-review).
+4. **S5, then S6** (owner decision of 2026-10-13: S3 and S4 are skipped until asked for), each
+   the same way (section 4 below), each its own PR. Since the owner's order of 2026-10-12 (mobile
+   only, web paused) a stage is built as its API and its mobile screens; the web screens of that
+   stage wait for a new order and are recorded as a follow-up. S5's import is a bulk write of
+   inventory items: the final review of the parked deadlock fix (`fix/binder-count-deadlock`)
+   comes first.
+5. The mobile follow-ups recorded in `IMPLEMENTATION_STATUS.md`: the region switcher, the state
+   binder list, the region map and the `react-native-maps` removal are done (stage M9,
+   2026-10-12); the printing picker with holder counts, have/want ("Who has it" / "Who wants it",
+   "Wanted by N") and the search history on mobile belong to S3, which is skipped for now.
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
 `npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`;
@@ -90,9 +97,19 @@ Checks every stage must pass before its PR (run them, retries off): `./gradlew e
 `npm run audit:gate`; `npm run test:scripts`; exactly what GitHub CI runs:
 `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
 `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`; and, when `apps/mobile` changed,
-the full Maestro set on the Android emulator (`npm run test:mobile:maestro`; the harness finds the
-SDK in `~/Library/Android/sdk` by itself). As long as the Mac has no Android SDK this check cannot
-run: say so in the PR report as "could not be verified", never skip it silently.
+the full Maestro set (`npm run test:mobile:maestro`). **On this Mac that is the iOS run:** the
+harness creates, boots and shuts down its own simulator ("OrenjiTrade Maestro"), so nothing has to
+be started, and `npx expo export --platform ios` joins the export checks. The same flows run on
+Android (`-- --platform android` with a booted emulator; the harness finds the SDK in
+`~/Library/Android/sdk` by itself).
+
+**What still needs an Android emulator** (none on this Mac): the Android half of every change to
+`apps/mobile` or to `apps/mobile/.maestro`. The iOS run proves the flows and the app on iOS only;
+Android has its own steps in the shared subflows (the back key, `hideKeyboard`, the swipe-based
+scrolls, the `checked` state, `10.0.2.2`) and its own app behaviour (edge-to-edge insets, the
+keyboard, dialogs as windows). Say in the PR report that Android "could not be verified on this
+machine", never skip it silently; a flow change is written so that Android executes the steps it
+executed before (platform-specific steps sit in `when: platform:` blocks).
 
 ## 4. How the work has been done (keep doing it)
 
@@ -119,6 +136,15 @@ run: say so in the PR report as "could not be verified", never skip it silently.
   `-Dorg.gradle.daemon.registry.base=<a scratch directory>` and stops only that one with the same
   flag.
 - **Stop every process you start**; leave no emulator, Metro or test stack running.
+- **Walking the app by hand on the simulator** (`npm run test:mobile:maestro -- --platform ios
+  --keep-running <one flow>` leaves the API, Metro and the simulator up; `-- --stop` ends them).
+  The Metro of the harness does not pick up source edits (it runs without file watching): after a
+  change to the app, `-- --stop` and start again. Screenshots: `xcrun simctl io "OrenjiTrade
+  Maestro" screenshot <file>`; dark mode and text size: `xcrun simctl ui "OrenjiTrade Maestro"
+  appearance dark` / `content_size accessibility-extra-extra-extra-large` (relaunch the app after
+  a text size change: the screen on display keeps its old layout until it is drawn again), and
+  put both back (`light`, `large`) before a run of the flows. The names VoiceOver reads are in
+  `maestro --device <udid> hierarchy`.
 
 ## 5. Owner working agreements (from the Windows Claude memory)
 
@@ -138,6 +164,10 @@ run: say so in the PR report as "could not be verified", never skip it silently.
 - **Regions (2026-10-08):** no coordinates, GPS, distances or geocoding anywhere; country +
   state/province + optional city (city only on the owner's public profile, hideable); three platform
   regions. This supersedes the earlier 3 km zone rule.
+- **Mobile only (2026-10-12):** the owner paused the web app until a new order. Work in
+  `apps/mobile` (and in the API when a mobile stage needs it); do not change `apps/web-angular`
+  (reading it is fine: it is the reference for what the phone should offer). A lockfile change
+  still gets `npm run build -w apps/web-angular` and `npm run test:web` once as a regression check.
 - **Pausing:** when the owner says pause, stop every workflow and process at once and report exactly
   what is committed, pushed or pending; resume from the workflow cache on "continue".
 - **Tasks and reports:** the owner gives work as long pasted specs; report back in plain language
@@ -159,11 +189,27 @@ run: say so in the PR report as "could not be verified", never skip it silently.
 - OrbStack: its free use is limited; the owner checks OrbStack's current licence terms for
   commercial use and decides (macos-setup.md 4.4). On the owner's Mac it also publishes the dev
   ports (PostgreSQL, Redis, Auth emulator) on every network interface while the macOS firewall is
-  off, and it does not start at login.
-- Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3), which the Android
-  Maestro suite needs, and setting git `user.name` / `user.email` there (3.1).
+  off, and it does not start at login: after a restart of the Mac every test stack stops with
+  "Docker is not running" until `orbctl start` (the three shared containers then come back by
+  themselves; it happened on 2026-10-12).
+- The iOS simulator: the owner keeps an iPhone 18 Pro simulator booted for the native suite
+  (owner order of 2026-10-12). Run it with `ORENJI_IOS_SIMULATOR_UDID=<the UDID of the booted
+  iPhone>` (`xcrun simctl list devices booted`); never boot, erase or shut down a simulator and do
+  not use the desktop app's simulator panel: every boot makes the app ask the owner for
+  permission. Without the variable the harness boots its dedicated "OrenjiTrade Maestro" device.
+- Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3): skipped for now
+  (2026-10-10), the native suite runs on the iOS simulator there. Until it is installed, nothing
+  on this Mac proves the Android half of a mobile change.
+- Photo uploads from the Android app: on iOS no photo could be uploaded (Expo's fetch refuses
+  React Native's file part) and that is fixed and proven on the simulator; Android runs the same
+  fetch and is expected to fail the same way, but keeps its old code until an Android run can
+  prove the fix (`apps/mobile/src/api/localFilePart.ts`; IMPLEMENTATION_STATUS.md, "Mobile app on
+  the iOS simulator", Open).
+- Uploaded photos can come out rotated on every client: the API drops a photo's EXIF orientation
+  when it re-encodes the upload (same section). A backend fix, not started.
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
   review, backup-restore drill, failure tests).
-- The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1, 3, 4 and 7 to 13 were
-  fixed on 2026-10-10. Still open: item 2 (an iOS path for the Maestro harness, built next) and the
-  Windows-only Maestro examples of `apps/mobile/README.md` that go with it.
+- The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1 to 4 and 7 to 13 were
+  fixed on 2026-10-10 (item 2, the iOS path of the Maestro harness, and the macOS and Linux
+  examples of `apps/mobile/README.md` with it). The Android run of the native suite on a Mac
+  stays unproven until the Android SDK is installed (owner decision: skipped for now).

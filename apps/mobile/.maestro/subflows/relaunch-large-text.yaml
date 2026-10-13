@@ -1,0 +1,30 @@
+# Kills and reopens the app in Expo Go at the largest text size of the system (the last of the
+# accessibility sizes), keeping its stored data (the session is restored on launch).
+# iOS: Expo Go is started with the launch argument UIPreferredContentSizeCategoryName, which asks
+# for a text size for that launch only: no setting of the device is changed, and the next launch
+# (every flow starts with launch-fresh.yaml) is back at the device's own size.
+# Android has no such argument (the text size is a setting of the device, changed with
+# `adb shell settings put system font_scale`): the app is reopened at the device's own size, and
+# a flow then walks the same paths at that size.
+appId: ${APP_ID}
+---
+- stopApp
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp:
+          clearState: false
+          stopApp: true
+          arguments:
+            UIPreferredContentSizeCategoryName: UICTContentSizeCategoryAccessibilityXXXL
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          clearState: false
+          stopApp: true
+- openLink: ${APP_URL}
+- runFlow: dismiss-dev-menu.yaml
+- runFlow: wait-for-app.yaml

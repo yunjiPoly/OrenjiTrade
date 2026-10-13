@@ -2,7 +2,7 @@
 # collector1 (Quebec) lists publicly in the seed data (read on the host from the public API),
 # presses "Who has this in my region", and the card holders of Americas (North) list collector1's
 # copy with their state, never a distance. Seed accounts are only signed in to.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Card detail to who has this in my region
 tags:
   - mobile-m3

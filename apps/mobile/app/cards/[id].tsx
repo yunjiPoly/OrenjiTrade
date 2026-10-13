@@ -12,6 +12,7 @@ import { SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
+import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { marketPriceSource } from '@/src/features/wishlist/wishlistLabels';
 import {
   ANY_PRINTING_PARAM,
@@ -23,6 +24,7 @@ import {
   printingCode,
   printingImageUrl,
 } from '@/src/lib/catalog';
+import { regionName, regionPhrase } from '@/src/lib/place';
 import { gameLabel } from '@/src/lib/profile';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -147,6 +149,11 @@ function CardContent({
   const candidates = anyPrinting ? printings : rarityPrintings;
   const inventoryPrinting = selected ?? (candidates.length === 1 ? candidates[0] : null);
 
+  // The holders are those of the browsed region: the button names it when it is not one's own.
+  const browsing = useBrowsingRegion();
+  const elsewhere = regionPhrase(browsing.region, browsing.home) !== 'your region';
+  const browsed = regionName(browsing.region);
+
   const select = (printing: PrintingSummary) => {
     if (printing.id) {
       // One printing replaces "any printing" (`?printing=any`) and "any printing in <rarity>".
@@ -226,10 +233,10 @@ function CardContent({
           testID="card-add-to-inventory"
         />
         <Button
-          label="Who has this in my region"
+          label={elsewhere ? `Who has this in ${browsed}` : 'Who has this in my region'}
           icon="account-search-outline"
           variant="secondary"
-          accessibilityHint="Lists the collectors of your region who own, trade or sell this card"
+          accessibilityHint={`Lists the collectors of ${elsewhere ? browsed : 'your region'} who own, trade or sell this card`}
           onPress={() => router.push({ pathname: '/holders', params: { card: card.id ?? '' } })}
           testID="card-holders"
         />

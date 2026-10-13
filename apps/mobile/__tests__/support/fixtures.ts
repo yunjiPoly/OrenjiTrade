@@ -35,7 +35,9 @@ import type {
   MessageResponse,
   MyPlan,
   Place,
+  PublicBinderCursorPage,
   PublicBinderSummary,
+  RegionBinderCounts,
   RegionsResponse,
   PublicInventoryPage,
   ReferencePage,
@@ -1184,6 +1186,29 @@ export function searchBinderFixture(
     },
     ...overrides,
   });
+}
+
+/** `GET /regions/{region}/binder-counts`: Quebec holds two public binders, Ontario one. */
+export function binderCountsFixture(
+  overrides: Partial<RegionBinderCounts> = {}
+): RegionBinderCounts {
+  return {
+    region: 'americas-north',
+    total: 3,
+    subdivisions: [
+      { code: 'CA-QC', binderCount: 2 },
+      { code: 'CA-ON', binderCount: 1 },
+    ],
+    ...overrides,
+  };
+}
+
+/** One page of `GET /regions/{region}/subdivisions/{code}/binders`. */
+export function placeBindersPage(
+  items: PublicBinderSummary[] = [],
+  nextCursor: string | null = null
+): PublicBinderCursorPage {
+  return { items, nextCursor, hasMore: nextCursor !== null };
 }
 
 export const HOLDER_ITEM_ID = '00000000-0000-4000-8c00-000000030303';

@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { getFocusedRouteNameFromRoute } from 'expo-router/react-navigation';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -9,7 +10,22 @@ import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
 import { useTheme } from '@/src/theme/useTheme';
 
+import { groupTitleOptions, type RouteGroup } from './backTitles';
 import { nativeHeaderInsetOptions } from './headerInsets';
+
+type GroupRoute = Parameters<typeof getFocusedRouteNameFromRoute>[0];
+
+/**
+ * Options of a route group of the root stack: no header of its own, and on iOS the title of its
+ * focused screen, which the back button of the screen opened over it shows (backTitles.ts).
+ */
+function groupOptions(group: RouteGroup, extra: { animation?: 'fade' } = {}) {
+  return ({ route }: { route: GroupRoute }) => ({
+    headerShown: false,
+    ...extra,
+    ...groupTitleOptions(Platform.OS, group, getFocusedRouteNameFromRoute(route)),
+  });
+}
 
 /**
  * The root stack with the auth gate (signed out → sign-in, account states, onboarding, tabs).
@@ -39,9 +55,9 @@ export function RootNavigator() {
           ...nativeHeaderInsetOptions(Platform.OS, insets.top),
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="(account)" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="(tabs)" options={groupOptions('(tabs)')} />
+        <Stack.Screen name="(auth)" options={groupOptions('(auth)', { animation: 'fade' })} />
+        <Stack.Screen name="(account)" options={groupOptions('(account)', { animation: 'fade' })} />
         <Stack.Screen name="onboarding" options={{ title: 'Welcome', animation: 'fade' }} />
         {/* Settings (web: /settings/*). Later phases add offers, payouts, blocked users, ... */}
         <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
@@ -61,6 +77,9 @@ export function RootNavigator() {
         {/* "Who has this in my region" as a list (web: /search?card=) and a set's cards (web: /sets/:id). */}
         <Stack.Screen name="holders" options={{ title: 'Card holders' }} />
         <Stack.Screen name="sets/[id]" options={{ title: 'Set' }} />
+        {/* The public binders of a state or province, opened from the Map tab (web: the state
+            panel of /map?region=&subdivision=). The screen sets its own title: the place. */}
+        <Stack.Screen name="regions/[region]/[code]" options={{ title: 'Binders' }} />
         <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
         <Stack.Screen name="binders/new" options={{ title: 'New binder' }} />
         <Stack.Screen name="binders/edit" options={{ title: 'Edit binder' }} />

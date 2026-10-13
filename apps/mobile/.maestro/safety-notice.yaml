@@ -3,7 +3,7 @@
 # dismissible "Trade safely" notice under the header: the guide link opens the "Trading safely"
 # page in-app, the composer keeps working with the notice on screen, Dismiss removes it, and it
 # stays gone after a relaunch (the dismissal lives on the device, per collector).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Safety notice in a first conversation
 tags:
   - launch-readiness
@@ -53,7 +53,7 @@ tags:
 - assertVisible: 'Trading safely'
 - assertVisible:
     id: 'legal-draft-banner'
-- back
+- runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
       id: 'safety-notice'
@@ -63,7 +63,7 @@ tags:
 - tapOn:
     id: 'conversation-input'
 - inputText: 'Lets meet at the library.'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'conversation-send'
 - extendedWaitUntil:

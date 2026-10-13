@@ -250,9 +250,22 @@ describe('Conversation', () => {
     );
     render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
+    // iOS shows the picker over whatever is on screen: it must only be asked for once the attach
+    // sheet has left, or it goes away with the sheet.
+    let sheetGoneAtLaunch = false;
+    picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+      sheetGoneAtLaunch = screen.queryByTestId('composer-attach-sheet') === null;
+      return (await picker.launchImageLibraryAsync()) as never;
+    });
     fireEvent.press(screen.getByTestId('composer-attach'));
     fireEvent.press(await screen.findByTestId('composer-attach-photo'));
     expect(await screen.findByTestId('composer-attachment')).toHaveTextContent(/photo\.jpg/);
+    expect(sheetGoneAtLaunch).toBe(true);
+    // A library photo is asked for in the compatible format (an iPhone's HEIC arrives as JPEG).
+    expect(picker.launchImageLibraryAsync.mock.calls[0]?.[0]).toMatchObject({
+      mediaTypes: ['images'],
+      preferredAssetRepresentationMode: 'compatible',
+    });
     expect(screen.getByTestId('composer-attachment')).toHaveTextContent(/117 KB/);
     fireEvent.changeText(screen.getByLabelText('Message'), 'The card');
     fireEvent.press(screen.getByTestId('conversation-send'));

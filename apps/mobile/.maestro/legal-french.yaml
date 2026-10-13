@@ -2,7 +2,7 @@
 # readable signed out), the index in English on an English emulator, the EN / FR switch, the
 # French index with the French draft banner and the translation marking, the "Trading safely"
 # page in French then in English, the choice remembered across a relaunch (AsyncStorage).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: French legal pages and the EN / FR switch
 tags:
   - launch-readiness

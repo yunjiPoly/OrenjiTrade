@@ -1,7 +1,7 @@
 # Blocked users (mobile stage M7): Ada (fresh, fictional) blocks Ben from their conversation
 # (scripts/messaging.js), finds him under Settings -> Blocked users and unblocks him; the API holds
 # each step and Ben can write again afterwards.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Block from a conversation, Blocked users, unblock
 tags:
   - mobile-m7
@@ -65,7 +65,7 @@ tags:
 
 # Settings -> Blocked users: Ben, then Unblock (back to the inbox first: the tabs sit under the
 # conversation).
-- back
+- runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
       id: 'tab-profile'

@@ -163,7 +163,7 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | `npm run test:web` | `ng lint` + `ng test` (Vitest) for `apps/web-angular` | |
 | `npm run test:mobile` | `tsc --noEmit`, `expo lint`, `jest` for `apps/mobile`, plus the mobile E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`) | |
 | `npm run test:mobile:e2e` | Playwright (`apps/mobile/e2e`) against the Expo **web** build and an isolated stack | see [Mobile app](#mobile-app-expo); never touches the developer database, files or ports 8080/4200 |
-| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator, same isolated stack | needs an emulator and the Maestro CLI (`MAESTRO_BIN`); not part of `test:all` or CI |
+| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`), same isolated stack | needs the Maestro CLI (`MAESTRO_BIN`) and either a booted Android emulator or a Mac with Xcode (the harness creates and boots its own simulator); not part of `test:all` or CI |
 | `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0`. The `launch-config` project (`e2e/launch-config.spec.ts`, every money flag off) runs alone after the `chromium` project; `-- e2e/launch-config.spec.ts --no-deps` runs it by itself |
 | `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards and the purge rules (also run at the start of every `test:e2e`) |
 | `npm run test:all` | scripts, api, web, mobile, e2e, mobile:e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
@@ -179,7 +179,9 @@ stage M8): `test:mobile` about 1–2.5 min (748 jest tests in 85 suites + 28 har
 `test:mobile:e2e` about 3–4 min (60 specs, including the API jar and the web export; about 2 min
 when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 `Pixel_6_API_34` emulator, including the API and Metro start; add a few minutes the first time,
-while Expo CLI installs Expo Go).
+while Expo CLI installs Expo Go). On the iOS simulator of a Mac mini (Apple M6, 2026-10-10):
+`test:mobile:maestro -- --platform ios` 33 min 28 s for the 24 flows from a cold start (the
+simulator created, the API jar built, Expo Go installed), `test:mobile:e2e` 1 min 14 s (52 specs).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -323,7 +325,7 @@ database or files and leave a running `npm run dev` alone:
 | Database | `orenjitrade_mobile_e2e` on the shared PostgreSQL, dropped and recreated per run (Flyway + seed); `orenjitrade` is never touched |
 | API | the API jar on **:8090** (profile `local`, Redis database 1 (flushed whenever the database is recreated, so no cached row of the dropped database reaches the new API) and realtime channels `e2e-mobile:rt:user:*`, fake/log providers, mock catalog only: YGOPRODeck disabled and pointed at a closed local port, no card image downloads), log `.local-dev/mobile-e2e/logs/api.log` |
 | Files | media `.local-dev/mobile-e2e/storage`, card-image cache `.local-dev/mobile-e2e/card-images`, provider snapshots `.local-dev/mobile-e2e/provider-data`; the harness refuses to start when any resolves to a developer directory (start-up reconciliation deletes cache files its own database does not reference) |
-| App | Playwright: `expo export --platform web` served on **:19006**; Maestro: Metro on **:8082** for Expo Go (`exp://10.0.2.2:8082`) |
+| App | Playwright: `expo export --platform web` served on **:19006**; Maestro: Metro on **:8082** for Expo Go (`exp://10.0.2.2:8082` on the Android emulator, `exp://127.0.0.1:8082` on the iOS simulator) |
 | Accounts | created as `m-<run id>-...@mobile-e2e.test` and deleted from the Auth emulator at the end of the run; seed accounts are only signed in to |
 
 The guards (`scripts/lib/mobile-e2e-guard.mjs`, unit tested in `mobile-e2e-guard.test.mjs`) reuse
@@ -335,15 +337,35 @@ stacks and `npm run dev` can run side by side.
 `--reuse-running` only reuses an API the harness itself started (identity block in
 `/actuator/info`, instance id in `.local-dev/mobile-e2e/state.json`) and refuses the developer API
 on :8080; `--keep-running` keeps the isolated API and web server (or Metro) for the next run and
-`-- --stop` stops them. The native check: start an emulator (Windows:
-`%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd Pixel_6_API_34 -no-snapshot-save`; macOS:
-`~/Library/Android/sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save`, an arm64-v8a
-image), then `npm run test:mobile:maestro`. The harness finds adb through `ANDROID_HOME`,
-`ANDROID_SDK_ROOT` or the SDK's default folder of the platform, and Maestro on `PATH` or in
-`~/.maestro/bin`; set `MAESTRO_BIN=<path to maestro(.bat)>` when it is somewhere else (on Windows,
-for example `D:/maestro/bin/maestro.bat`). On an emulator without Expo Go,
-the Metro started by the harness (`expo start --android`) installs it and the harness waits for
-that install (up to 6 minutes) before running the flows. Flows that need data create it on the
+`-- --stop` stops them.
+
+The native check runs on an Android emulator or, on a Mac, on the iOS simulator
+(`npm run test:mobile:maestro -- --platform android|ios`, or `ORENJI_MAESTRO_PLATFORM`; without a
+choice: Android when a device is ready, otherwise iOS on a Mac with Xcode). Both platforms run the
+same flows; the harness gives them Expo Go's app id and the project URL of the platform.
+
+- **Android:** start an emulator (Windows:
+  `%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd Pixel_6_API_34 -no-snapshot-save`; macOS:
+  `~/Library/Android/sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save`, an arm64-v8a
+  image; Linux: `~/Android/Sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save`), then
+  `npm run test:mobile:maestro`. The harness finds adb through `ANDROID_HOME`, `ANDROID_SDK_ROOT`
+  or the SDK's default folder of the platform. Metro runs `expo start --android` with the app
+  pointed at `10.0.2.2:8090`; on an emulator without Expo Go, Expo CLI installs it and the harness
+  waits for that install (up to 6 minutes) before running the flows.
+- **iOS (macOS with Xcode and an iOS runtime):** nothing to start. The harness uses a simulator of
+  its own, "OrenjiTrade Maestro" (`scripts/lib/ios-simulator.mjs`): created when missing, booted
+  with `simctl` (no Simulator / DeviceHub window), configured inside the simulator only (password
+  AutoFill off, US English, a plain keyboard, `exp://` links open in Expo Go), and shut down
+  afterwards; a developer's own simulators and the Mac's settings are never touched. Metro runs
+  `expo start` with the app pointed at `localhost:8090`, and Expo Go is installed on that simulator
+  by Expo CLI's installer (`scripts/lib/expo-go-ios.mjs`), whatever else is booted.
+  `ORENJI_IOS_SIMULATOR_NAME`, `ORENJI_IOS_SIMULATOR_TYPE` and `ORENJI_IOS_SIMULATOR_UDID` choose
+  another simulator (`apps/mobile/README.md`).
+
+Maestro is found on `PATH` or in `~/.maestro/bin`; set `MAESTRO_BIN=<path to maestro(.bat)>` when
+it is somewhere else (on Windows, for example `D:/maestro/bin/maestro.bat`; on macOS and Linux,
+for example `$HOME/tools/maestro/bin/maestro`). A kept Metro serves one platform (the API address is
+inlined into the bundle): `-- --stop` before switching platforms. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
 second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
 `wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the

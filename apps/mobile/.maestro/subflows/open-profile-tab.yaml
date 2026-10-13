@@ -1,5 +1,5 @@
 # Opens the Profile tab and waits for the collector's profile.
-appId: host.exp.exponent
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:

@@ -152,12 +152,12 @@ export function cardHoldersQuery(
   return query;
 }
 
-/** "3 listings in your region" / "Looking for holders…". */
-export function holdersCountLabel(total: number | null): string {
+/** "3 listings in your region" (or "in Europe" in another region) / "Looking for holders…". */
+export function holdersCountLabel(total: number | null, where = 'your region'): string {
   if (total === null) {
     return 'Looking for holders…';
   }
-  return `${total} ${total === 1 ? 'listing' : 'listings'} in your region`;
+  return `${total} ${total === 1 ? 'listing' : 'listings'} in ${where}`;
 }
 
 /** Fallback conditions when the card's game schema is unknown (the web's list). */

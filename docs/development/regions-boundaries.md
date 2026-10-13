@@ -34,6 +34,26 @@ The download, the shapefile and every intermediate file stay outside the reposit
   created after the data, e.g. `PA-10`, `ME-25`) and `TOO_SMALL_TO_DRAW` (four Maltese local
   councils and Vatican City, which collapse at 0.01°) are seeded but not drawn: the map lists them
   under their country.
+- `apps/mobile/assets/boundaries/<region>.json` (mobile stage M9, 2026-10-12): the drawings the
+  phone bundles, **made from the web files above** by `npm run sync:boundaries -w apps/mobile`
+  (`apps/mobile/scripts/sync-boundaries.mjs` and `scripts/lib/boundaryOutlines.js`; no download,
+  no tool outside the repository). Same source, version and licence; the web files are not moved
+  or edited. Each file is the same borders already projected (Web Mercator, the projection of the
+  web's Leaflet map; one drawing unit is 0.01° of longitude, the precision of the source) and
+  written as SVG path data: `width`, `height`, the first view `home`, the country borders as one
+  path and one entry per state or province `{code, box, d}`. The app therefore holds no degrees.
+
+  | File | Bytes | States and provinces | Rings | Points |
+  | --- | --- | --- | --- | --- |
+  | `americas-north.json` | 103,734 | 348 | 599 | 12,056 |
+  | `americas-south.json` | 61,962 | 243 | 293 | 7,070 |
+  | `europe.json` | 139,413 | 653 | 862 | 15,414 |
+
+  After a rebuild of the web files, run `npm run sync:boundaries -w apps/mobile` and commit the
+  three copies: `npm run sync:boundaries -w apps/mobile -- --check` and the app's jest suite
+  (`__tests__/features/regionOutlines.test.ts`: every copy is what the script writes from its web
+  file today, every state the web draws is drawn, the first view is the web's `REGION_VIEW`) fail
+  until then.
 - `V106__platform_regions.sql` (tables) and `V107__platform_regions_seed.sql` (3 regions, 104
   countries, 1,259 subdivisions). V107 was written by the build below and, like every applied
   migration, is never regenerated in place: a catalogue change is a new migration (or an admin

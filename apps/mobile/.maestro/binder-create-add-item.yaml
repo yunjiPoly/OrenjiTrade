@@ -2,7 +2,7 @@
 # creates a binder, adds the card to it from the binder's "Add cards" sheet and publishes the
 # binder for 24 hours. scripts/check-inventory.js checks on the host that the API holds the card
 # in that binder and the binder temporarily public.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Create a binder and add a card
 tags:
   - mobile-m2
@@ -51,7 +51,7 @@ tags:
 - tapOn:
     id: 'binder-name'
 - inputText: 'Maestro trades'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'binder-save'
 - extendedWaitUntil:

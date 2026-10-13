@@ -4,7 +4,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useCard } from '@/src/api/hooks/catalog';
 import { useGames } from '@/src/api/hooks/profile';
-import { useCardHolders, useSearchRegion } from '@/src/api/hooks/search';
+import { useCardHolders } from '@/src/api/hooks/search';
 import type { CardDetail } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
@@ -27,17 +27,19 @@ import { HolderFiltersSheet } from '@/src/features/holders/HolderFiltersSheet';
 import { HolderRow } from '@/src/features/holders/HolderRow';
 import { holdersTarget } from '@/src/features/collectors/collectorLabels';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
+import { RegionBar } from '@/src/features/regions/RegionBar';
+import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { printingCode, printingImageUrl } from '@/src/lib/catalog';
 import { isLimitReached } from '@/src/lib/limits';
-import { regionName } from '@/src/lib/place';
+import { regionName, regionPhrase } from '@/src/lib/place';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * "Who has this card in my region" as a list (the web's `/search?card=|printing=` card-holders
  * view, `GET /search/card-holders`): the card, every filter and sort of the web (a sheet), the
- * matching public copies of the home region with their holders (state or province only, never a
- * position or a distance, ADR 0017), paged.
+ * matching public copies of the browsed region with their holders (state or province only, never
+ * a position or a distance, ADR 0017), paged. The region switcher is in the navigation header.
  */
 export default function HoldersScreen() {
   const params = useLocalSearchParams<{ card?: string; printing?: string }>();
@@ -47,7 +49,9 @@ export default function HoldersScreen() {
   const router = useRouter();
   const { palette } = useTheme();
   const games = useGames();
-  const { region } = useSearchRegion();
+  const { region, home } = useBrowsingRegion();
+  // "your region" at home, the region's name while browsing another one.
+  const where = regionPhrase(region, home);
   const holders = useCardHolders(target, filters);
   // The card: its picture, name and game schema (for the condition / edition / language values).
   const cardId = target?.kind === 'card' ? target.id : null;
@@ -59,7 +63,7 @@ export default function HoldersScreen() {
   const printing = printingOf(card.data);
   const schema = games.data?.find((game) => game.slug === card.data?.game)?.schema ?? null;
   const name = card.data?.name ?? 'this card';
-  const heading = `Who has ${name}${printing ? ` (${printingCode(printing)})` : ''} in your region`;
+  const heading = `Who has ${name}${printing ? ` (${printingCode(printing)})` : ''} in ${where}`;
   const rows = useMemo(
     () => holders.data?.pages.flatMap((page) => page.items ?? []) ?? [],
     [holders.data]
@@ -75,7 +79,7 @@ export default function HoldersScreen() {
           testID="holders-no-card"
           icon="cards-outline"
           title="Choose a card first"
-          description="Open a card and ask who has it in your region."
+          description={`Open a card and ask who has it in ${where}.`}
           actionLabel="Search the catalog"
           onAction={() => router.navigate('/search')}
         />
@@ -165,7 +169,7 @@ export default function HoldersScreen() {
         accessibilityLiveRegion="polite"
         style={[textStyle('sm'), styles.strong, { color: palette.ink }]}
       >
-        {holdersCountLabel(total)}
+        {holdersCountLabel(total, where)}
         {holders.isFetching && !holders.isFetchingNextPage && total !== null ? ' · updating…' : ''}
       </Text>
       <SponsoredSlot
@@ -204,7 +208,7 @@ export default function HoldersScreen() {
           <EmptyState
             testID="holders-empty"
             icon="magnify-close"
-            title="Nobody in your region lists this card with these filters"
+            title={`Nobody in ${where} lists this card with these filters`}
             description="Widen the filters, or add it to your wishlist: we'll tell you when a collector of your region lists it."
             actionLabel={active > 0 ? 'Clear filters' : undefined}
             onAction={
@@ -240,7 +244,14 @@ export default function HoldersScreen() {
 
   return (
     <Screen testID="screen-holders" style={styles.screen}>
-      <Stack.Screen options={{ title: 'Card holders' }} />
+      {/* The region switcher sits in the navigation header: the title, the line under it and the
+          count below already name the region, and the list keeps its room. */}
+      <Stack.Screen
+        options={{
+          title: 'Card holders',
+          headerRight: () => <RegionBar variant="header" testID="holders-region" />,
+        }}
+      />
       {header}
       <View style={styles.grow}>{body}</View>
       <HolderFiltersSheet

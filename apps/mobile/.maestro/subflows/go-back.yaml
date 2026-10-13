@@ -1,0 +1,15 @@
+# Goes back one screen the way each platform lets a collector do it: Android's back key; on iOS
+# (no back key) the back button of the navigation header.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: 'BackButton'

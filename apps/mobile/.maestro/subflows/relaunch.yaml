@@ -1,5 +1,5 @@
 # Kills and reopens the app in Expo Go, keeping its stored data (session restore on launch).
-appId: host.exp.exponent
+appId: ${APP_ID}
 ---
 - stopApp
 - launchApp:

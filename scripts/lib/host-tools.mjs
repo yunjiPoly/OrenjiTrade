@@ -78,6 +78,285 @@ export function maestroNotFoundMessage(platform) {
   );
 }
 
+// --------------------------------------------------------------- Maestro: Android or iOS
+
+/** The platforms `npm run test:mobile:maestro` can drive. */
+export const MAESTRO_PLATFORMS = Object.freeze(['android', 'ios']);
+
+/** The environment variable that chooses the platform (the `--platform` flag wins over it). */
+export const MAESTRO_PLATFORM_ENV = 'ORENJI_MAESTRO_PLATFORM';
+
+/** `android` / `ios` out of a flag or variable value (any letter case), null when empty; throws otherwise. */
+export function parseMaestroPlatform(value, source = '--platform') {
+  const wanted = String(value ?? '').trim().toLowerCase();
+  if (!wanted) {
+    return null;
+  }
+  if (!MAESTRO_PLATFORMS.includes(wanted)) {
+    throw new Error(`${source}: "${value}" is not a platform of the native suite (use ${MAESTRO_PLATFORMS.join(' or ')}).`);
+  }
+  return wanted;
+}
+
+/**
+ * Takes `--platform <name>` / `--platform=<name>` out of the arguments (the last one wins) and
+ * returns `{ platform, rest }`; `platform` is null when the flag is absent. Throws on a missing or
+ * unknown value, so a typo never silently runs the other platform.
+ */
+export function splitPlatformArgs(argv) {
+  let platform = null;
+  const rest = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--platform') {
+      const value = argv[index + 1];
+      if (value === undefined || value.startsWith('--')) {
+        throw new Error(`--platform needs a value (${MAESTRO_PLATFORMS.join(' or ')}).`);
+      }
+      platform = parseMaestroPlatform(value);
+      index += 1;
+    } else if (arg.startsWith('--platform=')) {
+      platform = parseMaestroPlatform(arg.slice('--platform='.length));
+      if (!platform) {
+        throw new Error(`--platform needs a value (${MAESTRO_PLATFORMS.join(' or ')}).`);
+      }
+    } else {
+      rest.push(arg);
+    }
+  }
+  return { platform, rest };
+}
+
+/**
+ * Which platform a run drives. An explicit choice (the `--platform` flag, then
+ * ORENJI_MAESTRO_PLATFORM) is taken as it is. Without one: Android when an Android device is ready
+ * (what the suite has always run on), otherwise the iOS simulator on a Mac with Xcode, otherwise
+ * Android again so the caller prints the "no Android device" help. `androidDeviceReady` and
+ * `xcodeReady` are functions that answer true or false.
+ * Returns `{ platform, explicit, why }`.
+ */
+export function chooseMaestroPlatform({ flag, env = {}, hostPlatform, androidDeviceReady, xcodeReady }) {
+  const fromEnv = parseMaestroPlatform(env[MAESTRO_PLATFORM_ENV], MAESTRO_PLATFORM_ENV);
+  if (flag) {
+    return { platform: flag, explicit: true, why: '--platform' };
+  }
+  if (fromEnv) {
+    return { platform: fromEnv, explicit: true, why: MAESTRO_PLATFORM_ENV };
+  }
+  // The probes are functions: adb and xcrun only run when the answer depends on them.
+  if (androidDeviceReady()) {
+    return { platform: 'android', explicit: false, why: 'an Android device is ready' };
+  }
+  if (hostPlatform === 'darwin' && xcodeReady()) {
+    return { platform: 'ios', explicit: false, why: 'no Android device is ready and this Mac has Xcode with an iOS runtime' };
+  }
+  return { platform: 'android', explicit: false, why: 'the default' };
+}
+
+/**
+ * What the app and the flows need to know about a platform:
+ * - `appId`: Expo Go's application id (Android package, iOS bundle identifier; they differ by one
+ *   capital letter);
+ * - `host`: the development machine as the device sees it. The Android emulator reaches it at
+ *   10.0.2.2. The iOS simulator shares the Mac's network: the app uses `localhost` (what
+ *   apps/mobile/src/config/env.ts defaults to on iOS) and Expo Go opens Metro at 127.0.0.1;
+ * - `appUrl`: the project URL Expo Go opens; `apiBaseUrl` / `authEmulatorHost`: what Metro inlines
+ *   into the bundle.
+ */
+export function maestroTarget(platform, { metroPort, apiPort, authEmulatorPort }) {
+  if (platform === 'ios') {
+    return {
+      platform,
+      label: 'iOS',
+      appId: 'host.exp.Exponent',
+      host: 'localhost',
+      appUrl: `exp://127.0.0.1:${metroPort}`,
+      apiBaseUrl: `http://localhost:${apiPort}`,
+      authEmulatorHost: `localhost:${authEmulatorPort}`,
+    };
+  }
+  const host = '10.0.2.2';
+  return {
+    platform: 'android',
+    label: 'Android',
+    appId: 'host.exp.exponent',
+    host,
+    appUrl: `exp://${host}:${metroPort}`,
+    apiBaseUrl: `http://${host}:${apiPort}`,
+    authEmulatorHost: `${host}:${authEmulatorPort}`,
+  };
+}
+
+// --------------------------------------------------------------------------- iOS simulator
+
+/** The simulator the harness creates for itself, so a developer's own simulators keep their data. */
+export const IOS_SIMULATOR_NAME = 'OrenjiTrade Maestro';
+export const IOS_SIMULATOR_NAME_ENV = 'ORENJI_IOS_SIMULATOR_NAME';
+export const IOS_SIMULATOR_UDID_ENV = 'ORENJI_IOS_SIMULATOR_UDID';
+export const IOS_SIMULATOR_TYPE_ENV = 'ORENJI_IOS_SIMULATOR_TYPE';
+
+const versionParts = (version) => String(version ?? '').split('.').map((part) => Number.parseInt(part, 10) || 0);
+
+function compareVersions(a, b) {
+  const [left, right] = [versionParts(a), versionParts(b)];
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return 0;
+}
+
+/** The newest available iOS runtime of `xcrun simctl list runtimes -j` (its `runtimes` array), or null. */
+export function newestIosRuntime(runtimes) {
+  const ios = (runtimes ?? []).filter((runtime) => runtime.isAvailable !== false && (runtime.platform ?? 'iOS') === 'iOS');
+  ios.sort((a, b) => compareVersions(b.version, a.version));
+  return ios[0] ?? null;
+}
+
+/**
+ * The iPhone model of the dedicated simulator among a runtime's `supportedDeviceTypes`: `wanted`
+ * (a name such as "iPhone 17" or a device type identifier) when given, else a current phone: the
+ * newest numbered standard model ("iPhone 17"), then the newest Pro, then any iPhone. The standard
+ * model is the screen most collectors hold; Max, Plus, Air, mini, "e" and SE sizes stay opt-in.
+ * Returns the device type, or null when the runtime supports none that fits.
+ */
+export function chooseIphoneType(deviceTypes, wanted) {
+  const iphones = (deviceTypes ?? []).filter(
+    (type) => (type.productFamily ?? 'iPhone') === 'iPhone' && /^iPhone\b/.test(type.name ?? ''),
+  );
+  if (wanted) {
+    const key = wanted.trim().toLowerCase();
+    return iphones.find((type) => type.name.toLowerCase() === key || type.identifier?.toLowerCase() === key) ?? null;
+  }
+  const generation = (pattern) =>
+    iphones
+      .map((type) => ({ type, match: pattern.exec(type.name) }))
+      .filter((entry) => entry.match)
+      .sort((a, b) => Number(b.match[1]) - Number(a.match[1]))[0]?.type;
+  return generation(/^iPhone (\d+)$/) ?? generation(/^iPhone (\d+) Pro$/) ?? iphones[0] ?? null;
+}
+
+/**
+ * The simulator to use among the `devices` map of `xcrun simctl list devices -j` (runtime
+ * identifier -> devices): the one with `udid` when a UDID is given (any name), else the available
+ * one called `name`, preferring `runtimeIdentifier` when several runtimes have one. Returns
+ * `{ ...device, runtimeIdentifier }`, or null.
+ */
+export function findIosSimulator(devices, { udid, name, runtimeIdentifier }) {
+  const all = Object.entries(devices ?? {}).flatMap(([runtime, list]) =>
+    list.map((device) => ({ ...device, runtimeIdentifier: runtime })),
+  );
+  if (udid) {
+    const wanted = udid.trim().toUpperCase();
+    return all.find((device) => device.udid?.toUpperCase() === wanted) ?? null;
+  }
+  const named = all.filter((device) => device.name === name && device.isAvailable !== false);
+  return named.find((device) => device.runtimeIdentifier === runtimeIdentifier) ?? named[0] ?? null;
+}
+
+/**
+ * The settings files of a simulator (under its data directory) that hold "AutoFill Passwords":
+ * the user's settings, the effective copy iOS computes from them and the copy apps read.
+ */
+export function passwordAutofillPlists(dataPath) {
+  const p = path.posix;
+  const user = p.join(dataPath, 'Library', 'UserConfigurationProfiles');
+  const shared = p.join(
+    dataPath,
+    'Containers',
+    'Shared',
+    'SystemGroup',
+    'systemgroup.com.apple.configurationprofiles',
+    'Library',
+    'ConfigurationProfiles',
+  );
+  return [
+    p.join(shared, 'UserSettings.plist'),
+    p.join(user, 'UserSettings.plist'),
+    p.join(user, 'EffectiveUserSettings.plist'),
+    p.join(user, 'PublicInfo', 'PublicEffectiveUserSettings.plist'),
+  ];
+}
+
+/**
+ * The preferences of the dedicated simulator, as `{ domain, key, type, value, restart }` for
+ * `defaults write` inside the simulator (`type`: bool, string or array; `restart`: iOS only reads
+ * it when it starts):
+ * - language and region: US English whatever the Mac uses (a simulator inherits the Mac's
+ *   languages and region), like the Android emulator the flows were written on. The app follows
+ *   the device for its legal pages (English or French) and for dates and prices;
+ * - keyboard: it types exactly what a flow gives it (iOS would otherwise "correct" a card name
+ *   such as "emberfang") and never shows its "slide to type" introduction over the first keyboard;
+ * - `exp://` links open in `expoGoAppId` without iOS asking "Open in Expo Go?" first (what Expo
+ *   CLI writes for the simulator it opens a project on).
+ */
+export function iosSimulatorDefaults(expoGoAppId) {
+  const settings = 'com.apple.Preferences';
+  const keyboard = 'com.apple.keyboard.preferences';
+  const off = (domain, key) => ({ domain, key, type: 'bool', value: false, restart: true });
+  const on = (domain, key) => ({ domain, key, type: 'bool', value: true, restart: true });
+  return [
+    { domain: '-g', key: 'AppleLanguages', type: 'array', value: ['en-US'], restart: true },
+    { domain: '-g', key: 'AppleLocale', type: 'string', value: 'en_US', restart: true },
+    off(settings, 'KeyboardAutocorrection'),
+    off(settings, 'KeyboardPrediction'),
+    off(settings, 'KeyboardShowPredictionBar'),
+    off(settings, 'KeyboardCheckSpelling'),
+    off(settings, 'KeyboardPeriodShortcut'),
+    on(keyboard, 'DidShowGestureKeyboardIntroduction'),
+    on(keyboard, 'DidShowContinuousPathIntroduction'),
+    {
+      domain: 'com.apple.launchservices.schemeapproval',
+      key: 'com.apple.CoreSimulator.CoreSimulatorBridge-->exp',
+      type: 'string',
+      value: expoGoAppId,
+      restart: false,
+    },
+  ];
+}
+
+/** The `defaults write` arguments of one preference of iosSimulatorDefaults. */
+export function defaultsWriteArgs({ domain, key, type, value }) {
+  if (type === 'bool') {
+    return ['write', domain, key, '-bool', value ? 'YES' : 'NO'];
+  }
+  if (type === 'array') {
+    return ['write', domain, key, '-array', ...value];
+  }
+  return ['write', domain, key, '-string', String(value)];
+}
+
+/** True when the output of `defaults read <domain> <key>` already holds the preference's value. */
+export function defaultsValueMatches({ type, value }, output) {
+  const text = String(output ?? '').trim();
+  if (type === 'bool') {
+    return text === (value ? '1' : '0');
+  }
+  if (type === 'array') {
+    // `defaults read` prints an array as ( "en-US", en ): compare the items, unquoted.
+    const items = text
+      .replace(/^\(|\)$/g, '')
+      .split(',')
+      .map((item) => item.trim().replace(/^"|"$/g, ''))
+      .filter(Boolean);
+    return items.length === value.length && items.every((item, index) => item === value[index]);
+  }
+  return text === String(value);
+}
+
+/** What to print when the iOS simulator cannot be used on this machine. */
+export function iosSimulatorUnavailableMessage({ hostPlatform, reason }) {
+  if (hostPlatform !== 'darwin') {
+    return 'The iOS simulator only exists on macOS: run the native suite on an Android emulator here (--platform android).';
+  }
+  return (
+    `The iOS simulator is not usable: ${reason}. Install Xcode (26.4 or newer for Expo SDK 57) with an iOS ` +
+    'simulator runtime, then check `xcrun simctl list runtimes` (docs/development/macos-setup.md section 9.2).'
+  );
+}
+
 // ---------------------------------------------------------------------------- Terraform
 
 /** How to install Terraform on this platform (for `npm run infra:validate`). */

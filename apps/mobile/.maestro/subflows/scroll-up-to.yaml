@@ -1,13 +1,30 @@
-# Scrolls up until the element with id ID is on screen (same right-edge swipe as scroll-down-to).
-appId: host.exp.exponent
+# Scrolls up until the element with id ID is on screen (Android: the same right-edge swipe as
+# scroll-down-to; iOS: until it sits in the lower 70% of the screen, clear of the navigation
+# header, see scroll-down-to.yaml).
+appId: ${APP_ID}
 ---
-- repeat:
-    while:
-      notVisible:
-        id: ${ID}
-    times: 10
+- runFlow:
+    when:
+      platform: Android
     commands:
-      - swipe:
-          start: 98%, 35%
-          end: 98%, 75%
-          duration: 500
+      - repeat:
+          while:
+            notVisible:
+              id: ${ID}
+          times: 10
+          commands:
+            - swipe:
+                start: 98%, 35%
+                end: 98%, 75%
+                duration: 500
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: ${ID}
+          direction: UP
+          centerElement: true
+          waitToSettleTimeoutMs: 500
+          timeout: 40000

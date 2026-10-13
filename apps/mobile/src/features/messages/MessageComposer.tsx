@@ -7,6 +7,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { ListRow } from '@/src/components/ui/Layout';
+import { afterModals } from '@/src/components/ui/modalTurns';
+import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { BinderLinkPicker, CardLinkPicker, OfferLinkPicker } from './LinkPickers';
@@ -74,13 +76,16 @@ export function MessageComposer({
   const choosePhoto = async () => {
     setMenuOpen(false);
     setFileError(null);
+    // iOS puts the photo picker on top of whatever is on screen: opened while the attach sheet is
+    // still sliding away, it went away with the sheet and the row seemed to do nothing.
+    await afterModals();
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setFileError('Allow access to your photos to attach one.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      ...LIBRARY_PHOTO_OPTIONS,
       quality: 0.85,
     });
     const asset = result.canceled ? null : result.assets[0];

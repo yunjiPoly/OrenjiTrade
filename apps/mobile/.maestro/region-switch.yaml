@@ -1,0 +1,177 @@
+# The region switcher (ADR 0017, mobile stage M9): a seed collector of Americas (North)
+# (collector1, Quebec) opens the switcher of the Map tab, a sheet with the three regions, and
+# browses Europe: the map, its count and its list follow, the switcher says "Not your region",
+# Île-de-France lists the seed binder of collector8 with "Île-de-France, France" and never
+# "Paris"; the Search tab is in Europe too and finds collector8 by name; one press goes back to
+# the collector's own region, where the same search finds nobody; a link opens the tab on a region
+# and one of its states. Seed accounts are only signed in to; what Île-de-France holds is read on
+# the host from the public API (scripts/region-map.js).
+appId: ${APP_ID}
+name: Region switcher on the map and in search, and a map link
+tags:
+  - mobile-m9
+  - map
+  - search
+---
+- runScript:
+    file: scripts/region-map.js
+    env:
+      REGION: europe
+      CODE: FR-IDF
+      BINDER: 'Extras for trade'
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(North\)'
+    timeout: 60000
+
+# The switcher: a sheet with the three regions, the collector's own one marked.
+- tapOn:
+    id: 'map-region'
+- extendedWaitUntil:
+    visible:
+      id: 'map-region-option-europe'
+    timeout: 15000
+- assertVisible:
+    id: 'map-region-option-americas-north'
+- assertVisible:
+    id: 'map-region-option-americas-south'
+- takeScreenshot: region-sheet
+- tapOn:
+    id: 'map-region-option-europe'
+
+# Europe: the title, the count and the map follow, and the switcher says it is not home.
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Europe'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'map-status'
+      text: '[0-9]+ public binders? in Europe'
+    timeout: 30000
+- assertVisible:
+    id: 'map-region'
+    text: 'Region: Europe'
+- assertVisible: 'Not your region.'
+- assertVisible:
+    id: 'map-region-home'
+    text: 'Back to Americas \(North\)'
+- assertVisible:
+    id: 'region-map'
+    text: 'Map of Europe: states and provinces shaded by their number of public binders'
+- takeScreenshot: region-europe
+
+# Its list: Île-de-France and the seed binder, with the state and the country, never the city.
+- tapOn:
+    id: 'map-view-list'
+- extendedWaitUntil:
+    visible:
+      id: 'place-list-only-with-binders'
+    timeout: 30000
+- tapOn:
+    id: 'place-list-only-with-binders'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'place-row-FR-IDF'
+- assertVisible:
+    id: 'place-row-FR-IDF'
+    text: 'Île-de-France, [0-9]+ public binders?'
+- assertNotVisible:
+    id: 'place-row-CA-QC'
+- tapOn:
+    id: 'place-row-FR-IDF'
+- extendedWaitUntil:
+    visible:
+      id: 'place-title'
+      text: 'Île-de-France, France'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'place-binder-${output.binder.id}'
+- assertVisible:
+    id: 'place-binder-${output.binder.id}'
+    text: '${output.binder.name}, .* by ${output.binder.owner}, @${output.binder.handle}, Île-de-France, France, Updated .*'
+- assertNotVisible: '.*Paris.*'
+- takeScreenshot: place-binders-europe
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'place-row-FR-IDF'
+    timeout: 30000
+
+# Search is in Europe too: collector8 is found by name, with their state.
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Europe'
+    timeout: 30000
+- assertVisible:
+    id: 'search-region-home'
+- tapOn:
+    id: 'search-segment-collectors'
+- extendedWaitUntil:
+    visible: 'Who trades in Europe\?'
+    timeout: 30000
+- tapOn:
+    id: 'search-collectors-input'
+- inputText: ${output.binder.owner}
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-result-${output.binder.handle}'
+    timeout: 60000
+- assertVisible:
+    id: 'collector-result-${output.binder.handle}'
+    text: '.*Île-de-France, France.*'
+- takeScreenshot: search-europe
+
+# One press goes home: the same search, asked in Americas (North), finds nobody.
+- tapOn:
+    id: 'search-region-home'
+- extendedWaitUntil:
+    visible:
+      id: 'search-collectors-empty'
+    timeout: 60000
+- assertVisible:
+    id: 'search-region'
+    text: 'Region: Americas \(North\)'
+- assertNotVisible:
+    id: 'search-region-home'
+- assertNotVisible:
+    id: 'collector-result-${output.binder.handle}'
+
+# A link opens the tab on a region and one of its states (the web's /map?region=&subdivision=).
+- openLink: ${APP_URL}/--/?region=europe&subdivision=FR-IDF
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'place-title'
+      text: 'Île-de-France, France'
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'map-title'
+- assertVisible:
+    id: 'map-title'
+    text: 'Binders in Europe'
+- assertVisible:
+    id: 'map-region-home'

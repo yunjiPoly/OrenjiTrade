@@ -13,7 +13,9 @@
 //                         afterwards; stops only what it started
 //                         (--reuse-running, --keep-running, --stack-only, --stop, --skip-build)
 //   npm run test:mobile:maestro  native flows (apps/mobile/.maestro) in Expo Go on a running Android
-//                         emulator, Metro on :8082 and the same isolated API (--keep-running, --stop)
+//                         emulator or on the iOS simulator (--platform android|ios; without it:
+//                         Android when a device is ready, else iOS on a Mac with Xcode), Metro on
+//                         :8082 and the same isolated API (--keep-running, --stop)
 //   npm run test:e2e      Playwright suite on its own isolated local stack (scripts/lib/web-e2e.mjs):
 //                         database orenjitrade_e2e (recreated per run), the API jar on :8180 and
 //                         ng serve on :4300, so it runs next to `npm run dev` without touching the

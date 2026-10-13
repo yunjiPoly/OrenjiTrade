@@ -17,6 +17,18 @@ export const AGE_CONFIRMATION_ERROR =
 export const AGE_CONFIRMATION_ERROR_FR =
   'Vous devez confirmer avoir 18 ans ou plus pour utiliser OrenjiTrade.';
 
+/**
+ * The accessible name of the checkbox. A screen reader reads a control's name, never the texts
+ * drawn inside it, and iOS exposes the control as that one element only: VoiceOver said the
+ * English sentence and the French line under it did not exist for it. On iOS the name carries
+ * both languages, like the visible label. Android and the web keep the name they had.
+ */
+export function ageConfirmationAccessibleLabel(platform: string): string {
+  return platform === 'ios'
+    ? `${AGE_CONFIRMATION_LABEL_EN}. ${AGE_CONFIRMATION_LABEL_FR}`
+    : AGE_CONFIRMATION_LABEL_EN;
+}
+
 export function isAgeConfirmation(document: Pick<LegalDocument, 'documentType'>): boolean {
   return (document.documentType as string) === AGE_CONFIRMATION_TYPE;
 }

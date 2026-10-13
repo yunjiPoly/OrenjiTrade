@@ -1,7 +1,9 @@
-# Search tab and card detail (mobile Phase 2): a fresh collector searches the catalog (the mock
-# catalog of the isolated database), narrows it with a language from the game schema, opens a
-# card, reads its printings and switches to the French printing, which has no market price.
-appId: host.exp.exponent
+# Search tab and card detail (mobile Phase 2): a fresh collector scrolls deep into the catalog
+# (the mock catalog of the isolated database) and comes back to the search field by pressing the
+# Search tab again (stage M9, review fix 2), searches the catalog, narrows it with a language
+# from the game schema, opens a card, reads its printings and switches to the French printing,
+# which has no market price.
+appId: ${APP_ID}
 name: Search the catalog and open a card
 tags:
   - mobile-m2
@@ -29,11 +31,45 @@ tags:
       id: 'search-count'
     timeout: 60000
 
+# Deep in the catalog the field, the game pills and the filters have scrolled away with the
+# cards: only the region switcher and the segments stay. The Search tab pressed again brings the
+# list back to its top, where they are.
+- assertVisible:
+    id: 'search-input'
+- repeat:
+    while:
+      visible:
+        id: 'search-filters'
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 30%
+          duration: 300
+- assertNotVisible:
+    id: 'search-input'
+- assertNotVisible:
+    id: 'search-filters'
+- assertVisible:
+    id: 'search-region'
+- assertVisible:
+    id: 'search-segment-cards'
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 15000
+- assertVisible:
+    id: 'search-game-pokemon'
+- assertVisible:
+    id: 'search-filters'
+
 # Live, typo-tolerant search.
 - tapOn:
     id: 'search-input'
 - inputText: 'emberfang'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: 'card-result-emberfang-fox'

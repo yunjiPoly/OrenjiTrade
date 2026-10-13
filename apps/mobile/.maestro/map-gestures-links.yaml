@@ -1,0 +1,235 @@
+# The Map tab under a finger (mobile stage M9, review fix 1): a collector without a location (the
+# "Where are you?" prompt stands above the map and pushes it down) scrolls the page with a finger
+# dragged over the map, puts the prompt away, opens a place by a tap on the map itself and by
+# holding it (its name first, then "Open"); a zoomed-in map moves under the finger while the page
+# stands still. The list goes back to its top when the tab is pressed again and when the region
+# changes. A link opens a region and one of its places every time it is opened, and a link to a
+# region that does not exist changes nothing.
+# The collector is created for the run (no location, never a seed account).
+appId: ${APP_ID}
+name: Map tab, a finger on the map scrolls the page, a place opens from the map, links work twice
+tags:
+  - mobile-m9
+  - map
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: mapdrag
+      DISPLAY_NAME: 'Map Dragger'
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(North\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'map-status'
+      text: '[0-9]+ public binders? in Americas \(North\)'
+    timeout: 30000
+- assertVisible:
+    id: 'map-location-prompt'
+- assertVisible:
+    id: 'region-map'
+
+# A finger dragged up from the middle of the map: the page scrolls to its end (the map used to
+# swallow the drag, and its legend and the note under it could not be reached from there).
+- swipe:
+    from:
+      id: 'region-map'
+    direction: UP
+    duration: 600
+- swipe:
+    from:
+      id: 'region-map'
+    direction: UP
+    duration: 600
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'map-privacy-note'
+    timeout: 15000
+- takeScreenshot: map-scrolled-by-a-drag-on-the-map
+
+# The prompt can be put away for the visit.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'map-location-dismiss'
+- tapOn:
+    id: 'map-location-dismiss'
+- extendedWaitUntil:
+    notVisible:
+      id: 'map-location-prompt'
+    timeout: 10000
+- assertVisible:
+    id: 'region-map-zoom-in'
+
+# A tap on the map itself opens the place under the finger: the middle of the first view of
+# Americas (North) is in Canada whatever the shape of the screen.
+- tapOn:
+    id: 'region-map'
+- extendedWaitUntil:
+    visible:
+      id: 'place-title'
+      text: '.*, Canada'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'region-map'
+    timeout: 30000
+
+# Holding a place names it first; "Open" opens it.
+- longPressOn:
+    id: 'region-map'
+- extendedWaitUntil:
+    visible:
+      id: 'region-map-callout-name'
+      text: '.*, Canada'
+    timeout: 10000
+- assertVisible:
+    id: 'region-map-callout-count'
+    text: '(No|[0-9]+) public binders?'
+- takeScreenshot: map-place-named
+- tapOn:
+    id: 'region-map-callout-open'
+- extendedWaitUntil:
+    visible:
+      id: 'place-title'
+      text: '.*, Canada'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'region-map-zoom-in'
+    timeout: 30000
+
+# Zoomed in, the finger moves the map and the page stands still: the title stays where it is.
+- tapOn:
+    id: 'region-map-zoom-in'
+- extendedWaitUntil:
+    visible:
+      id: 'region-map-reset'
+    timeout: 10000
+- swipe:
+    from:
+      id: 'region-map'
+    direction: UP
+    duration: 600
+- assertVisible:
+    id: 'map-title'
+- assertVisible:
+    id: 'region-map-reset'
+- tapOn:
+    id: 'region-map-reset'
+- extendedWaitUntil:
+    notVisible:
+      id: 'region-map-reset'
+    timeout: 10000
+
+# The list: deep in it, pressing the Map tab again brings its top back.
+- tapOn:
+    id: 'map-view-list'
+- extendedWaitUntil:
+    visible:
+      id: 'place-list-filter'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'place-row-CA-YT'
+- assertNotVisible:
+    id: 'map-region'
+- tapOn:
+    id: 'tab-index'
+- extendedWaitUntil:
+    visible:
+      id: 'map-region'
+    timeout: 10000
+- assertVisible:
+    id: 'map-title'
+
+# Deep in it again, a link opens another region: its list starts at its top, under its name.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'place-row-CA-YT'
+- assertNotVisible:
+    id: 'map-region'
+- openLink: ${APP_URL}/--/?region=europe
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Europe'
+    timeout: 60000
+- assertVisible:
+    id: 'map-region'
+    text: 'Region: Europe'
+- takeScreenshot: map-list-top-after-region-change
+
+# A link to a place opens it, and opens it again when the same link is opened a second time.
+- openLink: ${APP_URL}/--/?region=americas-south&subdivision=UY-MO
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'place-title'
+      text: 'Montevideo, Uruguay'
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(South\)'
+    timeout: 30000
+- tapOn:
+    id: 'map-region'
+- tapOn:
+    id: 'map-region-option-americas-north'
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(North\)'
+    timeout: 30000
+- openLink: ${APP_URL}/--/?region=americas-south&subdivision=UY-MO
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'place-title'
+      text: 'Montevideo, Uruguay'
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(South\)'
+    timeout: 30000
+
+# A link to a region that does not exist changes nothing: no "Binders in asia", no failed count,
+# and the list is still the list of the region on screen.
+- openLink: ${APP_URL}/--/?region=asia
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'map-status'
+      text: '[0-9]+ public binders? in Americas \(South\)'
+    timeout: 60000
+- assertVisible:
+    id: 'map-title'
+    text: 'Binders in Americas \(South\)'
+- assertVisible:
+    id: 'map-region'
+    text: 'Region: Americas \(South\)'
+- assertNotVisible:
+    id: 'map-counts-error'
+- assertNotVisible:
+    id: 'place-list-loading'
+- assertNotVisible: 'Binders in asia'
+- takeScreenshot: map-after-a-link-to-no-region

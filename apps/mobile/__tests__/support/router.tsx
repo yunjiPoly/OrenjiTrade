@@ -21,8 +21,14 @@ export const mockRouter = {
   setParams: jest.fn(),
 };
 
-/** Route params returned by `useLocalSearchParams()`. */
+/**
+ * Route params returned by `useLocalSearchParams()`. `router.setParams` and the screen's own
+ * `navigation.setParams` only record their call; a test that needs the params to change sets
+ * `mockParams.current` and renders again.
+ */
 export const mockParams: { current: Record<string, string> } = { current: {} };
+/** The refs screens gave to `useScrollToTop()` (pressing the active tab scrolls them to the top). */
+export const mockScrollToTopRefs: { current: unknown }[] = [];
 /** Segments returned by `useSegments()`. */
 export const mockSegments: { current: string[] } = { current: ['(tabs)'] };
 /** Path returned by `usePathname()` (derived from the segments when null). */
@@ -35,7 +41,15 @@ export function resetRouterMock(): void {
   mockParams.current = {};
   mockSegments.current = ['(tabs)'];
   mockPathname.current = null;
+  mockScrollToTopRefs.length = 0;
 }
+
+/** The screen's own navigation object: its `setParams` is the router's, so one mock records both. */
+const mockNavigation = {
+  setParams: (params: unknown) => mockRouter.setParams(params),
+  isFocused: () => true,
+  addListener: () => () => undefined,
+};
 
 function hrefText(href: unknown): string {
   if (typeof href === 'string') {
@@ -109,6 +123,12 @@ export function expoRouterMock() {
       mockPathname.current ??
       `/${mockSegments.current.filter((s) => !s.startsWith('(')).join('/')}`,
     useFocusEffect: () => undefined,
+    useNavigation: () => mockNavigation,
+    useScrollToTop: (ref: { current: unknown }) => {
+      if (!mockScrollToTopRefs.includes(ref)) {
+        mockScrollToTopRefs.push(ref);
+      }
+    },
     Link,
     Stack: Navigator,
     Tabs: Navigator,

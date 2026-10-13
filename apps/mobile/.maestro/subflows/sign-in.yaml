@@ -1,6 +1,6 @@
 # Signs in through the sign-in screen (empty fields: right after launch-fresh) with EMAIL /
 # PASSWORD and waits until the app left it.
-appId: host.exp.exponent
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:
@@ -12,7 +12,7 @@ appId: host.exp.exponent
 - tapOn:
     id: 'sign-in-password'
 - inputText: ${PASSWORD}
-- hideKeyboard
+- runFlow: hide-keyboard.yaml
 - tapOn:
     id: 'sign-in-submit'
 - extendedWaitUntil:

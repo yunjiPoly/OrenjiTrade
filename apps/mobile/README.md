@@ -9,8 +9,9 @@ card image rules (ADR 0015) apply to the app exactly as to the web.
 
 ## Status
 
-Phase 1 (accounts) is implemented and verified on the web build (Playwright) and on Android
-(Expo Go on a local emulator, Maestro): sign-up with the versioned legal documents, email
+Phase 1 (accounts) is implemented and verified on the web build (Playwright), on Android
+(Expo Go on a local emulator, Maestro) and, since 2026-10-10, on iOS (Expo Go on the iOS
+simulator, the same Maestro flows): sign-up with the versioned legal documents, email
 verification, sign-in, password reset, session restore, sign-out, consent and account-state
 screens (suspended, deletion pending with cancel and export), the three-step onboarding, the
 Profile tab with a public preview, and Settings (profile, location and discoverability, privacy,
@@ -28,13 +29,17 @@ and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, 
 anyone's public binder). Freemium limits (`binders.max`, binder views per day) are explained where
 they happen.
 
-Phase 4 (stage M3, reworked by stage S1 / ADR 0017 on 2026-10-08): there are no positions or
-distances any more. The **Map** tab is a placeholder that names the home region and leads to
-region-scoped search until it draws the web's boundary map (follow-up); "Who has this in my
-region" lists the card holders of the home region; the **collector profile** (`collectors/[id]`)
-shows the state or province and, when its owner shows it, the city, with ratings and references,
-public binders and cards. "Message" opens or starts the conversation (`POST /conversations`) in a
-thread (`messages/[id]`).
+Phase 4 (stage M3, reworked by stage S1 / ADR 0017 on 2026-10-08 and by stage M9 on 2026-10-12):
+there are no positions or distances any more. The app browses one **platform region**, chosen with
+the **region switcher** (the Map and Search tabs, the card holders' header): the collector's own
+region by default, and a line says "Not your region" in any other one. The **Map** tab is the
+**region map**: the states and provinces of the browsed region, drawn on the device from borders
+the app ships and shaded by their number of public binders, and the same places as a list with
+their counts; a state or province opens its public binders (`regions/[region]/[code]`). "Who has
+this in my region" lists the card holders of the browsed region; the **collector profile**
+(`collectors/[id]`) shows the state or province and, when its owner shows it, the city, with
+ratings and references, public binders and cards. "Message" opens or starts the conversation
+(`POST /conversations`) in a thread (`messages/[id]`).
 
 Phases 5 and 6 (stage M4) are implemented on the same API and realtime channel as the web: a
 **realtime** STOMP 1.2 client over the app's WebSocket (`/ws`; live while a ready account is
@@ -77,9 +82,10 @@ close / cancel through `checkout/fake-billing/[ref]`, usage and boosts; every re
 offers "See Premium"), **Credits** (`credits`: balance, unlocks for a day with one idempotency key
 per dialog, referral code with "Share" and redemption, the append-only ledger), **Support
 OrenjiTrade** (`support`: voluntary donations through `checkout/fake-donation/[ref]`, supporters,
-own donations) and **"Sponsored" placements** (search results, the map list, the inventory and other
-collectors' profiles: the impression recorded once, a tap opens the API's click route in the
-browser). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
+own donations) and **"Sponsored" placements** (search results, the inventory and other collectors'
+profiles: the impression recorded once, a tap opens the API's click route in the browser; the Map
+tab and the binders of a place show none, unlike the web's map page and its `MAP_PANEL` slot: an
+open owner question since stage M9). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
 `donations`, `advertising`), evaluated for the signed-in collector, like the web. The wording is
 "payment protection", never "escrow". Selling Premium or donations in a store build raises the
 app-store in-app purchase rules: an open owner question recorded in ADR 0011 (no IAP and no real
@@ -146,6 +152,19 @@ cd apps/mobile
 npx expo start                # a = Android emulator, i = iOS simulator, w = web; or scan the QR code
 ```
 
+On a Mac with Xcode and an iOS runtime, the iOS simulator needs nothing else (no Android SDK, no
+CocoaPods, no native build):
+
+```bash
+npm run infra:up && npm run api:dev     # terminal 1, repository root: the local stack and the API on :8080
+npm run ios -w apps/mobile              # terminal 2: = cd apps/mobile && npx expo start --ios
+```
+
+Expo CLI boots a simulator when none is booted (or uses the first booted one), installs the
+matching Expo Go on it and opens the app, which reaches the API at `localhost:8080`. DeviceHub
+(`open -a DeviceHub`; Simulator on Xcode 26) shows the device. The native test suite never uses
+that simulator: it has its own (see [Native flows](#native-flows-maestro-on-the-android-emulator-or-the-ios-simulator)).
+
 Never run `npm install` inside this folder: the root `package-lock.json` is the only lockfile, and
 dependencies are added with `npx expo install <pkg>` (SDK-compatible, pinned). Every script below
 also works from the root as `npm run <script> -w apps/mobile`.
@@ -196,7 +215,9 @@ app/                       expo-router routes
   settings/                profile, location, privacy, notifications, account, delete-account,
                            appearance (screens of the root stack, no nested stack)
   legal/                   index + [key] (versioned documents read in-app, EN / FR switch)
-  (tabs)/index.tsx         the Map tab (a placeholder: the home region, search; ADR 0017)
+  (tabs)/index.tsx         the Map tab: the region map and its list of states and provinces
+                           (`/?region=&subdivision=` opens it on a region and a state; ADR 0017)
+  regions/[region]/[code]  the public binders of one state or province
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
@@ -258,10 +279,17 @@ Conventions later stages reuse:
   root when `docs/api/openapi.json` changes.
 - **Queries**: keys in `src/api/queryKeys.ts` (everything of the signed-in collector under
   `['me', uid, ...]`, dropped on sign-out); `networkMode: 'offlineFirst'`, cached data kept a day,
-  4xx never retried; mutations invalidate the narrowest key they change. Screens render
+  4xx never retried; a read (`GET`, `HEAD`) is given up after 20 seconds without an answer
+  (`withReadTimeout` in `src/api/client.ts`) and is not tried again by itself, so a screen shows
+  "No answer from OrenjiTrade" with "Try again" instead of a skeleton for minutes (writes are
+  left alone); mutations invalidate the narrowest key they change. Screens render
   `QueryState` (skeleton, empty, error with retry) and the root `OfflineBanner` covers offline use.
 - **Lists**: paged endpoints use `useInfiniteQuery` (`nextPage`) in a `FlatList` with
-  `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change.
+  `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change
+  (region-scoped lists keep the previous results within one region only: `previousOfSameRegion`
+  in `src/api/hooks/search.ts`). A list with a text field in its head keeps its `RefreshControl`
+  whatever it shows: React Native builds a list's content again when that control is added or
+  removed, and the field would lose the keyboard.
   Writes refresh the narrowest keys: every inventory or binder write invalidates
   `['me', uid, 'inventory']` and `['me', uid, 'binders']` (counts and freshness change everywhere),
   never refetching what was just deleted.
@@ -284,14 +312,70 @@ Conventions later stages reuse:
   `locationDraft.ts` for the draft rules), in onboarding ("Where are you?") and Settings →
   Location (`PUT` / `DELETE /me/location`). Others see a collector's state or province
   (`src/lib/place.ts`); a profile adds the city only when the API sends it (its owner shows it).
-  Region-scoped calls (search, card holders, ads) send the home region of `GET /me`
-  (`useHomeRegion`, `americas-north` without a location). `expo-location` is not installed and no
-  location permission is requested; `react-native-maps` stays installed (its config plugin runs
-  without a key) for the follow-up boundary map. The jest suite scans `src/` and `app/` for
-  coordinate identifiers and location modules (`__tests__/privacy/coordinateLiterals.test.ts`) and
-  checks every answer and request of the place screens (`__tests__/privacy/placePrivacy.test.tsx`).
-- **Map tab**: a placeholder (`app/(tabs)/index.tsx`) that names the home region, leads to search
-  and invites a collector without a location to choose one. Discoverability defaults to off.
+  `expo-location` is not installed and no location permission is requested; there is no map SDK
+  either (`react-native-maps`, `react-native-webview` and `leaflet` left the app in stage M9). The
+  jest suite scans `src/` and `app/` for coordinate identifiers and location modules
+  (`__tests__/privacy/coordinateLiterals.test.ts`), checks every answer and request of the place
+  screens (`__tests__/privacy/placePrivacy.test.tsx`) and keeps "near" / "nearby" wording out of
+  the app (`__tests__/privacy/regionWording.test.ts`).
+- **The browsed region (stage M9)**: `src/features/regions/browsingRegion.ts` (`useBrowsingRegion`)
+  is the one place that says which platform region the app browses, and every region-scoped call
+  sends it explicitly (`/search`, `/search/card-holders`, `/ads`, the two region-map endpoints);
+  the server stays the judge of what a region holds. In this order: the region picked with the
+  switcher or opened by a link in this session; the collector's home region (`homeRegion` of
+  `GET /me`); the last region picked on this device (AsyncStorage key
+  `orenjitrade.browsing-region.v1`, read and written in try / catch: a region code, never a
+  place); Americas (North). A pick belongs to the account and home region it was made under, so
+  another account, or a location saved in another region, starts from its own region. Only a
+  region that exists is browsed or kept (`useKnownRegions`): the three regions the app ships
+  until `GET /regions` was read in the session, then what that list holds; a code from a link or
+  from the device that the server does not list is not followed, and is removed from the device
+  once the list says so.
+  `RegionBar` is the switcher (a `SelectSheet` bottom sheet with the three regions, "Your region"
+  on the collector's own): a pill on top of the Map and Search tabs, a round button in the card
+  holders' header. On the Search tab the pill and the segments are all that stays on screen above
+  the list (`pinned`): they follow the system text size only a little (`PINNED_MAX_FONT_SCALE`,
+  like the tab bar; a long press shows them enlarged on iOS), and the field, the game pills, the
+  filters and every state of the results are one list that scrolls under them, so the field and
+  the results stay within reach at the largest text sizes; pressing the Search tab again brings
+  the list back to its top, where the field is (`useScrollToTop` in each segment's list). In another region than one's own the switcher takes the accent colour, a line
+  says "Not your region." and "Back to <region>" goes home in one press; copy names the region
+  instead of "your region" (`regionPhrase`).
+- **Map tab (stage M9)**: `app/(tabs)/index.tsx` shows the browsed region as **Map | List**
+  (`src/features/map/`). `RegionMap` draws the region with `react-native-svg` from a file of the
+  app: one path for every state and province, one for the country borders, one per state that has
+  binders (five shades, the web's steps, outlined in a strong colour) and one for the state opened
+  last; a place with binders that is only a few points wide at the current zoom also gets a dot.
+  A tap opens a state (hit-tested in JS on the drawing, a dot first, with ten points of reach for
+  small ones); holding a place names it first (its name, its number of public binders, "Open").
+  While the whole region is on screen a finger dragged over the map scrolls the page; once zoomed
+  in (a pinch or the buttons, up to 16x) it moves the map and the page stands still. During a
+  gesture the drawn picture is only slid and scaled, and the vectors are drawn again once when
+  the fingers lift. The map takes the height the page has left under the switcher, the title and
+  the Map | List switch (`mapFrameHeight`: 240 to 520 points), so its buttons are on screen
+  without scrolling. `PlaceList` is the same
+  region as a list grouped by country, each row a link named "Quebec, 2 public binders", with a
+  filter field and "Only places with binders"; the tab opens on the list while VoiceOver or
+  TalkBack is on, and remembers the view chosen. Both open `regions/[region]/[code]`: the public
+  binders of that place (name, kind, cards, owner by name and handle, the owner's state or
+  province and country and never a city, last update), read by cursor
+  (`GET /regions/{region}/subdivisions/{code}/binders`), with a skeleton, an empty state and an
+  error state with retry. Counts come from `GET /regions/{region}/binder-counts`. A link
+  (`/?region=&subdivision=`) is used up once followed, so the same link works every time, and a
+  link to a region that does not exist changes nothing. Another region starts at the top of its
+  list, and pressing the Map tab again scrolls back up. A collector without a location still gets
+  "Where are you?", compact and dismissible for the visit. Discoverability defaults to off.
+- **Boundaries (stage M9)**: `npm run sync:boundaries` (`scripts/sync-boundaries.mjs`,
+  `scripts/lib/boundaryOutlines.js`) makes `assets/boundaries/<region>.json` from the web app's
+  boundary files (`apps/web-angular/public/boundaries`, Natural Earth 5.1.1, public domain; see
+  `docs/development/regions-boundaries.md`), which are neither moved nor edited. The mobile copies
+  are already projected (Web Mercator, as the web's map) into whole drawing units and written as
+  SVG path data: the app holds no degrees, and the files weigh 104 / 62 / 139 kB instead of 241 /
+  145 / 316 kB. `--check` and `__tests__/features/regionOutlines.test.ts` fail when a copy drifts
+  from its web file. Native bundles carry the three files and build a region's drawing the first
+  time it is shown (`outlineFiles.ts`, a `require` inside a function); the web export puts each
+  in its own chunk, downloaded when that region is shown (`outlineFiles.web.ts`). Nothing about
+  geography is ever asked from a server.
 - **Realtime** (`src/realtime/`, the web's `core/realtime`): `RealtimeProvider` connects while a
   ready account is signed in, subscribes only to the caller's own queues
   (`/user/queue/messages|receipts|typing|presence|notifications`) and sends only `/app/typing`.
@@ -358,8 +442,10 @@ Conventions later stages reuse:
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
   and reopened after signing in.
 - **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`. Keep
-  controls off the top-right corner just below the header: Expo Go floats its tools button there
-  and a Maestro tap would open the developer menu instead.
+  controls off the top-right corner just below the header: Expo Go on Android floats its tools
+  button there and a Maestro tap would open the developer menu instead. (On iOS, Expo Go floats
+  it over the right end of the header itself; the flows switch it off, see
+  `.maestro/subflows/hide-tools-button.yaml`.)
 
 ## Scripts
 
@@ -373,6 +459,7 @@ Conventions later stages reuse:
 | `npm test`                              | Jest (`jest-expo`, `@testing-library/react-native`)       |
 | `npm run sync:tokens`                   | regenerate `src/theme/tokens.ts` from the design tokens   |
 | `npm run sync:legal`                    | copy the web's legal texts (EN and FR) into `src/legal/`  |
+| `npm run sync:boundaries`               | make `assets/boundaries/` from the web's boundary files   |
 | `npm run doctor`                        | `expo-doctor`                                             |
 
 ## Tests
@@ -381,7 +468,7 @@ Conventions later stages reuse:
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:mobile`         | typecheck, lint, Jest (unit + screen tests in `__tests__/`, every screen with loading / empty / error / validation states) and the E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`; `npm run test:scripts` runs every `scripts/lib` test) |
 | `npm run test:mobile:e2e`     | Playwright (`apps/mobile/e2e`) driving the Expo **web** build against a real, isolated stack                                                                                                                                                                           |
-| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator                                                                                                                                                                                        |
+| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`; a Mac without an Android device runs them on iOS)                                                                               |
 
 ### Isolation of the end-to-end suites
 
@@ -416,15 +503,25 @@ session restore, friendly errors, consent screen, password reset), `profile.spec
 validation, tags, public preview), `location.spec.ts` (the pickers: region, country, state,
 city; what is missing; the `PUT /me/location` body; map opt-in; the city on the profile only;
 removal), `account.spec.ts` (export, deletion request and cancel, privacy and notification
-settings), `catalog.spec.ts` (search -> game and language filters -> card detail -> printings, every
+settings), `catalog.spec.ts` (the field back on screen when the Search tab is pressed again down
+the list; search -> game and language filters -> card detail -> printings, every
 picture an API URL; printing-code match, an unknown card), `inventory.spec.ts` (add a card through
 search -> printing -> details, edit it (only the changed fields are sent), delete it with a
 confirmation; add from a card detail, intent / game filters and sorting), `binders.spec.ts`
 (create a binder -> add a card -> publish for 24 hours -> make private -> remove the card -> rename
 -> delete; the `binders.max` limit; another collector's public binder: public cards and notes
-only; the owner's state, never their city), `map.spec.ts` (the Map tab placeholder with the
-home region and no map provider request, the invitation for a collector without a location, a
-profile with the state and the shown city, "Message" opens the conversation and sends), `messages.spec.ts` (a second
+only; the owner's state, never their city), `map.spec.ts` (the Map tab draws the home
+region from the app's own files: every request goes to the app's origin or the isolated API; the
+invitation for a collector without a location, a profile with the state and the shown city,
+"Message" opens the conversation and sends), `regions.spec.ts` (stage M9: a state opened from the
+map and from the list, its binders with the owner and the state and never the owner's city, a
+binder opened, a state without a binder, only the drawing of the region on screen downloaded; the
+region switcher re-scopes search (the request names the region) and the map, says "Not your
+region" and goes home in one press, and the sponsored placement of the results is asked for the
+region on screen; a link opens the tab on a region and a state, and a new visit starts in the
+home region; the same link opened twice, a link to a region that does not exist and a code an
+older install kept on the device, which is neither browsed nor kept; the list back at its top
+when the Map tab is pressed again and when the region changes), `messages.spec.ts` (a second
 collector writes over the API: the inbox badge, the thread, live delivery, a reply, "Seen", a
 photo; a card link, mute and a block both ways), `community.spec.ts` (channels with their
 activity, post, edit, reply, delete), `wishlist.spec.ts` (two collectors of Americas (South): a wish
@@ -453,7 +550,7 @@ page), `google.spec.ts` (a Google sign-up through the emulator's simulated accou
 credential checked, consent -> onboarding -> tabs, Google as the only sign-in method; the chooser
 dismissed; Google with the e-mail of a verified password account signs in to it and links Google,
 the password still works; an unverified one is taken over, Firebase's rule), `search-segments.spec.ts`
-(collectors by name or handle with their state, the home region in the request, a collector
+(collectors by name or handle with their state, the browsed region in the request, a collector
 who opted out of name search or lives in another region never appears, recent searches per segment, the profile from a row;
 public binders by name with their owner, the public binder from a row), `holders.spec.ts` ("Who has
 this in my region" from a card: the request names the region, both copies with prices and the
@@ -484,37 +581,111 @@ keys (none exists since ADR 0017) and fails a test on any request to a map provi
 server or the developer API; such requests are aborted (the app draws no map).
 Logs: `.local-dev/mobile-e2e/logs/`.
 
-### Native flows (Maestro on the Android emulator)
+### Native flows (Maestro on the Android emulator or the iOS simulator)
 
-Free and local: an emulator, Expo Go and the Maestro CLI; never EAS, never Maestro Cloud.
+Free and local: an emulator or a simulator, Expo Go and the Maestro CLI; never EAS, never Maestro
+Cloud. One set of flows runs on both platforms.
 
 ```bash
-# once per session: start an emulator (Windows example)
-"%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe" -avd Pixel_6_API_34 -no-snapshot-save -no-boot-anim
-adb wait-for-device
+# iOS simulator (a Mac with Xcode and an iOS runtime): nothing to start, the harness has its own simulator
+npm run test:mobile:maestro -- --platform ios
+npm run test:mobile:maestro -- --platform ios apps/mobile/.maestro/sign-in.yaml   # one flow
+npm run test:mobile:maestro -- --platform ios --keep-running    # keep API + Metro + simulator (stop: -- --stop)
 
-# then, from the repository root (MAESTRO_BIN when maestro is not on PATH)
-MAESTRO_BIN=D:/maestro/bin/maestro.bat npm run test:mobile:maestro
+# Android: start an emulator first and wait until Android has booted
+~/Library/Android/sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save -no-boot-anim &     # macOS
+~/Android/Sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save -no-boot-anim &             # Linux
+"%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe" -avd Pixel_6_API_34 -no-snapshot-save -no-boot-anim   # Windows
+adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done'
+npm run test:mobile:maestro -- --platform android
 npm run test:mobile:maestro -- apps/mobile/.maestro/sign-in.yaml        # one flow
 npm run test:mobile:maestro -- --keep-running                            # keep API + Metro (stop: -- --stop)
 ```
 
-The harness starts (or reuses) the isolated API, starts Metro on :8082 with
-`EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8090` and `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099`
-(Expo CLI installs Expo Go when it is missing; the harness waits up to 6 minutes for that install),
-checks that the Android bundle targets the isolated API, then runs the flows with
-`APP_URL=exp://10.0.2.2:8082`. Flows: `sign-in.yaml`,
+- **Platform.** `--platform ios|android` (or `ORENJI_MAESTRO_PLATFORM`). Without a choice: Android
+  when an Android device is ready, otherwise the iOS simulator on a Mac with Xcode.
+- **Maestro** is found on `PATH` or in `~/.maestro/bin`. Elsewhere, set `MAESTRO_BIN`:
+  `MAESTRO_BIN=$HOME/tools/maestro/bin/maestro` on macOS and Linux,
+  `MAESTRO_BIN=D:/maestro/bin/maestro.bat` on Windows. It needs a `java` (17 or newer).
+- **adb** is found through `ANDROID_HOME`, `ANDROID_SDK_ROOT`, the SDK's default folder of the
+  platform, then `PATH`. `ANDROID_SERIAL` picks one device when several are attached.
+
+#### The iOS simulator of the suite
+
+The harness never drives your own simulators. It has one dedicated device, **"OrenjiTrade
+Maestro"**: created when it is missing (the newest standard iPhone on the newest installed iOS
+runtime), booted with `simctl` alone (no Simulator / DeviceHub window is needed, and none is
+opened), and shut down at the end unless `--keep-running` is given. To watch a run, open DeviceHub
+(Xcode 27; Simulator on Xcode 26) yourself: it shows the booted device.
+
+What makes the runs repeatable is set **inside that simulator only**, never in the Mac's settings
+(`scripts/lib/ios-simulator.mjs`):
+
+| Setting of the dedicated simulator                                            | Why                                                                                                                   |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| AutoFill Passwords off                                                        | iOS would put its "Save Password?" sheet over the app after every sign-in                                             |
+| Language and region: US English                                               | a simulator inherits the Mac's languages and region; the app follows the device for its legal pages, dates and prices |
+| Keyboard: no auto-correction, no predictions, no "slide to type" introduction | the keyboard types exactly what a flow gives it                                                                       |
+| `exp://` links open in Expo Go                                                | iOS would otherwise ask "Open in Expo Go?" for every project and deep link                                            |
+
+Expo Go is installed on that simulator by Expo CLI's own installer (`scripts/lib/expo-go-ios.mjs`:
+the matching Expo Go from Expo's servers, cached in `~/.expo`), whatever other simulator is booted;
+`expo start --ios` is not used because it opens the project on the first booted simulator it
+finds and brings the simulator window forward.
+
+| Variable                    | Meaning                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ORENJI_IOS_SIMULATOR_NAME` | another name for the dedicated simulator (default `OrenjiTrade Maestro`)                                                                                                                   |
+| `ORENJI_IOS_SIMULATOR_TYPE` | the iPhone model to create, for example `iPhone 17 Pro` (an existing dedicated simulator is kept as it is: delete it with `xcrun simctl delete "OrenjiTrade Maestro"` to change its model) |
+| `ORENJI_IOS_SIMULATOR_UDID` | use this existing simulator instead. It receives the settings above, so name one you keep for tests                                                                                        |
+
+#### What the harness does
+
+It starts (or reuses) the isolated API, then starts Metro on :8082 with the app pointed at the
+machine as the device sees it, checks that the platform's bundle targets the isolated API, and
+runs the flows with the platform's `APP_ID` (Expo Go) and `APP_URL`:
+
+|                                           | Android emulator                                                                    | iOS simulator                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Metro                                     | `expo start --port 8082 --android --clear`                                          | `expo start --port 8082 --clear`                             |
+| `EXPO_PUBLIC_API_BASE_URL`                | `http://10.0.2.2:8090`                                                              | `http://localhost:8090`                                      |
+| `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | `10.0.2.2:9099`                                                                     | `localhost:9099`                                             |
+| Expo Go                                   | installed by `expo start --android` when missing; the harness waits up to 6 minutes | installed on the dedicated simulator by Expo CLI's installer |
+| `APP_ID`                                  | `host.exp.exponent`                                                                 | `host.exp.Exponent`                                          |
+| `APP_URL`                                 | `exp://10.0.2.2:8082`                                                               | `exp://127.0.0.1:8082`                                       |
+
+A Metro kept by `--keep-running` serves one platform (the API address is inlined into its
+bundle): `npm run test:mobile:maestro -- --stop` before switching platforms. The accounts a run
+created are deleted from the Auth emulator at the end on both platforms.
+
+#### The flows
+
+Flows: `sign-in.yaml`,
 `sign-up-onboarding.yaml` (the location step with the pickers), `profile-edit.yaml`,
 `discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
 `scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
 carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a
-relaunch, then sign-out), `search-card-detail.yaml` (search, a schema language filter, card
+relaunch, then sign-out), `search-card-detail.yaml` (down the catalog the field has scrolled
+away and the Search tab pressed again brings it back; search, a schema language filter, card
 detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
 details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
 `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
-"Add cards", publish for 24 hours, checked on the API), `map-placeholder-profile.yaml` (a seed
-collector's Map tab placeholder with the home region, "Search your region", then a profile with
-the state and the shown city), `card-holders-region.yaml` (a card collector1 lists, read on the
+"Add cards", publish for 24 hours, checked on the API), `map-region-binders.yaml` (stage M9: a seed
+collector's Map tab draws Americas (North) and counts its binders, the zoom buttons, the list of
+states and provinces, a state without a binder, Quebec and its public binders with the owner and
+"Quebec, Canada" and never a city, a binder opened; then a profile with the state and the shown
+city; `scripts/region-map.js` reads on the host what the state holds), `region-switch.yaml` (the
+region sheet, Europe on the map, in its list and in Search with "Not your region", "Back to
+Americas (North)", a link that opens the tab on a region and a state), `map-gestures-links.yaml`
+(a collector without a location: a finger dragged over the map scrolls the page, the "Where are
+you?" prompt is put away, a tap on the map itself opens a place, holding it names it first, a
+zoomed-in map moves under the finger while the page stands still, the list goes back to its top
+when the tab is pressed again and when the region changes, a link works twice and a link to a
+region that does not exist changes nothing), `large-text.yaml` (the largest text size, asked for
+that launch only by `subflows/relaunch-large-text.yaml` with the iOS launch argument
+`UIPreferredContentSizeCategoryName`, no setting of the device changed; Android keeps its own
+size: the Search field and a result stay within reach at home and in another region, and a drag
+on the map scrolls the page), `card-holders-region.yaml` (a card collector1 lists, read on the
 host by `scripts/public-card.js`, opened by deep link -> "Who has this in my region" -> collector1's
 copy with the state), `messages-inbox-thread.yaml` (a second collector set up and driven on the host by
 `scripts/messaging.js`: the conversation reaches the inbox with its unread badge over the
@@ -538,7 +709,8 @@ plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again), `goo
 (a fresh password collector continues with Google under the same e-mail through the emulator's
 simulated account: the chooser dismissed, then the sign-in lands on the tabs of that account and
 Settings -> Account names both methods), `collector-search-looking-for.yaml` (the Collectors
-segment finds a collector of the region set up by `scripts/parity.js`, with his state; his profile and "Looking for" with the condition only; the wish opens the card),
+segment finds a collector of the region set up by `scripts/parity.js`, with his state, typed in
+two steps: the field keeps the keyboard while the first results arrive under it; his profile and "Looking for" with the condition only; the wish opens the card),
 `holders-filters.yaml` (a card listed twice by a collector of the region: the holders list with
 both prices and the holder's state, sorted by price, narrowed to the Lightly Played copy,
 cleared), `blocked-users.yaml`
@@ -550,9 +722,9 @@ consent on the API, a relaunch never asks again), `legal-french.yaml` (from the 
 the legal index, FR with the French banner and the translation marking, "Trading safely" in French
 then in English, the choice kept across a relaunch), `safety-notice.yaml` (Ada's first conversation
 shows the "Trade safely" notice, the guide opens in-app, the composer keeps working, Dismiss, gone
-after a relaunch). The seed flows (`sign-in.yaml`, `map-placeholder-profile.yaml`) first record the
+after a relaunch). The seed flows (`sign-in.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `large-text.yaml`) first record the
 seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
-that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the edge-swipe subflows (a slow swipe in the middle can start on a text
+that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the scroll subflows (on Android an edge swipe: a slow swipe in the middle can start on a text
 field); option lists of the pickers scroll with `scrollUntilVisible`. Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
@@ -563,6 +735,37 @@ collectors of the stage M7 flows and the blocks of an account in `parity.js`).
 Screenshots and reports: `.local-dev/mobile-e2e/maestro/`. Edit nothing in the repository while
 flows run (Metro re-crawls the workspace and Expo Go may lose the packager) and restart a kept
 Metro after source changes (`npm run test:mobile:maestro -- --stop`).
+
+#### One set of flows for two platforms
+
+Every flow and subflow has `appId: ${APP_ID}`; a manual `maestro test` passes `-e APP_ID=...`
+with the other variables of `.maestro/config.yaml`. What the platforms do differently sits in the
+subflows, in `when: platform:` blocks, so a flow never calls `hideKeyboard`, `back` or `checked:`
+itself:
+
+| Subflow                                                                | Android                                                                                  | iOS                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hide-keyboard.yaml`                                                   | `hideKeyboard` (the back key)                                                            | a short drag in the middle of the screen, above the keyboard (Search and the card pickers let go of the keyboard when a drag begins), then, while a keyboard is still on screen, a tap in the page's right padding (a form and a conversation close it on a tap outside their controls) |
+| `hide-keyboard-in-dialog.yaml`                                         | `hideKeyboard`                                                                           | nothing: a dialog sits above the keyboard and its buttons are pressed with the keyboard up                                                                                                                                                                                              |
+| `go-back.yaml`                                                         | `back`                                                                                   | the back button of the navigation header (`BackButton`)                                                                                                                                                                                                                                 |
+| `scroll-down-to.yaml`, `scroll-up-to.yaml`, `scroll-down-to-text.yaml` | swipes along the right edge until the element is on screen                               | `scrollUntilVisible` with `centerElement`: iOS also lists what a page holds under the tab bar and the header, so the element is brought clear of them                                                                                                                                   |
+| `assert-checked.yaml`, `assert-unchecked.yaml`                         | `checked: true / false`                                                                  | the element's value: "checkbox, checked" / "checkbox, unchecked" (a switch: 1 / 0)                                                                                                                                                                                                      |
+| `dismiss-dev-menu.yaml`                                                | the "isn't responding" dialog, the developer-menu introduction, Close, then the back key | the developer-menu introduction and Close                                                                                                                                                                                                                                               |
+| `hide-tools-button.yaml` (from `wait-for-app.yaml`)                    | not run: Expo Go 57 puts its tools button below the header                               | switches off Expo Go's floating developer-tools gear, which covers the right end of the header (the notification bell)                                                                                                                                                                  |
+
+Writing a flow that passes on both:
+
+- **iOS exposes an accessible control as one element.** A row, a button or a checkbox with an
+  accessible name is a single element on iOS (its nested texts are not listed), where Android
+  lists the texts inside it too. Match such a control by its id, or with a pattern that fits the
+  whole name (`'.*Je confirme avoir 18 ans ou plus'`).
+- **"Visible" is wider on iOS**: an element of a scrolling page that sits under the tab bar or the
+  navigation header counts as visible. Bring it into reach with a scroll subflow before a tap.
+- **The snackbar sits just above the last button of a form** and overlaps its top edge for four
+  seconds. A tap on that button right after a save lands on the button (its centre is below the
+  message) on both platforms; if the end of a form changes, check that this still holds.
+- Never add a step for one platform outside a `when: platform:` block, and keep the Android steps
+  of a subflow as they are: the Android run cannot be repeated on a Mac without the Android SDK.
 
 ## Deep links
 
