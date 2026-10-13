@@ -7,6 +7,8 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
+**Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
 **Last updated:** 2026-10-06 (mobile stage M7: the web-vs-mobile parity gaps closed on the Expo app — Google sign-in and sign-up (proven against the Auth emulator only), the Search tab's Collectors and Binders segments, the card holders list with the web's sort and filters, "Looking for" on profiles, Settings → Blocked users, inventory owner photos and multi-select bulk actions, the visibility filter, binder reordering, the map's freshness / tags filters and search box, set pages; every acceptance row's mobile half completed; the M1–M6 verification caveats replaced with their merged PRs — branch `feature/mobile-m7` on top of `feature/mobile-m6` with `origin/main` (#49, #51) merged in, builder done; see "Mobile app (stage M7)"); 2026-10-05 (mobile stage M6: Phases 9 and 10 on the Expo app — payment protection on the trade (pay on the app's fake checkout, ship, confirm receipt, disputes with statements and photos, payouts), Premium through the fake billing checkout, credits, voluntary donations through the fake donation checkout, "Sponsored" placements, "See Premium" on every reached limit, the mobile half of the acceptance tracker, app-store purchase rules recorded as an open owner question in ADR 0011 — branch `feature/mobile-m6` on top of `feature/mobile-m5`, builder done; see "Mobile app (stage M6)"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
 **Last updated:** 2026-10-05 (launch readiness parts 4 and 5: the launch configuration — every money feature flag off by migration (V105), the last Premium entry points of the web hidden while `premiumPlans` is off, `LaunchConfigurationIT`, the `launch-config` Playwright project — the "Launch configuration" runbook section, the Quebec Law 25 operating docs (confidentiality incident register and procedure, requests from police and courts, owner account security checklist with the actual admin-MFA value per profile), and the full-UI-translation plan recorded as the next task — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 4 and 5"); 2026-10-05 (launch readiness parts 2 and 3: the "Trading safely" page, the dismissible safety notice in conversations and on offer / trade pages, Block on the collector profile, French versions of every legal page with an EN/FR switch (French by default for a French browser), the Law 25 additions to the Privacy Policy and the venue / responsibility clauses of the Terms, consents recorded with the language shown (`user_consent.language`, V104), the UI-translation assessment — branch `feature/launch-readiness`, builder done; see "Launch readiness, parts 2 and 3"); 2026-10-05 (launch readiness part 1: the 18+ rule — server-side age confirmation recorded as an `AGE_CONFIRMATION` consent, `403 AGE_CONFIRMATION_REQUIRED` gate on discoverability, messaging, community posts and offers, sign-up checkbox and onboarding age step on the web, Terms and Privacy wording — branch `feature/launch-readiness`, builder done; see "Launch readiness, part 1"); 2026-10-05 (mobile stage M5: Phases 7 and 8 on the Expo app — reporting a collector and My reports, rating collectors and writing references, making offers (cash / trade / cash + cards), the offers inbox, one offer with accept / counter / decline / withdraw, trades with the meetup, confirmations, cancelling and rating — branch `feature/mobile-m5` on top of `feature/mobile-m4`, builder done; see "Mobile app (stage M5)"); 2026-10-05 (mobile stage M4: Phases 5 and 6 on the Expo app — the realtime STOMP channel, the Messages tab with the inbox, the full conversation and the community channels, the Wishlist tab with matches nearby, the notification centre with a live bell and deep links, the ended-session and signed-out-link fixes — branch `feature/mobile-m4` on top of `feature/mobile-m3`, builder done; see "Mobile app (stage M4)"); 2026-10-05 (mobile stage M3: Phase 4 on the Expo app — the Map tab with collectors as 3 km zones capped at zoom 14, filters, "Who has this near me", the preview bottom sheet, the collector profile and a minimal conversation — branch `feature/mobile-m3` on top of `feature/mobile-m2`, builder done; see "Mobile app (stage M3)"); 2026-10-05 (mobile stage M2: Phases 2 and 3 on the Expo app — Search tab, card detail, Inventory tab, add / edit / delete cards, binders and the public binder view — branch `feature/mobile-m2` on top of `feature/mobile-m1`, builder done; see "Mobile app (stage M2)"); 2026-10-05 (mobile stage M1: foundation + Phase 1 accounts on the Expo app, branch `feature/mobile-m1`, verifier fixes incl. the map-based trading-area picker, merged with `main` after #39/#40; see "Mobile app (stage M1)"); 2026-10-04 (web E2E suite isolated on its own database/stack, `npm run e2e:purge`, collectors shown only as 3 km zones on the web, branch `fix/e2e-isolation-3km-zones`, merged as #39); 2026-10-04 (card image cache cap raised from 500 MB to 5 GB, ADR 0015 amendment, branch `feature/card-image-cache-5gb`, builder done and independently verified); 2026-10-03 (map location privacy rendering, ADR 0004 "Client rendering", branch `feature/map-privacy-zoom`, builder done and independently verified); 2026-10-01 (card images + real Yu-Gi-Oh! catalog, ADR 0015, backend, web, "image gaps" and independent verification of workflow `card-images` on branch `feature/card-images`; previously 2026-09-30: final independent verification of the local web MVP)
@@ -82,6 +84,9 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 - [x] Tests: visibility enforcement, ownership, bulk ops, freshness — InventoryIT, VisibilityIT, BulkOperationsIT, BinderIT, PublicBinderIT, FreshnessJobIT, EventsIT, AdminDelistPolicyIT, BinderViewLimitIT (3, stage 4: FREE visitors consume one view per binder and day, owner/signed-out views never count, PREMIUM and entitled visitors unlimited) + unit FreshnessPolicyTest, VisibilityRulesTest, ItemImageProcessorTest, PartialUpdateTest; shared `TestDomainEventsConfiguration` records committed events; web flow tests: Playwright `inventory.spec.ts` (4); mobile (stage M2): jest (`inventory.test.tsx`, `items.test.tsx`, `binders.test.tsx`, `itemForm.test.ts`, inventory / binder hooks), Playwright `inventory.spec.ts` (2) and `binders.spec.ts` (3), Maestro `inventory-add-edit-delete.yaml` and `binder-create-add-item.yaml`
 
 ## Phase 4 — Map + Geographic Search (flagship)
+
+> **Reworked by stage S1 (ADR 0017, 2026-10-08):** no positions or distances any more; the items
+> below describe the original Phase 4. See "Platform regions and the self-declared location (stage S1)".
 
 _Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 463 API tests / 77 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (86 paths, previously 81; every contract route present; no path or schema lost, only `PublicBinderSummary` gains an optional `owner`); clients regenerated; live check on `.local-dev/api-snapshots/api-phase4.jar` with an emulator token). Migration V030 only (range V030–V039). Web `/map` and `/search` complete (workflow `web-mvp-local` stage 5, independently re-verified: 247 web unit tests / 51 files, lint + format clean, production build 841.71 kB initial with no warnings, 32/32 Playwright specs against `.local-dev/api-snapshots/api-phase5.jar`, 0 skipped); mobile: stage M3 (2026-10-05, see "Mobile app (stage M3)"). Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 4 contract"; the contract document itself is not edited): the caller's own marker stays in `nearby`; collectors without public listings appear (`binderFreshness: null`, ranked after AGING), all-STALE collectors never do; ranking freshness → distance bucket → rating → distance; `center` snapped to 2 decimals; additive `MatchingItem`/`suggest` fields; `card-holders` needs a centre (400 for signed-out callers without `lat`/`lng`); the plan cap key is `map.radius.max_km` (V011) where the contract says `map.radius.max`; `nearby` is a reserved handle. Since Phase 5 blocks are real (`BlockRelationProvider.blockedAmong`, one lookup per page) but still applied after the cached page is read, so `total` may count blocked collectors beyond the limit (debt: join blocks into the discovery SQL)._
 
@@ -1944,6 +1949,723 @@ mobile strings; recommendation **runtime translation library** (Transloco on the
 nothing shared with React Native); effort ≈ 9–11 weeks web + mobile, 6–7 weeks consumer web
 only. The plan as the exact next task is in NEXT TASK.
 
+## Platform regions and the self-declared location (stage S1, ADR 0017, 2026-10-08)
+
+_Branch `feature/regions-geography` (from `main` at `7420905`, V105). Stage S1 of the owner's
+2026-10-08 product change (six stages, one PR each): spec sections 1 and 3 plus everything the
+removal of coordinates forces elsewhere. Builder done; not pushed (the ship step pushes)._
+
+**Decision.** OrenjiTrade stops handling positions: no coordinates, distances, radii, GPS, IP
+geolocation, geocoding or map provider anywhere ([ADR 0017](docs/architecture/adr/0017-platform-regions-instead-of-geolocation.md),
+supersedes ADR 0004, amends ADR 0010). Collectors declare a country, an ISO 3166-2 state or
+province and an optional city; discovery is scoped to a platform region (`americas-north`
+default, `americas-south`, `europe`).
+
+- [x] **Regions model** — V106 (`platform_region`, `country`, `subdivision`), V107 (3 regions, 104
+  countries, 1,259 subdivisions, generated by `scripts/regions/build.mjs` from Natural Earth
+  5.1.1 with mapshaper 0.7.59; provenance in `docs/development/regions-boundaries.md`).
+  `RegionCatalog` (Redis `regions:v1` 60 s + 10 s memo), `GET /api/v1/regions` (public),
+  `PUT /api/v1/admin/regions/countries/{code}` (ADMIN, audited `region.country.update`), web
+  `/admin/regions`. Tests: RegionsIT, LocationIT, `scripts/lib/regions.test.mjs`.
+- [x] **Self-declared location** — V108 drops the old `user_location` (centre, radius, public
+  point, label, grid cell, GiST index) and `privacy_settings.show_distance`, recreates
+  `user_location(country_code, subdivision_code, city ≤ 80, show_city)`; every collector becomes
+  not discoverable until they declare a location (seed accounts get theirs back from
+  `db/seed/locations.json`). `GET/PUT/DELETE /api/v1/me/location` (unknown codes 400; city
+  moderated, never geocoded); discoverable needs a location (409 `LOCATION_REQUIRED`); `GET /me`
+  gains `homeRegion` (users SPI `HomeRegionProvider`) and `onboarding.locationSet`.
+  Removed: `ApproximateLocationService`, `StaticRegionGeocoder`, `LOCATION_JITTER_SECRET` (code,
+  `.env.example`, CI, Terraform), `DistanceBucket`, the radius logic, `/collectors/nearby` and
+  the collector preview.
+- [x] **Region-scoped discovery** — `region` on `/search`, `/search/suggest`,
+  `/search/card-holders`, `/ads`; the map's `GET /regions/{region}/binder-counts` and
+  `GET /regions/{region}/subdivisions/{code}/binders` (cursor pages); `DiscoveryCache`
+  (`orenji:cache:discovery:*`). Holders sort `freshness` / `price`. Every collector block
+  carries `place` (state or province + country); the city appears only on its owner's profile
+  while shown.
+- [x] **Forced elsewhere** — wishlist matcher compares platform regions (V109 drops
+  `wishlist_item.radius_km`, `wishlist_match.distance_bucket`, the matches and match alerts);
+  analytics carry `region_code` / `subdivision_code` (BigQuery schema too; `city`, `distance*`,
+  `radius*`, `grid_cell`, `geo_cell` refused); ads target `REGION` / `COUNTRY` / `SUBDIVISION`
+  (V109); community: one REGION channel per platform region, the city channels archived (V110),
+  the admin channel endpoints refuse a non-region label; the `map.radius.max_km` limit, its
+  entitlements, the `map_radius_day` credit product and the "wider map" copy are gone.
+- [x] **Privacy contract** — `GeoPrivacyContractTest` signs in as every seed account (and signed
+  out) over every public and member surface: no coordinate / distance / radius key, no number with
+  more than 3 decimals, no "km away", each city only on its owner's profile, nothing
+  coordinate-like in the logs. Web acceptance PrivacyScanner and the mobile Playwright privacy
+  fixture fail on the same keys and on any map provider request.
+- [x] **Web** — region switcher top left (signed in: home region; signed out: `localStorage`,
+  else `americas-north`; every scoped call sends `region`); onboarding "Where are you?" and
+  Settings → Location (`LocationFieldsComponent`), a gentle prompt; `/map` is one Leaflet vector
+  map of the bundled boundaries (lazy per region, no tiles), states shaded by binder counts, an
+  accessible state list, a state panel with cursor pages, skeleton, empty state, error with
+  retry and `/map?region=&subdivision=`. Removed: Google Maps and its adapter, the `MapAdapter`
+  abstraction, markers, the preview, the trading-area picker, city presets, distance and
+  approximate-area wording. Initial bundle 899.83 kB (900 kB warning budget); Leaflet in the
+  lazy `leaflet-src` chunk.
+- [x] **Mobile (Expo SDK 57)** — location step and Settings → Location with pickers fed by
+  `GET /regions`; region-scoped calls send the home region (default `americas-north`); no
+  distance text anywhere; the Map tab is a placeholder (names the home region, leads to search);
+  `expo-location` removed (package, plugin, permission strings); `react-native-maps` stays
+  installed (plugin without a key); persisted store v4 drops the distance unit.
+- [x] **Seeds** — the 12 seed accounts are spread over the three regions
+  (`docs/development/test-accounts.md`); the deck-box ad targets Quebec. The fictional bios,
+  binder descriptions and community posts name no city (the city is a location field, shown only
+  on its owner's profile).
+- [x] **Infra** — nginx CSP without map or tile hosts, `Permissions-Policy: geolocation=()`;
+  Cloudflare's edge rate limit covers `/api/v1/regions` instead of the removed nearby route.
+- [x] **Docs** — ADR 0017 (new), ADR 0004 superseded, ADR 0010 and 0016 amended, ADR index,
+  CLAUDE.md (privacy rule, Maps row), README, local setup, test accounts, seed data, schema,
+  API README + `docs/api/contracts/s1-regions-location.md` (phase contracts point to it),
+  architecture, product overview, deployment, security, incident register, law-enforcement
+  guide; legal drafts (EN and FR, still drafts) no longer mention map tiles; `npm run sync:legal`.
+
+**Verification fixes (2026-10-08, after the independent functional check and privacy audit):**
+- The web `index.html` meta description (search engines, link previews) said "geographic
+  discovery network ... find who near you owns"; it now says "regional discovery network ... find
+  who in your region owns" (privacy audit's blocking item). The OpenAPI description follows.
+- Each binder row of a state panel shows its owner's state/province + country (`owner.place`),
+  not only the panel heading.
+- Tests added: `RegionCatalogTest` (7) and `LocationServiceTest` (11), pure unit tests of the
+  region, country, subdivision and city validation; `RegionMapIT` covers paused listings and
+  suspended accounts in the counts and the state list, signed in and signed out;
+  `region-switcher.component.spec.ts` (3). Notification fixtures of web and mobile specs no
+  longer carry "km away" texts; the mobile onboarding age specs wait for the checkbox (a
+  skeleton shows while the legal documents load).
+- Docs: `.env.example` drops `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`; the web README drops the Maps key
+  of `config.json`; `schema.md` (`discoverable`), the billing-budget README (no Maps quota), ADR
+  0002 (amended, links ADR 0017) and the API README (reserved `nearby` handle) are current; the
+  region-map caching is described as it is (server side only, `Cache-Control: no-cache,
+  no-store`); unknown request fields such as an old client's `lat`/`lng` are documented as ignored
+  and never stored (the repo's Jackson convention; `user_location` has no column for them).
+- Mobile: the hint under "Show my city on my profile" follows the switch (it always said others
+  only see the state or province, also while the city is shown on the profile).
+- Seeds: no fictional bio, binder description or community post names a city any more.
+- Test stability: cloned test printings carry the whole random token in their collector number
+  (three letters collided once across a full run).
+- The discoverability hints: both now name Settings → Privacy (verification fix 2; the mobile app
+  also shows the switch in Settings → Location).
+
+**Owner decisions to confirm (S1 defaults):** Europe excludes Russia, Turkey and the Caucasus
+(Armenia, Azerbaijan, Georgia); Greenland is not in Americas (North); the country outlines are
+dissolved from Natural Earth admin-1 (not admin-0), so a country and its states always line up;
+the V110 region channel descriptions read "trades, meetups, locals" (wording only; no events feature). All are
+data (admin-editable country mapping, channel texts) and can change without code.
+
+**Migrations:** V106 `platform_regions`, V107 `platform_regions_seed`, V108
+`self_declared_location`, V109 `remove_distance_features`, V110 `platform_region_channels`,
+V111 `region_model_comments` (database comment only, added by the second verification fix).
+The owner's local database migrates on the next `npm run dev` and **loses its trading areas by
+design** (every collector declares a location again).
+
+**Checks (2026-10-08, re-run after verification fix 2 on the final code):**
+- `./gradlew exportOpenApi --rerun` then `npm run generate:api`: the working tree stays clean.
+- `npm run test:api` (Spotless + `check`): 800 tests in 161 classes plus 12 in the separate
+  `catalogTest` task (the catalog fixture suites run in their own JVM), 0 failures, 0 skipped.
+- `npm run test:web`: lint clean, 138 files / 637 tests. `npm run build -w apps/web-angular`:
+  initial 899.96 kB (214.54 kB transfer) against the 900 kB warning budget (1.5 MB error), no
+  warning; Leaflet in the lazy `leaflet-src` chunk (149.42 kB); the boundary files
+  (`public/boundaries/*.json`, 241 / 145 / 316 kB) are fetched per region, never bundled.
+- `npm run test:e2e`: 73 passed, 0 skipped, 0 flaky (every spec, isolated stack :8180 / :4300).
+  A first full run had one flaky spec (`acceptance/search.spec.ts`: its passive response
+  listener lost a body after the page navigated); fixed in `3bf3e61` (search and privacy specs
+  read the answers with `waitForResponse` before navigating), then the whole suite re-run. That
+  read still failed under load (verification fix 3): since then `npm run test:e2e -- --retries=0`
+  twice in a row, 73 passed each, 0 failed, 0 flaky, 0 skipped.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 648 jest tests, 28 harness guard tests.
+  `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` (74 static
+  routes) succeed (output in the session scratchpad); neither carries a map provider URL, a
+  location API or the old "near them" wording.
+- `npm run test:mobile:e2e`: 51 passed, 0 skipped. Maestro on the Pixel_6_API_34 emulator
+  (Android 14, Expo Go, SDK 57, cold boot): 24/24 flows in one full run (48 min 46 s of flows,
+  50 min 17 s in all) after the last mobile source change; a manual walk (sign-in of a fictional
+  emulator account, onboarding → "Where are you?" with Canada → Quebec and a city, the
+  discoverability hint naming Settings → Privacy → Map tab placeholder → the Terms in English and
+  French with the "in their region" / "dans leur région" clause) with adb screenshots, the saved
+  place confirmed on the API, logcat, Metro and the API log without errors, tokens, coordinates
+  or the city; the walk account deleted, Metro, the API and the emulator shut down afterwards.
+- `npm run infra:validate` (fmt + validate of dev / staging / prod and Cloudflare),
+  `npm run audit:gate` (OK; the two allow-listed advisories unchanged), `npm run test:scripts`
+  (64/64), `node scripts/sync-legal.mjs --check` in `apps/mobile` (up to date); there is no
+  `i18n:check` script and no root `scripts/sync-legal.mjs`.
+- Fresh database (`orenjitrade_e2e`, recreated and migrated to V111 by the last E2E run): no
+  geometry or geography column, no column named like point / lat / lng / latitude / longitude /
+  radius / grid_cell / geo_cell / distance and no GiST index outside PostGIS's own tables (now
+  also asserted by `FlywayMigrationIT`); `user_location` = user_id, country_code,
+  subdivision_code, city, show_city, created_at, updated_at; PostGIS 3.5.2 still installed; 3
+  regions, 104 countries (39 / 14 / 51), 1,259 subdivisions; the `rating_summary` comment is the
+  V111 one. The owner's database `orenjitrade` is still at V105 (not migrated by this work).
+- Earlier live checks (first verification round, API :8480, Redis db 5): region map answers
+  carry `Cache-Control: no-cache, no-store, max-age=0, must-revalidate`; binder counts
+  americas-north CA-ON 1 / CA-QC 2 / US-CA 1, americas-south AR-C 1 / BR-SP 1, europe ES-MD 1 /
+  FR-IDF 1; state-list rows carry `owner.place` without a city; `sort=distance` 400; unknown
+  region 404.
+
+**Removed settings and perks:** the `showDistance` privacy switch; the trading area (centre,
+radius, device location); the wishlist radius; the `map.radius.max_km` plan limit (FREE 25 /
+PREMIUM 100), its entitlements and the `map_radius_day` credit product ("Wider map for a day");
+the Premium "wider map radius" copy; `LOCATION_JITTER_SECRET`, `GOOGLE_MAPS_API_KEY` /
+`GOOGLE_MAPS_MAP_ID` (web) and `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (mobile); the city community
+channels (archived).
+
+**Mobile follow-ups (not in S1, owner spec section 7; record of what the app still lacks):**
+1. A region switcher on mobile (today the app browses the collector's home region, else
+   `americas-north`).
+2. The state/province binder list (the web's `/map` panel: `GET /regions/{region}/binder-counts`
+   and `GET /regions/{region}/subdivisions/{code}/binders`) and the boundary map in the Map tab
+   (the same bundled GeoJSON; `react-native-maps` polygons or a WebView); the tab shows placeholder
+   copy until then.
+3. The printing picker of the card page (S3: "Any printing", per-printing rows with rarity and
+   holder counts, rarity/set/edition/language filters).
+4. The have/want lists of the card page ("Who has it" / "Who wants it", S3 section 2b) and
+   "Wanted by N" on inventory items.
+5. Remove `react-native-maps` once the Map tab no longer needs it (kept installed in S1 by the
+   owner's instruction), and `react-native-webview` if nothing else needs it (the Leaflet page was
+   its only user).
+6. The wishlist matches screens are interim until S2 removes matches.
+
+**Known gaps:**
+- Mobile: the Map tab does not draw the boundary map yet and there is no region switcher (the
+  home region is browsed); see the follow-ups above.
+- The web initial bundle is 0.04 kB under its 900 kB warning budget (899.96 kB; the legal texts
+  are part of the initial bundle): the next feature on the initial path needs a deferral (for
+  example lazy legal texts) or a budget decision.
+- `card-images.spec.ts` (picture loading) timed out once under the parallel load of a full run
+  and passed on retry and in the final run; not related to S1, watch for it.
+- Region-scoped answers list the whole platform region: specs isolate by region, handle or item,
+  and wishlist matching can pair collectors far apart in a large state or across a region.
+- Region-map answers are cached server side only (Redis discovery cache, 60 s); like `/meta`,
+  `/cards` and `/search` they carry `Cache-Control: no-cache, no-store`, so no browser or CDN
+  stores them. Edge caching of the anonymous answers would be a separate change (a `public`
+  header on anonymous answers plus a Cloudflare cache rule).
+- The admin channel list still shows the raw region code of REGION channels (admin-only).
+- `PUT /me/location` ignores unknown body properties (such as `lat` / `lng`) and
+  `GET /search/card-holders` ignores unknown query parameters, like every other endpoint of the
+  repo (Jackson's unknown-property default); nothing can be stored because no such column exists,
+  and `sort=distance` is a 400.
+- `search_performed` / `search_no_results` analytics events still carry the raw query text (as
+  on `main`; not a declared place). S3's search-history rule ("never in analytics beyond counts")
+  reduces it.
+- The seed's Americas (South) shades two states (AR-C, BR-SP): collector6's only public binder
+  (CL-RM) is 50 days unconfirmed on purpose (the seed's example of a listing HIDDEN until
+  confirmed, `docs/development/seed-data.md`) and stays off the map.
+- The passive network scanners of the web E2E suite (the acceptance privacy fixture,
+  `watchCoordinates`, the card-images provider guard) read every JSON answer from Chromium's
+  DevTools buffer and skip a body Chromium no longer holds (the cause of verification fix 3):
+  they are a safety net beside the specs' recorded answers, the scanned API shortcut answers and
+  the API's `GeoPrivacyContractTest`. Routing every answer through `route.fetch()` would make
+  them complete; not done in S1.
+- The discoverable switch keeps its "Show me on the map" label (the owner's existing wording):
+  the map lists the public binders of discoverable collectors per state, and the help text says
+  what is shown (state or province, public binders, searches).
+- The Cloudflare README documents an optional edge WAF rule on `/admin` by
+  `ip.geoip.country` (predates S1, edge-only, never reaches collector data): an accepted exception
+  for the owner to confirm against the "no IP geolocation" rule.
+
+**Verification fix 2 (2026-10-08, after the second independent verification):**
+- The Terms "What OrenjiTrade is and is not" clause no longer promises "who near them" (FR "qui,
+  près d'eux"): "who in their region" / "qui, dans leur région", web drafts and the mobile copy
+  (`sync:legal`), still drafts. The Terms location clause, the Trading safely "what we show" and
+  "report and block" clauses and the Community Guidelines summary no longer put people on the
+  map (binders appear on it); the block dialogs (web, mobile ×3) say the same. Guard tests in
+  both languages: `legal-content.spec.ts` (web) and `legalLanguage.test.ts` (mobile).
+- The mobile onboarding discoverability hint names Settings → Privacy like the web.
+- V111 refreshes the last stale database comment (`rating_summary`, "nearby ranking");
+  `FlywayMigrationIT` now proves on the migrated schema that no spatial-typed or coordinate-,
+  radius-, grid- or distance-named column, no GiST index and no old-model comment remains.
+- Stale docs: the root README (no maps key), `apps/mobile/README.md` (the privacy fixture),
+  `docs/security/README.md` (no Maps browser key), the acceptance tracker rows 3, 18, 20, 28, 35
+  and the older deployment / owner-step lines.
+
+**Verification fix 3 (2026-10-08, the two blocking findings of the second verification):**
+- Web E2E: `acceptance/privacy.spec.ts` ("every place-bearing surface ...") failed on its first
+  attempt in every full run and passed on retry or alone. Its card-holders answer, read back with
+  `waitForResponse` + `response.json()` (the `3bf3e61` approach), threw "Network.getResponseBody:
+  No data found for resource with given identifier" although the page had rendered it and had
+  not navigated: the body comes from Chromium's DevTools network buffer, which does not keep
+  every fetch body under load. New `e2e/acceptance/support/answers.ts` `recordAnswers(page, url)`
+  records the answers in a page route (`route.fetch()` of the page's own request, parsed, then
+  `route.fulfill()` with that very answer), before the page can render them. The privacy spec
+  (state binder list and card holders) and the search spec (card holders) use it with the same
+  assertions; no other spec asserts on the body of a page answer (the others read
+  APIRequestContext answers or only statuses).
+- Messages empty state (web conversation list, mobile inbox): "Find a card or a binder in search,
+  open the collector's profile and press Message to start trading." instead of "Open a
+  collector's preview on the map ..."; the mobile action is "Open search" (Search tab) instead of
+  "Open the map" (the placeholder Map tab). Unit tests assert the text, no map / preview / near
+  wording and the navigation.
+- Wording sweep (web, mobile, API, Maestro, docs): the Blocked users descriptions (web, mobile)
+  now say what the block dialogs say (each other's binders, profiles and posts); a web
+  notification fixture no longer reads "Listed nearby"; the product overview, the launch runbook
+  (section 12) and the design system no longer put collectors, markers or previews on the map.
+  Remaining hits are the discoverable switch's own wording ("Show me on the map", "Visible on /
+  Hidden from the map", "Not on the map", "to be shown on the map"), binders and cards that
+  appear on the map, privacy assurances and test guards ("never a position or a distance",
+  `assertNotVisible '.*km away.*'`), unrelated identifiers (`CollectorMarker` API schema,
+  `markerTone`, read markers, map-marker icon names, the reserved handle "nearby", scroll and
+  relative-time "distance", the subdivision code `HU-KM`), applied migrations (never edited)
+  and history sections (ADR 0004, ADR 0010, the Phase 1/3/4/6 contracts, `schema.md` V005 and
+  Phase 4). Two internal code comments still mention the removed collector preview
+  (`MessagesPanelComponent.incoming`, mobile `BottomSheet`); not user-facing.
+- Checks on the final code: `npm run test:e2e -- --retries=0` twice in a row (73 passed each,
+  0 failed / flaky / skipped; privacy and search specs green on the first attempt both times),
+  `npm run test:web` (lint clean, 138 files / 637 tests), `npm run test:mobile` (typecheck, lint,
+  76 suites / 648 tests, 28 harness guard tests), `npm run test:mobile:e2e` (51 passed),
+  `npm run format:check -w apps/mobile`. No Maestro flow asserts the changed texts; Maestro was
+  not re-run.
+
+## A simpler wishlist, wishlist alerts, no matches (stage S2, 2026-10-09)
+
+_Branch `feature/regions-s2-wishlist` (from `feature/regions-geography`, S1, at `d02308a`;
+`origin/main` had no commit the branch lacked). Stage S2 of the owner's 2026-10-08 product
+change: spec section 4 in full. Contract: [`docs/api/contracts/s2-wishlist.md`](docs/api/contracts/s2-wishlist.md).
+Builder done; not pushed (the ship step pushes)._
+
+**What replaced matches (the spec's own default, for the owner to confirm):** no match is stored.
+Wishes drive "Who wants it" and "Wanted by N" (stage S3, computed live from visible wishlists) and
+a simple **wishlist alert**: when a collector of the wish owner's platform region lists a public
+item that fits (card / printing / rarity, plus Near Mint or better when asked), the owner gets one
+`WISHLIST_ALERT` — "<card> <code> <rarity> was just listed by @handle in <state>, <country>." —
+that opens the card page with the wish's selection (`?printing=<id>`, `?rarity=` or, since review
+fix 3, `?printing=any` for an "any printing" wish). One on/off switch
+in the notification settings; one alert per collector and item (a sent-alert key); owners without
+a location get none and the wishlist page asks them to set country and state.
+
+- [x] **The wish** — only which copy (any printing; any printing of one rarity of the card's
+  printings; one printing), a public note (first field, ≤ 280 code points, plain text,
+  `TextModerationService` PROFILE scope), "Near Mint only" and at most one price term from the
+  admin list (platform setting `wishlist.price_terms`, seeded `80% TCG, 85% TCG, 90% TCG,
+  100% TCG, 100% TCG+`; `GET /wishlist/price-terms`; `GET|PUT /admin/wishlist/settings`, ADMIN,
+  audited `wishlist.settings.update`; web `/admin/wishlist`). A term the list no longer offers
+  stays on the wish that chose it. Removed from form, API, DTOs and database (V112, data dropped,
+  private notes **not** copied into the public note): maximum price + currency, trade/buy
+  preference, radius, private notes, language, minimum condition, edition, the per-wish alert
+  switch, match counts. Old request members are **ignored** like every unknown member of the API
+  (`spring.jackson` `fail-on-unknown-properties: false`, `PartialUpdate`) and never stored.
+  One wish per selection (409; unique index `uq_wishlist_item_selection`); the plan limit
+  `wishlist.items.max` (FREE 20 / PREMIUM 500) is kept.
+- [x] **Market price** — `MarketPrice.source` (`YGOPRODECK` = `YgoProDeckMapper`'s `set_price`,
+  TCGplayer-based USD, dated by the provider database's last update; `SAMPLE` = the fictional
+  mock catalog, CAD; `CATALOG` = staff-entered). Web: "TCG market price" / "Sample market price" /
+  "Market price" with the source and date in a tooltip; mobile: the same text as a hint. "85% TCG ≈
+  21.25 USD" next to a term when the wish names one printing with a price, the term alone for any
+  printing.
+- [x] **Matches removed** — `wishlist_match` (V112), `WishlistMatchRepository`, `WishlistMatcher`,
+  `WishlistMatchView`, `WishlistRules`, `TradePreference`, the matches and dismiss endpoints, match
+  counts, `lastMatchedAt`, the nightly `wishlist-rematch` job (controller, local scheduler, Cloud
+  Scheduler entry: 9 jobs now, ADR 0016 amended), `WishlistMatched` and the `wishlist_matched`
+  analytics event, the WISHLIST_MATCH notifications and their limit notices (deleted by V112), the
+  WISHLIST_MATCH preference category; web matches drawer, match cards, `WishlistMatchesStore`,
+  match readiness, "With matches" / "Paused" filters, the summary's match stats, the per-wish
+  "Match alerts" switch and `/wishlist/:id` (redirects to `/wishlist`); mobile matches screen
+  (`app/wishlist/[id]`), `WishMatchCard`, filters, counts and the alert switch; their tests and
+  docs.
+- [x] **Wishlist alerts** — `WishlistAlerts` + `WishlistAlertRepository` on
+  `InventoryItemPublished` (same rules as S1's matcher for visibility, freshness, region,
+  discoverability, blocks and the wisher's account; plus the selection and Near Mint rules), the
+  most specific fitting wish per collector, `wishlist_alert_sent (user_id, inventory_item_id)` and
+  the notification dedup key `wishlist-alert:<user>:<item>`; `NotificationSettings.wishlistAlerts`
+  (column `notification_preferences.wishlist_alerts`, default on: in-app + push following the
+  master switches and quiet hours, never email); the daily limit `wishlist.alerts.per_day`
+  (FREE 5) still applies ("More wishlist alerts are waiting").
+- [x] **Printing picker** — `shared/catalog/printing-picker` (web), reusable by the card page in
+  S3: "Any printing" first and default, every printing with its picture (API card-image URLs), set,
+  code, rarity, edition, language, finish and market price (source tooltip); filters rarity / set /
+  edition / language (shown only where printings differ), the rarity alone meaning any printing
+  of that rarity; an optional `holderCounts` input (region collectors per printing, holders
+  first) for S3; a native radio group (keyboard). It powers the wish dialog now.
+- [x] **Web** — wish dialog (card autocomplete → public note → Near Mint only → terms → picker),
+  wishlist page (picture, which copy, note, NM / % TCG chips, edit, remove; plan usage; "Let
+  others see what you want" bound to `wishlistVisible`; the location prompt), Settings →
+  Notifications "Wishlist alerts" switch, `/admin/wishlist`, the public "Looking for" (note and
+  chips), alert deep links to the card page, the card page passes `?rarity=` to "Add to wishlist",
+  wording without matches (bell, notifications, privacy option "Let others see what you want",
+  admin, the privacy policy draft EN/FR "send wishlist alerts"). Initial bundle 899.92 kB
+  (899.96 before; the now unused optional-param route matcher was removed).
+- [x] **Mobile (Expo SDK 57)** — wish editor (note, Near Mint only, terms with amounts and the
+  price source, a simple "Which copy" chooser: any printing / any printing of one rarity / each
+  printing, each with its finish), Wishlist tab (same list as the web, the visibility switch, the
+  location prompt), no
+  matches screen, Settings → Notifications "Wishlist alerts", alerts open the card screen with
+  `?printing=` / `?rarity=` (old `/wishlist/<id>` links open the list), "Looking for" with note
+  and chips, legal texts synced.
+- [x] **Seeds** — collector2's wishes carry a public note, Near Mint only and price terms;
+  collector1's Near Mint Azure-Eyes listing alerts collector2 through the real pipeline.
+- [x] **Docs** — new `docs/api/contracts/s2-wishlist.md`; Phase 6 / S1 contracts point to it;
+  `schema.md`, API / web / mobile READMEs, ADR 0017 (amended), ADR 0016 (scheduler), ADR 0009,
+  architecture, seed data, test accounts, local setup, product overview, CLAUDE.md wording,
+  tracker rows 23–25.
+
+**Migration:** V112 `simplified_wishlist` (drops `wishlist_match` and the removed columns; first
+normalises the selection — a printing wish without `card_id` gets its printing's card, a rarity
+stored next to a printing is cleared — and only then collapses the wishes that became equal to the
+oldest (review fix 2: the reverse order failed the unique index); `card_id` NOT NULL; adds
+`public_note`, `near_mint_only`, `price_term`, `wishlist_alert_sent`, `wishlist.price_terms`,
+`notification_preferences.wishlist_alerts`; deletes WISHLIST_MATCH notifications and their limit
+notices and the category key). Proven on a populated pre-V112 database by
+`SimplifiedWishlistMigrationIT` (part of `npm run test:api`: Flyway builds a scratch database in
+the Testcontainers server up to V111, fictional S1-model wishes — removed-filter duplicates,
+(P, its rarity) next to (P, no rarity) and (P, another rarity), a printing wish without its card
+next to the same printing with its card, an any-printing rarity wish, another collector's equal
+wish — a match, notifications and preferences are inserted, V112 runs): the duplicates collapse to
+the oldest, printing wishes lose their stray rarity, the card is filled in, the rarity wish keeps
+its rarity, no private note leaks, the match table and the match notifications go, the MESSAGE
+notification and the MESSAGE category stay; the scratch database is dropped. The owner's database
+`orenjitrade` is not touched (still unmigrated). Review fix 3 edited V112 one last time before it
+freezes at the merge (opt-outs carried over, paused wishes deleted, incomplete outbox rows
+completed, more normalisation, the test widened to 10 cases): see "Review fix 3" below.
+
+**Decisions:**
+- "Near Mint only" accepts Near Mint **or better** (Mint), by the game's ordered conditions.
+- One alert per collector and item, whatever the number of fitting wishes (the link uses the most
+  specific wish); the sent-alert key is written even when the alert is switched off or over the
+  daily limit, so a later republication never alerts about an item already decided.
+- The one switch is a dedicated `wishlistAlerts` setting (in-app + push, never email) instead of
+  a category row of the channel matrix, so the matrix and the switch never disagree.
+- The nightly rematch job is removed rather than turned into an alert catch-up: alerts say "just
+  listed", and the Spring Modulith registry already republishes an undelivered publication event.
+- Price terms are stored as their label (`"85% TCG"`); the admin list holds labels whose format
+  carries the percent and the "or more" flag, so a removed term still reads correctly.
+- A rarity on a one-printing wish equal to the printing's is accepted and dropped, another one is
+  400; "any printing of a rarity" must name a rarity of the card's printings.
+- The public wishlist summary now lists every wish (there is no paused wish any more). **A wish
+  its owner had paused under the old model is deleted by V112** (lead decision of 2026-10-10,
+  review fix 3): a wish hidden on purpose must not become public and alerting, the spec says to
+  drop data rather than migrate it, and only fictional data exists.
+- An alert's link always says the wish's selection, "any printing" included
+  (`/cards/<id>?printing=any`), and the card page then picks no printing (review fix 3). Stage S3
+  makes "Any printing" the card page's default; the marker then names the default.
+- A typed printing code is not a printing: the wish form preselects a printing only when exactly
+  one printing of the card carries the code, otherwise it starts on "Any printing" with the
+  picker narrowed to the code (review fix 3; spec section 2, "never a silent pick").
+- V112 carries an alert opt-out over only when the old WISHLIST_MATCH category had both in-app
+  and push off (the two channels the new alert uses); email alone never keeps alerts on, because
+  wishlist alerts are never emailed.
+- `PUT /me/settings/notifications` without `wishlistAlerts` keeps the stored switch (the rest of
+  the body stays a full replacement).
+- `CollectorDiscoveryService.markersFor` (only used by the old matches) is kept for S3's "Who
+  wants it" rows.
+- Mobile "Which copy" is a select sheet (any printing, one entry per rarity when the card has
+  several, then every printing) rather than the web's full picker; the card page picker is S3.
+- A wish's "which copy" label names the printing's finish when it is not Normal ("PFT-002 ·
+  Common · Prismatic Frontier · Reverse holo"): two printings of a set often differ only by it.
+
+**Known gaps:**
+- "Who wants it" and "Wanted by N" are stage S3 (the spec puts them there); until then wishes are
+  visible only on the owner's public profile when shown.
+- The card page (web and mobile) shows "Any printing in <rarity>" for `?rarity=` (review fix 1)
+  but no holders for it yet: "Find this card" with the shared picker and per-printing holder
+  counts is S3.
+- A staff-edited price on an imported printing still reports its provider as the source (the
+  printing's `external_ref`); the next import overwrites it anyway.
+- The web printings table ("Market price" column) and the mobile printing list ("Market
+  42.00 CAD") still show prices without their source (the "Selected printing" price of the web
+  and mobile card pages names it since review fix 1): S3 replaces them with the shared picker,
+  which already labels the source.
+- The web initial bundle is at 899.93 kB against the 900 kB warning budget (a 70-byte margin
+  after review fix 3; 899.92 kB before): S3 has to make room (or the budget has to move, with a
+  reason) before it adds to the initial chunks.
+- `BinderIT.countsFollowTheItemsAndTheOwnersSettings` can fail with PostgreSQL's "deadlock
+  detected" (the binder-count trigger against the listing reconciler after a privacy change;
+  inventory code that S2 does not touch, the same on `main`). It is fixed on its own branch;
+  until that merges, a full `npm run test:api` can fail once on it and pass on the rerun.
+- The native Maestro suite was last run on the code of review fix 1. It was **not** re-run after
+  the round-2 polish (`be24294`) nor after review fix 3: the Mac has no Android SDK or emulator,
+  and an iOS path for the harness is the next task.
+- A wishlist alert names the printing code and rarity but not the edition, and two copies of one
+  printing listed by one collector give two alerts that read the same (one alert per item):
+  naming the edition or grouping them is for S3.
+- The mobile "Add a card" (inventory) flow still preselects the first printing of a typed code
+  in its visible printing step; S3 reworks that step ("the add dialog asks the user to pick
+  one").
+- The web header search still shows one row for a printing code that several printings share and
+  opens the card on the first of them (`?printing=<id>`); "Add to wishlist" from that page then
+  starts on that printing. The page and the dialog both name the printing, but the pick was not
+  the collector's: this is the card search of spec section 2 (S3). Review fix 3 removed the
+  silent pick from the wish form only.
+- On the web at 375 px, the notice that a shared code picked no printing ("2 printings share the
+  code ...") sits below the fold of the wish dialog while "Add to wishlist" stays in view; the
+  wish saved is the safe one (any printing). S3 places the picker.
+- A full wishlist (20 of 20) still opens the whole add form and refuses only at save.
+- Small leftovers of the round-3 product/UX verification, for S3 (it reworks these components):
+  the "Printing code" chip is clipped at 375 px for long card names; "Retry" for the price terms
+  drops keyboard focus to the page; closing the wish dialog during a save that is then refused
+  logs an `NG0911` console error (and a double activation within about 80 ms sends two POSTs,
+  201 then 409); the shared-code hint counts printings a filter hides; the mobile suggestion chip
+  still says "Printing"; with six entries the bell menu's two footer actions are below its fold;
+  a multi-line note opens scrolled to its last line in the edit dialog.
+- `wishlist_alert_sent` rows are kept until the account or the item goes (no time-based purge;
+  the table is small: one row per collector and listing alerted).
+- Mobile follow-ups: the full printing picker on the card screen with holder counts (S3), "Who
+  wants it" and "Wanted by N" (S3); the S1 follow-ups (map, region switcher) remain.
+
+**Native check (Android emulator; the adb walk found one label bug):** while
+walking the changed screens, the mobile "Which copy" chooser showed Emberfang Fox's two PFT-002
+printings (normal and reverse holo) as two identical lines. Fixed in `f9405e1`: the chooser ends
+each printing with its finish and the which-copy label of a wish (web and mobile) names a finish
+other than Normal (unit tests on both). The stale "match" wording of `test-accounts.md`,
+`local-setup.md`, `seed-data.md` and the Phase 3 contract went too (`c1dfb74`), and the exported
+OpenAPI document caught up with the NotificationResponse title example (`7ca7786`).
+
+**Checks on the final code (2026-10-09, branch `feature/regions-s2-wishlist`):**
+- `./gradlew exportOpenApi` + `npm run generate:api`: the first re-run after `f37fdda` changed
+  only the NotificationResponse title example ("Wishlist alert: Azure-Eyes", committed `7ca7786`);
+  the second re-run reproduces every committed file byte for byte (the Windows generator rewrites
+  `packages/api-client/src/.openapi-generator/FILES` with CRLF, which git shows as stat-dirty
+  with an empty diff; `git checkout` of it leaves the tree clean).
+- `npm run test:api` (Spotless + `gradlew check`): BUILD SUCCESSFUL in 6 m 14 s; `test` 805 tests /
+  161 classes, `catalogTest` 12 tests / 2 classes, 0 failures, 0 errors, 0 skipped.
+- `npm run test:web`: lint clean, 140 files / 648 tests. `npm run build -w apps/web-angular`:
+  initial total 899.92 kB (214.46 kB transfer), under the 900 kB budget, no warning.
+- `npm run test:e2e -- --retries=0`: 73 passed (2.6 m) on the first attempt, 0 failed / flaky /
+  skipped.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 648 jest tests, 28 harness guard tests.
+- `npx expo export` (Expo SDK 57) into the scratchpad: Android (Hermes bundle 5.16 MB, 1759
+  modules) and web (73 static routes), both exit 0; neither bundle contains a matches / rematch
+  endpoint, `WISHLIST_MATCH` or a map provider URL.
+- `npm run test:mobile:e2e`: 51 passed (1.3 m).
+- `npm run audit:gate`: OK (the 2 allowlisted advisories, `braces` and `node-forge`, until
+  2026-11-30). `npm run test:scripts`: 64 / 64. `npm run infra:validate` (scheduler module, 9
+  jobs): passed.
+- Native Maestro check (Pixel 6 emulator, Android 14, Expo Go SDK 57):
+  `npm run test:mobile:maestro` ran every flow once: **24 / 24 flows passed in 48 m 49 s**
+  (including "Wishlist alert, notification and card page" and "Collector search, profile and
+  Looking for"). After the label fix, Metro was restarted and both wishlist flows re-ran: 2 / 2
+  passed. adb screenshots of the changed screens (wishlist tab with the visibility switch, the
+  note and the NM / % TCG chips; the wish editor with terms, amounts and the price source; the
+  "Which copy" chooser before and after the fix; Settings → Notifications "Wishlist alerts"; the
+  notification centre with the alert "... was just listed by @collector1 in Quebec, Canada."; the
+  card page it opens). Logcat: no ReactNativeJS error, no crash, only Expo Go internals; Metro
+  log: bundling lines only; no token or coordinate in logcat, Metro or API logs. Metro, the
+  harness API and the emulator were shut down; no process of this stage still listens.
+- V112 on a populated pre-V112 database (scratch database `orenjitrade_regions_check`, dropped
+  afterwards): see "Migration" above.
+
+**Review fix 1 (2026-10-09, after the independent functional and product/UX reviews):** the
+functional review passed; the product/UX review found two blocking issues, both fixed at the root
+together with the cheap non-blocking ones:
+- **Wish dialog errors out of view (blocking).** The error block (409 same selection, plan limit,
+  summary) sat at the end of the scrolling content, below the picker, so a refused save looked
+  like nothing happened. It now sits between the content and the buttons (outside the scroll, in
+  view at 1280 px and 375 px); an invalid field gets the focus; when every problem sits next to
+  its field the summary says "Check the highlighted fields." instead of "Validation failed"; the
+  note's API errors read as sentences ("The note contains a word that is not allowed here.
+  Please rephrase it.").
+- **Alert link showed another printing (blocking).** The card page (web and mobile) ignored the
+  `?rarity=` of a wishlist alert for "any printing in a rarity" and showed the first printing
+  (another rarity) as "Selected printing". It now shows "Any printing in <rarity>" with that
+  rarity's printings (highlighted in the web printings table) and picks none; "Add to wishlist"
+  starts on the same choice; "Add to inventory" preselects a printing only when the rarity has
+  one; choosing a printing replaces `?rarity=` in the URL; an unknown printing or rarity is
+  ignored. The selected printing's price names its source ("TCG market price", "Sample market
+  price", tooltip / hint with the source and date).
+- Non-blocking: the price term boxes render from the form value on every change (two clicks in
+  one change detection left two boxes checked); the chosen card's name takes the focus after the
+  autocomplete pick, and closing the dialog returns the focus to the button that opened it (it
+  lost the focus while disabled during the chunk load); which copy names an edition other than
+  Unlimited (web and mobile; two printings of one code can differ only by it); Edit / Remove,
+  the remove confirmation and its snack bar name which copy (web and mobile); the % TCG chip
+  names its price source and date (wishlist page, public "Looking for"); the terms hint says
+  amounts appear once one printing is chosen; the picker says that set, edition and language
+  filters only narrow the list; a stale "matches" comment went.
+- Not changed (documented decisions): price terms stay mutually exclusive checkboxes (the spec's
+  wording) inside a labelled fieldset; the sent-alert key is still written while alerts are off;
+  notes stay plain text rendered escaped, as everywhere in the repo; the seed has no printing
+  code in several rarities (S3 adds one for its picker walk).
+
+**Checks after review fix 1 (2026-10-09, branch `feature/regions-s2-wishlist`):**
+- `./gradlew exportOpenApi` + `npm run generate:api`: no content change (the fix touches no API);
+  only the known CRLF stat-dirty `packages/api-client/src/.openapi-generator/FILES`, restored
+  with `git checkout`; the tree is clean.
+- `npm run test:api`: BUILD SUCCESSFUL in 6 m 31 s; `test` 805 tests / 161 classes, `catalogTest`
+  12 tests / 2 classes, 0 failures, 0 errors, 0 skipped.
+- `npm run test:web`: lint clean, 141 files / 656 tests (new: the wish dialog spec, the
+  quick-double-click term test, the trigger focus test, note wording, labels, picker hint).
+  `npm run build -w apps/web-angular`: initial total 899.92 kB (214.49 kB transfer), under the
+  900 kB budget, no warning (the fixes live in lazy chunks).
+- `npm run test:e2e -- --retries=0`: 73 passed on the first attempt, 0 failed / flaky / skipped
+  (final run 2.6 m). The first run of this fix failed once in `map.spec.ts` on a false positive of
+  the DOM coordinate scanner (the signed ad click token read "NN.NNNN" across its dots, a few
+  percent of tokens); the scanner now counts standalone numbers only (`e8f7a45`) and the suite
+  was re-run in full twice (73 / 73 each time). New checks: the 409 error in view at 1280 px and
+  375 px, the focus on the chosen card and back on "Add to wishlist" after Escape, the card page
+  `?rarity=` view ("Any printing in Ultra Rare", no selected printing, the wish dialog on the
+  same choice, a printing replacing the rarity) and the "Sample market price" label.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 650 jest tests (new: the rarity view, a
+  rarity the card lacks, the price source), 28 harness guard tests.
+- `npx expo export` (Expo SDK 57) into the scratchpad: Android (Hermes bundle 5.16 MB, 1759
+  modules) and web (73 static routes), both exit 0; neither bundle contains a matches / rematch
+  endpoint, `WISHLIST_MATCH`, `matchCount`, `radiusKm` or a map provider URL.
+- `npm run test:mobile:e2e`: 51 passed (1.3 m).
+- `npm run audit:gate`: OK (the 2 allowlisted advisories, until 2026-11-30).
+  `npm run test:scripts`: 64 / 64.
+- CI commands: `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
+  `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: all clean.
+- Native check (Pixel 6 emulator, Android 14, Expo Go SDK 57): `npm run test:mobile:maestro` ran
+  every flow once: **24 / 24 flows passed in 48 m 31 s** (harness 49 m 49 s). Then a scratch
+  walk (flows outside the repository, `--keep-running --skip-build`, seed collector2) with adb
+  screenshots: the Wishlist tab ("AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition", the note,
+  "Near Mint only", "90% TCG ≈ 37.80 CAD"), the remove confirmation naming which copy, the card
+  screen opened with `?rarity=Ultra%20Rare` (caption and section "Any printing in Ultra Rare",
+  "2 printings of this card in Ultra Rare: any of them fits", no selected printing), then
+  AZR-FR001 chosen (the rarity gives way; "Sample market price: fictional price of the local
+  sample catalog · updated 2026-09-01"). The walk's first sign-in typed a garbled e-mail once
+  (an emulator input glitch; the retry passed). Logcat: no FATAL EXCEPTION, no ReactNativeJS
+  error (only Expo Go's "Cannot connect to Expo CLI" once Metro stopped), no token, no
+  coordinate; Metro log clean; API log only Flyway's "extension already exists" notices. Metro,
+  the harness API and the emulator were shut down; nothing listens on 8082, 8090, 19006, 8180,
+  4300, 8480 or 4480.
+
+**Review fix 2 (2026-10-09, last work on the Windows machine):** the second functional review
+found that V112 failed on a populated pre-V112 database (the rarity of printing wishes was cleared
+after the duplicate collapse, so the unique index met duplicates). `c1b9df7` normalises the
+selection before collapsing and adds `SimplifiedWishlistMigrationIT` (see "Migration"); `be24294`
+is the review polish: market prices read amount then currency code ("42.00 CAD", web and mobile),
+an "or more" term shows a floor ("100% TCG+ ≥ 25.00 USD"), "TCG market price" keeps its capitals
+inside a sentence, the price-terms error also shows when an edited wish keeps its own term,
+Settings → Notifications explains wishlist alerts and prompts for a location when none is set
+(web and mobile), and the profile's place reads "City, State, Country". No check run was recorded
+for that round; the independent re-review of 2026-10-10 on the Mac ran every suite on `b52211a`
+(809 API + 12 catalog tests, 659 web, 651 mobile jest, 73 web E2E, 51 mobile web E2E, all green
+apart from the BinderIT deadlock described under "Known gaps") and no Maestro run.
+
+**Review fix 3 (2026-10-10, first run on the Mac mini):** the independent re-review of `b52211a`
+(functional verifier and migration auditor: approve; product/UX reviewer: changes required, two
+major findings, both silent printing picks). Every major and minor finding was reproduced first
+(the two majors by running the new E2E tests against the previous web and mobile code).
+
+- **An "Any printing" alert landed on a printing nobody chose (major, web and mobile).** The alert
+  linked to the bare card page, which shows its first printing as "Selected printing": an Unlimited
+  copy was listed and the page showed the 1st Edition at 6.75 CAD. The alert link now always says
+  the selection: `/cards/<id>?printing=any` for an any-printing wish (`55b3352`), next to
+  `?printing=<id>` and `?rarity=`, which are unchanged. The card page (web `8c5a2c4`, mobile
+  `5fcb29d`) shows an "Any printing" block for it: no "Selected printing", no highlighted or
+  checked row, no price of one printing, the card's own picture; choosing a printing replaces
+  "any". A wish's own link (wishlist page, "Looking for") uses the same marker.
+- **A typed printing code picked one of the printings sharing it (major, web and mobile).**
+  `SHV-EN003` (a 1st Edition and an Unlimited printing) started the wish on "Only … 1st Edition",
+  and that wish then got no alert for an Unlimited copy. A code is no longer taken for a printing
+  (`c96ec26`, `5fcb29d`): the form preselects a printing only when exactly one printing of the
+  card carries the code; otherwise it starts on "Any printing", the web picker is narrowed to the
+  code's printings with the reason ("2 printings share the code SHV-EN003: choose one below for
+  that copy only", "Show every printing"), and the mobile "Which copy" lists them first.
+- **Minor, fixed:** the picker's "Any printing" row says what the click does under a rarity
+  filter; after a refused save (409, plan limit) the keyboard focus stays on the wish dialog's
+  save button; the bell menu shows a wishlist alert in full (the place was cut off); onboarding
+  tags "help collectors find you" (web and mobile); the seed fills the three stable-id wishes of a
+  database seeded before S2 while they are untouched and sends the sample alert once (`569b3a4`;
+  the owner's dev database is exactly that case); `PUT /me/settings/notifications` without
+  `wishlistAlerts` keeps the stored value (`d9f5f94`); `schema.md`'s sensitive-data table no longer
+  lists private wishlist notes.
+- **V112, edited one last time before it freezes at the merge (`25c26b4`, still one
+  transaction):** a collector whose old WISHLIST_MATCH category had in-app and push off starts
+  with `wishlist_alerts = false`; paused wishes are deleted before the column is dropped (lead
+  decision, see "Decisions"); incomplete `event_publication` rows of the removed `WishlistMatched`
+  class and of the reshaped `WishlistItemCreated` are completed (the first start no longer fails
+  on them); before the duplicate collapse, rarity strings are trimmed, a printing wish takes its
+  printing's card and game, and a rarity no printing of the card has is cleared; the
+  `analytics_daily_count` rows of `wishlist_matched` go; `ck_wishlist_item_target` (redundant with
+  `card_id NOT NULL`) is dropped. `SimplifiedWishlistMigrationIT` proves each of these (10 tests:
+  one duplicate per dropped column, a `created_at` tie, the opt-outs, paused wishes, outbox rows,
+  an unknown and a padded rarity, a card / printing mismatch); 8 of the 10 fail against the
+  previous V112.
+- **V112 was edited before any merge** (`0f35296` checksum -825541891, `c1b9df7` 558235031, now
+  -323109679). Only databases that applied an earlier version are affected, and they then refuse
+  to start with a Flyway checksum mismatch: scratch and E2E databases (`orenjitrade_e2e` and
+  `orenjitrade_mobile_e2e` when kept with `--keep-db` or by a kept stack, reviewers' scratch
+  databases, on either machine). The remedy is to **drop and recreate that database** (the E2E
+  harnesses do it on every run); never `flyway repair` (an earlier V112 leaves a different
+  schema), and `npm run infra:reset` is not needed. The owner's dev database is at V105 and never
+  applied any V112.
+- **Nits, fixed:** the wish dialog's error icon keeps its size and the note counter stays on one
+  line at 375 px, with the count still shown once the note is over the limit ("281 / 280"); a
+  Retry for price terms that failed to load (web and mobile); "Your wishlist alerts work either
+  way" is not said while the collector has no location (web and mobile); "1 term"; a term the
+  admin removed is listed at its percent (web and mobile); the remove confirmation reads "Your
+  wish for <card> (any printing) will be removed."; a click on the backdrop no longer closes the
+  wish dialog while the form holds unsaved input (Escape and Cancel still do); the mobile "Which
+  copy" hint writes the chosen printing out in full; a note keeps its line breaks in "Looking
+  for"; the plan-limit dialog no longer shows the technical limit key; the profile no longer
+  scrolls sideways at 375 px (it was a one-line fix: `minmax(0, 1fr)`); the Maestro leftovers
+  (`parity.js` comment, the vacuous `assertNotVisible` of the "Looking for" flow, which now
+  asserts the note and the price term).
+- **Not in this round:** naming the edition in the alert text and grouping same-printing alerts
+  (S3); the Netty macOS DNS resolver warning at API start (the macOS branch); the duplicate
+  collapse of V112 stays quadratic per collector (20,000 wishes of one collector take about half
+  a minute on the emulated PostgreSQL; the API never allowed more than 20 or 500).
+
+**Checks after review fix 3 (2026-10-10, Mac mini: Apple M6, macOS 27, OrbStack, JDK 21, Node 24;
+code at `19fdf71`, retries off):**
+- `npm run test:scripts`: 64 / 64 (13 suites).
+- `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
+  `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: all clean.
+- `npm run audit:gate`: OK (the 2 allowlisted advisories, `braces` and `node-forge`, until
+  2026-11-30).
+- `./gradlew exportOpenApi` + `npm run generate:api`: git stays clean (the regenerated
+  descriptions of the settings request and of the notification `data` were committed with their
+  changes; no CRLF noise on macOS).
+- `npm run test:api`: BUILD SUCCESSFUL in 2 m 48 s; `test` 816 tests / 162 classes, `catalogTest`
+  12 tests / 2 classes, 0 failures, 0 errors, 0 skipped; Spotless clean. Two earlier runs of this
+  round failed: the first on `BinderIT` (the known deadlock) and on the new seed test, which
+  relied on a second alert notification while other suites had used up the seeded collector2's
+  daily alert limit in the shared test database (the test now keeps the notification and removes
+  only the sent-alert key, `19fdf71`); the second only on that seed test.
+- `npm run test:web`: lint clean, 142 files / 678 tests (new: the card page spec, the typed code,
+  the focus after a refusal, the backdrop, the picker's "Any printing" row, the note count, the
+  term order, the bell clamp). `npm run build -w apps/web-angular`: initial total 899.93 kB
+  (214.55 kB transfer), under the 900 kB budget, no warning. The first build of the round was
+  900.10 kB (104 bytes over): the two files of the initial chunks were shortened (the fallback
+  notification link, an inline class binding) instead of touching the budget.
+- `npm run test:mobile`: typecheck, lint, 76 suites / 656 jest tests, 28 harness guard tests.
+  `npx expo export --platform android` (Hermes bundle 5.2 MB) and `--platform web` into
+  `apps/mobile/dist/` (git-ignored, deleted afterwards): both exit 0.
+- `npm run test:e2e -- --retries=0`: 74 passed (1.3 m) on the first attempt, 0 failed / flaky /
+  skipped; the run's 72 emulator accounts were deleted.
+- `npm run test:mobile:e2e`: 52 passed (48 s), no retry used.
+- `npm run test:mobile:maestro`: **not run** (no Android SDK, adb or emulator on the Mac). The
+  flows and host scripts were read against the screens: the alert flow now also asserts the "Any
+  printing" section of the card screen, the "Looking for" flow the note and the price term.
+- V112 and the seed on real paths (scratch databases `orenjitrade_s2fix_*`, API on :8460, Redis
+  db 9, all dropped / flushed afterwards): a `pg_dump` copy of the owner's dev database (V105, 3
+  seed wishes) took V106–V112 in 0.11 s, the API started in 4.5 s, the seed logged "0 wishlist
+  items (2 migrated ones filled in)", collector2 had the note, "Near Mint only" and the price
+  terms of `test-accounts.md` and one WISHLIST_ALERT; a second start migrated nothing and added
+  nothing. On a V111 copy loaded with the migration auditor's hostile data (5,069 wishes, 1,503 of
+  them paused, opt-outs, three incomplete outbox rows) V112 took 0.69 s and left 2,031 wishes, no
+  duplicate selection, no card / printing mismatch, no rarity foreign to its card, the opt-out
+  carried over, no incomplete outbox row, and **the first start succeeded** (it failed once on
+  the outbox row before). The owner's database was only read (still V105, 3 wishes).
+- Nothing listens on 8180, 4300, 8090, 19006, 8082 or 8460; the shared containers were never
+  restarted.
+
+**Independent verification of review fix 3 (2026-10-10, same Mac):** a functional verifier and a
+product/UX reviewer, each on its own stack, both **approve** (no blocker, no major finding).
+- Functional: every check above re-run on the branch head (API 816 + 12 tests green on the first
+  run, web 678, mobile 656 jest + 28 guard tests, mobile web E2E 52 / 52); every item of the
+  round found fixed with its test; V112 re-applied to a copy of the owner's dev database (V105)
+  and to the hostile V111 data (2,031 wishes left, opt-outs off only where in-app and push were
+  both off, no incomplete outbox row, the first start succeeding), still one transaction (a
+  failure forced at its last statement rolls back byte for byte), and a mutation check: removing
+  each of the 8 new statements makes `SimplifiedWishlistMigrationIT` fail.
+- Product/UX, on the web at 1280 x 800 and 375 x 812 (light and dark) and on the Expo web build
+  at 375 px: the three alert link shapes land as wished (any printing, one printing, a rarity)
+  and survive a reload; codes shared by 2, 2 and 4 printings start on "Any printing" with the
+  reason given, a code with one printing is preselected, and the resulting wishes alerted for
+  exactly the right copies. Its two minor findings and its nits are in "Known gaps" above.
+- Two flaky E2E checks surfaced that day, neither in S2 code, both hardened on this branch:
+  the signed-out specs of the web suite share the anonymous per-IP rate limit (60 a minute), and
+  on this fast machine the 61st call of a minute failed `launch-config.spec.ts` in one full run
+  and `smoke.spec.ts` in another (the E2E API now gets `RATE_LIMIT_ANONYMOUS_PER_MINUTE=600` from
+  the harness and from `e2e.yml`, and the launch spec asserts the answer's status; the limits
+  stay proven by the API's integration tests); the provider guard of `card-images.spec.ts` awaited response bodies
+  without a bound and timed out on GitHub CI for the macOS pull request when Chromium never
+  delivered one (it now bounds each read at 5 s, like the two other scanners).
+- Not verified by anyone this round: the native Maestro suite (no Android emulator on the Mac;
+  the iOS path for the harness is the next task) and screen reader output.
+
 ## Phase 11 — ML
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
@@ -1974,14 +2696,14 @@ _Final verification (2026-09-30): the local half works (log transport by default
 **Apply still deferred by owner decision (2026-09-29): no cloud deployment; see docs/deployment/DEFERRED.md.** Since 2026-10-05 the production configuration itself is prepared (ADR 0016, section below): `npm run infra:validate` keeps the Terraform (16 modules, dev/staging/prod, Cloudflare) formatted and valid without credentials; nothing is planned or applied.
 
 - [-] Terraform for prod (low-cost first-year profile), Cloudflare rules and records, secrets, scheduler jobs, budget — code and docs done on `feature/prod-low-cost` (see "Low-cost first-year production profile"); `terraform apply`, the Cloudflare apply and the console steps are the owner's (docs/deployment/README.md sections 1–11)
-- [x] Deployment documentation (`docs/deployment/`) — first-deploy order with the Cloudflare DNS + certificate steps, environments matrix, runbooks (scale-up path, secret rotation, Redis sidecar, budget alert, restore), backup/restore incl. restore to a different instance, console safeguards (Maps key restrictions + quota, Firebase key, budget), temporary staging, per-line cost table (`docs/deployment/README.md` section 13)
+- [x] Deployment documentation (`docs/deployment/`) — first-deploy order with the Cloudflare DNS + certificate steps, environments matrix, runbooks (scale-up path, secret rotation, Redis sidecar, budget alert, restore), backup/restore incl. restore to a different instance, console safeguards (Firebase key, budget; the Maps key restrictions went with the map provider, ADR 0017), temporary staging, per-line cost table (`docs/deployment/README.md` section 13)
 
 ## Low-cost first-year production profile (ADR 0016, 2026-10-05)
 
 _Branch `feature/prod-low-cost` (worktree, from `origin/main` at `ded5470`), builders done (infra, API, docs), not pushed, nothing applied. Owner request: prepare the Google Cloud production configuration for a low-cost first year (target ≈ US$115–130/month at list prices) and fix the known go-live blockers without deploying anything._
 
 - [x] ADR 0016 `docs/architecture/adr/0016-low-cost-first-year-production-profile.md`: the 13 choices, the Redis-sidecar trade-off with the per-key table of what an empty restart loses, the single-instance limit, the scale-up signals (sustained api CPU / memory alerts, Cloud SQL connections > 40 or CPU > 80 %, a few thousand actives or > ~200 concurrent WebSocket sessions, any need for two instances) and path (Memorystore Basic 1 GB + `api_max_instances > 1`, then `db-custom-1-3840` and REGIONAL, then 2 vCPU / 2 GiB), the cost table with the official pricing-page sources (Montreal, 2026-10-05): api ≈ 67, web ≈ 1, Cloud SQL ≈ 31, LB ≈ 19, Cloud Armor ≈ 8–10, egress ≈ 4–12, GCS ≈ 1, AR ≈ 0.3, Secret Manager ≈ 0.2, Scheduler 0.70, Pub/Sub + BigQuery ≈ 0–0.5, the rest 0 → **≈ US$131–142/month** (≈ 125 at minimal traffic; the 115–130 target holds only at low egress because Montreal is Cloud Run Tier 2 without a GCS Always Free allowance; US$300 trial credit for 90 days). Previous topology ≈ US$575–775.
-- [x] Terraform (commits `25050ca`, `32202ad`, `fc644d0`, `77e3c0a`, `cbee16b`): Cloud SQL `db-g1-small` ZONAL with `edition = ENTERPRISE` explicit (PG16+ defaults to Enterprise Plus), 10 GB SSD auto-resize, 7 backups, PITR 7 d, deletion protection; Valkey 8.1.10-alpine sidecar pinned by digest through an Artifact Registry Docker Hub remote (`127.0.0.1 -::1`, `save ''`, `appendonly no`, `maxmemory 200mb allkeys-lru`, 0.1 vCPU / 512Mi, TCP startup probe, api `depends_on`, `REDIS_URL=redis://localhost:6379` plain env, no `redis-url` secret); api 1 vCPU / 1Gi with the heap capped at 50 % (measured 2026-10-05 on the production image: 513 MiB idle, 595 MiB under ~36 req/s, ~390 MiB non-heap, JVM up in 33 s), **min 1 / max 1** (validated while `redis_mode = sidecar`), CPU always allocated, startup boost, session affinity; Direct VPC egress `/24` `PRIVATE_RANGES_ONLY` (connector + Cloud NAT only behind `ml_enabled`, which stays false); web min 0 / max 2 / 512Mi with every `docker-entrypoint.sh` variable wired (`WS_BASE_URL`, Firebase web config, Maps key + Map ID, `ENVIRONMENT`; public values only); Certificate Manager with DNS authorization (+ Origin CA and classic modes); 10 Cloud Scheduler jobs = every scheduled `/internal/jobs/*` route, called over the api's `run.app` URL with audience = public API URL (`INTERNAL_AUDIENCE` / `INTERNAL_INVOKERS` set; ping, catalog-import, card-images status/clear excluded and refused by validation); Spring profile mapping `dev | staging | prod` (was `development`/`production`); generated secrets `location-jitter-secret`, `analytics-actor-salt`, `ads-token-secret`, `consent-ip-salt` (+ `db-password`, `service-token`), `stripe-billing-webhook-secret` container; unread env removed; `STORAGE_PUBLIC_BASE_URL` → the API media route (bucket enforces public access prevention); `domain-events` push off until the receiver exists; `google_billing_budget` module (US$150, 50/90/100 % + forecast, credits excluded, owner-applied); AR cleanup keeps ~10 versions per image; monitoring: api CPU/memory + Cloud SQL disk alerts, connection threshold 40, no Memorystore/connector references. The three roots share one `main.tf`. `deploy.yml` updates the `api` container only (`--container api`), ML opt-in via `DEPLOY_ML`.
+- [x] Terraform (commits `25050ca`, `32202ad`, `fc644d0`, `77e3c0a`, `cbee16b`): Cloud SQL `db-g1-small` ZONAL with `edition = ENTERPRISE` explicit (PG16+ defaults to Enterprise Plus), 10 GB SSD auto-resize, 7 backups, PITR 7 d, deletion protection; Valkey 8.1.10-alpine sidecar pinned by digest through an Artifact Registry Docker Hub remote (`127.0.0.1 -::1`, `save ''`, `appendonly no`, `maxmemory 200mb allkeys-lru`, 0.1 vCPU / 512Mi, TCP startup probe, api `depends_on`, `REDIS_URL=redis://localhost:6379` plain env, no `redis-url` secret); api 1 vCPU / 1Gi with the heap capped at 50 % (measured 2026-10-05 on the production image: 513 MiB idle, 595 MiB under ~36 req/s, ~390 MiB non-heap, JVM up in 33 s), **min 1 / max 1** (validated while `redis_mode = sidecar`), CPU always allocated, startup boost, session affinity; Direct VPC egress `/24` `PRIVATE_RANGES_ONLY` (connector + Cloud NAT only behind `ml_enabled`, which stays false); web min 0 / max 2 / 512Mi with every `docker-entrypoint.sh` variable wired (`WS_BASE_URL`, Firebase web config, Maps key + Map ID (both removed in S1, ADR 0017), `ENVIRONMENT`; public values only); Certificate Manager with DNS authorization (+ Origin CA and classic modes); 10 Cloud Scheduler jobs = every scheduled `/internal/jobs/*` route, called over the api's `run.app` URL with audience = public API URL (`INTERNAL_AUDIENCE` / `INTERNAL_INVOKERS` set; ping, catalog-import, card-images status/clear excluded and refused by validation); Spring profile mapping `dev | staging | prod` (was `development`/`production`); generated secrets `location-jitter-secret`, `analytics-actor-salt`, `ads-token-secret`, `consent-ip-salt` (+ `db-password`, `service-token`), `stripe-billing-webhook-secret` container; unread env removed; `STORAGE_PUBLIC_BASE_URL` → the API media route (bucket enforces public access prevention); `domain-events` push off until the receiver exists; `google_billing_budget` module (US$150, 50/90/100 % + forecast, credits excluded, owner-applied); AR cleanup keeps ~10 versions per image; monitoring: api CPU/memory + Cloud SQL disk alerts, connection threshold 40, no Memorystore/connector references. The three roots share one `main.tf`. `deploy.yml` updates the `api` container only (`--container api`), ML opt-in via `DEPLOY_ML`.
 - [x] Cloudflare (`fc644d0`): one Free-plan rate-limit rule (merged path prefixes, 60/10 s/IP; per-group thresholds, POST-only and host scoping dropped at the edge, all still enforced in the API's Redis windows), cache rules making `/api/v1/public/card-images|placeholder-images|media` cache-eligible with origin `Cache-Control` (`public, immutable` as the code sends; authenticated responses carry Spring Security's `no-store` and are never cached), DNS-only `_acme-challenge` CNAMEs from the GCP output, SSL Full (strict), optional `/internal/**` edge block; READMEs corrected.
 - [x] API (`409b93d`, `740c832`, `ff76df5`): card image renditions behind a dedicated `cardImageStorage` `ObjectStorage` (local files at `CARD_IMAGE_CACHE_DIR` as before; `card-images/` prefix of the media bucket with `STORAGE_PROVIDER=gcs`; `CARD_IMAGE_STORAGE_PROVIDER` / `CARD_IMAGE_GCS_BUCKET` / `CARD_IMAGE_OBJECT_PREFIX`), the 5 GB cap counting objects + temps + reservations, reconciliation listing the bucket and never deleting an unreferenced object younger than the reservation TTL, serving with one read (304 without), imports with one listing snapshot; prod `DATABASE_POOL_SIZE` default 20 → 10 (`max_connections` 50); `application.yml` notes. ADR 0015 amendment 2026-10-05. Tests: `LocalFileObjectStorageTest` (6), `GcsObjectStorageTest` (6, google-cloud-nio in-memory bucket), `CardImageObjectStorageIT` (6: wiped-disk restart keeps and serves every object, vanished object repaired, cap with objects + temps + reservations, fresh unreferenced objects kept), `CardImageCacheIT` age-guard test, `CardImageFileStoreTest` policy test; full `npm run test:api` green after the isolation fix; `npm run test:scripts` 54/54; web image built and `config.json` rendered with every new variable; local dev unchanged (API jar on :8380 against `orenjitrade_prodcost_check`, Redis db 4).
 - [x] Docs (this section's commit): ADR 0016 + index, `docs/deployment/README.md` (prod-only year one, first-deploy order 1–11 incl. Firebase web app before the apply, Cloudflare DNS + certificate verification, `--container api` deploy, console safeguards, temporary staging, cost table), `environments.md`, `runbooks.md` (scale-up path, rotation incl. the jitter-secret warning, Pub/Sub note, sidecar, budget alert, restore pointers as separate sections), `backup-restore.md` (inventory, Enterprise/ZONAL settings, restore to a different instance with `--backup-instance`, drills), `DEFERRED.md` status, `infrastructure/terraform/README.md` cross-links, ARCHITECTURE.md §10 note, ADR 0003 cross-reference, CLAUDE.md Cache row parenthetical (Redis stays cache-only).
@@ -1998,14 +2720,14 @@ Final independent verification, 2026-09-30, from a clean local state (`npm run i
 no cloud deployment) · **DEFERRED-MOBILE** (owner decision: web first) · **ON-HOLD-ML** · **FAIL**.
 "Acceptance" = `apps/web-angular/e2e/acceptance/*.spec.ts`; "walkthrough" = the manual `npm run dev`
 walkthrough above. No criterion is FAIL; none is ON-HOLD-ML (card scanning is not one of the 44).
-Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): stages M1–M7 (2026-10-04/06) implement the mobile half of every user-facing criterion, and each row names its mobile evidence: `apps/mobile/e2e/*.spec.ts` (Playwright on the Expo web build against the isolated stack, 60 specs after stage M8, every API answer scanned for coordinates with more than 3 decimals) and `apps/mobile/.maestro/*.yaml` (Maestro in Expo Go on the Android emulator, 24 flows after stage M8), plus the jest suites named. DEFERRED-MOBILE now remains only for device push (25: needs an EAS project and a real FCM sender) and iOS (40: no macOS); the admin and moderator criteria (30–34) are web-only by scope (the admin consoles stay on the web; their mobile part is what a collector sees). The statuses are those of the final web verification, with the mobile results added; the mobile evidence is the builder's of each stage; M1–M6 were verified and merged into `main` as #41, #45, #46, #47, #48 and #51; the stage M7 evidence (branch `feature/mobile-m7`) and the stage M8 evidence (branch `feature/launch-readiness`, the 18+ rule and the legal pages in both languages) are the builder's. After stage M7 every row's mobile half matches the web's or states the exact difference: 1 (Google sign-in proven only against the Auth emulator), 25 (device push), 30–34 (admin consoles web-only), 38 (draft texts, same as the web), 40 (iOS not run).
+Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): stages M1–M7 (2026-10-04/06) implement the mobile half of every user-facing criterion, and each row names its mobile evidence: `apps/mobile/e2e/*.spec.ts` (Playwright on the Expo web build against the isolated stack, 60 specs after stage M8, every JSON answer of the API scanned for coordinate, radius and distance keys and every request checked for map providers since S1) and `apps/mobile/.maestro/*.yaml` (Maestro in Expo Go on the Android emulator, 24 flows after stage M8), plus the jest suites named. DEFERRED-MOBILE now remains only for device push (25: needs an EAS project and a real FCM sender); iOS (40) is proven on the simulator since 2026-10-10 (the same Maestro flows in Expo Go on the iOS 27 simulator of the owner's Mac, see "Mobile app on the iOS simulator"), a physical iPhone and a store build are not; the admin and moderator criteria (30–34) are web-only by scope (the admin consoles stay on the web; their mobile part is what a collector sees). The statuses are those of the final web verification, with the mobile results added; the mobile evidence is the builder's of each stage; M1–M6 were verified and merged into `main` as #41, #45, #46, #47, #48 and #51; the stage M7 evidence (branch `feature/mobile-m7`) and the stage M8 evidence (branch `feature/launch-readiness`, the 18+ rule and the legal pages in both languages) are the builder's. After stage M7 every row's mobile half matches the web's or states the exact difference: 1 (Google sign-in proven only against the Auth emulator), 25 (device push), 30–34 (admin consoles web-only), 38 (draft texts, same as the web), 40 (iOS on the simulator only).
 
 | # | Criterion | Status | Evidence |
 | --- | --- | --- | --- |
 | 1 | Register and log in | PASS | acceptance `registration.spec.ts` (consents → emulator e-mail verification → sign out → sign in), `auth.spec.ts`; AuthenticationIT; walkthrough sign-in (emulator ID token → `GET /me`, anonymous 401); mobile (M1): `auth.spec.ts` (sign-up with the legal documents → emulator verification → onboarding → tabs → sign-out; a seed sign-in with session restore; friendly errors; consent screen; password reset), Maestro `sign-up-onboarding.yaml`, `sign-in.yaml`, `sign-out.yaml`; mobile (M7): `google.spec.ts` (Google sign-up through the Auth emulator's simulated account: the fake OAuth credential checked, consent → onboarding → tabs, Google the only sign-in method; the chooser dismissed; Google with the e-mail of a verified password account signs in to it and links Google, an unverified one is taken over — Firebase's trusted-provider rule, as on the web), Maestro `google-sign-in.yaml`, jest `auth/google`, `screens/auth`, `screens/settings`. Difference: mobile Google sign-in is proven only against the emulator (the web build's pop-up and the device flow through expo-auth-session need the Firebase project's OAuth client ids, DEFERRED.md item 4); mobile (M8, launch readiness): the bilingual 18+ checkbox at sign-up and on the consent screen, the onboarding "Age" step for an existing account with the remembered link (`auth.spec.ts`, `age-confirmation.spec.ts`, Maestro `sign-up-onboarding.yaml`, `age-step-existing-account.yaml`, jest `screens/auth`, `screens/account-states`, `screens/onboarding`, `account/ageConfirmation`, `app/auth-gate`), every consent recorded with the language shown |
 | 2 | Create/edit profile | PASS | acceptance `registration.spec.ts` (profile step), `settings.spec.ts` (edits shown on the public profile); ProfileIT, TagIT; mobile (M1): `auth.spec.ts` (profile step), `profile.spec.ts` (edit, validation, tags, public preview), Maestro `profile-edit.yaml` |
-| 3 | Configure privacy settings | PASS | `settings.spec.ts` (discoverability saved, public label only); acceptance `map.spec.ts` / `privacy.spec.ts` (discoverable collectors); SettingsIT, PrivacyPolicyServiceTest; mobile (M1): `account.spec.ts` (privacy switches saved, notification preferences), `location.spec.ts` (map opt-in, off by default, public label only), Maestro `discoverability.yaml`; mobile (M7): Settings → Blocked users (`blocked.spec.ts`, Maestro `blocked-users.yaml`), "Show my wishlist on my profile" shown on profiles (`collector-wishlist.spec.ts`) |
-| 4 | Choose approximate trading location | PASS | acceptance `registration.spec.ts` (approximate area on the Leaflet map), `auth.spec.ts`, `settings.spec.ts`; LocationIT, ApproximateLocationServiceTest, GeoPrivacyContractTest; mobile (M1): `location.spec.ts` (city quick pick, a tap on the map, a dragged pin, `PUT` body MANUAL with 3 decimals), `auth.spec.ts` (map tap at onboarding), `leaflet-page.spec.ts`, Maestro `discoverability.yaml` (centre checked on the API), `sign-up-onboarding.yaml` |
+| 3 | Configure privacy settings | PASS | `settings.spec.ts` (discoverability needs a location, then saved; the state or province only, S1); acceptance `map.spec.ts` / `privacy.spec.ts` (discoverable collectors); SettingsIT, PrivacyPolicyServiceTest; mobile (M1): `account.spec.ts` (privacy switches saved, notification preferences), `location.spec.ts` (discoverable opt-in, off by default, needs a location, the state or province only, S1), Maestro `discoverability.yaml`; mobile (M7): Settings → Blocked users (`blocked.spec.ts`, Maestro `blocked-users.yaml`), "Show my wishlist on my profile" shown on profiles (`collector-wishlist.spec.ts`) |
+| 4 | Choose approximate trading location → **declare a location (ADR 0017)** | PASS (S1) | acceptance `registration.spec.ts` (region, country, state and city pickers; no map, no GPS), `auth.spec.ts`, `settings.spec.ts`; LocationIT, RegionsIT, GeoPrivacyContractTest; mobile (S1): `location.spec.ts`, `auth.spec.ts` (pickers), Maestro `sign-up-onboarding.yaml`, `discoverability.yaml` (+ `scripts/check-location.js`) |
 | 5 | Select TCG interests | PASS | acceptance `registration.spec.ts` (interests step), `auth.spec.ts`; ProfileIT, TagIT; mobile (M1): `auth.spec.ts` (interests step), `profile.spec.ts`, Maestro `sign-up-onboarding.yaml`, `profile-edit.yaml` |
 | 6 | Open dedicated inventory page | PASS | acceptance `inventory.spec.ts`, `inventory.spec.ts`, `smoke.spec.ts`; walkthrough `/inventory`; mobile (M2): Inventory tab, `inventory.spec.ts` (2), Maestro `inventory-add-edit-delete.yaml`; mobile (M7): owner photos on a card (`item-photos.spec.ts`), multi-select bulk actions (`bulk-actions.spec.ts`), the visibility filter and binder reordering (jest `screens/inventory`) — the web's inventory extras |
 | 7 | Create private inventory | PASS | acceptance `inventory.spec.ts` (card added Private by default); InventoryIT (owner-only reads, others 404); mobile (M2): `inventory.spec.ts` (cards added private by default, edit, delete), Maestro `inventory-add-edit-delete.yaml` (checked on the API), jest `screens/items` |
@@ -2013,44 +2735,44 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 9 | Move cards between binders | PASS | acceptance `inventory.spec.ts` (card moved into a binder), `inventory.spec.ts` (bulk move); BulkOperationsIT `MOVE_TO_BINDER`, InventoryIT; mobile (M2): `binders.spec.ts` (a card added to a binder and removed), Maestro `binder-create-add-item.yaml` ("Add cards", checked on the API), jest `screens/binders` / `screens/items` (move to a binder) |
 | 10 | Toggle private/public visibility | PASS | acceptance `inventory.spec.ts` (made public), `inventory.spec.ts` (bulk public 24 h / private); VisibilityIT, BulkOperationsIT; mobile (M2): `binders.spec.ts` (publish for 24 hours → make private), jest `screens/items` / `features/itemForm` (card visibility), Maestro `binder-create-add-item.yaml` (temporarily public, checked on the API); mobile (M7): `bulk-actions.spec.ts` (bulk public, temporarily public for 24 h, private with the skipped card explained) |
 | 11 | Publish a binder | PASS | acceptance `inventory.spec.ts` (publish → another collector sees it); BinderIT, PublicBinderIT; walkthrough (publish → second collector opens the public binder); mobile (M2): `binders.spec.ts` (publish → another collector's view of it), Maestro `binder-create-add-item.yaml` |
-| 12 | Another user opens the map | PASS | acceptance `map.spec.ts`, `map.spec.ts`, `smoke.spec.ts`; NearbyCollectorsIT; walkthrough `/map` (13 collectors within 10 km); mobile (M3): Map tab, `map.spec.ts` (3), Maestro `map-preview-profile.yaml`; mobile (M7): the web map's freshness and tags filters and its search box (jest `screens/map`, `features/mapDiscovery`) |
-| 13 | Public collectors at approximate positions | PASS | acceptance `map.spec.ts` + `privacy.spec.ts` (derived public points, never a stored centre), `map.spec.ts`; NearbyCollectorsIT, GeoPrivacyContractTest `mapAndSearchResponsesOnlyEverCarryPublicPoints`; walkthrough (`publicPoint` 3 decimals, bucketed distance); mobile (M3): `map.spec.ts` (zones of radius 1500 m, never markers, zoom capped at 14, no tile beyond 14), `collector-map-page.spec.ts` (the WebView page), Maestro `map-preview-profile.yaml` (zones on OpenStreetMap), jest `privacy/mapPrivacy` |
-| 14 | Click collector marker | PASS | acceptance `map.spec.ts` (marker click), `map.spec.ts` (marker + keyboard list); mobile (M3): `map.spec.ts` (a tap inside a zone and the list open the preview), Maestro `map-preview-profile.yaml` (a tap inside the zone) |
-| 15 | Collector preview appears | PASS | acceptance `map.spec.ts`, `map.spec.ts`; NearbyCollectorsIT `previewCarriesMessagingStateAndNoPreciseLocation`; walkthrough `GET /collectors/{handle}/preview`; mobile (M3): `map.spec.ts` (preview bottom sheet: place, bucket, listings, Message), Maestro `map-preview-profile.yaml` |
-| 16 | Open full profile | PASS | acceptance `map.spec.ts` (preview → profile → binder); CollectorProfileIT; walkthrough `/collectors/collector5`; mobile (M3): `map.spec.ts` (preview → profile with its approximate area), Maestro `map-preview-profile.yaml`; mobile (M7): "Looking for" on the profile (`collector-wishlist.spec.ts`: condition only, never price or radius; nothing when hidden), a profile from a collector search (`search-segments.spec.ts`), Maestro `collector-search-looking-for.yaml` |
-| 17 | View public binder | PASS | acceptance `map.spec.ts` / `inventory.spec.ts`, `inventory.spec.ts` (region label + distance bucket only, no private notes); PublicBinderIT; mobile (M2/M5): `binders.spec.ts` (another collector's public binder: public cards and notes only, region label and bucket), `offers.spec.ts`, `payments.spec.ts` (offers from a public binder), Maestro `offer-trade-rating.yaml`, `payment-protection.yaml` (public binder by deep link) |
-| 18 | Search for a card | PASS | acceptance `search.spec.ts` (top-bar search), `catalog.spec.ts` (autocomplete, filters, printing codes); CatalogSearchIT; walkthrough `/search`, `/cards`; mobile (M2): Search tab, `catalog.spec.ts` (filters, card detail, printing codes), Maestro `search-card-detail.yaml`; mobile (M7): the Search tab's Collectors and Binders segments on `GET /search` like the web's `/search` tabs (`search-segments.spec.ts`: by name or handle with the distance bucket, opted-out collectors absent, recent searches per segment; public binders by name with their owner), set pages `sets/[id]` (jest `screens/sets`) |
-| 19 | Nearby collectors with that card | PASS | acceptance `search.spec.ts` ("Who has this near me" → holders list + marker → card-holders view), `map.spec.ts`; SearchIT, CardHoldersIT; walkthrough `GET /search/card-holders`; mobile (M3/M7): `holders.spec.ts` ("Who has this near me" from a card: the holders list on `GET /search/card-holders`, the web's endpoint, with sort, availability, condition, price range, freshness, edition, language and accepts-offers filters, paged, down to the empty state and "Clear filters"; the holder's profile; "Show on the map" the alternative view), `map.spec.ts` (the map filtered by the card), Maestro `holders-filters.yaml`, `card-who-near-me.yaml`, jest `screens/holders`, `features/searchSegments` — matches the web's holders view |
-| 20 | Exact coordinates never exposed | PASS | GeoPrivacyContractTest over every Phase 1–10 response family + logs; acceptance privacy fixture on every acceptance test (HTTP + STOMP; > 3 decimals, stored centres, raw distances) and `privacy.spec.ts` (planted-leak detection + sweep of every geo surface); AnalyticsEventTest/AnalyticsIT, AdsTargetingIT; walkthrough scans (36 API steps, 28 UI pages) found none; mobile (M1–M7): the privacy fixture of every mobile spec (54: no lat/lng with more than 3 decimals, no `homePoint` / raw distance fields, no request to the developer API), `location.spec.ts` (the `PUT` body has 3 decimals), `map.spec.ts` (zones only, zoom ≤ 14), jest `privacy/coordinateLiterals` + `privacy/mapPrivacy`, Maestro `discoverability.yaml` and `map-preview-profile.yaml`, logcat scans of every native check (no coordinates) |
+| 12 | Another user opens the map | PASS (S1) | acceptance `map.spec.ts` (boundary map of the browsed region, states shaded by binder counts, region switcher), `map.spec.ts`, `smoke.spec.ts`; RegionMapIT; mobile (S1): the Map tab is a placeholder naming the home region (`map.spec.ts`, Maestro `map-placeholder-profile.yaml`); drawing the map on mobile is a follow-up |
+| 13 | Public collectors at approximate positions → **per state or province (ADR 0017)** | PASS (S1) | no position exists: acceptance `map.spec.ts` + `privacy.spec.ts` (states only, no coordinate or distance key, no map provider request, cities only on profiles); GeoPrivacyContractTest; mobile: `placePrivacy.test.tsx`, Playwright privacy fixture |
+| 14 | Click collector marker → **choose a state** | PASS (S1) | markers are gone by design (ADR 0017): acceptance `map.spec.ts` (click or keyboard on a state, the accessible state list, `/map?region=&subdivision=`); mobile: follow-up with the boundary map |
+| 15 | Collector preview appears → **state panel** | PASS (S1) | the preview is removed (ADR 0017); the state panel lists the state's public binders in cursor pages with skeleton, empty state and error with retry (acceptance `map.spec.ts`, `map.spec.ts`; RegionMapIT); mobile: follow-up |
+| 16 | Open full profile | PASS (S1) | acceptance `map.spec.ts` (state panel → binder → profile), `registration.spec.ts` (the city on the profile only while discoverable and shown); CollectorProfileIT; mobile (S1): `map.spec.ts` (profile with the state and the shown city), `holders.spec.ts`, Maestro `map-placeholder-profile.yaml` |
+| 17 | View public binder | PASS | acceptance `map.spec.ts` / `inventory.spec.ts`, `inventory.spec.ts` (the owner's state only, no private notes); PublicBinderIT; mobile (M2/M5/S1): `binders.spec.ts` (another collector's public binder: public cards, the owner's state, never the city), Maestro `binder-create-add-item.yaml` |
+| 18 | Search for a card | PASS | acceptance `search.spec.ts` (top-bar search), `catalog.spec.ts` (autocomplete, filters, printing codes); CatalogSearchIT; walkthrough `/search`, `/cards`; mobile (M2): Search tab, `catalog.spec.ts` (filters, card detail, printing codes), Maestro `search-card-detail.yaml`; mobile (M7): the Search tab's Collectors and Binders segments on `GET /search` like the web's `/search` tabs (`search-segments.spec.ts`: by name or handle with their state or province (no distance since S1), opted-out collectors absent, recent searches per segment; public binders by name with their owner), set pages `sets/[id]` (jest `screens/sets`) |
+| 19 | Nearby collectors with that card → **holders in my region** | PASS (S1) | acceptance `search.spec.ts` ("Who has this in my region" → card holders of the browsed region with the holder's state; another region does not list them), `map.spec.ts`; SearchIT, CardHoldersIT; mobile (S1): `holders.spec.ts`, Maestro `card-holders-region.yaml`, `holders-filters.yaml` |
+| 20 | Exact coordinates never exposed | PASS (S1: nothing to expose) | no coordinate is stored (FlywayMigrationIT on the migrated schema: no geometry/geography or coordinate-, radius- or distance-named column, no GiST index, no comment describing the old model; plus the fresh-database check); GeoPrivacyContractTest over every response family as every seed account + logs; acceptance PrivacyScanner (coordinate / distance / radius keys, cities outside profiles, map provider requests) on every acceptance test; mobile `placePrivacy.test.tsx`, `coordinateLiterals.test.ts`, the Playwright privacy fixture |
 | 21 | Private messaging | PASS | acceptance `messaging.spec.ts` (realtime delivery, unread badge, "Seen", live answer), `messaging.spec.ts` (blocks, photos); ConversationIT, MessagingAuthorizationIT, RealtimeIT; walkthrough (third collector gets 404); mobile (stage M4): `apps/mobile/e2e/messages.spec.ts`, Maestro `messages-inbox-thread.yaml`; mobile (M7): block → Settings → Blocked users → unblock (`blocked.spec.ts`, Maestro `blocked-users.yaml`) |
 | 22 | Public community chat | PASS | acceptance `community.spec.ts`, `community.spec.ts` (moderation); CommunityIT, ModerationIT; mobile (stage M4): `apps/mobile/e2e/community.spec.ts`, Maestro `community-post.yaml` |
-| 23 | Create wishlist | PASS | acceptance `wishlist.spec.ts`, `wishlist.spec.ts` (duplicate 409, FREE limit dialog); WishlistIT; walkthrough (wish with a 25 km radius); mobile (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` |
-| 24 | New public inventory triggers match | PASS | acceptance `wishlist.spec.ts`, `wishlist.spec.ts`; WishlistMatchingIT; walkthrough (match with `KM_1_5` bucket); mobile (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (live match count) |
-| 25 | In-app/push notification received | PASS (in-app + log push) · DEFERRED-CLOUD (real FCM) · DEFERRED-MOBILE (device push: needs an EAS project and a real FCM sender, owner cost rule) | acceptance `wishlist.spec.ts` (live STOMP notification), `wishlist.spec.ts` (bell, `/notifications`); NotificationCentreIT, NotificationRealtimeIT, PushDeliveryIT (log push provider); walkthrough (`WISHLIST_MATCH`, unread 0 → 1); mobile in-app (stage M4): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-match-notification.yaml` (live bell badge, notification → matches) |
+| 23 | Create wishlist | PASS (S2: simplified wish) | acceptance `wishlist.spec.ts`, `wishlist.spec.ts` (printing picker, public note, Near Mint only, one % TCG term; same selection 409, FREE limit dialog); WishlistIT (only the new fields, old members ignored, note moderation and length, admin price terms); mobile (S2): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-alert-notification.yaml` |
+| 24 | New public inventory triggers match → **wishlist alert** | PASS (S2: alert, no stored match) | acceptance `wishlist.spec.ts` (Lisbon pair), `wishlist.spec.ts` (Americas South pair; Near Mint only, one alert, card page link); WishlistAlertsIT (same region yes, other region no, NM-only, rarity, one alert per item, no location, switch off, blocks); mobile (S2): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-alert-notification.yaml` |
+| 25 | In-app/push notification received | PASS (in-app + log push) · DEFERRED-CLOUD (real FCM) · DEFERRED-MOBILE (device push: needs an EAS project and a real FCM sender, owner cost rule) | acceptance `wishlist.spec.ts` (live STOMP notification), `wishlist.spec.ts` (bell, `/notifications`); NotificationCentreIT, NotificationRealtimeIT, PushDeliveryIT (log push provider); walkthrough (`WISHLIST_MATCH`, unread 0 → 1; `WISHLIST_ALERT` since S2); mobile in-app (stage M4/S2): `apps/mobile/e2e/wishlist.spec.ts`, Maestro `wishlist-alert-notification.yaml` (live bell badge, alert → card page) |
 | 26 | Send offers | PASS | acceptance `offers.spec.ts` (create → counter → accept → decline), `offers.spec.ts`, `payments.spec.ts`; OfferStateMachineIT, OfferAuthorizationIT, TradeLifecycleIT; walkthrough (offer → counter → accept → trade); mobile (stage M5): `apps/mobile/e2e/offers.spec.ts`, Maestro `offer-trade-rating.yaml` |
 | 27 | Eligible users can rate | PASS | acceptance `rating.spec.ts` (no rating without interaction, unrelated 403), `rating.spec.ts`; RatingEligibilityIT, RatingRulesTest; mobile (stage M5): `apps/mobile/e2e/offers.spec.ts` (rate from the completed trade, a reference), Maestro `offer-trade-rating.yaml`, jest `screens/ratings` (no interaction: no rating, the reason explained) |
-| 28 | Report collector via popup | PASS | acceptance `reporting.spec.ts`, `reporting.spec.ts` (all entry points); ReportFlowIT, ReportThresholdIT; mobile (stage M5): `apps/mobile/e2e/reports.spec.ts` (profile, conversation), Maestro `report-collector.yaml`, jest entry points (map preview, community post, public binder) |
+| 28 | Report collector via popup | PASS | acceptance `reporting.spec.ts`, `reporting.spec.ts` (all entry points); ReportFlowIT, ReportThresholdIT; mobile (stage M5): `apps/mobile/e2e/reports.spec.ts` (profile, conversation), Maestro `report-collector.yaml`, jest entry points (collector profile, community post, public binder; the map preview is gone since S1) |
 | 29 | Reason required + confirm | PASS | acceptance `reporting.spec.ts` (reason → confirm), `reporting.spec.ts` (Confirm disabled without a reason); ReportFlowIT; walkthrough (no reason → 400); mobile (stage M5): `apps/mobile/e2e/reports.spec.ts` (Confirm disabled without a reason, "Report sent"), jest `screens/reports` |
 | 30 | Admin reviews reports | PASS | acceptance `reporting.spec.ts` (admin sees → acts → audit log → reporter informed); ReportFlowIT, AdminAuthorizationIT; walkthrough (moderator resolves, collector 403); mobile: web-only by scope (admin consoles stay on the web); the reporter's side is mobile (M5: My reports with the status, `reports.spec.ts`) |
 | 31 | Auto-delisting detects stale inventory | PASS | acceptance `stale-listings.spec.ts` (`/internal/jobs/freshness` → STALE, nothing deleted); FreshnessJobIT, FreshnessPolicyTest, StrikesIT, DelistingAdminIT; `admin-moderation.spec.ts` (policy editor); mobile: the job is server-side; the collector's side is mobile (M2: stale / hidden cards with "Confirm all", paused listings with "Resume", jest `screens/inventory`); no mobile E2E (the job's timing is proven by the web acceptance spec) |
 | 32 | Admin reviews stale listings | PASS | acceptance `stale-listings.spec.ts` (admin "Needs review" queue → Restore → ACTIVE → `listing.restore` audited; closes the stage 11 gap), `admin-moderation.spec.ts` (hide, pause/resume); DelistingAdminIT; walkthrough `/admin/listings`; mobile: web-only by scope (admin console) |
 | 33 | Admin suspends accounts | PASS | `admin.spec.ts` (suspend + unsuspend, role restrictions); AdminUsersIT; mobile: web-only by scope (admin console); a suspended collector sees the suspended screen in the app (M1, jest `screens/account-states`) |
 | 34 | Admin actions in audit log | PASS | acceptance `reporting.spec.ts`, `stale-listings.spec.ts`, `account-deletion.spec.ts`; `admin.spec.ts`, `admin-moderation.spec.ts`, `payments.spec.ts`, `credits-ads.spec.ts`; AuditIT and the per-phase audited-write ITs; walkthrough (`REPORT_RESOLVED`); mobile: web-only by scope (admin console) |
-| 35 | Freemium limits work | PASS | acceptance `freemium.spec.ts`, `freemium.spec.ts`, `inventory.spec.ts`, `admin-rules.spec.ts`; LimitsIT, BinderIT, BinderViewLimitIT; mobile (M2/M6): limits explained where they happen (`binders.spec.ts` `binders.max` 5 of 5; jest binder views, offers per day, wishlist, map radius) with "See Premium" (`billing.spec.ts`, Maestro `premium.yaml`, jest `screens/billing`) |
+| 35 | Freemium limits work | PASS | acceptance `freemium.spec.ts`, `freemium.spec.ts`, `inventory.spec.ts`, `admin-rules.spec.ts`; LimitsIT, BinderIT, BinderViewLimitIT; mobile (M2/M6): limits explained where they happen (`binders.spec.ts` `binders.max` 5 of 5; jest binder views, offers per day, wishlist; the map radius cap is gone since S1, ADR 0017) with "See Premium" (`billing.spec.ts`, Maestro `premium.yaml`, jest `screens/billing`) |
 | 36 | Premium entitlements override | PASS | acceptance `freemium.spec.ts` (fake billing checkout → Premium lifts `binders.max`), `freemium.spec.ts`, `credits-ads.spec.ts`; LimitsIT, SubscriptionFlowIT, CreditLedgerIT; walkthrough (FREE → PREMIUM → no ads → FREE); mobile (M6): `billing.spec.ts` (fake billing checkout, a decline then a payment → PREMIUM lifts `binders.max` (sixth binder), no "Sponsored" result → "Cancel now" → FREE; a credits unlock adds a day's boost), Maestro `premium.yaml` (plan checked on the API) |
 | 37 | Account deletion works | PASS | acceptance `account-deletion.spec.ts` (hidden at once; deletion job anonymises, identity deleted, consents/audit kept), `settings.spec.ts`; DeletionIT, ExportIT; mobile (M1): `account.spec.ts` (deletion request with re-authentication → the deletion-pending screen → cancelled; data export), jest `screens/account-states` |
 | 38 | Legal pages exist | PARTIAL | 9 pages served under `/legal/*` in English and French (EN/FR switch, French by default for a French browser, `launch-safety.spec.ts`) with versioned consent recording the language shown (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); mobile (M8): the same 9 texts in-app in both languages, synced from the web files, an EN/FR switch on the index and every document, French by default on a French device, the draft banner on both and the translation marking in French, consents with the language shown (`legal-french.spec.ts`, Maestro `legal-french.yaml`, jest `screens/legal`, `features/legalLanguage`); texts are drafts until counsel review and the French translation awaits the lawyer's validation (owner action) |
-| 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally; mobile: CI runs the mobile typecheck, lint, jest and the `mobile-web` Playwright job; the Maestro flows are local only (they need an Android emulator) |
-| 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android) · DEFERRED-MOBILE (iOS: no macOS) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium |
-| 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials; mobile: Expo Go on a local Android emulator against the local stack; `npm run test:mobile:e2e` (isolated API :8090, web build :19006) and `npm run test:mobile:maestro` (Metro :8082) run locally and free (no EAS, no Expo account, no Maestro Cloud) |
+| 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally; mobile: CI runs the mobile typecheck, lint, jest and the `mobile-web` Playwright job; the Maestro flows are local only (they need an Android emulator or a Mac's iOS simulator) |
+| 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android emulator and iOS simulator) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium; iOS (2026-10-10): the 24 Maestro flows of today's suite, one set for both platforms, in Expo Go 57 on an iOS 27.0 simulator (`npm run test:mobile:maestro -- --platform ios`: 24/24 passed in one run from a cold start, 33 min 28 s), with the iOS defects they found fixed (the back button's "(tabs)", dialogs opened from a sheet, photo picking and upload, the doubled home-indicator inset); the Android run was not repeated on the Mac (no Android SDK), a physical iPhone and a store build are not proven |
+| 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials; mobile: Expo Go on a local Android emulator, or on the iOS simulator of a Mac, against the local stack; `npm run test:mobile:e2e` (isolated API :8090, web build :19006) and `npm run test:mobile:maestro` (Metro :8082; `-- --platform android\|ios`, the iOS simulator created and booted by the harness) run locally and free (no EAS, no Expo account, no Maestro Cloud) |
 | 42 | Deploys to Google Cloud | DEFERRED-CLOUD | owner decision (docs/deployment/DEFERRED.md); Terraform validates (`npm run infra:validate`), never planned or applied |
 | 43 | Cloudflare configuration documented | PASS | `infrastructure/cloudflare/README.md` + Cloudflare Terraform (validated by `npm run infra:validate`); applying it is DEFERRED-CLOUD |
 | 44 | Production architecture supports www.orenjitrade.com | DEFERRED-CLOUD | designed (ARCHITECTURE.md, ADRs, Terraform for Cloud Run + Cloudflare, validated); not deployed |
 
 ### Remaining gaps (after the final verification)
 
-- **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `LOCATION_JITTER_SECRET` / `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
-- **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), iOS runs (no macOS), fonts; EAS stays unused (project id placeholder).
+- **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
+- **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), fonts; EAS stays unused (project id placeholder). **iOS (2026-10-10):** proven in Expo Go on the iOS 27 simulator with the whole native suite (`npm run test:mobile:maestro -- --platform ios`, "Mobile app on the iOS simulator"); not proven: a physical iPhone and a store or TestFlight build (an Apple developer account and a native build, owner cost rule). **Android on the Mac:** not re-run (no Android SDK; skipped by owner decision); photo uploads from the Android app are expected to fail as they did on iOS (same Expo fetch) and keep their old code until an Android run can prove the fix; the API drops the EXIF orientation of uploaded photos on every client (see that section's "Open").
 - **ML (on hold):** Phase 11 card recognition and scanning.
 - **Legal:** counsel review of the 9 draft legal pages and validation of their French translation (criterion 38); the `[to confirm]` placeholders of the Privacy Policy (privacy officer, data locations).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
@@ -2059,7 +2781,214 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 
 ---
 
+## macOS / Apple Silicon development (2026-10-10)
+
+First run on the owner's Mac mini (Apple M6, macOS 27.0.1, OrbStack 2.2.3 with Docker Engine 29.4,
+Temurin 27 as the only system JDK). The per-item record is in `docs/development/macos-setup.md`
+(first-run section, 4.4, 5 and 12).
+
+- **Docker:** `docker-compose.yml` names `platform: linux/amd64` for the amd64-only PostGIS image
+  (an Apple Silicon engine refuses the unpinned pull). Testcontainers needs no change: it pulls
+  linux/amd64 by itself after the refusal. Proven under OrbStack with `FlywayMigrationIT` and
+  `FeatureFlagsIT` (12 tests, 16-19 s for the Gradle run, PostGIS container up in 3.5 s).
+- **Gradle:** the daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`), so
+  `spotlessCheck` passes when the default JDK is newer (it failed on a JDK 27 daemon). CI and the
+  Dockerfile launch with Temurin 21 and are unaffected; the image's build stage was built locally.
+- **Scripts** (unit-tested, `npm run test:scripts`: 111 tests): the E2E harnesses run the API jar on
+  an exact Java 21 when one exists (`ORENJI_JAVA_HOME`, exported or in `.env`, overrides the choice;
+  a newer `JAVA_HOME` does not; a newer Java only as the last resort, with a warning);
+  macOS paths and hints for adb, Maestro, Terraform and the ML Python; the E2E isolation guard folds
+  path case on macOS; `test:e2e -- --stop` recognises java and node there.
+- **Docs:** OrbStack as a supported engine, the JDK statements, the Playwright cache path, macOS
+  examples; `claude-handoff.md` names the real machine.
+- **Not verified on the Mac in that first session:** the full `npm run test:api`, the web and
+  mobile E2E suites, the Maestro suite, iOS, and Docker Desktop. The Maestro suite and iOS followed
+  the same day: see "Mobile app on the iOS simulator" below.
+- **Open:** the arm64 PostGIS image decision before macOS 28, and the owner items of
+  `claude-handoff.md` section 6 (OrbStack licence terms, dev ports exposed on the LAN, the Android
+  SDK). The iOS path of the Maestro harness (macos-setup.md 12 item 2) is done (next section).
+
+---
+
+## Mobile app on the iOS simulator (2026-10-10)
+
+Owner decision (2026-10-10): on the Mac the native tests run on the iOS simulator (the Android SDK
+is skipped for now). Branch `feature/ios-maestro-harness`, on top of stage S2 and the macOS fixes.
+The Expo app had only ever been proven natively on an Android emulator; the same Maestro flows now
+run in Expo Go 57 (57.0.9) on an iOS 27.0 simulator (iPhone 17), locally and for free (no EAS, no
+native build, no Maestro Cloud).
+
+- **Harness** (`npm run test:mobile:maestro -- --platform ios|android`, or
+  `ORENJI_MAESTRO_PLATFORM`; without a choice: Android when a device is ready, otherwise iOS on a
+  Mac with Xcode). `scripts/lib/mobile-maestro.mjs` keeps its Android path as it was and gains an
+  iOS one; `scripts/lib/ios-simulator.mjs` owns the simulator and `scripts/lib/host-tools.mjs` the
+  pure helpers (platform choice, app id and URLs per platform, runtime and iPhone model choice,
+  the simulator's preferences), unit-tested in `host-tools.test.mjs` and `mobile-maestro.test.mjs`
+  (`npm run test:scripts`: 133 tests, 111 before).
+  - **A simulator of its own**, "OrenjiTrade Maestro": created when missing (the newest standard
+    iPhone on the newest installed iOS runtime), booted with `simctl` alone (no Simulator /
+    DeviceHub window), awaited with `simctl bootstatus`, shut down at the end unless
+    `--keep-running`. A developer's simulators are never booted or changed.
+    `ORENJI_IOS_SIMULATOR_NAME`, `_TYPE` and `_UDID` choose another one.
+  - **Settings inside that simulator only**, never in the Mac's: AutoFill Passwords off (iOS put
+    its "Save Password?" sheet over the app after a sign-in), US English (a simulator inherits the
+    Mac's languages and region), a keyboard without auto-correction or predictions, `exp://` links
+    that open in Expo Go without a question. iOS reads them at boot, so the first run restarts the
+    simulator once.
+  - **Expo Go** is installed on that simulator by Expo CLI's own installer
+    (`scripts/lib/expo-go-ios.mjs`), whatever other simulator is booted; `expo start --ios` is not
+    used (it opens the project on the first booted simulator and brings its window forward).
+  - Metro points the app at `http://localhost:8090` and the Auth emulator at `localhost:9099`; the
+    iOS bundle is checked for that API address before any flow runs; a Metro kept for the other
+    platform is refused (the address is inlined into the bundle); `--stop` also shuts the kept
+    simulator down; the run's emulator accounts are deleted at the end as on Android.
+- **Flows: one set for both platforms, no copies.** Every flow and subflow takes Expo Go's id from
+  the harness (`appId: ${APP_ID}`). What the platforms do differently sits in
+  `apps/mobile/.maestro/subflows/`, in `when: platform:` blocks: `hide-keyboard.yaml` and
+  `hide-keyboard-in-dialog.yaml` (Maestro's own `hideKeyboard` flicks the middle of the screen on
+  iOS and pressed "Forgot your password?"), `go-back.yaml` (the header's back button),
+  the three scroll subflows (iOS also lists what a page holds under the tab bar and the header, so
+  the element is brought clear of them with `scrollUntilVisible` and `centerElement`),
+  `assert-checked.yaml` / `assert-unchecked.yaml` (iOS has no checkbox control: React Native puts
+  "checkbox, checked" in the element's value), `dismiss-dev-menu.yaml` and
+  `hide-tools-button.yaml` (Expo Go 57 on iOS floats its developer-tools gear over the notification
+  bell: the flows switch it off, as the Expo SDK 58 branch does on Android). No flow is skipped
+  on iOS.
+- **What an Android run would notice** (the Android steps could not be re-run: no Android SDK on
+  the Mac). Every step that ran before still runs, in the same order, with these exceptions:
+  1. `appId` comes from `${APP_ID}`: the harness passes `host.exp.exponent`, the value the flows
+     had; a manual `maestro test` now needs `-e APP_ID=host.exp.exponent`.
+  2. `hideKeyboard`, `back`, `assertVisible … checked:` and the edge-swipe scroll loops moved into
+     the subflows' Android blocks, unchanged; the two Android-only steps of `dismiss-dev-menu.yaml`
+     (the "isn't responding" dialog, the back key) carry `platform: Android`.
+  3. Two patterns are wider: `'.*Je confirme avoir 18 ans ou plus'`
+     (`age-step-existing-account.yaml`) and `'Wishlist alert: Emberfang Fox.*'`
+     (`wishlist-alert-notification.yaml`). Both still match the text Android lists.
+  4. `google-sign-in.yaml` hides the keyboard through `hide-keyboard-in-dialog.yaml` (the same
+     `hideKeyboard` on Android).
+  5. The harness records the platform of a kept Metro and refuses the other platform's; without
+     `--platform` a Mac with Xcode and no Android device now runs on iOS instead of stopping with
+     "No Android device is ready".
+  6. The app: nothing. Every fix below is behind `Platform.OS === 'ios'` or an iOS-only property.
+- **Defects of the app on iOS, found by these runs and fixed** (each with a jest test; Android and
+  the web render and behave as before):
+  1. **The back button said "‹ (tabs)"** on every screen opened from a tab, and "‹ (auth)" on the
+     legal pages opened from sign-in (iOS shows the previous screen's title; the route groups had
+     none). It now names the screen behind it: "‹ Profile", "‹ Messages", "‹ Sign in"
+     (`src/navigation/backTitles.ts`).
+  2. **A dialog or sheet opened from a sheet never appeared.** "Block" in a conversation's menu
+     did nothing: iOS refuses a second modal while the first is still sliding away. The app's
+     modals now take turns on iOS (`src/components/ui/modalTurns.tsx`, used by `BottomSheet`,
+     `ConfirmDialog`, `FormDialog`, `ReasonDialog`); the bulk bar's "Temporarily public" sheet,
+     which follows another sheet, is fixed by the same change. Found by `blocked-users.yaml`.
+  3. **Photos could not be attached or uploaded at all** (no flow picks a photo; found and proven
+     by hand on the simulator with a photo sent in a conversation, a card photo and a profile
+     picture): "Attach a photo" in a conversation did nothing (the picker left with the attach
+     sheet); an iPhone's HEIC photos were refused with "Use a JPEG, PNG or WebP photo." (the picker
+     is now asked for its "compatible" representation, `src/lib/photoPicker.ts`); and every upload
+     ended in "We could not reach OrenjiTrade." because Expo's fetch does not take React Native's
+     `{ uri }` file part (iOS now sends an `expo-file-system` File, `src/api/localFilePart.ts`).
+  4. **Forms ended 34 pt too high** (the home-indicator inset was applied twice on scrolling
+     screens), which put the last button exactly under the snackbar: after "Save changes" on a
+     card, "Card saved." covered "Delete card" until it faded (`ownSafeBottom` in `Screen.tsx`).
+     Found by `inventory-add-edit-delete.yaml`.
+  5. **The icon of a form message was part of its VoiceOver name** ("<glyph>, No account matches
+     these credentials."); the icon is hidden from iOS accessibility (`FormControls.tsx`).
+  6. **The 18+ checkbox was named in English only** for VoiceOver although it shows both languages
+     (Bill 96); on iOS its name carries both (`ageConfirmationAccessibleLabel`).
+- **Result:** **24/24 flows passed in one run from a cold start** on the owner's Mac mini
+  (`npm run test:mobile:maestro -- --platform ios` with nothing running and no dedicated simulator:
+  the harness created the simulator, built and started the API, started Metro and installed Expo
+  Go): 31 min 52 s of flows, 33 min 28 s in all; afterwards the simulator was shut down, ports
+  8082 and 8090 were free and the run's 29 emulator accounts were deleted. The cold run before it
+  had 22/24: `search-card-detail.yaml` and `safety-notice.yaml` failed in the keyboard subflow
+  (the right edge is not inside the Search results nor a conversation's message list), fixed in
+  `hide-keyboard.yaml` before the passing run. `--keep-running`, `--stop`, `--skip-build`,
+  `ORENJI_MAESTRO_PLATFORM` and the choice without `--platform` were exercised by hand
+  afterwards.
+- **Checks**, on the code of the passing run (the commit after it adds documents only):
+  `npm run test:scripts` (133 tests); `node --check` on the changed scripts;
+  `npm run typecheck -w apps/mobile`; `npm run lint -w apps/mobile`;
+  `npm run format:check -w apps/mobile`; `npm run test:mobile` (jest: 676 tests in 79 suites, 662
+  in 77 before; 28 harness guard tests); `npx expo export --platform android`, `--platform ios`
+  and `--platform web` into throw-away directories; `npm run test:mobile:e2e` (52 passed on the
+  first attempt); the full `npm run test:mobile:maestro -- --platform ios` above.
+- **Independent verification (2026-10-12, by the lead, on the head merged with `main`):**
+  `npm run test:scripts`, `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile` and
+  `npm run test:mobile` green; then `npm run test:mobile:maestro -- --platform ios` on the
+  dedicated simulator **erased first** (`simctl erase`: no Expo Go, no settings): **24/24 flows in
+  32 min 2 s**, 33 min 37 s in all; `npm run test:mobile:e2e` 52 passed; `npx expo export
+  --platform ios`. The mock catalog's card pictures render in Search and on the card page on iOS
+  (the screenshots of `search-card-detail.yaml`). A first independent check on 2026-10-10 compared
+  the steps an Android run executes in every flow with the ones before the branch: the same steps
+  in the same order, apart from the exceptions listed above.
+- **Found by the pull request's first CI run (2026-10-12), fixed:** `holders.test.tsx` ("applies
+  every filter and the sort to the request, then clears them") failed on the slower CI runner and
+  passed on the Mac. Cause, in the app and not in the test: a sheet asked for again while it was
+  still sliding away waited for its own turn, so it was taken down and put up again (on an iPhone:
+  "Show results" then a quick "Filters" made the sheet leave and come back), and the test pressed
+  a button of the sheet that had just gone. `BottomSheet` now brings such a sheet back at once: it
+  is the modal on screen, there is nothing to wait for. New jest test (it fails without the fix;
+  677 tests); the unit suite was re-run on throttled cores (`taskpolicy -b`), which reproduces the
+  CI timing; `blocked-users`, `holders-filters` and `inventory-add-edit-delete` re-run on the
+  simulator (3/3).
+- **Not verified:** the Android run of the flows and of the harness (no Android SDK on the Mac:
+  the Android steps are the ones that ran before, read but not executed); a physical iPhone and a
+  store or TestFlight build (Expo Go on the simulator only: no Apple developer account, no native
+  build, owner cost rule); photo picking in a permanent flow (the system photo picker is outside
+  the app's accessibility tree: checked by hand, see defect 3) and the camera (none on a
+  simulator); dispute evidence photos (same upload code as the three proven ones, not driven);
+  device push (needs an EAS project and a real sender); Google sign-in against a real Firebase
+  project (emulator only, as on Android); Maestro on Java 27 (the runs used a JDK 21 as
+  `JAVA_HOME`).
+- **Open (owner):**
+  - **Photo uploads on Android.** Android runs the same Expo fetch, so by reading the code every
+    native photo upload fails there the same way ("We could not reach OrenjiTrade."). The iOS fix
+    was not applied to Android because nothing here can prove it: `localFilePart` needs its
+    platform check removed and one Android run with a photo.
+  - **Uploaded photos can come out rotated (API, every client).** The API re-encodes an upload and
+    drops its metadata without applying the EXIF orientation first (`ItemImageProcessor`,
+    `AvatarImageProcessor`, the message upload): a photo stored rotated by its camera, which is
+    how phones store portrait shots, is shown sideways or upside down. Seen with a simulator
+    sample photo sent in a conversation. Not changed here (backend, outside this branch).
+  - A notification row's name ends in "Uruguay.. Unread" (two full stops, both platforms):
+    cosmetic, left as it is.
+  - Installing the Android SDK on the Mac stays optional; until then nothing there proves the
+    Android half of a mobile change (`docs/development/claude-handoff.md`).
+
+---
+
 ## NEXT TASK
+
+> **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
+> wishlist, wishlist alerts and no matches (#60, 2026-10-10; V112 is frozen); the first run on
+> Apple Silicon (#59, 2026-10-10). The owner's local database migrates on the next `npm run dev`
+> and loses its trading areas by design (S1).
+>
+> **The iOS path of the native Maestro harness (branch `feature/ios-maestro-harness`, `main`
+> merged in):** builder done and independently verified on 2026-10-12 (see "Mobile app on the iOS
+> simulator"): `npm run test:mobile:maestro -- --platform ios` runs the 24 flows in Expo Go on a
+> simulator the harness creates and boots itself; the flows are one set for both platforms and
+> the iOS defects they found are fixed. Next for this branch: the pull request, merged when CI is
+> green. The Android steps were not executed (no Android SDK on the Mac).
+>
+> **In review, not on `main`:** the binder / inventory deadlock fix (branch
+> `fix/binder-count-deadlock`); it merges only with an approving final review.
+>
+> **Exact next task after this branch: stage S3 — search, the card page, have/want and search
+> history (spec sections 2 and 2b of the 2026-10-08 product change), on a new branch from
+> `main`.** Reuse `shared/catalog/printing-picker` on the card page
+> (feed its `holderCounts` input from a new grouped per-printing holder count, read `?printing=` /
+> `?rarity=` into it, replace "Selected printing" and "Who has this near me" with "Find this
+> card"), extend `/search/card-holders` (rarity, country/subdivision filters, per-printing counts,
+> sorts), add "Who wants it" (visible wishlists, the S2 public note and NM / % TCG chips;
+> `CollectorDiscoveryService.markersFor` gives the rows' collectors) and "Wanted by N" on inventory
+> items (one grouped query, the same fit rules as `WishlistAlertRules`), search result have/want
+> counts, the rarity query parsing, and the server-side search history (`/me/search-history`,
+> privacy switch, export, deletion). The remaining stages: S4 community photos (section 5), S5 YDK
+> + Collectr import (section 6), S6 final docs and the definition-of-done walkthrough (sections
+> 8–9). Mobile follow-ups of S1 and S2 are listed in their sections.
+
 
 > **Web MVP complete locally (2026-09-30).** Workflow `web-mvp-local` / `web-mvp-local-continue`
 > (run `wf_7e879796-9e0`) delivered stages 1–12: Phases 1–10 backend + web, local environment
@@ -2314,8 +3243,8 @@ French UI translation:**
    sidecar profile creates no `redis-url` secret, drop that row in the merge).
 3. Owner steps, in the documented order, when the deployment is un-deferred: GCP project + state
    bucket, bootstrap apply, Firebase web app config in tfvars, full apply, Cloudflare apply with
-   the `_acme-challenge` CNAMEs DNS-only, image build + deploy, Maps key restrictions + daily
-   quota, budget apply with the billing account, post-deploy checks. Confirm at that first apply
+   the `_acme-challenge` CNAMEs DNS-only, image build + deploy (no Maps key any more, ADR 0017),
+   budget apply with the billing account, post-deploy checks. Confirm at that first apply
    the sidecar TCP probe against the loopback bind, the 0.1 vCPU sidecar, and the Certificate
    Manager authorization on the Cloudflare zone.
 4. Backend follow-ups surfaced by this work (no owner decision needed): a database-backed

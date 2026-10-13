@@ -21,10 +21,9 @@ import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { GamesStore } from '../../../shared/catalog/games.store';
-import {
-  DiscoveryCentre,
-  DiscoveryCentreService,
-} from '../../../shared/discovery/discovery-centre';
+import { AuthService } from '../../../core/auth/auth.service';
+import { RegionContext } from '../../../core/region/region-context.service';
+import { RegionsStore } from '../../../shared/regions/regions.store';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
@@ -49,9 +48,9 @@ interface CardInfo {
 }
 
 /**
- * "Who near me has this card" (`GET /search/card-holders`): the card, every spec filter and
- * sort, and the matching listings with their holders, paginated. Signed-in collectors search
- * around their own trading area (server side); everyone else around a public city centre.
+ * "Who in my region has this card" (`GET /search/card-holders`): the card, every spec filter and
+ * sort, and the matching listings with their holders, paginated, in the browsed platform region
+ * (ADR 0017: signed in, the home region by default; signed out, the last region chosen).
  */
 @Component({
   selector: 'app-card-holders',
@@ -83,22 +82,13 @@ interface CardInfo {
         }
         <h1 class="ch__title">{{ heading() }}</h1>
         <p class="ch__subtitle">
-          @if (centre()?.city; as city) {
-            Around {{ city.label }}.
-            @if (centre()?.signedIn) {
-              <a routerLink="/settings/trading-area">Set your trading area</a> to search near you.
-            } @else {
-              <a routerLink="/auth/sign-in" [queryParams]="{ returnUrl: returnUrl() }">Sign in</a>
-              to search around your own area.
-            }
-          } @else {
-            Collectors around your trading area. Places and distances are approximate.
-          }
+          Collectors in {{ regionName() }}, freshest listings first. Change the region at the top of
+          the page; holders show their state or province only.
         </p>
         <div class="ch__actions">
-          <a matButton="filled" routerLink="/map" [queryParams]="mapQuery()">
+          <a matButton="filled" routerLink="/map" [queryParams]="{ region: region() }">
             <mat-icon aria-hidden="true">map</mat-icon>
-            Show on the map
+            Browse the map
           </a>
           @if (card(); as card) {
             <a matButton="outlined" [routerLink]="['/cards', card.id]">
@@ -143,9 +133,9 @@ interface CardInfo {
         />
       } @else if (page(); as page) {
         @if (page.items?.length) {
-          <ul class="ch__list" aria-label="Card holders near you">
+          <ul class="ch__list" aria-label="Card holders in your region">
             @for (result of page.items; track result.item.id) {
-              <li><app-holder-row [result]="result" [signedIn]="centre()?.signedIn ?? false" /></li>
+              <li><app-holder-row [result]="result" [signedIn]="signedIn()" /></li>
             }
           </ul>
           @if ((page.totalPages ?? 0) > 1) {
@@ -161,8 +151,8 @@ interface CardInfo {
         } @else {
           <app-empty-state
             icon="search_off"
-            title="Nobody nearby lists this card with these filters"
-            description="Widen the filters, or add it to your wishlist: we'll tell you when a collector nearby lists it."
+            title="Nobody in this region lists this card with these filters"
+            description="Widen the filters, or add it to your wishlist: we'll tell you when a collector of your region lists it."
           >
             @if (hasFilters()) {
               <button actions matButton="filled" type="button" (click)="clearFilters()">
@@ -245,7 +235,11 @@ export class CardHoldersComponent {
   private readonly searchApi = inject(SearchService);
   private readonly catalog = inject(CatalogService);
   private readonly games = inject(GamesStore);
-  private readonly centres = inject(DiscoveryCentreService);
+  private readonly context = inject(RegionContext);
+  private readonly regions = inject(RegionsStore);
+  protected readonly signedIn = inject(AuthService).isAuthenticated;
+  protected readonly region = this.context.current;
+  protected readonly regionName = computed(() => this.regions.regionName(this.region()));
   protected readonly wishlist = inject(WishlistActions);
 
   readonly target = input.required<{ kind: 'card' | 'printing'; id: string }>();
@@ -255,7 +249,6 @@ export class CardHoldersComponent {
 
   protected readonly pageSize = HOLDERS_PAGE_SIZE;
   protected readonly card = signal<CardInfo | null>(null);
-  protected readonly centre = signal<DiscoveryCentre | null>(null);
   protected readonly page = signal<PageResponseCardHolderResult | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<ApiError | null>(null);
@@ -263,21 +256,17 @@ export class CardHoldersComponent {
   protected readonly heading = computed(() => {
     const card = this.card();
     if (!card) {
-      return 'Who has this card near you';
+      return 'Who has this card in your region';
     }
-    return `Who has ${card.name}${card.printingCode ? ` (${card.printingCode})` : ''} near you`;
+    return `Who has ${card.name}${card.printingCode ? ` (${card.printingCode})` : ''}`;
   });
-  protected readonly mapQuery = computed(() => ({
-    [this.target().kind]: this.target().id,
-    view: 'list',
-  }));
   protected readonly countLabel = computed(() => {
     const page = this.page();
     if (!page) {
       return 'Looking for holders…';
     }
     const total = page.totalItems ?? 0;
-    return `${total} ${total === 1 ? 'listing' : 'listings'} near you`;
+    return `${total} ${total === 1 ? 'listing' : 'listings'} in ${this.regionName()}`;
   });
   protected readonly errorMessage = computed(() => {
     const error = this.error();
@@ -311,7 +300,8 @@ export class CardHoldersComponent {
     effect(() => {
       this.target();
       this.filters();
-      untracked(() => void this.load());
+      this.region();
+      untracked(() => this.load());
     });
     inject(DestroyRef).onDestroy(() => {
       this.cardSubscription?.unsubscribe();
@@ -319,22 +309,17 @@ export class CardHoldersComponent {
     });
   }
 
-  protected async load(): Promise<void> {
+  protected load(): void {
     this.pageSubscription?.unsubscribe();
     this.loading.set(true);
     this.error.set(null);
     this.page.set(null);
-    const centre = this.centre() ?? (await this.centres.resolve());
-    this.centre.set(centre);
     const target = this.target();
     const filters = this.filters();
     this.pageSubscription = this.searchApi
-      .searchCardHolders(
-        cardHoldersRequest(target, filters, centre.city?.center ?? null),
-        'body',
-        false,
-        { context: silentErrors() },
-      )
+      .searchCardHolders(cardHoldersRequest(target, filters, this.region()), 'body', false, {
+        context: silentErrors(),
+      })
       .subscribe({
         next: (page) => {
           this.loading.set(false);

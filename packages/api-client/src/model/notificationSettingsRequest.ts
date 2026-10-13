@@ -23,5 +23,9 @@ export interface NotificationSettingsRequest {
      * Defaults to disabled 22:00-08:00 America/Toronto
      */
     quietHours?: QuietHoursRequest;
+    /**
+     * Wishlist alerts on or off (one switch; in-app and push follow the master switches and quiet hours). When absent the stored value is kept (on for a collector who never chose)
+     */
+    wishlistAlerts?: boolean | null;
 }
 

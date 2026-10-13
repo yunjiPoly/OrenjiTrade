@@ -37,7 +37,6 @@ export class AppConfigService {
   readonly wsBaseUrl = computed(() => this.state().wsBaseUrl);
   readonly environment = computed(() => this.state().environment);
   readonly firebase = computed(() => this.state().firebase);
-  readonly googleMapsApiKey = computed(() => this.state().googleMapsApiKey);
   readonly isProduction = computed(() => this.state().environment === 'production');
 
   /** Fetches the configuration. Never rejects: failures log a warning and keep the defaults. */

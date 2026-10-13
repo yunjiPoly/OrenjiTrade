@@ -24,7 +24,7 @@ public final class CommunityInputs {
      * @param name display name
      * @param kind kind
      * @param game game slug
-     * @param regionLabel city
+     * @param regionLabel region label (platform region code of region channels)
      * @param description description
      * @param postRateLimitPerHour posts per member per hour ({@code null}: 10)
      * @param sortOrder position ({@code null}: 100)

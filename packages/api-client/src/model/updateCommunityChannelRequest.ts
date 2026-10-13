@@ -20,7 +20,7 @@ export interface UpdateCommunityChannelRequest {
      */
     game?: string;
     /**
-     * City; blank removes it
+     * Platform region code (GET /regions); blank removes it
      */
     regionLabel?: string;
 }

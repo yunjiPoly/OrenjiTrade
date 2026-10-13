@@ -173,7 +173,7 @@ test.describe('mobile binders', () => {
     );
   });
 
-  test('another collector’s public binder shows public cards and an area only', async ({
+  test('another collector’s public binder shows public cards and a state only', async ({
     page,
     request,
   }) => {
@@ -186,7 +186,10 @@ test.describe('mobile binders', () => {
       timeout: 30_000,
     });
     await expect(binder.getByTestId('public-binder-owner')).toContainText('@collector1');
-    await expect(binder.getByTestId('public-binder-owner-area')).toContainText('Near ');
+    // The owner's state and country (ADR 0017): never their city (collector1 shows Montréal on
+    // their profile only; the binder's own description may name places) or a distance.
+    await expect(binder.getByTestId('public-binder-owner-area')).toHaveText('Quebec, Canada');
+    await expect(binder.getByTestId('public-binder-owner')).not.toContainText(/Montréal|\bkm\b/);
     await expect(binder.getByText('Azure-Eyes Sky Dragon', { exact: true })).toBeVisible();
     // Private notes never reach other collectors; public notes do.
     await expect(binder.getByText('“Pack fresh, sleeved since opening.”')).toBeVisible();

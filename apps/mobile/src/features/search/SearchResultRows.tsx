@@ -5,17 +5,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CollectorMarker, PublicBinderSummary } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge } from '@/src/components/ui/Badge';
-import { listingsLabel, ratingLabel, tagLabel } from '@/src/features/map/discovery';
-import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
+import { listingsLabel, ratingLabel, tagLabel } from '@/src/features/collectors/collectorLabels';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
-import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
+import { GENERIC_PLACE_LABEL, placeLabel } from '@/src/lib/place';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * A collector in search results (the web's `app-collector-result`): avatar, name, handle,
- * approximate place and the API's distance bucket (never a point or metres), rating, listings,
- * games and tags. Opens the profile.
+ * A collector in search results (the web's `app-collector-result`): avatar, name, handle, their
+ * state or province (never a position or a distance, ADR 0017), rating, listings, games and tags.
+ * Opens the profile.
  */
 export const CollectorResultRow = memo(function CollectorResultRow({
   collector,
@@ -25,14 +24,13 @@ export const CollectorResultRow = memo(function CollectorResultRow({
   onPress: (collector: CollectorMarker) => void;
 }) {
   const { palette } = useTheme();
-  const place = placeLabel(collector.publicLabel) ?? GENERIC_AREA_LABEL;
-  const distance = distanceBucketLabel(collector.distanceBucket);
+  const place = placeLabel(collector.place) ?? GENERIC_PLACE_LABEL;
   const games = collector.games.map(gameLabel).join(' · ');
   const tags = collector.tags.map((tag) => tagLabel(tag)).join(' · ');
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${collector.displayName}, @${collector.handle}, ${place}${distance ? `, ${distance}` : ''}`}
+      accessibilityLabel={`${collector.displayName}, @${collector.handle}, ${place}`}
       accessibilityHint="Opens the collector profile"
       onPress={() => onPress(collector)}
       testID={`collector-result-${collector.handle}`}
@@ -49,7 +47,6 @@ export const CollectorResultRow = memo(function CollectorResultRow({
         </Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]} numberOfLines={1}>
           @{collector.handle} · {place}
-          {distance ? ` · ${distance}` : ''}
         </Text>
         <Text style={[textStyle('xs'), { color: palette.textMuted }]} numberOfLines={1}>
           {ratingLabel(collector.rating)} · {listingsLabel(collector)}
@@ -67,8 +64,8 @@ export const CollectorResultRow = memo(function CollectorResultRow({
 
 /**
  * A public binder in search results (the web's `app-public-binder-card` + owner line): name,
- * kind, cards, games, freshness, and its owner with their approximate place and distance bucket.
- * Opens the public binder.
+ * kind, cards, games, freshness, and its owner with their state or province. Opens the public
+ * binder.
  */
 export const BinderResultRow = memo(function BinderResultRow({
   binder,
@@ -79,8 +76,7 @@ export const BinderResultRow = memo(function BinderResultRow({
 }) {
   const { palette } = useTheme();
   const owner = binder.owner;
-  const place = owner?.location ? placeLabel(owner.location.publicLabel) : null;
-  const distance = distanceBucketLabel(owner?.location?.distanceBucket);
+  const place = placeLabel(owner?.place);
   const games = binder.games.map(gameLabel).join(', ');
   return (
     <Pressable
@@ -119,7 +115,6 @@ export const BinderResultRow = memo(function BinderResultRow({
             >
               {owner.displayName}
               {place ? ` · ${place}` : ''}
-              {distance ? ` · ${distance}` : ''}
             </Text>
           </View>
         ) : null}

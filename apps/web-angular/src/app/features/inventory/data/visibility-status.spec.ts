@@ -12,7 +12,6 @@ const fresh: Freshness = {
 function privacy(overrides: Partial<PrivacySettings>): PrivacySettings {
   return {
     discoverable: false,
-    showDistance: true,
     showOnlineStatus: false,
     showLastActive: true,
     profileVisibility: 'MEMBERS' as PrivacySettings['profileVisibility'],

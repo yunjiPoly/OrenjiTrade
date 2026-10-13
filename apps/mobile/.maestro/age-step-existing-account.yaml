@@ -3,7 +3,7 @@
 # account from before the rule) signs in and is asked for the confirmation alone, as the first
 # and only onboarding step; nothing is recorded while the checkbox is unticked; once confirmed,
 # the tabs, "Welcome back" and the consent checked on the API (scripts/check-age.js).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Existing account confirms its age
 tags:
   - launch-readiness
@@ -34,16 +34,19 @@ tags:
       id: 'onboarding-age'
     timeout: 60000
 - assertVisible: 'Are you 18 or older?'
-- assertVisible: 'Je confirme avoir 18 ans ou plus'
+# (On iOS the checkbox is one element named in both languages; on Android the French line is a
+# text of its own: the pattern fits both.)
+- assertVisible: '.*Je confirme avoir 18 ans ou plus'
 - assertNotVisible:
     id: 'onboarding-profile'
 - extendedWaitUntil:
     visible:
       id: 'age-confirmation'
     timeout: 30000
-- assertVisible:
-    id: 'age-confirmation'
-    checked: false
+- runFlow:
+    file: subflows/assert-unchecked.yaml
+    env:
+      ID: 'age-confirmation'
 - takeScreenshot: age-step
 
 # Unticked: refused in both languages, nothing recorded.
@@ -69,9 +72,10 @@ tags:
       ID: 'age-confirmation'
 - tapOn:
     id: 'age-confirmation'
-- assertVisible:
-    id: 'age-confirmation'
-    checked: true
+- runFlow:
+    file: subflows/assert-checked.yaml
+    env:
+      ID: 'age-confirmation'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

@@ -21,9 +21,9 @@ function notification(
 ): NotificationResponse {
   return {
     id,
-    type: Type.WishlistMatch,
+    type: Type.WishlistAlert,
     title: `Match ${id}`,
-    body: 'Listed nearby',
+    body: 'Listed in your region',
     data: {},
     createdAt,
     readAt,

@@ -42,9 +42,12 @@ public class PrivacySettingsController {
             operationId = "updatePrivacySettings",
             summary = "Replace the caller's privacy settings",
             description =
-                    "Full replacement (every field required). Switching `discoverable` on derives"
-                            + " the public map point from the trading area; switching it off"
-                            + " removes the collector from the map immediately.")
+                    "Full replacement (every field required). `discoverable` lists the collector"
+                        + " (state/province + country, never the city) in region search, card"
+                        + " holder lists and the map's state binder lists; switching it on needs"
+                        + " the 18+ confirmation (403 AGE_CONFIRMATION_REQUIRED) and a country and"
+                        + " state/province (`PUT /me/location`, 409 LOCATION_REQUIRED); switching"
+                        + " it off removes the collector immediately.")
     public PrivacySettingsDto update(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody PrivacySettingsDto body) {

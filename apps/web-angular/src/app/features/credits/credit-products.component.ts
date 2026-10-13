@@ -7,7 +7,6 @@ import { creditsLabel, durationLabel } from '../../shared/billing/billing-labels
 const PRODUCT_ICONS: Record<string, string> = {
   'filters.advanced': 'tune',
   'binder.views.per_day': 'menu_book',
-  'map.radius.max_km': 'travel_explore',
 };
 
 /** What credits unlock (`GET /me/credits` → `products`), each with its cost and duration. */

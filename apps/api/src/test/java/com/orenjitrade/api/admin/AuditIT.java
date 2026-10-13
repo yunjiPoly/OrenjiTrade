@@ -85,7 +85,7 @@ class AuditIT extends AbstractIntegrationTest {
                 .jsonPath("$.recentAuditEntries[0].actor.id")
                 .isEqualTo(adminId.toString())
                 .jsonPath("$.locationLabel")
-                .value(label -> assertThat(label).isNull())
+                .isEqualTo("Quebec, Canada")
                 .jsonPath("$.deletionRequest")
                 .value(request -> assertThat(request).isNull());
 

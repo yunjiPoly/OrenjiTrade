@@ -5,15 +5,15 @@ import java.util.UUID;
 
 /**
  * A collector added a card to their wishlist (analytics {@code wishlist_item_created}). Carries no
- * notes and no location.
+ * note and no location.
  *
  * @param wishlistItemId the item
  * @param ownerId owner
  * @param game game slug
- * @param target {@code card} (any printing) or {@code printing}
- * @param radiusKm matching radius
- * @param hasMaxPrice whether a maximum price is set
- * @param tradePreference ANY, TRADE or SALE
+ * @param target {@code card} (any printing), {@code rarity} (any printing of one rarity) or {@code
+ *     printing}
+ * @param nearMintOnly whether only Near Mint copies fit
+ * @param hasPriceTerm whether a price term is shown
  * @param occurredAt creation time
  */
 public record WishlistItemCreated(
@@ -21,7 +21,6 @@ public record WishlistItemCreated(
         UUID ownerId,
         String game,
         String target,
-        int radiusKm,
-        boolean hasMaxPrice,
-        String tradePreference,
+        boolean nearMintOnly,
+        boolean hasPriceTerm,
         Instant occurredAt) {}

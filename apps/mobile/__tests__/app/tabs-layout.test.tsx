@@ -61,8 +61,8 @@ describe('(tabs) layout', () => {
       // Stable ids for the native Maestro flows.
       expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
-    // The Map tab: the approximate-location note is always on the map.
-    expect(screen.getByTestId('map-approximate-note')).toBeOnTheScreen();
+    // The Map tab: a placeholder until the region map reaches the app (ADR 0017).
+    expect(await screen.findByTestId('map-placeholder')).toBeOnTheScreen();
   });
 
   it('shows the notification bell and the unread messages on the Messages tab', async () => {

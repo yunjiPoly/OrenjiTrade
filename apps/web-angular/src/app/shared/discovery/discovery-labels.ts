@@ -7,7 +7,7 @@ import type { Availability } from '../ui/availability-chip/availability';
  * `@orenji/api-client` enums; labels live here so the map, the lists and search word them alike.
  */
 
-/** `availability` filter of `/collectors/nearby` and `/search/card-holders`. */
+/** `availability` filter of `/search/card-holders`. */
 export type AvailabilityFilter = 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'ACCEPTS_OFFERS';
 
 export const AVAILABILITY_FILTERS: readonly {

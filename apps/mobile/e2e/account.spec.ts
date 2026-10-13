@@ -124,7 +124,7 @@ test.describe('mobile account settings', () => {
     // Privacy: every change is saved at once.
     await screen(page, 'settings').getByRole('link', { name: 'Privacy' }).click();
     const privacy = screen(page, 'settings-privacy');
-    const wishlist = privacy.getByRole('switch', { name: 'Show my wishlist on my profile' });
+    const wishlist = privacy.getByRole('switch', { name: 'Let others see what you want' });
     await expect(wishlist).toBeVisible({ timeout: 30_000 });
     const before = (await wishlist.getAttribute('aria-checked')) === 'true';
     await wishlist.click();

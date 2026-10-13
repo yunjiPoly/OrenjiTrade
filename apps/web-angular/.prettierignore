@@ -16,3 +16,6 @@ src/theme/_theme-colors.scss
 
 # config.json of the E2E dev server (written per run)
 e2e/.runtime/
+
+# Generated boundary data (scripts/regions/build.mjs, minified on purpose)
+public/boundaries/

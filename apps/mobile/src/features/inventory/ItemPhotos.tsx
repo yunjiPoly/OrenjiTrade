@@ -10,6 +10,7 @@ import type { InventoryItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
+import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {
@@ -51,7 +52,7 @@ export function ItemPhotos({
     let result: ImagePicker.ImagePickerResult;
     try {
       result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        ...LIBRARY_PHOTO_OPTIONS,
         quality: 0.9,
       });
     } catch {

@@ -4,20 +4,20 @@
 seed data. They are fictional and must never be created in a real Firebase project or any
 staging/production environment. Passwords below are development-only values.
 
-| Handle | Email | Password | Roles | Purpose |
-| --- | --- | --- | --- | --- |
-| collector1 | collector1@orenjitrade.test | LocalDev!2026 | USER | Montréal (Plateau) collector, public Yu-Gi-Oh! + Pokémon binders, fresh inventory |
-| collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Montréal (Verdun) collector, Magic binder, has wishlist items matching collector1 |
-| collector3 | collector3@orenjitrade.test | LocalDev!2026 | USER | Laval collector, stale inventory (tests auto-delist), private binders only |
-| collector4 | collector4@orenjitrade.test | LocalDev!2026 | USER | Longueuil Riftbound player, temporarily public binder |
-| collector5 | collector5@orenjitrade.test | LocalDev!2026 | USER | Mile End collector (Pokémon, Magic), accepts offers |
-| collector6 | collector6@orenjitrade.test | LocalDev!2026 | USER | Westmount trader, binder hidden until confirmed (50 days) |
-| collector7 | collector7@orenjitrade.test | LocalDev!2026 | USER | Rosemont player, private only, not discoverable |
-| collector8 | collector8@orenjitrade.test | LocalDev!2026 | USER | Old Port collector (Riftbound, Pokémon) |
-| premium_user | premium@orenjitrade.test | LocalDev!2026 | USER, PREMIUM_USER | Exercises entitlement overrides |
-| moderator | moderator@orenjitrade.test | LocalDev!2026 | USER, MODERATOR | Reviews collector reports |
-| admin | admin@orenjitrade.test | LocalDev!2026 | USER, ADMIN | Full admin console |
-| superadmin | superadmin@orenjitrade.test | LocalDev!2026 | USER, SUPER_ADMIN | Feature flags, plans, destructive admin actions |
+| Handle | Email | Password | Roles | Declared place (region) | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| collector1 | collector1@orenjitrade.test | LocalDev!2026 | USER | Montréal, Quebec, Canada (Americas North) | public Yu-Gi-Oh! + Pokémon binders, fresh inventory |
+| collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Toronto, Ontario, Canada (Americas North) | Magic binder, wishlist (public notes, Near Mint only, price terms) alerted by collector1's listing |
+| collector3 | collector3@orenjitrade.test | LocalDev!2026 | USER | Buenos Aires City, Argentina, city hidden (Americas South) | stale inventory (tests auto-delist), private binders only |
+| collector4 | collector4@orenjitrade.test | LocalDev!2026 | USER | Madrid, Community of Madrid, Spain (Europe) | Riftbound player, temporarily public binder |
+| collector5 | collector5@orenjitrade.test | LocalDev!2026 | USER | Los Angeles, California, United States (Americas North) | Pokémon, Magic, accepts offers |
+| collector6 | collector6@orenjitrade.test | LocalDev!2026 | USER | Santiago, Santiago Metropolitan Region, Chile (Americas South) | trader, binder hidden until confirmed (50 days) |
+| collector7 | collector7@orenjitrade.test | LocalDev!2026 | USER | Brooklyn, New York, United States (Americas North) | player, private only, not discoverable |
+| collector8 | collector8@orenjitrade.test | LocalDev!2026 | USER | Paris, Île-de-France, France (Europe) | Riftbound, Pokémon |
+| premium_user | premium@orenjitrade.test | LocalDev!2026 | USER, PREMIUM_USER | São Paulo, Brazil (Americas South) | Exercises entitlement overrides |
+| moderator | moderator@orenjitrade.test | LocalDev!2026 | USER, MODERATOR | Berlin, Germany (Europe) | Reviews collector reports |
+| admin | admin@orenjitrade.test | LocalDev!2026 | USER, ADMIN | England, United Kingdom, no city (Europe) | Full admin console |
+| superadmin | superadmin@orenjitrade.test | LocalDev!2026 | USER, SUPER_ADMIN | Québec, Quebec, Canada (Americas North) | Feature flags, plans, destructive admin actions |
 
 Seeding: `SeedDataRunner` in `apps/api` (profiles `local` and `dev`, idempotent) creates the
 database accounts (stable ids `00000000-0000-4000-8000-0000000000NN`, provider uid
@@ -25,8 +25,17 @@ database accounts (stable ids `00000000-0000-4000-8000-0000000000NN`, provider u
 users (password from `SEED_EMULATOR_PASSWORD`, default `LocalDev!2026`, email verified).
 Handles must match `[a-z0-9_]{3,24}`, hence `premium_user`.
 
-All seed locations are public landmarks or neighbourhood centroids, never residential
-addresses. All names, emails and content are fictional.
+The table describes a freshly seeded database **and** one seeded before stage S2 and migrated
+since: at the first start after the migration the seed fills collector2's three untouched seed
+wishes (public note, Near Mint only, price terms) and sends the sample wishlist alert once. No
+`npm run infra:reset` is needed for that; wishes you edited yourself are left as they are.
+
+Seed locations are **declared places** (ADR 0017): a country, an ISO 3166-2 state or province
+and an optional city, never a coordinate or an address (`db/seed/locations.json`). Others only
+see the state or province; the city shows on the collector's own profile while "show my city" is
+on (collector3 hides it, admin has none). The seed covers the three platform regions, so the
+region switcher, the map and region-scoped search all have data. All names, emails and content
+are fictional.
 
 **18+ rule (launch readiness, 2026-10-05):** the seed accounts predate the rule and never
 recorded the `AGE_CONFIRMATION` consent, so the web app and the mobile app ask each of them to

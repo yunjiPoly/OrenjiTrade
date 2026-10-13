@@ -16,3 +16,4 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | 8 | [Offers and trades](phase8-offers-trades.md) |
 | 9 | [Payments and disputes](phase9-payments-disputes.md) |
 | 10 | [Freemium, credits, ads, donations](phase10-freemium-credits-ads-donations.md) |
+| S1 | [Platform regions and the self-declared location (ADR 0017; supersedes the geography of 1, 3, 4, 6, 10)](s1-regions-location.md) |

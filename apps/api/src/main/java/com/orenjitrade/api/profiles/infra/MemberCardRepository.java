@@ -40,7 +40,7 @@ public class MemberCardRepository {
                                pr.avatar_key,
                                pr.completed_at IS NOT NULL AS profile_complete,
                                ps.user_id IS NOT NULL AS has_privacy,
-                               ps.discoverable, ps.show_distance, ps.show_online_status,
+                               ps.discoverable, ps.show_online_status,
                                ps.show_last_active, ps.profile_visibility,
                                ps.messaging_permission, ps.wishlist_visible,
                                ps.search_discoverable
@@ -60,7 +60,6 @@ public class MemberCardRepository {
                 rs.getBoolean("has_privacy")
                         ? new PrivacySettingsView(
                                 rs.getBoolean("discoverable"),
-                                rs.getBoolean("show_distance"),
                                 rs.getBoolean("show_online_status"),
                                 rs.getBoolean("show_last_active"),
                                 ProfileVisibility.valueOf(rs.getString("profile_visibility")),

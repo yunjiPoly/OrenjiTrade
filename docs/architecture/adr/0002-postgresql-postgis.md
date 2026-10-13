@@ -1,6 +1,13 @@
 # ADR 0002 — PostgreSQL + PostGIS as the single operational database
 
-**Status:** Accepted · **Date:** 2026-09-29
+**Status:** Accepted · **Date:** 2026-09-29 · **Amended:** 2026-10-08 by
+[ADR 0017](0017-platform-regions-instead-of-geolocation.md)
+
+> Amendment 2026-10-08 (ADR 0017): OrenjiTrade no longer stores coordinates. The geography
+> columns, GiST indexes and radius queries below are gone (V108); collectors declare a country
+> and a state/province and are found per platform region. PostgreSQL stays the single
+> operational database; the PostGIS image and extension stay installed but unused by location,
+> and removing them is a separate decision.
 
 ## Context
 Core queries are relational (users, binders, inventory, offers) plus geographic

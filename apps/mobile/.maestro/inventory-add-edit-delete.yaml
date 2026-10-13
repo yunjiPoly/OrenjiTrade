@@ -1,7 +1,7 @@
 # Inventory (mobile Phase 3): a fresh collector adds a card through the catalog search, printing
 # and details steps, edits it and deletes it after a confirmation. scripts/check-inventory.js
 # checks on the host what the isolated API holds after each step.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Add, edit and delete an inventory card
 tags:
   - mobile-m2
@@ -39,7 +39,7 @@ tags:
 - tapOn:
     id: 'card-picker-input'
 - inputText: 'tidal otter'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: 'card-picker-results'
@@ -67,7 +67,7 @@ tags:
     id: 'item-quantity'
 - eraseText: 6
 - inputText: '2'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -108,7 +108,7 @@ tags:
     id: 'item-quantity'
 - eraseText: 6
 - inputText: '3'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

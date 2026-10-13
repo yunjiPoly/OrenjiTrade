@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { KeyboardAvoidingView, ScrollView, Text } from 'react-native';
 
@@ -13,10 +14,9 @@ import {
   SwitchRow,
 } from '@/src/components/ui/FormControls';
 import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen } from '@/src/components/ui/Screen';
+import { Screen, ownSafeBottom } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Stepper } from '@/src/components/ui/Stepper';
-import { nextRadius } from '@/src/lib/location';
 
 import { renderWithProviders } from '../test-utils';
 
@@ -77,6 +77,16 @@ describe('Screen', () => {
     const scroll = within(avoiding).UNSAFE_getByType(ScrollView);
     expect(scroll.props.testID).toBe('screen-form');
     expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+  });
+
+  it('adds the home-indicator inset once: iOS already makes it for a scrolling screen', () => {
+    const inset = { safeBottom: true, insetBottom: 34 };
+    expect(ownSafeBottom('ios', { ...inset, scroll: true })).toBe(0);
+    expect(ownSafeBottom('ios', { ...inset, scroll: false })).toBe(34);
+    // Android and the web have no automatic adjustment: unchanged.
+    expect(ownSafeBottom('android', { ...inset, scroll: true })).toBe(34);
+    expect(ownSafeBottom('web', { ...inset, scroll: true })).toBe(34);
+    expect(ownSafeBottom('android', { scroll: true, safeBottom: false, insetBottom: 34 })).toBe(0);
   });
 
   it('renders a plain container without scrolling', () => {
@@ -226,24 +236,30 @@ describe('form controls', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/Something failed\./);
   });
 
+  it('keeps the icon of a form message out of its spoken name (iOS reads the children)', () => {
+    renderWithProviders(<FormMessage testID="msg">Something failed.</FormMessage>);
+    const icon = screen.UNSAFE_getByType(MaterialCommunityIcons);
+    expect(icon.props.accessibilityElementsHidden).toBe(true);
+  });
+
   it('steps a value within its bounds', () => {
     const onChange = jest.fn();
     const { rerender } = renderWithProviders(
       <Stepper
-        label="Trading radius"
+        label="Copies"
         value={10}
         min={1}
         max={50}
-        next={nextRadius}
+        next={(current, direction) => current + direction * 5}
         onChange={onChange}
-        format={(v) => `${v} km`}
+        format={(v) => `${v} copies`}
       />
     );
-    expect(screen.getByTestId('stepper-value')).toHaveTextContent('10 km');
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    expect(screen.getByTestId('stepper-value')).toHaveTextContent('10 copies');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase copies' }));
     expect(onChange).toHaveBeenLastCalledWith(15);
-    rerender(<Stepper label="Trading radius" value={50} min={1} max={50} onChange={onChange} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Increase trading radius' }));
+    rerender(<Stepper label="Copies" value={50} min={1} max={50} onChange={onChange} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Increase copies' }));
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 

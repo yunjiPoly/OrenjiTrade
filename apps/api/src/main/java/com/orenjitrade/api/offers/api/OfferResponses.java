@@ -1,10 +1,10 @@
 package com.orenjitrade.api.offers.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.orenjitrade.api.binders.api.PublicBinderResponses.PublicOwnerLocation;
 import com.orenjitrade.api.binders.domain.PublicOwner;
 import com.orenjitrade.api.inventory.api.InventoryResponses.PublicInventoryItemResponse;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
+import com.orenjitrade.api.location.api.PlaceResponse;
 import com.orenjitrade.api.offers.domain.OfferAction;
 import com.orenjitrade.api.offers.domain.OfferEventType;
 import com.orenjitrade.api.offers.domain.OfferKind;
@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Response bodies of {@code /api/v1/offers} (Phase 8). Items are always the public form (never
- * private notes); parties carry a region label and a distance bucket, never a point (ADR 0004).
+ * private notes); parties carry their state/province and country, never a city (ADR 0017).
  */
 public final class OfferResponses {
 
@@ -195,35 +195,35 @@ public final class OfferResponses {
         }
     }
 
-    /** A party of an offer or a trade (never a point). */
+    /** A party of an offer or a trade (state/province and country only, never a city). */
     @Schema(
             name = "OfferParty",
             description =
                     "A party of an offer or a trade: handle, display name, avatar, rating and,"
-                            + " while discoverable, a region label with a distance bucket")
+                            + " while discoverable, their state/province and country")
     public record OfferPartyResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "collector1") String handle,
             @Schema(requiredMode = RequiredMode.REQUIRED) String displayName,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String avatarUrl,
-            @Schema(nullable = true, description = "Null unless the collector is discoverable")
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "State/province and country; null unless the collector is"
+                                            + " discoverable with a location")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable PublicOwnerLocation location,
+                    @Nullable PlaceResponse place,
             @Schema(requiredMode = RequiredMode.REQUIRED) CollectorRating rating) {
 
         public static OfferPartyResponse from(Party party) {
             PublicOwner owner = party.owner();
-            PublicOwner.@Nullable Location location = owner.location();
             return new OfferPartyResponse(
                     owner.id(),
                     owner.handle(),
                     owner.displayName(),
                     owner.avatarUrl(),
-                    location == null
-                            ? null
-                            : new PublicOwnerLocation(
-                                    location.publicLabel(), location.distanceBucket()),
+                    owner.place() == null ? null : PlaceResponse.from(owner.place()),
                     new CollectorRating(party.rating().average(), party.rating().count()));
         }
     }

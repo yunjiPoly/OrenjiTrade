@@ -206,6 +206,14 @@
   font-size: var(--font-size-sm);
 }
 
+.collector__place {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+}
+
 .collector__note {
   display: flex;
   gap: var(--spacing-2);
@@ -271,7 +279,9 @@
   }
 
   .collector__grid {
-    grid-template-columns: 1fr;
+    // minmax(0, ...): a bare 1fr track grows to its content's min-content width, which made the
+    // page scroll sideways by a few pixels on a 375 px screen.
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .collector__banner-card--2 {

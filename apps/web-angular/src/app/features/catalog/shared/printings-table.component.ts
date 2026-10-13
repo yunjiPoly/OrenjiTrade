@@ -13,7 +13,8 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
 
 /**
  * Printings as a table. `card` mode (card detail) links each set and lets the collector pick the
- * printing shown in the hero; `set` mode (set checklist) links each card instead.
+ * printing shown in the hero (`selectedRarity` highlights every printing of "any printing in a
+ * rarity"); `set` mode (set checklist) links each card instead.
  */
 @Component({
   selector: 'app-printings-table',
@@ -42,7 +43,12 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
         <tbody>
           @for (printing of printings(); track printing.id) {
             @let selected = mode() === 'card' && printing.id === selectedId();
-            <tr [class.printings__row--selected]="selected" [attr.aria-current]="selected || null">
+            @let inRarity =
+              mode() === 'card' && !!selectedRarity() && printing.rarity === selectedRarity();
+            <tr
+              [class.printings__row--selected]="selected || inRarity"
+              [attr.aria-current]="selected || null"
+            >
               <td class="printings__pic">
                 <app-card-image
                   class="printings__thumb"
@@ -223,6 +229,8 @@ export class PrintingsTableComponent {
   readonly mode = input<'card' | 'set'>('card');
   readonly label = input('Printings');
   readonly selectedId = input<string | null>(null);
+  /** `card` mode: "any printing in this rarity" (rows of that rarity are highlighted). */
+  readonly selectedRarity = input<string | null>(null);
   /** `set` mode: card names by card id. */
   readonly cardNames = input<Readonly<Record<string, string>>>({});
   /** `card` mode: the card's name (picture alt text). */

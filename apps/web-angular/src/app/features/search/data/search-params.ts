@@ -6,16 +6,15 @@ import {
   isAvailabilityFilter,
   isFreshnessFilter,
 } from '../../../shared/discovery/discovery-labels';
-import type { LatLng } from '../../../shared/map/map-adapter';
 
 export type SearchTab = 'cards' | 'collectors' | 'binders';
 export const SEARCH_TABS: readonly SearchTab[] = ['cards', 'collectors', 'binders'];
 
-export type HolderSort = 'distance' | 'price' | 'freshness';
+/** Holder order (ADR 0017: no distance exists); `freshness` is the default. */
+export type HolderSort = 'freshness' | 'price';
 export const HOLDER_SORTS: readonly { value: HolderSort; label: string }[] = [
-  { value: 'distance', label: 'Closest first' },
-  { value: 'price', label: 'Lowest price' },
   { value: 'freshness', label: 'Freshest listings' },
+  { value: 'price', label: 'Lowest price' },
 ];
 
 /** Asking prices accepted by the filters (the API stores `NUMERIC(12,2)`). */
@@ -39,7 +38,8 @@ export interface HolderFilters {
 /**
  * State of `/search`, mirrored in the URL: `?q=&tab=` for the unified results, or
  * `?card=|printing=` plus the holder filters (`availability`, `condition`, `minPrice`, `maxPrice`,
- * `freshness`, `edition`, `language`, `offers`, `sort`, `page`) for "who near me has this card".
+ * `freshness`, `edition`, `language`, `offers`, `sort`, `page`) for "who in my region has this
+ * card".
  */
 export interface SearchParams {
   q: string;
@@ -78,7 +78,7 @@ export const DEFAULT_HOLDER_FILTERS: HolderFilters = {
   edition: null,
   language: null,
   acceptsOffers: false,
-  sort: 'distance',
+  sort: 'freshness',
   page: 0,
 };
 
@@ -110,7 +110,7 @@ export function parseSearchParams(raw: RawSearchParams): SearchParams {
   const condition = (raw.condition ?? '').trim().toUpperCase();
   const edition = (raw.edition ?? '').trim().toUpperCase();
   const language = (raw.language ?? '').trim().toLowerCase();
-  const sort = HOLDER_SORTS.find((option) => option.value === raw.sort)?.value ?? 'distance';
+  const sort = HOLDER_SORTS.find((option) => option.value === raw.sort)?.value ?? 'freshness';
   const page = Number.parseInt(raw.page ?? '', 10);
   let minPrice = parsePrice(raw.minPrice);
   let maxPrice = parsePrice(raw.maxPrice);
@@ -149,7 +149,7 @@ export function holderFiltersToQuery(filters: HolderFilters): Record<string, str
     edition: filters.edition,
     language: filters.language,
     offers: filters.acceptsOffers ? 'true' : null,
-    sort: filters.sort === 'distance' ? null : filters.sort,
+    sort: filters.sort === 'freshness' ? null : filters.sort,
     page: filters.page > 0 ? String(filters.page) : null,
   };
 }
@@ -183,14 +183,15 @@ export function priceRangeError(min: number | null, max: number | null): string 
   return null;
 }
 
-/** Generated-client parameters of a card-holders page. `centre: null` = own trading area. */
+/** Generated-client parameters of a card-holders page in a platform region. */
 export function cardHoldersRequest(
   target: { kind: 'card' | 'printing'; id: string },
   filters: HolderFilters,
-  centre: LatLng | null,
+  region: string,
   size = HOLDERS_PAGE_SIZE,
 ): SearchCardHoldersRequestParams {
   const params: SearchCardHoldersRequestParams = {
+    region,
     sort: filters.sort,
     page: filters.page,
     size,
@@ -199,10 +200,6 @@ export function cardHoldersRequest(
     params.printingId = target.id;
   } else {
     params.cardId = target.id;
-  }
-  if (centre) {
-    params.lat = Math.round(centre.lat * 1000) / 1000;
-    params.lng = Math.round(centre.lng * 1000) / 1000;
   }
   if (filters.availability) {
     params.availability = filters.availability;

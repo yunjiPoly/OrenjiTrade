@@ -20,12 +20,9 @@ api_host = "api.orenjitrade.com"
 # firebase_project_id = "orenjitrade-prod-123456"
 
 # Public web configuration rendered into the web container's config.json (never secrets).
-# Firebase console > Project settings > Your apps > Web app; Maps key referrer-restricted to
-# https://www.orenjitrade.com/* and API-restricted to Maps JavaScript API.
-firebase_web_api_key    = "AIzaSyExampleExampleExampleExampleExampl"
-firebase_web_app_id     = "1:123456789012:web:0123456789abcdef012345"
-google_maps_browser_key = "" # empty = Leaflet/OpenStreetMap fallback until the key exists
-google_maps_map_id      = ""
+# Firebase console > Project settings > Your apps > Web app.
+firebase_web_api_key = "AIzaSyExampleExampleExampleExampleExampl"
+firebase_web_app_id  = "1:123456789012:web:0123456789abcdef012345"
 
 # Payments: enable only after adding versions to stripe-secret-key and stripe-webhook-secret.
 stripe_secrets_enabled = false

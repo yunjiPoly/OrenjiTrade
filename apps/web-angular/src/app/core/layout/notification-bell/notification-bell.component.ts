@@ -83,7 +83,7 @@ const BUMP_MS = 700;
           }
         </div>
         @if (!center.active()) {
-          <p class="nm__note">Sign in to hear about wishlist matches, messages and offers.</p>
+          <p class="nm__note">Sign in to hear about wishlist alerts, messages and offers.</p>
           <a mat-menu-item routerLink="/auth/sign-in">
             <mat-icon>login</mat-icon>
             <span>Sign in</span>
@@ -111,7 +111,7 @@ const BUMP_MS = 700;
               } @empty {
                 <div class="nm__empty">
                   <mat-icon aria-hidden="true">notifications_off</mat-icon>
-                  <p>You're all caught up. New matches and messages will show up here.</p>
+                  <p>You're all caught up. New wishlist alerts and messages will show up here.</p>
                 </div>
               }
             }

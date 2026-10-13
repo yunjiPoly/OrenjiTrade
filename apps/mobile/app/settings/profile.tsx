@@ -55,7 +55,7 @@ function ProfileEditorForm({ profile }: { profile: MyProfileResponse }) {
     <View style={styles.root}>
       <SectionCard
         title="Profile picture"
-        description="Shown on your profile and on the map preview."
+        description="Shown on your profile, in messages and in search results."
       >
         <AvatarEditor avatarUrl={profile.avatarUrl} name={profile.displayName} />
       </SectionCard>

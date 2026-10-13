@@ -52,8 +52,8 @@ function nameOf(offer: OfferResponse, role: 'SELLER' | 'BUYER'): string {
 /**
  * One offer (the web's `/offers/:id`): the status, kind, round and expiry; whose turn it is with
  * only the answers the API allows (accept after a confirmation, counter, decline or withdraw with
- * an optional reason, message the other collector); the deal; both collectors (region label and
- * distance bucket only); the history of the whole negotiation. A proposal replaced by a
+ * an optional reason, message the other collector); the deal; both collectors (state or province
+ * only); the history of the whole negotiation. A proposal replaced by a
  * counter-offer links to the live one (and the screen follows it when that happens on screen);
  * an accepted offer links to its trade. Conflicts (409 STALE_OFFER, NOT_YOUR_TURN, ...) are
  * explained and the offer re-read. The dismissible trading safety notice (Report / Block the
@@ -290,7 +290,7 @@ export default function OfferScreen() {
             isYou={current.viewerRole === 'BUYER'}
             testID="offer-buyer"
           />
-          <PrivacyNote text="Only approximate areas are shared. Meet in a public place." />
+          <PrivacyNote text="Only your state or province is shared. Meet in a public place." />
         </Section>
 
         <Section title="History">

@@ -124,8 +124,8 @@ public class MessagingSeedContributor implements SeedContributor {
                                 1,
                                 COLLECTOR2,
                                 MessageKind.TEXT,
-                                "Hi Maïka! I saw your binder on the map. Are you around the"
-                                        + " Plateau this weekend?",
+                                "Hi Maïka! I saw your binder on the map. Will you be at a game"
+                                        + " store this weekend?",
                                 0),
                         binder.isPresent()
                                 ? new SeedMessage(

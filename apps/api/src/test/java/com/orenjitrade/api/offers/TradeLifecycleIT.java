@@ -24,7 +24,7 @@ class TradeLifecycleIT extends AbstractOffersIT {
         String itemId = listing(seller, "TRADE_OR_SALE", 2);
 
         String offerId = makeOffer(buyer, cash(itemId, "40.00"), 201).path("id").asString();
-        assertCardPicture(awaitNotification(seller, "OFFER_RECEIVED"), "Azure-Eyes Sky Dragon");
+        assertCardPicture(awaitNotification(seller, "OFFER_RECEIVED"), cardNameOf(printing(AZURE)));
         JsonNode accepted = act(seller, offerId, "accept", null, 200);
         String tradeId = accepted.path("tradeId").asString();
 
@@ -92,11 +92,11 @@ class TradeLifecycleIT extends AbstractOffersIT {
         rating.put("overall", 5);
         callJson(HttpMethod.POST, "/api/v1/ratings", buyer.uid(), rating, 201);
 
-        assertCardPicture(awaitNotification(buyer, "OFFER_ACCEPTED"), "Azure-Eyes Sky Dragon");
+        assertCardPicture(awaitNotification(buyer, "OFFER_ACCEPTED"), cardNameOf(printing(AZURE)));
         awaitNotification(seller, "OFFER_ACCEPTED");
         JsonNode done = awaitNotification(buyer, "TRADE_UPDATE");
         assertThat(done.path("data").path("tradeId").asString()).isEqualTo(tradeId);
-        assertCardPicture(done, "Azure-Eyes Sky Dragon");
+        assertCardPicture(done, cardNameOf(printing(AZURE)));
         awaitNotification(seller, "TRADE_UPDATE");
         List<JsonNode> messages = awaitSystemMessages(buyer, seller, 3);
         JsonNode newest = messages.get(0);

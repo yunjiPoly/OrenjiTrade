@@ -76,9 +76,9 @@ public class CommunitySeedContributor implements SeedContributor {
                 List.of(
                         new SeedPost(
                                 1,
+                                "11",
                                 "01",
-                                "01",
-                                "Anyone going to the Friday locals on the Plateau? I will bring my"
+                                "Anyone going to the Friday locals? I will bring my"
                                         + " trade binder, happy to trade before the tournament.",
                                 20 * 60,
                                 null,
@@ -88,7 +88,7 @@ public class CommunitySeedContributor implements SeedContributor {
                                 "05",
                                 "02",
                                 "Looking for this printing in near mint. I can trade Magic rares or"
-                                        + " pay cash around Verdun.",
+                                        + " pay cash.",
                                 10 * 60,
                                 "ygo-p005a",
                                 null),
@@ -106,8 +106,7 @@ public class CommunitySeedContributor implements SeedContributor {
                                 "08",
                                 "08",
                                 "Welcome to the OrenjiTrade community! Where do you like to meet"
-                                        + " for trades downtown? The Old Port food court works"
-                                        + " well for me.",
+                                        + " for trades? A busy food court works well for me.",
                                 3 * 60,
                                 null,
                                 null),
@@ -115,7 +114,7 @@ public class CommunitySeedContributor implements SeedContributor {
                                 5,
                                 "07",
                                 "04",
-                                "Traded two Riftbound rares with a collector from Longueuil"
+                                "Traded two Riftbound rares with a collector of my region"
                                         + " yesterday. Smooth meetup, thanks!",
                                 30 * 60,
                                 null,

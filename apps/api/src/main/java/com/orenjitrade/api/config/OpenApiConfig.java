@@ -72,7 +72,7 @@ public class OpenApiConfig {
                                 .title("OrenjiTrade API")
                                 .version(version)
                                 .description(
-                                        "REST API of OrenjiTrade, the geographic discovery network"
+                                        "REST API of OrenjiTrade, the regional discovery network"
                                             + " for trading cards. Generated from the Spring Boot"
                                             + " application by `./gradlew exportOpenApi`"
                                             + " (apps/api). Do not edit by hand.")

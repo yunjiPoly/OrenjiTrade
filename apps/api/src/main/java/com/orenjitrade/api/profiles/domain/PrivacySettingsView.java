@@ -7,7 +7,6 @@ package com.orenjitrade.api.profiles.domain;
  */
 public record PrivacySettingsView(
         boolean discoverable,
-        boolean showDistance,
         boolean showOnlineStatus,
         boolean showLastActive,
         ProfileVisibility profileVisibility,
@@ -18,7 +17,6 @@ public record PrivacySettingsView(
     public static final PrivacySettingsView DEFAULTS =
             new PrivacySettingsView(
                     false,
-                    true,
                     false,
                     true,
                     ProfileVisibility.MEMBERS,

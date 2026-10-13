@@ -17,7 +17,7 @@ import { gameLabel, languageLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * Profile tab: the collector's own profile (what they set up in onboarding), its trading area and
+ * Profile tab: the collector's own profile (what they set up in onboarding), its location and
  * visibility, shortcuts to edit it, to preview it as others see it, and to Settings.
  */
 export default function ProfileScreen() {
@@ -157,7 +157,7 @@ function ProfileContent({
   const { palette } = useTheme();
   const router = useRouter();
   const account = useAccount();
-  const area = location?.tradingArea;
+  const place = location?.location;
   const curated = profile.tags.map((tag) => tag.label);
 
   return (
@@ -220,15 +220,15 @@ function ProfileContent({
         <ChipList items={curated} emptyLabel="No tags yet" testID="profile-tags" />
       </SectionCard>
 
-      <SectionCard title="Trading area">
+      <SectionCard title="Location">
         <Text testID="profile-area" style={[textStyle('md'), { color: palette.ink }]}>
-          {area
-            ? `${area.label ?? 'Approximate area'} · ${area.radiusKm} km radius`
-            : 'No trading area yet.'}
+          {place
+            ? `${place.city && place.showCity ? `${place.city}, ` : ''}${place.label}`
+            : 'No location yet.'}
         </Text>
         <Text testID="profile-visibility" style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {location?.discoverable && area
-            ? 'Visible on the map at an approximate position.'
+          {location?.discoverable && place
+            ? `Visible on the map in ${place.label}.`
             : 'Hidden from the map.'}
         </Text>
       </SectionCard>

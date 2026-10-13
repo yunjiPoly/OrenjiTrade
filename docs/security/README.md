@@ -14,7 +14,7 @@ Assets, ranked: (1) collectors' real-world location and identity, (2) private me
 
 | # | Threat | Actor | Impact | Primary controls | Status |
 | --- | --- | --- | --- | --- | --- |
-| T1 | Re-identify a collector's home from map data (triangulation, precise coordinates leaking in any response, logs or analytics) | Curious/abusive user, scraper | Physical safety | Server-derived `public_point` on a 1 km grid with deterministic HMAC jitter; distances bucketed; DTOs never touch `home_point`; `GeoPrivacyContractTest` rejects > 3 decimals in any JSON; analytics carry only grid cell + region label; discoverability opt-in | planned (Phase 1/4, tests required) |
+| T1 | Re-identify a collector's home from location data (precise coordinates, distances or a city leaking in any response, logs or analytics) | Curious/abusive user, scraper | Physical safety | ADR 0017: no coordinate, distance or radius is stored or processed at all; collectors declare a country and a state or province (public) and an optional city shown only on their own profile; `GeoPrivacyContractTest` signs in as every seed account and fails on coordinate/distance keys, > 3 decimals, "km away" or a city outside its owner's profile; analytics carry region + subdivision codes only; discoverability opt-in and requires a location | implemented (S1, 2026-10-08) |
 | T2 | Account takeover (credential stuffing, token theft, session fixation) | External attacker | Data exposure, fraud | Firebase/Identity Platform handles passwords, verification, reset and OAuth; API only verifies ID tokens (1 h, cached certs); MFA mandatory for admin/moderator; edge + Redis rate limits on auth endpoints; no long-lived API keys for users | planned (Phase 1); MFA planned (Phase 7) |
 | T3 | Broken authorization (IDOR on binders, messages, offers; role escalation) | Authenticated user | Privacy breach | Actor derived from token never from body; `@PreAuthorize` + ownership checks in services; roles in `user_role` only editable by SUPER_ADMIN via audited admin endpoints; integration tests per module | planned (every module) |
 | T4 | Injection (SQL, NoSQL-like JSONB, log, header) | Attacker | Data breach | JPA/parameterised SQL only; PostGIS functions receive typed parameters; strict DTO validation (Bean Validation); JSON logging with escaped fields; Cloudflare WAF managed rules + OWASP CRS | planned (code), infra (WAF) |
@@ -40,7 +40,7 @@ data centres (covered by Google's compliance), mobile OS compromise.
 | V3 Session management | Short-lived tokens, revocation, logout invalidates | Firebase ID tokens (1 h) + refresh tokens; revocation via Admin SDK `revokeRefreshTokens`; API is stateless; WebSocket sessions authenticated with the same token at CONNECT and re-validated hourly | planned |
 | V4 Access control | Deny by default, server-side enforcement, IDOR protection, admin separation | Spring Security deny-all default, `@PreAuthorize` + ownership checks, roles in DB, `/admin` requires ADMIN + recent second factor, cursor pagination without guessable ids (UUIDv7) | planned |
 | V5 Validation & encoding | Input validation, output encoding, injection prevention | Bean Validation on every DTO, JPA parameters, Jackson strict mode (unknown properties rejected), Angular's built-in sanitisation, no `innerHTML` with user data, CSP on `www` | planned |
-| V6 Cryptography | Approved algorithms, key management | TLS 1.2+/1.3 everywhere, Cloud SQL encryption at rest (Google-managed keys), HMAC-SHA256 for jitter seed with a Secret Manager key, `pgcrypto` for `home_point` column encryption, no custom crypto | infra/planned |
+| V6 Cryptography | Approved algorithms, key management | TLS 1.2+/1.3 everywhere, Cloud SQL encryption at rest (Google-managed keys), HMAC-SHA256 for analytics actor hashes and ad serve tokens with Secret Manager keys, no custom crypto (no location secret since ADR 0017) | infra/planned |
 | V7 Error handling & logging | No stack traces to clients, logs without secrets/PII, tamper-evident audit | RFC 9457 Problem Details with `errorCode` + `requestId`, JSON logs with hashed user ids, `audit_log` append-only, Cloud Logging retention 30 d (400 d for audit sink) | planned |
 | V8 Data protection | Classification, minimisation, secure deletion | Section 3; account deletion job anonymises and removes; `tmp/` uploads purged in 2 days; analytics without PII | planned |
 | V9 Communications | TLS, HSTS, certificate validation | Cloudflare Full (strict), HSTS 1 year, Google-managed certs, `MODERN` SSL policy on the LB, `sslmode=require` to Cloud SQL | infra |
@@ -54,17 +54,18 @@ data centres (covered by Google's compliance), mobile OS compromise.
 
 | Class | Examples | Storage | Access | Logging/analytics | Retention |
 | --- | --- | --- | --- | --- | --- |
-| **Restricted – location** (ADR 0004) | `user_location.home_point`, `trading_area_center`, `trading_area_radius_m`, device GPS in requests | Cloud SQL, column encrypted (`pgcrypto`), private IP only | `location` module only; never in DTOs, exports, admin screens or seed screenshots | **Never** logged or sent to analytics; grid cell/region label only | Until user changes area or deletes account |
+| **Confidential – location** (ADR 0017) | `user_location.city` (optional free text, never geocoded); no coordinate exists | Cloud SQL, private IP only | Owner (`/me/location`, export) and the owner's public profile while `show_city`; never in lists, search, admin lists, exports to others or seed screenshots | **Never** logged or sent to analytics | Until the owner changes or removes it, or deletes the account |
 | **Restricted – secrets** | DB password, Stripe keys, service token, signing keys | Secret Manager | Runtime SAs by secret; operators via IAM with audit | Never | Rotated per runbook |
 | **Confidential – personal data** | email, display name, avatar, messages, offers, ratings, reports, IP addresses, audit log actor | Cloud SQL, GCS media | Owner + counterpart (messages) + moderators/admins with reason | Logs use `userId` hash and `requestId`; message bodies never logged; analytics `actor_hash` = HMAC(user id) | Account lifetime; deletion job anonymises within 30 days; audit log 7 years |
 | **Confidential – payments** | Stripe customer/account ids, transaction amounts, payout state, dispute evidence | Cloud SQL (ids only), Stripe (card data) | Parties + admins | Amounts may be logged, ids partially masked | Legal retention (7 years Canada) |
 | **Internal** | Inventory items (private binders), wishlists, feature flags, plan config | Cloud SQL | Owner; admins | Counts only | Lifetime |
-| **Public** | Public binders, `public_point`, `public_label`, card catalogue, community messages | Cloud SQL, CDN cacheable where unauthenticated | Everyone (rate limited) | Freely | Lifetime / until unpublished |
+| **Public** | Public binders, a discoverable collector's place (state or province and country), card catalogue, community messages | Cloud SQL, CDN cacheable where unauthenticated | Everyone (rate limited) | Freely; analytics get region and subdivision codes | Lifetime / until unpublished |
 
-Rules: `public_point` is the **only** location representation allowed outside the `location`
-module; coordinates in responses have at most 3 decimals; distances are bucketed. Any new geo
-endpoint adds a `GeoPrivacyContractTest` case. Exports for support/legal go through an admin
-action that is audited and excludes Restricted-location columns.
+Rules (ADR 0017): the state or province and country are the **only** location representation
+allowed outside the `location` module, plus the city on its owner's profile while shown. No
+coordinate, distance or radius exists. Any new endpoint returning places adds a
+`GeoPrivacyContractTest` case. Exports for support/legal go through an admin action that is
+audited and never includes another collector's city.
 
 ## 4. Secrets policy
 
@@ -73,14 +74,14 @@ action that is audited and excludes Restricted-location columns.
   (generated) or by an operator with `gcloud secrets versions add` — never through tfvars,
   git, chat or CI logs. `version_destroy_ttl` keeps destroyed versions recoverable for 7 days.
 - **Who**: runtime service accounts get access to exactly the secrets they need
-  (`api-run`: db-password, service-token, location-jitter-secret, analytics-actor-salt, ads-token-secret, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
+  (`api-run`: db-password, service-token, analytics-actor-salt, ads-token-secret, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
   project-wide `secretmanager.secretAccessor`.
 - **CI/CD**: GitHub Actions authenticates with **Workload Identity Federation** (OIDC) to the
   `github-deployer` SA; the provider trusts only `assertion.repository == "<owner/repo>"` (and
   only `refs/heads/main` for prod). **No service-account keys are created, downloaded or stored
   in GitHub secrets.** GitHub repository/environment *variables* hold only non-secret ids.
-- **Frontends**: bundles may contain public keys only (Firebase web config, referrer-restricted
-  Maps browser key, Stripe publishable key). A CI grep for `sk_live`, `-----BEGIN` and
+- **Frontends**: bundles may contain public keys only (Firebase web config, Stripe publishable
+  key). There is no map key any more: the map draws bundled boundaries (ADR 0017). A CI grep for `sk_live`, `-----BEGIN` and
   `AIza` in built bundles is part of Phase 13.
 - **Local**: `.env` (git-ignored) copied from `.env.example`; emulators and fake providers mean
   no real key is needed for development.
@@ -117,7 +118,7 @@ buckets** (`Lua` script for atomic take/refill, key TTL = window).
 | --- | --- | --- |
 | Per IP (anonymous) | `rl:ip:<ip>:<route-group>` | 120 req/min default (`RATE_LIMIT_DEFAULT_PER_MINUTE`), 20 req/min for auth routes |
 | Per user | `rl:user:<id>:<route-group>` | 600 req/min general; premium plans higher |
-| Route groups | `auth`, `search` (search, nearby, cards), `messaging` (send message, create conversation, community post), `uploads`, `offers`, `reports`, `admin` | search 60/min, messaging 30/min + 200/day, uploads 30/h, offers 20/h, reports 10/day |
+| Route groups | `auth`, `search` (search, regions, cards), `messaging` (send message, create conversation, community post), `uploads`, `offers`, `reports`, `admin` | search 60/min, messaging 30/min + 200/day, uploads 30/h, offers 20/h, reports 10/day |
 | WebSocket | connect attempts 10/min per user; outbound STOMP frames 60/min per session | |
 | Notifications | dedup key type+subject+recipient+day; max 50 push/day per user | |
 
@@ -174,9 +175,9 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
 - Retention: application logs 30 days; `audit_log` table and a Cloud Logging sink of admin
   actions 400 days; access to logs limited to operators (`roles/logging.privateLogViewer` only
   for the on-call group).
-- Analytics events: schema-versioned, no PII, `actor_hash`, `region_label`, `geo_cell` only;
-  a test asserts no field named like `lat`, `lng`, `email`, `home_point` reaches
-  `AnalyticsEvent`.
+- Analytics events: schema-versioned, no PII, `actor_hash`, `region_code`, `subdivision_code`
+  only; a test asserts no field named like `lat`, `lng`, `city`, `distance*`, `radius*`,
+  `grid_cell`, `geo_cell`, `email` reaches `AnalyticsEvent`.
 - Data subject requests (Quebec Law 25 / PIPEDA): export and deletion are admin actions with
   audit entries; deletion completes within 30 days and cascades to media, messages (anonymised
   for the counterpart), analytics (hash unlinkable). Collectors can also export and delete

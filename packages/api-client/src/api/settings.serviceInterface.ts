@@ -35,7 +35,7 @@ export interface SettingsServiceInterface {
 
     /**
      * The caller\&#39;s notification preferences
-     * Defaults: push and in-app on, email off, MARKETING fully off.
+     * Defaults: push and in-app on, email off, MARKETING fully off, wishlist alerts on.
      * @endpoint get /api/v1/me/settings/notifications
 */
     getNotificationSettings(extraHttpRequestParams?: any): Observable<NotificationSettingsResponse>;
@@ -49,7 +49,7 @@ export interface SettingsServiceInterface {
 
     /**
      * Replace the caller\&#39;s notification preferences
-     * Full replacement. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
+     * Full replacement, except wishlistAlerts, which keeps its stored value when left out. Unknown categories, malformed times (HH:mm) and unknown time zones are 400.
      * @endpoint put /api/v1/me/settings/notifications
 * @param requestParameters
      */
@@ -57,7 +57,7 @@ export interface SettingsServiceInterface {
 
     /**
      * Replace the caller\&#39;s privacy settings
-     * Full replacement (every field required). Switching &#x60;discoverable&#x60; on derives the public map point from the trading area; switching it off removes the collector from the map immediately.
+     * Full replacement (every field required). &#x60;discoverable&#x60; lists the collector (state/province + country, never the city) in region search, card holder lists and the map\&#39;s state binder lists; switching it on needs the 18+ confirmation (403 AGE_CONFIRMATION_REQUIRED) and a country and state/province (&#x60;PUT /me/location&#x60;, 409 LOCATION_REQUIRED); switching it off removes the collector immediately.
      * @endpoint put /api/v1/me/settings/privacy
 * @param requestParameters
      */

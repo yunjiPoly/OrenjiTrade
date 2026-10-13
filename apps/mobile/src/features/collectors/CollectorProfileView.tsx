@@ -12,14 +12,10 @@ import { ChipList, SectionCard } from '@/src/components/ui/Layout';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { reportParams } from '@/src/features/reports/reportLabels';
-import { approximateAreaSentence } from '@/src/lib/approximateArea';
 import { formatLongDate } from '@/src/lib/dates';
-import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
-import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
 import { LAST_ACTIVE_LABELS, gameLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { ApproximateAreaMap } from './ApproximateAreaMap';
 import {
   BlockCollectorDialog,
   useUnblockCollector,
@@ -32,19 +28,27 @@ import { MessageAction } from './MessageAction';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-/** "Near Plateau-Mont-Royal, Montréal", or the generic wording when no place matched. */
-export function nearLabel(publicLabel: string | null | undefined): string {
-  const place = placeLabel(publicLabel);
-  return place ? `Near ${place}` : GENERIC_AREA_LABEL;
+/**
+ * "Montréal, Quebec, Canada" (the city only when its owner shows it) or "Quebec, Canada": the
+ * profile is the one place where a collector's city may appear (ADR 0017).
+ */
+export function profilePlaceLabel(
+  location: CollectorProfileResponse['location'] | null | undefined
+): string | null {
+  if (!location) {
+    return null;
+  }
+  const city = location.city?.trim();
+  return city ? `${city}, ${location.label}` : location.label;
 }
 
 /**
  * A collector's public profile as the viewer sees it (the web's `collector-profile-view` +
- * ratings section): header with place, distance bucket, member since and last activity; actions
- * (own profile: edit and privacy; others: the first public binder, Message when allowed, Report
- * and Block / Unblock); about, games and tags; the approximate area (a 3 km zone, never a point); ratings and
- * references (rate, write a reference); public binders and cards ("Make an offer"); the public
- * wishlist ("Looking for") when the collector shows it.
+ * ratings section): header with the place (state or province, and the city when its owner shows
+ * it), member since and last activity; actions (own profile: edit and privacy; others: the first
+ * public binder, Message when allowed, Report and Block / Unblock); about, games and tags; the
+ * location card; ratings and references (rate, write a reference); public binders and cards
+ * ("Make an offer"); the public wishlist ("Looking for") when the collector shows it.
  */
 export function CollectorProfileView({
   profile,
@@ -63,11 +67,10 @@ export function CollectorProfileView({
   const { message, startingId } = useMessageCollector();
   const [blocking, setBlocking] = useState<BlockTarget | null>(null);
   const unblocking = useUnblockCollector();
-  const distance = distanceBucketLabel(profile.location?.distanceBucket);
   const lastActive =
     profile.lastActiveBucket !== 'HIDDEN' ? LAST_ACTIVE_LABELS[profile.lastActiveBucket] : null;
   const firstBinder = binders.data?.[0] ?? null;
-  const place = placeLabel(profile.location?.publicLabel);
+  const place = profilePlaceLabel(profile.location);
 
   return (
     <View style={styles.root}>
@@ -102,11 +105,10 @@ export function CollectorProfileView({
 
       <View style={styles.facts} accessibilityLabel="Collector details">
         <Fact
-          icon={profile.location ? 'map-marker-radius-outline' : 'map-marker-off-outline'}
-          text={profile.location ? nearLabel(profile.location.publicLabel) : 'Not on the map'}
+          icon={place ? 'map-marker-outline' : 'map-marker-off-outline'}
+          text={place ?? 'Not on the map'}
           testID="collector-location"
         />
-        {distance ? <Fact icon="near-me" text={distance} testID="collector-distance" /> : null}
         <Fact
           icon="calendar-month-outline"
           text={`Member since ${formatLongDate(profile.memberSince)}`}
@@ -214,27 +216,21 @@ export function CollectorProfileView({
         />
       </SectionCard>
 
-      <SectionCard title="Trading area" testID="collector-area-section">
+      <SectionCard title="Location" testID="collector-area-section">
         {profile.location ? (
-          <>
-            <ApproximateAreaMap
-              point={profile.location.publicPoint}
-              label={`Approximate area of ${profile.displayName}, about 3 km wide${place ? `, around ${place}` : ''}`}
+          <View style={styles.note}>
+            <MaterialCommunityIcons
+              name="shield-account-outline"
+              size={18}
+              color={palette.accent}
             />
-            <View style={styles.note}>
-              <MaterialCommunityIcons
-                name="shield-account-outline"
-                size={18}
-                color={palette.accent}
-              />
-              <Text
-                testID="collector-area-note"
-                style={[textStyle('sm'), styles.grow, { color: palette.textMuted }]}
-              >
-                {approximateAreaSentence(place)}
-              </Text>
-            </View>
-          </>
+            <Text
+              testID="collector-area-note"
+              style={[textStyle('sm'), styles.grow, { color: palette.textMuted }]}
+            >
+              {`On the map in ${profile.location.label}. OrenjiTrade only shows the state or province, never a position or a distance.`}
+            </Text>
+          </View>
         ) : (
           <View style={styles.note}>
             <Text

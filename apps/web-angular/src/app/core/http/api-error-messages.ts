@@ -80,6 +80,12 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     case 'HANDLE_TAKEN':
       return { title: 'Handle unavailable', message: 'That handle is already taken.' };
+    case 'LOCATION_REQUIRED':
+      return {
+        title: 'Choose your location first',
+        message:
+          'Pick your country and your state or province in Settings → Location before appearing on the map.',
+      };
     case 'VALIDATION_FAILED':
       return {
         title: 'Check the highlighted fields',

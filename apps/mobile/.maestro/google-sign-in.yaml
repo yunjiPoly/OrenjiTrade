@@ -6,7 +6,7 @@
 # taken over) continues with Google under the same e-mail: the dialog dismissed shows nothing, then
 # the sign-in lands on the tabs of that account (onboarding already done) and Settings -> Account
 # names both sign-in methods.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Google sign-in through the emulator links the password account
 tags:
   - mobile-m7
@@ -65,7 +65,7 @@ tags:
 - tapOn:
     id: 'google-name'
 - inputText: 'Maestro Googler'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard-in-dialog.yaml
 - takeScreenshot: google-simulated-account
 - tapOn:
     id: 'google-dialog-confirm'

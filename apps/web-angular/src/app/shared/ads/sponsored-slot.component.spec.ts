@@ -7,6 +7,7 @@ import { AuthService, AuthState } from '../../core/auth/auth.service';
 import { SessionService, SessionStatus } from '../../core/auth/session.service';
 import { AppConfigService } from '../../core/config/app-config.service';
 import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { REGION_STORAGE_KEY } from '../../core/region/region-context.service';
 import { adClickHref, adImageSrc } from './ad-links';
 import { SponsoredSlotComponent } from './sponsored-slot.component';
 
@@ -68,6 +69,8 @@ describe('SponsoredSlotComponent', () => {
   }
 
   beforeEach(() => {
+    // A region another spec stored would replace the default region (americas-north).
+    localStorage.removeItem(REGION_STORAGE_KEY);
     authState.set('anonymous');
     sessionStatus.set('anonymous');
     me.set(null);
@@ -94,7 +97,7 @@ describe('SponsoredSlotComponent', () => {
   it('labels every ad "Sponsored", links through the click route and records impressions once', async () => {
     await create([ad('c-1', { label: 'Promoted' })]);
     expect(api['listAds']).toHaveBeenCalledWith(
-      { placement: 'MAP_PANEL' },
+      { placement: 'MAP_PANEL', region: 'americas-north' },
       'body',
       false,
       expect.anything(),

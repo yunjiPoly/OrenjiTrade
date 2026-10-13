@@ -111,18 +111,6 @@ variable "firebase_auth_domain" {
   default     = null
 }
 
-variable "google_maps_browser_key" {
-  description = "Google Maps JavaScript API browser key (public; must be HTTP-referrer restricted to https://<web_host>/* and API-restricted to Maps JavaScript API). Empty = the web keeps the Leaflet/OpenStreetMap fallback (ADR 0010)."
-  type        = string
-  default     = ""
-}
-
-variable "google_maps_map_id" {
-  description = "Google Maps Map ID for the styled map (public; empty = default styling)."
-  type        = string
-  default     = ""
-}
-
 variable "media_bucket_name" {
   description = "Media bucket name (null = <project_id>-media)."
   type        = string

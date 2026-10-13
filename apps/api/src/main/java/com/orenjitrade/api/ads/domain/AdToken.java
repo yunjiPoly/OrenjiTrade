@@ -17,11 +17,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Signed serve tokens of served ads ({@code v1.<base64url payload>.<hex HMAC-SHA256>}): the payload
- * names the creative, the placement, the context's public grid cell, the pseudonymous viewer hash,
- * the issue time and a nonce (the serve id). {@code POST /ads/{id}/impression} and {@code GET
- * /ads/{id}/click} record at most one impression and one click per token, and only for tokens this
- * server issued within {@code maxAge} for that creative, so counters cannot be inflated by
- * replaying or forging requests. The token never carries an account id or a coordinate.
+ * names the creative, the placement, the context's region and subdivision codes, the pseudonymous
+ * viewer hash, the issue time and a nonce (the serve id). {@code POST /ads/{id}/impression} and
+ * {@code GET /ads/{id}/click} record at most one impression and one click per token, and only for
+ * tokens this server issued within {@code maxAge} for that creative, so counters cannot be inflated
+ * by replaying or forging requests. The token never carries an account id or a coordinate.
  */
 public final class AdToken {
 
@@ -46,7 +46,8 @@ public final class AdToken {
      * @param serveId nonce (one impression and one click per serve)
      * @param creativeId the creative served
      * @param placement where it was served
-     * @param geoCell public grid cell of the context
+     * @param regionCode platform region of the context
+     * @param subdivisionCode subdivision code of the context
      * @param userHash pseudonymous viewer hash
      * @param issuedAt issue time
      */
@@ -54,7 +55,8 @@ public final class AdToken {
             UUID serveId,
             UUID creativeId,
             PlacementKey placement,
-            @Nullable String geoCell,
+            @Nullable String regionCode,
+            @Nullable String subdivisionCode,
             @Nullable String userHash,
             Instant issuedAt) {}
 
@@ -62,15 +64,19 @@ public final class AdToken {
     public String issue(
             UUID creativeId,
             PlacementKey placement,
-            @Nullable String geoCell,
+            @Nullable String regionCode,
+            @Nullable String subdivisionCode,
             @Nullable String userHash,
             Instant now) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("n", UUID.randomUUID().toString());
         payload.put("c", creativeId.toString());
         payload.put("p", placement.name());
-        if (geoCell != null) {
-            payload.put("g", geoCell);
+        if (regionCode != null) {
+            payload.put("r", regionCode);
+        }
+        if (subdivisionCode != null) {
+            payload.put("s", subdivisionCode);
         }
         if (userHash != null) {
             payload.put("u", userHash);
@@ -120,7 +126,8 @@ public final class AdToken {
                             UUID.fromString(payload.path("n").asString()),
                             creative,
                             PlacementKey.valueOf(payload.path("p").asString()),
-                            text(payload, "g"),
+                            text(payload, "r"),
+                            text(payload, "s"),
                             text(payload, "u"),
                             issuedAt));
         } catch (RuntimeException e) {

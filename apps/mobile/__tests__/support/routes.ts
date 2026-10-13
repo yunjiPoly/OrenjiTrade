@@ -10,8 +10,10 @@ import {
   locationFixture,
   meFixture,
   notificationsFixture,
+  priceTermsFixture,
   privacyFixture,
   profileFixture,
+  regionsFixture,
 } from './fixtures';
 import { ok, type MockRoutes } from './mockApi';
 
@@ -21,6 +23,7 @@ export function signedInRoutes(overrides: MockRoutes = {}): MockRoutes {
     'GET /api/v1/me': ok(meFixture()),
     'GET /api/v1/me/profile': ok(profileFixture()),
     'GET /api/v1/me/location': ok(locationFixture()),
+    'GET /api/v1/regions': ok(regionsFixture()),
     'GET /api/v1/me/settings/privacy': ok(privacyFixture()),
     'GET /api/v1/me/settings/notifications': ok(notificationsFixture()),
     'GET /api/v1/me/deletion-requests': ok([]),
@@ -31,6 +34,7 @@ export function signedInRoutes(overrides: MockRoutes = {}): MockRoutes {
     'GET /api/v1/inventory/summary': ok(summaryFixture()),
     'GET /api/v1/binders': ok([binderFixture()]),
     'GET /api/v1/me/listings/status': ok(listingStatusFixture()),
+    'GET /api/v1/wishlist/price-terms': ok(priceTermsFixture()),
     ...overrides,
   };
 }

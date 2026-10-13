@@ -10,8 +10,8 @@ import {
 } from './report-collector-dialog.component';
 
 /**
- * Opens the "Report collector" modal from any entry point (collector profile, map preview,
- * conversation menu, community post menu, public binder page). Resolves the confirmation when a
+ * Opens the "Report collector" modal from any entry point (collector profile, conversation menu,
+ * community post menu, public binder page). Resolves the confirmation when a
  * report was sent, `null` when the dialog was cancelled.
  */
 @Injectable({ providedIn: 'root' })

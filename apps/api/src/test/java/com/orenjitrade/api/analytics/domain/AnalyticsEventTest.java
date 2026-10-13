@@ -18,7 +18,7 @@ class AnalyticsEventTest {
     private static final Instant NOW = Instant.parse("2026-09-29T12:00:00Z");
 
     private static AnalyticsEvent event(Map<String, Object> payload) {
-        return AnalyticsEvent.of("search_performed", NOW, null, "r5058c-8174", "Mile End", payload);
+        return AnalyticsEvent.of("search_performed", NOW, null, "americas-north", "CA-QC", payload);
     }
 
     @Test
@@ -41,7 +41,7 @@ class AnalyticsEventTest {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("query", "sell to bob@example.org at 45.5");
         payload.put("result_count", 3L);
-        payload.put("radius_km", 10);
+        payload.put("page_size", 10);
         payload.put("anonymous", true);
         payload.put("types", List.of("cards", "a@b.co"));
         payload.put("card_id", UUID.fromString("00000000-0000-4000-8000-000000000001"));
@@ -50,7 +50,7 @@ class AnalyticsEventTest {
         assertThat(event.payload())
                 .containsEntry("query", "sell to [email] at [number]")
                 .containsEntry("result_count", 3L)
-                .containsEntry("radius_km", 10)
+                .containsEntry("page_size", 10)
                 .containsEntry("anonymous", true)
                 .containsEntry("types", List.of("cards", "[email]"))
                 .containsEntry("card_id", "00000000-0000-4000-8000-000000000001")
@@ -85,7 +85,7 @@ class AnalyticsEventTest {
     }
 
     @Test
-    void geographyIsAGridCellAndActorsAreHashes() {
+    void geographyIsARegionAndASubdivisionCodeAndActorsAreHashes() {
         assertThatThrownBy(
                         () ->
                                 AnalyticsEvent.of(
@@ -116,9 +116,36 @@ class AnalyticsEventTest {
                         "card_viewed",
                         NOW,
                         "0123456789abcdef0123456789abcdef",
-                        "r-12c34",
-                        "Plateau-Mont-Royal, Montréal",
+                        "americas-north",
+                        "CA-QC",
                         Map.of());
-        assertThat(event.regionLabel()).isEqualTo("Plateau-Mont-Royal, Montréal");
+        assertThat(event.regionCode()).isEqualTo("americas-north");
+        assertThat(event.subdivisionCode()).isEqualTo("CA-QC");
+        assertThatThrownBy(
+                        () ->
+                                AnalyticsEvent.of(
+                                        "card_viewed", NOW, null, "Montréal", null, Map.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                AnalyticsEvent.of(
+                                        "card_viewed", NOW, null, null, "45.5,-73.5", Map.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        for (String key :
+                java.util.List.of(
+                        "city",
+                        "distance",
+                        "distance_km",
+                        "radius",
+                        "radius_km",
+                        "grid_cell",
+                        "lat")) {
+            assertThatThrownBy(
+                            () ->
+                                    AnalyticsEvent.of(
+                                            "card_viewed", NOW, null, null, null, Map.of(key, "x")))
+                    .as(key)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
     }
 }

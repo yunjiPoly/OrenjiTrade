@@ -34,12 +34,7 @@ class ExportIT extends AbstractIntegrationTest {
                 uid,
                 Map.of("customLabels", List.of("Trader")),
                 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                uid,
-                Map.of("lat", 45.54918, "lng", -73.57712, "radiusKm", 10),
-                200);
+        setLocation(uid, "CA", "CA-ON", "Ottawa");
 
         EntityExchangeResult<byte[]> result = call(HttpMethod.GET, "/api/v1/me/export", uid, null);
         assertThat(result.getStatus().value()).isEqualTo(200);
@@ -65,23 +60,24 @@ class ExportIT extends AbstractIntegrationTest {
         assertThat(sections.path("privacySettings").path("discoverable").asBoolean()).isFalse();
         assertThat(sections.path("notificationPreferences").path("categories").has("MARKETING"))
                 .isTrue();
-        JsonNode area = sections.path("location").path("tradingArea");
-        assertThat(area.path("lat").asDouble()).isEqualTo(45.549);
-        assertThat(area.path("lng").asDouble()).isEqualTo(-73.577);
-        assertThat(area.path("radiusKm").asInt()).isEqualTo(10);
+        JsonNode location = sections.path("location");
+        assertThat(location.path("countryCode").asString()).isEqualTo("CA");
+        assertThat(location.path("subdivisionCode").asString()).isEqualTo("CA-ON");
+        assertThat(location.path("city").asString()).isEqualTo("Ottawa");
 
         assertThat(text)
                 .doesNotContain("providerUid")
                 .doesNotContain("provider_uid")
                 .doesNotContain("homePoint")
                 .doesNotContain("home_point")
-                .doesNotContain("45.54918");
+                .doesNotContain("tradingArea")
+                .doesNotContain("publicPoint");
     }
 
     @Test
     void exportWithoutModuleDataAndAnonymousAccess() {
         String uid = uniqueUid("export-empty");
-        provisionCompliant(uid);
+        provisionCompliantWithoutLocation(uid);
         JsonNode export = callJson(HttpMethod.GET, "/api/v1/me/export", uid, null, 200);
         assertThat(export.path("sections").path("account").path("handle").asString()).isNotBlank();
         assertThat(

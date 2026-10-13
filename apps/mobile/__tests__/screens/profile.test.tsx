@@ -29,15 +29,14 @@ describe('Profile tab', () => {
     );
     expect(screen.getByText('Pokémon')).toBeOnTheScreen();
     expect(screen.getByText('Local pickup')).toBeOnTheScreen();
-    expect(await screen.findByTestId('profile-area')).toHaveTextContent(
-      'Ville-Marie, Montréal · 10 km radius'
-    );
+    // The owner sees their own city (shown on the profile) and the state, never a radius.
+    expect(await screen.findByTestId('profile-area')).toHaveTextContent('Montréal, Quebec, Canada');
     expect(screen.getByTestId('profile-visibility')).toHaveTextContent('Hidden from the map.');
     // Never coordinates.
     expect(screen.queryByText(/45\.5|73\.5/)).toBeNull();
   });
 
-  it('says when the collector is visible on the map, and when there is no area yet', async () => {
+  it('says when the collector is visible on the map, and when there is no location yet', async () => {
     mockApi(
       signedInRoutes({ 'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })) })
     );
@@ -46,14 +45,14 @@ describe('Profile tab', () => {
     });
     await waitFor(() =>
       expect(screen.getByTestId('profile-visibility')).toHaveTextContent(
-        'Visible on the map at an approximate position.'
+        'Visible on the map in Quebec, Canada.'
       )
     );
     unmount();
 
     mockApi(signedInRoutes({ 'GET /api/v1/me/location': ok({ discoverable: true }) }));
     renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByTestId('profile-area')).toHaveTextContent('No trading area yet.');
+    expect(await screen.findByTestId('profile-area')).toHaveTextContent('No location yet.');
     expect(screen.getByTestId('profile-visibility')).toHaveTextContent('Hidden from the map.');
   });
 

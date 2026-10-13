@@ -197,9 +197,10 @@ public class AdRepository {
         return jdbc.sql(
                                 """
                                 INSERT INTO ad_impression (serve_id, creative_id, campaign_id,
-                                    placement_key, user_hash, geo_cell, created_at)
+                                    placement_key, user_hash, region_code, subdivision_code,
+                                    created_at)
                                 VALUES (:serveId, :creativeId, :campaignId, :placement, :hash,
-                                    :cell, :at)
+                                    :region, :subdivision, :at)
                                 ON CONFLICT (serve_id) DO NOTHING
                                 """)
                         .param("serveId", delivery.serveId())
@@ -207,7 +208,8 @@ public class AdRepository {
                         .param("campaignId", campaignId)
                         .param("placement", delivery.placement().name())
                         .param("hash", delivery.userHash(), Types.VARCHAR)
-                        .param("cell", delivery.geoCell(), Types.VARCHAR)
+                        .param("region", delivery.regionCode(), Types.VARCHAR)
+                        .param("subdivision", delivery.subdivisionCode(), Types.VARCHAR)
                         .param("at", Timestamp.from(delivery.at()))
                         .update()
                 > 0;
@@ -218,10 +220,11 @@ public class AdRepository {
         return jdbc.sql(
                                 """
                                 INSERT INTO ad_click (serve_id, creative_id, campaign_id,
-                                    impression_id, placement_key, user_hash, geo_cell, created_at)
+                                    impression_id, placement_key, user_hash, region_code,
+                                    subdivision_code, created_at)
                                 VALUES (:serveId, :creativeId, :campaignId,
                                     (SELECT id FROM ad_impression WHERE serve_id = :serveId),
-                                    :placement, :hash, :cell, :at)
+                                    :placement, :hash, :region, :subdivision, :at)
                                 ON CONFLICT (serve_id) DO NOTHING
                                 """)
                         .param("serveId", delivery.serveId())
@@ -229,7 +232,8 @@ public class AdRepository {
                         .param("campaignId", campaignId)
                         .param("placement", delivery.placement().name())
                         .param("hash", delivery.userHash(), Types.VARCHAR)
-                        .param("cell", delivery.geoCell(), Types.VARCHAR)
+                        .param("region", delivery.regionCode(), Types.VARCHAR)
+                        .param("subdivision", delivery.subdivisionCode(), Types.VARCHAR)
                         .param("at", Timestamp.from(delivery.at()))
                         .update()
                 > 0;

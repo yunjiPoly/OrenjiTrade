@@ -24,18 +24,14 @@ export interface SearchRequestParams {
     q: string;
     types?: Array<string>;
     game?: string;
-    lat?: number;
-    lng?: number;
-    radiusKm?: number;
+    region?: string;
     limit?: number;
 }
 
 export interface SearchCardHoldersRequestParams {
     printingId?: string;
     cardId?: string;
-    lat?: number;
-    lng?: number;
-    radiusKm?: number;
+    region?: string;
     availability?: 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'ACCEPTS_OFFERS';
     condition?: string;
     minPrice?: number;
@@ -44,7 +40,7 @@ export interface SearchCardHoldersRequestParams {
     edition?: string;
     language?: string;
     acceptsOffers?: boolean;
-    sort?: 'distance' | 'price' | 'freshness';
+    sort?: 'freshness' | 'price';
     page?: number;
     size?: number;
 }
@@ -52,8 +48,7 @@ export interface SearchCardHoldersRequestParams {
 export interface SuggestSearchRequestParams {
     q: string;
     game?: string;
-    lat?: number;
-    lng?: number;
+    region?: string;
     limit?: number;
 }
 
@@ -64,15 +59,15 @@ export interface SearchServiceInterface {
 
     /**
      * Unified search (auth optional)
-     * Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most &#x60;limit&#x60; per section (&#x60;types&#x60; narrows the sections). When &#x60;q&#x60; designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), &#x60;resolved&#x60; is set and &#x60;collectors&#x60; lists the holders of it with &#x60;matchingItems&#x60; (nearby when a centre is known: &#x60;lat&#x60;/&#x60;lng&#x60; or the signed-in caller\&#39;s trading area); otherwise collectors matching the text. Binders carry their owner block. &#x60;radiusKm&#x60; beyond the plan cap → 429 LIMIT_REACHED. Emits the analytics events search_performed / search_no_results.
+     * Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most &#x60;limit&#x60; per section (&#x60;types&#x60; narrows the sections). When &#x60;q&#x60; designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), &#x60;resolved&#x60; is set and &#x60;collectors&#x60; lists the holders of it with &#x60;matchingItems&#x60;; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.
      * @endpoint get /api/v1/search
 * @param requestParameters
      */
     search(requestParameters: SearchRequestParams, extraHttpRequestParams?: any): Observable<UnifiedSearchResponse>;
 
     /**
-     * Collectors near you holding a card (auth optional)
-     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by collectors on the map within &#x60;radiusKm&#x60; of the centre (&#x60;lat&#x60;/&#x60;lng&#x60;, else the signed-in caller\&#39;s trading area; required when signed out). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: distance (default), price, freshness. Each row pairs the holder\&#39;s marker with the public item.
+     * Collectors of a region holding a card (auth optional)
+     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.
      * @endpoint get /api/v1/search/card-holders
 * @param requestParameters
      */
@@ -80,7 +75,7 @@ export interface SearchServiceInterface {
 
     /**
      * Mixed autocomplete (auth optional)
-     * Printing codes and cards, collectors on the map who allow name search (closest first when &#x60;lat&#x60;/&#x60;lng&#x60; or the caller\&#39;s trading area is known), sets, public binders and tags, interleaved one per kind until &#x60;limit&#x60;. COLLECTOR entries carry the handle in &#x60;slug&#x60;, TAG entries the tag slug, PRINTING entries their &#x60;cardId&#x60;.
+     * Printing codes and cards, discoverable collectors of &#x60;region&#x60; who allow name search, sets, public binders of the region and tags, interleaved one per kind until &#x60;limit&#x60;. COLLECTOR entries carry the handle in &#x60;slug&#x60;, TAG entries the tag slug, PRINTING entries their &#x60;cardId&#x60;.
      * @endpoint get /api/v1/search/suggest
 * @param requestParameters
      */

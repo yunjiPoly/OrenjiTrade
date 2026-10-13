@@ -2,6 +2,7 @@ package com.orenjitrade.api.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,13 +13,14 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code GET /search/card-holders}: holders of a printing or card near a centre, with every filter
- * of the contract, the three sorts, pagination, exclusions (outside the radius, not discoverable,
- * stale items, the caller's own items) and validation.
+ * {@code GET /search/card-holders}: holders of a printing or card among the discoverable collectors
+ * of a platform region (ADR 0017), with every filter of the contract, the two sorts, pagination,
+ * exclusions (another region, not discoverable, no location, stale items, the caller's own items)
+ * and validation. Holders show their state/province and country, never a distance or a city.
  */
 class CardHoldersIT extends AbstractSearchIT {
 
-    private Centre centre;
+    private IsolatedCard card;
     private UUID printingId;
     private UUID frenchPrintingId;
     private UUID cardId;
@@ -33,12 +35,12 @@ class CardHoldersIT extends AbstractSearchIT {
 
     @BeforeEach
     void holders() {
-        centre = randomCentre();
-        printingId = printing("pkm-p001a"); // SVX-001 English
-        frenchPrintingId = printing("pkm-p001b"); // SVX-001 French, same card
-        cardId = cardOf(printingId);
+        card = isolatedPrinting("pkm-p001a"); // a private clone of SVX-001 English
+        printingId = card.printingId();
+        frenchPrintingId = siblingPrinting(card, "pkm-p001b", "fr");
+        cardId = card.cardId();
 
-        near = collector("hold-near", centre.offset(3, 0));
+        near = collector("hold-near", "CA", "CA-QC");
         nearItem =
                 publicItem(
                         near,
@@ -54,7 +56,7 @@ class CardHoldersIT extends AbstractSearchIT {
                                 "NEAR_MINT",
                                 "notes",
                                 "private-holder-note"));
-        aging = collector("hold-aging", centre.offset(13.5, 0));
+        aging = collector("hold-aging", "US", "US-NY");
         agingItem =
                 publicItem(
                         aging,
@@ -67,27 +69,27 @@ class CardHoldersIT extends AbstractSearchIT {
                                 "condition",
                                 "LIGHTLY_PLAYED"));
         freshness(agingItem, "AGING", 20);
-        french = collector("hold-fr", centre.offset(0, 6.5));
+        french = collector("hold-fr", "MX", "MX-JAL");
         frenchItem = publicItem(french, frenchPrintingId, Map.of("availability", "TRADE"));
-        middle = collector("hold-mid", centre.offset(-10, 0));
+        middle = collector("hold-mid", "CA", "CA-ON");
         middleItem =
                 publicItem(
                         middle,
                         printingId,
                         Map.of("availability", "TRADE_OR_SALE", "condition", "NEAR_MINT"));
 
-        Collector far = collector("hold-far", centre.offset(35, 0));
-        publicItem(far, printingId, Map.of("availability", "SALE"));
-        Collector hidden = collector("hold-hidden", centre.offset(1, 0), false, "PUBLIC");
+        Collector otherRegion = collector("hold-eu", "FR", "FR-IDF");
+        publicItem(otherRegion, printingId, Map.of("availability", "SALE"));
+        Collector hidden = collector("hold-hidden", "CA", "CA-QC", false, "PUBLIC");
         publicItem(hidden, printingId, Map.of("availability", "SALE"));
-        Collector stale = collector("hold-stale", centre.offset(1, 1));
+        Collector stale = collector("hold-stale", "CA", "CA-QC");
         freshness(publicItem(stale, printingId, Map.of("availability", "SALE")), "STALE", 35);
     }
 
     private JsonNode holders(String uid, String query) {
         return callJson(
                 HttpMethod.GET,
-                "/api/v1/search/card-holders?" + centre.query() + "&radiusKm=20&" + query,
+                "/api/v1/search/card-holders?region=americas-north&" + query,
                 uid,
                 null,
                 200);
@@ -100,58 +102,114 @@ class CardHoldersIT extends AbstractSearchIT {
     }
 
     @Test
-    void holdersOfAPrintingSortedByDistancePriceAndFreshness() {
-        JsonNode byDistance = holders(null, "printingId=" + printingId);
-        assertThat(itemIds(byDistance)).containsExactly(nearItem, middleItem, agingItem);
-        assertThat(byDistance.path("totalItems").asLong()).isEqualTo(3);
-        JsonNode first = byDistance.path("items").get(0);
-        assertThat(first.path("collector").path("handle").asString()).isEqualTo(near.handle());
-        double[] point = publicPoint(near.id());
-        assertThat(first.path("collector").path("publicPoint").path("lat").asDouble())
-                .isEqualTo(point[0]);
-        assertThat(first.path("collector").path("publicPoint").path("lng").asDouble())
-                .isEqualTo(point[1]);
-        assertThat(first.path("collector").path("distanceBucket").isNull())
-                .as("signed-out callers get no distance buckets")
-                .isTrue();
-        assertThat(first.path("collector").path("matchingItems").isEmpty()).isTrue();
-        assertThat(first.path("item").path("printing").path("id").asString())
+    void holdersOfAPrintingInTheRegionSortedByFreshnessAndPrice() {
+        JsonNode byFreshness = holders(null, "printingId=" + printingId);
+        assertThat(itemIds(byFreshness))
+                .as("default sort: freshest listing first (ACTIVE newest first, AGING last)")
+                .containsExactly(middleItem, nearItem, agingItem);
+        assertThat(byFreshness.path("totalItems").asLong()).isEqualTo(3);
+        JsonNode nearRow = byFreshness.path("items").get(1);
+        JsonNode holder = nearRow.path("collector");
+        assertThat(holder.path("handle").asString()).isEqualTo(near.handle());
+        assertThat(holder.path("place").path("subdivisionCode").asString()).isEqualTo("CA-QC");
+        assertThat(holder.path("place").path("label").asString()).isEqualTo("Quebec, Canada");
+        assertThat(holder.path("place").path("regionCode").asString()).isEqualTo("americas-north");
+        assertThat(holder.has("publicPoint")).isFalse();
+        assertThat(holder.has("distanceBucket")).isFalse();
+        assertThat(holder.path("place").has("city")).isFalse();
+        assertThat(holder.path("matchingItems").isEmpty()).isTrue();
+        assertThat(nearRow.path("item").path("printing").path("id").asString())
                 .isEqualTo(printingId.toString());
-        assertThat(first.path("item").path("askingPrice").decimalValue())
+        assertThat(nearRow.path("item").path("askingPrice").decimalValue())
                 .isEqualByComparingTo("10");
-        assertThat(first.path("item").has("notes")).isFalse();
-        assertThat(byDistance.toString()).doesNotContain("private-holder-note");
+        assertThat(nearRow.path("item").has("notes")).isFalse();
+        assertThat(byFreshness.toString()).doesNotContain("private-holder-note");
 
         assertThat(itemIds(holders(null, "printingId=" + printingId + "&sort=price")))
                 .as("cheapest first, items without a price last")
                 .containsExactly(nearItem, agingItem, middleItem);
         assertThat(itemIds(holders(null, "printingId=" + printingId + "&sort=FRESHNESS")))
-                .as("most recently confirmed ACTIVE first, AGING last")
                 .containsExactly(middleItem, nearItem, agingItem);
 
         JsonNode page = holders(null, "printingId=" + printingId + "&size=1&page=1");
-        assertThat(itemIds(page)).containsExactly(middleItem);
+        assertThat(itemIds(page)).containsExactly(nearItem);
         assertThat(page.path("totalItems").asLong()).isEqualTo(3);
         assertThat(page.path("totalPages").asInt()).isEqualTo(3);
 
-        // Signed in: distance buckets.
-        String viewer = uniqueUid("hold-viewer");
-        provisionCompliant(viewer);
-        JsonNode signedIn = holders(viewer, "printingId=" + printingId);
+        // Another region: only the European holder.
+        JsonNode europe =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/search/card-holders?region=europe&printingId=" + printingId,
+                        null,
+                        null,
+                        200);
+        assertThat(europe.path("totalItems").asLong()).isEqualTo(1);
         assertThat(
-                        signedIn.path("items")
+                        europe.path("items")
                                 .get(0)
                                 .path("collector")
-                                .path("distanceBucket")
+                                .path("place")
+                                .path("label")
                                 .asString())
-                .isEqualTo("KM_1_5");
+                .isEqualTo("Île-de-France, France");
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/search/card-holders?region=americas-south"
+                                                + "&printingId="
+                                                + printingId,
+                                        null,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isZero();
+    }
+
+    @Test
+    void withoutARegionTheCallersHomeRegionOrTheDefaultApplies() {
+        // Signed out: the default region (americas-north).
+        JsonNode anonymous =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/search/card-holders?printingId=" + printingId,
+                        null,
+                        null,
+                        200);
+        assertThat(anonymous.path("totalItems").asLong()).isEqualTo(3);
+        // Signed in from Europe: their home region.
+        String european = uniqueUid("hold-eu-viewer");
+        provisionCompliantWithoutLocation(european);
+        setLocation(european, "DE", "DE-BE", "Berlin");
+        JsonNode home =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/search/card-holders?printingId=" + printingId,
+                        european,
+                        null,
+                        200);
+        assertThat(home.path("totalItems").asLong()).isEqualTo(1);
+        // Signed in without a location: the default region.
+        String noLocation = uniqueUid("hold-noloc");
+        provisionCompliantWithoutLocation(noLocation);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/search/card-holders?printingId=" + printingId,
+                                        noLocation,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isEqualTo(3);
     }
 
     @Test
     void everyFilterNarrowsTheHolders() {
         String base = "printingId=" + printingId;
         assertThat(itemIds(holders(null, base + "&availability=SALE")))
-                .containsExactly(nearItem, middleItem);
+                .containsExactly(middleItem, nearItem);
         assertThat(itemIds(holders(null, base + "&availability=TRADE")))
                 .containsExactly(middleItem, agingItem);
         assertThat(itemIds(holders(null, base + "&availability=ACCEPTS_OFFERS")))
@@ -160,20 +218,20 @@ class CardHoldersIT extends AbstractSearchIT {
         assertThat(itemIds(holders(null, base + "&acceptsOffers=false")))
                 .containsExactly(middleItem, agingItem);
         assertThat(itemIds(holders(null, base + "&condition=near_mint")))
-                .containsExactly(nearItem, middleItem);
+                .containsExactly(middleItem, nearItem);
         assertThat(itemIds(holders(null, base + "&minPrice=5&maxPrice=20")))
                 .containsExactly(nearItem);
         assertThat(itemIds(holders(null, base + "&minPrice=20"))).containsExactly(agingItem);
         assertThat(itemIds(holders(null, base + "&freshness=AGING"))).containsExactly(agingItem);
         assertThat(itemIds(holders(null, base + "&language=en")))
-                .containsExactly(nearItem, middleItem, agingItem);
+                .containsExactly(middleItem, nearItem, agingItem);
         assertThat(itemIds(holders(null, base + "&edition=UNLIMITED")))
-                .containsExactly(nearItem, middleItem, agingItem);
+                .containsExactly(middleItem, nearItem, agingItem);
         assertThat(itemIds(holders(null, base + "&edition=FIRST_EDITION"))).isEmpty();
 
         // By card: every printing of it.
         assertThat(itemIds(holders(null, "cardId=" + cardId)))
-                .containsExactly(nearItem, frenchItem, middleItem, agingItem);
+                .containsExactlyInAnyOrder(nearItem, frenchItem, middleItem, agingItem);
         assertThat(itemIds(holders(null, "cardId=" + cardId + "&language=fr")))
                 .containsExactly(frenchItem);
         assertThat(handles(holders(null, "cardId=" + cardId + "&language=fr")))
@@ -192,8 +250,20 @@ class CardHoldersIT extends AbstractSearchIT {
     }
 
     @Test
-    void validationAndLimits() {
-        String path = "/api/v1/search/card-holders?" + centre.query();
+    void aCollectorWhoRemovesTheirLocationLeavesTheLists() {
+        callJson(HttpMethod.DELETE, "/api/v1/me/location", middle.uid(), null, 204);
+        assertThat(itemIds(holders(null, "printingId=" + printingId)))
+                .containsExactly(nearItem, agingItem);
+        JsonNode privacy =
+                callJson(HttpMethod.GET, "/api/v1/me/settings/privacy", middle.uid(), null, 200);
+        assertThat(privacy.path("discoverable").asBoolean())
+                .as("no location, no discoverability")
+                .isFalse();
+    }
+
+    @Test
+    void validation() {
+        String path = "/api/v1/search/card-holders?region=americas-north";
         callJson(HttpMethod.GET, path, null, null, 400);
         callJson(
                 HttpMethod.GET,
@@ -216,7 +286,7 @@ class CardHoldersIT extends AbstractSearchIT {
                 400);
         callJson(
                 HttpMethod.GET,
-                path + "&printingId=" + printingId + "&sort=rating",
+                path + "&printingId=" + printingId + "&sort=distance",
                 null,
                 null,
                 400);
@@ -239,21 +309,21 @@ class CardHoldersIT extends AbstractSearchIT {
                 null,
                 400);
         callJson(HttpMethod.GET, path + "&printingId=" + printingId + "&size=101", null, null, 400);
-        // Signed-out callers must give a centre.
-        callJson(
-                HttpMethod.GET,
-                "/api/v1/search/card-holders?printingId=" + printingId,
-                null,
-                null,
-                400);
-        JsonNode limit =
+        JsonNode unknownRegion =
                 callJson(
                         HttpMethod.GET,
-                        path + "&printingId=" + printingId + "&radiusKm=26",
+                        "/api/v1/search/card-holders?region=asia&printingId=" + printingId,
                         null,
                         null,
-                        429);
-        assertThat(limit.path("limitKey").asString()).isEqualTo("map.radius.max_km");
+                        400);
+        assertThat(unknownRegion.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
+        assertThat(unknownRegion.toString()).contains("region");
+        // Coordinates and radii are not parameters any more: ignored, never an error or a filter.
+        assertThat(
+                        holders(null, "printingId=" + printingId + "&lat=45.5&lng=-73.6&radiusKm=1")
+                                .path("totalItems")
+                                .asLong())
+                .isEqualTo(3);
         // Unknown printing: an empty page.
         assertThat(holders(null, "printingId=" + UUID.randomUUID()).path("totalItems").asLong())
                 .isZero();

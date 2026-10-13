@@ -3,13 +3,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { OfferParty } from '@orenji/api-client';
 import { ratingLabel } from '../discovery/discovery-labels';
-import { distanceBucketLabel } from '../domain/location-labels';
 import { StarRatingComponent } from '../ratings/star-rating.component';
 import { AvatarComponent } from '../ui/avatar/avatar.component';
 
 /**
- * One party of an offer or a trade: avatar, name (links to the profile), role, approximate place
- * (region label and distance bucket only, ADR 0004) and rating summary.
+ * One party of an offer or a trade: avatar, name (links to the profile), role, state/province
+ * and country (never a city, ADR 0017) and rating summary.
  */
 @Component({
   selector: 'app-offer-party-card',
@@ -26,13 +25,10 @@ import { AvatarComponent } from '../ui/avatar/avatar.component';
           }
         </p>
         <a class="party__name" [routerLink]="['/collectors', p.handle]">{{ p.displayName }}</a>
-        @if (p.location; as location) {
+        @if (p.place; as place) {
           <p class="party__place">
             <mat-icon aria-hidden="true">location_on</mat-icon>
-            {{ location.publicLabel }}
-            @if (distance(); as distance) {
-              · {{ distance }}
-            }
+            {{ place.label }}
           </p>
         }
         <p class="party__rating">
@@ -108,8 +104,5 @@ export class OfferPartyCardComponent {
   readonly role = input('Collector');
   readonly isYou = input(false);
 
-  protected readonly distance = computed(() =>
-    distanceBucketLabel(this.party().location?.distanceBucket),
-  );
   protected readonly rating = computed(() => ratingLabel(this.party().rating));
 }

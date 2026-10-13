@@ -18,11 +18,10 @@ import { CommunityStore } from './community.store';
 const CHANNELS: CommunityChannel[] = [
   {
     id: '1',
-    slug: 'montreal-pokemon',
-    name: 'Montréal / Pokémon',
+    slug: 'americas-north',
+    name: 'Americas (North)',
     kind: Kind.Region,
-    game: 'pokemon',
-    regionLabel: 'Montréal',
+    regionLabel: 'americas-north',
     description: '',
     postCount24h: 1,
   },
@@ -43,7 +42,7 @@ function post(
 ): PostResponse {
   return {
     id,
-    channelSlug: 'montreal-pokemon',
+    channelSlug: 'americas-north',
     author: { id: authorId, handle: authorId, displayName: authorId },
     body: `Post ${id}`,
     payload: {},
@@ -115,6 +114,7 @@ describe('CommunityStore', () => {
           provide: SessionService,
           useValue: {
             me: signal({ id: 'me' }),
+            status: signal('ready'),
             isModerator: computed(() => roles().includes('MODERATOR')),
             isAdmin: computed(() => roles().includes('ADMIN')),
           },
@@ -122,13 +122,13 @@ describe('CommunityStore', () => {
       ],
     });
     store = TestBed.inject(CommunityStore);
-    expect(await store.loadChannels()).toBe('montreal-pokemon');
-    store.select('montreal-pokemon');
+    expect(await store.loadChannels()).toBe('americas-north');
+    store.select('americas-north');
   });
 
   it('loads the channels and the selected channel feed', async () => {
     expect(store.channelsStatus()).toBe('ready');
-    expect(store.channel()?.name).toBe('Montréal / Pokémon');
+    expect(store.channel()?.name).toBe('Americas (North)');
     expect(store.postsStatus()).toBe('ready');
     expect(store.posts().map((p) => p.id)).toEqual(['p1', 'p2']);
     await store.loadMore();

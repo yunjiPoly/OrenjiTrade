@@ -14,13 +14,9 @@
  */
 export interface PrivacySettings { 
     /**
-     * Appear on the map / in nearby searches (default false)
+     * Appear in region search, card holder lists and the state binder lists of the map (default false); needs a country and a state/province, 409 LOCATION_REQUIRED otherwise
      */
     discoverable: boolean;
-    /**
-     * Default true
-     */
-    showDistance: boolean;
     /**
      * Default false
      */

@@ -12,7 +12,7 @@ import {
   openInApp,
   openTab,
   printingIdOf,
-  randomRuralArea,
+  PLACES,
   requireStack,
   screen,
   signInThroughUi,
@@ -51,9 +51,9 @@ test.describe('mobile offers and trades', () => {
     request,
   }) => {
     test.setTimeout(240_000);
-    // Public binders are shown for discoverable owners with a trading area.
+    // Public binders are shown for discoverable owners with a location.
     const ben = await createOnboardedCollector(request, 'offs', `Ben Seller ${suffix()}`, {
-      area: { ...randomRuralArea(), radiusKm: 5 },
+      location: PLACES.wyoming,
       discoverable: true,
     });
     const ada = await createOnboardedCollector(request, 'offb', `Ada Buyer ${suffix()}`);
@@ -213,7 +213,7 @@ test.describe('mobile offers and trades', () => {
   }) => {
     test.setTimeout(180_000);
     const ada = await createOnboardedCollector(request, 'offr', `Ada Receiver ${suffix()}`, {
-      area: { ...randomRuralArea(), radiusKm: 5 },
+      location: PLACES.wyoming,
       discoverable: true,
     });
     const ben = await createOnboardedCollector(request, 'offo', `Ben Offerer ${suffix()}`);

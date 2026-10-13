@@ -5,7 +5,7 @@ import {
   apiPublishBinder,
   apiUpdatePrivacy,
   printingIdOf,
-  tooPrecise,
+  coordinateLeaks,
   watchCoordinates,
 } from './support/inventory';
 import {
@@ -46,7 +46,7 @@ test.describe('admin console moderation sections', () => {
     test.setTimeout(180_000);
     const seller = await createOnboardedCollector(request, 'paused', {
       displayName: `Pia Paused ${suffix()}`,
-      tradingArea: true,
+      location: true,
     });
     await apiUpdatePrivacy(request, seller.idToken, { discoverable: true });
     const binder = await apiCreateBinder(request, seller.idToken, {
@@ -208,7 +208,7 @@ test.describe('admin console moderation sections', () => {
       await expect(entries.getByText(`@${admin.handle}`).first()).toBeVisible();
 
       await watcher.settle();
-      expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+      expect(coordinateLeaks(watcher.samples), 'lat/lng in a JSON answer').toEqual([]);
       await page.context().close();
     } finally {
       await admin.demote();

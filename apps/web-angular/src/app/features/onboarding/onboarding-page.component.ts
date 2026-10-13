@@ -25,13 +25,13 @@ import {
   AgeConfirmationCheckboxComponent,
 } from '../../shared/legal/age-confirmation-checkbox.component';
 import { LegalDocumentsStore } from '../auth/data/legal-documents.store';
-import { DEFAULT_RADIUS_KM, DEFAULT_TRADING_CENTER } from '../../shared/location/city-presets';
-import { MyLocationStore } from '../../shared/location/my-location.store';
+import { LocationFieldsComponent } from '../../shared/location/location-fields/location-fields.component';
 import {
-  TradingAreaPickerComponent,
-  TradingAreaSource,
-  TradingAreaValue,
-} from '../../shared/location/trading-area-picker/trading-area-picker.component';
+  LocationDraft,
+  MyLocationStore,
+  draftOf,
+  isCompleteDraft,
+} from '../../shared/location/my-location.store';
 import { GamePickerComponent } from '../../shared/profile/game-picker/game-picker.component';
 import { LanguagePickerComponent } from '../../shared/profile/language-picker/language-picker.component';
 import { MyProfileStore, splitTags } from '../../shared/profile/my-profile.store';
@@ -46,13 +46,13 @@ import { TagPickerComponent } from '../../shared/profile/tag-picker/tag-picker.c
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 
-type Busy = 'age' | 'profile' | 'interests' | 'area' | null;
+type Busy = 'age' | 'profile' | 'interests' | 'location' | null;
 
 /**
  * `/onboarding`: the steps after sign-up — the 18+ confirmation when the account has none yet
  * (existing accounts included; recorded with `POST /me/consents`), profile (handle, name, bio),
- * interests (games, languages, tags) and trading area (map picker + discoverability). Finishing
- * goes to the map. An account that only misses the confirmation is done right after it.
+ * interests (games, languages, tags) and "Where are you?" (country, state/province, optional city
+ * and discoverability; ADR 0017). Finishing goes to the map. An account that only misses the confirmation is done right after it.
  */
 @Component({
   selector: 'app-onboarding-page',
@@ -69,7 +69,7 @@ type Busy = 'age' | 'profile' | 'interests' | 'area' | null;
     GamePickerComponent,
     LanguagePickerComponent,
     TagPickerComponent,
-    TradingAreaPickerComponent,
+    LocationFieldsComponent,
     ErrorStateComponent,
     SkeletonComponent,
   ],
@@ -94,11 +94,8 @@ export class OnboardingPageComponent {
   protected readonly languages = signal<string[]>([]);
   protected readonly tags = signal<TagResponse[]>([]);
   protected readonly customTags = signal<string[]>([]);
-  protected readonly area = signal<TradingAreaValue>({
-    ...DEFAULT_TRADING_CENTER,
-    radiusKm: DEFAULT_RADIUS_KM,
-    source: 'MANUAL',
-  });
+  protected readonly location = signal<LocationDraft | null>(null);
+  protected readonly locationSubmitted = signal(false);
   protected readonly discoverable = signal(false);
   /** Unticked by default; the API records the confirmation (`AGE_CONFIRMATION`). */
   protected readonly ageConfirmed = this.fb.control(false, {
@@ -150,15 +147,7 @@ export class OnboardingPageComponent {
     this.ageStep.set(!ageConfirmed);
     this.profileDone.set(!!onboarding?.profileComplete);
     this.interestsDone.set(!!onboarding?.interestsSet);
-    const saved = this.locations.location()?.tradingArea;
-    if (saved) {
-      this.area.set({
-        lat: saved.lat,
-        lng: saved.lng,
-        radiusKm: saved.radiusKm,
-        source: saved.source as TradingAreaSource,
-      });
-    }
+    this.location.set(draftOf(this.locations.location()));
     this.discoverable.set(this.locations.privacy()?.discoverable ?? false);
     this.loading.set(false);
   }
@@ -221,10 +210,15 @@ export class OnboardingPageComponent {
     });
   }
 
-  protected async finish(saveArea: boolean): Promise<void> {
-    await this.run('area', async () => {
-      if (saveArea) {
-        await this.locations.saveTradingArea(this.area());
+  protected async finish(saveLocation: boolean): Promise<void> {
+    const draft = this.location();
+    if (saveLocation && !isCompleteDraft(draft)) {
+      this.locationSubmitted.set(true);
+      return;
+    }
+    await this.run('location', async () => {
+      if (saveLocation && isCompleteDraft(draft)) {
+        await this.locations.saveLocation(draft);
         const privacy = this.locations.privacy();
         if (privacy && privacy.discoverable !== this.discoverable()) {
           await this.locations.savePrivacy({ ...privacy, discoverable: this.discoverable() });

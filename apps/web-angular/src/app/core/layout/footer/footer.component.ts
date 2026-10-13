@@ -26,7 +26,7 @@ const ACCOUNT_PAGE = /^\/auth(\/|\?|#|$)/;
       <div class="footer__inner">
         <div class="footer__brand">
           <app-wordmark link="false" size="sm" />
-          <p class="footer__tagline">Who near me has this card?</p>
+          <p class="footer__tagline">Who in my region has this card?</p>
         </div>
         @if (donations() || premiumPlans()) {
           <nav class="footer__links" aria-label="OrenjiTrade">

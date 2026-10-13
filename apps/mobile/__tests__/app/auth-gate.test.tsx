@@ -177,7 +177,7 @@ describe('auth gate: the 18+ confirmation (launch readiness)', () => {
           onboarding: {
             profileComplete: true,
             interestsSet: true,
-            tradingAreaSet: true,
+            locationSet: true,
             ageConfirmed: false,
           },
         })
@@ -198,7 +198,7 @@ describe('auth gate: the 18+ confirmation (launch readiness)', () => {
             onboarding: {
               profileComplete: true,
               interestsSet: true,
-              tradingAreaSet: true,
+              locationSet: true,
               ageConfirmed: false,
             },
           })

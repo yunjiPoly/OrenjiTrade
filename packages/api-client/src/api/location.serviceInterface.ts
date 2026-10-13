@@ -13,14 +13,14 @@ import { Observable }                                        from 'rxjs';
 
 import { MyLocationResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
-import { UpdateTradingAreaRequest } from '../model/models';
+import { UpdateLocationRequest } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
 
 
-export interface UpdateMyTradingAreaRequestParams {
-    updateTradingAreaRequest: UpdateTradingAreaRequest;
+export interface UpdateMyLocationRequestParams {
+    updateLocationRequest: UpdateLocationRequest;
 }
 
 
@@ -30,24 +30,24 @@ export interface LocationServiceInterface {
 
     /**
      * Remove the caller\&#39;s location
-     * Deletes every location row; the collector disappears from the map.
+     * Deletes the location; discoverability is turned off with it (it needs a country and a state/province).
      * @endpoint delete /api/v1/me/location
 */
     deleteMyLocation(extraHttpRequestParams?: any): Observable<{}>;
 
     /**
-     * The caller\&#39;s trading area and public point
-     * The only endpoint that returns the caller\&#39;s chosen centre. &#x60;publicPoint&#x60; is what other collectors see and is null while not discoverable.
+     * The caller\&#39;s location
+     * Country, state/province, optional city and the show-city switch. &#x60;location&#x60; is null while none is set (the caller cannot be discoverable then).
      * @endpoint get /api/v1/me/location
 */
     getMyLocation(extraHttpRequestParams?: any): Observable<MyLocationResponse>;
 
     /**
-     * Set the caller\&#39;s trading area
-     * Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km grid cell and offsets it with a deterministic per-user jitter to derive &#x60;publicPoint&#x60; (3 decimals) and its region label.
-     * @endpoint put /api/v1/me/location/trading-area
+     * Set the caller\&#39;s location
+     * &#x60;countryCode&#x60; must be an active country and &#x60;subdivisionCode&#x60; one of its subdivisions (&#x60;GET /regions&#x60;); unknown codes are 400 VALIDATION_FAILED. &#x60;city&#x60; is optional free text (trimmed, at most 80 characters, moderated, never geocoded) shown only on the caller\&#39;s own public profile while &#x60;showCity&#x60; is true (default). Everywhere else other collectors see the state/province and the country only.
+     * @endpoint put /api/v1/me/location
 * @param requestParameters
      */
-    updateMyTradingArea(requestParameters: UpdateMyTradingAreaRequestParams, extraHttpRequestParams?: any): Observable<MyLocationResponse>;
+    updateMyLocation(requestParameters: UpdateMyLocationRequestParams, extraHttpRequestParams?: any): Observable<MyLocationResponse>;
 
 }

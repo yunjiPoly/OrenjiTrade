@@ -10,7 +10,7 @@ import {
   openInApp,
   openTab,
   printingIdOf,
-  randomRuralArea,
+  PLACES,
   requireStack,
   screen,
   signInThroughUi,
@@ -92,7 +92,7 @@ async function sellerWithCard(
   { payouts }: { payouts: boolean }
 ): Promise<{ seller: OnboardedCollector; binderId: string; itemId: string; card: string }> {
   const seller = await createOnboardedCollector(api, prefix, name, {
-    area: { ...randomRuralArea(), radiusKm: 5 },
+    location: PLACES.wyoming,
     discoverable: true,
   });
   if (payouts) {

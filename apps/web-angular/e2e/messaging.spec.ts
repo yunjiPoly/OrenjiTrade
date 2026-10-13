@@ -1,5 +1,12 @@
 import { APIRequestContext, Browser, Page, expect, test } from '@playwright/test';
-import { apiUpdatePrivacy, tooPrecise, watchCoordinates } from './support/inventory';
+import {
+  apiCreateBinder,
+  apiCreateItem,
+  apiPublishBinder,
+  apiUpdatePrivacy,
+  printingIdOf,
+  watchCoordinates,
+} from './support/inventory';
 import {
   API_URL,
   OnboardedCollector,
@@ -8,41 +15,23 @@ import {
   requireStack,
   signInThroughUi,
   stubCardImages,
-  stubMapTiles,
+  forbidMapProviders,
 } from './support/stack';
 
 /**
  * Private messaging (Phase 5) against the real local stack, with two browser contexts: collector A
- * finds collector B on the map and messages them from the preview (text + a shared card); B,
+ * finds collector B's binder on the region map (B's state), opens B's profile and messages B
+ * (text + a shared card); B,
  * signed in elsewhere, sees the conversation arrive over STOMP without reloading, with its unread
  * badge; B opening it sends a read receipt that A sees as "Seen"; the typing indicator and B's
  * answer reach A live; A blocks B, after which B cannot send anything, and A unblocks B from
  * Settings → Blocked users. A second test starts a conversation from a collector profile on the
  * full-page `/messages` and sends a photo (type validation first).
  *
- * The collectors live around a random rural point of Québec so the map never clusters them with
- * the seed collectors or earlier runs. Every JSON response is checked for ADR 0004 (≤ 3 decimals).
+ * B lives in Wyoming and A in Quebec (both Americas (North)); B's binder has a unique name, so what
+ * other specs or earlier runs left in the region does not matter. No JSON response carries a
+ * coordinate (ADR 0017).
  */
-
-interface Point {
-  lat: number;
-  lng: number;
-}
-
-function randomArea(): Point {
-  const pick = (min: number, span: number) => {
-    const value = Math.round((min + Math.random() * span) * 1000);
-    return (value % 10 === 0 ? value + 3 : value) / 1000;
-  };
-  return { lat: pick(46.15, 0.7), lng: pick(-75.2, 2.2) };
-}
-
-function near(point: Point): Point {
-  return {
-    lat: Math.round((point.lat + 0.011) * 1000) / 1000,
-    lng: Math.round((point.lng - 0.014) * 1000) / 1000,
-  };
-}
 
 function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
@@ -58,28 +47,40 @@ const TEST_PNG = Buffer.from(
   'base64',
 );
 
-/** Two collectors near each other; B is discoverable on the map. */
+/** Two collectors of the same region; B is discoverable with a public binder in Wyoming. */
 async function createPair(
   api: APIRequestContext,
-): Promise<{ a: OnboardedCollector; b: OnboardedCollector }> {
-  const area = randomArea();
+): Promise<{ a: OnboardedCollector; b: OnboardedCollector; binderName: string }> {
   const b = await createOnboardedCollector(api, 'msgb', {
-    area: { ...area, radiusKm: 5 },
+    location: { countryCode: 'US', subdivisionCode: 'US-WY' },
     displayName: `Bea Receiver ${suffix()}`,
   });
   await apiUpdatePrivacy(api, b.idToken, { discoverable: true });
+  const binderName = `E2E messaging binder ${suffix()}`;
+  const binder = await apiCreateBinder(api, b.idToken, {
+    name: binderName,
+    kind: 'TRADE',
+    description: 'Fictional binder for the messaging E2E suite.',
+  });
+  await apiCreateItem(api, b.idToken, {
+    printingId: await printingIdOf(api, b.idToken, 'AZR-EN001'),
+    binderId: binder.id,
+    condition: 'NEAR_MINT',
+    availability: 'TRADE',
+  });
+  await apiPublishBinder(api, b.idToken, binder.id, 'UNTIL_DISABLED');
   const a = await createOnboardedCollector(api, 'msga', {
-    area: { ...near(area), radiusKm: 10 },
+    location: { countryCode: 'CA', subdivisionCode: 'CA-QC' },
     displayName: `Ari Sender ${suffix()}`,
   });
-  return { a, b };
+  return { a, b, binderName };
 }
 
 async function openSignedIn(browser: Browser, collector: OnboardedCollector): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
   await stubCardImages(page);
-  await stubMapTiles(page);
+  await forbidMapProviders(page);
   await signInThroughUi(page, collector.email, collector.password);
   return page;
 }
@@ -96,12 +97,12 @@ async function expectLive(page: Page): Promise<void> {
 test.describe('private messaging', () => {
   requireStack();
 
-  test('A messages B from the map; B gets it live, A sees the receipt, blocking stops messages', async ({
+  test('A finds B through the map and messages B; B gets it live, A sees the receipt, blocking stops messages', async ({
     browser,
     request,
   }) => {
     test.setTimeout(180_000);
-    const { a, b } = await createPair(request);
+    const { a, b, binderName } = await createPair(request);
 
     // B waits on the Messages page (a second browser context).
     const pageB = await openSignedIn(browser, b);
@@ -115,22 +116,21 @@ test.describe('private messaging', () => {
       () => ((window as unknown as { e2eNoReload: boolean }).e2eNoReload = true),
     );
 
-    // A finds B on the map and presses Message in the preview.
+    // A finds B's binder in Wyoming on the region map, opens B's profile and presses Message.
     const pageA = await openSignedIn(browser, a);
     const watchA = watchCoordinates(pageA);
-    await expect(pageA).toHaveURL(/\/map$/);
-    const markerB = pageA
-      .getByTestId('discovery-map')
-      .getByRole('button', { name: new RegExp(`^${escape(b.displayName)}`) });
-    await expect(markerB).toBeVisible({ timeout: 20_000 });
-    await markerB.click();
-    const preview = pageA.getByRole('dialog', { name: b.displayName });
-    await expect(preview).toBeVisible();
-    await preview.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await pageA.goto('/map?region=americas-north&subdivision=US-WY');
+    const statePanel = pageA.getByTestId('subdivision-panel');
+    await expect(statePanel.getByRole('heading', { name: 'Wyoming, United States' })).toBeVisible();
+    const binderCard = statePanel.getByRole('listitem').filter({ hasText: binderName });
+    await expect(binderCard).toBeVisible({ timeout: 20_000 });
+    await binderCard.getByRole('link', { name: new RegExp(escape(b.displayName)) }).click();
+    await expect(pageA).toHaveURL(new RegExp(`/collectors/${b.handle}$`));
+    await pageA.getByRole('button', { name: `Message ${b.displayName}` }).click();
 
-    // The Messages panel opens on the new conversation.
-    const panel = pageA.locator('#map-messages-panel');
-    const threadA = panel.getByRole('region', { name: `Conversation with ${b.displayName}` });
+    // The conversation opens full page.
+    await expect(pageA).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
+    const threadA = pageA.getByRole('region', { name: `Conversation with ${b.displayName}` });
     await expect(threadA).toBeVisible();
     await expect(
       threadA.getByRole('heading', { name: `Say hello to ${b.displayName}` }),
@@ -244,7 +244,7 @@ test.describe('private messaging', () => {
 
     for (const watcher of [watchA, watchB]) {
       await watcher.settle();
-      expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+      expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
     }
     await pageA.context().close();
     await pageB.context().close();
@@ -319,6 +319,6 @@ test.describe('private messaging', () => {
     await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+    expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
   });
 });

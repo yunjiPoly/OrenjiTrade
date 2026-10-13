@@ -2,26 +2,30 @@
 
 OrenjiTrade runs completely on a developer machine: PostgreSQL + PostGIS, Redis and the Firebase
 Authentication emulator in Docker, the Spring Boot API and the Angular web app on the host (or in
-Docker too). No Google Cloud, Firebase, Stripe, FCM, e-mail or Google Maps credentials are needed:
+Docker too). No Google Cloud, Firebase, Stripe, FCM, e-mail or map credentials are needed:
 every external provider has a local fake or log implementation that is selected by default. Cloud
 deployment is deliberately postponed, see [../deployment/DEFERRED.md](../deployment/DEFERRED.md).
 
 All commands below run from the **repository root** and work the same in PowerShell, cmd, Git
 Bash, macOS and Linux shells (they are Node scripts under `scripts/`, no extra dependencies).
 
+**Setting up a Mac from zero** (Apple Silicon, Docker Desktop or OrbStack with Rosetta for the
+amd64-only PostGIS image, Java 21, Node 24, Xcode/iOS simulator, an arm64 Android emulator, Maestro,
+and the macOS-specific notes): see [macos-setup.md](macos-setup.md).
+
 ## Prerequisites
 
 | Tool | Version | Needed for |
 | --- | --- | --- |
-| Docker Desktop (Windows/macOS) or Docker Engine + Compose v2 (Linux) | Docker 24+, `docker compose` v2 | infrastructure, API integration tests (Testcontainers), optional all-in-Docker stack |
+| Docker Desktop (Windows/macOS) or Docker Engine + Compose v2 (Linux); OrbStack also works on macOS ([macos-setup.md](macos-setup.md) 4.4) | Docker 24+, `docker compose` v2 | infrastructure, API integration tests (Testcontainers), optional all-in-Docker stack |
 | Node.js + npm | Node 24 (`.nvmrc`), npm 11 | scripts, web, mobile, shared packages |
-| JDK | 17 or newer on `PATH` | runs Gradle; Gradle downloads JDK 21 for the API build itself (foojay toolchain, into `~/.gradle/jdks`) |
+| JDK | 21 recommended, on `PATH` or as `JAVA_HOME`; a newer default JDK also works (proven with Temurin 27) | only launches `./gradlew`. Gradle runs its daemon (Spotless included) and the API build on Java 21, which it finds on the machine or downloads into `~/.gradle/jdks` (daemon JVM criteria in `apps/api/gradle/gradle-daemon-jvm.properties`, foojay toolchain). The E2E harnesses run the API jar on a Java 21 as well (`ORENJI_JAVA_HOME` overrides the choice) |
 | Git | any recent | |
 | Terraform (optional) | 1.9+ | `npm run infra:validate` only |
-| Python (optional) | 3.12+ (`python` on Windows) | `npm run test:ml` only; ML work is **on hold** |
+| Python (optional) | 3.12+ (`python` on Windows, `python3.12` on macOS and Linux: the `python3` that ships with macOS is 3.9) | `npm run test:ml` only; ML work is **on hold** |
 
-Resources: give Docker Desktop at least 4 GB of memory (6 GB+ if you run the API test suite and the
-dev stack at the same time). Disk: about 5 GB for Docker images, Gradle and npm caches, plus up to
+Resources: give Docker (Docker Desktop or OrbStack) at least 4 GB of memory (6 GB+ if you run the
+API test suite and the dev stack at the same time). Disk: about 5 GB for Docker images, Gradle and npm caches, plus up to
 5 GB for the local card image cache (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`; the full Yu-Gi-Oh! catalog
 at 320 px takes about 650 MB).
 
@@ -159,7 +163,7 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | `npm run test:web` | `ng lint` + `ng test` (Vitest) for `apps/web-angular` | |
 | `npm run test:mobile` | `tsc --noEmit`, `expo lint`, `jest` for `apps/mobile`, plus the mobile E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`) | |
 | `npm run test:mobile:e2e` | Playwright (`apps/mobile/e2e`) against the Expo **web** build and an isolated stack | see [Mobile app](#mobile-app-expo); never touches the developer database, files or ports 8080/4200 |
-| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator, same isolated stack | needs an emulator and the Maestro CLI (`MAESTRO_BIN`); not part of `test:all` or CI |
+| `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`), same isolated stack | needs the Maestro CLI (`MAESTRO_BIN`) and either a booted Android emulator or a Mac with Xcode (the harness creates and boots its own simulator); not part of `test:all` or CI |
 | `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0`. The `launch-config` project (`e2e/launch-config.spec.ts`, every money flag off) runs alone after the `chromium` project; `-- e2e/launch-config.spec.ts --no-deps` runs it by itself |
 | `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards and the purge rules (also run at the start of every `test:e2e`) |
 | `npm run test:all` | scripts, api, web, mobile, e2e, mobile:e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
@@ -175,7 +179,9 @@ stage M8): `test:mobile` about 1–2.5 min (748 jest tests in 85 suites + 28 har
 `test:mobile:e2e` about 3–4 min (60 specs, including the API jar and the web export; about 2 min
 when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 `Pixel_6_API_34` emulator, including the API and Metro start; add a few minutes the first time,
-while Expo CLI installs Expo Go).
+while Expo CLI installs Expo Go). On the iOS simulator of a Mac mini (Apple M6, 2026-10-10):
+`test:mobile:maestro -- --platform ios` 33 min 28 s for the 24 flows from a cold start (the
+simulator created, the API jar built, Expo Go installed), `test:mobile:e2e` 1 min 14 s (52 specs).
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -239,8 +245,8 @@ purge waits, up to `--wait-minutes` (20), while a mobile or web E2E run is activ
 is shared), and it prints how many accounts, locations, binders, items and emulator accounts it
 removed. Seed accounts (`@orenjitrade.test`), other domains (`@mobile-e2e.test`), the card catalog
 and the card image cache are never touched. The jar uses the developer's `.env` and Redis db 0, so
-the deletion path's own events invalidate the developer API's nearby cache
-(`TradingAreaChangedEvent`, `LocationRemovedEvent`); run it from the checkout whose `npm run dev`
+the deletion path's own events invalidate the developer API's discovery cache
+(`LocationRemovedEvent`, the account deletion events); run it from the checkout whose `npm run dev`
 you use, as its `apps/api/.local-storage` holds the uploaded media (avatars, item photos) the
 deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
 
@@ -249,11 +255,12 @@ deletion removes. Log: `.local-dev/logs/e2e-purge.log`.
 The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobile/README.md)) runs
 against the same local stack. Phase 1 (accounts, onboarding, profile, settings) and Phases 2–3
 (the Search tab and card detail; the Inventory tab with adding, editing and deleting cards;
-binders, their publication and the public binder view) and Phase 4 (the Map tab with collectors
-as zones about 3 km wide, never pins, zoom capped at 14; filters, "Who has this near me", the
-preview bottom sheet and the collector profile) and Phases 5–6 (the Messages tab with the inbox,
-conversations and the community channels, live over the realtime channel; the Wishlist tab with
-matches nearby; the notification centre with a live bell) and Phases 7–8 (reporting a
+binders, their publication and the public binder view) and Phase 4 ("Who has this in my region"
+and the collector profile; since ADR 0017 the Map tab is a placeholder that names the home region
+until it draws the web's boundary map) and Phases 5–6 (the Messages tab with the inbox,
+conversations and the community channels, live over the realtime channel; the Wishlist tab
+(stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
+region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
 collector and My reports; rating a collector and writing a reference after an interaction;
 "Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
 with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
@@ -265,8 +272,7 @@ web; the admin consoles stay on the web. Stage M7 (2026-10-06) closes the web pa
 Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
-Blocked users, owner photos and bulk actions in the inventory, binder reordering, the map's
-freshness / tags filters and search box, set pages. Stage M8 (2026-10-06, launch readiness on
+Blocked users, owner photos and bulk actions in the inventory, binder reordering, set pages. Stage M8 (2026-10-06, launch readiness on
 mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a
 first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
@@ -275,14 +281,11 @@ notice in conversations and on offers / trades (dismissal kept on the device), B
 on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
-provider. The trading area is picked like on the web: a tap on the map or a dragged pin,
-"Use map centre", city quick picks, a 1–50 km radius, or the device location (sent once to the
-API, never drawn). Maps follow ADR 0010: in Expo Go on Android (and in any Android build without
-`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) they are Leaflet + OpenStreetMap in a WebView, because the Maps
-SDK refuses Expo Go's bundled Google key and would draw an empty grey map; iOS uses Apple Maps and
-the web build Leaflet. The emulator needs internet access for the OpenStreetMap tiles and the
-pinned Leaflet script. Sign in with `collector1@orenjitrade.test` to see the seed neighbours on
-the Map tab (the seed collectors are at public neighbourhood centroids around Montréal).
+provider. The location is declared like on the web (ADR 0017): region, country, state or
+province and an optional city, with pickers fed by `GET /api/v1/regions`; there is no map picker,
+no GPS and no location permission. Region-scoped calls (search, card holders, ads) send the
+collector's home region (`americas-north` without a location). The seed collectors are spread
+over the three platform regions (see [test-accounts.md](test-accounts.md)).
 
 ```bash
 npm run infra:up && npm run api:dev     # the developer stack (API on :8080)
@@ -294,7 +297,7 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 `localhost`. A physical phone needs the machine's LAN address in `apps/mobile/.env`
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
-(collector1 and collector2 share a seed conversation; collector2 has a seed wish with a match;
+(collector1 and collector2 share a seed conversation; collector2 has seed wishes and a wishlist alert about collector1's listing;
 collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
 Offers / Trades; collector1 also sells a protected trade waiting for collector8's receipt, has
 payouts set up, 300 credits and the referral code `COLLECTOR1`; collector5's protected trade with
@@ -322,7 +325,7 @@ database or files and leave a running `npm run dev` alone:
 | Database | `orenjitrade_mobile_e2e` on the shared PostgreSQL, dropped and recreated per run (Flyway + seed); `orenjitrade` is never touched |
 | API | the API jar on **:8090** (profile `local`, Redis database 1 (flushed whenever the database is recreated, so no cached row of the dropped database reaches the new API) and realtime channels `e2e-mobile:rt:user:*`, fake/log providers, mock catalog only: YGOPRODeck disabled and pointed at a closed local port, no card image downloads), log `.local-dev/mobile-e2e/logs/api.log` |
 | Files | media `.local-dev/mobile-e2e/storage`, card-image cache `.local-dev/mobile-e2e/card-images`, provider snapshots `.local-dev/mobile-e2e/provider-data`; the harness refuses to start when any resolves to a developer directory (start-up reconciliation deletes cache files its own database does not reference) |
-| App | Playwright: `expo export --platform web` served on **:19006**; Maestro: Metro on **:8082** for Expo Go (`exp://10.0.2.2:8082`) |
+| App | Playwright: `expo export --platform web` served on **:19006**; Maestro: Metro on **:8082** for Expo Go (`exp://10.0.2.2:8082` on the Android emulator, `exp://127.0.0.1:8082` on the iOS simulator) |
 | Accounts | created as `m-<run id>-...@mobile-e2e.test` and deleted from the Auth emulator at the end of the run; seed accounts are only signed in to |
 
 The guards (`scripts/lib/mobile-e2e-guard.mjs`, unit tested in `mobile-e2e-guard.test.mjs`) reuse
@@ -334,17 +337,41 @@ stacks and `npm run dev` can run side by side.
 `--reuse-running` only reuses an API the harness itself started (identity block in
 `/actuator/info`, instance id in `.local-dev/mobile-e2e/state.json`) and refuses the developer API
 on :8080; `--keep-running` keeps the isolated API and web server (or Metro) for the next run and
-`-- --stop` stops them. The native check: start an emulator
-(`%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd Pixel_6_API_34 -no-snapshot-save`), then
-`MAESTRO_BIN=<path to maestro(.bat)> npm run test:mobile:maestro`. On an emulator without Expo Go,
-the Metro started by the harness (`expo start --android`) installs it and the harness waits for
-that install (up to 6 minutes) before running the flows. Flows that need data create it on the
+`-- --stop` stops them.
+
+The native check runs on an Android emulator or, on a Mac, on the iOS simulator
+(`npm run test:mobile:maestro -- --platform android|ios`, or `ORENJI_MAESTRO_PLATFORM`; without a
+choice: Android when a device is ready, otherwise iOS on a Mac with Xcode). Both platforms run the
+same flows; the harness gives them Expo Go's app id and the project URL of the platform.
+
+- **Android:** start an emulator (Windows:
+  `%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd Pixel_6_API_34 -no-snapshot-save`; macOS:
+  `~/Library/Android/sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save`, an arm64-v8a
+  image; Linux: `~/Android/Sdk/emulator/emulator -avd Pixel_6_API_35 -no-snapshot-save`), then
+  `npm run test:mobile:maestro`. The harness finds adb through `ANDROID_HOME`, `ANDROID_SDK_ROOT`
+  or the SDK's default folder of the platform. Metro runs `expo start --android` with the app
+  pointed at `10.0.2.2:8090`; on an emulator without Expo Go, Expo CLI installs it and the harness
+  waits for that install (up to 6 minutes) before running the flows.
+- **iOS (macOS with Xcode and an iOS runtime):** nothing to start. The harness uses a simulator of
+  its own, "OrenjiTrade Maestro" (`scripts/lib/ios-simulator.mjs`): created when missing, booted
+  with `simctl` (no Simulator / DeviceHub window), configured inside the simulator only (password
+  AutoFill off, US English, a plain keyboard, `exp://` links open in Expo Go), and shut down
+  afterwards; a developer's own simulators and the Mac's settings are never touched. Metro runs
+  `expo start` with the app pointed at `localhost:8090`, and Expo Go is installed on that simulator
+  by Expo CLI's installer (`scripts/lib/expo-go-ios.mjs`), whatever else is booted.
+  `ORENJI_IOS_SIMULATOR_NAME`, `ORENJI_IOS_SIMULATOR_TYPE` and `ORENJI_IOS_SIMULATOR_UDID` choose
+  another simulator (`apps/mobile/README.md`).
+
+Maestro is found on `PATH` or in `~/.maestro/bin`; set `MAESTRO_BIN=<path to maestro(.bat)>` when
+it is somewhere else (on Windows, for example `D:/maestro/bin/maestro.bat`; on macOS and Linux,
+for example `$HOME/tools/maestro/bin/maestro`). A kept Metro serves one platform (the API address is
+inlined into the bundle): `-- --stop` before switching platforms. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
 second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
 `wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the
 Premium flow from `payments.js`; `offers.js` and `payments.js` post `{}` to body-less endpoints
 because Maestro's `http.post` needs a body)
-and check the result there (`check-area.js`, `check-inventory.js`, `community.js`; the collectors,
+and check the result there (`check-location.js`, `check-inventory.js`, `community.js`; the collectors,
 listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
 run (Metro re-crawls the workspace and Expo Go may report "Packager is not running"), and restart
@@ -446,7 +473,7 @@ blocks the IP for an hour above it (OrenjiTrade paces at 5/s). Tests and CI neve
 | Domain events | in-process Spring Modulith outbox (`event_publication` table) | `EVENTS_TRANSPORT=local` | table `event_publication` in the `orenjitrade` database |
 | Object storage | `LocalFileObjectStorage` | `STORAGE_PROVIDER=local` | files under `apps/api/.local-storage/`, URLs `http://localhost:8080/api/v1/public/media/...` |
 | Identity | Firebase Auth emulator | `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099` (implied by the `local` profile) | Emulator UI <http://localhost:4000>; verification / reset e-mail links are printed in `docker compose logs firebase-auth` |
-| Maps | Leaflet + OpenStreetMap tiles in the web app | empty Google Maps key | the map page; exact coordinates never leave the API (ADR 0004) |
+| Maps | none: a Leaflet vector map of the bundled Natural Earth boundaries (`apps/web-angular/public/boundaries/`), no tiles | nothing to configure | the map page (`/map?region=...`); no coordinate exists anywhere (ADR 0017) |
 | Card recognition (ML) | none (on hold) | `mlScanning` flag off | the API does not call the ML service |
 | Card catalog | `MockCardProvider` (fictional, placeholder images) at start-up; YGOPRODeck only on request | seed + `npm run catalog:import` | `GET /api/v1/admin/catalog/sync-runs`; card images under `apps/api/.local-storage/card-images/` |
 
@@ -461,8 +488,8 @@ docker compose logs api | grep orenji.push                             # Docker 
 ## Troubleshooting
 
 **Docker is not running.** Every script checks `docker info` first and stops with
-"Docker is not running". Start Docker Desktop, wait for "Engine running", retry. On Windows use the
-WSL 2 backend.
+"Docker is not running". Start Docker Desktop, wait for "Engine running", retry (with OrbStack on
+macOS: open the app or run `orbctl start`). On Windows use the WSL 2 backend.
 
 **A port is busy.** `npm run dev` refuses to start when 8080 or 4200 is taken, `npm run test:e2e`
 when 8180 or 4300 is taken (usually a stack left by `-- --keep-running`: `npm run test:e2e -- --stop`),
@@ -476,7 +503,9 @@ PostgreSQL/Redis is the usual culprit: stop it or move the compose port (`POSTGR
 
 **The API does not become ready.** Read `.local-dev/logs/api.log`. Common causes: infrastructure
 not healthy (`docker compose ps`), a database migrated by another branch (Flyway validation error,
-e.g. a checksum mismatch: `npm run infra:reset`), or the first Gradle run still downloading (be
+e.g. a checksum mismatch: `npm run infra:reset`; for a scratch or E2E database only, drop and
+recreate that one database instead, which keeps the dev database and the card-image cache; never
+`flyway repair`), or the first Gradle run still downloading (be
 patient; later runs use the cache). The readiness endpoint returns 503 while the database or Redis is down.
 
 **Emulator warning "/data is not writable".** The `firebase-data` volume was created by an old
@@ -505,7 +534,8 @@ exist; sign in again (seed accounts are re-created by the next API start).
 and kill that tree. Never kill every `java.exe` / `node.exe` (other tools may be running).
 
 **Playwright browser missing.** `npm run test:e2e` installs Chromium automatically
-(`playwright install chromium`, cached under `%LOCALAPPDATA%\ms-playwright` or `~/.cache/ms-playwright`).
+(`playwright install chromium`, cached under `%LOCALAPPDATA%\ms-playwright` on Windows,
+`~/Library/Caches/ms-playwright` on macOS and `~/.cache/ms-playwright` on Linux).
 
 ## Cloud deployment
 

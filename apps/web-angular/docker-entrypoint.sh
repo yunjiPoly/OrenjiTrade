@@ -15,8 +15,6 @@ set -eu
 : "${FIREBASE_PROJECT_ID:=orenjitrade-local}"
 : "${FIREBASE_APP_ID:=}"
 : "${FIREBASE_AUTH_EMULATOR_HOST:=}"
-: "${GOOGLE_MAPS_API_KEY:=}"
-: "${GOOGLE_MAPS_MAP_ID:=}"
 : "${ENVIRONMENT:=production}"
 
 # Strip a trailing slash so the CSP source and URL prefixing stay consistent.
@@ -32,12 +30,12 @@ fi
 # envsubst only sees exported variables: AUTH_EMULATOR_ORIGIN must be exported too, otherwise the
 # CSP connect-src silently lacks the emulator and local sign-in is blocked by the browser.
 export PORT API_BASE_URL WS_BASE_URL FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID \
-  FIREBASE_APP_ID FIREBASE_AUTH_EMULATOR_HOST GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID ENVIRONMENT \
+  FIREBASE_APP_ID FIREBASE_AUTH_EMULATOR_HOST ENVIRONMENT \
   AUTH_EMULATOR_ORIGIN
 
 HTML_ROOT="/usr/share/nginx/html"
 
-envsubst '${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_API_KEY} ${FIREBASE_AUTH_DOMAIN} ${FIREBASE_PROJECT_ID} ${FIREBASE_APP_ID} ${FIREBASE_AUTH_EMULATOR_HOST} ${GOOGLE_MAPS_API_KEY} ${GOOGLE_MAPS_MAP_ID} ${ENVIRONMENT}' \
+envsubst '${API_BASE_URL} ${WS_BASE_URL} ${FIREBASE_API_KEY} ${FIREBASE_AUTH_DOMAIN} ${FIREBASE_PROJECT_ID} ${FIREBASE_APP_ID} ${FIREBASE_AUTH_EMULATOR_HOST} ${ENVIRONMENT}' \
   < "${HTML_ROOT}/config.template.json" > "${HTML_ROOT}/config.json"
 
 # Only substitute our own variables so nginx's $uri, $host, ... survive.

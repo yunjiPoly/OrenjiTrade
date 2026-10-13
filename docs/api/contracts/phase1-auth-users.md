@@ -1,5 +1,10 @@
 # Phase 1 contract — auth, users, profiles, location, settings, deletion
 
+> **ADR 0017 (2026-10-08):** the location part of this contract (trading area, `publicPoint`,
+> `distanceBucket`, `showDistance`, `PUT /me/location/trading-area`, `onboarding.tradingAreaSet`)
+> is superseded by [s1-regions-location.md](s1-regions-location.md): collectors declare a
+> country, a state or province and an optional city; no coordinate exists anywhere.
+
 Orchestration contract for Phase 1. The backend implements exactly these endpoints; the
 OpenAPI export then becomes the source of truth for clients. All paths are under `/api/v1`
 unless stated. Auth: `Authorization: Bearer <Firebase ID token>` for everything except
@@ -110,7 +115,7 @@ Defaults favour safety: `discoverable=false`, `showOnlineStatus=false`, `profile
 `GET|PUT /me/settings/notifications`
 ```json
 { "pushEnabled": true, "emailEnabled": false, "inAppEnabled": true,
-  "categories": { "WISHLIST_MATCH": {"push":true,"email":false,"inApp":true}, "MESSAGE": {...}, "OFFER": {...},
+  "categories": { "WISHLIST_MATCH": {"push":true,"email":false,"inApp":true}, "MESSAGE": {...}, "OFFER": {...},   // stage S2: no WISHLIST_MATCH; "wishlistAlerts": true instead
                   "RATING": {...}, "TRADE": {...}, "BINDER_FRESHNESS": {...}, "REPORT_DECISION": {...}, "MARKETING": {"push":false,"email":false,"inApp":false} },
   "quietHours": { "enabled": false, "start": "22:00", "end": "08:00", "timezone": "America/Toronto" } }
 ```

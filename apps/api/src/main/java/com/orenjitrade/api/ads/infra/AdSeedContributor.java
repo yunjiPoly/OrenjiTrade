@@ -128,7 +128,7 @@ public class AdSeedContributor implements SeedContributor {
                 null,
                 now)) {
             repository.replaceRules(
-                    DECK_BOXES, List.of(new Rule(TargetingKind.REGION_LABEL, "Montréal")), now);
+                    DECK_BOXES, List.of(new Rule(TargetingKind.SUBDIVISION, "CA-QC")), now);
             creative(
                     "00000000-0000-4000-a200-000000001021",
                     DECK_BOXES,
@@ -176,8 +176,8 @@ public class AdSeedContributor implements SeedContributor {
                     "00000000-0000-4000-a200-000000001031",
                     PREMIUM,
                     PlacementKey.MAP_PANEL,
-                    "Search further with Premium",
-                    "A 100 km map radius, unlimited binder views and no ads.",
+                    "Browse more binders with Premium",
+                    "Unlimited binder views, advanced filters and no ads.",
                     "See Premium",
                     "/premium",
                     now);

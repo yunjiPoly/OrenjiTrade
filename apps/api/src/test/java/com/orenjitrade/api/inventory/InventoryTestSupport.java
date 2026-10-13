@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.imageio.ImageIO;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 
 /** Shared helpers of the inventory and binder integration tests. */
@@ -56,11 +57,78 @@ public final class InventoryTestSupport {
                         .get("id");
     }
 
+    /**
+     * A catalog card of one test only (regions are shared by the whole suite, ADR 0017).
+     *
+     * @param cardId the card
+     * @param printingId its first printing
+     * @param name its unique name
+     * @param code the printing code of its first printing
+     */
+    public record IsolatedCard(UUID cardId, UUID printingId, String name, String code) {}
+
+    /** A random alphabetic token no other test uses. */
+    public static String token() {
+        java.util.concurrent.ThreadLocalRandom random =
+                java.util.concurrent.ThreadLocalRandom.current();
+        StringBuilder token = new StringBuilder("Zq");
+        for (int i = 0; i < 8; i++) {
+            token.append((char) ('a' + random.nextInt(26)));
+        }
+        return token.toString();
+    }
+
+    /**
+     * A new card cloned from the card of mock printing {@code ref} (same game, set, rarity and
+     * language) under a unique name, with one printing of a unique code: other tests never list it.
+     */
+    public static IsolatedCard isolatedCard(TestUsers testUsers, String ref) {
+        UUID source = printing(testUsers, ref);
+        UUID cardId = UUID.randomUUID();
+        String word = token();
+        String name = word + " Proxy";
+        testUsers.update(
+                "INSERT INTO card (id, game_id, name, slug, card_type, subtype, text, metadata)"
+                        + " SELECT ?, c.game_id, ?, ?, c.card_type, c.subtype, c.text, c.metadata"
+                        + " FROM card c JOIN card_printing p ON p.card_id = c.id WHERE p.id = ?",
+                cardId,
+                name,
+                word.toLowerCase(java.util.Locale.ROOT) + "-proxy",
+                source);
+        String code = "T" + word.substring(2, 8).toUpperCase(java.util.Locale.ROOT) + "-EN001";
+        return new IsolatedCard(
+                cardId, clonePrinting(testUsers, source, cardId, code, null), name, code);
+    }
+
+    /** Another printing of an isolated card, cloned from mock printing {@code ref}. */
+    public static UUID siblingPrinting(
+            TestUsers testUsers, IsolatedCard card, String ref, @Nullable String language) {
+        String code = card.code().replace("-EN001", language == null ? "-EN002" : "-FR001");
+        return clonePrinting(testUsers, printing(testUsers, ref), card.cardId(), code, language);
+    }
+
+    private static UUID clonePrinting(
+            TestUsers testUsers, UUID source, UUID cardId, String code, @Nullable String language) {
+        UUID printingId = UUID.randomUUID();
+        testUsers.update(
+                "INSERT INTO card_printing (id, card_id, set_id, collector_number, rarity, edition,"
+                        + " language, finish, printing_code, metadata) SELECT ?, ?, set_id, ?,"
+                        + " rarity, edition, COALESCE(?, language), finish, ?, metadata FROM"
+                        + " card_printing WHERE id = ?",
+                printingId,
+                cardId,
+                // Every letter of the code's token: three letters (26^3) collided across the suite.
+                code.substring(code.indexOf('-') + 1) + code.substring(1, code.indexOf('-')),
+                language,
+                code,
+                source);
+        return printingId;
+    }
+
     /** Privacy settings body. */
     public static Map<String, Object> privacy(boolean discoverable, String profileVisibility) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("discoverable", discoverable);
-        body.put("showDistance", true);
         body.put("showOnlineStatus", false);
         body.put("showLastActive", true);
         body.put("profileVisibility", profileVisibility);

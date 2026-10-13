@@ -19,8 +19,8 @@ import {
  *    "See Premium"; the fake billing checkout declines once ("Try again"), then succeeds: the
  *    member is welcomed, the sixth binder is created and the search shows no "Sponsored" result
  *    any more; "Cancel now" brings the free plan back.
- * 2. A new collector redeems another collector's referral code, unlocks "Wider map for a day"
- *    with credits and finds both entries in the append-only ledger; the referrer earned 100.
+ * 2. A new collector redeems another collector's referral code, unlocks "Unlimited binder
+ *    views" with credits and finds both entries in the append-only ledger; the referrer earned 100.
  * 3. A voluntary donation through Support and the fake donation checkout: the thank-you, the
  *    donation in "Your donations" and the opted-in name among the supporters (never an amount).
  * 4. A FREE collector's search shows a result labelled "Sponsored": the impression is recorded
@@ -185,22 +185,23 @@ test.describe('mobile Premium, credits, donations and ads', () => {
     });
     await expect(credits.getByTestId('referral-redeemed')).toBeVisible();
 
-    // Unlock "Wider map for a day" (30 credits).
+    // Unlock "Unlimited binder views" (30 credits; the map radius perk is gone, ADR 0017).
     await credits.getByRole('button', { name: 'Unlock for 30 credits' }).last().click();
     const dialog = page.getByTestId('spend-dialog');
-    await expect(dialog).toContainText('Unlock Wider map for a day?');
+    await expect(dialog).toContainText('Unlock Unlimited binder views?');
     await dialog.getByRole('button', { name: 'Unlock for 30 credits' }).click();
-    await expect(snackbar(page)).toContainText(`Wider map for a day unlocked until`, {
+    await expect(snackbar(page)).toContainText(`Unlimited binder views unlocked until`, {
       timeout: 30_000,
     });
     await expect(credits.getByTestId('credit-balance')).toContainText(String(start + 20), {
       timeout: 30_000,
     });
-    await expect(credits.getByTestId('active-boost')).toContainText('Map radius up to 100 km');
+    await expect(credits.getByTestId('active-boost')).toContainText('Unlimited binder views');
+    await expect(credits).not.toContainText('Wider map');
 
     // The append-only ledger: newest first.
     const entries = credits.getByTestId('ledger-entry');
-    await expect(entries.first()).toContainText('Wider map for a day');
+    await expect(entries.first()).toContainText('Unlimited binder views');
     await expect(entries.first()).toContainText('−30');
     await expect(
       credits.getByTestId('ledger-entry').filter({ hasText: 'Referral reward' })

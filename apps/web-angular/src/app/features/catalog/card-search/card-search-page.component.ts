@@ -66,7 +66,7 @@ const PRINTING_CODE = /^[a-z0-9]{2,6}-[a-z]{0,3}\d{1,4}[a-z]?$/i;
     <div class="page catalog">
       <app-page-header
         title="Card catalog"
-        subtitle="Search every card and printing, then find who has it near you."
+        subtitle="Search every card and printing, then find who has it in your region."
       >
         <form
           class="catalog__search"

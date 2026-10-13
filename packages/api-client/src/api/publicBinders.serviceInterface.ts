@@ -53,7 +53,7 @@ export interface PublicBindersServiceInterface {
 
     /**
      * A public binder (auth optional)
-     * 404 unless the binder is public right now (visibility, expiry, freshness, the owner\&#39;s account state and privacy settings). The owner block carries a region label and, for signed-in callers with a trading area, a distance bucket; never coordinates. Signed-in callers other than the owner consume &#x60;binder.views.per_day&#x60; once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
+     * 404 unless the binder is public right now (visibility, expiry, freshness, the owner\&#39;s account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume &#x60;binder.views.per_day&#x60; once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
      * @endpoint get /api/v1/public/binders/{id}
 * @param requestParameters
      */

@@ -1,7 +1,7 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { dialogReady, expect, test } from './support/fixtures';
-import { randomCentre } from './support/places';
+import { placeOf } from './support/places';
 
 /**
  * Acceptance — payment protection with the fake provider (no card, no money): the seller sets up
@@ -23,7 +23,7 @@ test.describe('acceptance: payment protection', () => {
       items: [item],
     } = await api.seller(
       'acc-paysell',
-      randomCentre('payments'),
+      placeOf('payments'),
       [{ code: 'GLM-EN022', extra: { availability: 'SALE', askingPrice: 40, quantity: 1 } }],
       { displayName: `Pia Seller ${suffix()}` },
     );

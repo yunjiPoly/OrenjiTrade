@@ -1,5 +1,9 @@
 # Phase 3 contract — inventory, binders, public binders, freshness
 
+> **ADR 0017 (2026-10-08):** binder owners carry a `place` (state or province and country)
+> instead of `location: {publicLabel, distanceBucket}`; see
+> [s1-regions-location.md](s1-regions-location.md).
+
 All under `/api/v1`. Owner-only unless stated. Effective public visibility is computed server
 side: item visible ⇔ item.visibility ∈ {PUBLIC, TEMPORARILY_PUBLIC(not expired)} ∧ binder
 visible (or item has no binder) ∧ owner.status = ACTIVE ∧ owner discoverable-or-profile-public ∧
@@ -17,7 +21,7 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 
 ## Domain events
 
-`InventoryItemPublished { itemId, ownerId, printingId, cardId, gameSlug, availability, askingPrice, currency, publishedAt }` (emitted when an item becomes publicly visible: created public, visibility changed to public, binder published, restored from HIDDEN) — consumed by wishlist matching (Phase 6) and analytics.
+`InventoryItemPublished { itemId, ownerId, printingId, cardId, gameSlug, availability, askingPrice, currency, publishedAt }` (emitted when an item becomes publicly visible: created public, visibility changed to public, binder published, restored from HIDDEN) — consumed by wishlist matching (Phase 6; the wishlist alerts since stage S2, see [s2-wishlist.md](s2-wishlist.md)) and analytics.
 `InventoryItemUnpublished { itemId }`, `BinderPublished { binderId, ownerId }`, `BinderFreshnessChanged { binderId, state }`.
 
 ## Endpoints — inventory

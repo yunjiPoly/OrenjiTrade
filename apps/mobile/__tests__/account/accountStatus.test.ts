@@ -107,7 +107,7 @@ describe('needsOnboarding', () => {
     expect(
       needsOnboarding(
         meFixture({
-          onboarding: { profileComplete: true, interestsSet: false, tradingAreaSet: false },
+          onboarding: { profileComplete: true, interestsSet: false, locationSet: false },
         })
       )
     ).toBe(true);
@@ -115,7 +115,7 @@ describe('needsOnboarding', () => {
     expect(
       needsOnboarding(
         meFixture({
-          onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
+          onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
         })
       )
     ).toBe(false);

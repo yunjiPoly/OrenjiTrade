@@ -126,7 +126,7 @@ export function ChannelList({ onOpenInbox }: { onOpenInbox: () => void }) {
     >
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
         Public channels by region, game and topic. Ask around, show off new listings and find trades
-        near you.
+        in your region.
       </Text>
       <ChoiceChips
         label="Filter channels by game"

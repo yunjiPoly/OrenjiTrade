@@ -187,7 +187,6 @@ public class TestAccountPurgeService {
                     accountId,
                     new PrivacySettingsView(
                             false,
-                            current.showDistance(),
                             current.showOnlineStatus(),
                             current.showLastActive(),
                             current.profileVisibility(),

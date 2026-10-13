@@ -1,18 +1,25 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import type { WishlistSummaryEntry } from '@orenji/api-client';
+import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { conditionLabel, printingImageUrl } from '../../../shared/inventory/inventory-labels';
-import { wishPrintingLabel } from '../../../shared/wishlist/wishlist-labels';
+import {
+  WishChip,
+  whichCopyLabel,
+  wishCardQuery,
+  wishChips,
+} from '../../../shared/wishlist/wishlist-labels';
 
 /**
  * "Looking for": a collector's public wishlist (`GET /collectors/{handle}/wishlist`, only when
- * they show it): card, printing or any printing, minimum condition. Never prices, radii or notes.
+ * they show it): card, which copy (any printing, any printing of one rarity, or one printing),
+ * the public note and the "Near Mint only" / price term chips. Never a place.
  */
 @Component({
   selector: 'app-collector-wishlist',
-  imports: [MatIconModule, RouterLink, CardImageComponent],
+  imports: [MatIconModule, MatTooltipModule, RouterLink, CardImageComponent],
   template: `
     <ul class="cw" [attr.aria-label]="label()">
       @for (wish of entries(); track $index) {
@@ -27,11 +34,22 @@ import { wishPrintingLabel } from '../../../shared/wishlist/wishlist-labels';
                 >{{ card.name }}</a
               >
             }
-            <span class="cw__meta">{{ printingOf(wish) }}</span>
-            @if (wish.conditionMin) {
-              <span class="cw__meta">
-                <mat-icon aria-hidden="true">verified</mat-icon>
-                {{ condition(wish.conditionMin) }} or better
+            <span class="cw__meta">{{ copyOf(wish) }}</span>
+            @if (wish.note) {
+              <span class="cw__note">“{{ wish.note }}”</span>
+            }
+            @for (chip of chipsOf(wish); track chip.kind) {
+              <span
+                class="cw__meta"
+                [attr.data-kind]="chip.kind"
+                [matTooltip]="chip.detail ?? ''"
+                [matTooltipDisabled]="!chip.detail"
+              >
+                <mat-icon aria-hidden="true">{{ chip.icon }}</mat-icon>
+                {{ chip.label }}
+                @if (chip.detail) {
+                  <span class="visually-hidden">({{ chip.detail }})</span>
+                }
               </span>
             }
           </div>
@@ -79,6 +97,12 @@ import { wishPrintingLabel } from '../../../shared/wishlist/wishlist-labels';
     .cw__name:hover {
       color: var(--color-primary);
     }
+    .cw__note {
+      font-size: var(--font-size-xs);
+      overflow-wrap: anywhere;
+      /* A note keeps its line breaks, as on the owner's wishlist page. */
+      white-space: pre-line;
+    }
     .cw__meta {
       display: inline-flex;
       align-items: center;
@@ -98,11 +122,16 @@ export class CollectorWishlistComponent {
   readonly entries = input.required<readonly WishlistSummaryEntry[]>();
   readonly label = input('Cards this collector is looking for');
 
-  protected readonly condition = conditionLabel;
-  protected readonly printingOf = (wish: WishlistSummaryEntry) => wishPrintingLabel(wish.printing);
+  protected copyOf(wish: WishlistSummaryEntry): string {
+    return whichCopyLabel(wish.printing, wish.rarity);
+  }
+
+  protected chipsOf(wish: WishlistSummaryEntry): WishChip[] {
+    return wishChips(wish);
+  }
 
   protected queryOf(wish: WishlistSummaryEntry): Record<string, string> {
-    return wish.printing?.id ? { printing: wish.printing.id } : {};
+    return wishCardQuery(wish);
   }
 
   protected imageOf(wish: WishlistSummaryEntry): string | null {

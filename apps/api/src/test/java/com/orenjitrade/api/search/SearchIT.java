@@ -4,31 +4,22 @@ import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code GET /search} (sections, printing/card resolution with nearby holders, text matches of
- * collectors and public binders) and {@code GET /search/suggest} (mixed kinds).
+ * {@code GET /search} (sections, printing/card resolution with the holders of the region, text
+ * matches of collectors and public binders of the region) and {@code GET /search/suggest} (mixed
+ * kinds). Every collector and binder result is scoped to one platform region (ADR 0017).
  */
 class SearchIT extends AbstractSearchIT {
-
-    /** A random alphabetic token no other test uses (names are matched by substring). */
-    private static String token() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        StringBuilder token = new StringBuilder("Zq");
-        for (int i = 0; i < 8; i++) {
-            token.append((char) ('a' + random.nextInt(26)));
-        }
-        return token.toString();
-    }
 
     private static List<String> ids(JsonNode array) {
         List<String> ids = new ArrayList<>();
@@ -37,41 +28,60 @@ class SearchIT extends AbstractSearchIT {
     }
 
     @Test
-    void anExactPrintingCodeResolvesThePrintingAndListsNearbyHolders() {
-        Centre centre = randomCentre();
-        UUID english = printing("ygo-p001a"); // AZR-EN001, the only printing with that code
-        UUID french = printing("ygo-p001b"); // AZR-FR001, same card
-        UUID cardId = cardOf(english);
-        Collector holder = collector("srch-holder", centre.offset(2, 0));
+    void anExactPrintingCodeResolvesThePrintingAndListsTheHoldersOfTheRegion() {
+        IsolatedCard card = isolatedPrinting("ygo-p001a");
+        UUID english = card.printingId();
+        UUID french = siblingPrinting(card, "ygo-p001b", "fr");
+        Collector holder = collector("srch-holder", "CA", "CA-QC");
         publicItem(holder, english, Map.of("availability", "TRADE", "askingPrice", 50));
-        Collector frenchHolder = collector("srch-fr", centre.offset(0, 4));
+        Collector frenchHolder = collector("srch-fr", "US", "US-CA");
         publicItem(frenchHolder, french, Map.of("availability", "SALE"));
-        Collector far = collector("srch-far", centre.offset(40, 0));
-        publicItem(far, english, Map.of());
-        Collector bystander = collector("srch-none", centre.offset(1, 1));
+        Collector european = collector("srch-eu", "FR", "FR-IDF");
+        publicItem(european, english, Map.of());
+        Collector bystander = collector("srch-none", "CA", "CA-QC");
 
-        JsonNode result = get(null, 200, "/api/v1/search?q={q}&" + centre.query(), "AZR-EN001");
-        assertThat(result.path("query").asString()).isEqualTo("AZR-EN001");
+        JsonNode result = get(null, 200, "/api/v1/search?q={q}&region=americas-north", card.code());
+        assertThat(result.path("query").asString()).isEqualTo(card.code());
+        assertThat(result.path("region").asString()).isEqualTo("americas-north");
         assertThat(result.path("resolved").path("printingId").asString())
                 .isEqualTo(english.toString());
-        assertThat(result.path("resolved").path("cardId").asString()).isEqualTo(cardId.toString());
-        assertThat(ids(result.path("cards"))).containsExactly(cardId.toString());
+        assertThat(result.path("resolved").path("cardId").asString())
+                .isEqualTo(card.cardId().toString());
         assertThat(result.path("printings").get(0).path("printingCode").asString())
-                .isEqualTo("AZR-EN001");
+                .isEqualTo(card.code());
         assertThat(handles(result)).containsExactly(holder.handle());
-        JsonNode matching = marker(result, holder.handle()).path("matchingItems");
-        assertThat(matching.get(0).path("printingCode").asString()).isEqualTo("AZR-EN001");
+        JsonNode marker = marker(result, holder.handle());
+        assertThat(marker.path("place").path("label").asString()).isEqualTo("Quebec, Canada");
+        assertThat(marker.has("publicPoint")).isFalse();
+        assertThat(marker.has("distanceBucket")).isFalse();
+        JsonNode matching = marker.path("matchingItems");
+        assertThat(matching.get(0).path("printingCode").asString()).isEqualTo(card.code());
         assertThat(matching.get(0).path("availability").asString()).isEqualTo("TRADE");
-        assertThat(handles(result)).doesNotContain(bystander.handle(), far.handle());
+        assertThat(handles(result)).doesNotContain(bystander.handle(), european.handle());
 
-        // The exact card name resolves the card: holders of any of its printings.
+        // The exact card name resolves the card: holders of any of its printings in the region.
         JsonNode byName =
-                get(null, 200, "/api/v1/search?q={q}&" + centre.query(), "azure-eyes SKY dragon");
+                get(null, 200, "/api/v1/search?q={q}", card.name().toUpperCase(Locale.ROOT));
+        assertThat(byName.path("region").asString())
+                .as("signed out without a region: the default region")
+                .isEqualTo("americas-north");
         assertThat(byName.path("resolved").path("printingId").isNull()).isTrue();
-        assertThat(byName.path("resolved").path("cardId").asString()).isEqualTo(cardId.toString());
+        assertThat(byName.path("resolved").path("cardId").asString())
+                .isEqualTo(card.cardId().toString());
         assertThat(handles(byName))
                 .containsExactlyInAnyOrder(holder.handle(), frenchHolder.handle());
-        assertThat(byName.path("printings").size()).isGreaterThanOrEqualTo(2);
+
+        // Europe: the European holder only.
+        JsonNode europe = get(null, 200, "/api/v1/search?q={q}&region=europe", card.code());
+        assertThat(handles(europe)).containsExactly(european.handle());
+
+        // Signed in without a region: the caller's home region.
+        String viewer = uniqueUid("srch-viewer");
+        provisionCompliantWithoutLocation(viewer);
+        setLocation(viewer, "ES", "ES-MD", null);
+        JsonNode own = get(viewer, 200, "/api/v1/search?q={q}", card.code());
+        assertThat(own.path("region").asString()).isEqualTo("europe");
+        assertThat(handles(own)).containsExactly(european.handle());
 
         // A code shared by several printings of one card resolves the card only.
         UUID pokemonEn = printing("pkm-p001a");
@@ -82,27 +92,12 @@ class SearchIT extends AbstractSearchIT {
         assertThat(shared.path("printings").size()).isEqualTo(2);
         assertThat(shared.path("cards").isEmpty()).isTrue();
         assertThat(shared.path("collectors").isEmpty()).isTrue();
-
-        // Signed in without lat/lng: around the caller's trading area.
-        String viewer = uniqueUid("srch-viewer");
-        provisionCompliant(viewer);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                viewer,
-                Map.of("lat", centre.lat(), "lng", centre.lng(), "radiusKm", 5),
-                200);
-        JsonNode own = get(viewer, 200, "/api/v1/search?q={q}", "AZR-EN001");
-        assertThat(handles(own)).containsExactly(holder.handle());
-        assertThat(marker(own, holder.handle()).path("distanceBucket").asString())
-                .isEqualTo("KM_1_5");
     }
 
     @Test
-    void textMatchesCollectorsAndPublicBindersWithTheirOwners() {
-        Centre centre = randomCentre();
+    void textMatchesCollectorsAndPublicBindersOfTheRegionWithTheirOwners() {
         String word = token();
-        Collector owner = collector("srch-text", centre.offset(1, 0));
+        Collector owner = collector("srch-text", "CA", "CA-BC");
         profile(owner, word + " Brightwater", List.of("pokemon"));
         String binderId =
                 callJson(
@@ -130,7 +125,7 @@ class SearchIT extends AbstractSearchIT {
                 get(
                         null,
                         200,
-                        "/api/v1/search?q={q}&" + centre.query(),
+                        "/api/v1/search?q={q}&region=americas-north",
                         word.toLowerCase(Locale.ROOT));
         assertThat(result.path("resolved").path("cardId").isNull()).isTrue();
         assertThat(handles(result)).containsExactly(owner.handle());
@@ -140,22 +135,20 @@ class SearchIT extends AbstractSearchIT {
                 .doesNotContain(emptyBinder);
         JsonNode hit = result.path("binders").get(0);
         assertThat(hit.path("owner").path("handle").asString()).isEqualTo(owner.handle());
-        assertThat(hit.path("owner").path("location").path("publicLabel").asString()).isNotBlank();
+        assertThat(hit.path("owner").path("place").path("label").asString())
+                .isEqualTo("British Columbia, Canada");
         assertThat(hit.path("owner").has("publicPoint")).isFalse();
         assertThat(hit.path("itemCount").asLong()).isEqualTo(1);
 
-        // Without a centre the search is not geographic.
-        assertThat(handles(get(null, 200, "/api/v1/search?q={q}", word))).contains(owner.handle());
         // types narrows the sections.
         JsonNode bindersOnly =
-                get(null, 200, "/api/v1/search?q={q}&types=binders&" + centre.query(), word);
+                get(null, 200, "/api/v1/search?q={q}&types=binders&region=americas-north", word);
         assertThat(bindersOnly.path("cards").isEmpty()).isTrue();
         assertThat(bindersOnly.path("sets").isEmpty()).isTrue();
         assertThat(bindersOnly.path("collectors").isEmpty()).isTrue();
         assertThat(ids(bindersOnly.path("binders"))).containsExactly(binderId);
-        // Outside the radius: nothing geographic.
-        Centre elsewhere = centre.offset(60, 0);
-        JsonNode away = get(null, 200, "/api/v1/search?q={q}&" + elsewhere.query(), word);
+        // Another region: nothing.
+        JsonNode away = get(null, 200, "/api/v1/search?q={q}&region=americas-south", word);
         assertThat(handles(away)).isEmpty();
         assertThat(away.path("binders").isEmpty()).isTrue();
 
@@ -189,23 +182,22 @@ class SearchIT extends AbstractSearchIT {
         callJson(HttpMethod.GET, "/api/v1/search?q=azure&types=decks", null, null, 400);
         callJson(HttpMethod.GET, "/api/v1/search?q=azure&game=chess", null, null, 400);
         callJson(HttpMethod.GET, "/api/v1/search?q=azure&limit=51", null, null, 400);
-        callJson(HttpMethod.GET, "/api/v1/search?q=azure&lat=45.5", null, null, 400);
-        JsonNode limit =
-                callJson(
-                        HttpMethod.GET,
-                        "/api/v1/search?q=azure&lat=10&lng=10&radiusKm=40",
-                        null,
-                        null,
-                        429);
-        assertThat(limit.path("errorCode").asString()).isEqualTo("LIMIT_REACHED");
-        assertThat(limit.path("limitKey").asString()).isEqualTo("map.radius.max_km");
+        JsonNode region =
+                callJson(HttpMethod.GET, "/api/v1/search?q=azure&region=mars", null, null, 400);
+        assertThat(region.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
+        // Coordinates are no parameter any more: ignored.
+        callJson(
+                HttpMethod.GET,
+                "/api/v1/search?q=azure&lat=10&lng=10&radiusKm=40",
+                null,
+                null,
+                200);
     }
 
     @Test
-    void suggestMixesCardsCollectorsSetsBindersAndTags() {
-        Centre centre = randomCentre();
+    void suggestMixesCardsCollectorsSetsBindersAndTagsOfTheRegion() {
         String word = token();
-        Collector owner = collector("sugg-owner", centre.offset(1, 0));
+        Collector owner = collector("sugg-owner", "BR", "BR-SP");
         profile(owner, word + " Suggestable", List.of("mtg"));
         String binderId =
                 callJson(
@@ -221,7 +213,7 @@ class SearchIT extends AbstractSearchIT {
         callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), item, 201);
 
         JsonNode suggestions =
-                get(null, 200, "/api/v1/search/suggest?q={q}&" + centre.query(), word);
+                get(null, 200, "/api/v1/search/suggest?q={q}&region=americas-south", word);
         List<String> types = new ArrayList<>();
         suggestions.forEach(entry -> types.add(entry.path("type").asString()));
         assertThat(types).contains("COLLECTOR", "BINDER");
@@ -230,11 +222,17 @@ class SearchIT extends AbstractSearchIT {
                 assertThat(entry.path("slug").asString()).isEqualTo(owner.handle());
                 assertThat(entry.path("id").asString()).isEqualTo(owner.id().toString());
                 assertThat(entry.path("label").asString()).isEqualTo(word + " Suggestable");
+                assertThat(entry.path("sublabel").asString())
+                        .isEqualTo("@" + owner.handle() + " · São Paulo, Brazil");
             }
             if ("BINDER".equals(entry.path("type").asString())) {
                 assertThat(entry.path("id").asString()).isEqualTo(binderId);
             }
         }
+        JsonNode elsewhere =
+                get(null, 200, "/api/v1/search/suggest?q={q}&region=americas-north", word);
+        elsewhere.forEach(
+                entry -> assertThat(entry.path("type").asString()).isNotIn("COLLECTOR", "BINDER"));
 
         JsonNode printings = get(null, 200, "/api/v1/search/suggest?q={q}&limit=5", "AZR-EN0");
         assertThat(printings.get(0).path("type").asString()).isEqualTo("PRINTING");
@@ -258,6 +256,7 @@ class SearchIT extends AbstractSearchIT {
 
         callJson(HttpMethod.GET, "/api/v1/search/suggest", null, null, 400);
         callJson(HttpMethod.GET, "/api/v1/search/suggest?q=a&limit=31", null, null, 400);
+        callJson(HttpMethod.GET, "/api/v1/search/suggest?q=a&region=nowhere", null, null, 400);
         assertThat(suggestions.toString()).doesNotContain("\"lat\"").doesNotContain("\"lng\"");
     }
 }

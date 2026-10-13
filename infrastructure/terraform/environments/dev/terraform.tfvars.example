@@ -12,8 +12,6 @@ api_host = "dev-api.orenjitrade.com"
 # Public web configuration (Firebase web app of the dev project; no secrets).
 firebase_web_api_key    = "AIzaSyExampleExampleExampleExampleExampl"
 firebase_web_app_id     = "1:123456789012:web:0123456789abcdef012345"
-google_maps_browser_key = ""
-google_maps_map_id      = ""
 
 # Staging/prod Cloud Run service agents pull the images built into this project's registry.
 # artifact_registry_reader_members = [

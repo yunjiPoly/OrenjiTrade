@@ -1,3 +1,7 @@
+import { Platform } from 'react-native';
+
+import { localFilePart } from './localFilePart';
+
 /** A picked image, as `expo-image-picker` returns it. */
 export interface PickedImage {
   uri: string;
@@ -9,7 +13,7 @@ export interface PickedImage {
 
 /**
  * The multipart body of an image upload (`file` part): the browser `File` on web, a `blob:` /
- * `data:` URI read into a Blob, or a local file URI that React Native's FormData streams itself.
+ * `data:` URI read into a Blob, or a local file of the device (`localFilePart`).
  */
 export async function imageFormData(image: PickedImage, baseName: string): Promise<FormData> {
   const form = new FormData();
@@ -20,8 +24,7 @@ export async function imageFormData(image: PickedImage, baseName: string): Promi
   } else if (/^(blob|data):/.test(image.uri)) {
     form.append('file', await (await fetch(image.uri)).blob(), name);
   } else {
-    // React Native's FormData streams a local file from its URI.
-    form.append('file', { uri: image.uri, name, type } as unknown as Blob);
+    form.append('file', localFilePart(Platform.OS, { uri: image.uri, name, type }));
   }
   return form;
 }

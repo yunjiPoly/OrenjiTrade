@@ -1,0 +1,36 @@
+# iOS only (called from wait-for-app.yaml): turns off Expo Go's floating developer-tools button.
+# Expo Go 57 on iOS floats that blue gear over the right end of the navigation header, on top of
+# the tabs' notification bell and of the header buttons of the pushed screens, so a tap meant for
+# them would open Expo Go's developer menu. The app is unchanged: this is Expo Go's own setting
+# (developer menu -> "Tools button"), which a freshly installed Expo Go turns on again, so every
+# launch passes here. Without the button the developer menu still opens with a shake of the
+# device. On Android, Expo Go 57 puts the button below the header, where it covers nothing.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      visible:
+        id: 'gearshape.fill'
+    commands:
+      - tapOn:
+          id: 'gearshape.fill'
+      - extendedWaitUntil:
+          visible: 'Go home'
+          timeout: 30000
+      # The menu opens as a half-height sheet with the switch on its fold: one swipe opens it
+      # fully. The switch has no name of its own: it is the second "1" (on) next to its label,
+      # after the row that contains it.
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 45%
+          duration: 400
+      - waitForAnimationToEnd
+      - tapOn:
+          text: '1'
+          rightOf: 'Tools button'
+          index: 1
+      - tapOn: 'Close'
+      - extendedWaitUntil:
+          notVisible:
+            id: 'gearshape.fill'
+          timeout: 10000

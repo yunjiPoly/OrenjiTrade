@@ -2,8 +2,7 @@ package com.orenjitrade.api.profiles.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.orenjitrade.api.location.domain.DistanceBucket;
-import com.orenjitrade.api.location.domain.PublicPoint;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
@@ -16,9 +15,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Response of {@code GET /api/v1/collectors/{handle}}: the public view of a collector for the
- * caller. Never contains a precise coordinate: {@code location} is null unless the collector is
- * discoverable and then only carries the derived public point (3 decimals), its label and a
- * distance bucket.
+ * caller. {@code location} is null unless the collector is discoverable and set a location; it
+ * carries their state/province and country, and their city only while they show it (the only
+ * response with another collector's city, ADR 0017). Never a coordinate or a distance.
  */
 @Schema(name = "CollectorProfileResponse", description = "Public collector profile")
 public record CollectorProfileResponse(
@@ -31,9 +30,12 @@ public record CollectorProfileResponse(
         @Schema(requiredMode = RequiredMode.REQUIRED) String bio,
         @Schema(requiredMode = RequiredMode.REQUIRED, example = "[\"yugioh\"]") List<String> games,
         @Schema(requiredMode = RequiredMode.REQUIRED) List<CollectorTag> tags,
-        @Schema(nullable = true, description = "Null unless the collector is discoverable")
+        @Schema(
+                        nullable = true,
+                        description =
+                                "Null unless the collector is discoverable and set a location")
                 @JsonInclude(JsonInclude.Include.ALWAYS)
-                @Nullable CollectorLocation location,
+                @Nullable ProfileLocation location,
         @Schema(requiredMode = RequiredMode.REQUIRED, format = "date", example = "2026-09-01")
                 LocalDate memberSince,
         @Schema(requiredMode = RequiredMode.REQUIRED) LastActiveBucket lastActiveBucket,
@@ -57,12 +59,7 @@ public record CollectorProfileResponse(
                 view.bio(),
                 view.games(),
                 view.tags().stream().map(tag -> new CollectorTag(tag.slug(), tag.label())).toList(),
-                location == null
-                        ? null
-                        : new CollectorLocation(
-                                location.publicLabel(),
-                                location.publicPoint(),
-                                location.distanceBucket()),
+                location == null ? null : ProfileLocation.from(location.place(), location.city()),
                 view.memberSince(),
                 view.lastActiveBucket(),
                 view.onlineStatus(),
@@ -78,19 +75,40 @@ public record CollectorProfileResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "trader") String slug,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "Trader") String label) {}
 
-    /** Approximate location of a discoverable collector. */
-    @Schema(name = "CollectorLocation", description = "Approximate location (never precise)")
-    public record CollectorLocation(
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Plateau-Mont-Royal, Montréal")
-                    String publicLabel,
-            @Schema(requiredMode = RequiredMode.REQUIRED) PublicPoint publicPoint,
+    /** Location of a discoverable collector on their own profile. */
+    @Schema(
+            name = "ProfileLocation",
+            description =
+                    "State/province and country of a collector, plus the city they show on their"
+                            + " profile; never a coordinate")
+    public record ProfileLocation(
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "americas-north")
+                    String regionCode,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "CA") String countryCode,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Canada") String countryName,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "CA-QC") String subdivisionCode,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Quebec")
+                    String subdivisionName,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Quebec, Canada") String label,
             @Schema(
                             nullable = true,
+                            example = "Montréal",
                             description =
-                                    "Null unless the caller has a trading area and the collector"
-                                            + " shows distances")
+                                    "Null unless the collector shows their city on their profile")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable DistanceBucket distanceBucket) {}
+                    @Nullable String city) {
+
+        static ProfileLocation from(PublicPlace place, @Nullable String city) {
+            return new ProfileLocation(
+                    place.regionCode(),
+                    place.countryCode(),
+                    place.countryName(),
+                    place.subdivisionCode(),
+                    place.subdivisionName(),
+                    place.label(),
+                    city);
+        }
+    }
 
     /** Rating summary. */
     @Schema(name = "CollectorRating")

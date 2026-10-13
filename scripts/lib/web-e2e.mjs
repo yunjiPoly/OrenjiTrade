@@ -64,6 +64,7 @@ import {
   developerDirs,
   e2eApiEnv,
   identityArgs,
+  isProcessImage,
   isRunAccount,
   newRunId,
   portProblem,
@@ -185,13 +186,14 @@ async function stopHandle(handle) {
 /**
  * Stops a recorded PID, but only while it is still ours: it listens on its recorded port (java
  * and `node ng.js serve` are spawned directly, so the recorded process is the listener) or it is
- * still the expected program. A recycled PID is never killed.
+ * still the expected program (`expectedImage`: "java" or "node", matched on the executable's
+ * base name because macOS reports the whole path). A recycled PID is never killed.
  */
 function stopRecorded(pid, port, label, expectedImage) {
   if (!pid || !isAlive(pid)) {
     return false;
   }
-  const ours = listeningPids(port).has(pid) || expectedImage.test(processName(pid));
+  const ours = listeningPids(port).has(pid) || isProcessImage(processName(pid), expectedImage);
   if (!ours) {
     log.warn(`${label} (PID ${pid}) is no longer the process this harness started; leaving it alone.`);
     return false;
@@ -254,8 +256,8 @@ async function stopKept() {
     log.info('No E2E stack recorded in .local-dev/e2e/state.json; nothing to stop.');
     return 0;
   }
-  const stoppedApi = stopRecorded(state.apiPid, state.apiPort, 'E2E API', /^java(\.exe)?$/i);
-  const stoppedWeb = stopRecorded(state.webPid, state.webPort, 'E2E web server', /^node(\.exe)?$/i);
+  const stoppedApi = stopRecorded(state.apiPid, state.apiPort, 'E2E API', 'java');
+  const stoppedWeb = stopRecorded(state.webPid, state.webPort, 'E2E web server', 'node');
   clearState();
   log.ok(
     `Stopped the kept E2E stack (API ${stoppedApi ? 'stopped' : 'not running'}, web ${stoppedWeb ? 'stopped' : 'not running'}).`,

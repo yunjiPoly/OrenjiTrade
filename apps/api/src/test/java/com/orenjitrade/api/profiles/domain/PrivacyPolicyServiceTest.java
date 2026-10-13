@@ -19,18 +19,10 @@ class PrivacyPolicyServiceTest {
             ProfileVisibility visibility,
             MessagingPermission messaging,
             boolean discoverable,
-            boolean showDistance,
             boolean showOnline,
             boolean showLastActive) {
         return new PrivacySettingsView(
-                discoverable,
-                showDistance,
-                showOnline,
-                showLastActive,
-                visibility,
-                messaging,
-                false,
-                true);
+                discoverable, showOnline, showLastActive, visibility, messaging, false, true);
     }
 
     private static ViewerContext member(boolean completedProfile) {
@@ -47,7 +39,7 @@ class PrivacyPolicyServiceTest {
     void profileVisibility(
             ProfileVisibility visibility, boolean anonymous, boolean memberView, boolean owner) {
         PrivacySettingsView target =
-                settings(visibility, MessagingPermission.EVERYONE, true, true, true, true);
+                settings(visibility, MessagingPermission.EVERYONE, true, true, true);
         assertThat(policy.canViewProfile(ViewerContext.ANONYMOUS, TARGET, target))
                 .isEqualTo(anonymous);
         assertThat(policy.canViewProfile(member(true), TARGET, target)).isEqualTo(memberView);
@@ -65,7 +57,7 @@ class PrivacyPolicyServiceTest {
     void messagingPermission(
             MessagingPermission permission, boolean withoutProfile, boolean withProfile) {
         PrivacySettingsView target =
-                settings(ProfileVisibility.MEMBERS, permission, false, true, false, true);
+                settings(ProfileVisibility.MEMBERS, permission, false, false, true);
         assertThat(policy.canMessage(member(false), TARGET, target)).isEqualTo(withoutProfile);
         assertThat(policy.canMessage(member(true), TARGET, target)).isEqualTo(withProfile);
     }
@@ -73,43 +65,11 @@ class PrivacyPolicyServiceTest {
     @Test
     void nobodyMessagesThemselvesAnonymousVisitorsOrAcrossBlocks() {
         PrivacySettingsView target =
-                settings(
-                        ProfileVisibility.PUBLIC,
-                        MessagingPermission.EVERYONE,
-                        true,
-                        true,
-                        true,
-                        true);
+                settings(ProfileVisibility.PUBLIC, MessagingPermission.EVERYONE, true, true, true);
         assertThat(policy.canMessage(new ViewerContext(TARGET, true, false), TARGET, target))
                 .isFalse();
         assertThat(policy.canMessage(ViewerContext.ANONYMOUS, TARGET, target)).isFalse();
         assertThat(policy.canMessage(new ViewerContext(VIEWER, true, true), TARGET, target))
-                .isFalse();
-    }
-
-    @Test
-    void distanceNeedsShowDistanceAMemberAndAVisibleProfile() {
-        PrivacySettingsView shows =
-                settings(
-                        ProfileVisibility.MEMBERS,
-                        MessagingPermission.EVERYONE,
-                        true,
-                        true,
-                        false,
-                        true);
-        PrivacySettingsView hides =
-                settings(
-                        ProfileVisibility.MEMBERS,
-                        MessagingPermission.EVERYONE,
-                        true,
-                        false,
-                        false,
-                        true);
-        assertThat(policy.canSeeDistance(member(true), TARGET, shows)).isTrue();
-        assertThat(policy.canSeeDistance(member(true), TARGET, hides)).isFalse();
-        assertThat(policy.canSeeDistance(ViewerContext.ANONYMOUS, TARGET, shows)).isFalse();
-        assertThat(policy.canSeeDistance(new ViewerContext(TARGET, true, false), TARGET, shows))
-                .as("no distance to oneself")
                 .isFalse();
     }
 
@@ -120,17 +80,10 @@ class PrivacyPolicyServiceTest {
                         ProfileVisibility.MEMBERS,
                         MessagingPermission.EVERYONE,
                         true,
-                        true,
                         false,
                         false);
         PrivacySettingsView shown =
-                settings(
-                        ProfileVisibility.MEMBERS,
-                        MessagingPermission.EVERYONE,
-                        true,
-                        true,
-                        true,
-                        true);
+                settings(ProfileVisibility.MEMBERS, MessagingPermission.EVERYONE, true, true, true);
         assertThat(policy.canSeeLastActive(member(true), TARGET, hidden)).isFalse();
         assertThat(policy.canSeeOnlineStatus(member(true), TARGET, hidden)).isFalse();
         assertThat(policy.canSeeLastActive(member(true), TARGET, shown)).isTrue();
@@ -144,18 +97,12 @@ class PrivacyPolicyServiceTest {
     void locationOnlyForDiscoverableCollectors() {
         PrivacySettingsView discoverable =
                 settings(
-                        ProfileVisibility.MEMBERS,
-                        MessagingPermission.EVERYONE,
-                        true,
-                        true,
-                        false,
-                        true);
+                        ProfileVisibility.MEMBERS, MessagingPermission.EVERYONE, true, false, true);
         PrivacySettingsView hidden =
                 settings(
                         ProfileVisibility.MEMBERS,
                         MessagingPermission.EVERYONE,
                         false,
-                        true,
                         false,
                         true);
         assertThat(policy.canSeeLocation(member(true), TARGET, discoverable)).isTrue();
@@ -179,7 +126,7 @@ class PrivacyPolicyServiceTest {
             boolean blockedView,
             boolean owner) {
         PrivacySettingsView target =
-                settings(visibility, MessagingPermission.EVERYONE, discoverable, true, true, true);
+                settings(visibility, MessagingPermission.EVERYONE, discoverable, true, true);
         assertThat(policy.canAppearOnMap(ViewerContext.ANONYMOUS, TARGET, target))
                 .isEqualTo(anonymous);
         assertThat(policy.canAppearOnMap(member(true), TARGET, target)).isEqualTo(memberView);
@@ -194,7 +141,6 @@ class PrivacyPolicyServiceTest {
         PrivacySettingsView searchable =
                 new PrivacySettingsView(
                         true,
-                        true,
                         false,
                         true,
                         ProfileVisibility.MEMBERS,
@@ -203,7 +149,6 @@ class PrivacyPolicyServiceTest {
                         true);
         PrivacySettingsView unsearchable =
                 new PrivacySettingsView(
-                        true,
                         true,
                         false,
                         true,

@@ -35,7 +35,7 @@ public class ExportController {
             summary = "Download the caller's data",
             description =
                     "JSON document with one section per module (account + consents, profile + tags"
-                            + " + privacy settings, notification preferences, trading area, ...)."
+                            + " + privacy settings, notification preferences, location, ...)."
                             + " Served as an attachment. Rate-limited (10 per hour); also available"
                             + " while a deletion is pending.")
     public ResponseEntity<AccountExport> export(

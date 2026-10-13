@@ -16,11 +16,9 @@ import com.orenjitrade.api.payments.events.PaymentUpdated;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
 import com.orenjitrade.api.ratings.events.RatingSubmitted;
 import com.orenjitrade.api.reports.events.CollectorReported;
-import com.orenjitrade.api.search.events.CollectorPreviewed;
 import com.orenjitrade.api.search.events.SearchPerformed;
 import com.orenjitrade.api.trades.events.TradeUpdated;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
-import com.orenjitrade.api.wishlist.events.WishlistMatched;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -41,9 +39,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * MessageSent}, {@code CommunityPostCreated}) are mapped after commit only. Nothing here may fail a
  * request.
  *
- * <p>Privacy: account ids become HMAC hashes ({@link ActorHasher}); geography is the grid cell id
- * and region label carried by the notification; search text is scrubbed and truncated ({@link
- * AnalyticsText}).
+ * <p>Privacy: account ids become HMAC hashes ({@link ActorHasher}); geography is the platform
+ * region and subdivision codes carried by the notification, never a city, a coordinate or a
+ * distance (ADR 0017); search text is scrubbed and truncated ({@link AnalyticsText}).
  */
 @Component
 public class AnalyticsEventListener {
@@ -79,9 +77,6 @@ public class AnalyticsEventListener {
                     }
                     payload.put("resolved", search.resolved());
                     payload.put("result_count", search.resultCount());
-                    if (search.radiusKm() != null) {
-                        payload.put("radius_km", search.radiusKm());
-                    }
                     if (!search.filters().isEmpty()) {
                         payload.put("filters", search.filters());
                     }
@@ -90,8 +85,8 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.SEARCH_PERFORMED,
                             search.occurredAt(),
                             search.viewerId(),
-                            search.gridCell(),
-                            search.regionLabel(),
+                            search.regionCode(),
+                            search.subdivisionCode(),
                             payload);
                 });
         if (search.resultCount() == 0) {
@@ -107,9 +102,6 @@ public class AnalyticsEventListener {
                         if (search.game() != null) {
                             payload.put("game", search.game());
                         }
-                        if (search.radiusKm() != null) {
-                            payload.put("radius_km", search.radiusKm());
-                        }
                         if (!search.filters().isEmpty()) {
                             payload.put("filters", search.filters());
                         }
@@ -118,8 +110,8 @@ public class AnalyticsEventListener {
                                 AnalyticsEventTypes.SEARCH_NO_RESULTS,
                                 search.occurredAt(),
                                 search.viewerId(),
-                                search.gridCell(),
-                                search.regionLabel(),
+                                search.regionCode(),
+                                search.subdivisionCode(),
                                 payload);
                     });
         }
@@ -131,20 +123,9 @@ public class AnalyticsEventListener {
                 "profile",
                 viewed.viewerId(),
                 viewed.collectorId(),
-                viewed.gridCell(),
-                viewed.regionLabel(),
+                viewed.regionCode(),
+                viewed.subdivisionCode(),
                 viewed.occurredAt());
-    }
-
-    @EventListener
-    void on(CollectorPreviewed previewed) {
-        collectorViewed(
-                "preview",
-                previewed.viewerId(),
-                previewed.collectorId(),
-                previewed.gridCell(),
-                previewed.regionLabel(),
-                previewed.occurredAt());
     }
 
     @EventListener
@@ -160,8 +141,8 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.BINDER_VIEWED,
                             viewed.occurredAt(),
                             viewed.viewerId(),
-                            null,
-                            viewed.regionLabel(),
+                            viewed.regionCode(),
+                            viewed.subdivisionCode(),
                             payload);
                 });
     }
@@ -225,7 +206,7 @@ public class AnalyticsEventListener {
                 });
     }
 
-    /** Committed wishlist items (Phase 6): game, target kind, radius and filter flags. */
+    /** Committed wishlist items (stage S2): game, target kind, Near Mint only, price term set. */
     @TransactionalEventListener(fallbackExecution = true)
     void on(WishlistItemCreated created) {
         emit(
@@ -234,9 +215,8 @@ public class AnalyticsEventListener {
                     Map<String, Object> payload = new LinkedHashMap<>();
                     payload.put("game", created.game());
                     payload.put("target", created.target());
-                    payload.put("radius_km", created.radiusKm());
-                    payload.put("has_max_price", created.hasMaxPrice());
-                    payload.put("trade_preference", created.tradePreference());
+                    payload.put("near_mint_only", created.nearMintOnly());
+                    payload.put("has_price_term", created.hasPriceTerm());
                     return event(
                             AnalyticsEventTypes.WISHLIST_ITEM_CREATED,
                             created.occurredAt(),
@@ -247,36 +227,12 @@ public class AnalyticsEventListener {
                 });
     }
 
-    /**
-     * Committed wishlist matches (Phase 6): game, distance bucket (never a distance or a point),
-     * whether a notification was created, the pseudonymous item owner.
-     */
-    @TransactionalEventListener(fallbackExecution = true)
-    void on(WishlistMatched matched) {
-        emit(
-                AnalyticsEventTypes.WISHLIST_MATCHED,
-                () -> {
-                    Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("game", matched.game());
-                    payload.put("distance_bucket", matched.distanceBucket());
-                    payload.put("notified", matched.notified());
-                    payload.put("owner_hash", hash(matched.itemOwnerId()));
-                    return event(
-                            AnalyticsEventTypes.WISHLIST_MATCHED,
-                            matched.matchedAt(),
-                            matched.wisherId(),
-                            null,
-                            null,
-                            payload);
-                });
-    }
-
     private void collectorViewed(
             String surface,
             @Nullable UUID viewerId,
             UUID collectorId,
-            @Nullable String gridCell,
-            @Nullable String regionLabel,
+            @Nullable String regionCode,
+            @Nullable String subdivisionCode,
             Instant occurredAt) {
         emit(
                 AnalyticsEventTypes.COLLECTOR_VIEWED,
@@ -289,8 +245,8 @@ public class AnalyticsEventListener {
                             AnalyticsEventTypes.COLLECTOR_VIEWED,
                             occurredAt,
                             viewerId,
-                            gridCell,
-                            regionLabel,
+                            regionCode,
+                            subdivisionCode,
                             payload);
                 });
     }
@@ -299,10 +255,11 @@ public class AnalyticsEventListener {
             String type,
             Instant occurredAt,
             @Nullable UUID actorId,
-            @Nullable String gridCell,
-            @Nullable String regionLabel,
+            @Nullable String regionCode,
+            @Nullable String subdivisionCode,
             Map<String, Object> payload) {
-        return AnalyticsEvent.of(type, occurredAt, hash(actorId), gridCell, regionLabel, payload);
+        return AnalyticsEvent.of(
+                type, occurredAt, hash(actorId), regionCode, subdivisionCode, payload);
     }
 
     private @Nullable String hash(@Nullable UUID id) {

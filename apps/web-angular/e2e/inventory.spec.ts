@@ -5,7 +5,7 @@ import {
   apiPublishBinder,
   apiUpdatePrivacy,
   printingIdOf,
-  tooPrecise,
+  coordinateLeaks,
   watchCoordinates,
 } from './support/inventory';
 import {
@@ -246,12 +246,12 @@ test.describe('inventory', () => {
     await expect(page.getByRole('heading', { name: 'Your inventory is empty' })).toBeVisible();
   });
 
-  test('a second collector opens a published binder with approximate owner details only', async ({
+  test('a second collector opens a published binder with the owner state and country only', async ({
     page,
     request,
   }) => {
     test.setTimeout(150_000);
-    const owner = await createOnboardedCollector(request, 'binderowner', { tradingArea: true });
+    const owner = await createOnboardedCollector(request, 'binderowner', { location: true });
     await apiUpdatePrivacy(request, owner.idToken, { discoverable: true });
     const binder = await apiCreateBinder(request, owner.idToken, {
       name: 'E2E public binder',
@@ -276,7 +276,7 @@ test.describe('inventory', () => {
     });
     await apiPublishBinder(request, owner.idToken, binder.id, 'UNTIL_DISABLED');
 
-    const viewer = await createOnboardedCollector(request, 'binderviewer', { tradingArea: true });
+    const viewer = await createOnboardedCollector(request, 'binderviewer', { location: true });
     const watcher = watchCoordinates(page);
     await signInThroughUi(page, viewer.email, viewer.password);
 
@@ -296,8 +296,9 @@ test.describe('inventory', () => {
     const ownerCard = page.getByRole('region', { name: 'Owner' });
     await expect(ownerCard).toContainText(owner.displayName);
     await expect(ownerCard).toContainText(`@${owner.handle}`);
-    await expect(page.getByTestId('owner-public-label')).toContainText(owner.areaLabel ?? '');
-    await expect(page.getByTestId('owner-distance')).toHaveText(/km away/);
+    await expect(page.getByTestId('owner-public-label')).toContainText('Quebec, Canada');
+    await expect(page.getByTestId('owner-distance')).toHaveCount(0);
+    await expect(ownerCard).not.toContainText(/\bkm\b/);
     await expect(page.getByTestId('binder-item-count')).toContainText('2 cards');
 
     const dragon = card(page, 'Azure-Eyes Sky Dragon');
@@ -318,9 +319,9 @@ test.describe('inventory', () => {
     await expect(card(page, 'Emberfang Fox VMAX')).toBeVisible();
     await expect(card(page, 'Azure-Eyes Sky Dragon')).toHaveCount(0);
 
-    // ADR 0004: no JSON response carried a coordinate with more than 3 decimals.
+    // ADR 0017: no JSON response carried a coordinate.
     await watcher.settle();
-    expect(tooPrecise(watcher.samples)).toEqual([]);
+    expect(coordinateLeaks(watcher.samples)).toEqual([]);
   });
 
   test('the binders.max limit opens the limit-reached dialog; binders reorder from the keyboard', async ({

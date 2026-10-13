@@ -58,12 +58,30 @@ No stack traces, SQL, or class names. `requestId` equals the `X-Request-Id` resp
 - Cursor: `?cursor=<opaque>&limit=20` → `{ items, nextCursor }` (feeds, messages, notifications).
   Cursors are opaque base64 strings; never construct them client side.
 
-## Geography
+## Geography (platform regions, ADR 0017)
 
-Requests take `lat`, `lng`, `radiusKm` (bounded by the caller's plan). Responses only ever
-contain `publicPoint` (≤ 3 decimals), `distanceBucket` (`LT_1KM`, `KM_1_5`, `KM_5_10`,
-`KM_10_25`, `KM_25_50`, `GT_50KM`), and `publicLabel`. Exact coordinates are never returned
-(ADR 0004).
+The API handles **no coordinates, distances or radii**: no request takes `lat`, `lng` or
+`radiusKm`, and no response carries a point, a distance or an area.
+
+- `GET /api/v1/regions` (public): the platform regions (`americas-north` default,
+  `americas-south`, `europe`), their countries (ISO 3166-1 alpha-2) and subdivisions (ISO 3166-2,
+  or a whole-country pseudo-subdivision coded with the alpha-2 code).
+- `GET / PUT / DELETE /api/v1/me/location`: the collector's declared `countryCode`,
+  `subdivisionCode`, optional `city` (≤ 80 characters, never geocoded) and `showCity`. Unknown or
+  inactive codes answer `400 VALIDATION_FAILED`; becoming discoverable without a location answers
+  `409 LOCATION_REQUIRED`.
+- Region-scoped endpoints (`/search`, `/search/suggest`, `/search/card-holders`, `/ads`,
+  `/regions/{region}/binder-counts`, `/regions/{region}/subdivisions/{code}/binders`) take a
+  `region` code: the request's, else the caller's home region (`GET /me` → `homeRegion`), else the
+  default. Clients always send it; an unknown code is a 400. It scopes results, never grants
+  access.
+- Other collectors appear with a `place` (`regionCode`, `countryCode`, `countryName`,
+  `subdivisionCode`, `subdivisionName`, `label` such as `Quebec, Canada`). Only the public profile
+  (`GET /collectors/{handle}`) adds the `city`, and only while its owner shows it.
+
+ADR 0017 removed the former geography fields (`publicPoint`, `distanceBucket`, `publicLabel`,
+`tradingArea`, `radiusKm`) inside `/api/v1`: no production client existed yet, so the usual
+`/api/v2` rule for removals was not needed.
 
 ## Versioning and compatibility
 

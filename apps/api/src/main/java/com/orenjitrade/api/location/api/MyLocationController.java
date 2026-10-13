@@ -2,8 +2,9 @@ package com.orenjitrade.api.location.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.location.domain.LocationService;
-import com.orenjitrade.api.location.domain.TradingAreaSource;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -18,11 +19,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** {@code /api/v1/me/location}: the caller's approximate trading area (ADR 0004). */
+/**
+ * {@code /api/v1/me/location}: the caller's self-declared country, state/province and optional city
+ * (ADR 0017). No coordinates, GPS, geocoding or distances.
+ */
 @RestController
 @RequestMapping(path = "/api/v1/me/location", produces = MediaType.APPLICATION_JSON_VALUE)
-@Tag(name = "location", description = "Approximate trading area and public map position")
+@Tag(name = "location", description = "Country, state/province and optional city of the caller")
 public class MyLocationController {
+
+    static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
 
     private final LocationService locationService;
 
@@ -33,29 +39,43 @@ public class MyLocationController {
     @GetMapping
     @Operation(
             operationId = "getMyLocation",
-            summary = "The caller's trading area and public point",
+            summary = "The caller's location",
             description =
-                    "The only endpoint that returns the caller's chosen centre. `publicPoint` is"
-                            + " what other collectors see and is null while not discoverable.")
+                    "Country, state/province, optional city and the show-city switch. `location` is"
+                            + " null while none is set (the caller cannot be discoverable then).")
     public MyLocationResponse get(@AuthenticationPrincipal AuthenticatedUser principal) {
         return MyLocationResponse.from(locationService.getMine(principal.userId()));
     }
 
-    @PutMapping(path = "/trading-area", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
-            operationId = "updateMyTradingArea",
-            summary = "Set the caller's trading area",
+            operationId = "updateMyLocation",
+            summary = "Set the caller's location",
             description =
-                    "Radius 1-50 km, latitude within +/-85. The server snaps the centre to a ~1 km"
-                        + " grid cell and offsets it with a deterministic per-user jitter to derive"
-                        + " `publicPoint` (3 decimals) and its region label.")
-    public MyLocationResponse updateTradingArea(
+                    "`countryCode` must be an active country and `subdivisionCode` one of its"
+                        + " subdivisions (`GET /regions`); unknown codes are 400 VALIDATION_FAILED."
+                        + " `city` is optional free text (trimmed, at most 80 characters,"
+                        + " moderated, never geocoded) shown only on the caller's own public"
+                        + " profile while `showCity` is true (default). Everywhere else other"
+                        + " collectors see the state/province and the country only.")
+    @ApiResponse(responseCode = "200", description = "The saved location")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Unknown country or subdivision, or an invalid city",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public MyLocationResponse update(
             @AuthenticationPrincipal AuthenticatedUser principal,
-            @Valid @RequestBody UpdateTradingAreaRequest body) {
-        TradingAreaSource source = body.source() != null ? body.source() : TradingAreaSource.MANUAL;
+            @Valid @RequestBody UpdateLocationRequest body) {
         return MyLocationResponse.from(
-                locationService.setTradingArea(
-                        principal.userId(), body.lat(), body.lng(), body.radiusKm(), source));
+                locationService.setMine(
+                        principal.userId(),
+                        body.countryCode(),
+                        body.subdivisionCode(),
+                        body.city(),
+                        body.showCity()));
     }
 
     @DeleteMapping
@@ -63,7 +83,9 @@ public class MyLocationController {
     @Operation(
             operationId = "deleteMyLocation",
             summary = "Remove the caller's location",
-            description = "Deletes every location row; the collector disappears from the map.")
+            description =
+                    "Deletes the location; discoverability is turned off with it (it needs a"
+                            + " country and a state/province).")
     @ApiResponse(responseCode = "204", description = "Removed")
     public void delete(@AuthenticationPrincipal AuthenticatedUser principal) {
         locationService.deleteMine(principal.userId());

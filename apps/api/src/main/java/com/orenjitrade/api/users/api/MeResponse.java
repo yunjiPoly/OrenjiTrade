@@ -37,4 +37,12 @@ public record MeResponse(
                                 "Current legal document versions still to accept; while non-empty"
                                         + " every non-exempt route answers 428")
                 List<RequiredConsent> requiredConsents,
-        @Schema(requiredMode = RequiredMode.REQUIRED, example = "FREE") String plan) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED, example = "FREE") String plan,
+        @Schema(
+                        nullable = true,
+                        example = "americas-north",
+                        description =
+                                "Platform region of the collector's declared location (ADR 0017);"
+                                        + " null without a location. Clients browse it by default")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable String homeRegion) {}

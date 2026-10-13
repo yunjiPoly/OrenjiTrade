@@ -71,11 +71,9 @@ terraform taint random_password.db_app_user      # or random_password.service_to
 terraform apply                                  # new password on Cloud SQL user + new secret version
 ```
 
-**Never taint `random_password.location_jitter_secret`** outside a deliberate, announced
-migration: it seeds the deterministic public-point jitter (ADR 0004), so a new value moves every
-collector's public point and breaks the "same input, same output" guarantee that prevents
-triangulation. Rotating `analytics-actor-salt` breaks the continuity of `actor_hash` in
-BigQuery (acceptable, analytics is derived data).
+Rotating `analytics-actor-salt` breaks the continuity of `actor_hash` in BigQuery (acceptable,
+analytics is derived data). (The former location jitter secret is gone with the coordinates,
+ADR 0017.)
 
 Cloud Run reads `latest` at instance start, so deploy a new revision (re-run **Deploy** with the
 current tag or `gcloud run services update orenjitrade-api-$ENV --region "$REGION" --project
@@ -225,7 +223,7 @@ to restore; expect, right after a restart:
 | What | Effect | Lasts |
 | --- | --- | --- |
 | Rate-limit windows | each client gets one fresh window | one window (≤ 24 h for the daily policies) |
-| Rule / nearby caches, usage mirror, credit balance cache | one database read per key, then warm | seconds to 10 minutes |
+| Rule / regions / discovery caches, usage mirror, credit balance cache | one database read per key, then warm | seconds to 10 minutes |
 | Presence | everyone appears offline | ≤ 60 s (next heartbeat) |
 | Binder view de-duplication | a binder re-opened the same day counts again | until midnight UTC |
 | `Idempotency-Key` for `POST /offers`, `POST /reports` | a retried request after the restart can create a duplicate | 24 h; the only user-visible loss |
@@ -255,9 +253,7 @@ of the actual spend and at 100 % of the forecast. It never stops anything by its
 3. Cloud Run above plan: a second revision serving traffic (`gcloud run services describe ...
    --format 'yaml(status.traffic)'`), or an out-of-band `--cpu`/`--memory` change (runbook 2)
    that Terraform has not reset.
-4. Google Maps Platform charges: the Maps JavaScript API quota cap (`README.md` section 10) is
-   missing or too high.
-5. Anything unexplained: `gcloud billing accounts list`, then **Billing > Cost table** filtered
+4. Anything unexplained (no map provider is billed since ADR 0017): `gcloud billing accounts list`, then **Billing > Cost table** filtered
    by SKU; Cloud SQL storage auto-resize and backup growth are visible there.
 
 ## 11. Cloud SQL restore (first-year profile)
@@ -270,8 +266,8 @@ recovers the zone or you restore into a new instance (RTO target 1 h, RPO 5 minu
 
 ## 12. Launch configuration (2026-10-05): money features off
 
-OrenjiTrade launches as **discovery + messaging only**: collectors find each other on the map and
-chat, then trade on their own. Every money feature stays switched off until the owner turns it on.
+OrenjiTrade launches as **discovery + messaging only**: collectors find each other's binders in
+their region (search and the region map's state lists) and chat, then trade on their own. Every money feature stays switched off until the owner turns it on.
 The switches are the `feature_flag` rows (ADR 0014): nothing is hard-coded, the launch state is
 data created by the migrations, and a `SUPER_ADMIN` changes it in `/admin > Feature flags`.
 
@@ -289,7 +285,7 @@ data created by the migrations, and a `SUPER_ADMIN` changes it in `/admin > Feat
 
 Always available regardless of the flags: the admin consoles (`/admin/payments`,
 `/admin/disputes`, `/admin/subscriptions`, `/admin/credits`, `/admin/donations`, `/admin/ads`),
-`GET /api/v1/plans` and `GET /api/v1/me/plan` (the mobile app reads the map radius cap from them;
+`GET /api/v1/plans` and `GET /api/v1/me/plan` (the apps read the plan limits from them;
 the plan answer and the `429 LIMIT_REACHED` Problem Details carry `upgradeUrl: /premium` as data,
 and clients hide it while the flag is off), `POST /me/subscription/cancel` and the billing
 webhook (an existing subscription stays manageable and renewals keep being recorded).

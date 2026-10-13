@@ -17,9 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Test-only endpoints that exercise the platform rules through the real HTTP stack until product
- * endpoints consume them (binder views in Phase 3, radius in Phase 4, payments in Phase 9). Hidden
- * from the OpenAPI export; imported by {@link AbstractIntegrationTest} so every context has the
- * same beans.
+ * endpoints consume them (binder views in Phase 3, caps, payments in Phase 9). Hidden from the
+ * OpenAPI export; imported by {@link AbstractIntegrationTest} so every context has the same beans.
  */
 @TestComponent
 @RestController

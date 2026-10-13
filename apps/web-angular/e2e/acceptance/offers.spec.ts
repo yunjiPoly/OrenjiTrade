@@ -1,7 +1,7 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
 import { dialogReady, escapeRegExp, expect, test } from './support/fixtures';
-import { randomCentre } from './support/places';
+import { placeOf } from './support/places';
 
 /**
  * Acceptance — offers (spec § 50), two collectors in two browsers:
@@ -21,7 +21,7 @@ test.describe('acceptance: offers', () => {
       items: [fiend, veil],
     } = await api.seller(
       'acc-offera',
-      randomCentre('offers'),
+      placeOf('offers'),
       [
         { code: 'AZR-EN021', extra: { availability: 'TRADE_OR_SALE', askingPrice: 30 } },
         { code: 'SHV-EN033', extra: { availability: 'SALE', askingPrice: 20 } },

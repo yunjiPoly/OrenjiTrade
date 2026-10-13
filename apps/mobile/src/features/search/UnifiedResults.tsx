@@ -11,7 +11,6 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { RecentSearches } from '@/src/features/catalog/RecentSearches';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
-import { APPROXIMATE_LOCATION_NOTE } from '@/src/lib/approximateArea';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
 import { BinderResultRow, CollectorResultRow } from './SearchResultRows';
@@ -65,7 +64,9 @@ export function UnifiedResults({ segment, query, onSearch }: UnifiedResultsProps
         <EmptyState
           testID={`search-${segment}-invite`}
           icon={segment === 'collectors' ? 'account-search-outline' : 'book-search-outline'}
-          title={segment === 'collectors' ? 'Who trades near you?' : 'What is in their binders?'}
+          title={
+            segment === 'collectors' ? 'Who trades in your region?' : 'What is in their binders?'
+          }
           description={SEGMENT_EMPTY[segment].invite}
         />
       </View>
@@ -108,7 +109,6 @@ export function UnifiedResults({ segment, query, onSearch }: UnifiedResultsProps
             ? 'public binder'
             : 'public binders'}{' '}
         for “{query}”{results.isFetching ? ' · updating…' : ''}
-        {segment === 'collectors' && count > 0 ? ` · ${APPROXIMATE_LOCATION_NOTE}` : ''}
       </Text>
       <SponsoredSlot placement="SEARCH_SPONSORED" game={null} variant="compact" />
     </View>

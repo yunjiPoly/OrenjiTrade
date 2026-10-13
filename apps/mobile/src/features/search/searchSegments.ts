@@ -1,6 +1,3 @@
-import type { MeResponse } from '@/src/api/types';
-import { CITY_PRESETS, type CityPreset } from '@/src/lib/location';
-
 /**
  * The Search tab's segments (the web's `/search` tabs, `SEARCH_TABS`): the card catalog (the
  * app's own catalog search, richer than the web's cards tab), collectors by name or handle and
@@ -41,32 +38,11 @@ export const SEGMENT_EMPTY: Record<
   collectors: {
     title: 'No collectors match',
     description: 'Collectors appear when they are on the map and allow name search.',
-    invite: 'Search a collector by name or handle. Distances are approximate, never exact.',
+    invite: 'Search a collector of your region by name or handle.',
   },
   binders: {
     title: 'No public binders match',
     description: 'Binders appear here while their owner keeps them public and fresh.',
-    invite: 'Search public binders by name to see what collectors near you trade.',
+    invite: 'Search public binders by name to see what collectors of your region trade.',
   },
 };
-
-/**
- * Centre of a geographic search (the web's `DiscoveryCentreService`): a collector with a trading
- * area sends none (the server uses their area; the app never reads its private centre); everyone
- * else searches around a public city centre (Montréal, the launch city).
- */
-export interface DiscoveryCentre {
-  /** True once `/me` answered (before that the centre is unknown and nothing is asked). */
-  ready: boolean;
-  signedIn: boolean;
-  /** `null` = the caller's own trading area. */
-  city: CityPreset | null;
-}
-
-export function discoveryCentreFor(me: MeResponse | null | undefined): DiscoveryCentre {
-  return {
-    ready: !!me,
-    signedIn: !!me,
-    city: me?.onboarding?.tradingAreaSet ? null : (CITY_PRESETS[0] ?? null),
-  };
-}

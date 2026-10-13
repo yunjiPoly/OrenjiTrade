@@ -21,7 +21,7 @@ jest.mock('expo-router', () => require('../support/router').expoRouterMock());
 beforeEach(() => {
   resetRouterMock();
   resetAppState();
-  mockParams.current = { slug: 'montreal-pokemon' };
+  mockParams.current = { slug: 'americas-north' };
 });
 
 function routes(extra: MockRoutes = {}): MockRoutes {
@@ -40,9 +40,9 @@ describe('Community channel', () => {
   it('shows the channel with its activity, the composer and the posts', async () => {
     mockApi(routes());
     render();
-    expect(await screen.findByTestId('channel-head')).toHaveTextContent(/Montréal · Pokémon/);
+    expect(await screen.findByTestId('channel-head')).toHaveTextContent(/Americas \(North\)/);
     expect(screen.getByTestId('channel-activity')).toHaveTextContent(
-      'Pokémon · Montréal · 3 posts today'
+      'Americas (North) · 3 posts today'
     );
     expect(await screen.findByText('Anyone trading Lantern Fox this weekend?')).toBeOnTheScreen();
     expect(screen.getByText('Looking for Azure Dawn boosters.')).toBeOnTheScreen();

@@ -17,11 +17,11 @@ import { CardArtComponent } from '../../../shared/ui/card-art/card-art.component
           <app-card-art class="auth__card auth__card--mid" game="mtg" />
           <app-card-art class="auth__card auth__card--right" game="yugioh" />
         </div>
-        <p class="auth__tagline">Who near me has this card?</p>
+        <p class="auth__tagline">Who in my region has this card?</p>
         <ul class="auth__points">
-          <li><mat-icon>location_on</mat-icon>Find collectors around you, at approximate spots</li>
+          <li><mat-icon>public</mat-icon>Find collectors and binders of your state or province</li>
           <li><mat-icon>style</mat-icon>Publish binders for Pokémon, Magic, Yu-Gi-Oh! and more</li>
-          <li><mat-icon>shield_person</mat-icon>Your exact location is never shown</li>
+          <li><mat-icon>shield_person</mat-icon>No GPS, no exact location: you choose your area</li>
         </ul>
       </aside>
       <section class="auth__panel">

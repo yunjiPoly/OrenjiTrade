@@ -12,7 +12,7 @@ import { RouterLink } from '@angular/router';
       <h1>Page not found</h1>
       <p class="not-found__text">
         The page you were looking for does not exist or has moved. Check the address, or head back
-        to the map to find collectors near you.
+        to the map to find binders in your region.
       </p>
       <a matButton="filled" routerLink="/map">
         <mat-icon aria-hidden="true">map</mat-icon>

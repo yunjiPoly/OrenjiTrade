@@ -34,7 +34,7 @@ export const RESERVED_PORTS = Object.freeze({
   19006: 'the Expo web dev server / mobile E2E web build',
 });
 /**
- * Redis logical database of the E2E API: 0 is the developer's (rate limits, nearby cache, presence),
+ * Redis logical database of the E2E API: 0 is the developer's (rate limits, discovery cache, presence),
  * 1 the mobile E2E harness's.
  */
 export const E2E_REDIS_DB = 2;
@@ -55,7 +55,21 @@ export const SEED_EMAIL_DOMAIN = 'orenjitrade.test';
 /** Hosts that count as "this machine". */
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
-const SAME_CASE = process.platform !== 'win32';
+/**
+ * True where the default file system ignores case: Windows (NTFS) and macOS (APFS). There
+ * `.../Card-Images` and `.../card-images` are one directory, so the guards compare paths
+ * case-insensitively. On a case-sensitive macOS volume this only makes the guards stricter: two
+ * directories that differ by case alone are refused as the same one.
+ */
+export function ignoresPathCase(platform = process.platform) {
+  return platform === 'win32' || platform === 'darwin';
+}
+
+/** `resolved` (an absolute path) in the form the guards compare: no trailing separator, case folded where it is ignored. */
+export function comparablePath(resolved, platform = process.platform) {
+  const trimmed = String(resolved).replace(/[\\/]+$/, '');
+  return ignoresPathCase(platform) ? trimmed.toLowerCase() : trimmed;
+}
 
 /** True for localhost, 127.0.0.1 and ::1 (with or without brackets). */
 export function isLocalHost(hostname) {
@@ -105,11 +119,10 @@ export function realPath(candidate) {
 }
 
 function comparable(candidate) {
-  const resolved = realPath(candidate).replace(/[\\/]+$/, '');
-  return SAME_CASE ? resolved : resolved.toLowerCase();
+  return comparablePath(realPath(candidate));
 }
 
-/** True when both paths name the same directory (after resolving links; case-insensitive on Windows). */
+/** True when both paths name the same directory (after resolving links; case-insensitive on Windows and macOS). */
 export function samePath(a, b) {
   return comparable(a) === comparable(b);
 }
@@ -258,6 +271,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
+    // Every worker of the suite calls from one address: on a fast machine the signed-out specs
+    // alone exceed the anonymous budget of 60 a minute, and the 429 then fails an unrelated spec.
+    // The limits themselves are proven by the API's integration tests, not by this suite.
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
   };
 }
 
@@ -348,6 +365,21 @@ export function assertRecreatable(database) {
   }
 }
 
+/**
+ * True when a process name, as the operating system reports it, is the program `image` ("java",
+ * "node"). `ps -o comm=` prints the whole executable path on macOS
+ * (`/Library/Java/.../bin/java`) and the bare name on Linux; Windows reports `java.exe`.
+ */
+export function isProcessImage(name, image) {
+  const base = String(name ?? '')
+    .trim()
+    .split(/[\\/]/)
+    .pop()
+    .toLowerCase()
+    .replace(/\.exe$/, '');
+  return base !== '' && base === String(image).toLowerCase();
+}
+
 /** Spring command-line arguments publishing the identity block under /actuator/info. */
 export function identityArgs(instance) {
   return [
@@ -433,8 +465,6 @@ export function webRuntimeConfig({ apiUrl, emulatorHost = 'localhost:9099' }) {
       appId: '',
     },
     firebaseAuthEmulatorHost: emulatorHost,
-    googleMapsApiKey: '',
-    googleMapsMapId: '',
     environment: 'local',
   };
 }

@@ -108,7 +108,7 @@ function receivedCards(trade: TradeResponse) {
  * with only the operations the API allows (mark the in-person meetup, confirm the exchange after
  * a confirmation, cancel with a required reason), rate the other collector once it is completed,
  * message them; the progress with both parties' marks, the cards received, the deal with a link
- * to the offer's negotiation, the other collector (place label and distance bucket only), the
+ * to the offer's negotiation, the other collector (state or province only), the
  * timeline. With payment protection (Phase 9, flag `protectedPayments`): pay through the
  * provider's checkout (the local fake checkout screen), ship with tracking, confirm receipt,
  * open a dispute within the window, the payment / shipment / dispute cards and a seller's
@@ -495,8 +495,8 @@ export default function TradeScreen() {
         {received.length > 0 ? (
           <Section title="Cards you received" testID="trade-received">
             <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-              Your inventory is not changed for you: add what you received so collectors nearby can
-              find it.
+              Your inventory is not changed for you: add what you received so collectors of your
+              region can find it.
             </Text>
             {received.map((card) => (
               <View key={card.key} style={styles.received}>

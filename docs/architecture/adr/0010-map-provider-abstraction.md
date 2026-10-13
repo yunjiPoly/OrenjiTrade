@@ -1,6 +1,8 @@
 # ADR 0010 — Google Maps behind a map adapter with Leaflet fallback
 
-**Status:** Accepted · **Date:** 2026-09-29
+**Status:** Accepted · **Date:** 2026-09-29 · Amended 2026-10-08 by
+[ADR 0017](0017-platform-regions-instead-of-geolocation.md) (see the last section: the provider
+abstraction is gone)
 
 ## Context
 Google Maps is the intended production provider (spec §2, §4). Geographic truth is PostGIS,
@@ -94,3 +96,17 @@ taps. Tested by jest (`collectorMap.test.tsx` on both native engines, `mapGeomet
 `collectorLayer`, the privacy scan `mapPrivacy.test.tsx`), Playwright (`collector-map-page.spec.ts`
 runs the WebView page in Chromium: 1500 m at zoom 14, the "+" button, wheel and requests stop at
 14, no tile beyond 14; `map.spec.ts` on the web build) and Maestro on the Android emulator.
+
+## Amendment 2026-10-08 (ADR 0017): one vector map, no provider
+
+The product no longer shows collectors at positions (ADR 0017). The web has **one** map: a
+Leaflet vector map (Leaflet 1.9.4, lazy-loaded) of the bundled Natural Earth boundary files
+`apps/web-angular/public/boundaries/<region>.json`, states shaded by public binder counts, with an
+accessible list beside it. There are **no tiles and no map provider**: `GoogleMapsAdapter`,
+`LeafletAdapter`, the `MapAdapter` contract, `@angular/google-maps`, `GOOGLE_MAPS_API_KEY`, the Map
+ID, the OpenStreetMap tiles, the zoom caps and approximate-area circles of the amendments above are
+removed, and the CSP allows no map or tile host. The mobile Map tab is a placeholder until it
+draws the same boundaries (follow-up); `react-native-maps` stays installed (its config plugin runs
+without a key) and the mobile Leaflet WebView page, `mapEngine` and
+`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` are removed.
+

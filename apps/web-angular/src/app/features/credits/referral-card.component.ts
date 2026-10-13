@@ -202,7 +202,7 @@ export class ReferralCardComponent {
   });
   private readonly shareText = computed(
     () =>
-      `Join me on OrenjiTrade, the map of card collectors near you. Use my referral code ${this.referral().code} to get ${creditsLabel(this.referral().refereeReward)}.`,
+      `Join me on OrenjiTrade, the map of card collectors in your region. Use my referral code ${this.referral().code} to get ${creditsLabel(this.referral().refereeReward)}.`,
   );
 
   constructor() {

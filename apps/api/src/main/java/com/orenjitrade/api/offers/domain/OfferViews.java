@@ -15,10 +15,10 @@ public final class OfferViews {
     private OfferViews() {}
 
     /**
-     * A party as the other party sees them: the owner block (region label and distance bucket only,
-     * never a point) and their rating summary.
+     * A party as the other party sees them: the owner block (state/province and country only, never
+     * a point) and their rating summary.
      *
-     * @param owner handle, display name, avatar, approximate location
+     * @param owner handle, display name, avatar, state/province and country
      * @param rating ratings received
      */
     public record Party(PublicOwner owner, RatingSummary rating) {}

@@ -196,9 +196,9 @@ class AdsDeliveryIT extends AbstractPhase10IT {
                         Map.of(
                                 "rules",
                                 AdsTargetingIT.rules(
-                                        "PLAN", "free", "REGION_LABEL", "Montréal", "GAME", game)),
+                                        "PLAN", "free", "SUBDIVISION", "ca-qc", "GAME", game)),
                         200);
-        assertThat(targeted.path("targeting").toString()).contains("FREE").contains("Montréal");
+        assertThat(targeted.path("targeting").toString()).contains("FREE").contains("CA-QC");
 
         Map<String, Object> creative = creativeBody("MAP_PANEL");
         creative.put("landingUrl", "javascript:alert(1)");

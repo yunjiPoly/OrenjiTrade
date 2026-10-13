@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   apiCreateBinder,
   apiUpdatePrivacy,
-  tooPrecise,
+  coordinateLeaks,
   watchCoordinates,
 } from './support/inventory';
 import {
@@ -16,13 +16,13 @@ import {
 
 /**
  * Freemium (Phase 10) against the real local stack with the fake billing provider (no card, no
- * money): a fresh FREE collector, discoverable in Montréal, fills the `binders.max` limit (5),
+ * money): a fresh FREE collector, discoverable in Quebec, fills the `binders.max` limit (5),
  * sees the limit-reached dialog and follows "See Premium" to `/premium`; "Upgrade to Premium"
  * opens the local fake billing checkout, a simulated decline keeps it open, "Pay" activates the
  * subscription (webhook) and lands on `/premium?checkout=success` with the Premium limits
  * (binders 5 / 50); the sixth binder is created and the inventory's sponsored placement is gone
  * (Premium has no ads). "Cancel now" returns the collector to the FREE plan at once.
- * Every JSON response is checked for ADR 0004: at most 3 decimals for any lat/lng.
+ * No JSON response carries a coordinate (ADR 0017).
  */
 
 test.describe('freemium', () => {
@@ -37,8 +37,8 @@ test.describe('freemium', () => {
     request,
   }) => {
     test.setTimeout(180_000);
-    const collector = await createOnboardedCollector(request, 'freemium', { tradingArea: true });
-    // Discoverable in Montréal: the region-targeted fictional "Harbour deck boxes" ad applies.
+    const collector = await createOnboardedCollector(request, 'freemium', { location: true });
+    // Located in Quebec: the fictional "Harbour deck boxes" ad targets that province (CA-QC).
     await apiUpdatePrivacy(request, collector.idToken, { discoverable: true });
     for (let i = 1; i <= 5; i++) {
       await apiCreateBinder(request, collector.idToken, { name: `Free binder ${i}` });
@@ -132,8 +132,8 @@ test.describe('freemium', () => {
     });
     expect(((await plan.json()) as { plan: { code: string } }).plan.code).toBe('FREE');
 
-    // ADR 0004: no JSON response carried a coordinate with more than 3 decimals.
+    // ADR 0017: no JSON response carried a coordinate.
     await watcher.settle();
-    expect(tooPrecise(watcher.samples)).toEqual([]);
+    expect(coordinateLeaks(watcher.samples)).toEqual([]);
   });
 });

@@ -71,6 +71,7 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
           provide: SessionService,
           useValue: {
             me: meState,
+            status: signal('ready'),
             acceptConsents,
             load: vi.fn(async () => 'ready'),
           },
@@ -100,7 +101,7 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
             location: signal(null),
             privacy: signal(null),
             load: vi.fn(async () => true),
-            saveTradingArea: vi.fn(),
+            saveLocation: vi.fn(),
             savePrivacy: vi.fn(),
           },
         },
@@ -163,7 +164,7 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
   it('asks an existing account to confirm first and sends it straight back afterwards', async () => {
     await mount({
       profileComplete: true,
-      tradingAreaSet: true,
+      locationSet: true,
       interestsSet: true,
       ageConfirmed: false,
     });
@@ -195,7 +196,7 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
   it('continues to the profile step for a new account', async () => {
     await mount({
       profileComplete: false,
-      tradingAreaSet: false,
+      locationSet: false,
       interestsSet: false,
       ageConfirmed: false,
     });
@@ -215,7 +216,7 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
   it('skips the step when the API reports the confirmation', async () => {
     await mount({
       profileComplete: false,
-      tradingAreaSet: false,
+      locationSet: false,
       interestsSet: false,
       ageConfirmed: true,
     });
@@ -226,7 +227,7 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
   });
 
   it('skips the step when an older API does not report the flag at all', async () => {
-    await mount({ profileComplete: false, tradingAreaSet: false, interestsSet: false });
+    await mount({ profileComplete: false, locationSet: false, interestsSet: false });
 
     expect(ageBox()).toBeNull();
     expect(stepper().steps.first.label).toBe('Profile');

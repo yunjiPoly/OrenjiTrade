@@ -26,7 +26,7 @@ public class OnboardingService {
         }
         return new OnboardingStatus(
                 flags.getOrDefault(OnboardingFlag.PROFILE_COMPLETE, false),
-                flags.getOrDefault(OnboardingFlag.TRADING_AREA_SET, false),
+                flags.getOrDefault(OnboardingFlag.LOCATION_SET, false),
                 flags.getOrDefault(OnboardingFlag.INTERESTS_SET, false),
                 flags.getOrDefault(OnboardingFlag.AGE_CONFIRMED, false));
     }

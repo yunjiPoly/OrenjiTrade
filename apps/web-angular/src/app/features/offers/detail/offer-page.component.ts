@@ -35,7 +35,7 @@ import { OfferHistoryComponent } from './offer-history.component';
 
 /**
  * `/offers/:id`: one proposal for its two parties (anybody else gets the not-found state, as the
- * API answers 404): the card, the deal, both parties (region label and distance bucket only), the
+ * API answers 404): the card, the deal, both parties (state/province and country only), the
  * history of the whole negotiation and the answers the viewer may give now. Accepting opens the
  * trade; countering moves to the new proposal; stale answers reload onto the live proposal.
  */
@@ -224,7 +224,7 @@ import { OfferHistoryComponent } from './offer-history.component';
                   </div>
                   <p class="op__privacy">
                     <mat-icon aria-hidden="true">shield_person</mat-icon>
-                    Only approximate areas are shared. Meet in a public place.
+                    Only states and provinces are shared. Meet in a public place.
                   </p>
                 </section>
                 <section class="op__section" aria-labelledby="op-history">

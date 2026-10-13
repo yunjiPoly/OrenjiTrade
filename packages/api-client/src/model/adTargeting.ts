@@ -18,8 +18,9 @@ export interface AdTargeting {
 }
 export enum AdTargetingKindEnum {
     Game = 'GAME',
-    RegionLabel = 'REGION_LABEL',
-    GeoCell = 'GEO_CELL',
+    Region = 'REGION',
+    Country = 'COUNTRY',
+    Subdivision = 'SUBDIVISION',
     Tag = 'TAG',
     Plan = 'PLAN'
 };

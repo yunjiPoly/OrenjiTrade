@@ -3,9 +3,9 @@
 // database orenjitrade_mobile_e2e), like the Playwright specs' API helpers. Only fresh, fictional
 // `@mobile-e2e.test` accounts of this run are created or used; seed accounts are never touched.
 //
-// ACTION=setup creates Ben (the seller: a trading area around a random rural point of Québec,
-//   discoverable, a public binder holding one PFT-002 Emberfang Fox for trade or sale at 45 CAD
-//   that accepts offers) and Ada (the app user, the buyer).
+// ACTION=setup creates Ben (the seller: in Wyoming, discoverable, a public binder holding one
+//   PFT-002 Emberfang Fox for trade or sale at 45 CAD that accepts offers) and Ada (the app user,
+//   the buyer).
 //   Outputs: output.ada.{email, password, displayName},
 //            output.ben.{email, password, displayName, handle, binderId, itemId}
 // ACTION=counter answers, as Ben (EMAIL / PASSWORD), the open offer on ITEM with a 42 CAD
@@ -81,14 +81,11 @@ function signIn(email, password) {
   ).idToken;
 }
 
-/** 3 decimals, never ending in 0 (like a hand-picked centre). */
-function pick(min, span) {
-  var value = Math.round((min + Math.random() * span) * 1000);
-  return (value % 10 === 0 ? value + 3 : value) / 1000;
-}
+/** The seller's declared place (ADR 0017: a state, never a coordinate). */
+var WYOMING = { countryCode: 'US', subdivisionCode: 'US-WY' };
 
-/** A fresh onboarded collector; with `area`, discoverable around it. */
-function createCollector(prefix, displayName, area) {
+/** A fresh onboarded collector; with `place` (country and state), discoverable there. */
+function createCollector(prefix, displayName, place) {
   var suffix = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   var email = 'm-' + runId + '-maestro-' + prefix + '-' + suffix + '@mobile-e2e.test';
   var password = 'Maestro-Pass-42';
@@ -128,13 +125,18 @@ function createCollector(prefix, displayName, area) {
     }),
     'PUT /me/profile'
   );
-  if (area) {
+  if (place) {
     check(
-      http.put(api + '/api/v1/me/location/trading-area', {
+      http.put(api + '/api/v1/me/location', {
         headers: jsonHeaders(token),
-        body: JSON.stringify({ lat: area.lat, lng: area.lng, radiusKm: 5, source: 'MANUAL' }),
+        body: JSON.stringify({
+          countryCode: place.countryCode,
+          subdivisionCode: place.subdivisionCode,
+          city: null,
+          showCity: true,
+        }),
       }),
-      'PUT /me/location/trading-area'
+      'PUT /me/location'
     );
     var privacy = check(
       http.get(api + '/api/v1/me/settings/privacy', { headers: jsonHeaders(token) }),
@@ -174,7 +176,7 @@ function printingId(token, code) {
 }
 
 if (action === 'setup') {
-  var ben = createCollector('ben', 'Ben Maestro', { lat: pick(47.1, 1.3), lng: pick(-78.8, 7.8) });
+  var ben = createCollector('ben', 'Ben Maestro', WYOMING);
   var ada = createCollector('ada', 'Ada Maestro', null);
   var binder = check(
     http.post(api + '/api/v1/binders', {

@@ -8,11 +8,7 @@ import {
   priceFieldError,
   priceRangeError,
 } from '@/src/features/holders/holderFilters';
-import {
-  discoveryCentreFor,
-  isSearchSegment,
-  searchTypesFor,
-} from '@/src/features/search/searchSegments';
+import { isSearchSegment, searchTypesFor } from '@/src/features/search/searchSegments';
 import {
   BULK_DELETE_MESSAGE,
   bulkDeleteTitle,
@@ -27,7 +23,7 @@ import {
 import { moved } from '@/src/features/binders/ReorderBindersSheet';
 import { ApiError } from '@/src/api/ApiError';
 
-import { CARD_ID, PRINTING_A, meFixture } from '../support/fixtures';
+import { CARD_ID, PRINTING_A } from '../support/fixtures';
 
 describe('search segments', () => {
   it('names the sections of GET /search per segment', () => {
@@ -36,22 +32,6 @@ describe('search segments', () => {
     expect(isSearchSegment('tags')).toBe(false);
     expect(searchTypesFor('collectors')).toEqual(['collectors']);
     expect(searchTypesFor('binders')).toEqual(['binders']);
-  });
-
-  it('centres a search on the own trading area (nothing sent) or on the launch city', () => {
-    expect(discoveryCentreFor(meFixture())).toEqual({ ready: true, signedIn: true, city: null });
-    const centre = discoveryCentreFor(
-      meFixture({
-        onboarding: { profileComplete: true, interestsSet: true, tradingAreaSet: false },
-      })
-    );
-    expect(centre.signedIn).toBe(true);
-    expect(centre.city?.id).toBe('montreal');
-    expect(discoveryCentreFor(null)).toEqual({
-      ready: false,
-      signedIn: false,
-      city: expect.objectContaining({ id: 'montreal' }),
-    });
   });
 
   it('keeps recent searches per segment and per account', () => {
@@ -75,9 +55,12 @@ describe('search segments', () => {
 });
 
 describe('card holder filters (the web search-params rules)', () => {
-  it('builds the request with only the set filters, the centre at 3 decimals', () => {
-    expect(cardHoldersQuery({ kind: 'card', id: CARD_ID }, DEFAULT_HOLDER_FILTERS, {})).toEqual({
-      sort: 'distance',
+  it('builds the request with the platform region and only the set filters (ADR 0017)', () => {
+    expect(
+      cardHoldersQuery({ kind: 'card', id: CARD_ID }, DEFAULT_HOLDER_FILTERS, 'americas-north')
+    ).toEqual({
+      region: 'americas-north',
+      sort: 'freshness',
       cardId: CARD_ID,
     });
     expect(
@@ -94,13 +77,12 @@ describe('card holder filters (the web search-params rules)', () => {
           acceptsOffers: true,
           sort: 'price',
         },
-        { lat: 45.502, lng: -73.567 }
+        'europe'
       )
     ).toEqual({
+      region: 'europe',
       sort: 'price',
       printingId: PRINTING_A,
-      lat: 45.502,
-      lng: -73.567,
       availability: 'ACCEPTS_OFFERS',
       condition: 'NEAR_MINT',
       minPrice: 10,
@@ -138,8 +120,8 @@ describe('card holder filters (the web search-params rules)', () => {
       })
     ).toBe(3);
     expect(holdersCountLabel(null)).toBe('Looking for holders…');
-    expect(holdersCountLabel(1)).toBe('1 listing near you');
-    expect(holdersCountLabel(3)).toBe('3 listings near you');
+    expect(holdersCountLabel(1)).toBe('1 listing in your region');
+    expect(holdersCountLabel(3)).toBe('3 listings in your region');
   });
 });
 

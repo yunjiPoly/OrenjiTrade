@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { getFocusedRouteNameFromRoute } from 'expo-router/react-navigation';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -9,7 +10,22 @@ import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
 import { useTheme } from '@/src/theme/useTheme';
 
+import { groupTitleOptions, type RouteGroup } from './backTitles';
 import { nativeHeaderInsetOptions } from './headerInsets';
+
+type GroupRoute = Parameters<typeof getFocusedRouteNameFromRoute>[0];
+
+/**
+ * Options of a route group of the root stack: no header of its own, and on iOS the title of its
+ * focused screen, which the back button of the screen opened over it shows (backTitles.ts).
+ */
+function groupOptions(group: RouteGroup, extra: { animation?: 'fade' } = {}) {
+  return ({ route }: { route: GroupRoute }) => ({
+    headerShown: false,
+    ...extra,
+    ...groupTitleOptions(Platform.OS, group, getFocusedRouteNameFromRoute(route)),
+  });
+}
 
 /**
  * The root stack with the auth gate (signed out → sign-in, account states, onboarding, tabs).
@@ -39,9 +55,9 @@ export function RootNavigator() {
           ...nativeHeaderInsetOptions(Platform.OS, insets.top),
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="(account)" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="(tabs)" options={groupOptions('(tabs)')} />
+        <Stack.Screen name="(auth)" options={groupOptions('(auth)', { animation: 'fade' })} />
+        <Stack.Screen name="(account)" options={groupOptions('(account)', { animation: 'fade' })} />
         <Stack.Screen name="onboarding" options={{ title: 'Welcome', animation: 'fade' }} />
         {/* Settings (web: /settings/*). Later phases add offers, payouts, blocked users, ... */}
         <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
@@ -58,7 +74,7 @@ export function RootNavigator() {
         <Stack.Screen name="legal/[key]" options={{ title: 'Legal' }} />
         <Stack.Screen name="collectors/[id]" options={{ title: 'Collector' }} />
         <Stack.Screen name="cards/[id]" options={{ title: 'Card' }} />
-        {/* "Who has this near me" as a list (web: /search?card=) and a set's cards (web: /sets/:id). */}
+        {/* "Who has this in my region" as a list (web: /search?card=) and a set's cards (web: /sets/:id). */}
         <Stack.Screen name="holders" options={{ title: 'Card holders' }} />
         <Stack.Screen name="sets/[id]" options={{ title: 'Set' }} />
         <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
@@ -67,14 +83,13 @@ export function RootNavigator() {
         {/* Inventory items (web: the add dialog and the edit panel of /inventory). */}
         <Stack.Screen name="items/new" options={{ title: 'Add a card' }} />
         <Stack.Screen name="items/[id]" options={{ title: 'Card' }} />
-        {/* A conversation (from the inbox, a collector, a match or a notification). */}
+        {/* A conversation (from the inbox, a collector, a holder or a notification). */}
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation' }} />
         {/* A public community channel (web: /community/:slug; the list is in the Messages tab). */}
         <Stack.Screen name="community/[slug]" options={{ title: 'Community' }} />
-        {/* Wishlist (web: the add/edit dialog and the matches drawer of /wishlist/:id). */}
+        {/* Wishlist (web: the add/edit dialog). */}
         <Stack.Screen name="wishlist/new" options={{ title: 'Add to wishlist' }} />
         <Stack.Screen name="wishlist/edit" options={{ title: 'Edit wish' }} />
-        <Stack.Screen name="wishlist/[id]" options={{ title: 'Matches nearby' }} />
         {/* The notification centre (web: the top-bar bell and /notifications). */}
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         {/* Ratings, references and collector reports (Phase 7; web: their dialogs). */}

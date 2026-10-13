@@ -11,10 +11,11 @@ function channel(
 }
 
 const CHANNELS: CommunityChannel[] = [
-  channel('montreal-yugioh', Kind.Region, { game: 'yugioh', regionLabel: 'Montréal' }),
-  channel('montreal-pokemon', Kind.Region, { game: 'pokemon', regionLabel: 'Montréal' }),
-  channel('quebec-pokemon', Kind.Region, { game: 'pokemon', regionLabel: 'Québec' }),
+  channel('americas-north', Kind.Region, { regionLabel: 'americas-north' }),
+  channel('americas-south', Kind.Region, { regionLabel: 'americas-south' }),
+  channel('europe', Kind.Region, { regionLabel: 'europe' }),
   channel('pokemon', Kind.Game, { game: 'pokemon' }),
+  channel('yugioh', Kind.Game, { game: 'yugioh' }),
   channel('looking-for', Kind.LookingFor),
   channel('general', Kind.General),
 ];
@@ -27,27 +28,33 @@ function apiError(errorCode: string, status: number, retryAfterSeconds?: number)
 }
 
 describe('community helpers', () => {
-  it('groups channels by region, then games, then topics', () => {
+  it('groups the platform region channels, then games, then topics', () => {
     const groups = groupChannels(CHANNELS);
-    expect(groups.map((group) => group.label)).toEqual(['Montréal', 'Québec', 'Games', 'Topics']);
-    expect(groups[0].channels.map((c) => c.slug)).toEqual(['montreal-yugioh', 'montreal-pokemon']);
-    expect(groups[3].channels.map((c) => c.slug)).toEqual(['looking-for', 'general']);
+    expect(groups.map((group) => group.label)).toEqual(['Regions', 'Games', 'Topics']);
+    expect(groups[0].channels.map((c) => c.slug)).toEqual([
+      'americas-north',
+      'americas-south',
+      'europe',
+    ]);
+    expect(groups[2].channels.map((c) => c.slug)).toEqual(['looking-for', 'general']);
   });
 
-  it('narrows region and game channels to one game but keeps the topics', () => {
+  it('narrows game channels to one game but keeps the regions and the topics', () => {
     const groups = groupChannels(CHANNELS, 'yugioh');
-    expect(groups.map((group) => group.label)).toEqual(['Montréal', 'Topics']);
-    expect(groups[0].channels.map((c) => c.slug)).toEqual(['montreal-yugioh']);
+    expect(groups.map((group) => group.label)).toEqual(['Regions', 'Games', 'Topics']);
+    expect(groups[1].channels.map((c) => c.slug)).toEqual(['yugioh']);
   });
 
-  it('opens the first regional channel by default', () => {
-    expect(defaultChannel(CHANNELS)?.slug).toBe('montreal-yugioh');
+  it("opens the browsed region's channel by default", () => {
+    expect(defaultChannel(CHANNELS, 'europe')?.slug).toBe('europe');
+    expect(defaultChannel(CHANNELS, 'unknown')?.slug).toBe('americas-north');
+    expect(defaultChannel(CHANNELS)?.slug).toBe('americas-north');
     expect(defaultChannel([channel('general', Kind.General)])?.slug).toBe('general');
     expect(defaultChannel([])).toBeNull();
   });
 
   it('has an icon per kind', () => {
-    expect(channelIcon('REGION')).toBe('location_city');
+    expect(channelIcon('REGION')).toBe('public');
     expect(channelIcon('TRADES')).toBe('swap_horiz');
     expect(channelIcon('SOMETHING_NEW')).toBe('forum');
   });

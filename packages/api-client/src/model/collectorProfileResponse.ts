@@ -7,7 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { CollectorLocation } from './collectorLocation';
+import { ProfileLocation } from './profileLocation';
 import { CollectorTag } from './collectorTag';
 import { CollectorRating } from './collectorRating';
 
@@ -24,9 +24,9 @@ export interface CollectorProfileResponse {
     games: Array<string>;
     tags: Array<CollectorTag>;
     /**
-     * Null unless the collector is discoverable
+     * Null unless the collector is discoverable and set a location
      */
-    location?: CollectorLocation;
+    location?: ProfileLocation;
     memberSince: string;
     lastActiveBucket: CollectorProfileResponseLastActiveBucketEnum;
     onlineStatus: CollectorProfileResponseOnlineStatusEnum;

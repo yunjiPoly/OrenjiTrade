@@ -12,12 +12,18 @@ import com.orenjitrade.api.cards.infra.MockCardProvider;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
-/** CatalogImportService + MockCardProvider: idempotent imports and the admin sync endpoints. */
+/**
+ * CatalogImportService + MockCardProvider: idempotent imports and the admin sync endpoints. Runs in
+ * {@code catalogTest} (own JVM, fresh containers) so the per-test catalog proxies of other suites
+ * never change the fixture counts.
+ */
+@Tag("catalog-fixture")
 class CatalogImportIT extends AbstractIntegrationTest {
 
     @Autowired private CatalogImportService importService;

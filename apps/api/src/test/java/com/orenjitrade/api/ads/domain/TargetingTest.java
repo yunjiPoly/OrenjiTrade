@@ -11,26 +11,32 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** Targeting rules: AND across kinds, OR within a kind, public values only. */
+/** Targeting rules: AND across kinds, OR within a kind, public codes only (ADR 0017). */
 class TargetingTest {
 
     static AdContext context(
             @Nullable String game,
             Set<String> interests,
-            @Nullable String cell,
-            @Nullable String label,
+            @Nullable String region,
+            @Nullable String country,
+            @Nullable String subdivision,
             Set<String> tags,
             String plan) {
         return new AdContext(
                 PlacementKey.MAP_PANEL,
                 game,
                 interests,
-                cell,
-                label,
+                region,
+                country,
+                subdivision,
                 tags,
                 plan,
                 null,
                 Instant.parse("2026-09-30T12:00:00Z"));
+    }
+
+    static AdContext anywhere(@Nullable String game, Set<String> interests, String plan) {
+        return context(game, interests, null, null, null, Set.of(), plan);
     }
 
     @Test
@@ -40,21 +46,10 @@ class TargetingTest {
                         new Rule(TargetingKind.GAME, "pokemon"),
                         new Rule(TargetingKind.GAME, "yugioh"),
                         new Rule(TargetingKind.PLAN, "FREE"));
-        assertThat(
-                        Targeting.matches(
-                                rules, context("yugioh", Set.of(), null, null, Set.of(), "FREE")))
-                .isTrue();
-        assertThat(Targeting.matches(rules, context("mtg", Set.of(), null, null, Set.of(), "FREE")))
-                .isFalse();
-        assertThat(
-                        Targeting.matches(
-                                rules,
-                                context("pokemon", Set.of(), null, null, Set.of(), "PREMIUM")))
-                .isFalse();
-        assertThat(
-                        Targeting.matches(
-                                List.of(),
-                                context(null, Set.of(), null, null, Set.of(), "ANONYMOUS")))
+        assertThat(Targeting.matches(rules, anywhere("yugioh", Set.of(), "FREE"))).isTrue();
+        assertThat(Targeting.matches(rules, anywhere("mtg", Set.of(), "FREE"))).isFalse();
+        assertThat(Targeting.matches(rules, anywhere("pokemon", Set.of(), "PREMIUM"))).isFalse();
+        assertThat(Targeting.matches(List.of(), anywhere(null, Set.of(), "ANONYMOUS")))
                 .as("no rules targets everybody")
                 .isTrue();
     }
@@ -62,59 +57,61 @@ class TargetingTest {
     @Test
     void interestGamesApplyWhenNoGameIsRequested() {
         List<Rule> rules = List.of(new Rule(TargetingKind.GAME, "pokemon"));
-        assertThat(
-                        Targeting.matches(
-                                rules,
-                                context(
-                                        null,
-                                        Set.of("pokemon", "mtg"),
-                                        null,
-                                        null,
-                                        Set.of(),
-                                        "FREE")))
+        assertThat(Targeting.matches(rules, anywhere(null, Set.of("pokemon", "mtg"), "FREE")))
                 .isTrue();
-        assertThat(
-                        Targeting.matches(
-                                rules,
-                                context("mtg", Set.of("pokemon"), null, null, Set.of(), "FREE")))
+        assertThat(Targeting.matches(rules, anywhere("mtg", Set.of("pokemon"), "FREE")))
                 .as("the requested game wins over interests")
                 .isFalse();
     }
 
     @Test
-    void regionLabelsMatchWholeLabelsPartsAndTrailingWordsIgnoringAccents() {
-        assertThat(Targeting.labelMatches("Plateau-Mont-Royal, Montréal", "Montréal")).isTrue();
-        assertThat(Targeting.labelMatches("Plateau-Mont-Royal, Montréal", "montreal")).isTrue();
+    void regionsCountriesAndSubdivisionsCompareCodes() {
+        AdContext quebec =
+                context(null, Set.of(), "americas-north", "CA", "CA-QC", Set.of(), "FREE");
         assertThat(
-                        Targeting.labelMatches(
-                                "Plateau-Mont-Royal, Montréal", "Plateau-Mont-Royal, Montréal"))
+                        Targeting.matches(
+                                List.of(new Rule(TargetingKind.REGION, "americas-north")), quebec))
                 .isTrue();
-        assertThat(Targeting.labelMatches("Downtown Montréal", "Montréal")).isTrue();
-        assertThat(Targeting.labelMatches("Near Laval", "Laval")).isTrue();
-        assertThat(Targeting.labelMatches("Mile End, Montréal", "End")).isFalse();
-        assertThat(Targeting.labelMatches("Westmount", "Montréal")).isFalse();
-        assertThat(Targeting.labelMatches(null, "Montréal")).isFalse();
-        assertThat(Targeting.acceptableRegionLabel("Montréal")).isTrue();
-        assertThat(Targeting.acceptableRegionLabel("45.522, -73.581")).isFalse();
+        assertThat(Targeting.matches(List.of(new Rule(TargetingKind.REGION, "europe")), quebec))
+                .isFalse();
+        assertThat(Targeting.matches(List.of(new Rule(TargetingKind.COUNTRY, "ca")), quebec))
+                .isTrue();
+        assertThat(
+                        Targeting.matches(
+                                List.of(
+                                        new Rule(TargetingKind.SUBDIVISION, "CA-ON"),
+                                        new Rule(TargetingKind.SUBDIVISION, "CA-QC")),
+                                quebec))
+                .isTrue();
+        assertThat(
+                        Targeting.matches(
+                                List.of(
+                                        new Rule(TargetingKind.REGION, "americas-north"),
+                                        new Rule(TargetingKind.SUBDIVISION, "CA-ON")),
+                                quebec))
+                .as("AND across kinds")
+                .isFalse();
+        AdContext signedOut = context(null, Set.of(), "europe", null, null, Set.of(), "ANONYMOUS");
+        assertThat(Targeting.matches(List.of(new Rule(TargetingKind.COUNTRY, "FR")), signedOut))
+                .as("no country known: a country rule never matches")
+                .isFalse();
+        assertThat(Targeting.REGION_CODE.matcher("americas-north").matches()).isTrue();
+        assertThat(Targeting.COUNTRY_CODE.matcher("CA").matches()).isTrue();
+        assertThat(Targeting.SUBDIVISION_CODE.matcher("CA-QC").matches()).isTrue();
+        assertThat(Targeting.SUBDIVISION_CODE.matcher("PR").matches()).isTrue();
+        assertThat(Targeting.SUBDIVISION_CODE.matcher("45.5,-73.5").matches()).isFalse();
+        assertThat(Targeting.REGION_CODE.matcher("Montréal").matches()).isFalse();
     }
 
     @Test
-    void cellsTagsAndPlansCompareExactly() {
+    void tagsAndPlansCompareExactly() {
         AdContext context =
-                context(null, Set.of(), "r5058c-5438", null, Set.of("sealed", "trader"), "PREMIUM");
-        assertThat(
-                        Targeting.matches(
-                                List.of(new Rule(TargetingKind.GEO_CELL, "r5058c-5438")), context))
-                .isTrue();
-        assertThat(
-                        Targeting.matches(
-                                List.of(new Rule(TargetingKind.GEO_CELL, "r5058c-5439")), context))
-                .isFalse();
+                context(null, Set.of(), null, null, null, Set.of("sealed", "trader"), "PREMIUM");
         assertThat(Targeting.matches(List.of(new Rule(TargetingKind.TAG, "sealed")), context))
                 .isTrue();
+        assertThat(Targeting.matches(List.of(new Rule(TargetingKind.TAG, "vintage")), context))
+                .isFalse();
         assertThat(Targeting.matches(List.of(new Rule(TargetingKind.PLAN, "premium")), context))
                 .isTrue();
-        assertThat(Targeting.GEO_CELL.matcher("r5058c-5438").matches()).isTrue();
-        assertThat(Targeting.GEO_CELL.matcher("45.5,-73.5").matches()).isFalse();
     }
 }

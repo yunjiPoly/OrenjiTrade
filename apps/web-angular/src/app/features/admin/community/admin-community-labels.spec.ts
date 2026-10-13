@@ -21,7 +21,7 @@ const CHANNEL: AdminCommunityChannel = {
   name: 'Montréal / Pokémon',
   kind: AdminCommunityChannelKindEnum.Region,
   game: 'pokemon',
-  regionLabel: 'Montréal',
+  regionLabel: 'americas-north',
   description: 'Pokémon around Montréal.',
   status: AdminCommunityChannelStatusEnum.Active,
   postRateLimitPerHour: 10,
@@ -36,7 +36,7 @@ function form(overrides: Partial<ChannelFormValue> = {}): ChannelFormValue {
     slug: 'quebec-pokemon',
     kind: Kind.Region,
     game: 'pokemon',
-    regionLabel: ' Québec ',
+    regionLabel: ' europe ',
     description: ' Pokémon in Québec. ',
     postRateLimitPerHour: 10,
     sortOrder: 100,
@@ -54,13 +54,13 @@ describe('admin community labels', () => {
     expect(CHANNEL_SLUG_PATTERN.test('Upper')).toBe(false);
   });
 
-  it('builds a create request, dropping the game and city where the kind has none', () => {
+  it('builds a create request, dropping the game and region where the kind has none', () => {
     expect(createChannelRequest(form())).toEqual({
       slug: 'quebec-pokemon',
       name: 'Québec / Pokémon',
       kind: Kind.Region,
       game: 'pokemon',
-      regionLabel: 'Québec',
+      regionLabel: 'europe',
       description: 'Pokémon in Québec.',
       postRateLimitPerHour: 10,
       sortOrder: 100,
@@ -75,7 +75,7 @@ describe('admin community labels', () => {
     const unchanged = {
       name: CHANNEL.name,
       game: 'pokemon',
-      regionLabel: 'Montréal',
+      regionLabel: 'americas-north',
       description: CHANNEL.description,
       postRateLimitPerHour: 10,
       sortOrder: 20,

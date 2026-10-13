@@ -53,12 +53,12 @@ Material Symbols (rounded) on web via Angular Material; `@expo/vector-icons`
 
 ## Components that must exist in both clients
 
-Collector marker/preview, binder card, inventory row/card, condition chip, freshness badge,
-availability chip, empty state, error state with retry, skeleton loader, report-collector
-dialog, offer summary, notification item.
+Collector card (name, state or province and country, rating), binder card, inventory row/card,
+condition chip, freshness badge, availability chip, empty state, error state with retry, skeleton
+loader, report-collector dialog, offer summary, notification item.
 
 ## Accessibility
 
 WCAG 2.2 AA: 4.5:1 text contrast, visible focus rings (2px accent), all map interactions
-reachable by keyboard (marker list alternative), reduced-motion respected, labels on every
-icon-only button.
+reachable by keyboard (the state list is the map's alternative), reduced-motion respected, labels
+on every icon-only button.

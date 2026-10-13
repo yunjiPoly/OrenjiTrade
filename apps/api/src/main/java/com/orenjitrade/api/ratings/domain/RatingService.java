@@ -50,7 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>A rating is editable by its author for {@link RatingRules#EDIT_WINDOW} ({@code 409
  *       RATING_EDIT_WINDOW_CLOSED} afterwards); comments go through the PROFILE banned-term rules.
  *   <li>{@code rating_summary} is refreshed on every write, hide and unhide (OK ratings only) and
- *       feeds profiles, previews and the nearby ranking ({@code RatingSummaryProvider}).
+ *       feeds profiles, search results and their ranking ({@code RatingSummaryProvider}).
  *   <li>The rated collector gets a RATING_RECEIVED notification; moderators hide and unhide ratings
  *       (audited {@code rating.hide} / {@code rating.unhide}).
  * </ul>

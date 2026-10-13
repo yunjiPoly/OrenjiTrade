@@ -7,8 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { PublicPoint } from './publicPoint';
-import { TradingAreaResponse } from './tradingAreaResponse';
+import { MyLocation } from './myLocation';
 
 
 /**
@@ -16,13 +15,9 @@ import { TradingAreaResponse } from './tradingAreaResponse';
  */
 export interface MyLocationResponse { 
     /**
-     * The chosen trading area (owner only)
+     * Null while no location is set
      */
-    tradingArea?: TradingAreaResponse;
-    /**
-     * The derived point other collectors see; null while not discoverable
-     */
-    publicPoint?: PublicPoint;
+    location?: MyLocation;
     discoverable: boolean;
 }
 

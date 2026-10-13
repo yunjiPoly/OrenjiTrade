@@ -7,6 +7,7 @@ import { RouterLink } from '@angular/router';
 import type {
   CollectorProfileResponse,
   CollectorRating,
+  ProfileLocation,
   PublicBinderSummary,
   PublicInventoryItem,
   WishlistSummaryEntry,
@@ -14,14 +15,12 @@ import type {
 import {
   LAST_ACTIVE_LABELS,
   LastActiveBucket,
-  distanceBucketLabel,
   lastActiveTone,
 } from '../../../shared/domain/location-labels';
 import { PublicBinderCardComponent } from '../../../shared/inventory/public-binder-card/public-binder-card.component';
 import { PublicItemCardComponent } from '../../../shared/inventory/public-item-card/public-item-card.component';
 import { OfferSeller } from '../../../shared/offers/offer-target';
 import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
-import { ApproximateAreaMapComponent } from '../../../shared/map/approximate-area-map/approximate-area-map.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardArtComponent } from '../../../shared/ui/card-art/card-art.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
@@ -42,7 +41,6 @@ import { CollectorWishlistComponent } from '../collector-wishlist/collector-wish
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    ApproximateAreaMapComponent,
     AvatarComponent,
     CardArtComponent,
     CollectorWishlistComponent,
@@ -94,16 +92,17 @@ export class CollectorProfileViewComponent {
       displayName: profile.displayName,
       handle: profile.handle,
       avatarUrl: profile.avatarUrl ?? null,
-      placeLabel: profile.location?.publicLabel ?? null,
+      placeLabel: profile.location?.label ?? null,
     };
   });
 
   /** The binder the "View public binder" button opens (the owner's first one). */
   protected readonly firstBinder = computed(() => this.binders()?.[0] ?? null);
 
-  protected readonly distanceLabel = computed(() =>
-    distanceBucketLabel(this.profile().location?.distanceBucket),
-  );
+  /** `/map` on the collector's state or province. */
+  protected mapLink(location: ProfileLocation): Record<string, string> {
+    return { region: location.regionCode, subdivision: location.subdivisionCode };
+  }
   protected readonly lastActiveLabel = computed(
     () => LAST_ACTIVE_LABELS[this.profile().lastActiveBucket as LastActiveBucket] ?? null,
   );

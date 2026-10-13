@@ -83,7 +83,7 @@ type ViewState =
           <app-empty-state
             icon="lock_person"
             title="Collector profiles are for members"
-            description="Sign in or create a free account to see who trades near you."
+            description="Sign in or create a free account to see who trades in your region."
           >
             <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }">
               Sign in

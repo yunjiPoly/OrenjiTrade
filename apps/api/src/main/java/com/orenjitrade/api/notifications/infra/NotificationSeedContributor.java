@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * and a read message notice for collector1, the unread notice of collector1's last message for
  * collector2 (matching the seeded conversation) and an unread freshness warning for collector3's
  * stale binder. Inserted once ({@code ON CONFLICT DO NOTHING}); they are history, so nothing is
- * dispatched. collector2's wishlist match notification comes from the real pipeline ({@code
+ * dispatched. collector2's wishlist alert comes from the real pipeline ({@code
  * WishlistSeedContributor}).
  */
 @Component
@@ -60,8 +60,8 @@ public class NotificationSeedContributor implements SeedContributor {
                                 COLLECTOR1,
                                 "SYSTEM",
                                 "Welcome to OrenjiTrade",
-                                "Add your cards, publish a binder and collectors nearby will find"
-                                        + " you on the map.",
+                                "Add your cards, publish a binder and collectors in your region"
+                                        + " will find it.",
                                 "{\"kind\": \"WELCOME\", \"deepLink\": \"/inventory\"}",
                                 now.minus(Duration.ofDays(3)),
                                 true),

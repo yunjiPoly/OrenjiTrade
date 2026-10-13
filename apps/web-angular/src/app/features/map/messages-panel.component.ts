@@ -58,8 +58,8 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.com
       } @else {
         <app-empty-state
           icon="forum"
-          title="Talk to collectors near you"
-          description="Message a collector straight from their map preview, and keep every trade conversation in one place."
+          title="Talk to collectors of your region"
+          description="Message a collector from their profile or one of their binders, and keep every trade conversation in one place."
         >
           <a
             actions

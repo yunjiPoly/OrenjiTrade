@@ -42,7 +42,6 @@ import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
-jest.mock('@/src/components/map/mapEngine', () => ({ currentMapEngine: () => 'native' }));
 
 const port = () => new FakeAuthPort(testUser());
 
@@ -286,8 +285,8 @@ describe('Credits', () => {
     expect(screen.getAllByTestId('ledger-entry')).toHaveLength(1);
     expect(screen.getAllByTestId('ledger-amount')[0]).toHaveTextContent('+200');
 
-    fireEvent.press(screen.getByTestId('product-map_radius_day-unlock'));
-    expect(screen.getByTestId('spend-dialog')).toHaveTextContent(/Unlock Wider map for a day\?/);
+    fireEvent.press(screen.getByTestId('product-binder_views_day-unlock'));
+    expect(screen.getByTestId('spend-dialog')).toHaveTextContent(/Unlock Unlimited binder views\?/);
     expect(screen.getByTestId('spend-cost')).toHaveTextContent(/50 credits/);
     fireEvent.press(screen.getByTestId('spend-dialog-confirm'));
     expect(await screen.findByTestId('spend-problem')).toHaveTextContent(
@@ -295,13 +294,13 @@ describe('Credits', () => {
     );
     fireEvent.press(screen.getByTestId('spend-dialog-confirm'));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      /Wider map for a day unlocked until .*Balance: 150 credits\./
+      /Unlimited binder views unlocked until .*Balance: 150 credits\./
     );
     const spends = api.callsTo('POST /api/v1/me/credits/spend');
     expect(spends).toHaveLength(2);
     // The same key for both attempts of one dialog: a retry never spends twice.
     expect(spends[0]?.body).toEqual(spends[1]?.body);
-    expect((spends[0]?.body as { featureKey: string }).featureKey).toBe('map_radius_day');
+    expect((spends[0]?.body as { featureKey: string }).featureKey).toBe('binder_views_day');
     expect((spends[0]?.body as { idempotencyKey: string }).idempotencyKey).toMatch(/^spend:/);
   });
 

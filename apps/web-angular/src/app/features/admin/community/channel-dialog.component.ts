@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { AdminCommunityChannel, CreateCommunityChannelRequestKindEnum } from '@orenji/api-client';
 import { GAMES } from '../../../shared/domain/games';
+import { PLATFORM_REGION_NAMES } from '../../../shared/regions/regions.store';
 import {
   CHANNEL_DESCRIPTION_MAX,
   CHANNEL_KINDS,
@@ -32,8 +33,9 @@ export interface ChannelDialogData {
 
 /**
  * Create or edit a community channel. The slug and kind are fixed once the channel exists; the
- * game applies to region and game channels, the city to region channels. Closes with the form
- * value (the caller builds the request and handles server refusals).
+ * game applies to region and game channels, the platform region to region channels (ADR 0017:
+ * one channel per platform region, never a city). Closes with the form value (the caller builds
+ * the request and handles server refusals).
  */
 @Component({
   selector: 'app-channel-dialog',
@@ -102,9 +104,14 @@ export interface ChannelDialogData {
         }
         @if (showRegion()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>City</mat-label>
-            <input matInput formControlName="regionLabel" [maxlength]="regionMax" />
-            <mat-hint>A public city name, never an address.</mat-hint>
+            <mat-label>Platform region</mat-label>
+            <mat-select formControlName="regionLabel">
+              <mat-option value="">No region</mat-option>
+              @for (region of regionOptions; track region.code) {
+                <mat-option [value]="region.code">{{ region.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>One channel per platform region, never a city.</mat-hint>
           </mat-form-field>
         }
 
@@ -182,7 +189,8 @@ export class ChannelDialogComponent {
   protected readonly games = GAMES;
   protected readonly nameMax = CHANNEL_NAME_MAX;
   protected readonly slugMax = CHANNEL_SLUG_MAX;
-  protected readonly regionMax = CHANNEL_REGION_MAX;
+  /** The platform regions, plus the former city label of an archived city channel. */
+  protected readonly regionOptions = regionOptions(this.data.channel?.regionLabel);
   protected readonly descriptionMax = CHANNEL_DESCRIPTION_MAX;
   protected readonly rateMin = RATE_LIMIT_MIN;
   protected readonly rateMax = RATE_LIMIT_MAX;
@@ -248,4 +256,12 @@ export class ChannelDialogComponent {
     }
     this.ref.close(this.form.getRawValue());
   }
+}
+
+function regionOptions(current: string | null | undefined): { code: string; name: string }[] {
+  const options = Object.entries(PLATFORM_REGION_NAMES).map(([code, name]) => ({ code, name }));
+  if (current && !(current in PLATFORM_REGION_NAMES)) {
+    options.push({ code: current, name: `${current} (former city channel)` });
+  }
+  return options;
 }

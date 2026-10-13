@@ -4,7 +4,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useCard } from '@/src/api/hooks/catalog';
 import { useGames } from '@/src/api/hooks/profile';
-import { useCardHolders, useDiscoveryCentre } from '@/src/api/hooks/search';
+import { useCardHolders, useSearchRegion } from '@/src/api/hooks/search';
 import type { CardDetail } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
@@ -25,18 +25,19 @@ import {
 } from '@/src/features/holders/holderFilters';
 import { HolderFiltersSheet } from '@/src/features/holders/HolderFiltersSheet';
 import { HolderRow } from '@/src/features/holders/HolderRow';
-import { holdersTarget } from '@/src/features/map/discovery';
+import { holdersTarget } from '@/src/features/collectors/collectorLabels';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { printingCode, printingImageUrl } from '@/src/lib/catalog';
 import { isLimitReached } from '@/src/lib/limits';
+import { regionName } from '@/src/lib/place';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * "Who near me has this card" as a list (the web's `/search?card=|printing=` card-holders view,
- * `GET /search/card-holders`): the card, every filter and sort of the web (a sheet), the matching
- * public copies with their holders (approximate place and distance bucket only), paged. The map
- * stays the alternative view ("Show on the map": the Map tab with the same card filter).
+ * "Who has this card in my region" as a list (the web's `/search?card=|printing=` card-holders
+ * view, `GET /search/card-holders`): the card, every filter and sort of the web (a sheet), the
+ * matching public copies of the home region with their holders (state or province only, never a
+ * position or a distance, ADR 0017), paged.
  */
 export default function HoldersScreen() {
   const params = useLocalSearchParams<{ card?: string; printing?: string }>();
@@ -46,7 +47,7 @@ export default function HoldersScreen() {
   const router = useRouter();
   const { palette } = useTheme();
   const games = useGames();
-  const centre = useDiscoveryCentre();
+  const { region } = useSearchRegion();
   const holders = useCardHolders(target, filters);
   // The card: its picture, name and game schema (for the condition / edition / language values).
   const cardId = target?.kind === 'card' ? target.id : null;
@@ -58,14 +59,13 @@ export default function HoldersScreen() {
   const printing = printingOf(card.data);
   const schema = games.data?.find((game) => game.slug === card.data?.game)?.schema ?? null;
   const name = card.data?.name ?? 'this card';
-  const heading = `Who has ${name}${printing ? ` (${printingCode(printing)})` : ''} near you`;
+  const heading = `Who has ${name}${printing ? ` (${printingCode(printing)})` : ''} in your region`;
   const rows = useMemo(
     () => holders.data?.pages.flatMap((page) => page.items ?? []) ?? [],
     [holders.data]
   );
   const total = holders.data?.pages[0]?.totalItems ?? null;
   const active = activeHolderFilterCount(filters);
-  const mapParams = target ? { [target.kind]: target.id } : {};
 
   if (!target) {
     return (
@@ -75,7 +75,7 @@ export default function HoldersScreen() {
           testID="holders-no-card"
           icon="cards-outline"
           title="Choose a card first"
-          description="Open a card and ask who has it near you."
+          description="Open a card and ask who has it in your region."
           actionLabel="Search the catalog"
           onAction={() => router.navigate('/search')}
         />
@@ -106,21 +106,11 @@ export default function HoldersScreen() {
             {heading}
           </Text>
           <Text testID="holders-subtitle" style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {centre.city
-              ? `Around ${centre.city.label}. Set your trading area to search near you.`
-              : 'Collectors around your trading area. Places and distances are approximate.'}
+            {`Collectors of ${regionName(region)}. Only their state or province is shown.`}
           </Text>
         </View>
       </View>
       <View style={styles.actions}>
-        <Button
-          label="Show on the map"
-          icon="map-marker-radius-outline"
-          variant="secondary"
-          onPress={() => router.navigate({ pathname: '/', params: mapParams })}
-          style={styles.action}
-          testID="holders-map"
-        />
         {card.data?.id ? (
           <Button
             label="Card details"
@@ -157,7 +147,7 @@ export default function HoldersScreen() {
           options={HOLDER_SORTS}
           value={filters.sort}
           onChange={(sort) =>
-            setFilters((current) => ({ ...current, sort: isHolderSort(sort) ? sort : 'distance' }))
+            setFilters((current) => ({ ...current, sort: isHolderSort(sort) ? sort : 'freshness' }))
           }
           testID="holders-sort"
         />
@@ -214,8 +204,8 @@ export default function HoldersScreen() {
           <EmptyState
             testID="holders-empty"
             icon="magnify-close"
-            title="Nobody nearby lists this card with these filters"
-            description="Widen the filters, or add it to your wishlist: we'll tell you when a collector nearby lists it."
+            title="Nobody in your region lists this card with these filters"
+            description="Widen the filters, or add it to your wishlist: we'll tell you when a collector of your region lists it."
             actionLabel={active > 0 ? 'Clear filters' : undefined}
             onAction={
               active > 0

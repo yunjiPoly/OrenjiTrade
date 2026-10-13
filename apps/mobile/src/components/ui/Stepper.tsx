@@ -6,7 +6,7 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 export interface StepperProps {
   label: string;
   value: number;
-  /** Rendered value, e.g. `7 km`. */
+  /** Rendered value, e.g. `7 days`. */
   format?: (value: number) => string;
   min: number;
   max: number;
@@ -19,7 +19,7 @@ export interface StepperProps {
 
 /**
  * A number stepper with an `adjustable` accessibility role: screen-reader users swipe up/down,
- * everyone else taps − / +. Used for the trading radius (1–50 km).
+ * everyone else taps − / +.
  */
 export function Stepper({
   label,

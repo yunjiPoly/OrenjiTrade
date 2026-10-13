@@ -5,30 +5,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
-import com.orenjitrade.api.auth.web.ServiceAuthFilter;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
+import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
-import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Helpers of the Phase 6 wishlist and notification integration tests. Every test places its
- * collectors around its own random centre far from Montréal (seed data) and from the other suites,
- * so matches never involve another test's collectors. Matching runs asynchronously after commit
- * (Spring Modulith registry), so tests wait for the event publications of their own items.
+ * Helpers of the wishlist and notification integration tests. Wishlist alerts compare platform
+ * regions (ADR 0017), which every test shares, so each test lists and wishes its own isolated
+ * catalog cards ({@link #printing}): alerts never involve another test's collectors. Alerts run
+ * asynchronously after commit (Spring Modulith registry), so tests wait for the event publications
+ * of their own items.
  */
 public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
 
@@ -63,20 +62,12 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * A centre with 2 decimals.
+     * A collector's self-declared place (ADR 0017): wishlist alerts compare platform regions only.
      *
-     * @param lat latitude
-     * @param lng longitude
+     * @param countryCode ISO 3166-1 alpha-2
+     * @param subdivisionCode ISO 3166-2
      */
-    public record Centre(double lat, double lng) {
-
-        /** The point {@code northKm} north and {@code eastKm} east of this centre. */
-        public Centre offset(double northKm, double eastKm) {
-            double dLat = northKm / 111.2;
-            double dLng = eastKm / (111.32 * Math.cos(Math.toRadians(lat)));
-            return new Centre(round3(lat + dLat), round3(lng + dLng));
-        }
-    }
+    public record Place(String countryCode, String subdivisionCode) {}
 
     /**
      * A test collector.
@@ -87,16 +78,20 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
      */
     public record Collector(String uid, UUID id, String handle) {}
 
-    /** A random centre with 2 decimals, far from the Montréal test data (and from the poles). */
-    public static Centre randomCentre() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        return new Centre(round2(random.nextDouble(-45, 35)), round2(random.nextDouble(-50, 160)));
+    /** A place in Americas (North), the region of most tests. */
+    public static Place americasNorth() {
+        return new Place("CA", "CA-QC");
     }
 
-    /** A discoverable collector with a complete profile and a trading area at {@code at}. */
-    public Collector collector(String prefix, Centre at) {
+    /** A place in Europe: never alerted about Americas (North) listings. */
+    public static Place europe() {
+        return new Place("FR", "FR-IDF");
+    }
+
+    /** A discoverable collector with a complete profile located at {@code at}. */
+    public Collector collector(String prefix, Place at) {
         String uid = uniqueUid(prefix);
-        UUID id = provisionCompliant(uid);
+        UUID id = provisionCompliantWithoutLocation(uid);
         String handle = me(uid).path("handle").asString();
         Map<String, Object> profile = new LinkedHashMap<>();
         profile.put("handle", handle);
@@ -105,13 +100,8 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
         profile.put("games", List.of("yugioh"));
         profile.put("languages", List.of("en"));
         callJson(HttpMethod.PUT, "/api/v1/me/profile", uid, profile, 200);
+        setLocation(uid, at.countryCode(), at.subdivisionCode(), null);
         callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, privacy(true, "MEMBERS"), 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                uid,
-                Map.of("lat", at.lat(), "lng", at.lng(), "radiusKm", 5),
-                200);
         return new Collector(uid, id, handle);
     }
 
@@ -126,8 +116,78 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
     // Catalog and inventory
     // ---------------------------------------------------------------------------------------
 
+    /** Isolated cards of this test, by the id of the mock card they clone. */
+    private final Map<UUID, IsolatedCard> isolatedCards = new HashMap<>();
+
+    /** Isolated printings of this test, by mock printing ref. */
+    private final Map<String, UUID> isolatedPrintings = new HashMap<>();
+
+    /**
+     * This test's own clone of mock printing {@code ref} (regions are shared by the whole suite, so
+     * a test is never alerted about another test's listings): the first printing of a mock card
+     * becomes a new isolated card, later printings of the same mock card become its siblings.
+     */
     public UUID printing(String ref) {
-        return InventoryTestSupport.printing(testUsers, ref);
+        UUID existing = isolatedPrintings.get(ref);
+        if (existing != null) {
+            return existing;
+        }
+        UUID source = InventoryTestSupport.printing(testUsers, ref);
+        UUID sourceCard = cardOf(source);
+        IsolatedCard card = isolatedCards.get(sourceCard);
+        UUID printingId;
+        if (card == null) {
+            card = InventoryTestSupport.isolatedCard(testUsers, ref);
+            isolatedCards.put(sourceCard, card);
+            printingId = card.printingId();
+        } else {
+            printingId = InventoryTestSupport.siblingPrinting(testUsers, card, ref, null);
+        }
+        isolatedPrintings.put(ref, printingId);
+        return printingId;
+    }
+
+    /**
+     * Another printing of the card of {@code ref} (this test's isolated card) with its own rarity,
+     * for the "any printing of one rarity" wishes.
+     */
+    public UUID rarityPrinting(String ref, String rarity) {
+        printing(ref);
+        UUID source = InventoryTestSupport.printing(testUsers, ref);
+        IsolatedCard card = isolatedCards.get(cardOf(source));
+        UUID printingId = InventoryTestSupport.siblingPrinting(testUsers, card, ref, null);
+        testUsers.update("UPDATE card_printing SET rarity = ? WHERE id = ?", rarity, printingId);
+        return printingId;
+    }
+
+    /** Rarity of a printing. */
+    public String rarityOf(UUID printingId) {
+        return testUsers
+                .query("SELECT rarity FROM card_printing WHERE id = ?", printingId)
+                .get(0)
+                .get("rarity")
+                .toString();
+    }
+
+    /** Name of the card of a printing. */
+    public String cardNameOf(UUID printingId) {
+        return testUsers
+                .query(
+                        "SELECT c.name FROM card_printing p JOIN card c ON c.id = p.card_id WHERE"
+                                + " p.id = ?",
+                        printingId)
+                .get(0)
+                .get("name")
+                .toString();
+    }
+
+    /** Printing code of a printing. */
+    public String codeOf(UUID printingId) {
+        return testUsers
+                .query("SELECT printing_code FROM card_printing WHERE id = ?", printingId)
+                .get(0)
+                .get("printing_code")
+                .toString();
     }
 
     public UUID cardOf(UUID printingId) {
@@ -175,29 +235,27 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
         return callJson(HttpMethod.POST, "/api/v1/wishlist", owner.uid(), body, 201);
     }
 
-    public JsonNode matches(Collector owner, String wishlistItemId) {
-        return callJson(
-                HttpMethod.GET,
-                "/api/v1/wishlist/" + wishlistItemId + "/matches",
-                owner.uid(),
-                null,
-                200);
-    }
-
-    /** Ids of the inventory items of the (undismissed) matches of a wishlist item. */
-    public List<String> matchedItems(Collector owner, String wishlistItemId) {
-        List<String> ids = new ArrayList<>();
-        matches(owner, wishlistItemId)
-                .path("items")
-                .forEach(match -> ids.add(match.path("item").path("id").asString()));
-        return ids;
-    }
-
-    /** Stored matches of a wishlist item (all, dismissed or not). */
-    public int storedMatches(String wishlistItemId) {
+    /** Sent-alert keys of a collector ({@code wishlist_alert_sent}). */
+    public int sentAlerts(UUID userId) {
         return testUsers.count(
-                "SELECT count(*) FROM wishlist_match WHERE wishlist_item_id = ?::uuid",
-                wishlistItemId);
+                "SELECT count(*) FROM wishlist_alert_sent WHERE user_id = ?", userId);
+    }
+
+    /** Turns the wishlist alerts switch of the notification settings on or off. */
+    public void wishlistAlerts(Collector collector, boolean on) {
+        JsonNode current =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/me/settings/notifications",
+                        collector.uid(),
+                        null,
+                        200);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("pushEnabled", current.path("pushEnabled").asBoolean());
+        body.put("emailEnabled", current.path("emailEnabled").asBoolean());
+        body.put("inAppEnabled", current.path("inAppEnabled").asBoolean());
+        body.put("wishlistAlerts", on);
+        callJson(HttpMethod.PUT, "/api/v1/me/settings/notifications", collector.uid(), body, 200);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -289,20 +347,6 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
                         .get("state");
     }
 
-    /** Runs {@code POST /internal/jobs/wishlist-rematch} with the service token. */
-    public JsonNode runRematchJob() {
-        EntityExchangeResult<byte[]> result =
-                http.post()
-                        .uri("/internal/jobs/wishlist-rematch")
-                        .header(ServiceAuthFilter.SERVICE_TOKEN_HEADER, SERVICE_TOKEN)
-                        .exchange()
-                        .expectStatus()
-                        .isOk()
-                        .expectBody()
-                        .returnResult();
-        return json(result);
-    }
-
     /** The notification shows its card: name, game and picture ({@link #CARD_PICTURE}). */
     public static void assertCardPicture(JsonNode notification, String cardName) {
         JsonNode data = notification.path("data");
@@ -312,7 +356,7 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
         assertThat(data.path("cardImageUrl").asString()).as(type).matches(CARD_PICTURE);
     }
 
-    /** Every number of the document has at most 3 decimals (ADR 0004). */
+    /** Every number of the document has at most 3 decimals. */
     public static void assertAtMostThreeDecimals(JsonNode node, String context) {
         if (node.isNumber()) {
             assertThat(Math.max(0, node.decimalValue().stripTrailingZeros().scale()))
@@ -323,38 +367,5 @@ public abstract class AbstractWishlistIT extends AbstractIntegrationTest {
         for (JsonNode child : node) {
             assertAtMostThreeDecimals(child, context);
         }
-    }
-
-    /** Stored public point of a user (tests only). */
-    public double[] publicPoint(UUID id) {
-        Map<String, Object> stored = testUsers.locationOf(id);
-        return new double[] {
-            ((Number) stored.get("public_lat")).doubleValue(),
-            ((Number) stored.get("public_lng")).doubleValue()
-        };
-    }
-
-    /** Every object carrying numeric {@code lat} and {@code lng} members. */
-    public static List<double[]> coordinatePairs(JsonNode node) {
-        List<double[]> pairs = new ArrayList<>();
-        collectPairs(node, pairs);
-        return pairs;
-    }
-
-    private static void collectPairs(JsonNode node, List<double[]> pairs) {
-        if (node.isObject() && node.path("lat").isNumber() && node.path("lng").isNumber()) {
-            pairs.add(new double[] {node.path("lat").asDouble(), node.path("lng").asDouble()});
-        }
-        for (JsonNode child : node) {
-            collectPairs(child, pairs);
-        }
-    }
-
-    static double round2(double value) {
-        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
-    }
-
-    static double round3(double value) {
-        return BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).doubleValue();
     }
 }

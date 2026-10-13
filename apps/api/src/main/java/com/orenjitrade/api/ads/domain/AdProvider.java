@@ -59,7 +59,8 @@ public interface AdProvider {
      * @param creativeId creative
      * @param placement placement
      * @param userHash pseudonymous viewer hash
-     * @param geoCell public grid cell of the context
+     * @param regionCode platform region of the context
+     * @param subdivisionCode the viewer's subdivision code of the context
      * @param at when
      */
     record Delivery(
@@ -67,6 +68,7 @@ public interface AdProvider {
             UUID creativeId,
             PlacementKey placement,
             @Nullable String userHash,
-            @Nullable String geoCell,
+            @Nullable String regionCode,
+            @Nullable String subdivisionCode,
             Instant at) {}
 }

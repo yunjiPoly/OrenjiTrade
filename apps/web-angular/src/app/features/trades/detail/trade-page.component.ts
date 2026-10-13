@@ -293,8 +293,8 @@ interface ReceivedCard {
                   <section class="tp__received" aria-labelledby="tp-received">
                     <h2 id="tp-received" class="tp__h2">Cards you received</h2>
                     <p class="tp__muted">
-                      Your inventory is not changed for you: add what you received so collectors
-                      nearby can find it.
+                      Your inventory is not changed for you: add what you received so collectors of
+                      your region can find it.
                     </p>
                     <ul class="tp__received-list">
                       @for (card of received(); track card.key) {

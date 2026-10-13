@@ -21,11 +21,9 @@ import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { CardGridComponent } from '../../../shared/catalog/card-grid/card-grid.component';
 import { cardPicturesOfResults } from '../../../shared/catalog/card-pictures';
-import {
-  DiscoveryCentre,
-  DiscoveryCentreService,
-} from '../../../shared/discovery/discovery-centre';
-import { distanceBucketLabel } from '../../../shared/domain/location-labels';
+import { AuthService } from '../../../core/auth/auth.service';
+import { RegionContext } from '../../../core/region/region-context.service';
+import { RegionsStore } from '../../../shared/regions/regions.store';
 import { PublicBinderCardComponent } from '../../../shared/inventory/public-binder-card/public-binder-card.component';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
@@ -41,8 +39,9 @@ const SECTION_LIMIT = 12;
 
 /**
  * Unified search results (`GET /search`) in tabs: cards (with printings and sets), collectors and
- * public binders. When the query designates a card or printing, a banner lists the collectors near
- * you who hold it and leads to the full holders view and the map.
+ * public binders. Collectors and binders come from the browsed platform region (ADR 0017). When the
+ * query designates a card or printing, a banner lists the collectors of the region who hold it and
+ * leads to the full holders view.
  */
 @Component({
   selector: 'app-unified-results',
@@ -66,7 +65,11 @@ const SECTION_LIMIT = 12;
 })
 export class UnifiedResultsComponent {
   private readonly api = inject(SearchService);
-  private readonly centres = inject(DiscoveryCentreService);
+  private readonly context = inject(RegionContext);
+  private readonly regions = inject(RegionsStore);
+  protected readonly signedIn = inject(AuthService).isAuthenticated;
+  protected readonly region = this.context.current;
+  protected readonly regionName = computed(() => this.regions.regionName(this.region()));
 
   readonly q = input.required<string>();
   readonly tab = input<SearchTab>('cards');
@@ -74,7 +77,6 @@ export class UnifiedResultsComponent {
 
   protected readonly result = signal<UnifiedSearchResponse | null>(null);
   protected readonly error = signal<ApiError | null>(null);
-  protected readonly centre = signal<DiscoveryCentre | null>(null);
   protected readonly tabIndex = computed(() => Math.max(0, SEARCH_TABS.indexOf(this.tab())));
   protected readonly errorMessage = computed(() => {
     const error = this.error();
@@ -112,40 +114,26 @@ export class UnifiedResultsComponent {
       pictures: cardPicturesOfResults(card, result.printings, printingId),
     };
   });
-  protected readonly mapQuery = computed(() => ({
-    ...(this.resolved()?.query ?? {}),
-    view: 'list',
-  }));
 
   private subscription: Subscription | null = null;
 
   constructor() {
     effect(() => {
       const q = this.q();
-      untracked(() => void this.load(q));
+      this.region();
+      untracked(() => this.load(q));
     });
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
   }
 
-  protected async load(q: string): Promise<void> {
+  protected load(q: string): void {
     this.subscription?.unsubscribe();
     this.result.set(null);
     this.error.set(null);
-    const centre = this.centre() ?? (await this.centres.resolve());
-    this.centre.set(centre);
-    const city = centre.city?.center ?? null;
     this.subscription = this.api
-      .search(
-        {
-          q,
-          limit: SECTION_LIMIT,
-          lat: city ? city.lat : undefined,
-          lng: city ? city.lng : undefined,
-        },
-        'body',
-        false,
-        { context: silentErrors() },
-      )
+      .search({ q, limit: SECTION_LIMIT, region: this.region() }, 'body', false, {
+        context: silentErrors(),
+      })
       .subscribe({
         next: (result) => this.result.set(result),
         error: (error: unknown) => this.error.set(toApiError(error)),
@@ -157,10 +145,6 @@ export class UnifiedResultsComponent {
     if (tab !== this.tab()) {
       this.tabChange.emit(tab);
     }
-  }
-
-  protected distance(bucket: string | null | undefined): string | null {
-    return this.centre()?.signedIn ? distanceBucketLabel(bucket) : null;
   }
 
   protected image(printing: Parameters<typeof printingImageUrl>[0]): string | null {

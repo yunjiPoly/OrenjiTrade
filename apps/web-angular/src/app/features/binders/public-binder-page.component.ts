@@ -53,7 +53,7 @@ const ALL = 'ALL';
 
 /**
  * Public reads carry the collector's token when signed in: the API counts
- * `binder.views.per_day`, adds the distance bucket and keys rate limits by account.
+ * `binder.views.per_day`, applies blocks and keys rate limits by account.
  */
 function publicContext(): HttpContext {
   return new HttpContext().set(ATTACH_ID_TOKEN, true).set(SKIP_ERROR_TOAST, true);
@@ -69,8 +69,8 @@ type BinderState =
 /**
  * `/binders/:id`: a public binder (`GET /public/binders/{id}` + its public items), open to
  * everyone. Game and availability filters and the search live in the URL. Only what the owner
- * made public is shown: never private notes, never coordinates (the owner block carries a region
- * label and a distance bucket). Cards that accept offers carry "Make an offer".
+ * made public is shown: never private notes, never a city (the owner block carries the
+ * state/province and country, ADR 0017). Cards that accept offers carry "Make an offer".
  */
 @Component({
   selector: 'app-public-binder-page',
@@ -387,7 +387,7 @@ export class PublicBinderPageComponent {
           displayName: owner.displayName,
           handle: owner.handle,
           avatarUrl: owner.avatarUrl ?? null,
-          placeLabel: owner.location?.publicLabel ?? null,
+          placeLabel: owner.place?.label ?? null,
         }
       : null;
   });

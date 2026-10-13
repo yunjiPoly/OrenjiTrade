@@ -61,16 +61,17 @@ public class AdController {
             operationId = "listAds",
             summary = "Sponsored ads for a placement (public)",
             description =
-                    "Targeting uses the requested game and grid cell and, for signed-in callers,"
-                        + " their public grid cell and region label, interest games, tags and plan"
-                        + " (never a precise location). [] while the advertising flag is off for"
-                        + " the caller or ads.enabled is false (PREMIUM, entitlements). Each ad"
-                        + " carries an impressionToken for POST /ads/{creativeId}/impression and a"
-                        + " clickUrl; UIs always show the Sponsored label.")
+                    "Targeting uses the requested game and platform region and, for signed-in"
+                        + " callers, their country and state/province, interest games, tags and"
+                        + " plan (never a city or a coordinate). [] while the advertising flag is"
+                        + " off for the caller or ads.enabled is false (PREMIUM, entitlements)."
+                        + " Each ad carries an impressionToken for POST"
+                        + " /ads/{creativeId}/impression and a clickUrl; UIs always show the"
+                        + " Sponsored label.")
     @ApiResponse(responseCode = "200", description = "The ads (possibly empty)")
     @ApiResponse(
             responseCode = "400",
-            description = "VALIDATION_FAILED (placement, game or geoCell)",
+            description = "VALIDATION_FAILED (placement, game or region)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -83,17 +84,15 @@ public class AdController {
                     @RequestParam(required = false)
                     @Size(max = 60)
                     @Nullable String game,
-            @Parameter(description = "Public grid cell of the map view", example = "r5058c-5438")
+            @Parameter(
+                            description = "Platform region of the page (GET /regions)",
+                            example = "americas-north")
                     @RequestParam(required = false)
-                    @Size(max = 20)
-                    @Nullable String geoCell) {
+                    @Size(max = 32)
+                    @Nullable String region) {
         List<AdResponse> body =
                 ads
-                        .ads(
-                                principal == null ? null : principal.userId(),
-                                placement,
-                                game,
-                                geoCell)
+                        .ads(principal == null ? null : principal.userId(), placement, game, region)
                         .stream()
                         .map(AdResponse::from)
                         .toList();

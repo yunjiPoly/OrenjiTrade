@@ -1,17 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { roundCoordinate } from '@/src/lib/location';
-
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { meKeys } from '../queryKeys';
-import type { MyLocationResponse, PrivacySettings, TradingAreaSource } from '../types';
+import type { MyLocationResponse, PrivacySettings, UpdateLocationRequest } from '../types';
 import { useIsAuthenticated, useUid } from './useUid';
 
 /**
- * `GET /api/v1/me/location`: the owner's trading area (centre rounded to 3 decimals by the API,
- * kept in memory only and never rendered as numbers), its public label, discoverability and the
- * derived public point.
+ * `GET /api/v1/me/location`: the owner's self-declared location (ADR 0017: country, state or
+ * province, optional city and "show my city"), with its public label and discoverability. No
+ * coordinate exists.
  */
 export function useMyLocation() {
   const uid = useUid();
@@ -32,36 +30,28 @@ export function usePrivacySettings() {
   });
 }
 
-/** A trading-area centre to send: never stored on the device, rounded before it leaves. */
-export interface TradingAreaInput {
-  lat: number;
-  lng: number;
-  radiusKm: number;
-  source: TradingAreaSource;
-}
-
-/** The `PUT /me/location/trading-area` body: 3 decimals at most (ADR 0004), radius 1–50 km. */
-export function tradingAreaBody(area: TradingAreaInput) {
+/** The `PUT /me/location` body: codes as chosen, the city trimmed (blank clears it). */
+export function locationBody(input: UpdateLocationRequest): UpdateLocationRequest {
+  const city = input.city?.trim() ?? '';
   return {
-    lat: roundCoordinate(area.lat),
-    lng: roundCoordinate(area.lng),
-    radiusKm: Math.min(50, Math.max(1, Math.round(area.radiusKm))),
-    source: area.source,
+    countryCode: input.countryCode,
+    subdivisionCode: input.subdivisionCode,
+    city: city === '' ? null : city,
+    showCity: input.showCity ?? true,
   };
 }
 
 /**
- * `PUT /api/v1/me/location/trading-area`. The server snaps the centre, derives the public label
- * and point; a device position (`source: DEVICE`) is only ever sent here, never kept.
+ * `PUT /api/v1/me/location`: country and subdivision from `GET /regions` (unknown codes are a
+ * 400), an optional city (never geocoded). `/me` is reloaded: the onboarding flag and the home
+ * region follow.
  */
-export function useSaveTradingArea() {
+export function useSaveLocation() {
   const uid = useUid();
   const queryClient = useQueryClient();
-  return useMutation<MyLocationResponse, ApiError, TradingAreaInput>({
-    mutationFn: async (area) =>
-      required(
-        (await api.PUT('/api/v1/me/location/trading-area', { body: tradingAreaBody(area) })).data
-      ),
+  return useMutation<MyLocationResponse, ApiError, UpdateLocationRequest>({
+    mutationFn: async (input) =>
+      required((await api.PUT('/api/v1/me/location', { body: locationBody(input) })).data),
     onSuccess: async (location) => {
       queryClient.setQueryData(meKeys.location(uid), location);
       await queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
@@ -69,7 +59,7 @@ export function useSaveTradingArea() {
   });
 }
 
-/** `DELETE /api/v1/me/location`: removes the trading area (the collector leaves the map). */
+/** `DELETE /api/v1/me/location`: removes the location (the server turns discoverability off). */
 export function useRemoveLocation() {
   const uid = useUid();
   const queryClient = useQueryClient();
@@ -78,17 +68,16 @@ export function useRemoveLocation() {
       await api.DELETE('/api/v1/me/location');
     },
     onSuccess: async () => {
-      queryClient.setQueryData<MyLocationResponse>(meKeys.location(uid), (location) => ({
-        discoverable: location?.discoverable ?? false,
-      }));
+      queryClient.setQueryData<MyLocationResponse>(meKeys.location(uid), { discoverable: false });
+      await queryClient.invalidateQueries({ queryKey: meKeys.privacy(uid) });
       await queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
     },
   });
 }
 
 /**
- * `PUT /api/v1/me/settings/privacy` (replaces the whole document). Discoverability changes the
- * public point, so the location is refreshed too.
+ * `PUT /api/v1/me/settings/privacy` (replaces the whole document). Becoming discoverable needs a
+ * location (409 LOCATION_REQUIRED otherwise); the location answer carries the flag too.
  */
 export function useSavePrivacy() {
   const uid = useUid();

@@ -6,10 +6,11 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A search was served (unified search, card-holder search, or a map search with a query or card
- * filter). An in-process notification for the analytics module (plain listener, never persisted):
- * geography is the search centre's grid cell and region label only, never a coordinate (ADR 0004);
- * the analytics module scrubs and truncates the query text and pseudonymises the viewer.
+ * A search was served (unified search, card-holder search, or a state binder list of the map). An
+ * in-process notification for the analytics module (plain listener, never persisted): geography is
+ * the platform region and, for the map, the subdivision code only, never a city, a coordinate or a
+ * distance (ADR 0017); the analytics module scrubs and truncates the query text and pseudonymises
+ * the viewer.
  *
  * @param surface {@code search}, {@code card_holders} or {@code map}
  * @param viewerId the searcher, {@code null} for signed-out visitors
@@ -18,10 +19,9 @@ import org.jspecify.annotations.Nullable;
  * @param types result types requested (unified search)
  * @param resolved {@code printing}, {@code card} or {@code none}
  * @param resultCount number of results found
- * @param radiusKm search radius, rounded
  * @param filters names of the filters in use
- * @param gridCell grid cell of the search centre, when there was one
- * @param regionLabel region label of the search centre
+ * @param regionCode the platform region searched
+ * @param subdivisionCode the subdivision browsed (map), when any
  * @param occurredAt when
  */
 public record SearchPerformed(
@@ -32,10 +32,9 @@ public record SearchPerformed(
         List<String> types,
         String resolved,
         long resultCount,
-        @Nullable Integer radiusKm,
         List<String> filters,
-        @Nullable String gridCell,
-        @Nullable String regionLabel,
+        String regionCode,
+        @Nullable String subdivisionCode,
         Instant occurredAt) {
 
     public static final String SURFACE_SEARCH = "search";

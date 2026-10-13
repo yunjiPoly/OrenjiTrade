@@ -7,7 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { PublicOwnerLocation } from './publicOwnerLocation';
+import { Place } from './place';
 
 
 /**
@@ -19,8 +19,8 @@ export interface PublicBinderOwner {
     displayName: string;
     avatarUrl?: string | null;
     /**
-     * Null unless the collector is discoverable
+     * State/province and country; null unless the collector is discoverable with a location
      */
-    location?: PublicOwnerLocation;
+    place?: Place;
 }
 

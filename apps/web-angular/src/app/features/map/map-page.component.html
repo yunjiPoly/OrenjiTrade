@@ -1,8 +1,7 @@
 <div class="map-page">
-  <h1 class="visually-hidden">Collectors near you</h1>
   <mat-sidenav-container class="map-page__container" [hasBackdrop]="!isWide()">
     <mat-sidenav
-      class="map-page__panel"
+      class="map-page__messages"
       position="end"
       [mode]="panelMode()"
       [opened]="panelOpened()"
@@ -11,158 +10,126 @@
       <app-messages-panel
         [signedIn]="signedIn()"
         [opened]="panelOpened()"
-        [incoming]="panelConversation()"
+        [incoming]="null"
         (closeRequested)="panelOpened.set(false)"
         (unreadChange)="unreadMessages.set($event)"
       />
     </mat-sidenav>
 
     <mat-sidenav-content class="map-page__content">
-      <div class="stage">
-        <app-map-canvas
-          class="stage__map"
-          [markers]="markerSet().markers"
-          [circles]="circles()"
-          [view]="store.viewRequest()"
-          [fallbackCentre]="fallbackCentre"
-          (viewportChange)="onViewport($event)"
-          (markerActivate)="onMarker($event)"
+      <header class="bar">
+        <div class="bar__titles">
+          <h1 class="bar__title">Binders in {{ regionName() }}</h1>
+          <p class="bar__status" role="status" data-testid="map-status">{{ statusLabel() }}</p>
+        </div>
+        <app-unified-search-box
+          class="bar__search"
+          label="Search cards, collectors and binders"
+          placeholder="Find a card, collector or binder"
+          [region]="regionCode()"
+          (picked)="onPicked($event)"
+          (submitted)="onSubmitted($event)"
         />
+        <button
+          matIconButton
+          type="button"
+          class="bar__messages"
+          [attr.aria-label]="toggleLabel()"
+          [attr.aria-expanded]="panelOpened()"
+          aria-controls="map-messages-panel"
+          [matTooltip]="toggleLabel()"
+          (click)="togglePanel()"
+        >
+          <mat-icon>{{ panelOpened() ? 'chat_bubble' : 'chat' }}</mat-icon>
+          @if (unreadMessages() > 0) {
+            <span class="bar__badge" data-testid="messages-toggle-badge" aria-hidden="true">
+              {{ unreadMessages() > 99 ? '99+' : unreadMessages() }}
+            </span>
+          }
+        </button>
+      </header>
 
-        @if (store.loading()) {
-          <mat-progress-bar
-            class="stage__progress"
-            mode="indeterminate"
-            aria-label="Loading collectors"
-          />
-        }
+      @if (showLocationPrompt()) {
+        <div class="prompt" role="note" data-testid="location-prompt">
+          <mat-icon aria-hidden="true">location_on</mat-icon>
+          <p class="prompt__text">
+            Say which state or province you are in, and collectors of your region can find your
+            public binders here.
+          </p>
+          <a matButton="filled" routerLink="/settings/location">Choose my location</a>
+          <button
+            matIconButton
+            type="button"
+            aria-label="Dismiss"
+            (click)="promptDismissed.set(true)"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      }
 
-        <div class="stage__top">
-          <app-unified-search-box
-            class="stage__search"
-            label="Search the map"
-            placeholder="Find a card, collector or tag"
-            [centre]="searchCentre()"
-            (picked)="onPicked($event)"
-            (submitted)="onSubmitted($event)"
+      <div class="body">
+        <div class="body__map">
+          <app-boundary-map
+            class="body__canvas"
+            [region]="regionCode()"
+            [counts]="store.countByCode()"
+            [names]="names()"
+            [selected]="selected()"
+            [label]="mapLabel()"
+            (subdivisionSelected)="openSubdivision($event)"
           />
-          <div class="stage__tools">
-            <p class="stage__status" role="status" data-testid="map-status">
-              {{ statusLabel() }}
-            </p>
-            <button
-              matButton="tonal"
-              type="button"
-              class="stage__tool"
-              aria-controls="discovery-panel"
-              [attr.aria-pressed]="listOpen()"
-              (click)="toggleList()"
-            >
-              <mat-icon aria-hidden="true">{{ listOpen() ? 'map' : 'view_list' }}</mat-icon>
-              List
-            </button>
-            <button
-              matIconButton
-              type="button"
-              class="stage__tool stage__tool--round"
-              [attr.aria-label]="toggleLabel()"
-              [attr.aria-expanded]="panelOpened()"
-              aria-controls="map-messages-panel"
-              [matTooltip]="toggleLabel()"
-              (click)="togglePanel()"
-            >
-              <mat-icon>{{ panelOpened() ? 'chat_bubble' : 'chat' }}</mat-icon>
-              @if (unreadMessages() > 0) {
-                <span class="stage__badge" data-testid="messages-toggle-badge" aria-hidden="true">
-                  {{ unreadMessages() > 99 ? '99+' : unreadMessages() }}
+          <div class="legend" aria-hidden="true">
+            <span class="legend__title">Public binders</span>
+            <span class="legend__scale">
+              @for (step of legend; track step.level) {
+                <span class="legend__step">
+                  <span class="legend__swatch" [attr.data-level]="step.level"></span>
+                  {{ step.label }}
                 </span>
               }
-            </button>
+            </span>
           </div>
         </div>
 
-        @if (showAreaPrompt() && !listOpen()) {
-          <app-area-prompt
-            class="stage__prompt"
-            [city]="store.city()"
-            [signedIn]="store.signedIn()"
-            (cityChosen)="onCity($event)"
-          />
-        }
-
-        @if (store.error(); as error) {
-          @if (!listOpen()) {
-            <div class="stage__error" role="alert">
+        <aside class="body__side" aria-label="States, provinces and binders">
+          @if (store.countsError()) {
+            <div class="side__error" role="alert">
               <mat-icon aria-hidden="true">cloud_off</mat-icon>
-              <span>{{ errorMessage() }}</span>
-              <button matButton type="button" (click)="store.retry()">Retry</button>
+              <span>{{ countsErrorMessage() }}</span>
+              <button matButton type="button" (click)="store.loadCounts()">Retry</button>
             </div>
           }
-        }
 
-        @if (listOpen()) {
-          <app-discovery-panel
-            id="discovery-panel"
-            class="stage__panel"
-            [collectors]="store.collectors()"
-            [holders]="holdersMode()"
-            [holdersName]="store.holdersTitle()"
-            [holdersCard]="store.holdersCard()"
-            [holdersQuery]="holdersQuery()"
-            [loading]="store.loading()"
-            [error]="store.error()"
-            [total]="store.result()?.total ?? 0"
-            [truncated]="store.result()?.truncated ?? false"
-            [radiusKm]="store.result()?.radiusKm ?? store.radiusKm()"
-            [selectedHandle]="store.selectedHandle()"
-            [signedIn]="store.signedIn()"
-            [selfId]="store.selfId()"
-            (selected)="store.select($event)"
-            (retry)="store.retry()"
-            (closed)="closeList()"
-            (clearHolders)="clearHolders()"
-            (addToWishlist)="addHoldersToWishlist()"
-          >
-            <app-sponsored-slot
-              sponsored
-              class="stage__sponsored"
-              placement="MAP_PANEL"
-              variant="compact"
-              [game]="params().game"
+          <app-sponsored-slot class="side__sponsored" placement="MAP_PANEL" variant="compact" />
+
+          @if (selected()) {
+            <app-subdivision-panel
+              [title]="selectedTitle()"
+              [subtitle]="selectedSubtitle()"
+              [binders]="store.binders()"
+              (closed)="closeSubdivision()"
+              (loadMore)="store.loadMore()"
+              (retry)="store.retryBinders()"
             />
-          </app-discovery-panel>
-        }
-
-        @if (store.preview().kind !== 'idle') {
-          <app-collector-preview-card
-            class="stage__preview"
-            [state]="store.preview()"
-            [binderId]="store.previewBinderId()"
-            [signedIn]="store.signedIn()"
-            [isSelf]="previewIsSelf()"
-            [messaging]="messaging()"
-            [matchingItems]="previewMatchingItems()"
-            [pictures]="store.holdersCard()"
-            (closed)="store.select(null)"
-            (retry)="store.retryPreview()"
-            (messageRequested)="onMessage($event)"
-            (reportRequested)="onReport($event)"
-          />
-        }
-
-        <app-map-legend class="stage__legend" [class.stage__legend--beside-panel]="listOpen()" />
+          } @else if (!regions.loaded() && regions.error(); as error) {
+            <div class="side__error" role="alert">
+              <mat-icon aria-hidden="true">cloud_off</mat-icon>
+              <span>The list of places could not load.</span>
+              <button matButton type="button" (click)="regions.load()">Retry</button>
+            </div>
+          } @else {
+            <app-subdivision-list
+              class="side__list"
+              [region]="platformRegion()"
+              [counts]="store.countByCode()"
+              [selected]="selected()"
+              [loading]="!regions.loaded()"
+              (picked)="openSubdivision($event)"
+            />
+          }
+        </aside>
       </div>
-
-      <app-map-filters-bar
-        class="map-page__filters"
-        [params]="params()"
-        [radiusKm]="store.radiusKm()"
-        [radiusMax]="store.radiusCap()"
-        [games]="gameOptions()"
-        [tags]="tagOptions()"
-        (changed)="onFilters($event)"
-        (tagsRequested)="onTagsRequested()"
-      />
     </mat-sidenav-content>
   </mat-sidenav-container>
 </div>

@@ -4,14 +4,14 @@ import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.cards.domain.CatalogText;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.Availability;
-import com.orenjitrade.api.location.domain.SearchCentre;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.MessagingPermission;
 import com.orenjitrade.api.profiles.domain.ProfileVisibility;
+import com.orenjitrade.api.search.domain.DiscoveryCriteria;
+import com.orenjitrade.api.search.domain.DiscoveryPage;
 import com.orenjitrade.api.search.domain.ItemFilter;
 import com.orenjitrade.api.search.domain.MarkerRow;
 import com.orenjitrade.api.search.domain.MatchingItem;
-import com.orenjitrade.api.search.domain.NearbyCriteria;
-import com.orenjitrade.api.search.domain.NearbyPage;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -29,12 +29,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * Collector discovery queries (Phase 4 contract "Collectors nearby"): {@code ST_DWithin} on {@code
- * user_location.public_point} (GiST index {@code ix_user_location_public_point}) joined to the
- * privacy settings (discoverable, profile not PRIVATE) and the account (ACTIVE), with per-collector
- * statistics over the effectively public inventory and EXISTS filters on discoverable items. Reads
- * the tables of the location, profiles, users, binders and inventory modules read-only; never
- * selects {@code trading_area_center} or {@code home_point}.
+ * Collector discovery queries (ADR 0017): discoverable collectors (opted in, ACTIVE account,
+ * profile not PRIVATE) with a location in the requested platform region, joined to their country
+ * and subdivision, with per-collector statistics over the effectively public inventory and EXISTS
+ * filters on discoverable items. Reads the tables of the location, profiles, users, binders and
+ * inventory modules read-only; never selects the city.
  */
 @Repository
 public class CollectorSearchRepository {
@@ -44,22 +43,19 @@ public class CollectorSearchRepository {
             SELECT u.id, u.handle,
                    COALESCE(pr.display_name, NULLIF(u.display_name, ''), u.handle) AS display_name,
                    pr.avatar_key, u.last_active_at,
-                   ps.show_distance, ps.show_online_status, ps.show_last_active,
+                   ps.show_online_status, ps.show_last_active,
                    ps.profile_visibility, ps.messaging_permission, ps.search_discoverable,
-                   ST_Y(ul.public_point::geometry) AS public_lat,
-                   ST_X(ul.public_point::geometry) AS public_lng,
-                   ul.public_label, ul.grid_cell,
-                   %s AS distance_m,
+                   %s,
                    COALESCE(pr.games, '{}') AS profile_games,
                    ARRAY(SELECT t.slug FROM profile_tag pt JOIN tag t ON t.id = pt.tag_id
                           WHERE pt.profile_user_id = u.id AND t.status = 'ACTIVE'
                           ORDER BY t.slug) AS tag_slugs,
                    st.public_item_count, st.public_binder_count, st.best_freshness, st.item_games,
                    count(*) OVER () AS total
-              FROM user_location ul
-              JOIN user_account u ON u.id = ul.user_id
-              JOIN privacy_settings ps ON ps.user_id = ul.user_id
-              LEFT JOIN profile pr ON pr.user_id = ul.user_id
+              FROM user_account u
+              JOIN privacy_settings ps ON ps.user_id = u.id
+              %s
+              LEFT JOIN profile pr ON pr.user_id = u.id
               CROSS JOIN LATERAL (
                   SELECT count(*) AS public_item_count,
                          count(DISTINCT i.binder_id) AS public_binder_count,
@@ -77,24 +73,21 @@ public class CollectorSearchRepository {
     }
 
     /**
-     * Collectors matching {@code criteria}, ranked (freshness, distance bucket, distance, handle),
-     * at most {@code criteria.limit() + 1} rows, with the total count. Collectors whose public
-     * listings are all STALE never appear; collectors without public listings do.
+     * Collectors of {@code criteria.region()} matching {@code criteria}, ranked (freshness, handle;
+     * the rating is applied by the caller), at most {@code criteria.limit() + 1} rows, with the
+     * total count. Collectors whose public listings are all STALE never appear; collectors without
+     * public listings do.
      */
-    public NearbyPage nearby(NearbyCriteria criteria, Instant now) {
+    public DiscoveryPage discover(DiscoveryCriteria criteria, Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
-        @Nullable SearchCentre centre = criteria.centre();
-        String distance = DiscoverySql.distance(centre != null);
-        StringBuilder where = new StringBuilder(" WHERE ").append(DiscoverySql.ON_THE_MAP);
+        params.put("region", criteria.region());
+        StringBuilder where =
+                new StringBuilder(" WHERE ")
+                        .append(DiscoverySql.DISCOVERABLE)
+                        .append(" AND ")
+                        .append(DiscoverySql.IN_REGION);
         where.append(" AND (st.best_freshness IS NULL OR st.best_freshness < 2)");
-        if (centre != null) {
-            DiscoverySql.centre(centre, params);
-            where.append(" AND ST_DWithin(ul.public_point, ")
-                    .append(DiscoverySql.CENTRE)
-                    .append(", :radiusM)");
-            params.put("radiusM", criteria.radiusKm() * 1000.0);
-        }
         if (criteria.freshness() != null) {
             where.append(" AND st.best_freshness = :freshnessRank");
             params.put("freshnessRank", criteria.freshness() == FreshnessState.ACTIVE ? 0 : 1);
@@ -128,37 +121,26 @@ public class CollectorSearchRepository {
         if (criteria.query() != null) {
             where.append(" AND ").append(nameMatch(criteria.query(), params));
         }
-        String order =
-                " ORDER BY COALESCE(st.best_freshness, 2), "
-                        + (centre != null ? DiscoverySql.bucketRank(distance) + ", " : "")
-                        + "distance_m NULLS LAST, u.handle"
-                        + " LIMIT :limit";
+        String order = " ORDER BY COALESCE(st.best_freshness, 2), u.handle LIMIT :limit";
         params.put("limit", criteria.limit() + 1);
-        List<Row> rows = query(select(distance) + where + order, params);
+        List<Row> rows = query(select() + where + order, params);
         long total = rows.isEmpty() ? 0 : rows.get(0).total();
         List<MarkerRow> markers = rows.stream().map(Row::marker).toList();
-        return new NearbyPage(markers, total);
+        return new DiscoveryPage(markers, total);
     }
 
     /**
-     * The markers of the given collectors (in no particular order) while they are on the map,
-     * whatever their freshness; distances from {@code centre} when given.
+     * The markers of the given collectors (in no particular order) while they are discoverable with
+     * a location, whatever their region and freshness.
      */
-    public List<MarkerRow> markersByIds(
-            Collection<UUID> ids, @Nullable SearchCentre centre, Instant now) {
+    public List<MarkerRow> markersByIds(Collection<UUID> ids, Instant now) {
         if (ids.isEmpty()) {
             return List.of();
         }
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
         params.put("ids", ids);
-        if (centre != null) {
-            DiscoverySql.centre(centre, params);
-        }
-        String sql =
-                select(DiscoverySql.distance(centre != null))
-                        + " WHERE u.id IN (:ids) AND "
-                        + DiscoverySql.ON_THE_MAP;
+        String sql = select() + " WHERE u.id IN (:ids) AND " + DiscoverySql.DISCOVERABLE;
         return query(sql, params).stream().map(Row::marker).toList();
     }
 
@@ -222,31 +204,31 @@ public class CollectorSearchRepository {
     }
 
     /**
-     * Collectors on the map who allow name search, matching {@code query} by handle or display name
-     * (prefix first, then trigram similarity), closest first when a centre is given.
+     * Discoverable collectors of {@code region} who allow name search, matching {@code query} by
+     * handle or display name (prefix first, then trigram similarity).
      */
-    public List<CollectorHit> suggest(
-            String query, @Nullable SearchCentre centre, int limit, Instant now) {
+    public List<CollectorHit> suggest(String query, String region, int limit, Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
+        params.put("region", region);
         String normalised = CatalogText.normalise(query);
         String escaped = CatalogText.escapeLike(normalised);
         params.put("qn", normalised);
         params.put("qContains", "%" + escaped + "%");
         params.put("qPrefix", escaped + "%");
         params.put("limit", limit);
-        if (centre != null) {
-            DiscoverySql.centre(centre, params);
-        }
         String display = "lower(unaccent_immutable(COALESCE(pr.display_name, u.display_name, '')))";
         String sql =
                 "SELECT u.id, u.handle, COALESCE(pr.display_name, NULLIF(u.display_name, ''),"
-                        + " u.handle) AS display_name, pr.avatar_key, ul.public_label"
-                        + " FROM user_location ul JOIN user_account u ON u.id = ul.user_id"
-                        + " JOIN privacy_settings ps ON ps.user_id = ul.user_id"
-                        + " LEFT JOIN profile pr ON pr.user_id = ul.user_id"
+                        + " u.handle) AS display_name, pr.avatar_key, "
+                        + DiscoverySql.PLACE_COLUMNS
+                        + " FROM user_account u JOIN privacy_settings ps ON ps.user_id = u.id"
+                        + DiscoverySql.locationJoins("u.id")
+                        + " LEFT JOIN profile pr ON pr.user_id = u.id"
                         + " WHERE "
-                        + DiscoverySql.ON_THE_MAP
+                        + DiscoverySql.DISCOVERABLE
+                        + " AND "
+                        + DiscoverySql.IN_REGION
                         + " AND ps.search_discoverable AND (u.handle LIKE :qContains ESCAPE '\\'"
                         + " OR "
                         + display
@@ -258,9 +240,7 @@ public class CollectorSearchRepository {
                         + " LIKE :qPrefix ESCAPE '\\' THEN 0 ELSE 1 END,"
                         + " greatest(similarity(u.handle, :qn), similarity("
                         + display
-                        + ", :qn)) DESC, "
-                        + DiscoverySql.distance(centre != null)
-                        + " NULLS LAST, u.handle LIMIT :limit";
+                        + ", :qn)) DESC, u.handle LIMIT :limit";
         JdbcClient.StatementSpec statement = jdbc.sql(sql);
         for (Map.Entry<String, Object> param : params.entrySet()) {
             statement = statement.param(param.getKey(), param.getValue());
@@ -273,7 +253,7 @@ public class CollectorSearchRepository {
                                         rs.getString("handle"),
                                         rs.getString("display_name"),
                                         rs.getString("avatar_key"),
-                                        rs.getString("public_label")))
+                                        place(rs)))
                 .list();
     }
 
@@ -284,23 +264,24 @@ public class CollectorSearchRepository {
      * @param handle handle
      * @param displayName display name
      * @param avatarKey avatar storage key
-     * @param publicLabel region label of the public point
+     * @param place state/province and country
      */
     public record CollectorHit(
             UUID id,
             String handle,
             String displayName,
             @Nullable String avatarKey,
-            @Nullable String publicLabel) {}
+            PublicPlace place) {}
 
     // ---------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------
 
-    private static String select(String distance) {
+    private static String select() {
         return String.format(
                 SELECT,
-                distance,
+                DiscoverySql.PLACE_COLUMNS,
+                DiscoverySql.locationJoins("u.id"),
                 DiscoverySql.FRESHNESS_RANK,
                 DiscoverySql.ITEM_JOINS,
                 DiscoverySql.LISTED);
@@ -315,7 +296,7 @@ public class CollectorSearchRepository {
         String display = "lower(unaccent_immutable(COALESCE(pr.display_name, u.display_name, '')))";
         // Substring matches only (accent- and case-insensitive): trigram similarity between
         // generated handles and display names (which share prefixes) would return unrelated
-        // collectors on the map; fuzzy matching stays in the autocomplete.
+        // collectors; fuzzy matching stays in the autocomplete.
         return "(ps.search_discoverable AND (u.handle LIKE :qContains ESCAPE '\\' OR "
                 + display
                 + " LIKE :qContains ESCAPE '\\'"
@@ -333,9 +314,17 @@ public class CollectorSearchRepository {
         return statement.query(CollectorSearchRepository::map).list();
     }
 
+    static PublicPlace place(ResultSet rs) throws SQLException {
+        return new PublicPlace(
+                rs.getString("region_code"),
+                rs.getString("country_code"),
+                rs.getString("country_name"),
+                rs.getString("subdivision_code"),
+                rs.getString("subdivision_name"),
+                rs.getBoolean("whole_country"));
+    }
+
     private static Row map(ResultSet rs, int rowNum) throws SQLException {
-        double distance = rs.getDouble("distance_m");
-        @Nullable Double distanceMetres = rs.wasNull() ? null : distance;
         int bestFreshness = rs.getInt("best_freshness");
         @Nullable Integer freshnessRank = rs.wasNull() ? null : bestFreshness;
         Timestamp lastActive = rs.getTimestamp("last_active_at");
@@ -345,12 +334,7 @@ public class CollectorSearchRepository {
                         rs.getString("handle"),
                         rs.getString("display_name"),
                         rs.getString("avatar_key"),
-                        rs.getDouble("public_lat"),
-                        rs.getDouble("public_lng"),
-                        rs.getString("public_label") == null ? "" : rs.getString("public_label"),
-                        rs.getString("grid_cell"),
-                        distanceMetres,
-                        rs.getBoolean("show_distance"),
+                        place(rs),
                         rs.getBoolean("show_online_status"),
                         rs.getBoolean("show_last_active"),
                         ProfileVisibility.valueOf(rs.getString("profile_visibility")),

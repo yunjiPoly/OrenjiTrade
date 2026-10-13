@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -13,8 +14,11 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Public catalog search (ADR 0012): full-text search, trigram typo tolerance, accent-insensitive
- * matching, printing-code short-circuit, filters, sets, details and autocomplete. Anonymous.
+ * matching, printing-code short-circuit, filters, sets, details and autocomplete. Anonymous. Runs
+ * in {@code catalogTest} (own JVM, fresh containers) so the per-test catalog proxies of other
+ * suites never change the fixture counts.
  */
+@Tag("catalog-fixture")
 class CatalogSearchIT extends AbstractIntegrationTest {
 
     @Autowired private CatalogImportService importService;

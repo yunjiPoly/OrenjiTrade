@@ -234,7 +234,7 @@ export class HolderFiltersComponent {
 
   protected readonly form = new FormGroup(
     {
-      sort: new FormControl<HolderSort>('distance', { nonNullable: true }),
+      sort: new FormControl<HolderSort>('freshness', { nonNullable: true }),
       availability: new FormControl<AvailabilityFilter | null>(null),
       condition: new FormControl<string | null>(null),
       minPrice: new FormControl<number | null>(null, [

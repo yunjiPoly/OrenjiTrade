@@ -62,8 +62,8 @@ public class CommunityController {
             summary = "Community channels",
             description =
                     "Active channels ordered for display. `game` filters by game slug, `region` by"
-                            + " city (accent- and case-insensitive). 404 FEATURE_DISABLED while the"
-                            + " publicChat flag is off.")
+                            + " platform region code (the region channels, ADR 0017). 404"
+                            + " FEATURE_DISABLED while the publicChat flag is off.")
     @ApiResponse(responseCode = "200", description = "The channels")
     @ApiResponse(
             responseCode = "404",
@@ -76,7 +76,7 @@ public class CommunityController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Parameter(description = "Game slug") @RequestParam(required = false) @Size(max = 32)
                     @Nullable String game,
-            @Parameter(description = "City, e.g. Montréal")
+            @Parameter(description = "Platform region code (GET /regions), e.g. americas-north")
                     @RequestParam(required = false)
                     @Size(max = 120)
                     @Nullable String region) {

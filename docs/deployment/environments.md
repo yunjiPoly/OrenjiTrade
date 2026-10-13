@@ -34,7 +34,7 @@ below are fictional placeholders; the real ones live in each environment's git-i
 | Identity | Firebase Auth emulator | Firebase project (dev) | Firebase project (staging) | Identity Platform + MFA |
 | Payments | `FakePaymentProvider` | fake (Stripe test keys optional) | Stripe **test** keys | fake until Stripe secrets exist, then Stripe live keys behind `protectedPayments` |
 | Events | in-process outbox | outbox; analytics to Pub/Sub | same | outbox; analytics to Pub/Sub → BigQuery; `domain-events` push off until the receiver exists |
-| Scheduled jobs | `@Scheduled` under `local` | 10 Cloud Scheduler jobs | 10 | 10 (every scheduled `/internal/jobs/*` route) |
+| Scheduled jobs | `@Scheduled` under `local` | 9 Cloud Scheduler jobs | 9 | 9 (every scheduled `/internal/jobs/*` route) |
 | Images | local build | built here (`docker-build.yml`) | pulled from the build registry | pulled from the build registry (prod's own when there is no dev project) |
 | Deploy trigger | manual | manual `deploy.yml` | manual `deploy.yml`, approval | manual `deploy.yml`, approval, `main`/`v*` only |
 | WIF refs allowed | — | any ref of the repo | any ref | `refs/heads/main` |
@@ -47,7 +47,6 @@ below are fictional placeholders; the real ones live in each environment's git-i
 | --- | --- | --- | --- | --- |
 | `db-password` | Terraform (`random_password`) | api-run | yes | Cloud SQL application user |
 | `service-token` | Terraform | api-run (+ ml-run when enabled) | yes (`ServiceTokenStartupValidator`) | `/internal/**` shared secret for operator scripts |
-| `location-jitter-secret` | Terraform | api-run | yes (`LocationConfig`) | seeds the deterministic public-point jitter (ADR 0004): **never rotate casually**, every public point would move |
 | `analytics-actor-salt` | Terraform | api-run | yes (`AnalyticsConfig`) | pseudonymises actors in analytics events |
 | `ads-token-secret` | Terraform | api-run | yes (`AdsConfig`) | HMAC of ad serve tokens |
 | `consent-ip-salt` | Terraform | api-run | no (default refused only by review) | hashed client IP stored with consents |
@@ -59,7 +58,7 @@ below are fictional placeholders; the real ones live in each environment's git-i
 
 Public configuration that is **not** secret and is passed as plain environment: the Firebase web
 config (`FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`),
-the Google Maps browser key and Map ID (referrer-restricted), `WS_BASE_URL`, the Stripe price id,
+`WS_BASE_URL`, the Stripe price id,
 `INTERNAL_AUDIENCE` / `INTERNAL_INVOKERS`, `STORAGE_PUBLIC_BASE_URL`, `CARD_IMAGE_CACHE_DIR`.
 
 ## GitHub environments and approvers

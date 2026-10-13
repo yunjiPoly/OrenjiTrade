@@ -72,9 +72,12 @@ async function guardProvider(page: Page): Promise<ProviderGuard> {
         .catch(() => undefined),
     );
   });
+  // A response whose body never arrives (request aborted by a navigation) must not hang the spec.
+  const bounded = (promise: Promise<void>) =>
+    Promise.race([promise, new Promise<void>((resolve) => setTimeout(resolve, 5_000))]);
   return {
     async verify() {
-      await Promise.all(reads);
+      await Promise.all(reads.map(bounded));
       expect(requests, 'requests to a YGOPRODeck host').toEqual([]);
       expect(leaks, `API answers naming ${PROVIDER_IMAGES}`).toEqual([]);
     },
@@ -189,7 +192,7 @@ test.describe('card pictures', () => {
   }) => {
     test.setTimeout(150_000);
     const guard = await guardProvider(page);
-    const owner = await createOnboardedCollector(request, 'picowner', { tradingArea: true });
+    const owner = await createOnboardedCollector(request, 'picowner', { location: true });
     await apiUpdatePrivacy(request, owner.idToken, { discoverable: true });
     const binder = await apiCreateBinder(request, owner.idToken, {
       name: 'E2E picture binder',
@@ -222,7 +225,7 @@ test.describe('card pictures', () => {
     expect(fox, 'Lantern Fox Spirit in the seed catalog').toBeTruthy();
     const wish = await request.post(`${API_URL}/api/v1/wishlist`, {
       headers: authHeader(owner.idToken),
-      data: { cardId: fox!.id, tradePreference: 'TRADE' },
+      data: { cardId: fox!.id },
     });
     expect(wish.status(), 'POST /wishlist').toBe(201);
 

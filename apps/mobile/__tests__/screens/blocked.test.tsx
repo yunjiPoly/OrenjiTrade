@@ -19,7 +19,6 @@ import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
-jest.mock('@/src/components/map/mapEngine', () => ({ currentMapEngine: () => 'native' }));
 
 beforeEach(() => {
   resetRouterMock();

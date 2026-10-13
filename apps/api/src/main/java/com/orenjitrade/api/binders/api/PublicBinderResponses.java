@@ -9,7 +9,7 @@ import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderHit;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderSummary;
 import com.orenjitrade.api.binders.domain.PublicOwner;
 import com.orenjitrade.api.delisting.domain.FreshnessInfo;
-import com.orenjitrade.api.location.domain.DistanceBucket;
+import com.orenjitrade.api.location.api.PlaceResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
@@ -18,8 +18,8 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Public binder DTOs. They never carry private notes, private items or coordinates: the owner's
- * location is a region label and a distance bucket only (ADR 0004).
+ * Public binder DTOs. They never carry private notes, private items, a city or coordinates: the
+ * owner's location is their state/province and country only (ADR 0017).
  */
 public final class PublicBinderResponses {
 
@@ -108,7 +108,7 @@ public final class PublicBinderResponses {
         }
     }
 
-    /** The owner of a public binder (no coordinates). */
+    /** The owner of a public binder (state/province and country, never a city). */
     @Schema(name = "PublicBinderOwner", description = "Owner of a public binder")
     public record PublicBinderOwner(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
@@ -116,36 +116,23 @@ public final class PublicBinderResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) String displayName,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String avatarUrl,
-            @Schema(nullable = true, description = "Null unless the collector is discoverable")
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "State/province and country; null unless the collector is"
+                                            + " discoverable with a location")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable PublicOwnerLocation location) {
+                    @Nullable PlaceResponse place) {
 
         public static PublicBinderOwner from(PublicOwner owner) {
-            PublicOwner.Location location = owner.location();
             return new PublicBinderOwner(
                     owner.id(),
                     owner.handle(),
                     owner.displayName(),
                     owner.avatarUrl(),
-                    location == null
-                            ? null
-                            : new PublicOwnerLocation(
-                                    location.publicLabel(), location.distanceBucket()));
+                    owner.place() == null ? null : PlaceResponse.from(owner.place()));
         }
     }
-
-    /** Approximate location of a binder owner: a region label and a distance class. */
-    @Schema(name = "PublicOwnerLocation", description = "Approximate location (never a point)")
-    public record PublicOwnerLocation(
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Plateau-Mont-Royal, Montréal")
-                    String publicLabel,
-            @Schema(
-                            nullable = true,
-                            description =
-                                    "Null unless the request is signed in, the caller has a"
-                                            + " trading area and the owner shows distances")
-                    @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable DistanceBucket distanceBucket) {}
 
     static FreshnessInfo binderFreshness(BinderView binder, Instant now) {
         return FreshnessInfo.of(

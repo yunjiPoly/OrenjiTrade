@@ -69,12 +69,6 @@ export function openLimitReachedDialog(
 
       <dl class="limit__facts">
         <div class="limit__fact">
-          <dt>Limit</dt>
-          <dd>
-            <span class="mono">{{ info.limitKey || 'unknown' }}</span>
-          </dd>
-        </div>
-        <div class="limit__fact">
           <dt>Usage</dt>
           <dd>{{ usageText() }}</dd>
         </div>
@@ -255,7 +249,7 @@ export class LimitReachedDialogComponent {
     const premium = this.plans.premium();
     const entry = premium?.limits?.find((limit) => limit.key === this.info.limitKey);
     if (entry && (entry.limit === null || entry.limit === undefined)) {
-      return `Premium removes this limit, and adds a wider map radius, advanced filters and no ads.`;
+      return `Premium removes this limit, and adds advanced filters and no ads.`;
     }
     if (entry?.limit !== undefined && entry.limit !== null) {
       const suffix = windowSuffix(entry.window);

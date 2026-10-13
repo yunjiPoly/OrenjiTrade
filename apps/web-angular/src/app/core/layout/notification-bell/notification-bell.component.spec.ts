@@ -10,9 +10,9 @@ import { NotificationBellComponent } from './notification-bell.component';
 function notification(id: string, readAt: string | null = null): NotificationResponse {
   return {
     id,
-    type: Type.WishlistMatch,
-    title: `Wishlist match: Card ${id}`,
-    body: `Card ${id} was listed ~1-5 km away.`,
+    type: Type.WishlistAlert,
+    title: `Wishlist alert: Card ${id}`,
+    body: `Card ${id} was listed by @collector5 in California, United States.`,
     data: { deepLink: `/wishlist/w-${id}` },
     createdAt: new Date().toISOString(),
     readAt,
@@ -91,7 +91,7 @@ describe('NotificationBellComponent', () => {
     lastPush.set(notification('z'));
     await fixture.whenStable();
     expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
-      'New notification: Wishlist match: Card z',
+      'New notification: Wishlist alert: Card z',
     );
   });
 
@@ -112,8 +112,8 @@ describe('NotificationBellComponent', () => {
       document.querySelectorAll<HTMLButtonElement>('.notification-menu .nm__item'),
     );
     expect(items.map((item) => item.textContent)).toEqual([
-      expect.stringContaining('Wishlist match: Card a'),
-      expect.stringContaining('Wishlist match: Card b'),
+      expect.stringContaining('Wishlist alert: Card a'),
+      expect.stringContaining('Wishlist alert: Card b'),
     ]);
     expect(items[0].querySelector('[data-testid="notification-unread-dot"]')).not.toBeNull();
     expect(items[1].querySelector('[data-testid="notification-unread-dot"]')).toBeNull();

@@ -8,7 +8,9 @@ import { signalFromError } from '@/src/api/accountSignal';
 import { ApiError } from '@/src/api/ApiError';
 import { friendlyError } from '@/src/api/errorMessages';
 import {
+  AGE_CONFIRMATION_LABEL_EN,
   AGE_CONFIRMATION_TYPE,
+  ageConfirmationAccessibleLabel,
   ageConfirmationOf,
   ageConsentFor,
   isAgeConfirmation,
@@ -16,7 +18,7 @@ import {
 
 import { AGE_CONFIRMATION, LEGAL_DOCUMENTS, meFixture } from '../support/fixtures';
 
-const ONBOARDED = { profileComplete: true, interestsSet: true, tradingAreaSet: true };
+const ONBOARDED = { profileComplete: true, interestsSet: true, locationSet: true };
 
 describe('the 18+ rule (launch readiness)', () => {
   it('needs onboarding while the API reports ageConfirmed === false, never without the flag', () => {
@@ -35,6 +37,15 @@ describe('the 18+ rule (launch readiness)', () => {
     expect(needsAgeConfirmation(undefined)).toBe(false);
     // The gate: an unconfirmed account lands on onboarding, like an unfinished profile.
     expect(gateFor('ready', true)).toBe('onboarding');
+  });
+
+  it('names the checkbox in both languages on iOS, where a control is read as one element', () => {
+    expect(ageConfirmationAccessibleLabel('ios')).toBe(
+      'I confirm I am 18 years of age or older. Je confirme avoir 18 ans ou plus'
+    );
+    // Android and the web keep the name they had.
+    expect(ageConfirmationAccessibleLabel('android')).toBe(AGE_CONFIRMATION_LABEL_EN);
+    expect(ageConfirmationAccessibleLabel('web')).toBe(AGE_CONFIRMATION_LABEL_EN);
   });
 
   it('finds the published attestation and keeps it out of the readable documents', () => {

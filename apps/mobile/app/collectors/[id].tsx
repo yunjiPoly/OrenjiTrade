@@ -23,7 +23,8 @@ import { spacing, textStyle, useTheme } from '@/src/theme';
  *
  * Like the web: members only (signed out, or a 401: "Collector profiles are for members");
  * 404 covers unknown, PRIVATE, suspended and deleted collectors alike ("not available"), so
- * nothing leaks about why. Location: a label, a distance bucket and a 3 km zone, never a point.
+ * nothing leaks about why. Location: the state or province (and the city when its owner shows
+ * it), never a position or a distance (ADR 0017).
  */
 export default function CollectorScreen() {
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
@@ -109,7 +110,7 @@ function MembersOnly() {
         Collector profiles are for members
       </Text>
       <Text style={[textStyle('md'), styles.title, { color: palette.textMuted }]}>
-        Sign in or create a free account to see who trades near you.
+        Sign in or create a free account to see who trades in your region.
       </Text>
       <Button label="Sign in" onPress={() => go('/sign-in')} testID="collector-sign-in" />
       <Button

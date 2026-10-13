@@ -167,8 +167,6 @@ export function entitlementLabel(featureKey: string | null | undefined, value?: 
       return value === 'false' ? 'No ads' : 'Sponsored placements';
     case 'binder.views.per_day':
       return value === 'unlimited' ? 'Unlimited binder views' : `Binder views per day: ${value}`;
-    case 'map.radius.max_km':
-      return value ? `Map radius up to ${value} km` : 'Wider map radius';
     default: {
       const label = humanizeKey(featureKey ?? '');
       return value && value !== 'true' ? `${label}: ${value}` : label;

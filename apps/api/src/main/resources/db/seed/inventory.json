@@ -4,7 +4,7 @@
       "id": "00000000-0000-4000-8b00-000000000101",
       "owner": "01",
       "name": "Yu-Gi-Oh! trade binder",
-      "description": "Duplicates and trade bait. Happy to meet on the Plateau on weekends.",
+      "description": "Duplicates and trade bait. Happy to meet at a public place on weekends.",
       "kind": "TRADE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 1,
@@ -51,7 +51,7 @@
       "id": "00000000-0000-4000-8b00-000000000201",
       "owner": "02",
       "name": "Magic trades",
-      "description": "Looking for playables for my Verdun pod. Trades first.",
+      "description": "Looking for playables for my playgroup. Trades first.",
       "kind": "TRADE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 2,
@@ -98,7 +98,7 @@
       "id": "00000000-0000-4000-8b00-000000000501",
       "owner": "05",
       "name": "Singles for sale, offers welcome",
-      "description": "Pokémon and Magic singles. Shipping or Mile End pickup.",
+      "description": "Pokémon and Magic singles. Shipping or local pickup.",
       "kind": "SALE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 5,
@@ -144,7 +144,7 @@
       "id": "00000000-0000-4000-8b00-000000000801",
       "owner": "08",
       "name": "Extras for trade",
-      "description": "Single copies of commons and uncommons. Old Port meetups.",
+      "description": "Single copies of commons and uncommons. Trades by mail or in person.",
       "kind": "TRADE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 1,
@@ -154,6 +154,21 @@
         { "id": "00000000-0000-4000-8c00-000000080102", "printing": "rb-p009a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "0.45", "availability": "TRADE", "acceptsOffers": false },
         { "id": "00000000-0000-4000-8c00-000000080103", "printing": "pkm-p012a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.20", "availability": "TRADE", "acceptsOffers": false },
         { "id": "00000000-0000-4000-8c00-000000080104", "printing": "pkm-p016a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.10", "availability": "TRADE", "acceptsOffers": false }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000901",
+      "owner": "09",
+      "name": "Four-game showcase",
+      "description": "A few singles from every game I collect. Trades or offers.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 2,
+      "sortOrder": 0,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000090101", "printing": "ygo-p007a", "quantity": 1, "condition": "NEAR_MINT", "price": "12.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000090102", "printing": "pkm-p004a", "quantity": 1, "condition": "NEAR_MINT", "price": "8.50", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000090103", "printing": "mtg-p003a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "6.00", "availability": "TRADE", "acceptsOffers": true }
       ]
     }
   ],

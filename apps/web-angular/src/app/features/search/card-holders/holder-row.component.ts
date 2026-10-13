@@ -5,7 +5,6 @@ import { RouterLink } from '@angular/router';
 import type { CardHolderResult } from '@orenji/api-client';
 import { editionLabel, languageLabel } from '../../../shared/catalog/catalog-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { distanceBucketLabel } from '../../../shared/domain/location-labels';
 import {
   badgeFreshness,
   formatPrice,
@@ -19,9 +18,9 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 
 /**
- * One "who near me has this card" result: the listed copy (picture, printing, chips, price,
- * freshness, public note) and its holder (approximate place and distance only), with "Make an
- * offer" when the copy accepts offers.
+ * One "who in my region has this card" result: the listed copy (picture, printing, chips, price,
+ * freshness, public note) and its holder (state/province and country only, ADR 0017), with "Make
+ * an offer" when the copy accepts offers.
  */
 @Component({
   selector: 'app-holder-row',
@@ -75,12 +74,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
             <a class="hr__owner-name" [routerLink]="['/collectors', r.collector.handle]">{{
               r.collector.displayName
             }}</a>
-            <span class="hr__place">
-              {{ r.collector.publicLabel }}
-              @if (distance(); as distance) {
-                · {{ distance }}
-              }
-            </span>
+            <span class="hr__place">{{ r.collector.place.label }}</span>
           </div>
         </div>
         <app-make-offer-button appearance="filled" compact [target]="offerTarget()" />
@@ -192,9 +186,6 @@ export class HolderRowComponent {
   protected readonly language = computed(() => languageLabel(this.result().item.language));
   protected readonly edition = computed(() => editionLabel(this.result().item.edition));
   protected readonly freshness = computed(() => badgeFreshness(this.result().item.freshness.state));
-  protected readonly distance = computed(() =>
-    this.signedIn() ? distanceBucketLabel(this.result().collector.distanceBucket) : null,
-  );
   protected readonly price = computed(() => {
     const item = this.result().item;
     return (

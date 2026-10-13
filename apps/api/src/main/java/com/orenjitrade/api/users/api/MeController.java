@@ -5,6 +5,7 @@ import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.users.domain.AvatarUrlProvider;
 import com.orenjitrade.api.users.domain.ConsentService;
+import com.orenjitrade.api.users.domain.HomeRegionProvider;
 import com.orenjitrade.api.users.domain.OnboardingService;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
@@ -28,6 +29,7 @@ public class MeController {
     private final ConsentService consentService;
     private final OnboardingService onboardingService;
     private final ObjectProvider<AvatarUrlProvider> avatarUrlProvider;
+    private final ObjectProvider<HomeRegionProvider> homeRegionProvider;
     private final TimeProvider timeProvider;
 
     public MeController(
@@ -35,11 +37,13 @@ public class MeController {
             ConsentService consentService,
             OnboardingService onboardingService,
             ObjectProvider<AvatarUrlProvider> avatarUrlProvider,
+            ObjectProvider<HomeRegionProvider> homeRegionProvider,
             TimeProvider timeProvider) {
         this.userAccountService = userAccountService;
         this.consentService = consentService;
         this.onboardingService = onboardingService;
         this.avatarUrlProvider = avatarUrlProvider;
+        this.homeRegionProvider = homeRegionProvider;
         this.timeProvider = timeProvider;
     }
 
@@ -56,6 +60,7 @@ public class MeController {
                         .findSnapshot(principal.userId())
                         .orElseThrow(() -> ApiException.notFound("Account not found"));
         @Nullable AvatarUrlProvider avatars = avatarUrlProvider.getIfAvailable();
+        @Nullable HomeRegionProvider regions = homeRegionProvider.getIfAvailable();
         return new MeResponse(
                 account.id(),
                 account.handle(),
@@ -69,7 +74,8 @@ public class MeController {
                 account.lastActiveAt(),
                 onboardingService.statusOf(account.id()),
                 consentService.requiredConsents(account.id()),
-                account.planCode());
+                account.planCode(),
+                regions == null ? null : regions.homeRegionOf(account.id()));
     }
 
     @GetMapping("/ping")

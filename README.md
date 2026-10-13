@@ -1,9 +1,11 @@
 # OrenjiTrade
 
-**A geographic discovery network for trading cards.** OrenjiTrade answers one question:
-*Who near me owns, trades, sells, wants, or accepts offers for this card?* Collectors publish
-binders, and other collectors find them on a map at deliberately approximate positions, then
-message, offer, trade and rate each other. Multi-game by design (Yu-Gi-Oh!, Pokémon, Magic: The
+**A regional discovery network for trading cards.** OrenjiTrade answers one question:
+*Who in my region owns, trades, sells, wants, or accepts offers for this card?* Collectors say
+which country and state or province they are in (never a position: ADR 0017), publish binders,
+and other collectors of the same platform region (Americas North, Americas South, Europe) find
+them by state or province on a map of binder counts, then message, offer, trade and rate each
+other. Multi-game by design (Yu-Gi-Oh!, Pokémon, Magic: The
 Gathering, Riftbound, and future TCGs) with one generic catalog model.
 
 - Web: https://www.orenjitrade.com (admin at `/admin`)
@@ -62,13 +64,13 @@ OrenjiTrade/
 
 | Tool | Version | Notes |
 | --- | --- | --- |
-| Docker Desktop | 4.x+ (Compose v2) | PostGIS, Redis, Firebase Auth emulator, Testcontainers |
+| Docker Desktop (or OrbStack on macOS) | 4.x+ (Compose v2) | PostGIS, Redis, Firebase Auth emulator, Testcontainers |
 | Node.js | 24 (see `.nvmrc`), npm 11 | scripts, web, mobile, packages |
-| JDK | 17+ installed | Gradle auto-provisions JDK 21 for the API (foojay toolchain) |
+| JDK | 21 recommended; a newer default JDK also works | only launches `./gradlew`: Gradle runs its daemon and the API build on Java 21, found on the machine or auto-provisioned (daemon JVM criteria + foojay toolchain) |
 | Terraform | 1.9+ | optional: `npm run infra:validate` only |
-| Python | 3.12+ | optional: ML service (on hold), `python` on Windows |
+| Python | 3.12+ | optional: ML service (on hold); `python` on Windows, `python3.12` on macOS and Linux |
 
-No Google Cloud, Stripe, Firebase, FCM, e-mail or Google Maps credentials are required locally:
+No Google Cloud, Stripe, Firebase, FCM, e-mail or map credentials are required locally:
 every provider has a local fake or log implementation selected by default.
 
 ## Quick start (local)
@@ -123,7 +125,9 @@ under the `local` profile at every API start (idempotent). Clean slate: `npm run
 ### Web
 
 Runtime configuration is read from `apps/web-angular/public/config.json` (API URL, Firebase web
-config, optional Google Maps key). Without a Maps key the map uses Leaflet/OpenStreetMap.
+config). The map needs no key: it draws the bundled Natural Earth boundaries of
+`apps/web-angular/public/boundaries/` (no tiles, no map provider; provenance in
+[docs/development/regions-boundaries.md](docs/development/regions-boundaries.md)).
 
 ### Mobile (deferred)
 
@@ -149,7 +153,7 @@ All variables are listed with comments in [.env.example](.env.example). Copy it 
 when you need to change something: docker compose reads the port variables from it and the npm
 scripts pass its non-empty values to the API. Key groups: database, Redis, Firebase (project id +
 emulator host), Google Cloud (project, region, buckets), events transport (`local` | `pubsub`),
-storage provider (`local` | `gcs`), maps key, payments / billing (`fake` | `stripe`), donations
+storage provider (`local` | `gcs`), payments / billing (`fake` | `stripe`), donations
 (`fake`), push (`log` | `fcm`), email (`log`), ML URL, CORS origins. Production values would live
 in Secret Manager and Cloud Run configuration, never in Git.
 

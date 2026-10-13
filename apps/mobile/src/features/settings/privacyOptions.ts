@@ -2,12 +2,7 @@ import type { PrivacySettings } from '@/src/api/types';
 
 export type PrivacyToggleKey = keyof Pick<
   PrivacySettings,
-  | 'discoverable'
-  | 'showDistance'
-  | 'showOnlineStatus'
-  | 'showLastActive'
-  | 'searchDiscoverable'
-  | 'wishlistVisible'
+  'discoverable' | 'showOnlineStatus' | 'showLastActive' | 'searchDiscoverable' | 'wishlistVisible'
 >;
 
 /** Every privacy switch with the sentence that explains it (same wording as the web). */
@@ -16,13 +11,8 @@ export const PRIVACY_TOGGLES: readonly { key: PrivacyToggleKey; label: string; h
     key: 'discoverable',
     label: 'Show me on the map',
     help:
-      'Collectors nearby see an approximate point for you and can open your public binders. ' +
-      'When off, you are hidden from the map and from nearby searches.',
-  },
-  {
-    key: 'showDistance',
-    label: 'Show approximate distance',
-    help: 'Others see a range such as “1–5 km away”, never an exact distance.',
+      'Collectors of your region see your state or province and can open your public binders. ' +
+      'When off, you are hidden from the map and from searches. Needs a location.',
   },
   {
     key: 'showLastActive',
@@ -41,8 +31,8 @@ export const PRIVACY_TOGGLES: readonly { key: PrivacyToggleKey; label: string; h
   },
   {
     key: 'wishlistVisible',
-    label: 'Show my wishlist on my profile',
-    help: 'Helps sellers and traders offer you the cards you are looking for.',
+    label: 'Let others see what you want',
+    help: 'Shows your wishlist on your profile, so collectors who own these cards can find you. Wishlist alerts work either way.',
   },
 ];
 

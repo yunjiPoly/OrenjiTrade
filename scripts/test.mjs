@@ -13,7 +13,9 @@
 //                         afterwards; stops only what it started
 //                         (--reuse-running, --keep-running, --stack-only, --stop, --skip-build)
 //   npm run test:mobile:maestro  native flows (apps/mobile/.maestro) in Expo Go on a running Android
-//                         emulator, Metro on :8082 and the same isolated API (--keep-running, --stop)
+//                         emulator or on the iOS simulator (--platform android|ios; without it:
+//                         Android when a device is ready, else iOS on a Mac with Xcode), Metro on
+//                         :8082 and the same isolated API (--keep-running, --stop)
 //   npm run test:e2e      Playwright suite on its own isolated local stack (scripts/lib/web-e2e.mjs):
 //                         database orenjitrade_e2e (recreated per run), the API jar on :8180 and
 //                         ng serve on :4300, so it runs next to `npm run dev` without touching the
@@ -27,10 +29,17 @@
 //   npm run test:ml       optional: apps/ml pytest with apps/ml/.venv when present (Phase 11 is on hold)
 
 import fs from 'node:fs';
-import path from 'node:path';
+import {
+  chooseMlPython,
+  mlPythonMissingMessage,
+  mlVenvCommands,
+  mlVenvInstallCommands,
+  mlVenvPython,
+  parsePythonVersion,
+  pythonCommands,
+} from './lib/host-tools.mjs';
 import {
   API_DIR,
-  IS_WINDOWS,
   ML_DIR,
   ROOT,
   capture,
@@ -55,9 +64,10 @@ const [suite, ...argv] = process.argv.slice(2);
 async function testApi() {
   ensureDocker();
   log.step('API: gradlew check (Spotless, unit and integration tests with Testcontainers)');
-  // `test --rerun`: always execute the suite (Gradle would otherwise report it UP-TO-DATE when the
-  // inputs did not change since the last run); compilation stays incremental.
-  return runGradle(['test', '--rerun', 'check'], { cwd: API_DIR });
+  // `--rerun`: always execute both test tasks (Gradle would otherwise report them UP-TO-DATE when
+  // the inputs did not change since the last run); compilation stays incremental. catalogTest runs
+  // the catalog fixture suites in their own JVM, against fresh containers (ADR 0017).
+  return runGradle(['test', '--rerun', 'catalogTest', '--rerun', 'check'], { cwd: API_DIR });
 }
 
 async function sequence(steps) {
@@ -109,32 +119,43 @@ function testScripts() {
   );
 }
 
+/**
+ * The interpreter for the ML tests: apps/ml/.venv when it exists, otherwise the first Python 3.12+
+ * on PATH (the macOS Command Line Tools ship /usr/bin/python3 3.9, which cannot run apps/ml).
+ * Returns `{ chosen, tooOld }` (scripts/lib/host-tools.mjs: chooseMlPython).
+ */
 function mlPython() {
-  const venvPython = IS_WINDOWS
-    ? path.join(ML_DIR, '.venv', 'Scripts', 'python.exe')
-    : path.join(ML_DIR, '.venv', 'bin', 'python');
+  const versionOf = (python) => {
+    const result = capture(python, ['--version']);
+    return result.status === 0 ? parsePythonVersion(`${result.stdout}\n${result.stderr}`) : null;
+  };
+  const venvPython = mlVenvPython(ML_DIR, process.platform);
   if (fs.existsSync(venvPython)) {
-    return { python: venvPython, source: 'apps/ml/.venv' };
+    return chooseMlPython([{ python: venvPython, source: 'apps/ml/.venv', version: versionOf(venvPython) }]);
   }
-  for (const candidate of IS_WINDOWS ? ['python', 'py'] : ['python3', 'python']) {
-    if (capture(candidate, ['--version']).status === 0) {
-      return { python: candidate, source: `${candidate} on PATH (no apps/ml/.venv)` };
+  const found = [];
+  for (const python of pythonCommands(process.platform)) {
+    const version = versionOf(python);
+    if (version) {
+      found.push({ python, source: `${python} on PATH`, version });
     }
   }
-  return null;
+  return chooseMlPython(found);
 }
 
 async function testMl() {
   log.warn('Phase 11 (ML card recognition) is on hold; this only runs the existing apps/ml skeleton tests.');
-  const found = mlPython();
+  const { chosen: found, tooOld } = mlPython();
   if (!found) {
-    log.error('Python 3.12+ not found. See apps/ml/README.md to create apps/ml/.venv.');
+    log.error(`${mlPythonMissingMessage({ platform: process.platform, tooOld })} (apps/ml/README.md)`);
     return 1;
   }
   if (capture(found.python, ['-c', 'import pytest, fastapi'], { cwd: ML_DIR }).status !== 0) {
     log.error(
-      `pytest/fastapi are not installed for ${found.source}. Create the venv: cd apps/ml && python -m venv .venv && ` +
-        '.venv/Scripts/pip install -r requirements.txt -r requirements-dev.txt (bin/pip on macOS/Linux).',
+      `pytest/fastapi are not installed for ${found.source} (Python ${found.version.join('.')}). ` +
+        (found.source === 'apps/ml/.venv'
+          ? `Install them: ${mlVenvInstallCommands(process.platform)}`
+          : `Create the virtual environment: ${mlVenvCommands(process.platform, found.python)}`),
     );
     return 1;
   }

@@ -466,19 +466,17 @@ public class AdAdminService {
             TargetingKind kind = rule.kind();
             String normalised =
                     switch (kind) {
-                        case GAME, TAG -> value.toLowerCase(Locale.ROOT);
-                        case GEO_CELL -> value.toLowerCase(Locale.ROOT);
-                        case PLAN -> value.toUpperCase(Locale.ROOT);
-                        case REGION_LABEL -> value;
+                        case GAME, TAG, REGION -> value.toLowerCase(Locale.ROOT);
+                        case PLAN, COUNTRY, SUBDIVISION -> value.toUpperCase(Locale.ROOT);
                     };
             boolean ok =
                     switch (kind) {
                         case GAME, TAG -> Targeting.SLUG.matcher(normalised).matches();
-                        case GEO_CELL -> Targeting.GEO_CELL.matcher(normalised).matches();
+                        case REGION -> Targeting.REGION_CODE.matcher(normalised).matches();
+                        case COUNTRY -> Targeting.COUNTRY_CODE.matcher(normalised).matches();
+                        case SUBDIVISION ->
+                                Targeting.SUBDIVISION_CODE.matcher(normalised).matches();
                         case PLAN -> planCodes.contains(normalised);
-                        case REGION_LABEL ->
-                                normalised.length() <= 120
-                                        && Targeting.acceptableRegionLabel(normalised);
                     };
             if (!ok) {
                 errors.add(new ProblemFieldError(field, "not a valid " + kind + " value"));

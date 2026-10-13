@@ -1,36 +1,30 @@
 import { Browser, BrowserContext, Locator, Page, test as base, expect } from '@playwright/test';
-import { signInThroughUi } from '../../support/stack';
+import { MAP_PROVIDER_HOSTS, signInThroughUi } from '../../support/stack';
+import type { Place } from './places';
 import { AcceptanceApi, Collector } from './api';
 import { PrivacyScanner } from './privacy';
 
 /**
  * The acceptance suite's `test`: every test gets
  *
- * - `privacy` (automatic): the ADR 0004 network scanner attached to the default browser context,
+ * - `privacy` (automatic): the ADR 0017 network scanner attached to the default browser context,
  *   every context opened through `actors`, and every answer of the `api` shortcuts. The test fails
- *   in the fixture's teardown when any response carried a lat/lng with more than 3 decimals or a
- *   stored trading-area centre registered by the test.
+ *   in the fixture's teardown when any response carried a coordinate, a distance or a radius, a
+ *   registered city outside its owner's profile, or when a page called a map provider.
  * - `api`: seeding shortcuts (fresh emulator collectors, binders, items, conversations, staff,
  *   internal jobs); staff roles are taken back and published binders unpublished afterwards.
  * - `actors`: extra signed-in browser contexts for two-party scenarios (closed afterwards).
  *
- * Map tiles and the catalog's placeholder card pictures are served from memory in every context:
- * the OSM tile policy discourages automated bulk loads, and the API counts each picture against the
- * anonymous per-IP rate limit the parallel suite shares (card data still comes from the real API).
+ * Requests to map providers or tile servers are aborted in every context (the region map draws the
+ * bundled boundary files only; the scanner reports any such call), and the catalog's placeholder
+ * card pictures are served from memory: the API counts each picture against the anonymous per-IP
+ * rate limit the parallel suite shares (card data still comes from the real API).
  */
-
-/** A transparent 1×1 PNG standing in for map tiles. */
-const STUB_TILE = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-  'base64',
-);
 const STUB_CARD =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 680"><rect width="488" height="680" rx="24" fill="#fde7d4"/></svg>';
 
 export async function prepareContext(context: BrowserContext): Promise<void> {
-  await context.route('https://tile.openstreetmap.org/**', (route) =>
-    route.fulfill({ status: 200, contentType: 'image/png', body: STUB_TILE }),
-  );
+  await context.route(MAP_PROVIDER_HOSTS, (route) => route.abort());
   await context.route('**/api/v1/public/placeholder-images/**', (route) =>
     route.fulfill({ status: 200, contentType: 'image/svg+xml', body: STUB_CARD }),
   );
@@ -65,7 +59,7 @@ export const test = base.extend<AcceptanceFixtures>({
       await scanner.settle();
       expect(
         scanner.violations(),
-        `ADR 0004: coordinates that must never reach a client\n${scanner.report()}`,
+        `ADR 0017: data that must never reach a client\n${scanner.report()}`,
       ).toEqual([]);
     },
     { auto: true },
@@ -138,9 +132,18 @@ export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** A collector's avatar marker on the discovery map (a keyboard-focusable button). */
-export function mapMarker(page: Page, displayName: string) {
-  return page
-    .getByTestId('discovery-map')
-    .getByRole('button', { name: new RegExp(`^${escapeRegExp(displayName)}`) });
+/**
+ * Opens the region map on a state or province (`/map?region=&subdivision=`) and returns its binder
+ * panel, once its heading ("Arkansas, United States") is shown.
+ */
+export async function openState(page: Page, place: Place): Promise<Locator> {
+  await page.goto(`/map?region=${place.regionCode}&subdivision=${place.subdivisionCode}`);
+  const panel = page.getByTestId('subdivision-panel');
+  await expect(panel.getByRole('heading', { name: place.label })).toBeVisible({ timeout: 20_000 });
+  return panel;
+}
+
+/** The binder card of a state panel holding `binderName`. */
+export function stateBinder(panel: Locator, binderName: string): Locator {
+  return panel.getByRole('listitem').filter({ hasText: binderName });
 }

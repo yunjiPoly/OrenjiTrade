@@ -20,8 +20,8 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
 /**
  * `/search` (the mobile Search tab). Three views, all driven by the URL:
  * - `?q=` unified results in tabs (cards, collectors, public binders; a resolved card shows its
- *   nearby holders);
- * - `?card=` / `?printing=` "who near me has this card" with every filter and sort;
+ *   holders in the browsed region);
+ * - `?card=` / `?printing=` "who in my region has this card" with every filter and sort;
  * - no query: an invitation to search.
  * Results views carry the SEARCH_SPONSORED placement (labelled "Sponsored", hidden without ads).
  */
@@ -56,7 +56,7 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
       } @else {
         <app-page-header
           title="Search"
-          subtitle="Cards, collectors near you, public binders and tags."
+          subtitle="Cards, collectors and public binders of your region, and tags."
         >
           <app-unified-search-box
             class="search__field"
@@ -74,8 +74,8 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
         } @else {
           <app-empty-state
             icon="travel_explore"
-            title="Who near you has that card?"
-            description="Search a card name or a printing code like AZR-EN001 to see collectors nearby who own, trade or sell it. You can also look for a collector, a binder or a tag."
+            title="Who in your region has that card?"
+            description="Search a card name or a printing code like AZR-EN001 to see collectors of your region who own, trade or sell it. You can also look for a collector, a binder or a tag."
           >
             <a actions matButton="filled" routerLink="/map">
               <mat-icon aria-hidden="true">map</mat-icon>

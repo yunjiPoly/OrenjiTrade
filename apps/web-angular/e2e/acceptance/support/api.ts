@@ -4,6 +4,7 @@ import { E2E_DB, isTestDataEmail } from '../../support/isolation';
 import {
   API_URL,
   AUTH_EMULATOR_URL,
+  LocationInput,
   FIREBASE_API_KEY,
   FIREBASE_PROJECT_ID,
   SEED_PASSWORD,
@@ -13,7 +14,7 @@ import {
   uniqueEmail,
   uniqueHandle,
 } from '../../support/stack';
-import { Point, PrivacyScanner } from './privacy';
+import { PrivacyScanner } from './privacy';
 
 /**
  * API seeding shortcuts of the acceptance suite. Everything goes through the real local API with
@@ -41,10 +42,12 @@ export interface Collector {
   id: string;
   handle: string;
   displayName: string;
-  /** The stored (private) trading-area centre, when the collector has one. */
-  area: Point | null;
-  /** Public label derived by the server for the area. */
-  areaLabel: string | null;
+  /** The self-declared location, when the collector has one (ADR 0017). */
+  place: LocationInput | null;
+  /** Public label of the place ("Arkansas, United States"). */
+  placeLabel: string | null;
+  /** The self-declared city (registered with the privacy scanner), if any. */
+  city: string | null;
 }
 
 export type StaffRole = 'MODERATOR' | 'ADMIN' | 'SUPER_ADMIN';
@@ -118,11 +121,12 @@ export class AcceptanceApi {
 
   /**
    * A fresh collector: emulator account, accepted terms, a profile (onboarding complete) and,
-   * with `area`, a trading area whose centre is registered with the privacy scanner.
+   * with `place`, a self-declared location whose city (if any) is registered with the privacy
+   * scanner (it may appear on the collector's own profile only).
    */
   async collector(
     prefix: string,
-    options: { area?: Point; radiusKm?: number; displayName?: string; discoverable?: boolean } = {},
+    options: { place?: LocationInput; displayName?: string; discoverable?: boolean } = {},
   ): Promise<Collector> {
     const user = await emulatorSignUp(this.request, uniqueEmail(prefix));
     const me = await this.ok<{ requiredConsents: { documentType: string; version: string }[] }>(
@@ -159,18 +163,26 @@ export class AcceptanceApi {
         languages: ['en'],
       },
     });
-    let areaLabel: string | null = null;
-    if (options.area) {
-      this.privacy.registerCentre(`@${handle}`, options.area);
-      const saved = await this.ok<{ tradingArea?: { label?: string | null } }>(
+    let placeLabel: string | null = null;
+    const city = options.place?.city ?? null;
+    if (options.place) {
+      if (city) {
+        this.privacy.registerCity(handle, city);
+      }
+      const saved = await this.ok<{ location?: { label?: string | null } }>(
         'PUT',
-        '/api/v1/me/location/trading-area',
+        '/api/v1/me/location',
         {
           token: user.idToken,
-          data: { ...options.area, radiusKm: options.radiusKm ?? 10, source: 'MANUAL' },
+          data: {
+            countryCode: options.place.countryCode,
+            subdivisionCode: options.place.subdivisionCode,
+            city,
+            showCity: options.place.showCity ?? true,
+          },
         },
       );
-      areaLabel = saved.tradingArea?.label ?? null;
+      placeLabel = saved.location?.label ?? null;
     }
     if (options.discoverable) {
       await this.updatePrivacy(user.idToken, { discoverable: true });
@@ -181,8 +193,9 @@ export class AcceptanceApi {
       id: account.id,
       handle,
       displayName,
-      area: options.area ?? null,
-      areaLabel,
+      place: options.place ?? null,
+      placeLabel,
+      city,
     };
     this.created.push(collector);
     return collector;
@@ -271,7 +284,7 @@ export class AcceptanceApi {
   /** A discoverable collector with one published binder holding the given cards. */
   async seller(
     prefix: string,
-    area: Point,
+    place: LocationInput,
     cards: { code: string; extra?: Record<string, unknown> }[],
     options: { displayName?: string; binderName?: string } = {},
   ): Promise<{
@@ -280,8 +293,7 @@ export class AcceptanceApi {
     items: { id: string; card: { name: string } }[];
   }> {
     const collector = await this.collector(prefix, {
-      area,
-      radiusKm: 5,
+      place,
       displayName: options.displayName,
       discoverable: true,
     });

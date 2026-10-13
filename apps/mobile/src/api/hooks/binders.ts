@@ -208,8 +208,8 @@ export function useDeleteBinder() {
 
 /**
  * `GET /api/v1/public/binders/{id}`: a public binder with its owner (a region label and a
- * distance bucket only, never a point). Signed-in reads carry the token (the API counts
- * `binder.views.per_day` and adds the distance bucket); 404 when it is not public.
+ * state or province only). Signed-in reads carry the token (the API counts
+ * `binder.views.per_day`); 404 when it is not public.
  */
 export function usePublicBinder(id: string | null | undefined, enabled = true) {
   const uid = useUid();

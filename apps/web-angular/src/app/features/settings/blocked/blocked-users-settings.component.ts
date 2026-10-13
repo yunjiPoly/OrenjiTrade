@@ -17,8 +17,8 @@ type LoadState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; erro
 
 /**
  * Settings → Blocked users (`GET /me/blocks`): collectors the caller blocked, with Unblock. Blocked
- * collectors and the caller do not see each other on the map, in search or in the community, and
- * cannot message each other.
+ * collectors and the caller do not see each other's binders, profiles or posts (map, search,
+ * community) and cannot message each other.
  */
 @Component({
   selector: 'app-blocked-users-settings',
@@ -36,7 +36,7 @@ type LoadState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; erro
     <app-section-card
       heading="Blocked users"
       headingId="blocked-users-heading"
-      description="Blocked collectors cannot message you, and you no longer see each other on the map, in search or in the community. They are never told."
+      description="Blocked collectors cannot message you, and you no longer see each other’s binders, profiles and posts on the map, in search or in the community. They are never told."
     >
       @switch (state().kind) {
         @case ('loading') {

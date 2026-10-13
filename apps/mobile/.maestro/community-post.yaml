@@ -2,7 +2,7 @@
 # Messages tab (Inbox | Community), posts in "General", then replies to the post. The channel keeps
 # the posts of earlier runs, so the texts carry the run's unique handle. The host script
 # scripts/community.js finds the post in the isolated API and checks its reply count.
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Community channel post and reply
 tags:
   - mobile-m4
@@ -54,7 +54,7 @@ tags:
 - tapOn:
     id: 'post-text'
 - inputText: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'post-submit'
 - extendedWaitUntil:
@@ -79,7 +79,7 @@ tags:
 - tapOn:
     id: 'reply-text-${output.post.id}'
 - inputText: 'Any condition works for ${output.collector.handle}'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'reply-submit-${output.post.id}'
 - extendedWaitUntil:

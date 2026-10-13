@@ -111,7 +111,7 @@ export function planFromDatabase(database, container) {
             (SELECT count(*) FROM t WHERE status = 'SUSPENDED'),
             (SELECT count(*) FROM t WHERE status = 'DELETION_REQUESTED'),
             (SELECT count(*) FROM user_location WHERE user_id IN (SELECT id FROM t)),
-            (SELECT count(*) FROM user_location WHERE user_id IN (SELECT id FROM t) AND public_point IS NOT NULL),
+            (SELECT count(*) FROM privacy_settings WHERE user_id IN (SELECT id FROM t) AND discoverable),
             (SELECT count(*) FROM binder WHERE owner_id IN (SELECT id FROM t)),
             (SELECT count(*) FROM inventory_item WHERE owner_id IN (SELECT id FROM t) AND deleted_at IS NULL)`,
     { container },

@@ -118,7 +118,7 @@ export class AdsService extends BaseService implements AdsServiceInterface {
 
     /**
      * Sponsored ads for a placement (public)
-     * Targeting uses the requested game and grid cell and, for signed-in callers, their public grid cell and region label, interest games, tags and plan (never a precise location). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
+     * Targeting uses the requested game and platform region and, for signed-in callers, their country and state/province, interest games, tags and plan (never a city or a coordinate). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
      * @endpoint get /api/v1/ads
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -134,7 +134,7 @@ export class AdsService extends BaseService implements AdsServiceInterface {
             throw new Error('Required parameter placement was null or undefined when calling listAds.');
         }
         const game = requestParameters?.game;
-        const geoCell = requestParameters?.geoCell;
+        const region = requestParameters?.region;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -158,8 +158,8 @@ export class AdsService extends BaseService implements AdsServiceInterface {
 
         localVarQueryParameters = this.addToHttpParams(
             localVarQueryParameters,
-            'geoCell',
-            <any>geoCell,
+            'region',
+            <any>region,
             QueryParamStyle.Form,
             true,
         );

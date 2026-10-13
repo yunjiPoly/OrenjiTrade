@@ -14,14 +14,16 @@ compliance. Technical stabilisation steps live in `docs/deployment/runbooks.md` 
 Any **access to, use or communication of personal information not authorised by law, the loss of
 personal information, or any other breach of its protection**, whether caused by an attacker, a
 provider, a bug or a mistake of the owner. Examples for OrenjiTrade: a response, log, export or
-screenshot that reveals a collector's precise trading-area centre or `home_point`; messages
+screenshot that reveals a collector's city outside their own profile (ADR 0017: no coordinate is
+held at all); messages
 readable by a third party; an admin export sent to the wrong person; a leaked secret that gave
 access to the database; a laptop with a database dump lost; a provider (Google Cloud, Firebase,
 Cloudflare, Stripe) notifying a breach that touches our data.
 
 Personal information held (see `docs/security/README.md` section 3): e-mail, display name,
-avatar, profile and interests, approximate public point and region label, the **private**
-trading-area centre and optional home point (Restricted – location), messages, offers, trades,
+avatar, profile and interests, the declared country and state or province, the optional city
+(Confidential – location: shown only on the owner's profile while they choose), messages, offers,
+trades,
 ratings, reports, consents (with salted IP hash and user agent), audit log, push tokens, and the
 Stripe references only when payment features are on.
 
@@ -37,7 +39,8 @@ owner becomes aware of the incident.
    more personal data than needed.
 2. **Assess** the risk of serious injury for the people concerned, considering at least:
    - the **sensitivity** of the information (location data and private messages are the most
-     sensitive things we hold; a home point or trading-area centre is a physical-safety matter);
+     sensitive things we hold; a city linked to a collector outside their profile is a
+     physical-safety matter);
    - the **anticipated consequences** of its use (stalking, robbery at a meetup, harassment,
      identity theft, financial loss);
    - the **likelihood** that it will be used for injurious purposes (who had access, for how
@@ -52,7 +55,7 @@ owner becomes aware of the incident.
      assessment of the risk, measures taken or planned, whether people were notified, and how);
    - the **people concerned**, directly (in-app notification and the e-mail Firebase holds for
      the account; both languages), as soon as possible, with: what happened, which information,
-     when, what we did, what they can do (change their trading area, review their discoverability
+     when, what we did, what they can do (change or remove their location, review their discoverability
      and messaging settings, enable a second factor on their e-mail, be careful at meetups), and
      how to reach `privacy@orenjitrade.com`. Indirect public notice (website banner) only when a
      direct notice is impossible or would cause more harm;
@@ -83,7 +86,7 @@ bodies or full e-mail addresses in the register; reference account ids and count
 | Date / period of the incident | UTC; "unknown, estimated …" when not established |
 | Date the owner became aware | UTC (day 0) |
 | Description | What happened, how it was detected, systems and providers involved |
-| Personal information concerned | Categories (e.g. e-mail, messages, trading-area centre) and their sensitivity |
+| Personal information concerned | Categories (e.g. e-mail, messages, city) and their sensitivity |
 | People affected | Number (and number of Quebec residents when known), account ids, how they were identified |
 | Risk of serious injury | Yes / no, with the assessment of sensitivity, consequences and likelihood |
 | Containment measures | What was done, when, by whom (secret rotation, revocation, flag off, provider action) |
@@ -99,13 +102,13 @@ Example entry (fictional, for illustration only):
 | Incident id | CI-2026-001 (example) |
 | Date / period of the incident | 2026-11-03 14:10 – 15:25 UTC |
 | Date the owner became aware | 2026-11-03 15:20 UTC |
-| Description | A debug log statement added in a release printed the request body of `PUT /me/location/trading-area` (lat/lng with 3 decimals) to Cloud Logging for 75 minutes; detected by the `geo.privacy_violation` log alert. No evidence of access to the logs by anyone but the owner. |
-| Personal information concerned | Trading-area centre (Restricted – location) of the collectors who saved an area in the window |
+| Description | A debug log statement added in a release printed the request body of `PUT /me/location` (country, state and the optional city) to Cloud Logging for 75 minutes; detected by the log alert on city fields. No evidence of access to the logs by anyone but the owner. |
+| Personal information concerned | Declared city (Confidential – location) of the collectors who saved a location in the window |
 | People affected | 4 accounts (ids in the private register); 4 Quebec residents |
-| Risk of serious injury | Assessed as **no**: logs are private to the project, only the owner has `logging.privateLogViewer`, the entries were deleted within the hour, and the coordinates were the area centre (3 decimals), not a home address. Reasoning kept in the private register. |
+| Risk of serious injury | Assessed as **no**: logs are private to the project, only the owner has `logging.privateLogViewer`, the entries were deleted within the hour, and a city is not a home address. Reasoning kept in the private register. |
 | Containment measures | Revision rolled back (runbook 1) at 15:25; log entries deleted at 15:40; secret rotation not needed |
 | Notifications sent | Not required (no risk of serious injury); the 4 collectors informed anyway by in-app notification on 2026-11-04 |
-| Measures | `GeoPrivacyContractTest` extended to request logging; pre-merge grep for `lat`/`lng` in log statements; postmortem `docs/deployment/postmortems/2026-11-03-location-log.md` |
+| Measures | `GeoPrivacyContractTest` extended to request logging; pre-merge grep for `city` in log statements; postmortem `docs/deployment/postmortems/2026-11-03-location-log.md` |
 | Status and closing date | Closed 2026-11-06 |
 
 ## 4. Contacts and references

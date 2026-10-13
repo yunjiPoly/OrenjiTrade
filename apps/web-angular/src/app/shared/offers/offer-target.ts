@@ -9,7 +9,7 @@ import { allowedOfferKinds } from './offer-labels';
 
 /**
  * What the "Make an offer" dialog shows about the seller: identity and, when known, the
- * approximate place (region label only; never a point).
+ * state/province and country (never a city or a point, ADR 0017).
  */
 export interface OfferSeller {
   id: string;
@@ -21,7 +21,7 @@ export interface OfferSeller {
 
 /**
  * The card an offer is made on, assembled from whichever public read the entry point has (a
- * public binder item, a card-holder result, a map "holders" listing, a wishlist match). It is a
+ * public binder item, a card-holder result, a map "holders" listing). It is a
  * view model of the dialog, not a server DTO: the API only needs `itemId`.
  */
 export interface OfferTarget {
@@ -41,7 +41,7 @@ export interface OfferTarget {
   seller: OfferSeller;
 }
 
-/** A public inventory item (binder page, collector page, card holders, wishlist match). */
+/** A public inventory item (binder page, collector page, card holders). */
 export function offerTargetFromItem(item: PublicInventoryItem, seller: OfferSeller): OfferTarget {
   return {
     itemId: item.id,
@@ -88,7 +88,7 @@ export function sellerFromMarker(collector: CollectorMarker): OfferSeller {
     displayName: collector.displayName,
     handle: collector.handle,
     avatarUrl: collector.avatarUrl ?? null,
-    placeLabel: collector.publicLabel,
+    placeLabel: collector.place.label,
   };
 }
 
@@ -99,7 +99,7 @@ export function sellerFromParty(party: OfferParty): OfferSeller {
     displayName: party.displayName,
     handle: party.handle,
     avatarUrl: party.avatarUrl ?? null,
-    placeLabel: party.location?.publicLabel ?? null,
+    placeLabel: party.place?.label ?? null,
   };
 }
 

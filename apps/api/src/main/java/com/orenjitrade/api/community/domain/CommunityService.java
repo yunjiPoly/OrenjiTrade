@@ -28,6 +28,7 @@ import com.orenjitrade.api.community.infra.ReplyRepository.ReplyRow;
 import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.games.domain.GameService;
+import com.orenjitrade.api.location.domain.RegionCatalog;
 import com.orenjitrade.api.messaging.domain.BlockService;
 import com.orenjitrade.api.moderation.domain.ContentModerationState;
 import com.orenjitrade.api.moderation.domain.FlagSubjectType;
@@ -37,7 +38,6 @@ import com.orenjitrade.api.moderation.domain.ModerationService;
 import com.orenjitrade.api.profiles.domain.MemberCard;
 import com.orenjitrade.api.profiles.domain.MemberDirectory;
 import com.orenjitrade.api.users.domain.ConsentService;
-import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -101,8 +101,6 @@ public class CommunityService {
     static final Pattern SLUG = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
 
     private static final Logger log = LoggerFactory.getLogger(CommunityService.class);
-    private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
-    private static final Pattern NON_SLUG = Pattern.compile("[^a-z0-9]+");
 
     private final ChannelRepository channels;
     private final PostRepository posts;
@@ -116,6 +114,7 @@ public class CommunityService {
     private final CatalogService catalog;
     private final PublicBinderService publicBinders;
     private final GameService games;
+    private final RegionCatalog regions;
     private final AuditService auditService;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
@@ -134,6 +133,7 @@ public class CommunityService {
             CatalogService catalog,
             PublicBinderService publicBinders,
             GameService games,
+            RegionCatalog regions,
             AuditService auditService,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
@@ -150,6 +150,7 @@ public class CommunityService {
         this.catalog = catalog;
         this.publicBinders = publicBinders;
         this.games = games;
+        this.regions = regions;
         this.auditService = auditService;
         this.events = events;
         this.timeProvider = timeProvider;
@@ -160,7 +161,10 @@ public class CommunityService {
     // Channels
     // ---------------------------------------------------------------------------------------
 
-    /** {@code GET /community/channels}: active channels, optionally by game and city. */
+    /**
+     * {@code GET /community/channels}: active channels, optionally by game and by platform region
+     * code (the region channels, ADR 0017).
+     */
     @Transactional(readOnly = true)
     public List<ChannelView> channels(
             AuthenticatedUser viewer, @Nullable String game, @Nullable String region) {
@@ -648,73 +652,6 @@ public class CommunityService {
             @Nullable Instant removedAt,
             @Nullable String reason) {}
 
-    /**
-     * Creates the region channel of the city of a {@code public_label} unless one exists (region
-     * channels "are created per public_label city as users appear"). Labels without a city ("Near
-     * X", "Approximate area") create nothing.
-     *
-     * @return the slug of a newly created channel
-     */
-    @Transactional
-    public Optional<String> ensureRegionChannel(@Nullable String publicLabel) {
-        @Nullable String city = cityOf(publicLabel);
-        if (city == null || channels.regionExists(city)) {
-            return Optional.empty();
-        }
-        String slug = regionSlug(city);
-        if (slug.length() <= "region-".length()) {
-            return Optional.empty();
-        }
-        boolean inserted =
-                channels.insert(
-                        new ChannelRepository.NewChannel(
-                                UUID.randomUUID(),
-                                slug,
-                                city.length() > 80 ? city.substring(0, 80) : city,
-                                ChannelKind.REGION.name(),
-                                null,
-                                city,
-                                "Collectors and players around " + city + ".",
-                                DEFAULT_POST_RATE_PER_HOUR,
-                                200),
-                        null,
-                        timeProvider.now());
-        if (inserted) {
-            log.info("Region channel {} created", slug);
-            return Optional.of(slug);
-        }
-        return Optional.empty();
-    }
-
-    /** The city of a public label ({@code "Plateau-Mont-Royal, Montréal"} → Montréal). */
-    static @Nullable String cityOf(@Nullable String publicLabel) {
-        if (publicLabel == null || publicLabel.isBlank()) {
-            return null;
-        }
-        String label = publicLabel.trim();
-        if (label.startsWith("Near ") || label.equalsIgnoreCase("Approximate area")) {
-            return null;
-        }
-        int comma = label.lastIndexOf(',');
-        String city = comma >= 0 ? label.substring(comma + 1).trim() : label;
-        if (city.startsWith("Downtown ")) {
-            city = city.substring("Downtown ".length()).trim();
-        }
-        return city.isEmpty() || city.length() > 120 ? null : city;
-    }
-
-    /** {@code region-<city slug>}, e.g. {@code region-trois-rivieres}. */
-    static String regionSlug(String city) {
-        String ascii =
-                DIACRITICS
-                        .matcher(Normalizer.normalize(city, Normalizer.Form.NFD))
-                        .replaceAll("")
-                        .toLowerCase(Locale.ROOT);
-        String slug = NON_SLUG.matcher(ascii).replaceAll("-").replaceAll("^-+|-+$", "");
-        String full = "region-" + slug;
-        return full.length() <= 64 ? full : full.substring(0, 64).replaceAll("-+$", "");
-    }
-
     // ---------------------------------------------------------------------------------------
     // Account data
     // ---------------------------------------------------------------------------------------
@@ -901,16 +838,22 @@ public class CommunityService {
         return slug;
     }
 
-    private static @Nullable String validateRegion(
+    /**
+     * The region of a region channel: a platform region code (ADR 0017: one channel per platform
+     * region, never a city). Blank means none; anything else that is not a code is refused.
+     */
+    private @Nullable String validateRegion(
             @Nullable String region, List<ProblemFieldError> errors) {
         if (region == null || region.isBlank()) {
             return null;
         }
-        String label = region.trim();
-        if (label.length() > 120) {
-            errors.add(new ProblemFieldError("regionLabel", "must be at most 120 characters"));
+        String code = region.trim().toLowerCase(Locale.ROOT);
+        if (regions.region(code).isEmpty()) {
+            errors.add(
+                    new ProblemFieldError(
+                            "regionLabel", "must be a platform region code (GET /regions)"));
         }
-        return label;
+        return code;
     }
 
     private static String requireText(String field, @Nullable String raw, int max) {

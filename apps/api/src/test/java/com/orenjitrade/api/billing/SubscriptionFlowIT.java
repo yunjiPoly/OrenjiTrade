@@ -36,7 +36,6 @@ class SubscriptionFlowIT extends AbstractPhase10IT {
         assertThat(before.path("plan").path("code").asString()).isEqualTo("FREE");
         assertThat(before.has("subscription")).isFalse();
         assertThat(limit(before, "binder.views.per_day").path("limit").asInt()).isEqualTo(30);
-        assertThat(limit(before, "map.radius.max_km").path("limit").asInt()).isEqualTo(25);
 
         JsonNode checkout = checkout(member, "PREMIUM", 200);
         JsonNode subscription = checkout.path("subscription");
@@ -78,7 +77,6 @@ class SubscriptionFlowIT extends AbstractPhase10IT {
         assertThat(limit(premium, "binder.views.per_day").has("limit"))
                 .as("PREMIUM views are unlimited")
                 .isFalse();
-        assertThat(limit(premium, "map.radius.max_km").path("limit").asInt()).isEqualTo(100);
         assertThat(premium.path("features").path("ads.enabled").asBoolean()).isFalse();
         assertThat(premium.toString()).doesNotContain("fake_sub_");
         assertThat(testUsers.rolesOf(member.id())).contains("PREMIUM_USER");

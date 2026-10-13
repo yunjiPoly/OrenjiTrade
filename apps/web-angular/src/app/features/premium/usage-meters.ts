@@ -4,7 +4,7 @@ import type { LimitStatus } from '@orenji/api-client';
 export interface UsageRow {
   key: string;
   label: string;
-  /** "3 / 5", "Unlimited", "Up to 25 km". */
+  /** "3 / 5", "Unlimited", "Up to 50". */
   value: string;
   /** Fill of the bar in percent, `null` without a bar (caps, unlimited, zero limits). */
   percent: number | null;
@@ -16,7 +16,7 @@ export interface UsageRow {
 
 /**
  * Turns the plan's limit statuses into display rows. Counters show `used / limit` with a bar;
- * caps (the map radius) show the value; `null` limits are unlimited. Values come from the API.
+ * caps show the value; `null` limits are unlimited. Values come from the API.
  */
 export function usageRows(
   limits: readonly LimitStatus[] | null | undefined,
@@ -30,7 +30,7 @@ export function usageRows(
     let value: string;
     let percent: number | null = null;
     if (limit.kind === 'CAP') {
-      value = unlimited ? 'Unlimited' : `Up to ${max}${key.endsWith('_km') ? ' km' : ''}`;
+      value = unlimited ? 'Unlimited' : `Up to ${max}`;
     } else if (unlimited) {
       value = `${used} used · Unlimited`;
     } else {

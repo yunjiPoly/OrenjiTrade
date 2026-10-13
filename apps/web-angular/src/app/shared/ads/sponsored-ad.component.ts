@@ -29,7 +29,7 @@ import { AdImpressionDirective } from './ad-impression.directive';
           class="ad__label"
           data-testid="sponsored-label"
           tabindex="0"
-          matTooltip="Sponsored placements match games and your approximate region, never your exact location."
+          matTooltip="Sponsored placements match games, your region and your state or province, never your city."
           >Sponsored</span
         >
         @if (removeAdsLink()) {

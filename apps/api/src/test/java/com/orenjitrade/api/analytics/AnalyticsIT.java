@@ -82,22 +82,16 @@ class AnalyticsIT extends AbstractIntegrationTest {
                                 .query("SELECT card_id FROM card_printing WHERE id = ?", printingId)
                                 .get(0)
                                 .get("card_id");
-        double lat = 12.34567;
-        double lng = 101.23456;
+        String ownerCity = InventoryTestSupport.token() + "ville";
 
         String owner = uniqueUid("ana-owner");
         UUID ownerId = provisionCompliant(owner);
+        setLocation(owner, "CA", "CA-PE", ownerCity);
         callJson(
                 HttpMethod.PUT,
                 "/api/v1/me/settings/privacy",
                 owner,
                 privacy(true, "MEMBERS"),
-                200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                owner,
-                Map.of("lat", lat + 0.01, "lng", lng, "radiusKm", 5),
                 200);
         String handle = me(owner).path("handle").asString();
         String binderId =
@@ -116,24 +110,19 @@ class AnalyticsIT extends AbstractIntegrationTest {
         String viewer = uniqueUid("ana-viewer");
         UUID viewerId = provisionCompliant(viewer);
         String viewerEmail = me(viewer).path("email").asString();
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                viewer,
-                Map.of("lat", lat, "lng", lng, "radiusKm", 5),
-                200);
+        setLocation(viewer, "CA", "CA-NS", null);
 
-        String centre = "lat=" + lat + "&lng=" + lng;
+        String region = "region=americas-north";
         Instant start = Instant.now();
         // search_no_results: an e-mail address and a coordinate typed into the search box.
-        get(viewer, "/api/v1/search?q={q}&" + centre, viewerEmail + " 45.52341 -73.58127");
+        get(viewer, "/api/v1/search?q={q}&" + region, viewerEmail + " 45.52341 -73.58127");
         // search_performed with a resolved printing and holders.
         get(viewer, "/api/v1/search?q={q}", code);
-        get(null, "/api/v1/search/card-holders?printingId={id}&" + centre, printingId);
-        get(viewer, "/api/v1/collectors/nearby?query={q}&" + centre, handle);
-        // collector_viewed (profile and preview), binder_viewed, card_viewed.
+        get(null, "/api/v1/search/card-holders?printingId={id}&" + region, printingId);
+        // search_performed of the map: the binders of a state/province.
+        get(null, "/api/v1/regions/americas-north/subdivisions/{code}/binders", "CA-PE");
+        // collector_viewed (profile), binder_viewed, card_viewed.
         get(viewer, "/api/v1/collectors/{handle}", handle);
-        get(null, "/api/v1/collectors/{handle}/preview?" + centre, handle);
         get(viewer, "/api/v1/public/binders/{id}", binderId);
         get(null, "/api/v1/cards/{id}", cardId);
         get(viewer, "/api/v1/printings/{id}", printingId);
@@ -159,8 +148,9 @@ class AnalyticsIT extends AbstractIntegrationTest {
                     .as("no coordinate, e-mail, raw id or handle in %s", text)
                     .doesNotContain("\"lat\"")
                     .doesNotContain("\"lng\"")
-                    .doesNotContain("12.34")
-                    .doesNotContain("101.23")
+                    .doesNotContain(ownerCity)
+                    .doesNotContain("distance")
+                    .doesNotContain("radius")
                     .doesNotContain("45.52341")
                     .doesNotContain("73.58127")
                     .doesNotContain(viewerId.toString())
@@ -171,8 +161,14 @@ class AnalyticsIT extends AbstractIntegrationTest {
             }
             assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
             assertThat(EMAIL.matcher(text).find()).as("e-mail in %s", text).isFalse();
-            if (!event.path("geo_cell").isNull()) {
-                assertThat(event.path("geo_cell").asString()).matches("r-?\\d+c-?\\d+");
+            assertThat(event.has("geo_cell")).isFalse();
+            assertThat(event.has("region_label")).isFalse();
+            if (!event.path("region_code").isNull()) {
+                assertThat(event.path("region_code").asString()).matches("[a-z]+(-[a-z]+)*");
+            }
+            if (!event.path("subdivision_code").isNull()) {
+                assertThat(event.path("subdivision_code").asString())
+                        .matches("[A-Z]{2}(-[A-Z0-9]{1,3})?");
             }
             if (viewerHash.equals(event.path("actor_hash").asString())) {
                 sawViewer = true;
@@ -185,9 +181,15 @@ class AnalyticsIT extends AbstractIntegrationTest {
                 .contains("[email]")
                 .contains("[number]");
         assertThat(noResults.path("payload").path("surface").asString()).isEqualTo("search");
-        assertThat(noResults.path("geo_cell").asString()).isNotBlank();
+        assertThat(noResults.path("region_code").asString()).isEqualTo("americas-north");
         JsonNode holders = firstWhere(events, "search_performed", "card_holders");
-        assertThat(holders.path("payload").path("result_count").asLong()).isEqualTo(1);
+        assertThat(holders.path("payload").path("result_count").asLong()).isPositive();
+        assertThat(holders.path("region_code").asString()).isEqualTo("americas-north");
+        JsonNode map = firstWhere(events, "search_performed", "map");
+        assertThat(map.path("subdivision_code").asString()).isEqualTo("CA-PE");
+        JsonNode profileViewed = first(events, "collector_viewed");
+        assertThat(profileViewed.path("region_code").asString()).isEqualTo("americas-north");
+        assertThat(profileViewed.path("subdivision_code").asString()).isEqualTo("CA-PE");
         assertThat(holders.path("actor_hash").isNull()).isTrue();
         JsonNode binderViewed = first(events, "binder_viewed");
         assertThat(binderViewed.path("payload").path("binder_id").asString()).isEqualTo(binderId);
@@ -212,7 +214,6 @@ class AnalyticsIT extends AbstractIntegrationTest {
                 recipient,
                 Map.of(
                         "discoverable", false,
-                        "showDistance", true,
                         "showOnlineStatus", false,
                         "showLastActive", true,
                         "profileVisibility", "MEMBERS",
@@ -278,9 +279,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
     void phase6WishlistEventsCarryNoNotesIdsOrCoordinates(CapturedOutput output)
             throws InterruptedException {
         Instant start = Instant.now().minusSeconds(1);
-        UUID printingId = InventoryTestSupport.printing(testUsers, "ygo-p001a");
-        double lat = -21.37;
-        double lng = 55.53;
+        UUID printingId = InventoryTestSupport.isolatedCard(testUsers, "ygo-p001a").printingId();
         String wisher = uniqueUid("an-wisher");
         UUID wisherId = provisionCompliant(wisher);
         String seller = uniqueUid("an-seller");
@@ -293,22 +292,12 @@ class AnalyticsIT extends AbstractIntegrationTest {
                     privacy(true, "MEMBERS"),
                     200);
         }
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                wisher,
-                Map.of("lat", lat, "lng", lng, "radiusKm", 5),
-                200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                seller,
-                Map.of("lat", lat + 0.02, "lng", lng, "radiusKm", 5),
-                200);
+        setLocation(seller, "MX", "MX-YUC", null);
         Map<String, Object> wish = new java.util.LinkedHashMap<>();
         wish.put("printingId", printingId.toString());
-        wish.put("maxPrice", new java.math.BigDecimal("80.00"));
-        wish.put("notes", "Secret wish note");
+        wish.put("note", "Public wish note");
+        wish.put("nearMintOnly", true);
+        wish.put("priceTerm", "85% TCG");
         String wishId =
                 callJson(HttpMethod.POST, "/api/v1/wishlist", wisher, wish, 201)
                         .path("id")
@@ -332,7 +321,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
                             .toList();
             Set<String> types = new HashSet<>();
             mine.forEach(event -> types.add(event.path("event_type").asString()));
-            if (types.containsAll(Set.of("wishlist_item_created", "wishlist_matched"))) {
+            if (types.contains("wishlist_item_created")) {
                 break;
             }
             Thread.sleep(200);
@@ -340,20 +329,18 @@ class AnalyticsIT extends AbstractIntegrationTest {
         JsonNode created = first(mine, "wishlist_item_created");
         assertThat(created.path("payload").path("game").asString()).isEqualTo("yugioh");
         assertThat(created.path("payload").path("target").asString()).isEqualTo("printing");
-        assertThat(created.path("payload").path("has_max_price").asBoolean()).isTrue();
-        assertThat(created.path("payload").path("trade_preference").asString()).isEqualTo("ANY");
-        JsonNode matched = first(mine, "wishlist_matched");
-        assertThat(matched.path("payload").path("distance_bucket").asString())
-                .isIn("LT_1KM", "KM_1_5", "KM_5_10");
-        assertThat(matched.path("payload").path("notified").asBoolean()).isTrue();
-        assertThat(matched.path("payload").path("owner_hash").asString())
-                .isEqualTo(actorHasher.hash(sellerId));
+        assertThat(created.path("payload").path("near_mint_only").asBoolean()).isTrue();
+        assertThat(created.path("payload").path("has_price_term").asBoolean()).isTrue();
+        assertThat(created.path("payload").has("has_max_price")).isFalse();
+        // The matches feature and its analytics are gone (stage S2): no wishlist_matched event.
+        assertThat(mine.stream().map(event -> event.path("event_type").asString()))
+                .doesNotContain("wishlist_matched");
         for (JsonNode event : mine) {
             ObjectNode checked = (ObjectNode) event.deepCopy();
             checked.remove("occurred_at");
             String text = checked.toString();
             assertThat(text)
-                    .doesNotContain("Secret wish note")
+                    .doesNotContain("Public wish note")
                     .doesNotContain("Secret seller note")
                     .doesNotContain(wisherId.toString())
                     .doesNotContain(sellerId.toString())

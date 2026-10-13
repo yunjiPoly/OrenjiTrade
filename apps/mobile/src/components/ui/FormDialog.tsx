@@ -13,6 +13,7 @@ import {
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';
+import { InsideModal, useModalOnScreen, useModalTurn } from './modalTurns';
 
 export interface FormDialogProps {
   visible: boolean;
@@ -46,7 +47,10 @@ export function FormDialog({
   testID = 'form-dialog',
 }: FormDialogProps) {
   const { palette } = useTheme();
-  if (!visible) {
+  // iOS: asked for from a sheet row, the dialog waits until the sheet has left (modalTurns.tsx).
+  const present = useModalTurn(visible);
+  useModalOnScreen(present);
+  if (!present) {
     return null;
   }
   const cancel = () => {
@@ -86,7 +90,7 @@ export function FormDialog({
             {message ? (
               <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{message}</Text>
             ) : null}
-            {children}
+            <InsideModal>{children}</InsideModal>
             <View style={styles.actions}>
               <Button
                 label={cancelLabel}

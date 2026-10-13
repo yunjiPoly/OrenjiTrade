@@ -18,7 +18,7 @@ export interface CreateCommunityChannelRequest {
      */
     game?: string;
     /**
-     * City of region channels
+     * Platform region code of region channels (GET /regions)
      */
     regionLabel?: string;
     description?: string;

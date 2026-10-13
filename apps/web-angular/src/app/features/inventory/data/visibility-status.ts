@@ -51,7 +51,12 @@ export function itemVisibilityStatus(
   }
   const label = publicLabel(visibility, item.publicUntil, now);
   if (item.effectivePublic) {
-    return { visibility, pending: false, label, note: 'Collectors near you can see this card.' };
+    return {
+      visibility,
+      pending: false,
+      label,
+      note: 'Collectors of your region can see this card.',
+    };
   }
   const binder = context.binder ?? null;
   let note = 'Not visible to other collectors right now.';

@@ -91,7 +91,7 @@ class TestAccountPurgeIT extends AbstractIntegrationTest {
 
         // Untouched: the other collector, the other due request, the catalog.
         assertThat(testUsers.row(keep).get("status")).isEqualTo("ACTIVE");
-        assertThat(testUsers.locationOf(keep).get("public_lat")).isNotNull();
+        assertThat(testUsers.locationOf(keep)).isNotEmpty();
         assertThat(testUsers.count("SELECT count(*) FROM binder WHERE owner_id = ?", keep))
                 .isEqualTo(1);
         assertThat(identityAdminClient.isDeleted(uidKeep)).isFalse();
@@ -127,7 +127,6 @@ class TestAccountPurgeIT extends AbstractIntegrationTest {
                                         .contains(TestDeletionConfiguration.BLOCKER);
                             });
             assertThat(testUsers.row(id).get("status")).isEqualTo("ACTIVE");
-            assertThat(testUsers.locationOf(id).get("public_lat")).as("off the map").isNull();
             assertThat(
                             testUsers.count(
                                     "SELECT count(*) FROM privacy_settings WHERE user_id = ?"
@@ -154,19 +153,14 @@ class TestAccountPurgeIT extends AbstractIntegrationTest {
     }
 
     /**
-     * A discoverable collector with a trading area, a public binder and one item; with {@code
-     * email}, the account is turned into a fictional E2E test account.
+     * A discoverable collector with a location, a public binder and one item; with {@code email},
+     * the account is turned into a fictional E2E test account.
      */
     private UUID collectorWithData(String uid, String email) {
         InventoryTestSupport.ensureCatalog(importService);
         UUID id = provisionCompliant(uid);
+        setLocation(uid, "CA", "CA-NS", "Halifax");
         callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, discoverable(), 200);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/location/trading-area",
-                uid,
-                Map.of("lat", 45.5071, "lng", -73.5541, "radiusKm", 5),
-                200);
         String binderId =
                 callJson(
                                 HttpMethod.POST,
@@ -180,7 +174,7 @@ class TestAccountPurgeIT extends AbstractIntegrationTest {
                 InventoryTestSupport.item(InventoryTestSupport.printing(testUsers, "mtg-p010a"));
         item.put("binderId", binderId);
         callJson(HttpMethod.POST, "/api/v1/inventory/items", uid, item, 201);
-        assertThat(testUsers.locationOf(id).get("public_lat")).isNotNull();
+        assertThat(testUsers.locationOf(id)).isNotEmpty();
         if (email != null) {
             testUsers.update("UPDATE user_account SET email = ? WHERE id = ?", email, id);
         }
@@ -190,7 +184,6 @@ class TestAccountPurgeIT extends AbstractIntegrationTest {
     private static Map<String, Object> discoverable() {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("discoverable", true);
-        body.put("showDistance", true);
         body.put("showOnlineStatus", false);
         body.put("showLastActive", true);
         body.put("profileVisibility", "MEMBERS");

@@ -105,10 +105,10 @@ public class SecurityConfig {
     /**
      * Read-only catalog and plan routes (Phase 2 contract: "catalog reads are public"), the public
      * listings of a collector (Phase 3 contract "Public views", privacy enforced by the service)
-     * and map discovery and search (Phase 4 contract: "discovery reads work for anonymous users
-     * with reduced detail") that never require authentication. GET only; the same paths stay
-     * protected for other methods. A bearer token is still honoured when present (viewer-specific
-     * details).
+     * and region search and the map (Phase 4 contract: "discovery reads work for anonymous users
+     * with reduced detail"; ADR 0017) that never require authentication. GET only; the same paths
+     * stay protected for other methods. A bearer token is still honoured when present
+     * (viewer-specific details).
      */
     public static final List<String> PUBLIC_GET_PATTERNS =
             List.of(
@@ -122,8 +122,8 @@ public class SecurityConfig {
                     "/api/v1/plans",
                     "/api/v1/collectors/*/binders",
                     "/api/v1/collectors/*/inventory",
-                    "/api/v1/collectors/nearby",
-                    "/api/v1/collectors/*/preview",
+                    "/api/v1/regions",
+                    "/api/v1/regions/**",
                     "/api/v1/search",
                     "/api/v1/search/**",
                     "/api/v1/ads",

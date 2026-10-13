@@ -30,6 +30,9 @@ public class NotificationPreferences {
     @Column(name = "in_app_enabled", nullable = false)
     private boolean inAppEnabled;
 
+    @Column(name = "wishlist_alerts", nullable = false)
+    private boolean wishlistAlerts;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "categories", nullable = false)
     private String categories;
@@ -57,6 +60,7 @@ public class NotificationPreferences {
         this.userId = userId;
         this.pushEnabled = true;
         this.inAppEnabled = true;
+        this.wishlistAlerts = true;
         this.categories = "{}";
         this.quietHours = "{}";
         this.createdAt = now;
@@ -69,10 +73,12 @@ public class NotificationPreferences {
             boolean inAppEnabled,
             String categoriesJson,
             String quietHoursJson,
+            boolean wishlistAlerts,
             Instant now) {
         this.pushEnabled = pushEnabled;
         this.emailEnabled = emailEnabled;
         this.inAppEnabled = inAppEnabled;
+        this.wishlistAlerts = wishlistAlerts;
         this.categories = categoriesJson;
         this.quietHours = quietHoursJson;
         this.updatedAt = now;
@@ -92,6 +98,10 @@ public class NotificationPreferences {
 
     public boolean isInAppEnabled() {
         return inAppEnabled;
+    }
+
+    public boolean isWishlistAlerts() {
+        return wishlistAlerts;
     }
 
     public String getCategories() {

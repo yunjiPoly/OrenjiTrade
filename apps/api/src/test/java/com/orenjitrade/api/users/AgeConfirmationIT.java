@@ -112,7 +112,7 @@ class AgeConfirmationIT extends AbstractOffersIT {
                         InventoryTestSupport.privacy(true, "MEMBERS"),
                         403);
         assertAgeProblem(problem);
-        assertThat(testUsers.locationOf(id)).as("no public point was derived").isEmpty();
+        assertThat(testUsers.locationOf(id)).as("no location was created").isEmpty();
         // Other privacy switches keep working while the collector stays hidden.
         callJson(
                 HttpMethod.PUT,
@@ -158,7 +158,7 @@ class AgeConfirmationIT extends AbstractOffersIT {
                         HttpMethod.POST,
                         "/api/v1/community/channels/general/posts",
                         uid,
-                        Map.of("body", "Anyone trading near the Plateau?"),
+                        Map.of("body", "Anyone trading this weekend?"),
                         403));
 
         // Offers.
@@ -168,6 +168,18 @@ class AgeConfirmationIT extends AbstractOffersIT {
         // Confirming once (through the onboarding flow) unlocks everything.
         callJson(HttpMethod.POST, "/api/v1/me/consents", uid, AGE_CONSENT, 204);
         assertThat(me(uid).path("onboarding").path("ageConfirmed").asBoolean()).isTrue();
+        // Discoverability also needs a location (409 LOCATION_REQUIRED until declared, ADR 0017).
+        assertThat(
+                        callJson(
+                                        HttpMethod.PUT,
+                                        "/api/v1/me/settings/privacy",
+                                        uid,
+                                        InventoryTestSupport.privacy(true, "MEMBERS"),
+                                        409)
+                                .path("errorCode")
+                                .asString())
+                .isEqualTo("LOCATION_REQUIRED");
+        setLocation(uid, DEFAULT_COUNTRY, DEFAULT_SUBDIVISION, null);
         callJson(
                 HttpMethod.PUT,
                 "/api/v1/me/settings/privacy",
@@ -184,7 +196,7 @@ class AgeConfirmationIT extends AbstractOffersIT {
                 HttpMethod.POST,
                 "/api/v1/community/channels/general/posts",
                 uid,
-                Map.of("body", "Anyone trading near the Plateau?"),
+                Map.of("body", "Anyone trading this weekend?"),
                 201);
         String offerId =
                 callJson(HttpMethod.POST, "/api/v1/offers", uid, cash(itemId, "30.00"), 201)

@@ -183,7 +183,7 @@ export default function NotificationsScreen() {
               testID="notifications-caught-up"
               icon="check-circle-outline"
               title="You're all caught up"
-              description="No unread notifications. New wishlist matches and messages will appear here."
+              description="No unread notifications. New wishlist alerts and messages will appear here."
               actionLabel="Show all notifications"
               onAction={() => setView('all')}
             />
@@ -192,7 +192,7 @@ export default function NotificationsScreen() {
               testID="notifications-empty"
               icon="bell-outline"
               title="No notifications yet"
-              description="Add cards to your wishlist: we'll tell you when a collector nearby lists one."
+              description="Add cards to your wishlist: we'll tell you when a collector of your region lists one."
               actionLabel="Open my wishlist"
               onAction={() => router.navigate('/wishlist')}
             />

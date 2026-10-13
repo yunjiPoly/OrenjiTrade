@@ -24,8 +24,8 @@ this document is applied by CI: an operator runs `terraform apply` by hand, neve
 
 **Which environments to create.** Year one runs **prod only** (about US$131–142/month at list
 prices, table below). `dev` is optional (≈ US$30/month idle at the Montreal rates of ADR 0016:
-`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, seven billed
-scheduler jobs 0.70, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
+`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, six billed
+scheduler jobs 0.60, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
 (section 12). Without a dev project the images are built into the **prod** registry: point the
 repository-level GitHub variables at prod in step 3.
 
@@ -57,7 +57,7 @@ gcloud storage buckets update "gs://${PROJECT_ID}-tfstate" --versioning
 
 Grant `roles/storage.objectAdmin` on it only to the operators group. The bucket name is passed
 at `terraform init` (partial backend configuration) and never committed. The state holds the
-generated secrets (including the location jitter secret): treat the bucket as sensitive.
+generated secrets (database password, service token, salts): treat the bucket as sensitive.
 
 ## 3. Bootstrap identities and Workload Identity Federation first
 
@@ -112,8 +112,8 @@ with a re-apply; the web app then has sign-in disabled until it is).
    `appId` → `firebase_web_app_id`, `authDomain` → `firebase_auth_domain` (defaults to
    `<project>.firebaseapp.com`) into `terraform.tfvars`. These are public values (restricted by
    authorized domain), not secrets; the API key restriction is set in section 10.
-3. `google_maps_browser_key` / `google_maps_map_id`: leave empty for now (the web keeps the
-   Leaflet/OpenStreetMap adapter, ADR 0010) or create the key as described in section 10 first.
+3. There is no map key to set: the web map draws bundled Natural Earth boundaries and contacts
+   no map provider (ADR 0017; the former `google_maps_*` variables are gone).
 
 ## 5. Apply the full environment
 
@@ -127,7 +127,7 @@ with the Private Service Access peering and the `/24` Direct VPC egress subnet (
 Cloud NAT), Cloud SQL `db-g1-small` ZONAL (Enterprise edition, private IP, 10 GB SSD, 7 backups,
 PITR, deletion protection), the media bucket, Pub/Sub topics + DLQs + the BigQuery subscription,
 the BigQuery dataset, Secret Manager secrets with generated versions (`db-password`,
-`service-token`, `location-jitter-secret`, `analytics-actor-salt`, `ads-token-secret`,
+`service-token`, `analytics-actor-salt`, `ads-token-secret`,
 `consent-ip-salt`) and empty containers for the Stripe secrets, the `api` Cloud Run service (one
 always-on instance running the placeholder image **plus the Valkey sidecar**, pulled through the
 Artifact Registry Docker Hub remote repository), the `web` service (scale-to-zero), the global
@@ -235,25 +235,9 @@ In the Firebase console for the project:
 These are not in Terraform (API keys and quotas are managed in the console) and they are what
 keeps a stolen key or a traffic spike from turning into a bill.
 
-**Google Maps JavaScript API key** (Google Cloud console > APIs & Services > Credentials, in the
-prod project; sources: [api-security-best-practices](https://developers.google.com/maps/api-security-best-practices),
-[Maps Platform pricing](https://developers.google.com/maps/billing-and-pricing/pricing),
-[manage-costs](https://developers.google.com/maps/billing-and-pricing/manage-costs)):
-
-1. Create a dedicated browser key ("Use separate API keys for each app"); never reuse the
-   Firebase key.
-2. **Application restrictions > Websites**: `https://www.orenjitrade.com/*` (the whole referrer
-   including the scheme; add `https://staging.orenjitrade.com/*` only while staging exists).
-3. **API restrictions > Restrict key**: *Maps JavaScript API* only ("always authorize it on your
-   key"); add Places/Geocoding only if the app ever calls them.
-4. **Google Maps Platform > Quotas > Maps JavaScript API**: cap *Map loads per day*. Dynamic Maps
-   include 10,000 free loads per month, then US$7 per 1,000 (first tier). A cap of **400/day**
-   keeps the month at ≤ 12,000 loads (worst case ≈ US$14 of overage) and makes an abused key
-   harmless; raise it with the user base. When the cap is hit the map shows an error and users
-   can still use the list view; budgets alone never stop usage ("they don't automatically
-   prevent the use or billing of your services").
-5. Put the key in `google_maps_browser_key` (tfvars, public value) and re-apply; optionally a
-   `google_maps_map_id` for a styled map.
+**No Google Maps key** (ADR 0017, 2026-10-08): the map is a vector map of bundled Natural Earth
+boundaries, so there is no Maps JavaScript API key, quota or Map ID to manage. Do not enable the
+Maps, Places or Geocoding APIs in the project.
 
 **Firebase web API key** (same Credentials page, auto-created): add the **Websites** restriction
 `https://www.orenjitrade.com/*`; if you add API restrictions, keep *Identity Toolkit API* and
@@ -283,7 +267,7 @@ curl -fsS https://api.orenjitrade.com/actuator/health/readiness        # {"statu
 curl -fsS https://api.orenjitrade.com/api/v1/meta | jq                  # environment "production"
 curl -fsSI https://www.orenjitrade.com/ | grep -iE "^(HTTP|cf-cache-status|strict-transport)"
 curl -fsS https://www.orenjitrade.com/config.json | jq                  # apiBaseUrl, wsBaseUrl wss://api..., firebase.apiKey set
-gcloud scheduler jobs list --location "$REGION" --project "$PROJECT_ID"  # 10 jobs
+gcloud scheduler jobs list --location "$REGION" --project "$PROJECT_ID"  # 9 jobs
 gcloud scheduler jobs run orenjitrade-${ENV}-freshness --location "$REGION" --project "$PROJECT_ID"
 gcloud logging read 'resource.type="cloud_run_revision" httpRequest.requestUrl:"/internal/jobs/" ' --limit 5 --project "$PROJECT_ID"   # 200, not 401
 gcloud logging read 'resource.type="cloud_run_revision" severity>=ERROR' --limit 20 --project "$PROJECT_ID"
@@ -333,13 +317,13 @@ month. New accounts get US$300 of credit for 90 days.
 | Cloud Storage | media + card images ≤ 5 GB, ≈ 1 M reads | ≈ 1 |
 | Artifact Registry | ≈ 10 versions × 2 images + the cached sidecar image | ≈ 0.3 |
 | Secret Manager | 6 generated + up to 3 Stripe versions | ≈ 0.2 |
-| Cloud Scheduler | 10 jobs (3 free) | 0.70 |
+| Cloud Scheduler | 9 jobs (3 free) | 0.60 |
 | Pub/Sub + BigQuery analytics | < 10 GiB/month | ≈ 0–0.5 |
 | Certificate Manager, Direct VPC egress, LB addresses, Logging < 50 GiB, Monitoring, uptime checks, Firebase Auth < 50k MAU, Cloudflare Free | | 0 |
 | **Total** | | **≈ 131–142** (≈ 125 at minimal traffic) |
 
 Not included: the domain registration (Cloudflare Registrar, at cost), Stripe fees, SMS for MFA,
-Google Maps loads beyond the free 10,000 per month, taxes. The previous scale-sized topology was
+taxes (no map provider is billed: ADR 0017). The previous scale-sized topology was
 ≈ US$575–775/month.
 
 ## Ongoing operations

@@ -8,11 +8,11 @@
  * Do not edit the class manually.
  */
 import { CollectorRating } from './collectorRating';
-import { PublicOwnerLocation } from './publicOwnerLocation';
+import { Place } from './place';
 
 
 /**
- * A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, a region label with a distance bucket
+ * A party of an offer or a trade: handle, display name, avatar, rating and, while discoverable, their state/province and country
  */
 export interface OfferParty { 
     id: string;
@@ -20,9 +20,9 @@ export interface OfferParty {
     displayName: string;
     avatarUrl?: string | null;
     /**
-     * Null unless the collector is discoverable
+     * State/province and country; null unless the collector is discoverable with a location
      */
-    location?: PublicOwnerLocation;
+    place?: Place;
     rating: CollectorRating;
 }
 

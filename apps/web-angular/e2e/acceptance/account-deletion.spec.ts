@@ -1,12 +1,12 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
-import { dialogReady, expect, mapMarker, test } from './support/fixtures';
-import { besides, randomCentre } from './support/places';
+import { dialogReady, expect, openState, stateBinder, test } from './support/fixtures';
+import { placeOf } from './support/places';
 
 /**
  * Acceptance — account deletion (spec § 50): a discoverable collector with a public binder
  * requests the deletion of their account (password re-authentication); their inventory
- * disappears publicly and they disappear from the map at once, for another collector. After the
+ * disappears publicly and their binder leaves the region map at once, for another collector. After the
  * grace period (fast-forwarded: one of the suite's two test-clock shortcuts) the
  * `account-deletion` job runs through `/internal/jobs/account-deletion` with the local service token, and the personal
  * data is handled per the workflow: the identity-provider account is deleted, the account is
@@ -14,7 +14,7 @@ import { besides, randomCentre } from './support/places';
  * are kept (checked by an administrator in the admin console).
  */
 
-interface NearbyAnswer {
+interface SearchAnswer {
   collectors: { handle: string }[];
 }
 
@@ -29,36 +29,36 @@ interface AdminUserDetail {
 test.describe('acceptance: account deletion', () => {
   requireStack();
 
-  test('deletion hides the inventory and the map marker, then the job erases personal data', async ({
+  test('deletion hides the inventory and the map binder, then the job erases personal data', async ({
     api,
     actors,
   }) => {
     test.setTimeout(210_000);
-    const area = randomCentre('deletion');
+    const place = placeOf('deletion');
     const card = 'Frostbite Sorceress';
     const { collector: doomed, binder } = await api.seller(
       'acc-doomed',
-      area,
+      place,
       [{ code: 'AZR-EN031', extra: { askingPrice: 22 } }],
       {
         displayName: `Dora Leaving ${suffix()}`,
       },
     );
     const viewer = await api.collector('acc-delviewer', {
-      area: besides(area),
-      radiusKm: 10,
+      place: placeOf('registration'),
       displayName: `Vic Viewer ${suffix()}`,
     });
     const admin = await api.staff('acc-deladmin', ['ADMIN']);
 
-    // --- Before: the viewer finds the collector on the map and their public binder -------------
+    // --- Before: the viewer finds the collector's binder on the map, then the binder -------------
     const pageV = await actors.anonymous();
     await pageV.goto('/auth/sign-in');
     await pageV.getByLabel('Email').fill(viewer.email);
     await pageV.getByLabel('Password', { exact: true }).fill(viewer.password);
     await pageV.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(pageV).toHaveURL(/\/map$/, { timeout: 20_000 });
-    await expect(mapMarker(pageV, doomed.displayName)).toBeVisible({ timeout: 20_000 });
+    await expect(pageV).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    const before = await openState(pageV, place);
+    await expect(stateBinder(before, binder.name)).toBeVisible();
     await pageV.goto(`/binders/${binder.id}`);
     await expect(pageV.getByRole('article', { name: card, exact: true })).toBeVisible();
 
@@ -91,16 +91,15 @@ test.describe('acceptance: account deletion', () => {
     });
     expect(inventory.status).toBe(404);
 
-    // --- The collector disappears from the map ----------------------------------------------------
-    await pageV.goto('/map');
-    await expect(pageV.getByTestId('map-status')).toContainText(/within \d+ km/, {
-      timeout: 20_000,
-    });
-    await expect(mapMarker(pageV, doomed.displayName)).toHaveCount(0);
-    const nearby = await api.ok<NearbyAnswer>('GET', '/api/v1/collectors/nearby', {
+    // --- The collector's binder leaves the map, the collector leaves search -----------------------
+    const after = await openState(pageV, place);
+    await expect(after.getByText('No public binders here yet')).toBeVisible();
+    await expect(stateBinder(after, binder.name)).toHaveCount(0);
+    const found = await api.ok<SearchAnswer>('GET', '/api/v1/search', {
       token: viewer.idToken,
+      params: { q: doomed.handle, types: 'collectors', region: place.regionCode },
     });
-    expect(nearby.collectors.map((collector) => collector.handle)).not.toContain(doomed.handle);
+    expect(found.collectors.map((collector) => collector.handle)).not.toContain(doomed.handle);
 
     // --- Grace period over → the account-deletion job via the internal endpoint ---------------
     api.fastForwardDeletionGracePeriod(doomed.id);

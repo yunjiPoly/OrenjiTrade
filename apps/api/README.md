@@ -6,7 +6,7 @@ package per module under `com.orenjitrade.api` (see `CLAUDE.md` and
 
 | | |
 | --- | --- |
-| Runtime | Java 21 (Gradle toolchain, auto-provisioned by the foojay resolver). Gradle itself must run on JDK 21+ too: Spotless uses google-java-format 1.30, which needs it |
+| Runtime | Java 21 (Gradle toolchain, auto-provisioned by the foojay resolver). The Gradle daemon is pinned to Java 21 too (`gradle/gradle-daemon-jvm.properties`): Spotless runs google-java-format 1.30 inside it, which needs JDK 21+ and fails on JDK 27. The machine's default `java` only launches `./gradlew`, so a newer default JDK is fine |
 | Framework | Spring Boot 4.1.1, Spring Framework 7, Security 7, Hibernate 7 (+ `hibernate-spatial`), Jackson 3 (`tools.jackson.*`) |
 | Build | Gradle 9.7 Kotlin DSL (`./gradlew`), Spotless (google-java-format, AOSP style) |
 | Data | PostgreSQL 17 + PostGIS via Flyway (`src/main/resources/db/migration`), Redis (Lettuce) |
@@ -63,7 +63,6 @@ match `docker compose`. The most relevant ones:
 | `STORAGE_PROVIDER`, `STORAGE_LOCAL_ROOT` | `local`, `./.local-storage` | media storage adapter (`local` files served by the API, or `gcs`) |
 | `STORAGE_PUBLIC_BASE_URL` | empty | origin of media URLs; empty = this API (built from the request) for `local`, `https://storage.googleapis.com/<bucket>` for `gcs` |
 | `GCS_BUCKET_MEDIA` | empty | media bucket, required only with `STORAGE_PROVIDER=gcs` (Application Default Credentials) |
-| `LOCATION_JITTER_SECRET` | `local-jitter-secret` (`local`/`test` only) | HMAC key of the public-point jitter (ADR 0004); every other profile refuses to start when it is missing, the development default or shorter than 32 characters |
 | `PAYMENT_PROVIDER`, `PUSH_PROVIDER`, `EMAIL_PROVIDER` | `fake`, `log`, `log` | provider abstractions |
 | `FAKE_PAYMENTS_WEBHOOK_SECRET`, `FAKE_CHECKOUT_BASE_URL` | local value, empty | HMAC key of the fake provider's synthetic webhooks (not a secret of any service); origin prefixed to the fake checkout path `/checkout/fake/<ref>` (empty = relative) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `WEB_BASE_URL` | empty, empty, `https://www.orenjitrade.com` | only with `PAYMENT_PROVIDER=stripe` (start-up fails without the two secrets); never needed locally |
@@ -147,8 +146,9 @@ email, password `SEED_EMULATOR_PASSWORD`, existing users left untouched). Later 
 locations and catalog data by registering their own `SeedContributor` with the ordering constants of
 that interface. Phase 1-B adds `profiles` (order 200: profile, bio, games, languages, tags and
 privacy settings from `db/seed/profiles.json`; discoverable: collectors 1-6, 8 and `premium_user`) and
-`trading areas` (order 300: `db/seed/locations.json`, public neighbourhood centroids, 5 km radius;
-public points derived by the server). Both only insert missing rows, so local edits survive restarts.
+`locations` (order 300: `db/seed/locations.json`, the declared country, ISO 3166-2 subdivision and
+optional city of each fictional account, spread over the three platform regions; ADR 0017). Both only
+insert missing rows, so local edits survive restarts.
 Phase 2 adds `feature flags` (order 50, local/dev only) and `catalog` (order 400, the four mock
 catalogs); see "Catalog and platform rules" below. Phase 3 adds `inventory` (order 500, binders and
 items of the fictional collectors); see "Inventory, binders, freshness" below.
@@ -176,30 +176,40 @@ unless stated.
 | `POST/DELETE /api/v1/me/profile/avatar` | profiles | multipart `file`, JPEG/PNG/WebP ≤ 5 MB (type sniffed from the bytes; 413/415/400), header-checked dimensions (≤ 8192 px, ≤ 40 MP), centre cover-crop to 512×512, re-encoded **JPEG** without any metadata (see "Deviations"), stored through `ObjectStorage` under a random key; the previous object is deleted after commit |
 | `GET /api/v1/tags?query=&category=&limit=` | profiles | active tags, accent/case-insensitive substring, prefix matches first, then by usage |
 | `PUT /api/v1/me/profile/tags` | profiles | `tagIds` + `customLabels` (2-24 chars, banned-term check scope `TAG`), max 12; custom labels reuse the tag with the same slug or create a `CUSTOM` tag; usage counts recomputed |
-| `GET /api/v1/collectors/{handle}` | profiles | public view per `PrivacyPolicyService`; 404 for unknown / suspended / deletion-pending / deleted accounts and for PRIVATE profiles (except the owner); `location` only for discoverable collectors (public point + label + distance bucket); `onlineStatus` OFFLINE/HIDDEN until presence exists; `publicBinderCount`, `rating`, `isBlocked` come from optional provider beans (`PublicBinderCountProvider`, `RatingSummaryProvider`, `BlockRelationProvider`, `PresenceProvider`) |
-| `GET /api/v1/me/location`, `PUT /api/v1/me/location/trading-area`, `DELETE /api/v1/me/location` | location | the only endpoint returning the caller's own centre; radius 1-50 km, latitude within ±85 |
-| `GET/PUT /api/v1/me/settings/privacy` | profiles | safe defaults (not discoverable, online status hidden, MEMBERS, MEMBERS_WITH_PROFILE, wishlist hidden); toggling `discoverable` derives or clears the public point in the same transaction |
+| `GET /api/v1/collectors/{handle}` | profiles | public view per `PrivacyPolicyService`; 404 for unknown / suspended / deletion-pending / deleted accounts and for PRIVATE profiles (except the owner); `location` only for discoverable collectors (state or province and country, plus the city while the owner shows it); `onlineStatus` OFFLINE/HIDDEN until presence exists; `publicBinderCount`, `rating`, `isBlocked` come from optional provider beans (`PublicBinderCountProvider`, `RatingSummaryProvider`, `BlockRelationProvider`, `PresenceProvider`) |
+| `GET /api/v1/regions` | location | public: platform regions, countries, subdivisions (ADR 0017) |
+| `GET/PUT/DELETE /api/v1/me/location` | location | the declared country, subdivision, optional city and `showCity`; unknown codes 400; DELETE turns discoverability off |
+| `GET/PUT /api/v1/me/settings/privacy` | profiles | safe defaults (not discoverable, online status hidden, MEMBERS, MEMBERS_WITH_PROFILE, wishlist hidden); becoming `discoverable` needs a location (409 `LOCATION_REQUIRED`) |
 | `GET/PUT /api/v1/me/settings/notifications` | notifications | channel master switches, per-category matrix (MARKETING off by default), quiet hours (HH:mm + IANA zone) |
-| `GET /api/v1/me/export` | users | JSON attachment assembled by every `ExportContributor` (account + consents + deletion requests, profile, privacy settings, location trading area, notification preferences); rate-limited 10/h; allowed while a deletion is pending |
+| `GET /api/v1/me/export` | users | JSON attachment assembled by every `ExportContributor` (account + consents + deletion requests, profile, privacy settings, location with the city, notification preferences); rate-limited 10/h; allowed while a deletion is pending |
 | `POST/GET /api/v1/me/deletion-requests`, `DELETE /api/v1/me/deletion-requests/{id}` | users | see below |
 | `POST /internal/jobs/account-deletion` | users | service token / OIDC; `@Scheduled` hourly under `local` |
 | `GET /api/v1/public/media/{key}` | common/storage | public, strict key syntax (`ObjectKeys`), `Cache-Control: public, max-age=31536000, immutable` |
 
-### Approximate location (ADR 0004)
+### Self-declared location and platform regions (ADR 0017)
 
-`user_location` keeps the private trading-area centre (stored at 3 decimals) and a derived
-`public_point`: the centre's ~1 km grid cell (`floor(lat/0.009)`, `floor(lng/(0.009/cos(row lat)))`)
-plus a deterministic offset from `HMAC-SHA256(LOCATION_JITTER_SECRET, userId)` with a 0.001° margin,
-rounded to 3 decimals. The same user always gets the same point inside a cell; different users get
-different points; the point never leaves the cell. The public point exists only while the collector
-is discoverable (`DiscoverabilityPolicy`, implemented by the privacy settings) and is cleared while an
-account is suspended or pending deletion. Labels come from `StaticRegionGeocoder` (offline table of
-Montréal-area neighbourhoods and Canadian cities; no API key). Distances are bucketed
-(`LT_1KM`, `KM_1_5`, `KM_5_10`, `KM_10_25`, `KM_25_50`, `GT_50KM`) from the viewer's own centre to the
-target's public point. Events carry the grid cell id only; coordinates are never logged.
-`GeoPrivacyContractTest` walks every seeded collector's public profile and admin detail and fails on
-any coordinate with more than 3 decimals, any coordinate other than the stored public point, private
-location keys, or coordinates in the captured logs.
+No coordinate exists anywhere (the ADR 0004 trading area, public point, grid, jitter, geocoder and
+distance buckets were removed by V108/V109). The `location` module owns:
+
+- `platform_region`, `country`, `subdivision` (V106/V107: 3 regions, 104 countries, 1,259 ISO
+  3166-2 subdivisions), read through `RegionCatalog` (Redis `regions:v1`, 60 s, plus a 10 s
+  in-process memo, evicted after every admin write) and served by `GET /api/v1/regions` (public).
+  `PUT /api/v1/admin/regions/countries/{code}` (ADMIN) moves a country to another region or
+  deactivates it (audited `region.country.update`).
+- `user_location` (V108): `country_code`, `subdivision_code`, optional `city` (trimmed, 1-80
+  characters, letters, digits, spaces and `.,'’()&-`, refused when coordinate-like, checked with
+  the profile text moderation rules, **never geocoded**) and `show_city`. `GET/PUT/DELETE
+  /api/v1/me/location`; unknown or inactive codes are a 400. Removing the location turns
+  discoverability off; becoming discoverable without one is `409 LOCATION_REQUIRED`
+  (`DiscoverabilityPolicy`).
+- Public representations carry a `place` (region, country and subdivision codes and names, label
+  "Quebec, Canada"); `GET /collectors/{handle}` adds the city only while `show_city` is on. The
+  users module reads the home region for `GET /me` through the `HomeRegionProvider` SPI.
+
+`GeoPrivacyContractTest` signs in as every seed account (and signed out) and visits every public
+and member surface: it fails on any coordinate, distance or radius key, any number with more than
+3 decimals, "km away" wording, a city outside its owner's profile, or coordinate-like values in
+the captured logs.
 
 ### Account deletion and export
 
@@ -275,16 +285,15 @@ token of an account with pending consents or a suspension does not block them (s
   resetsAt, planCode, overridden, upgradeUrl}`; `Limits.consume(userId, key)` increments atomically in
   `usage_counter` (conditional upsert, never passes the limit) and throws `LimitReachedException` →
   `429 LIMIT_REACHED` with extensions `limitKey`, `limit`, `used`, `resetsAt`, `planCode`,
-  `upgradeUrl: "/premium"`; `Limits.checkValue(userId, key, requested)` for caps
-  (`map.radius.max_km`). The plan comes from `user_account.plan_code` (FREE when unknown or inactive);
+  `upgradeUrl: "/premium"`; `Limits.checkValue(userId, key, requested)` for caps. The plan comes from `user_account.plan_code` (FREE when unknown or inactive);
   active entitlements win (most generous). `Entitlements.has(userId, featureKey)` resolves features the
   same way. `LimitUsageSource` beans let owning modules report TOTAL usage (Phase 3 binders).
 - Rules are cached in Redis through `common.cache.RedisJsonCache` (60 s TTL, explicit eviction after
   every admin write and after commit, fail-open to the database). Usage counters are mirrored in
   Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check` fast path.
-- Phase 3 consumes `binders.max` (binder creation) and `binder.views.per_day` (public binder views);
-  Phase 4 checks the radius cap `map.radius.max_km` on discovery and search (signed-out callers
-  through `Limits.checkValueForAnonymous`, FREE plan). The integration tests also exercise the HTTP behaviour through
+- Phase 3 consumes `binders.max` (binder creation) and `binder.views.per_day` (public binder views)
+  (the Phase 4 radius cap `map.radius.max_km` was removed with the distances, ADR 0017). The
+  integration tests also exercise the HTTP behaviour through
   a test-only, OpenAPI-hidden probe controller.
 
 ### Card catalog
@@ -307,7 +316,7 @@ token of an account with pending consents or a suspension does not block them (s
   `CardImageUrlResolver`: re-host-only providers (YGOPRODeck) -> `GET /api/v1/public/card-images/{id}`,
   hotlink-allowed providers -> their URL, no artwork -> the placeholder SVG. Re-host-only provider
   URLs never reach clients (`CardImageUrlContractIT`).
-- Card pictures outside the catalog DTOs: notifications about one card (`WISHLIST_MATCH`, the
+- Card pictures outside the catalog DTOs: notifications about one card (`WISHLIST_ALERT`, the
   `OFFER_*` types, `TRADE_UPDATE`, `PAYMENT_UPDATE`, `SHIPMENT_STATUS`, `DISPUTE_UPDATE`) add
   `data.cardName`, `data.game` and `data.cardImageUrl` (`NotificationCards`; stored as the
   resolver produced it, an API-relative path from the after-commit listeners, made absolute against
@@ -350,7 +359,7 @@ four mock catalogs through `CatalogImportService` (idempotent; one sync run per 
 
 - `usage_limit.window` is stored as `limit_window` (`WINDOW` is reserved in PostgreSQL); the API field
   is `window`. Additive column `usage_limit.kind` (`COUNTER` / `CAP`) distinguishes counted limits from
-  caps such as `map.radius.max_km`.
+  caps.
 - Admin writes are per resource: `PUT /admin/feature-flags/{key}`, `PUT /admin/plans/{code}`,
   `PUT /admin/usage-limits/{id}`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` (the contract
   names the collections `GET/PUT /admin/plans`, `/admin/usage-limits`, "grant/revoke").
@@ -374,7 +383,7 @@ photos, bulk operations, public item lists, reconciliation of the publication ev
 job; implements `BinderContents`). Owner routes need a bearer token and accepted terms; the public
 routes are permitAll GETs (`/api/v1/public/**` plus `SecurityConfig.PUBLIC_GET_PATTERNS`
 `/api/v1/collectors/*/binders` and `/api/v1/collectors/*/inventory`) that still honour a token
-(distance buckets, binder-view limit, the owner's own view).
+(blocks, binder-view limit, the owner's own view).
 
 | Route | Module | Notes |
 | --- | --- | --- |
@@ -389,7 +398,7 @@ routes are permitAll GETs (`/api/v1/public/**` plus `SecurityConfig.PUBLIC_GET_P
 | `POST /api/v1/binders/{id}/publish` `{mode}`, `.../unpublish`, `.../confirm`, `PUT /api/v1/binders/reorder` | binders | PUBLIC / UNTIL_DISABLED → PUBLIC; ONE_HOUR / ONE_DAY → TEMPORARILY_PUBLIC until now + 1 h / 24 h; publishing and confirming confirm the binder and its items |
 | `GET /api/v1/binders/{id}/items` | inventory | the caller's items of one binder (same filters) |
 | `GET /api/v1/collectors/{handle}/binders` | binders | public binders with ≥ 1 public item (`PublicBinderSummary`) |
-| `GET /api/v1/public/binders/{id}` | binders | `PublicBinderResponse` with an owner block (handle, display name, avatar, `location: {publicLabel, distanceBucket}`, never a point); signed-in visitors other than the owner consume `binder.views.per_day` once per binder and UTC day (Redis de-duplication, 429 beyond the plan) |
+| `GET /api/v1/public/binders/{id}` | binders | `PublicBinderResponse` with an owner block (handle, display name, avatar, `place`: state or province and country, never a city or a distance); signed-in visitors other than the owner consume `binder.views.per_day` once per binder and UTC day (Redis de-duplication, 429 beyond the plan) |
 | `GET /api/v1/public/binders/{id}/items`, `GET /api/v1/collectors/{handle}/inventory` | inventory | `PublicInventoryItem` pages (no `notes`, no coordinates) |
 | `GET /api/v1/admin/delist-policies`, `PUT /api/v1/admin/delist-policies/{id}` | delisting | ADMIN+ (Phase 7 contract, built with the table); ordering validated, audited `delist_policy.update`, cache evicted |
 | `POST /internal/jobs/freshness` (hourly), `POST /internal/jobs/delist` (daily) | inventory, delisting | service auth; `@Scheduled` stand-ins under `local` (`FreshnessScheduler` every hour, `DelistScheduler` daily); both record a `job_run` |
@@ -466,49 +475,44 @@ location, profiles, users, binders, inventory and catalog modules read-only thro
 public point only) and a minimal `analytics` module. Every route is a permitAll GET
 (`SecurityConfig.PUBLIC_GET_PATTERNS`) that honours a bearer token when present.
 
+> **ADR 0017 (2026-10-08):** discovery is scoped to a platform region and has no geography:
+> `/collectors/nearby`, the preview, `lat`/`lng`/`radiusKm`, public points, distance buckets and
+> the distance sort are removed. Contract of the current routes:
+> `docs/api/contracts/s1-regions-location.md`.
+
 | Route | Notes |
 | --- | --- |
-| `GET /api/v1/collectors/nearby?lat=&lng=&radiusKm=&game=&availability=&freshness=&tags=&hasPrintingId=&hasCardId=&query=&limit=200` | collectors **on the map** (public point set, `discoverable`, account ACTIVE, profile not PRIVATE) within `ST_DWithin(public_point, centre, radius)`; filters per the contract (`availability` TRADE / SALE / TRADE_OR_SALE / ACCEPTS_OFFERS, `freshness` ACTIVE / AGING, `tags` any, `hasPrintingId` / `hasCardId` / `availability` / `game` = an effectively public ACTIVE-or-AGING item, `game` also matches the profile games, `query` = handle, display name or tag text of collectors with `searchDiscoverable`); `matchingItems` (at most 5 per marker) when a printing, card or availability filter is set; ranking freshness (ACTIVE > AGING > no listings), distance bucket, rating, distance; `total` / `truncated`; Redis cache 60 s |
-| `GET /api/v1/collectors/{handle}/preview?lat=&lng=` | the marker of one collector on the map + `canMessage` (PrivacyPolicyService) + `isBlocked`; 404 when not on the map |
-| `GET /api/v1/search?q=&types=&game=&lat=&lng=&radiusKm=&limit=10` | cards (catalog FTS + trigram), printings (code prefix, or the printings of the resolved card), sets, collectors, public binders (`search_vector` + name substring, at least one public item, owner on the map within the radius when a centre is known; each with an `owner` block); `resolved` = `{printingId, cardId}`; with a resolution `collectors` lists the holders with `matchingItems` |
-| `GET /api/v1/search/card-holders?printingId=&#124;cardId=&lat=&lng=&radiusKm=&availability=&condition=&minPrice=&maxPrice=&freshness=&edition=&language=&acceptsOffers=&sort=distance&#124;price&#124;freshness&page=&size=` | `PageResponse<CardHolderResult {collector: CollectorMarker, item: PublicInventoryItem}>`; effectively public ACTIVE/AGING items of collectors on the map within the radius; the own items of the caller are excluded |
-| `GET /api/v1/search/suggest?q=&game=&lat=&lng=&limit=10` | `[{type, id, label, sublabel, imageUrl, game, slug, cardId}]` (type CARD, PRINTING, SET, COLLECTOR, BINDER or TAG), one entry per kind in turn |
+| `GET /api/v1/search?q=&types=&game=&region=&limit=10` | cards (catalog FTS + trigram), printings, sets, collectors (discoverable, `searchDiscoverable`, located in the region), public binders of collectors of the region (each with an `owner` block); `resolved` = `{printingId, cardId}`; with a resolution `collectors` lists the holders with `matchingItems` |
+| `GET /api/v1/search/card-holders?printingId=&#124;cardId=&region=&availability=&condition=&minPrice=&maxPrice=&freshness=&edition=&language=&acceptsOffers=&sort=freshness&#124;price&page=&size=` | `PageResponse<CardHolderResult {collector: CollectorMarker, item: PublicInventoryItem}>`; effectively public ACTIVE/AGING items of discoverable collectors of the region; the own items of the caller are excluded |
+| `GET /api/v1/search/suggest?q=&game=&region=&limit=10` | `[{type, id, label, sublabel, imageUrl, game, slug, cardId}]` (type CARD, PRINTING, SET, COLLECTOR, BINDER or TAG) |
+| `GET /api/v1/regions/{region}/binder-counts` | public binders of discoverable collectors per subdivision of the region (the map's shading) |
+| `GET /api/v1/regions/{region}/subdivisions/{code}/binders?cursor=&limit=` | cursor pages (1-50) of `PublicBinderSummary` of one subdivision |
 
-### Geography (ADR 0004)
+### Region scoping (ADR 0017)
 
-- **Centre**: `lat`/`lng` when given, else the trading area of the signed-in caller
-  (`LocationService.searchCentreOf`, never another collector's); always snapped to 0.01 degree
-  (about 1 km, `SearchCentre`) before it reaches SQL, the cache key (a SHA-256 of the canonical
-  request) or the response (`center`, 2 decimals). Signed-out callers must pass `lat`/`lng` to
-  `nearby` and `card-holders` (400 otherwise); `search` and `suggest` also work without a centre
-  (then not geographic, no distances).
-- **Radius**: default 10 km (`orenji.search.default-radius-km`), lowered to the cap of the caller; an
-  explicit `radiusKm` beyond `map.radius.max_km` (FREE 25, PREMIUM 100, entitlements apply;
-  signed-out callers: FREE through `Limits.checkValueForAnonymous`) is `429 LIMIT_REACHED` with
-  `used` = the requested radius rounded up. 0.1 km steps; 0.1 to 20 000 km accepted as input.
-- Markers carry the stored public point (3 decimals) and its label; `distanceBucket` is measured from
-  the snapped centre to the public point and only returned to signed-in callers for collectors with
-  `showDistance` (never for oneself). `lastActiveBucket` / `onlineStatus` follow
-  `PrivacyPolicyService` (hidden from signed-out visitors of MEMBERS profiles). No raw distance ever
-  leaves the server. `GeoPrivacyContractTest` walks nearby, preview, search, card holders and suggest
-  for the seeded collectors, signed out and signed in.
+- `region`: the request's code (400 when unknown), else the signed-in caller's home region, else
+  the default (`americas-north`). It scopes results, never grants access.
+- Ranking: freshness (ACTIVE > AGING > no listings), rating, handle; holders sort by `freshness`
+  (default) or `price`. No distance is computed anywhere.
+- Collectors carry `place` (state or province and country); `lastActiveBucket` / `onlineStatus`
+  follow `PrivacyPolicyService`.
 
 ### Cache
 
-`NearbyCache`: `orenji:cache:nearby:<generation>:<sha256>` for 60 s (`orenji.search.nearby-cache-ttl`),
-holding the viewer-independent rows (public point, privacy switches, statistics, matching items;
-never a trading-area centre). Viewer-specific rules (distance buckets, last activity, blocks, rating
-order) are applied per request. `NearbyCacheInvalidator` bumps the generation after commit on
-`InventoryItemPublished` / `Unpublished`, `BinderPublished` / `Unpublished`, `BinderFreshnessChanged`,
-`TradingAreaChangedEvent`, `LocationRemovedEvent`, `PrivacySettingsChangedEvent`, `UserSuspendedEvent`
-and `UserUnsuspendedEvent` (plain listeners, not stored in the event publication registry); other
-changes (a price edit) show within the TTL. Fails open without Redis.
+`DiscoveryCache`: `orenji:cache:discovery:<generation>:<sha256 of the request>` for 60 s (fails open
+without Redis); the generation (`orenji:search:discovery:generation`) is bumped after commit by
+inventory and binder publications, `BinderFreshnessChanged`, `LocationChangedEvent`,
+`LocationRemovedEvent`, `PrivacySettingsChangedEvent`, suspensions, account deletion events and
+`RegionsChangedEvent`. Answers to requests with an `Authorization` header apply blocks and are never
+cached by a CDN.
 
 ### Analytics (minimal slice of Phase 12)
 
-`AnalyticsEvent` `{event_id, event_type, event_version: 1, occurred_at, actor_hash, region_label,
-geo_cell, payload}` (the columns of the BigQuery `events` table): `actor_hash` = HMAC-SHA256 of the
-account id (`ANALYTICS_ACTOR_SALT`), geography = the ~1 km grid cell id and region label only,
+`AnalyticsEvent` `{event_id, event_type, event_version: 1, occurred_at, actor_hash, region_code,
+subdivision_code, payload}` (the columns of the BigQuery `events` table; ADR 0017 replaced
+`region_label` and `geo_cell`): `actor_hash` = HMAC-SHA256 of the account id
+(`ANALYTICS_ACTOR_SALT`), geography = a platform region code and an ISO 3166-2 subdivision code only
+(keys such as `city`, `distance*`, `radius*`, `grid_cell`, `geo_cell` are refused),
 payload values = scrubbed strings (e-mails, decimal numbers and long digit runs masked, 64
 characters), whole numbers, booleans, string lists and `*_hash` hex digests; floating-point values
 and keys such as `lat`, `lng`, `email`, `handle`, `user_id` are refused. `AnalyticsPublisher` sends
@@ -517,10 +521,9 @@ writes `analytics {json}` lines on the logger `orenji.analytics`; `PubSubAnalyti
 with `EVENTS_TRANSPORT=pubsub`) publishes to `projects/<GOOGLE_CLOUD_PROJECT>/topics/<PUBSUB_TOPIC_ANALYTICS>`
 through the Pub/Sub REST API with Application Default Credentials (or `PUBSUB_EMULATOR_HOST` without
 credentials); nothing is created or contacted locally. Events: `search_performed` /
-`search_no_results` (`GET /search`, `GET /search/card-holders`, and `GET /collectors/nearby` when
-`query`, `hasPrintingId` or `hasCardId` is used; payload `surface`, scrubbed `query`, `game`,
-`types`, `resolved`, `result_count`, `radius_km`, filter names), `collector_viewed` (profile and
-preview, `target_hash`), `binder_viewed` (`binder_id`, `owner_hash`), `card_viewed` (`card_id`,
+`search_no_results` (`GET /search`, `GET /search/card-holders` and the map lists; payload
+`surface`, scrubbed `query`, `game`, `types`, `resolved`, `result_count`, filter names),
+`collector_viewed` (profile, `target_hash`), `binder_viewed` (`binder_id`, `owner_hash`), `card_viewed` (`card_id`,
 `printing_id`, `game`). They are derived from in-process notifications (`SearchPerformed`,
 `CollectorPreviewed`, `CollectorProfileViewed`, `PublicBinderViewed`, `CardViewed`), so no module
 depends on analytics. `AnalyticsIT` checks that no emitted event carries a coordinate, an e-mail
@@ -533,6 +536,9 @@ one unit per binder and UTC day; repeated, owner and signed-out views never coun
 entitled visitors are not limited; a refused view consumes nothing.
 
 ### Deviations from the Phase 4 contract
+
+> Historical (before ADR 0017): the points below about the map, centres, distances and `nearby`
+> no longer apply; the region-scoped behaviour is described above.
 
 - **Who is on the map**: discoverable collectors whose profile is not PRIVATE appear for signed-out
   visitors too (the contract rule "discoverable, ACTIVE, not deletion-requested"; `discoverable` is
@@ -558,7 +564,8 @@ entitled visitors are not limited; a refused view consumes nothing.
   several printings of one card, an exact card name, or a single card hit resolves the card.
 - Collector text matching is substring-only (handle, display name, tag label or slug); fuzzy
   matching is kept for `suggest`.
-- `nearby` is a reserved handle (the route `/collectors/nearby` shadows it).
+- `nearby` is a reserved handle (it was shadowed by the route `/collectors/nearby`, removed by
+  ADR 0017; it stays reserved so old links never land on a collector).
 - Phase 4 adds no seed data: discovery reads the Phase 1 to 3 seed (profiles, trading areas,
   binders, items).
 
@@ -678,56 +685,63 @@ blocks removed in both directions, posts and replies deleted and erased.
   registry for Phases 6 and 7. Open sessions of an account suspended later are not closed (it can no
   longer send through REST).
 
-## Wishlist, matching, notifications (Phase 6)
+## Wishlist, wishlist alerts, notifications (Phase 6, stage S2)
 
-Contract: `docs/api/contracts/phase6-wishlist-notifications.md`. Modules `wishlist` (items, matches,
-`WishlistMatcher`, rematch job) and `notifications` (`NotificationService`, dispatcher, push/email
-providers, push tokens, consumers of other modules' events). Migrations V050–V051. Every route needs
-a signed-in, compliant account.
+Contracts: `docs/api/contracts/s2-wishlist.md` (the wishlist since stage S2, 2026-10-09) and
+`docs/api/contracts/phase6-wishlist-notifications.md` (notifications; its wishlist part is history).
+Modules `wishlist` (items, price terms, `WishlistAlerts`) and `notifications` (`NotificationService`,
+dispatcher, push/email providers, push tokens, consumers of other modules' events). Migrations
+V050–V051, V112. Every route needs a signed-in, compliant account.
 
 | Route | Notes |
 | --- | --- |
-| `GET /api/v1/wishlist` | the caller's items, newest first: `{id, game, card{id,name,imageUrl}, printing (PrintingSummary or null = any printing), rarity, conditionMin, edition, language, maxPrice, currency, radiusKm, tradePreference, notes (private), active, matchCount, lastMatchedAt, createdAt, updatedAt}` |
-| `POST /api/v1/wishlist` | 201; `cardId` or `printingId` required (the card of a printing is derived); `rarity`, `conditionMin`, `edition`, `language` must belong to the game's `GameSchema` (codes are normalised: `lightly_played` → `LIGHTLY_PLAYED`, `FR` → `fr`); `maxPrice` ≥ 0 with 2 decimals, `currency` ISO 4217 (default CAD), `radiusKm` default 25 (lowered to the plan cap), `tradePreference` ANY/TRADE/SALE, `notes` ≤ 500; 409 `CONFLICT` for the same target with the same filters; 429 `LIMIT_REACHED` beyond `wishlist.items.max` (FREE 20 / PREMIUM 500) or a radius beyond `map.radius.max_km` (FREE 25 / PREMIUM 100). The new item is matched at once against the public inventory (no notification) |
-| `PATCH /api/v1/wishlist/{id}` | any subset; `printingId` (another printing of the same card, or null = any), `rarity`, `conditionMin`, `edition`, `language`, `maxPrice`, `notes` may be null; changing the criteria re-matches the item (undismissed matches that no longer apply are removed, dismissed ones stay) |
-| `DELETE /api/v1/wishlist/{id}` | 204; matches go with it |
-| `GET /api/v1/wishlist/{id}/matches?cursor=&limit=20&includeDismissed=false` | `CursorPage<WishlistMatchResponse>` newest first: `{id, wishlistItemId, item (PublicInventoryItem, never private notes), collector (CollectorMarker at the public point), distanceBucket, matchedAt, dismissed}`; items no longer public and collectors blocked in either direction are left out |
-| `POST /api/v1/wishlist/matches/{id}/dismiss` | 204, idempotent; 404 for other users' matches |
-| `GET /api/v1/collectors/{handle}/wishlist` | `[{card, printing, conditionMin}]` of the active items, only when the collector shows their wishlist (`wishlistVisible`), may be seen by the caller (profile visibility) and no block exists; 404 otherwise (the owner always sees their own) |
+| `GET /api/v1/wishlist` | the caller's items, newest first: `{id, game, card{id,name,imageUrl}, printing (PrintingSummary or null = any printing), rarity (null = any; only without a printing), note (public), nearMintOnly, priceTerm {label, percent, orMore} or null, createdAt, updatedAt}` |
+| `POST /api/v1/wishlist` | 201; `cardId` (any printing, optionally with a `rarity` of the card's printings) or `printingId` (its card is derived; a rarity equal to the printing's is dropped, another one is 400); `note` public, plain text, ≤ 280 code points, moderated (PROFILE scope); `nearMintOnly`; `priceTerm` one of `GET /wishlist/price-terms`; 409 `CONFLICT` for the same selection; 429 `LIMIT_REACHED` beyond `wishlist.items.max` (FREE 20 / PREMIUM 500). Unknown members (the removed `maxPrice`, `currency`, `tradePreference`, `notes`, `active`, `conditionMin`, `edition`, `language`, `radiusKm`) are ignored and never stored |
+| `PATCH /api/v1/wishlist/{id}` | any subset of `printingId` (another printing of the same card, or null = any), `rarity`, `note`, `priceTerm` (null clears) and `nearMintOnly`; changing `printingId` without `rarity` clears the stored rarity |
+| `DELETE /api/v1/wishlist/{id}` | 204 |
+| `GET /api/v1/wishlist/price-terms` | `{terms: [{label, percent, orMore}]}`: the admin list (platform setting `wishlist.price_terms`, seeded `80% TCG, 85% TCG, 90% TCG, 100% TCG, 100% TCG+`), display terms relative to the TCG market price, never a filter |
+| `GET\|PUT /api/v1/admin/wishlist/settings` | ADMIN; PUT `{priceTerms}` 1–10 terms `"<percent>% TCG"` (+ optional `+`), percent 1–200, audited `wishlist.settings.update` |
+| `GET /api/v1/collectors/{handle}/wishlist` | `[{card, printing, rarity, note, nearMintOnly, priceTerm}]`, only when the collector shows their wishlist (`wishlistVisible`, "Let others see what you want"), may be seen by the caller (profile visibility) and no block exists; 404 otherwise (the owner always sees their own) |
 | `GET /api/v1/notifications?cursor=&limit=20&unreadOnly=false` | `CursorPage<NotificationResponse>` `{id, type, title, body, data (ids + deepLink), createdAt, readAt}`, newest first; notifications whose in-app channel was off are never listed |
 | `GET /api/v1/notifications/unread-count` | `{count}` (badge) |
 | `POST /api/v1/notifications/{id}/read`, `POST /api/v1/notifications/read-all` | idempotent (the first read time is kept); read-all answers `{updated}`; 404 for other users' notifications |
 | `POST /api/v1/me/push-tokens {platform: IOS\|ANDROID\|WEB, token}`, `DELETE /api/v1/me/push-tokens/{token}` | 204, idempotent; a token registered by another account moves to the caller, an invalidated one becomes valid again; deleting another account's token is a no-op; tokens are never returned or logged |
-| `POST /internal/jobs/wishlist-rematch` | service auth; nightly safety net: re-matches inventory items published in the last 24 h (only lost publications create matches and notifications) and wishlist items edited in that window; `job_run`; `@Scheduled` daily under `local` (`WishlistRematchScheduler`) |
 
-### Matching (ADR 0009, ADR 0004)
+The matches feature (`wishlist_match`, `GET /wishlist/{id}/matches`, the dismiss endpoint, match
+counts, the nightly `wishlist-rematch` job and the `wishlist_matched` analytics event) was removed in
+stage S2 (V112).
+
+### Wishlist alerts (ADR 0009, ADR 0017)
 
 `InventoryItemPublished` → `WishlistInventoryListener` (`@ApplicationModuleListener`: after commit,
-own transaction, Spring Modulith registry) → `WishlistMatcher.matchPublishedItem`: the contract SQL
-(`WishlistMatchRepository.CANDIDATES`) over the item that is effectively public right now and fresh
-(ACTIVE or AGING): active wishes of other collectors for the printing (or the card when no printing
-is wished), condition rank (`array_position` in the game's ordered conditions), edition, language,
-rarity, price (same currency; unpriced items pass), trade preference (`ANY`, or TRADE/SALE against
-the availability), `ST_DWithin` between the **stored public points** of both collectors within the
-wish's radius, active wisher account, no block in either direction. Each pair is inserted once
-(`ON CONFLICT DO NOTHING`); only a new pair calls `NotificationService.notify` with the dedup key
-`wishlist:<wishlistItemId>:<inventoryItemId>`, so re-publications and redelivered events never
-notify twice. Body example: "Azure-Eyes Sky Dragon AZR-EN001 was listed ~5-10 km away for 45.00
-CAD." Both collectors need a public point (discoverable); the wisher's trading-area centre is never
-read. `WishlistMatched` / `WishlistItemCreated` feed the analytics events `wishlist_matched` (game,
-distance bucket, notified, owner hash) and `wishlist_item_created` (game, target kind, radius, price
-flag, trade preference; never notes).
+own transaction, Spring Modulith registry) → `WishlistAlerts.alertForPublishedItem`: the SQL of
+`WishlistAlertRepository` over the item that is effectively public right now and fresh (ACTIVE or
+AGING): wishes of other collectors for its printing, or for its card with no rarity or the item's
+rarity; with `nearMintOnly` a Near Mint or better condition (`array_position` in the game's ordered
+conditions); both collectors **in the same platform region** (the lister discoverable, the wisher
+with a location; no distance); an active wisher; no block in either direction. One row per wisher
+(the most specific fitting wish). Each (wisher, item) pair is decided once through the sent-alert
+key `wishlist_alert_sent` (`ON CONFLICT DO NOTHING`), then `NotificationService.notify` with type
+`WISHLIST_ALERT` and dedup key `wishlist-alert:<userId>:<inventoryItemId>`, so re-publications,
+redelivered events and several fitting wishes never alert twice. Body example: "Azure-Eyes Sky
+Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada."; `deepLink`
+`/cards/<cardId>?printing=<id>` (one-printing wish), `?rarity=<rarity>` (rarity wish) or
+`?printing=any` (any-printing wish: the selection is always said, so the card page never shows a
+printing nobody chose). `WishlistItemCreated` feeds the analytics event `wishlist_item_created` (game, target
+kind card / rarity / printing, Near Mint only, price term set; never the note).
 
 ### Notifications
 
 `NotificationService.notify(NotificationRequest)` is the single entry point for other modules. It is
 idempotent per `dedupKey` (advisory lock + unique key), skips unreachable recipients (suspended,
 deletion pending, deleted), applies the preferences of `GET/PUT /me/settings/notifications` (master
-switch and category channels; SYSTEM notices are in-app only; nothing is stored or counted when no
-channel is wanted), holds push back during quiet hours (in the collector's time zone; in-app and email
+switch and category channels; `WISHLIST_ALERT` follows the one `wishlistAlerts` switch, in-app and
+push, never email; SYSTEM notices are in-app only; nothing is stored or counted when no channel is
+wanted), holds push back during quiet hours (in the collector's time zone; in-app and email
 unaffected), counts types with a daily limit through `Limits` (`wishlist.alerts.per_day`: FREE 5,
-PREMIUM unlimited; beyond it the match is kept un-notified and one SYSTEM notice "More wishlist
-matches are waiting" with `data.kind=LIMIT_REACHED` and the upgrade link is created per UTC day), then
+PREMIUM unlimited; beyond it the alert is held back and one SYSTEM notice "More wishlist alerts are
+waiting" with `data.kind=LIMIT_REACHED` (and the upgrade link while `premiumPlans` is on) is created
+per UTC day), then
 stores the row with its channel plan and publishes `NotificationCreated`. `NotificationDispatcher`
 (`@ApplicationModuleListener`) delivers the channels still `PENDING` and writes the outcome into
 `channel_state`: the in-app payload (same shape as the REST response) on `/user/queue/notifications`
@@ -754,10 +768,11 @@ Events turned into notifications (`ActivityNotificationListener`, dedup-keyed):
 ### Seed (Phase 6)
 
 `WishlistSeedContributor` ("wishlist", after "community"): collector2 wishes `ygo-p001a` (Azure-Eyes
-Sky Dragon AZR-EN001, at least LIGHTLY_PLAYED, up to 60 CAD, radius 25 km), which collector1 lists
-publicly, so the seed runs the real matcher and collector2 gets a WISHLIST_MATCH notification; plus
-`pkm-p002a` (collector1 keeps it in a private unfiled lot: publishing it locally triggers a fresh match
-and notification) and the card of `mtg-p005b` for trade (collector5 lists it). Stable ids
+Sky Dragon AZR-EN001, Near Mint only, "90% TCG", a public note), which collector1 lists publicly
+(Near Mint), so the seed runs the real wishlist alert and collector2 gets a WISHLIST_ALERT
+notification; plus `pkm-p002a` (collector1 keeps it in a private unfiled lot: publishing it locally
+triggers a fresh alert) and the card of `mtg-p005b`, any printing, "100% TCG+" (collector5 lists it;
+no alert at seed time). Stable ids
 `00000000-0000-4000-8f00-0000000002NN`; collector2's wishlist becomes visible on the first run.
 `NotificationSeedContributor` ("notifications"): four history rows `00000000-0000-4000-9a00-…` (read
 welcome and message notices for collector1, an unread message notice for collector2, an unread
@@ -765,24 +780,21 @@ freshness warning for collector3), never dispatched.
 
 ### Account data
 
-Export sections `wishlist` (every item with its private notes), `notifications` (the latest 1 000)
-and `pushTokens` (platform and dates, never the token). Deletion removes wishlist items and their
-matches, notifications and push tokens.
+Export sections `wishlist` (every item with its public note, Near Mint flag and price term),
+`notifications` (the latest 1 000) and `pushTokens` (platform and dates, never the token). Deletion
+removes wishlist items and their sent-alert keys, notifications and push tokens.
 
 ### Deviations from the Phase 6 contract
 
 - The daily limit is counted by the Phase 2 `Limits` service (`usage_counter` per UTC day with its
   Redis mirror `orenji:usage:*`) instead of a separate Redis key `notif:{userId}:{type}:{day}`; the
   limit values still come from `usage_limit` (ADR 0014).
-- Additive: `WishlistMatchResponse.wishlistItemId`, `WishlistItemResponse.updatedAt`, `GET
-  /wishlist/{id}/matches?includeDismissed=&limit=`, `GET /notifications?limit=`,
+- Additive: `WishlistItemResponse.updatedAt`, `GET /notifications?limit=`,
   `POST /notifications/read-all` answers `{updated}`; `notification.in_app` column (rows whose in-app
   channel was off exist for push/email bookkeeping but are never listed).
-- Matching also requires the item to be fresh (ACTIVE or AGING, like the map) and the rarity filter
-  (a contract field that the contract SQL omitted); items priced in another currency never meet a
-  maximum price.
-- A wish created or edited is matched at once against the current public inventory **without**
-  notifications (the collector is looking at the result); only new publications notify.
+- Stage S2 (2026-10-09) replaced the contract's wishlist model and matching by the simpler wish
+  and the wishlist alerts of `docs/api/contracts/s2-wishlist.md`; alerts also require the item to
+  be fresh (ACTIVE or AGING, like the map).
 - `DELETE /me/push-tokens/{token}` needs tokens without `/` (FCM and Expo tokens qualify; URL-encode
   `[` / `]`).
 
@@ -841,7 +853,7 @@ through `LEAST`/`GREATEST`) is the API Phase 8 calls for accepted offers and tra
 CONVERSATION_QUALIFIED once both participants sent at least 3 messages (deleted and SYSTEM messages
 not counted; only counts leave the messaging module). `rating_summary` is recomputed from the OK
 ratings on every write, hide and unhide and feeds the profiles module's `RatingSummaryProvider`:
-collector profiles, previews and markers show the average and count, and the nearby ranking reads a
+collector profiles and search results show the average and count, and the discovery ranking reads a
 whole page of summaries in one query (`RatingSummaryProvider.ratingsOf`, used by `MarkerAssembler`).
 `RatingSubmitted` feeds the analytics event `rating_submitted` (interaction kind, score, comment flag,
 ratee hash).
@@ -865,7 +877,7 @@ UNRESPONSIVE / REPORT_THRESHOLD / MODERATION / ADMIN, `pause_reason`, `paused_by
 `ListingPauseRules.NOT_PAUSED` (a correlated lookup on the owner alias `u`) is part of
 `PublicVisibilityRules.OWNER_LISTINGS_PUBLIC`, used by the effective public visibility of items
 (`InventoryItemRepository.LISTED`) and binders (`binderEffectivelyPublic`): every public read, the
-map's listing counts, search, card holders and wishlist matching ignore a paused collector's listings,
+map's listing counts, search, card holders and wishlist alerts ignore a paused collector's listings,
 while the collector stays on the map. `ListingsPaused` / `ListingsResumed` make the inventory module
 reconcile the owner (materialised flags and publication events) and `ListingsPaused` sends a SYSTEM
 notice (`data.kind=LISTINGS_PAUSED`, `source`, never the reason). Nothing is ever deleted.
@@ -1026,7 +1038,7 @@ offer settings (the offer and trade rows stay for the other party).
   `PublicInventoryItem`s. `OfferResponse` adds `rootOfferId`, `latestOfferId`, `viewerRole`,
   `superseded`, `version`, `protectionRequested`, `allowedActions`, `tradeId`, `updatedAt`,
   `closedAt`; `counterOf` is the parent proposal. Parties are `OfferParty` (handle, display name,
-  avatar, rating, region label and distance bucket; never a point).
+  avatar, rating, `place`; never a city or a distance).
 - The optimistic `version` is optional in the action bodies (`accept`/`decline`/`cancel` accept an
   optional body); a counter-offer must change the deal (400); a counter resets the expiry to
   `expiresInHours` (default 72).
@@ -1399,7 +1411,7 @@ Phase 2 adds `V010__feature_flags.sql` (`feature_flag`), `V011__plans_limits.sql
 `message_attachment`, `image_upload`, `user_block`), `V041__community.sql` (`community_channel` with the
 eight launch channels, `community_post`, `community_reply`) and `V042__moderation_flags.sql`
 (`moderation_flag`, the rate-pattern check and the Phase 5 moderation rules). Phase 6 adds
-`V050__wishlist.sql` (`wishlist_item`, `wishlist_match`) and `V051__notifications.sql`
+`V050__wishlist.sql` (`wishlist_item`, `wishlist_match` — dropped by V112) and `V051__notifications.sql`
 (`notification`, `push_token`). Phase 7 adds `V060__ratings.sql` (`interaction`, `rating`,
 `rating_summary`, `reference`), `V061__collector_reports.sql` (`collector_report`, `moderator_note`, the
 REPORT moderation rules and flag reason, `user_account.banned_at`),
@@ -1436,7 +1448,8 @@ com.orenjitrade.api
 │                system health
 ├── jobs/        job_run records (+ JobRunSummaries), POST /internal/jobs/ping
 ├── profiles/    profile, avatar, tags, privacy settings + PrivacyPolicyService, collector view
-├── location/    user_location, ApproximateLocationService, StaticRegionGeocoder (ADR 0004)
+├── location/    platform regions, countries, subdivisions (RegionCatalog, /regions, /admin/regions),
+│                self-declared user_location, /me/location (ADR 0017)
 ├── notifications/ preferences, NotificationService (dedup, quiet hours, daily limits), dispatcher
 │                (realtime, PushProvider log/FCM, EmailProvider log), push tokens, event consumers
 ├── moderation/  moderation_rule + TextModerationService (banned terms), ModerationService
@@ -1453,13 +1466,13 @@ com.orenjitrade.api
 ├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
 ├── inventory/   items, photos, bulk operations, public item lists, ListingReconciler (publication
 │                events), freshness job (implements BinderContents)
-├── search/      /collectors/nearby + preview, /search, /search/card-holders, /search/suggest,
-│                Redis nearby cache (Phase 4)
+├── search/      region-scoped /search, /search/card-holders, /search/suggest, map binder counts
+│                and lists per subdivision, Redis discovery cache
 ├── analytics/   AnalyticsEvent, AnalyticsPublisher, log / Pub/Sub transports, local daily
 │                aggregate + /admin/analytics/summary
 ├── messaging/   conversations, messages, uploads, blocks, STOMP /ws + Redis fan-out, presence
 ├── community/   channels, posts, replies, /admin/community (Phase 5)
-├── wishlist/    wishlist items, WishlistMatcher (InventoryItemPublished), matches, rematch job
+├── wishlist/    wishlist items, price terms, WishlistAlerts (InventoryItemPublished)
 ├── ratings/     interactions, ratings (14-day edits, summaries), references, admin hide/unhide
 ├── reports/     collector reports, threshold, moderator review and decisions, history
 ├── offers/      offers (counter chain, current_turn, versions, history), expiry job, offer settings,

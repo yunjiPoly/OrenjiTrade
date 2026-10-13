@@ -12,7 +12,7 @@ import { PublicInventoryItem } from './publicInventoryItem';
 
 
 /**
- * A collector near you holding the card
+ * A collector of the region holding the card
  */
 export interface CardHolderResult { 
     collector: CollectorMarker;

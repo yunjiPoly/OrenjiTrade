@@ -1,5 +1,5 @@
 import { APIRequestContext, Browser, Page, expect, test } from '@playwright/test';
-import { tooPrecise, watchCoordinates } from './support/inventory';
+import { coordinateLeaks, watchCoordinates } from './support/inventory';
 import {
   API_URL,
   OnboardedCollector,
@@ -13,15 +13,16 @@ import {
 
 /**
  * Public community channels (Phase 5) against the real local stack: a collector opens
- * `/community`, moves to "Montréal / Pokémon", posts with a shared card, is told inline that the
+ * `/community`, lands on the channel of their platform region (ADR 0017: one channel per region),
+ * moves to the "Looking for" topic and back, posts with a shared card, is told inline that the
  * same text cannot be posted twice, edits the post; a second collector (another browser context)
  * replies inline; the author sees the reply and deletes the post. A moderator removes a post with
  * a reason. Every account is fictional and fresh; posts carry unique text so earlier runs never
  * interfere.
  */
 
-const CHANNEL = 'montreal-pokemon';
-const CHANNEL_NAME = 'Montréal / Pokémon';
+const CHANNEL = 'americas-north';
+const CHANNEL_NAME = 'Americas (North)';
 
 function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
@@ -68,15 +69,19 @@ test.describe('community channels', () => {
 
     const page = await openSignedIn(browser, author);
     const watcher = watchCoordinates(page);
-    // The primary navigation leads to the default (first regional) channel.
+    // The primary navigation leads to the channel of the browsed region (the home region).
     await page
       .getByRole('navigation', { name: 'Primary' })
       .getByRole('link', { name: 'Community' })
       .click();
-    await expect(page).toHaveURL(/\/community\/montreal-yugioh$/);
+    await expect(page).toHaveURL(/\/community\/americas-north$/);
     const channels = page.getByRole('navigation', { name: 'Community channels' });
-    await expect(channels.getByRole('heading', { name: 'Montréal' })).toBeVisible();
+    await expect(channels.getByRole('heading', { name: 'Regions' })).toBeVisible();
+    await expect(channels.getByRole('link', { name: 'Europe' })).toBeVisible();
+    await expect(channels.getByRole('link', { name: /Montréal/ })).toHaveCount(0);
     await expect(channels.getByRole('heading', { name: 'Topics' })).toBeVisible();
+    await channels.getByRole('link', { name: 'Looking for' }).click();
+    await expect(page).toHaveURL(/\/community\/looking-for$/);
     await channels.getByRole('link', { name: CHANNEL_NAME }).click();
     await expect(page).toHaveURL(new RegExp(`/community/${CHANNEL}$`));
     await expect(channels.getByRole('link', { name: CHANNEL_NAME })).toHaveAttribute(
@@ -86,7 +91,7 @@ test.describe('community channels', () => {
     await expect(page.getByRole('heading', { level: 2, name: CHANNEL_NAME })).toBeVisible();
 
     // Post with a shared card.
-    const text = `Looking for Azure-Eyes in near mint around the Plateau ${suffix()}`;
+    const text = `Looking for Azure-Eyes in near mint in Quebec ${suffix()}`;
     const composer = page.getByRole('form', { name: `Post in ${CHANNEL_NAME}` });
     await composer.getByRole('textbox', { name: 'Post text' }).fill(text);
     await composer.getByRole('button', { name: 'Card' }).click();
@@ -166,7 +171,7 @@ test.describe('community channels', () => {
     await expect(postOf(page, edited)).toHaveCount(0);
 
     await watcher.settle();
-    expect(tooPrecise(watcher.samples), 'lat/lng with more than 3 decimals').toEqual([]);
+    expect(coordinateLeaks(watcher.samples), 'lat/lng in a JSON answer').toEqual([]);
     await page.context().close();
     await other.context().close();
   });
@@ -212,8 +217,10 @@ test.describe('community channels', () => {
       const flaggedId = await apiPost(request, member, `Great fnordpromo bundle here ${suffix()}`);
       await page.goto('/admin/community');
       const channelList = page.getByRole('list', { name: 'Community channels' });
+      await expect(channelList.locator(`[data-channel="${CHANNEL}"]`)).toContainText(CHANNEL_NAME);
+      // The former city channels are archived, not deleted (ADR 0017).
       await expect(channelList.locator('[data-channel="montreal-pokemon"]')).toContainText(
-        CHANNEL_NAME,
+        'Archived',
       );
       await page.getByRole('tab', { name: 'Moderation flags' }).click();
       await expect(page).toHaveURL(/\/admin\/community\?tab=flags$/);

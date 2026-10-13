@@ -20,7 +20,6 @@ import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
 import { offerTargetFromItem, type OfferSeller } from '@/src/features/offers/offerTarget';
 import { reportParams } from '@/src/features/reports/reportLabels';
 import { boundedQuery, QUERY_MAX_LENGTH, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
-import { distanceBucketLabel } from '@/src/lib/formatDistanceBucket';
 import {
   AVAILABILITIES,
   AVAILABILITY_LABELS,
@@ -30,7 +29,7 @@ import {
   endsLabel,
 } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
-import { GENERIC_AREA_LABEL, placeLabel } from '@/src/lib/location';
+import { GENERIC_PLACE_LABEL, placeLabel } from '@/src/lib/place';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 const ANY = '__any__';
@@ -42,7 +41,7 @@ export interface PublicBinderViewProps {
 /**
  * A public binder (web: `/binders/:id`, `GET /public/binders/{id}` + its public cards): only what
  * the owner made public, never private notes, never coordinates (the owner block carries a region
- * label and a distance bucket). Search and availability filters, "Make an offer" on the cards
+ * state or province). Search and availability filters, "Make an offer" on the cards
  * that accept one, "Report" the owner (BINDER context); 404 when it is not public, and the plan's
  * daily binder views explained when they run out.
  */
@@ -111,7 +110,7 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
     displayName: current.owner.displayName,
     handle: current.owner.handle,
     avatarUrl: current.owner.avatarUrl ?? null,
-    placeLabel: current.owner.location?.publicLabel ?? null,
+    placeLabel: placeLabel(current.owner.place),
   };
   return (
     <>
@@ -214,17 +213,11 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
   );
 }
 
-function nearLabel(publicLabel: string | null | undefined): string {
-  const place = placeLabel(publicLabel);
-  return place ? `Near ${place}` : GENERIC_AREA_LABEL;
-}
-
 function PublicBinderHeader({ binder }: { binder: PublicBinderResponse }) {
   const { palette } = useTheme();
   const router = useRouter();
   const selfId = useAccount().me?.id ?? null;
   const owner = binder.owner;
-  const distance = distanceBucketLabel(owner.location?.distanceBucket);
   const ends = endsLabel(binder.publicUntil);
   return (
     <View style={styles.headerBlock}>
@@ -267,15 +260,12 @@ function PublicBinderHeader({ binder }: { binder: PublicBinderResponse }) {
             {owner.displayName}
           </Text>
           <Text style={[textStyle('sm'), { color: palette.textMuted }]}>@{owner.handle}</Text>
-          {owner.location ? (
-            <Text
-              testID="public-binder-owner-area"
-              style={[textStyle('xs'), { color: palette.textMuted }]}
-            >
-              {nearLabel(owner.location.publicLabel)}
-              {distance ? ` · ${distance}` : ''}
-            </Text>
-          ) : null}
+          <Text
+            testID="public-binder-owner-area"
+            style={[textStyle('xs'), { color: palette.textMuted }]}
+          >
+            {placeLabel(owner.place) ?? GENERIC_PLACE_LABEL}
+          </Text>
         </View>
       </Pressable>
       {owner.id !== selfId ? (

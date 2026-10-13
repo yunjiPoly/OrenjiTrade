@@ -3,7 +3,7 @@
 # and sees their profile. The seed account is only signed in to, never modified in the emulator;
 # its 18+ confirmation (the seed predates the rule) is recorded through the API first, as the
 # onboarding age step would (proven on its own by age-step-existing-account.yaml).
-appId: host.exp.exponent
+appId: ${APP_ID}
 name: Sign in with a seed collector
 tags:
   - mobile-m1
@@ -31,7 +31,7 @@ tags:
 - tapOn:
     id: 'sign-in-password'
 - inputText: 'not-the-password'
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'sign-in-submit'
 - extendedWaitUntil:
@@ -44,7 +44,7 @@ tags:
     id: 'sign-in-password'
 - eraseText: 40
 - inputText: ${SEED_PASSWORD}
-- hideKeyboard
+- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'sign-in-submit'
 - extendedWaitUntil:

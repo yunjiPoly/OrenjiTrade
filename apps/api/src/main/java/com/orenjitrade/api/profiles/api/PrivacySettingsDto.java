@@ -15,11 +15,12 @@ import jakarta.validation.constraints.NotNull;
 public record PrivacySettingsDto(
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,
-                        description = "Appear on the map / in nearby searches (default false)")
+                        description =
+                                "Appear in region search, card holder lists and the state binder"
+                                        + " lists of the map (default false); needs a country and a"
+                                        + " state/province, 409 LOCATION_REQUIRED otherwise")
                 @NotNull
                 Boolean discoverable,
-        @Schema(requiredMode = RequiredMode.REQUIRED, description = "Default true") @NotNull
-                Boolean showDistance,
         @Schema(requiredMode = RequiredMode.REQUIRED, description = "Default false") @NotNull
                 Boolean showOnlineStatus,
         @Schema(requiredMode = RequiredMode.REQUIRED, description = "Default true") @NotNull
@@ -37,7 +38,6 @@ public record PrivacySettingsDto(
     static PrivacySettingsDto from(PrivacySettingsView view) {
         return new PrivacySettingsDto(
                 view.discoverable(),
-                view.showDistance(),
                 view.showOnlineStatus(),
                 view.showLastActive(),
                 view.profileVisibility(),
@@ -49,7 +49,6 @@ public record PrivacySettingsDto(
     PrivacySettingsView toView() {
         return new PrivacySettingsView(
                 discoverable,
-                showDistance,
                 showOnlineStatus,
                 showLastActive,
                 profileVisibility,
