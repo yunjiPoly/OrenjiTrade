@@ -826,6 +826,187 @@ class InventoryImportIT extends AbstractIntegrationTest {
                         });
     }
 
+    @Test
+    void theRowsWhoseCopyWasAssumedAreCountedAndCanBeListedUntilEachIsChecked() {
+        String uid = uniqueUid("import-assumed");
+        provisionCompliant(uid);
+        TestSet older = ImportTestSupport.set(testUsers, YUGIOH, LocalDate.of(2024, 7, 20));
+        TestSet newest = ImportTestSupport.set(testUsers, YUGIOH, LocalDate.of(2026, 2, 5));
+        // Two cards their most recent set holds as a 1st Edition and an Unlimited copy, with a
+        // card the date decides and one nothing decides between them in the file.
+        TestCard versionsA = ImportTestSupport.card(testUsers, YUGIOH, null);
+        ImportTestSupport.printing(
+                testUsers, versionsA, newest, "EN030", "Rare", "FIRST_EDITION", "en");
+        TestPrinting plainA =
+                ImportTestSupport.printing(
+                        testUsers, versionsA, newest, "EN030", "Rare", "UNLIMITED", "en");
+        TestCard clear = ImportTestSupport.card(testUsers, YUGIOH, null);
+        ImportTestSupport.printing(testUsers, clear, older, "EN031", "Rare");
+        ImportTestSupport.printing(testUsers, clear, newest, "EN031", "Rare");
+        TestCard versionsB = ImportTestSupport.card(testUsers, YUGIOH, null);
+        ImportTestSupport.printing(
+                testUsers, versionsB, newest, "EN032", "Rare", "FIRST_EDITION", "en");
+        TestPrinting plainB =
+                ImportTestSupport.printing(
+                        testUsers, versionsB, newest, "EN032", "Rare", "UNLIMITED", "en");
+        TestCard rarities = ImportTestSupport.card(testUsers, YUGIOH, null);
+        ImportTestSupport.printing(testUsers, rarities, newest, "EN033", "Super Rare");
+        ImportTestSupport.printing(testUsers, rarities, newest, "EN033", "Secret Rare");
+        String file =
+                "Product Name,Quantity\n"
+                        + versionsA.name()
+                        + ",1\n"
+                        + clear.name()
+                        + ",1\n"
+                        + versionsB.name()
+                        + ",1\n"
+                        + rarities.name()
+                        + ",1\n"
+                        + InventoryTestSupport.token()
+                        + " Nobody,1\n";
+        String id = upload(uid, "COLLECTR_CSV", file, 201).path("id").asString();
+        String base = IMPORTS + "/" + id;
+        String assumedRows = base + "/rows?printingChoice=MOST_RECENT_ASSUMED";
+        assertThat(assumedPrintings(uid, base)).as("nothing was assumed yet").isZero();
+        assertThat(callJson(HttpMethod.GET, assumedRows, uid, null, 200).path("totalItems").asInt())
+                .isZero();
+
+        JsonNode recent =
+                callJson(
+                        HttpMethod.POST,
+                        base + "/bulk",
+                        uid,
+                        Map.of("action", "USE_MOST_RECENT_PRINTING"),
+                        200);
+
+        assertThat(recent.path("assumed").asInt()).isEqualTo(2);
+        assertThat(recent.path("preview").path("summary").path("assumedPrintings").asInt())
+                .as("the count stays on the preview after the answer of the bulk action is gone")
+                .isEqualTo(2);
+        assertThat(assumedPrintings(uid, base)).isEqualTo(2);
+        JsonNode listed = callJson(HttpMethod.GET, assumedRows, uid, null, 200);
+        assertThat(listed.path("totalItems").asInt()).isEqualTo(2);
+        assertThat(positions(listed))
+                .as("the rows to check, in file order, and only those")
+                .containsExactly(0, 2);
+        for (JsonNode row : listed.path("items")) {
+            assertThat(row.path("printingChoice").asString()).isEqualTo("MOST_RECENT_ASSUMED");
+        }
+        assertThat(listed.path("items").get(0).path("printing").path("id").asString())
+                .isEqualTo(plainA.id().toString());
+        assertThat(
+                        positions(
+                                callJson(
+                                        HttpMethod.GET,
+                                        base + "/rows?printingChoice=MOST_RECENT",
+                                        uid,
+                                        null,
+                                        200)))
+                .as("the row the release date decided is not one to check")
+                .containsExactly(1);
+        assertThat(
+                        positions(
+                                callJson(
+                                        HttpMethod.GET,
+                                        assumedRows + "&status=READY&size=1&page=1",
+                                        uid,
+                                        null,
+                                        200)))
+                .as("paged like every list of rows, and with a status when one is asked")
+                .containsExactly(2);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        assumedRows + "&status=CHOOSE_PRINTING",
+                                        uid,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asInt())
+                .isZero();
+        callJson(HttpMethod.GET, base + "/rows?printingChoice=GUESSED", uid, null, 400);
+
+        // A row left out is still one whose copy was assumed: it is listed until it is checked.
+        String rowA = listed.path("items").get(0).path("id").asString();
+        String rowB = listed.path("items").get(1).path("id").asString();
+        JsonNode leftOut =
+                callJson(
+                        HttpMethod.PATCH,
+                        base + "/rows/" + rowA,
+                        uid,
+                        Map.of("included", false),
+                        200);
+        assertThat(leftOut.path("preview").path("summary").path("assumedPrintings").asInt())
+                .isEqualTo(2);
+        assertThat(positions(callJson(HttpMethod.GET, assumedRows, uid, null, 200)))
+                .containsExactly(0, 2);
+
+        // The collector confirms the plain copy of the first row: it is their choice from here on.
+        JsonNode confirmed =
+                callJson(
+                        HttpMethod.PATCH,
+                        base + "/rows/" + rowA,
+                        uid,
+                        Map.of("printingId", plainA.id().toString()),
+                        200);
+        assertThat(confirmed.path("row").path("printingChoice").asString()).isEqualTo("MANUAL");
+        assertThat(confirmed.path("preview").path("summary").path("assumedPrintings").asInt())
+                .isEqualTo(1);
+        assertThat(positions(callJson(HttpMethod.GET, assumedRows, uid, null, 200)))
+                .containsExactly(2);
+
+        // "Decide later" takes the copy away: the row is to choose, no longer to check.
+        Map<String, Object> noPrinting = new LinkedHashMap<>();
+        noPrinting.put("printingId", null);
+        JsonNode later = callJson(HttpMethod.PATCH, base + "/rows/" + rowB, uid, noPrinting, 200);
+        assertThat(later.path("preview").path("summary").path("assumedPrintings").asInt()).isZero();
+        assertThat(callJson(HttpMethod.GET, assumedRows, uid, null, 200).path("totalItems").asInt())
+                .isZero();
+
+        // The bulk action again: the row is assumed again. Then its printing leaves the catalog,
+        // which leaves the row without one: to choose again, not to check.
+        assertThat(
+                        callJson(
+                                        HttpMethod.POST,
+                                        base + "/bulk",
+                                        uid,
+                                        Map.of("action", "USE_MOST_RECENT_PRINTING"),
+                                        200)
+                                .path("preview")
+                                .path("summary")
+                                .path("assumedPrintings")
+                                .asInt())
+                .isEqualTo(1);
+        testUsers.update("DELETE FROM card_printing WHERE id = ?", plainB.id());
+        assertThat(assumedPrintings(uid, base)).isZero();
+        assertThat(callJson(HttpMethod.GET, assumedRows, uid, null, 200).path("totalItems").asInt())
+                .isZero();
+        assertThat(
+                        positions(
+                                callJson(
+                                        HttpMethod.GET,
+                                        base + "/rows?status=CHOOSE_PRINTING",
+                                        uid,
+                                        null,
+                                        200)))
+                .containsExactly(2, 3);
+    }
+
+    private int assumedPrintings(String uid, String base) {
+        return callJson(HttpMethod.GET, base, uid, null, 200)
+                .path("summary")
+                .path("assumedPrintings")
+                .asInt(-1);
+    }
+
+    private static List<Integer> positions(JsonNode page) {
+        List<Integer> positions = new ArrayList<>();
+        for (JsonNode row : page.path("items")) {
+            positions.add(row.path("position").asInt());
+        }
+        return positions;
+    }
+
     // ---------------------------------------------------------------------------------------
     // Commit
     // ---------------------------------------------------------------------------------------

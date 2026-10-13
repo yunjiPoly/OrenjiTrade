@@ -198,7 +198,19 @@ public final class InventoryImportResponses {
                                             + " is no such row or they differ",
                             example = "DAMAGED")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String defaultCondition) {
+                    @Nullable String defaultCondition,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Rows whose printing the bulk action USE_MOST_RECENT_PRINTING"
+                                            + " took as the plain copy of several versions"
+                                            + " (`printingChoice` MOST_RECENT_ASSUMED) and the"
+                                            + " collector has not confirmed or changed since, left"
+                                            + " out or not: the rows to check. GET"
+                                            + " /inventory/imports/{id}/rows"
+                                            + "?printingChoice=MOST_RECENT_ASSUMED lists them",
+                            example = "0")
+                    int assumedPrintings) {
 
         static SummaryResponse from(ImportSummary summary) {
             return new SummaryResponse(
@@ -211,7 +223,8 @@ public final class InventoryImportResponses {
                     summary.items(),
                     summary.mergedItems(),
                     summary.defaultConditions(),
-                    summary.defaultCondition());
+                    summary.defaultCondition(),
+                    summary.assumedPrintings());
         }
     }
 

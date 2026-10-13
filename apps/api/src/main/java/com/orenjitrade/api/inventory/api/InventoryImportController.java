@@ -16,6 +16,7 @@ import com.orenjitrade.api.inventory.domain.imports.ImportSource;
 import com.orenjitrade.api.inventory.domain.imports.ImportText;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportService;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportSettings;
+import com.orenjitrade.api.inventory.domain.imports.PrintingChoice;
 import com.orenjitrade.api.inventory.domain.imports.RowStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -220,7 +221,10 @@ public class InventoryImportController {
             summary = "The rows of an import (pages)",
             description =
                     "In file order. `status` keeps the rows of one status: READY,"
-                            + " CHOOSE_PRINTING or UNMATCHED.")
+                            + " CHOOSE_PRINTING or UNMATCHED. `printingChoice` keeps the rows whose"
+                            + " printing was chosen one way: MOST_RECENT_ASSUMED lists the rows"
+                            + " `summary.assumedPrintings` counts, for the collector to check."
+                            + " Both together keep the rows that fit both.")
     @ApiResponse(responseCode = "200", description = "One page of rows")
     @ApiResponse(
             responseCode = "404",
@@ -240,10 +244,11 @@ public class InventoryImportController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PathVariable UUID id,
             @RequestParam(required = false) @Nullable RowStatus status,
+            @RequestParam(required = false) @Nullable PrintingChoice printingChoice,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
         return InventoryImportResponses.page(
-                importService.rows(principal.userId(), id, status, page, size));
+                importService.rows(principal.userId(), id, status, printingChoice, page, size));
     }
 
     @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)

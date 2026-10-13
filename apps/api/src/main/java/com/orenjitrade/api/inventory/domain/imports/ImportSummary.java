@@ -20,6 +20,9 @@ import org.jspecify.annotations.Nullable;
  * @param defaultCondition the condition those rows have when they all have the same one (the lowest
  *     grade of the game until a bulk action sets another); {@code null} when there is no such row
  *     or they differ
+ * @param assumedPrintings rows whose printing the bulk action took as the plain copy of several
+ *     versions ({@code MOST_RECENT_ASSUMED}) and the collector has not confirmed or changed since:
+ *     the rows the collector is asked to check, whether they are left out or not
  * @param deckMain YDK: copies the file holds in the main deck, whatever counts (0 for a CSV)
  * @param deckExtra YDK: copies the file holds in the extra deck
  * @param deckSide YDK: copies the file holds in the side deck
@@ -35,6 +38,7 @@ public record ImportSummary(
         int mergedItems,
         int defaultConditions,
         @Nullable String defaultCondition,
+        int assumedPrintings,
         long deckMain,
         long deckExtra,
         long deckSide) {}

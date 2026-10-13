@@ -209,11 +209,20 @@ public class InventoryImportService {
         return view(usable(require(ownerId, importId)));
     }
 
-    /** {@code GET /inventory/imports/{id}/rows}: one page of rows in file order. */
+    /**
+     * {@code GET /inventory/imports/{id}/rows}: one page of rows in file order, all of them or
+     * those of one status and of one way their printing was chosen.
+     */
     public PageResponse<ImportRowView> rows(
-            UUID ownerId, UUID importId, @Nullable RowStatus status, int page, int size) {
+            UUID ownerId,
+            UUID importId,
+            @Nullable RowStatus status,
+            @Nullable PrintingChoice choice,
+            int page,
+            int size) {
         ImportRecord record = usable(require(ownerId, importId));
-        InventoryImportRepository.RowPage rows = imports.rowsPage(importId, status, page, size);
+        InventoryImportRepository.RowPage rows =
+                imports.rowsPage(importId, status, choice, page, size);
         return PageResponse.of(rowViews(record, rows.rows()), page, size, rows.total());
     }
 

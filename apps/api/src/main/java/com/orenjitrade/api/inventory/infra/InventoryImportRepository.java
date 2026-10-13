@@ -83,6 +83,14 @@ public class InventoryImportRepository {
     private static final String KEPT = "(r.included AND " + IN_SCOPE + " AND " + COPIES + " >= 1)";
 
     /**
+     * The row has a printing the bulk action took as the plain copy of several versions, and the
+     * collector has not confirmed or changed it since (needs alias {@code r}). A printing that left
+     * the catalog leaves the row without one: it is to choose again, not to check.
+     */
+    private static final String ASSUMED =
+            "(r.printing_id IS NOT NULL AND r.printing_choice = 'MOST_RECENT_ASSUMED')";
+
+    /**
      * The private items the collector of the preview {@code :id} already has, one row per printing,
      * condition, edition and language, among the printings of the preview (needs aliases {@code r}
      * and {@code p}): a row that joins one is added to that item instead of becoming a new one. An
@@ -259,6 +267,9 @@ public class InventoryImportRepository {
                                 + " NULL AND r.condition_source = 'DEFAULT') AS default_kinds,"
                                 + " min(r.condition) FILTER (WHERE r.card_id IS NOT NULL AND"
                                 + " r.condition_source = 'DEFAULT') AS default_condition,"
+                                + " count(*) FILTER (WHERE "
+                                + ASSUMED
+                                + ") AS assumed_printings,"
                                 + " COALESCE(sum(r.qty_main), 0) AS deck_main,"
                                 + " COALESCE(sum(r.qty_extra), 0) AS deck_extra,"
                                 + " COALESCE(sum(r.qty_side), 0) AS deck_side"
@@ -283,6 +294,7 @@ public class InventoryImportRepository {
                                         rs.getInt("default_kinds") == 1
                                                 ? rs.getString("default_condition")
                                                 : null,
+                                        rs.getInt("assumed_printings"),
                                         rs.getLong("deck_main"),
                                         rs.getLong("deck_extra"),
                                         rs.getLong("deck_side")))
@@ -331,8 +343,17 @@ public class InventoryImportRepository {
                 .optional();
     }
 
-    /** One page of rows in file order, all of them or those of one status. */
-    public RowPage rowsPage(UUID importId, @Nullable RowStatus status, int page, int size) {
+    /**
+     * One page of rows in file order: all of them, those of one status, those whose printing was
+     * chosen one way, or both. The rows {@code MOST_RECENT_ASSUMED} keeps are the ones {@link
+     * #summary} counts as {@code assumedPrintings}.
+     */
+    public RowPage rowsPage(
+            UUID importId,
+            @Nullable RowStatus status,
+            @Nullable PrintingChoice choice,
+            int page,
+            int size) {
         String filter =
                 status == null
                         ? ""
@@ -343,15 +364,18 @@ public class InventoryImportRepository {
                             case READY ->
                                     " AND r.card_id IS NOT NULL AND r.printing_id IS NOT NULL";
                         };
-        long total =
+        if (choice != null) {
+            // A printing that left the catalog leaves its row without one: such a row is to
+            // choose again, however its printing had been chosen.
+            filter += " AND r.printing_id IS NOT NULL AND r.printing_choice = :choice";
+        }
+        JdbcClient.StatementSpec count =
                 jdbc.sql(
                                 "SELECT count(*) FROM inventory_import_row r WHERE r.import_id ="
                                         + " :id"
                                         + filter)
-                        .param("id", importId)
-                        .query(Long.class)
-                        .single();
-        List<ImportRow> rows =
+                        .param("id", importId);
+        JdbcClient.StatementSpec select =
                 jdbc.sql(
                                 "SELECT "
                                         + ROW_COLUMNS
@@ -360,9 +384,13 @@ public class InventoryImportRepository {
                                         + " ORDER BY r.position LIMIT :limit OFFSET :offset")
                         .param("id", importId)
                         .param("limit", size)
-                        .param("offset", (long) page * size)
-                        .query(InventoryImportRepository::mapRow)
-                        .list();
+                        .param("offset", (long) page * size);
+        if (choice != null) {
+            count = count.param("choice", choice.name());
+            select = select.param("choice", choice.name());
+        }
+        long total = count.query(Long.class).single();
+        List<ImportRow> rows = select.query(InventoryImportRepository::mapRow).list();
         return new RowPage(rows, total);
     }
 
