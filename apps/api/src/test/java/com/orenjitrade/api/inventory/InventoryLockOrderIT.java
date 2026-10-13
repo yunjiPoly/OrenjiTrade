@@ -1001,6 +1001,67 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         }
     }
 
+    /** What a binder delete does with the items of the binder. */
+    enum BinderDelete {
+        WITH_ITS_ITEMS,
+        ITEMS_UNFILED
+    }
+
+    /**
+     * An item deleted earlier keeps its binder. A binder deleted together with its items locks only
+     * the live ones, so the deleted one is reached by the {@code DELETE} of the binder itself,
+     * through the foreign key ({@code ON DELETE SET NULL}), when the binder is held with the full
+     * row lock. A job that had written that item once waited for the binder at its second write
+     * (the foreign key check PostgreSQL re-runs) while the delete waited for the item: 500,
+     * "deadlock detected". Here the deleted item is due for the two writes the job had for it: its
+     * temporary publication has ended and a listed flag was left on it. The job is stopped between
+     * the two statements and the owner deletes the binder. The job writes a deleted item at most
+     * once per run (the flag), so it never asks for the binder. Deleted without its items, the
+     * binder unfiles every item it holds, deleted ones included, before its {@code DELETE}.
+     */
+    @ParameterizedTest
+    @EnumSource(BinderDelete.class)
+    void aBinderDeleteNeverDeadlocksWithTheFreshnessJobOverAnItemDeletedEarlier(BinderDelete delete)
+            throws Exception {
+        UUID stopAt = collectorWithAnAgingItem();
+        String uid = uniqueUid("lock-job-deleted");
+        UUID ownerId = collector(uid);
+        setDiscoverable(ownerId, true);
+        String binderId = createBinder(uid, "Doomed", "PUBLIC");
+        String kept = createItem(uid, binderId, Map.of());
+        String gone = createTemporaryItem(uid, binderId);
+        callJson(HttpMethod.DELETE, ITEMS + "/" + gone, uid, null, 204);
+        assertThat(column("inventory_item", "binder_id", gone))
+                .as("a deleted item keeps its binder")
+                .isEqualTo(uuid(binderId));
+        // The publication ends, and a job run that overlapped the delete left the flag (the stored
+        // flag can be one run behind: docs/database/schema.md, "Not covered").
+        testUsers.update(
+                "UPDATE inventory_item SET public_until = now() - interval '1 minute',"
+                        + " publicly_listed = true WHERE id = ?",
+                uuid(gone));
+        boolean deleteItems = delete == BinderDelete.WITH_ITS_ITEMS;
+
+        runJobStoppedAtTheEventsOf(
+                stopAt,
+                () ->
+                        callJson(
+                                HttpMethod.DELETE,
+                                "/api/v1/binders/" + binderId + "?deleteItems=" + deleteItems,
+                                uid,
+                                null,
+                                204));
+
+        assertThat(testUsers.count("SELECT count(*) FROM binder WHERE id = ?", uuid(binderId)))
+                .as("the binder is deleted")
+                .isZero();
+        assertThat(isLive(kept)).isEqualTo(!deleteItems);
+        assertThat(column("inventory_item", "binder_id", gone)).isNull();
+        assertThat(column("inventory_item", "publicly_listed", gone))
+                .as("no flag stays on the deleted item")
+                .isEqualTo(false);
+    }
+
     /** A statement of the freshness job, by the table it writes and what it does there. */
     enum JobStep {
         BINDER_EXPIRY("binder"),
