@@ -824,7 +824,7 @@ with `?deleteItems=true`.
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` = last owner edit |
 | `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
 | `last_owner_activity_at` | `timestamptz` | last owner write |
-| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id`, `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
+| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id` (until that binder is deleted), `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
 
 Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
 `ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS

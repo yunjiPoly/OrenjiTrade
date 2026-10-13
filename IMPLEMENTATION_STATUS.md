@@ -3459,7 +3459,8 @@ simulator, because each boot makes the desktop app ask the owner for permission)
 
 ## Binder count deadlock: owner lock, one row order, a freshness job that skips locked rows (2026-10-10)
 
-Branch `fix/binder-count-deadlock`, no migration, no API change.
+Branch `fix/binder-count-deadlock`, shipped as `fix/inventory-lock-order` (the same commits merged
+with `main` on 2026-10-13), no migration, no API change.
 `DELETE /api/v1/inventory/items/{id}` answered 500 ("deadlock detected" in
 `inventory_item_binder_count()`) when it met the listing reconciliation of a privacy change: the
 delete held the item and waited for its binder (the item count trigger), the reconciler held the
@@ -3537,7 +3538,7 @@ deleting a card right after changing a privacy setting.
     and never re-checks that row's foreign keys. Nothing reads the visibility or `public_until` of
     a deleted item (public reads, counts, admin lists, the export, the wishlist alert rules, the
     purge and the seed were checked); such a row now keeps its expired `TEMPORARILY_PUBLIC` until
-    the account is purged.
+    its binder is deleted without its items or the account is purged.
   - **Test:**
     `InventoryLockOrderIT.aBinderDeleteNeverDeadlocksWithTheFreshnessJobOverAnItemDeletedEarlier`,
     both delete modes; with its items it failed with that deadlock before the fix. The class has
@@ -3568,7 +3569,8 @@ deleting a card right after changing a privacy setting.
        tables, never `FOR UPDATE`; reconcile in the same transaction; nothing slow and no second
        connection while the lock is held; one collector's chunks one after the other, never in
        parallel.
-- **Tests:** `InventoryLockOrderIT` (77): each item write against the reconciliation of a privacy
+- **Tests:** `InventoryLockOrderIT` (79 since the final review: a binder deleted with and without
+  its items next to the job, over an item deleted earlier (2); 77 before): each item write against the reconciliation of a privacy
   change stopped at one of its items (10 cases, real entry points) and against a transaction that
   takes no owner lock (10 cases, the row order alone); a bulk write and a trade transfer of items
   filed meanwhile; a card and a binder created during a privacy change; an item hidden by an admin
@@ -3639,8 +3641,11 @@ deleting a card right after changing a privacy setting.
 > Mac). The two stale sentences of `CLAUDE.md` were updated by the lead in the ship step. The owner
 > may try the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
 >
-> **In review, not on `main`:** the binder / inventory deadlock fix (branch
-> `fix/binder-count-deadlock`); it merges only with an approving final review.
+> **The binder / inventory lock fix (branch `fix/inventory-lock-order`, the former
+> `fix/binder-count-deadlock` merged with `main`):** its third and final independent review ended
+> on 2026-10-13 without a regression of the branch and with one older corner, closed the same day
+> by a one-line fix that a second verifier approved (see "Binder count deadlock ...", "Final review
+> (2026-10-13) and its one fix"). Next for this branch: the pull request, merged when CI is green.
 >
 > **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
 > skipped until the owner asks for them.**
@@ -3648,16 +3653,19 @@ deleting a card right after changing a privacy setting.
 > **Exact next task: stage S5 for the phone, inventory import from a YDK file and from a Collectr
 > CSV (spec section 6), its API and its mobile screens, on a new branch from `main`.** One
 > preview-then-commit flow for both sources: the preview is kept server-side for a short time and
-> belongs to its collector, the commit is one idempotent transaction that merges duplicates (same
-> printing, condition, edition and language), items are Private by default, the freemium inventory
+> belongs to its collector, the commit is idempotent and merges duplicates (same printing,
+> condition, edition and language): one transaction for an import of at most 500 rows, and above
+> that chunks of 500 in order, each its own transaction, where a repeated commit continues after
+> the last chunk that was written (the rule "A new bulk write" of `docs/database/schema.md`: the
+> owner lock first, never one transaction for an unbounded write, one collector's chunks never in
+> parallel), items are Private by default, the freemium inventory
 > limit and the rate limiter apply, file contents are never logged, Collectr is never called and
 > its prices are never stored (the header is detected through aliases: the real one is
 > unconfirmed; the `/mnt/project-files/...` prompt the spec names does not exist). A row without a
 > printing is chosen on the phone with the existing "which copy" chooser of the wish form (the
 > shared picker of the card page belongs to the skipped S3), plus "Use the most recent printing for
-> all unchosen rows". The import is a new bulk write of inventory items: the parked deadlock fix
-> (`fix/binder-count-deadlock`) changes exactly that code, so its final review comes first. The web
-> import screen waits for the owner's order. **Then stage S6**: the final documents and the
+> all unchosen rows". The import is a new bulk write of inventory items and starts from a `main`
+> that holds the lock fix above. The web import screen waits for the owner's order. **Then stage S6**: the final documents and the
 > definition-of-done walkthrough (sections 8 and 9), which must list what S3 and S4 would have
 > delivered as not built (the printing picker with holder counts, "Who has it" / "Who wants it",
 > "Wanted by N", the search history; community photos), not as done.
