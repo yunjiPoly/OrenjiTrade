@@ -57,6 +57,33 @@ describe('choice controls', () => {
     expect(onChange).toHaveBeenCalledWith('name');
   });
 
+  it('SelectSheet cuts a compact pill to one line, unless it must show its whole choice', () => {
+    const options = [{ value: 'europe', label: 'Europe' }];
+    const cut = themed(
+      <SelectSheet compact label="Region" options={options} value="europe" onChange={jest.fn()} />
+    );
+    expect(screen.getByText('Region: Europe').props.numberOfLines).toBe(1);
+    cut.unmount();
+    // The region switcher: at the largest text size the name wraps instead of ending in "…".
+    themed(
+      <SelectSheet
+        compact
+        wrap
+        label="Region"
+        options={options}
+        value="europe"
+        onChange={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Region: Europe').props.numberOfLines).toBeUndefined();
+    // Corners of half a line's height: a pill on one line, a rounded box on several (not an
+    // oval around three lines of large text).
+    expect(screen.getByRole('button', { name: 'Region: Europe' })).toHaveStyle({
+      borderRadius: 18,
+      maxWidth: '100%',
+    });
+  });
+
   it('Segmented switches views', () => {
     const onChange = jest.fn();
     themed(

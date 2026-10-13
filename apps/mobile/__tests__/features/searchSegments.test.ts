@@ -8,7 +8,11 @@ import {
   priceFieldError,
   priceRangeError,
 } from '@/src/features/holders/holderFilters';
-import { isSearchSegment, searchTypesFor } from '@/src/features/search/searchSegments';
+import {
+  isSearchSegment,
+  searchTypesFor,
+  segmentInvite,
+} from '@/src/features/search/searchSegments';
 import {
   BULK_DELETE_MESSAGE,
   bulkDeleteTitle,
@@ -122,6 +126,17 @@ describe('card holder filters (the web search-params rules)', () => {
     expect(holdersCountLabel(null)).toBe('Looking for holders…');
     expect(holdersCountLabel(1)).toBe('1 listing in your region');
     expect(holdersCountLabel(3)).toBe('3 listings in your region');
+    // In another region than one's own, the region is named.
+    expect(holdersCountLabel(3, 'Europe')).toBe('3 listings in Europe');
+    expect(holdersCountLabel(1, 'Americas (South)')).toBe('1 listing in Americas (South)');
+    expect(segmentInvite('collectors')).toEqual({
+      title: 'Who trades in your region?',
+      description: 'Search a collector of your region by name or handle.',
+    });
+    expect(segmentInvite('collectors', 'Europe').title).toBe('Who trades in Europe?');
+    expect(segmentInvite('binders', 'Europe').description).toBe(
+      'Search public binders by name to see what collectors of Europe trade.'
+    );
   });
 });
 

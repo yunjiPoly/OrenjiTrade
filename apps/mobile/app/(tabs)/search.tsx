@@ -34,6 +34,7 @@ import {
   isSearchSegment,
   type SearchSegment,
 } from '@/src/features/search/searchSegments';
+import { RegionBar } from '@/src/features/regions/RegionBar';
 import { UnifiedResults } from '@/src/features/search/UnifiedResults';
 import {
   boundedQuery,
@@ -49,7 +50,8 @@ const ALL_GAMES = '__all__';
 type SearchParams = { q?: string; game?: string; set?: string; tab?: string };
 
 /**
- * Search tab (the web's `/search` tabs): Cards | Collectors | Binders. Cards: the card catalog
+ * Search tab (the web's `/search` tabs): Cards | Collectors | Binders, under the region switcher
+ * (collectors, binders and a card's holders are those of the browsed region). Cards: the card catalog
  * across games (the web's `/cards`): live, typo-tolerant search (names, text, printing codes)
  * with game pills and set / rarity / language / edition filters, an infinite list of results with
  * API pictures. Collectors (by name or handle, with their state or province) and public binders
@@ -71,6 +73,7 @@ export default function SearchScreen() {
   }
   return (
     <Screen testID="screen-search" style={styles.screen}>
+      <RegionBar testID="search-region" style={styles.region} />
       <Segmented<SearchSegment>
         label="Search"
         options={SEARCH_SEGMENTS}
@@ -391,6 +394,7 @@ function SearchSkeleton() {
 
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
+  region: { marginBottom: spacing[3] },
   segments: { marginBottom: spacing[3] },
   controls: { gap: spacing[3], marginBottom: spacing[2] },
   filterRow: { flexDirection: 'row', gap: spacing[2] },

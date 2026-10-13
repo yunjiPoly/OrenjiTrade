@@ -1,9 +1,10 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import CardScreen from '@/app/cards/[id]';
+import { browsingScope, pickBrowsingRegion } from '@/src/features/regions/browsingRegion';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { cardDetailFixture, CARD_ID, PRINTING_A, PRINTING_B } from '../support/fixtures';
+import { cardDetailFixture, CARD_ID, meFixture, PRINTING_A, PRINTING_B } from '../support/fixtures';
 import { mockApi, ok, problem } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
@@ -140,6 +141,25 @@ describe('Card detail', () => {
     expect(screen.getByText('French')).toBeOnTheScreen();
   });
 
+  it('names the region of the holders button while another region is browsed', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+      })
+    );
+    render();
+    expect(
+      await screen.findByRole('button', { name: 'Who has this in my region' })
+    ).toBeOnTheScreen();
+    // Europe is picked with the switcher of the Search tab or of the map.
+    await act(() => pickBrowsingRegion('europe', browsingScope('uid-maika', 'americas-north')));
+    const button = await screen.findByRole('button', { name: 'Who has this in Europe' });
+    expect(button.props.accessibilityHint).toBe(
+      'Lists the collectors of Europe who own, trade or sell this card'
+    );
+  });
+
   it('opens the add flow, the holders list and the set', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
     render();
@@ -154,7 +174,7 @@ describe('Card detail', () => {
       pathname: '/holders',
       params: { card: CARD_ID },
     });
-    // The map is a placeholder in the app (ADR 0017): no "show on the map" for a card.
+    // The map shows binders per state or province (ADR 0017): no "show on the map" for a card.
     expect(screen.queryByTestId('card-who-has-it')).toBeNull();
     fireEvent.press(screen.getByTestId('card-set-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({

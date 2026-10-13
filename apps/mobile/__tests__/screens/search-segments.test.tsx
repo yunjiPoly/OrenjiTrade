@@ -98,6 +98,54 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(query?.has('lng')).toBe(false);
   });
 
+  it("searches the region the switcher shows, and says which one when it is not the collector's own", async () => {
+    const api = mockApi({
+      ...CARDS,
+      'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+      'GET /api/v1/search': (request) =>
+        ok(
+          unifiedSearchFixture({
+            query: request.query.get('q') ?? '',
+            region: request.query.get('region') ?? '',
+            collectors: request.query.get('region') === 'europe' ? [] : [markerFixture()],
+          })
+        ),
+    });
+    render();
+    // The switcher sits on top of the tab, whatever the segment.
+    expect(
+      await screen.findByRole('button', { name: 'Region: Americas (North)' })
+    ).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('search-segment-collectors'));
+    expect(await screen.findByText('Who trades in your region?')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('search-collectors-input'), 'noé');
+    expect(await screen.findByTestId('collector-result-collector2')).toBeOnTheScreen();
+    expect(api.callsTo('GET /api/v1/search').at(-1)?.query.get('region')).toBe('americas-north');
+
+    // Another region: the same search is asked again there, at once.
+    fireEvent.press(screen.getByTestId('search-region'));
+    fireEvent.press(screen.getByTestId('search-region-option-europe'));
+    expect(await screen.findByText('No collectors match')).toBeOnTheScreen();
+    const query = api.callsTo('GET /api/v1/search').at(-1)?.query;
+    expect(query?.get('region')).toBe('europe');
+    expect(query?.get('q')).toBe('noé');
+    expect(screen.getByRole('button', { name: 'Region: Europe' })).toBeOnTheScreen();
+    expect(screen.getByTestId('search-region-away')).toHaveTextContent(/Not your region/);
+
+    // The invitation names the region being browsed.
+    fireEvent.changeText(screen.getByTestId('search-collectors-input'), '');
+    expect(await screen.findByText('Who trades in Europe?')).toBeOnTheScreen();
+    expect(screen.getByText('Search a collector of Europe by name or handle.')).toBeOnTheScreen();
+    // The invitation has the height of what is left of the tab: without one it collapsed on iOS
+    // and only its icon showed, over the field.
+    expect(screen.getByTestId('search-collectors-idle')).toHaveStyle({ flex: 1 });
+
+    // Back home in one press.
+    fireEvent.press(screen.getByRole('button', { name: 'Back to Americas (North)' }));
+    expect(await screen.findByText('Who trades in your region?')).toBeOnTheScreen();
+    expect(screen.queryByTestId('search-region-away')).toBeNull();
+  });
+
   it('finds public binders by name with their owner, and opens the public view', async () => {
     mockApi({
       ...CARDS,

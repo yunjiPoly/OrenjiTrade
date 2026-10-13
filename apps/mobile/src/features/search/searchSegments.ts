@@ -33,16 +33,33 @@ export const SEGMENT_FIELDS: Record<SearchSegment, { label: string; placeholder:
 /** Empty-state wording per segment (the web's unified results). */
 export const SEGMENT_EMPTY: Record<
   Exclude<SearchSegment, 'cards'>,
-  { title: string; description: string; invite: string }
+  { title: string; description: string }
 > = {
   collectors: {
     title: 'No collectors match',
     description: 'Collectors appear when they are on the map and allow name search.',
-    invite: 'Search a collector of your region by name or handle.',
   },
   binders: {
     title: 'No public binders match',
     description: 'Binders appear here while their owner keeps them public and fresh.',
-    invite: 'Search public binders by name to see what collectors of your region trade.',
   },
 };
+
+/**
+ * The invitation of an empty segment. `where` is "your region", or the name of the region being
+ * browsed when it is another one (`regionPhrase`).
+ */
+export function segmentInvite(
+  segment: Exclude<SearchSegment, 'cards'>,
+  where = 'your region'
+): { title: string; description: string } {
+  return segment === 'collectors'
+    ? {
+        title: `Who trades in ${where}?`,
+        description: `Search a collector of ${where} by name or handle.`,
+      }
+    : {
+        title: 'What is in their binders?',
+        description: `Search public binders by name to see what collectors of ${where} trade.`,
+      };
+}

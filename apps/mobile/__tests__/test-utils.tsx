@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderOptions } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
@@ -7,6 +8,10 @@ import { AccountProvider } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { useActiveConversation } from '@/src/features/messages/activeConversation';
+import {
+  BROWSING_REGION_STORAGE_KEY,
+  resetBrowsingRegion,
+} from '@/src/features/regions/browsingRegion';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { clearAccountSignal } from '@/src/api/accountSignal';
 import type { AuthPort } from '@/src/auth/authPort';
@@ -15,6 +20,7 @@ import { SnackbarProvider } from '@/src/components/ui/Snackbar';
 import type { RealtimeClient } from '@/src/realtime/realtimeClient';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
 import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
+import { useAppStore } from '@/src/store/useAppStore';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 import type { ColorScheme } from '@/src/theme/palette';
 
@@ -96,11 +102,17 @@ export function renderWithProviders(
   return { ...result, queryClient: client };
 }
 
-/** Resets module-level state shared between tests (signals, locks, pending link, notices). */
+/**
+ * Resets module-level state shared between tests (signals, locks, pending link, notices, the
+ * browsed region and the Map tab's view).
+ */
 export function resetAppState(): void {
   clearAccountSignal();
   useFlowLock.getState().unlock();
   usePendingLink.getState().clear();
   useSessionNotice.getState().clear();
   useActiveConversation.getState().set(null);
+  resetBrowsingRegion();
+  void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
+  useAppStore.getState().reset();
 }

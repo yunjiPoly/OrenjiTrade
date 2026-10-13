@@ -11,10 +11,12 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { RecentSearches } from '@/src/features/catalog/RecentSearches';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
+import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
+import { regionPhrase } from '@/src/lib/place';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
 import { BinderResultRow, CollectorResultRow } from './SearchResultRows';
-import { SEGMENT_EMPTY, type SearchSegment } from './searchSegments';
+import { SEGMENT_EMPTY, segmentInvite, type SearchSegment } from './searchSegments';
 
 export interface UnifiedResultsProps {
   segment: Exclude<SearchSegment, 'cards'>;
@@ -35,6 +37,8 @@ export function UnifiedResults({ segment, query, onSearch }: UnifiedResultsProps
   const uid = useUid();
   const remember = useRecentSearchesStore((state) => state.remember);
   const results = useUnifiedSearch(segment, query);
+  const { region, home } = useBrowsingRegion();
+  const invite = segmentInvite(segment, regionPhrase(region, home));
   const items =
     segment === 'collectors' ? (results.data?.collectors ?? []) : (results.data?.binders ?? []);
 
@@ -64,10 +68,8 @@ export function UnifiedResults({ segment, query, onSearch }: UnifiedResultsProps
         <EmptyState
           testID={`search-${segment}-invite`}
           icon={segment === 'collectors' ? 'account-search-outline' : 'book-search-outline'}
-          title={
-            segment === 'collectors' ? 'Who trades in your region?' : 'What is in their binders?'
-          }
-          description={SEGMENT_EMPTY[segment].invite}
+          title={invite.title}
+          description={invite.description}
         />
       </View>
     );
@@ -153,7 +155,9 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
-  idle: { gap: spacing[3] },
+  // Fills the tab under the field: the invitation is centred in what is left. (Without a height
+  // of its own this view collapsed on iOS and only the invitation's icon showed, over the field.)
+  idle: { flex: 1, gap: spacing[3] },
   pad: { paddingTop: spacing[2] },
   header: { gap: spacing[3], marginBottom: spacing[2] },
   listContent: { paddingBottom: spacing[6] },
