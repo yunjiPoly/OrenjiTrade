@@ -31,7 +31,7 @@ branding assets are supplied.
 | Identity | Firebase Authentication / Identity Platform; backend verifies ID tokens; roles live in our DB (RBAC) |
 | Events | Domain events via Spring Modulith event registry (transactional outbox); Pub/Sub adapter for cloud + analytics |
 | Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged |
-| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. Mobile Map tab is a placeholder for now. PostGIS stays installed but holds no personal geography |
+| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. The mobile Map tab draws the same boundaries with `react-native-svg` from `apps/mobile/assets/boundaries` (a generated copy: `npm run sync:boundaries -w apps/mobile`). PostGIS stays installed but holds no personal geography |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
 ### Card images (ADR 0015, owner rule 2026-10-01, cap raised 2026-10-04)
@@ -118,7 +118,8 @@ call for geography (boundaries are bundled static assets).
   keyboard navigation are required for every screen. No giant components.
 - Mobile: expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile`, bottom
   sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
-  API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the home region.
+  API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the browsed region (the region
+  switcher; the collector's home region by default).
 - Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.
 
 ## Working rules for Claude Code

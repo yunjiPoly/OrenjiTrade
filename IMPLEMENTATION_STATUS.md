@@ -3199,12 +3199,10 @@ the keyboard on screen a drag of the list hides it, on a list of one row as well
   Tests).
 
 **Open (owner)**
-- `CLAUDE.md` still says "Mobile Map tab is a placeholder for now" (Maps row) and "region-scoped
-  calls send the home region" (Frontend conventions, Mobile). Both are out of date; an agent does
-  not edit `CLAUDE.md` on its own. Proposed wording: "Mobile Map tab draws the same boundaries
-  with react-native-svg from `apps/mobile/assets/boundaries` (`npm run sync:boundaries`)" and
-  "region-scoped calls send the browsed region (the region switcher; the home region by
-  default)".
+- Done in the ship step (2026-10-13, by the lead): the two sentences of `CLAUDE.md` that this
+  stage made stale now say that the mobile Map tab draws the same boundaries with
+  `react-native-svg` from `apps/mobile/assets/boundaries` (`npm run sync:boundaries`) and that
+  region-scoped calls send the browsed region (the region switcher; the home region by default).
 - OrbStack does not start at login: after the restart of the Mac on 2026-10-12 every test stack
   stopped with "Docker is not running" until `orbctl start` (the three shared containers then
   came back by themselves, and the Auth emulator had lost its accounts with the restart).
@@ -3434,6 +3432,31 @@ same iPhone 18 Pro simulator the owner keeps booted.
   the gesture when more than one scroll view could answer it. For the owner to try on a phone;
   if it matters, that row can opt out of the gesture (`scrollsToTop={false}`).
 
+**Independent verification of review fix 2 (2026-10-13, head `03cd64f`): approved, no blocker and
+no major finding.** The verifier ran the whole check list itself, retries off: typecheck, lint,
+format check; jest 84 suites / 798 tests (11 of 12 runs green; one run lost a worker to a Node
+garbage-collector segfault and passed when repeated); the three exports; the mobile web E2E 56
+passed on the first attempt; the native suite 27/27 on the owner's iPhone 18 Pro simulator (41 min
+59 s); script tests 133; the audit gate; the web build (initial total 899.93 kB, unchanged) and
+web tests as a regression check. R1-1, R1-2 and R1-7 are fixed (14 mutants around the three fixes,
+14 killed). Left open, none introduced by this branch:
+- **The card holders count includes collectors in a block relation with the viewer (API, both
+  clients).** After a block the row leaves the list but "1 listing in your region" stays:
+  `SearchService.cardHolders` drops blocked owners after `CardHolderRepository.page` has counted
+  them, so `totalItems` is too high and a page can come back short. To fix in the API (both
+  directions of a block in the SQL of the page and of the count, with an integration test).
+- **At the largest text size every line of a collector row in Search is cut with "…"** (the state
+  or province is not visible; VoiceOver reads the whole row). `CollectorResultRow`, not touched by
+  this stage; check `BinderResultRow` the same way.
+- Small: the status-bar tap of iOS probably does nothing in Search > Cards (a second scroll view
+  is on screen; not provable on a simulator); the dot of a place too small to see has the solid
+  colour the legend uses for "10+"; at the largest text size the name card of a held place covers
+  the top third of the map; jest does not see a link to an unknown region that also names a
+  state; jest prints "A worker process has failed to exit gracefully" once per run.
+From this stage on the native suite runs on the simulator the owner keeps booted (owner order of
+2026-10-12: `ORENJI_IOS_SIMULATOR_UDID=<its UDID>` on every run; nothing boots or shuts down a
+simulator, because each boot makes the desktop app ask the owner for permission).
+
 ---
 
 ## NEXT TASK
@@ -3454,28 +3477,42 @@ same iPhone 18 Pro simulator the owner keeps booted.
 > on 2026-10-13 ("Review fix 1" in that section). The second review approved the branch the same
 > day and left three minors, fixed at once ("Review fix 2"). Next for this branch: the pull
 > request, merged when CI is green. The Android steps were not executed (no Android SDK on the
-> Mac). The owner updates two sentences of `CLAUDE.md` (same section, "Open (owner)") and may try
-> the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
+> Mac). The two stale sentences of `CLAUDE.md` were updated by the lead in the ship step. The owner
+> may try the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
 >
 > **In review, not on `main`:** the binder / inventory deadlock fix (branch
 > `fix/binder-count-deadlock`); it merges only with an approving final review.
 >
-> **Exact next task: stage S3 for the phone, its API and its mobile screens (spec sections 2 and
-> 2b of the 2026-10-08 product change), on a new branch from `main`.** API: a grouped per-printing
-> holder count, `/search/card-holders` extended (rarity, country / subdivision filters,
-> per-printing counts, sorts), "Who wants it" (visible wishlists, the S2 public note and NM /
-> % TCG chips; `CollectorDiscoveryService.markersFor` gives the rows' collectors), "Wanted by N" on
-> inventory items (one grouped query, the same fit rules as `WishlistAlertRules`), search result
-> have/want counts, the rarity query parsing, and the server-side search history
+> **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
+> skipped until the owner asks for them.**
+>
+> **Exact next task: stage S5 for the phone, inventory import from a YDK file and from a Collectr
+> CSV (spec section 6), its API and its mobile screens, on a new branch from `main`.** One
+> preview-then-commit flow for both sources: the preview is kept server-side for a short time and
+> belongs to its collector, the commit is one idempotent transaction that merges duplicates (same
+> printing, condition, edition and language), items are Private by default, the freemium inventory
+> limit and the rate limiter apply, file contents are never logged, Collectr is never called and
+> its prices are never stored (the header is detected through aliases: the real one is
+> unconfirmed; the `/mnt/project-files/...` prompt the spec names does not exist). A row without a
+> printing is chosen on the phone with the existing "which copy" chooser of the wish form (the
+> shared picker of the card page belongs to the skipped S3), plus "Use the most recent printing for
+> all unchosen rows". The import is a new bulk write of inventory items: the parked deadlock fix
+> (`fix/binder-count-deadlock`) changes exactly that code, so its final review comes first. The web
+> import screen waits for the owner's order. **Then stage S6**: the final documents and the
+> definition-of-done walkthrough (sections 8 and 9), which must list what S3 and S4 would have
+> delivered as not built (the printing picker with holder counts, "Who has it" / "Who wants it",
+> "Wanted by N", the search history; community photos), not as done.
+>
+> **Skipped (S3, spec sections 2 and 2b), kept here for the day it is asked for.** API: a grouped
+> per-printing holder count, `/search/card-holders` extended (rarity, country / subdivision
+> filters, per-printing counts, sorts), "Who wants it" (visible wishlists, the S2 public note and
+> NM / % TCG chips; `CollectorDiscoveryService.markersFor` gives the rows' collectors), "Wanted by
+> N" on inventory items (one grouped query, the same fit rules as `WishlistAlertRules`), search
+> result have/want counts, the rarity query parsing, and the server-side search history
 > (`/me/search-history`, privacy switch, export, deletion). Mobile: the printing picker of the
-> card screen ("Any printing", per-printing rows with rarity and holder counts, `?printing=` /
-> `?rarity=`; S1 follow-up 3), "Who has it" / "Who wants it" on the card screen and "Wanted by N"
-> on inventory items (S1 follow-up 4), the have/want counts in search results and the search
-> history with its privacy switch, all in the region the switcher shows. The web screens of S3
-> (reuse `shared/catalog/printing-picker` on the card page, replace "Selected printing" and "Who
-> has this near me" with "Find this card") wait for the owner's order and are recorded there as a
-> follow-up. The remaining stages: S4 community photos (section 5), S5 YDK + Collectr import
-> (section 6), S6 final docs and the definition-of-done walkthrough (sections 8–9).
+> card screen, "Who has it" / "Who wants it", "Wanted by N" (S1 follow-ups 3 and 4). Web: reuse
+> `shared/catalog/printing-picker` on the card page, "Find this card". S2's "Known gaps" that S3
+> was to close stay open. **Skipped (S4, section 5):** photos in community posts.
 
 
 > **Web MVP complete locally (2026-09-30).** Workflow `web-mvp-local` / `web-mvp-local-continue`

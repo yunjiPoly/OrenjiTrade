@@ -40,7 +40,7 @@ since 2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #59 #60 #6
 | --- | --- | --- |
 | Mobile stage M9 — regions on the phone (2026-10-12): the region switcher, the region map in the Map tab, the binders of a state or province, `react-native-maps` / `react-native-webview` / `leaflet` removed from the app | branch `feature/mobile-regions-map` (worktree `OrenjiTrade-s2-ux`), on top of `main` at `00714a9`, not pushed | Built and checked on the iOS simulator and the web export (IMPLEMENTATION_STATUS.md, "Mobile app: regions and the region map"). Reviewed on 2026-10-12 (17 findings, no blocker); fixed on 2026-10-13 ("Review fix 1" in that section). The second review approved it the same day with three minors, fixed at once ("Review fix 2"). Waits for the pull request. Android could not be verified on this Mac. |
 | The binder / inventory deadlock fix | branch `fix/binder-count-deadlock` | In review; merges only with an approving final review. |
-| Stages S3–S6 | — | Not started. **Owner order of 2026-10-12: mobile only, the web app is paused until a new order.** S3 is therefore next for the phone first: its API and its mobile screens (section 3). |
+| Stages S3–S6 | — | Not started. **Owner order of 2026-10-12: mobile only, the web app is paused until a new order. Owner decision of 2026-10-13: after the map, only S5 and S6; S3 and S4 are skipped until the owner asks for them.** Next: S5 for the phone (its API and its mobile screens), then S6. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
 
@@ -57,10 +57,10 @@ conflict). It is delivered in six stages, one PR each, in order:
 | --- | --- | --- |
 | S1 geography | 1, 3 (+ forced parts) | merged (#57) |
 | S2 simplified wishlist | 4 | merged (#60) |
-| S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | next: its API and its mobile screens first (owner order of 2026-10-12: mobile only) |
-| S4 community photos (no videos), region channels already done in S1 | 5 | — |
-| S5 inventory import: YDK + Collectr CSV | 6 | — |
-| S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | — |
+| S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | **skipped** by the owner (2026-10-13) until asked for |
+| S4 community photos (no videos), region channels already done in S1 | 5 | **skipped** by the owner (2026-10-13) until asked for |
+| S5 inventory import: YDK + Collectr CSV | 6 | next: its API and its mobile screens (web import screen paused) |
+| S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | after S5; it lists what S3 and S4 would have delivered as not built |
 
 Facts the spec gets wrong (already handled, keep handling): section 7 says the mobile app "calls
 only GET /api/v1/meta" — it uses ~128 API paths, so every API change must adapt `apps/mobile`
@@ -78,13 +78,16 @@ never store Collectr prices).
 2. Start Claude in the repo and point it here: *"Read CLAUDE.md, docs/development/claude-handoff.md
    and IMPLEMENTATION_STATUS.md, then continue the 2026-10-08 change from stage S2."*
 3. **Finish S2:** done (merged as #60 on 2026-10-10 after the independent re-review).
-4. **S3 → S6**, each the same way (section 4 below), each its own PR. Since the owner's order of
-   2026-10-12 (mobile only, web paused) a stage is built as its API and its mobile screens; the
-   web screens of that stage wait for a new order and are recorded as a follow-up.
+4. **S5, then S6** (owner decision of 2026-10-13: S3 and S4 are skipped until asked for), each
+   the same way (section 4 below), each its own PR. Since the owner's order of 2026-10-12 (mobile
+   only, web paused) a stage is built as its API and its mobile screens; the web screens of that
+   stage wait for a new order and are recorded as a follow-up. S5's import is a bulk write of
+   inventory items: the final review of the parked deadlock fix (`fix/binder-count-deadlock`)
+   comes first.
 5. The mobile follow-ups recorded in `IMPLEMENTATION_STATUS.md`: the region switcher, the state
    binder list, the region map and the `react-native-maps` removal are done (stage M9,
    2026-10-12); the printing picker with holder counts, have/want ("Who has it" / "Who wants it",
-   "Wanted by N") and the search history on mobile come with S3.
+   "Wanted by N") and the search history on mobile belong to S3, which is skipped for now.
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
 `npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`;
@@ -189,10 +192,11 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
   off, and it does not start at login: after a restart of the Mac every test stack stops with
   "Docker is not running" until `orbctl start` (the three shared containers then come back by
   themselves; it happened on 2026-10-12).
-- `CLAUDE.md` still says "Mobile Map tab is a placeholder for now" (the Maps row) and
-  "region-scoped calls send the home region" (Frontend conventions, Mobile): both are out of date
-  since mobile stage M9. An agent does not edit `CLAUDE.md` on its own; the owner updates the two
-  sentences (proposed wording in IMPLEMENTATION_STATUS.md, stage M9, "Open (owner)").
+- The iOS simulator: the owner keeps an iPhone 18 Pro simulator booted for the native suite
+  (owner order of 2026-10-12). Run it with `ORENJI_IOS_SIMULATOR_UDID=<the UDID of the booted
+  iPhone>` (`xcrun simctl list devices booted`); never boot, erase or shut down a simulator and do
+  not use the desktop app's simulator panel: every boot makes the app ask the owner for
+  permission. Without the variable the harness boots its dedicated "OrenjiTrade Maestro" device.
 - Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3): skipped for now
   (2026-10-10), the native suite runs on the iOS simulator there. Until it is installed, nothing
   on this Mac proves the Android half of a mobile change.
