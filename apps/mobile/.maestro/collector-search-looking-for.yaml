@@ -36,10 +36,21 @@ tags:
       id: 'search-collectors-idle'
     timeout: 60000
 
-# By name: Hal, with his state and country.
+# By name: Hal, with his state and country. Two letters first: their results arrive under the
+# field while the keyboard is up, and the field still takes what is typed next. (The field is
+# the head of the list of results; when the list was built again with its first results, the
+# field lost the keyboard and kept the first letters only.)
 - tapOn:
     id: 'search-collectors-input'
-- inputText: ${output.hal.displayName}
+- inputText: ${output.hal.displayName.slice(0, 2)}
+- extendedWaitUntil:
+    visible:
+      id: 'search-collectors-count'
+    timeout: 60000
+- inputText: ${output.hal.displayName.slice(2)}
+- assertVisible:
+    id: 'search-collectors-input'
+    text: ${output.hal.displayName}
 - runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:

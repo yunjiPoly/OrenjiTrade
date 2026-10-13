@@ -1,0 +1,200 @@
+# The largest text size (mobile stage M9, review fix 1): a seed collector of Americas (North)
+# (collector1, Quebec) reopens the app at the last accessibility size of iOS
+# (subflows/relaunch-large-text.yaml; an Android device keeps its own size and walks the same
+# paths). In the Search tab only the region switcher and the segments stay on screen: the field
+# is under them, a card that was found is scrolled to and opened; in Europe the "Not your
+# region" line stands above the segments, the field is still there and a collector who was found
+# opens. On the Map tab a finger dragged over the map scrolls the page down to the note under it.
+# (Before the fix the pinned controls took the whole screen: no result at home, no field in
+# another region, and the map swallowed the drag.)
+# Seed accounts are only signed in to; who lives in Île-de-France is read on the host from the
+# public API (scripts/region-map.js).
+appId: ${APP_ID}
+name: Largest text size, the Search tab and the Map tab stay within reach
+tags:
+  - mobile-m9
+  - search
+  - map
+  - large-text
+---
+- runScript:
+    file: scripts/region-map.js
+    env:
+      REGION: europe
+      CODE: FR-IDF
+      BINDER: 'Extras for trade'
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(North\)'
+    timeout: 60000
+- runFlow: subflows/relaunch-large-text.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(North\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'map-status'
+      text: '[0-9]+ public binders? in Americas \(North\)'
+    timeout: 30000
+# iOS: the text really is that large. The line that counts the binders is one line of about
+# 24 points at the default size and four or five lines of 85 points at this one (heights are in
+# points); without this the flow would pass at the default size if the launch argument stopped
+# working.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - assertVisible:
+          id: 'map-status'
+          height: 340
+          tolerance: 200
+- takeScreenshot: large-text-map
+
+# Search, at home: the switcher, the segments and the field are on screen together.
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 60000
+- assertVisible:
+    id: 'search-region'
+    text: 'Region: Americas \(North\)'
+- assertVisible:
+    id: 'search-segment-cards'
+- assertVisible:
+    id: 'search-segment-collectors'
+- assertVisible:
+    id: 'search-segment-binders'
+- takeScreenshot: large-text-search
+
+# A card that is found can be scrolled to and opened.
+- tapOn:
+    id: 'search-input'
+- inputText: 'emberfang'
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-result-emberfang-fox'
+- tapOn:
+    id: 'card-result-emberfang-fox'
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: 'Emberfang Fox'
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+    timeout: 30000
+
+# Another region: its name and "Not your region" stand above the segments, and the field of the
+# segment is still on screen under them.
+- tapOn:
+    id: 'search-region'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-option-europe'
+    timeout: 15000
+- tapOn:
+    id: 'search-region-option-europe'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Europe'
+    timeout: 30000
+- assertVisible: 'Not your region.'
+- assertVisible:
+    id: 'search-region-home'
+    text: 'Back to Americas \(North\)'
+- tapOn:
+    id: 'search-segment-collectors'
+- extendedWaitUntil:
+    visible:
+      id: 'search-collectors-input'
+    timeout: 30000
+- takeScreenshot: large-text-search-europe
+
+# A collector of Europe is found, scrolled to and opened.
+- tapOn:
+    id: 'search-collectors-input'
+- inputText: ${output.binder.owner}
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'collector-result-${output.binder.handle}'
+- tapOn:
+    id: 'collector-result-${output.binder.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: ${output.binder.owner}
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-home'
+    timeout: 30000
+
+# One press goes home, from the line that stayed on screen.
+- tapOn:
+    id: 'search-region-home'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(North\)'
+    timeout: 30000
+- assertNotVisible:
+    id: 'search-region-home'
+
+# The Map tab: the map is a screen further down at this size; a finger dragged over it scrolls
+# the page on, down to the note under the legend.
+- tapOn:
+    id: 'tab-index'
+- extendedWaitUntil:
+    visible:
+      id: 'map-title'
+      text: 'Binders in Americas \(North\)'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'region-map'
+# The map sits in the middle of the screen, the Map | List switch just above it. One drag from
+# the middle of the map towards the top of the screen takes that switch off the screen: the page
+# followed the finger.
+- assertVisible:
+    id: 'map-view'
+- swipe:
+    from:
+      id: 'region-map'
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    notVisible:
+      id: 'map-view'
+    timeout: 10000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'map-privacy-note'
+- assertVisible:
+    id: 'map-privacy-note'
+- takeScreenshot: large-text-map-scrolled

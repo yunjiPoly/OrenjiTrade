@@ -19,6 +19,35 @@ function word(): string {
   return `Rg${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** The region a `GET /api/v1/ads` request names; null for any other request. */
+function adsRegion(url: string): string | null {
+  const parsed = new URL(url);
+  return parsed.pathname === '/api/v1/ads' ? (parsed.searchParams.get('region') ?? '') : null;
+}
+
+/** The region codes whose binder counts the page asked for. */
+function watchCounts(page: Page): string[] {
+  const asked: string[] = [];
+  page.on('request', (request) => {
+    const match = /\/api\/v1\/regions\/([^/]+)\/binder-counts/.exec(request.url());
+    if (match?.[1]) {
+      asked.push(match[1]);
+    }
+  });
+  return asked;
+}
+
+/** Opens a link inside the running app (a tapped link, a notification). */
+async function followLink(page: Page, link: string): Promise<void> {
+  await page.evaluate((target) => {
+    window.history.pushState(null, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+  }, link);
+}
+
+/** Where the device keeps the last region picked (`browsingRegion.ts`). */
+const REGION_STORAGE_KEY = 'orenjitrade.browsing-region.v1';
+
 /** The chunks of the region drawings the page downloaded, by region. */
 function watchDrawings(page: Page): string[] {
   const loaded: string[] = [];
@@ -198,14 +227,18 @@ test.describe('mobile regions and the region map', () => {
     });
     await search.getByRole('tab', { name: 'Collectors' }).click();
     await expect(search.getByText('Who trades in your region?')).toBeVisible({ timeout: 30_000 });
+    // The sponsored placement of the results is asked for the region on screen, like the search.
+    const adsAtHome = page.waitForRequest((candidate) => adsRegion(candidate.url()) !== null);
     await search.getByLabel('Find a collector').fill(token);
     await expect(search.getByTestId('search-collectors-empty')).toBeVisible({ timeout: 30_000 });
+    expect(adsRegion((await adsAtHome).url())).toBe('americas-north');
 
     // The switcher: a sheet with the three regions, the home one marked.
     const asked = page.waitForRequest(
       (candidate) =>
         candidate.url().includes('/api/v1/search?') && candidate.url().includes('region=europe')
     );
+    const adsAway = page.waitForRequest((candidate) => adsRegion(candidate.url()) === 'europe');
     await search.getByTestId('search-region').click();
     await expect(page.getByTestId('search-region-option-americas-north')).toContainText(
       'Your region'
@@ -219,6 +252,7 @@ test.describe('mobile regions and the region map', () => {
     const url = new URL((await asked).url());
     expect(url.searchParams.get('q')).toBe(token);
     expect(url.searchParams.get('region')).toBe('europe');
+    expect(new URL((await adsAway).url()).searchParams.get('placement')).toBe('SEARCH_SPONSORED');
     // The same search, in Europe now: the Breton collector, with their state.
     const row = search.getByTestId(`collector-result-${abroad.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
@@ -293,10 +327,7 @@ test.describe('mobile regions and the region map', () => {
     // Inside the running app (a tapped link, a notification). The tab follows the link at once
     // (the address becomes the state's), so the link is opened here rather than with `openInApp`,
     // which waits on the address it pushed.
-    await page.evaluate(() => {
-      window.history.pushState(null, '', '/?region=americas-south&subdivision=uy-mo');
-      window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
-    });
+    await followLink(page, '/?region=americas-south&subdivision=uy-mo');
     const place = screen(page, 'place');
     await expect(place.getByTestId('place-title')).toHaveText(PLACE_LABELS.montevideo, {
       timeout: 30_000,
@@ -325,5 +356,123 @@ test.describe('mobile regions and the region map', () => {
       'Binders in Americas (North)',
       { timeout: 30_000 }
     );
+  });
+
+  test('a link works every time it is opened; a region that does not exist is neither browsed nor kept; another region starts at the top of its list', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(240_000);
+    // A collector without a location: no home region, so the device's last pick is where the app
+    // starts, and a wrong one kept there would be where it starts every time.
+    const viewer = await createOnboardedCollector(request, 'rgnew', 'Mobile Placeless Linker');
+    const counts = watchCounts(page);
+    await signInThroughUi(page, viewer.email, viewer.password);
+    const map = screen(page, 'map');
+    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (North)', {
+      timeout: 30_000,
+    });
+
+    // The same link, twice in one visit: it opens its place both times (it used to do nothing
+    // the second time).
+    const link = '/?region=americas-south&subdivision=UY-MO';
+    await followLink(page, link);
+    await expect(screen(page, 'place').getByTestId('place-title')).toHaveText(
+      PLACE_LABELS.montevideo,
+      { timeout: 30_000 }
+    );
+    await page.goBack();
+    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
+      timeout: 30_000,
+    });
+    // The link is used up: the tab's address no longer carries it.
+    await expect(page).not.toHaveURL(/region=/);
+    await map.getByTestId('map-region').click();
+    await page.getByTestId('map-region-option-americas-north').click();
+    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (North)');
+    await followLink(page, link);
+    await expect(screen(page, 'place').getByTestId('place-title')).toHaveText(
+      PLACE_LABELS.montevideo,
+      { timeout: 30_000 }
+    );
+    await expect(page).toHaveURL(/\/regions\/americas-south\/UY-MO$/);
+    await page.goBack();
+    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
+      timeout: 30_000,
+    });
+
+    // A link to a region that does not exist changes nothing: the region on screen stays, its
+    // counts stay, nothing is asked for "asia" and the device does not keep it.
+    await followLink(page, '/?region=asia');
+    await expect(page).not.toHaveURL(/region=/);
+    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)');
+    await expect(map.getByTestId('map-status')).toHaveText(
+      /^\d+ public binders? in Americas \(South\)$/
+    );
+    await expect(map.getByTestId('map-counts-error')).toHaveCount(0);
+    await expect(map.getByRole('button', { name: 'Region: Americas (South)' })).toBeVisible();
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), REGION_STORAGE_KEY)).toBe(
+      'americas-south'
+    );
+
+    // The same from outside the app (a full page load), with the list on screen: no skeleton
+    // that never ends, the places of the region the device kept.
+    await map.getByRole('tab', { name: 'List' }).click();
+    // (The list draws its rows as they come into view: the first country of the region.)
+    await expect(map.getByRole('link', { name: /^Buenos Aires City, / })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.goto('/?region=asia');
+    const again = screen(page, 'map');
+    await expect(again.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
+      timeout: 30_000,
+    });
+    await expect(again.getByRole('link', { name: /^Buenos Aires City, / })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(again.getByTestId('place-list-loading')).toHaveCount(0);
+    await expect(again.getByTestId('map-counts-error')).toHaveCount(0);
+
+    // A code an older install (or a link, before this fix) left on the device: the server's list
+    // is the judge. The app starts in Americas (North) and the code is removed from the device.
+    await page.evaluate((key) => window.localStorage.setItem(key, 'oceania'), REGION_STORAGE_KEY);
+    await page.goto('/');
+    const fresh = screen(page, 'map');
+    await expect(fresh.getByTestId('map-title')).toHaveText('Binders in Americas (North)', {
+      timeout: 30_000,
+    });
+    await expect(fresh.getByTestId('map-status')).toHaveText(
+      /^\d+ public binders? in Americas \(North\)$/,
+      { timeout: 30_000 }
+    );
+    await fresh.getByLabel('Find a state or province').fill('queb');
+    await expect(fresh.getByTestId('place-row-CA-QC')).toBeVisible({ timeout: 30_000 });
+    await fresh.getByLabel('Find a state or province').fill('');
+    await expect
+      .poll(() => page.evaluate((key) => window.localStorage.getItem(key), REGION_STORAGE_KEY))
+      .toBeNull();
+    expect(counts.filter((code) => code === 'asia' || code === 'oceania')).toEqual([]);
+
+    // Deep in the list, the Map tab pressed again brings its top back; deep in it again, another
+    // region starts at its top, under its name.
+    const title = fresh.getByTestId('map-title');
+    // The wheel over the list, until the title of the tab is far above the screen.
+    const scrollDeep = async () => {
+      await fresh.getByTestId('place-list').hover();
+      await expect
+        .poll(async () => {
+          await page.mouse.wheel(0, 1500);
+          return title.evaluate((node) => node.getBoundingClientRect().bottom);
+        })
+        .toBeLessThan(-600);
+    };
+    await scrollDeep();
+    await expect(title).not.toBeInViewport();
+    await openTab(page, 'Map');
+    await expect(title).toBeInViewport();
+    await scrollDeep();
+    await followLink(page, '/?region=europe');
+    await expect(title).toHaveText('Binders in Europe', { timeout: 30_000 });
+    await expect(title).toBeInViewport();
   });
 });

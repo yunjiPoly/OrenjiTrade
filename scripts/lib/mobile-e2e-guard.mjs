@@ -110,6 +110,12 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
+    // Every worker of the suite (and the simulator of the native flows) calls from one address,
+    // and the app reads `/api/v1/public/*` without a token: the whole run shares the anonymous
+    // budget of 60 a minute, and the 429 then fails an unrelated spec (the reasons of the report
+    // dialog, right after the region specs). Same setting as the web suite (web-e2e-guard.mjs);
+    // the limits themselves are proven by the API's integration tests, not by these suites.
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
   };
 }
 
