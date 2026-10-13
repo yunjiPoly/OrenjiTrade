@@ -475,6 +475,111 @@ test.describe('mobile inventory import', () => {
     await expect(flow.getByTestId('import-open')).toHaveCount(0);
   });
 
+  test('the lines whose copy was assumed stay counted and can be listed after the snackbar is gone', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(240_000);
+    const collector = await createOnboardedCollector(request, 'plain', 'Mobile Plain Copies');
+    const flow = await openImport(page, collector);
+
+    // Two cards named without a set: each has a 1st Edition and an Unlimited copy in its one set
+    // (the sample catalog), so the release date decides nothing between them. The dragon's line
+    // says its printing and its edition.
+    await flow.getByRole('button', { name: 'Collectr CSV export' }).click();
+    await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
+    await flow
+      .getByLabel('Text of the CSV export')
+      .fill(
+        [
+          'Product Name,Card Number,Variance,Card Condition,Quantity',
+          'Mirrorblade Knight,,,Lightly Played,1',
+          'Azure-Eyes Sky Dragon,AZR-EN001,1st Edition,Near Mint,1',
+          'Obsidian Magician Adept,,,Near Mint,2',
+          '',
+        ].join('\n')
+      );
+    await flow.getByRole('button', { name: 'Use this text' }).click();
+    await expect(stat(flow, 'choose')).toHaveText('2need a printing', { timeout: 30_000 });
+    const bar = flow.getByTestId('import-filter-bar');
+    await expect(bar.getByRole('radio')).toHaveCount(3);
+    await expect(flow.getByTestId('import-assumed')).toHaveCount(0);
+
+    // The bulk action takes the plain copy of both, and says so once, in a snackbar.
+    await flow
+      .getByRole('button', { name: 'Use the most recent printing for all unchosen rows' })
+      .click();
+    await expect(snackbar(page)).toHaveText(
+      '2 lines got their most recent printing. Their most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check them.',
+      { timeout: 30_000 }
+    );
+    await expect(snackbar(page)).toHaveCount(0, { timeout: 30_000 });
+
+    // The snackbar is gone: the lines are still counted, on a card and on the pinned filter.
+    const card = flow.getByTestId('import-assumed');
+    await expect(card).toContainText('Plain copy assumed for 2 lines');
+    await expect(bar.getByRole('radio', { name: 'Plain copy assumed (2)' })).toBeVisible();
+
+    // The card's button lists them, and only them: the API is asked for exactly those rows.
+    const listed = page.waitForRequest((asked) => {
+      const url = new URL(asked.url());
+      return (
+        url.pathname.endsWith('/rows') &&
+        url.searchParams.get('printingChoice') === 'MOST_RECENT_ASSUMED'
+      );
+    });
+    await card.getByRole('button', { name: 'Show these 2 lines' }).click();
+    expect(new URL((await listed).url()).searchParams.has('status')).toBe(false);
+    await expect(bar.getByRole('radio', { name: 'Plain copy assumed (2)' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await expect(flow.getByTestId('import-row-0-assumed')).toContainText(
+      'Taken as the plain copy (Unlimited, no foil)',
+      { timeout: 30_000 }
+    );
+    await expect(flow.getByTestId('import-row-2-assumed')).toBeVisible();
+    await expect(flow.getByTestId('import-row-1')).toHaveCount(0);
+
+    // The knight's plain copy is right: picked again it is the collector's choice, the line
+    // leaves the list and the count goes down.
+    await flow.getByTestId('import-row-0-printing').click();
+    const sheet = page.getByTestId('import-printing-sheet');
+    await expect(sheet.getByTestId('import-printing-card')).toHaveText('Mirrorblade Knight');
+    await sheet.getByRole('radio', { checked: true }).click();
+    await expect(bar.getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(flow.getByTestId('import-row-0')).toHaveCount(0);
+    await expect(card).toContainText('Plain copy assumed for 1 line');
+
+    // The magician is the 1st Edition: changed, and nothing is left to check.
+    await flow.getByTestId('import-row-2-printing').click();
+    await expect(sheet.getByTestId('import-printing-card')).toHaveText('Obsidian Magician Adept');
+    await sheet.getByRole('radio', { checked: false }).click();
+    await expect(flow.getByText('No plain copy left to check')).toBeVisible({ timeout: 30_000 });
+    await expect(flow.getByTestId('import-assumed')).toHaveCount(0);
+    await flow.getByRole('button', { name: 'Show all lines' }).click();
+    await expect(flow.getByTestId('import-row-1')).toBeVisible({ timeout: 30_000 });
+    await expect(bar.getByRole('radio')).toHaveCount(3);
+
+    // The import goes in with the copies the collector confirmed and chose.
+    await flow.getByTestId('import-commit').click();
+    await expect(
+      flow.getByTestId('import-result').getByTestId('import-result-added')
+    ).toContainText('3new cards added', { timeout: 30_000 });
+    const held = await items(request, collector.idToken);
+    expect(
+      held
+        .map((item) => `${item.card.name}|${item.edition}|${item.quantity}|${item.visibility}`)
+        .sort()
+    ).toEqual([
+      'Azure-Eyes Sky Dragon|FIRST_EDITION|1|PRIVATE',
+      'Mirrorblade Knight|UNLIMITED|1|PRIVATE',
+      'Obsidian Magician Adept|FIRST_EDITION|2|PRIVATE',
+    ]);
+  });
+
   test('an import left open is picked up again, and discarded only after a question', async ({
     page,
     request,
