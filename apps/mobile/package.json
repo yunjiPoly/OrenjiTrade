@@ -68,6 +68,7 @@
     "sync:tokens": "node scripts/sync-tokens.mjs",
     "doctor": "expo-doctor",
     "sync:legal": "node scripts/sync-legal.mjs",
+    "sync:boundaries": "node scripts/sync-boundaries.mjs",
     "typegen": "node scripts/typed-routes.mjs"
   },
   "private": true,
