@@ -35448,12 +35448,33 @@
           },
           "includeSide": {
             "type": "boolean"
+          },
+          "mainCopies": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Copies the file holds in the main deck, recognised or not, whether the section counts or not",
+            "example": 40
+          },
+          "extraCopies": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Copies the file holds in the extra deck",
+            "example": 15
+          },
+          "sideCopies": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Copies the file holds in the side deck",
+            "example": 15
           }
         },
         "required": [
+          "extraCopies",
           "includeExtra",
           "includeMain",
-          "includeSide"
+          "includeSide",
+          "mainCopies",
+          "sideCopies"
         ]
       },
       "InventoryImportSummary": {
@@ -35500,12 +35521,26 @@
             "format": "int32",
             "description": "Inventory items the ready rows write, once rows that are equal are merged",
             "example": 30
+          },
+          "mergedItems": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Of `items`, those equal to an item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. A count of the preview: after the commit, `result` says what was written",
+            "example": 2
+          },
+          "defaultConditions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Matched rows whose condition nobody chose (`conditionSource` DEFAULT): the rows the bulk action SET_CONDITION changes",
+            "example": 7
           }
         },
         "required": [
           "copies",
+          "defaultConditions",
           "items",
           "leftOut",
+          "mergedItems",
           "ready",
           "rows",
           "toChoose",

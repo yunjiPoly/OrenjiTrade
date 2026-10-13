@@ -80,6 +80,23 @@ public class InventoryImportRepository {
 
     private static final String KEPT = "(r.included AND " + IN_SCOPE + " AND " + COPIES + " >= 1)";
 
+    /**
+     * The items the collector of the preview {@code :id} already has, one row per printing,
+     * condition, edition and language, among the printings of the preview (needs aliases {@code r}
+     * and {@code p}): a row that joins one is added to that item instead of becoming a new one.
+     * Read only, without a lock: a count for the preview, the commit decides again under the locks.
+     */
+    private static final String OWNED_KEYS =
+            " LEFT JOIN (SELECT DISTINCT it.printing_id, it.condition, it.edition, it.language"
+                    + " FROM inventory_item it"
+                    + " WHERE it.deleted_at IS NULL"
+                    + " AND it.owner_id = (SELECT owner_id FROM inventory_import WHERE id = :id)"
+                    + " AND it.printing_id IN (SELECT printing_id FROM inventory_import_row"
+                    + " WHERE import_id = :id AND printing_id IS NOT NULL)) own"
+                    + " ON own.printing_id = r.printing_id AND own.condition = r.condition"
+                    + " AND own.edition = COALESCE(r.edition, p.edition)"
+                    + " AND own.language = COALESCE(r.language, p.language)";
+
     private final JdbcClient jdbc;
     private final JdbcTemplate template;
     private final JsonMapper jsonMapper;
@@ -226,10 +243,22 @@ public class InventoryImportRepository {
                                 + " p.language))) FILTER (WHERE r.card_id IS NOT NULL AND"
                                 + " r.printing_id IS NOT NULL AND "
                                 + KEPT
-                                + ") AS items"
+                                + ") AS items,"
+                                + " count(DISTINCT (r.printing_id, r.condition,"
+                                + " COALESCE(r.edition, p.edition), COALESCE(r.language,"
+                                + " p.language))) FILTER (WHERE r.card_id IS NOT NULL AND"
+                                + " r.printing_id IS NOT NULL AND own.printing_id IS NOT NULL AND "
+                                + KEPT
+                                + ") AS merged_items,"
+                                + " count(*) FILTER (WHERE r.card_id IS NOT NULL AND"
+                                + " r.condition_source = 'DEFAULT') AS default_conditions,"
+                                + " COALESCE(sum(r.qty_main), 0) AS deck_main,"
+                                + " COALESCE(sum(r.qty_extra), 0) AS deck_extra,"
+                                + " COALESCE(sum(r.qty_side), 0) AS deck_side"
                                 + " FROM inventory_import_row r"
                                 + " JOIN inventory_import i ON i.id = r.import_id"
                                 + " LEFT JOIN card_printing p ON p.id = r.printing_id"
+                                + OWNED_KEYS
                                 + " WHERE r.import_id = :id")
                 .param("id", id)
                 .query(
@@ -241,7 +270,12 @@ public class InventoryImportRepository {
                                         rs.getInt("unmatched"),
                                         rs.getInt("left_out"),
                                         rs.getLong("copies"),
-                                        rs.getInt("items")))
+                                        rs.getInt("items"),
+                                        rs.getInt("merged_items"),
+                                        rs.getInt("default_conditions"),
+                                        rs.getLong("deck_main"),
+                                        rs.getLong("deck_extra"),
+                                        rs.getLong("deck_side")))
                 .single();
     }
 

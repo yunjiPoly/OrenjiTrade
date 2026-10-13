@@ -16,5 +16,17 @@ export interface InventoryImportSections {
     includeMain: boolean;
     includeExtra: boolean;
     includeSide: boolean;
+    /**
+     * Copies the file holds in the main deck, recognised or not, whether the section counts or not
+     */
+    mainCopies: number;
+    /**
+     * Copies the file holds in the extra deck
+     */
+    extraCopies: number;
+    /**
+     * Copies the file holds in the side deck
+     */
+    sideCopies: number;
 }
 

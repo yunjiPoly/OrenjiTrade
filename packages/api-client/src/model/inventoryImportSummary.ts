@@ -38,5 +38,13 @@ export interface InventoryImportSummary {
      * Inventory items the ready rows write, once rows that are equal are merged
      */
     items: number;
+    /**
+     * Of `items`, those equal to an item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. A count of the preview: after the commit, `result` says what was written
+     */
+    mergedItems: number;
+    /**
+     * Matched rows whose condition nobody chose (`conditionSource` DEFAULT): the rows the bulk action SET_CONDITION changes
+     */
+    defaultConditions: number;
 }
 

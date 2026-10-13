@@ -88,7 +88,10 @@ public final class InventoryImportResponses {
                             ? new SectionsResponse(
                                     record.includeMain(),
                                     record.includeExtra(),
-                                    record.includeSide())
+                                    record.includeSide(),
+                                    view.summary().deckMain(),
+                                    view.summary().deckExtra(),
+                                    view.summary().deckSide())
                             : null,
                     record.ignoredLines(),
                     SummaryResponse.from(view.summary()),
@@ -109,7 +112,24 @@ public final class InventoryImportResponses {
     public record SectionsResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean includeMain,
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean includeExtra,
-            @Schema(requiredMode = RequiredMode.REQUIRED) boolean includeSide) {}
+            @Schema(requiredMode = RequiredMode.REQUIRED) boolean includeSide,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Copies the file holds in the main deck, recognised or not,"
+                                            + " whether the section counts or not",
+                            example = "40")
+                    long mainCopies,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Copies the file holds in the extra deck",
+                            example = "15")
+                    long extraCopies,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Copies the file holds in the side deck",
+                            example = "15")
+                    long sideCopies) {}
 
     /** The counts of a preview. */
     @Schema(name = "InventoryImportSummary", description = "The counts of an import preview")
@@ -148,7 +168,25 @@ public final class InventoryImportResponses {
                                     "Inventory items the ready rows write, once rows that are"
                                             + " equal are merged",
                             example = "30")
-                    int items) {
+                    int items,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Of `items`, those equal to an item the caller already has"
+                                            + " (same printing, condition, edition and language):"
+                                            + " the commit raises that item, and `items -"
+                                            + " mergedItems` are new. A count of the preview: after"
+                                            + " the commit, `result` says what was written",
+                            example = "2")
+                    int mergedItems,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Matched rows whose condition nobody chose (`conditionSource`"
+                                            + " DEFAULT): the rows the bulk action SET_CONDITION"
+                                            + " changes",
+                            example = "7")
+                    int defaultConditions) {
 
         static SummaryResponse from(ImportSummary summary) {
             return new SummaryResponse(
@@ -158,7 +196,9 @@ public final class InventoryImportResponses {
                     summary.unmatched(),
                     summary.leftOut(),
                     summary.copies(),
-                    summary.items());
+                    summary.items(),
+                    summary.mergedItems(),
+                    summary.defaultConditions());
         }
     }
 

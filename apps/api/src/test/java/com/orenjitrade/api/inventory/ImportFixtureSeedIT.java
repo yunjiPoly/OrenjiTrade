@@ -184,6 +184,9 @@ class ImportFixtureSeedIT extends AbstractIntegrationTest {
         assertThat(summary.path("unmatched").asInt()).isEqualTo(1);
         assertThat(summary.path("copies").asInt()).isEqualTo(2);
         assertThat(summary.path("items").asInt()).isEqualTo(1);
+        assertThat(summary.path("mergedItems").asInt())
+                .as("the dragon goes into the copies already owned")
+                .isEqualTo(1);
         JsonNode rows = callJson(HttpMethod.GET, base + "/rows", uid, null, 200).path("items");
         JsonNode dragon = rows.get(0);
         assertThat(dragon.path("status").asString()).isEqualTo("READY");

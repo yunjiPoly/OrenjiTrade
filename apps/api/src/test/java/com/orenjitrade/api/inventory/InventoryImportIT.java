@@ -116,6 +116,13 @@ class InventoryImportIT extends AbstractIntegrationTest {
         assertThat(preview.path("sections").path("includeMain").asBoolean()).isTrue();
         assertThat(preview.path("sections").path("includeExtra").asBoolean()).isTrue();
         assertThat(preview.path("sections").path("includeSide").asBoolean()).isTrue();
+        assertThat(preview.path("sections").path("mainCopies").asInt())
+                .as("the copies the file holds in the main deck")
+                .isEqualTo(4);
+        assertThat(preview.path("sections").path("extraCopies").asInt()).isEqualTo(1);
+        assertThat(preview.path("sections").path("sideCopies").asInt())
+                .as("an unknown passcode is still a copy of the side deck")
+                .isEqualTo(2);
         assertThat(Instant.parse(preview.path("expiresAt").asString()))
                 .isBetween(
                         Instant.now().plus(Duration.ofMinutes(55)),
@@ -128,6 +135,10 @@ class InventoryImportIT extends AbstractIntegrationTest {
         assertThat(summary.path("leftOut").asInt()).isZero();
         assertThat(summary.path("copies").asInt()).isEqualTo(3);
         assertThat(summary.path("items").asInt()).isEqualTo(1);
+        assertThat(summary.path("mergedItems").asInt()).as("nothing owned yet").isZero();
+        assertThat(summary.path("defaultConditions").asInt())
+                .as("a deck file names no condition: every matched row has the default")
+                .isEqualTo(3);
 
         JsonNode page = callJson(HttpMethod.GET, IMPORTS + "/" + id + "/rows", uid, null, 200);
         assertThat(page.path("totalItems").asInt()).isEqualTo(4);
@@ -416,6 +427,9 @@ class InventoryImportIT extends AbstractIntegrationTest {
                 callJson(HttpMethod.PATCH, base, uid, Map.of("includeSide", false), 200);
         assertThat(withoutSide.path("sections").path("includeSide").asBoolean()).isFalse();
         assertThat(withoutSide.path("sections").path("includeMain").asBoolean()).isTrue();
+        assertThat(withoutSide.path("sections").path("sideCopies").asInt())
+                .as("what the file holds, whether the section counts or not")
+                .isEqualTo(3);
         assertThat(withoutSide.path("summary").path("copies").asInt())
                 .as("the side copy of the single card is gone")
                 .isEqualTo(2);
@@ -470,6 +484,9 @@ class InventoryImportIT extends AbstractIntegrationTest {
                         200);
         assertThat(nearMint.path("row").path("condition").asString()).isEqualTo("NEAR_MINT");
         assertThat(nearMint.path("row").path("conditionSource").asString()).isEqualTo("EDITED");
+        assertThat(nearMint.path("preview").path("summary").path("defaultConditions").asInt())
+                .as("one row less has the condition nobody chose")
+                .isEqualTo(2);
         JsonNode badCondition =
                 callJson(
                         HttpMethod.PATCH,
@@ -755,6 +772,43 @@ class InventoryImportIT extends AbstractIntegrationTest {
         assertThat(before.path("summary").path("items").asInt())
                 .as("two of the three rows are equal")
                 .isEqualTo(2);
+        assertThat(before.path("summary").path("mergedItems").asInt())
+                .as("one of the two items is equal to the damaged copies already owned")
+                .isEqualTo(1);
+        // A row left out no longer counts as merged, and counts again once it is back.
+        String ownedRow = base + "/rows/" + rows.get(0).path("id").asString();
+        assertThat(
+                        callJson(HttpMethod.PATCH, ownedRow, uid, Map.of("included", false), 200)
+                                .path("preview")
+                                .path("summary")
+                                .path("mergedItems")
+                                .asInt())
+                .isZero();
+        // Another condition than the owned copies is another item: nothing to merge into.
+        assertThat(
+                        callJson(
+                                        HttpMethod.PATCH,
+                                        ownedRow,
+                                        uid,
+                                        Map.of("included", true, "condition", "LIGHTLY_PLAYED"),
+                                        200)
+                                .path("preview")
+                                .path("summary")
+                                .path("mergedItems")
+                                .asInt())
+                .isZero();
+        assertThat(
+                        callJson(
+                                        HttpMethod.PATCH,
+                                        ownedRow,
+                                        uid,
+                                        Map.of("condition", "DAMAGED"),
+                                        200)
+                                .path("preview")
+                                .path("summary")
+                                .path("mergedItems")
+                                .asInt())
+                .isEqualTo(1);
 
         JsonNode committed = callJson(HttpMethod.POST, base + "/commit", uid, null, 200);
 

@@ -82,9 +82,9 @@ request.
 | `source` | `YDK` \| `COLLECTR_CSV` |
 | `status` | `PENDING` (a preview: edit, commit or discard), `COMMITTING` (a commit wrote some chunks and was cut: commit again), `COMMITTED` |
 | `createdAt`, `expiresAt`, `committedAt` (null until committed) | `expiresAt`: until when the preview can be used; after a commit, until when the result stays readable |
-| `sections` | YDK: `{includeMain, includeExtra, includeSide}`; `null` for a CSV |
+| `sections` | YDK: `{includeMain, includeExtra, includeSide, mainCopies, extraCopies, sideCopies}`: which sections count, and the copies the file holds in each (recognised or not, whether the section counts or not); `null` for a CSV |
 | `ignoredLines` | lines of the file that were no card (YDK: not a passcode; CSV: rows without a card name) |
-| `summary` | `{rows, ready, toChoose, unmatched, leftOut, copies, items}`: every row; rows a commit imports; rows that still need a printing; rows that fit nothing; matched rows left out (by the collector or by the deck sections); copies the ready rows add; inventory items they write once equal rows are merged. `ready + toChoose + unmatched + leftOut = rows` |
+| `summary` | `{rows, ready, toChoose, unmatched, leftOut, copies, items, mergedItems, defaultConditions}`: every row; rows a commit imports; rows that still need a printing; rows that fit nothing; matched rows left out (by the collector or by the deck sections); copies the ready rows add; inventory items they write once equal rows are merged; of those items, the ones equal to an item the collector already has (the commit raises it: `items - mergedItems` are new); matched rows whose condition nobody chose (the rows `SET_CONDITION` changes). `ready + toChoose + unmatched + leftOut = rows`. `mergedItems` is a count of the preview, read without a lock: after the commit `result` says what was written |
 | `result` | `null` until the commit starts, then `{itemsCreated, itemsMerged, copiesAdded, rowsImported, chunksDone, totalChunks}` |
 
 ## `InventoryImportRow`
@@ -282,9 +282,9 @@ Fictional data. `P1`, `P2`... stand for printing ids.
 {
   "id": "0b6f…", "source": "YDK", "status": "PENDING",
   "createdAt": "2026-10-13T12:00:00Z", "expiresAt": "2026-10-13T13:00:00Z", "committedAt": null,
-  "sections": {"includeMain": true, "includeExtra": true, "includeSide": true},
+  "sections": {"includeMain": true, "includeExtra": true, "includeSide": true, "mainCopies": 3, "extraCopies": 1, "sideCopies": 2},
   "ignoredLines": 0,
-  "summary": {"rows": 4, "ready": 1, "toChoose": 2, "unmatched": 1, "leftOut": 0, "copies": 2, "items": 1},
+  "summary": {"rows": 4, "ready": 1, "toChoose": 2, "unmatched": 1, "leftOut": 0, "copies": 2, "items": 1, "mergedItems": 0, "defaultConditions": 3},
   "result": null
 }
 ```
@@ -328,7 +328,8 @@ catalog of the seed:
 - `PATCH …/rows/{row 1}` `{"printingId": "P2"}` → `{"row": {"status": "READY", "printingChoice": "MANUAL", …}, "preview": {"summary": {"ready": 2, "toChoose": 0, …}}}`
 - `POST …/commit` → `result` `{itemsCreated 2, itemsMerged 0, copiesAdded 3, rowsImported 2, …}`.
   Committed again: the same answer, nothing added. If the collector already had two near mint first
-  edition English copies of `AZR-EN001`: `itemsCreated 1, itemsMerged 1` and that item now holds 4.
+  edition English copies of `AZR-EN001`: the preview says `summary.mergedItems` 1 and row 0
+  `ownedQuantity` 2, the commit answers `itemsCreated 1, itemsMerged 1` and that item now holds 4.
 
 ## End-to-end fixtures
 
