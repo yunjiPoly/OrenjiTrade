@@ -3966,7 +3966,7 @@ export interface paths {
         };
         /**
          * The rows of an import (pages)
-         * @description In file order. `status` keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED.
+         * @description In file order. `status` keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED. `printingChoice` keeps the rows whose printing was chosen one way: MOST_RECENT_ASSUMED lists the rows `summary.assumedPrintings` counts, for the collector to check. Both together keep the rows that fit both.
          */
         get: operations["listInventoryImportRows"];
         put?: never;
@@ -8191,6 +8191,12 @@ export interface components {
              * @example DAMAGED
              */
             defaultCondition?: string | null;
+            /**
+             * Format: int32
+             * @description Rows whose printing the bulk action USE_MOST_RECENT_PRINTING took as the plain copy of several versions (`printingChoice` MOST_RECENT_ASSUMED) and the collector has not confirmed or changed since, left out or not: the rows to check. GET /inventory/imports/{id}/rows?printingChoice=MOST_RECENT_ASSUMED lists them
+             * @example 0
+             */
+            assumedPrintings: number;
         };
         /** @description How to commit a preview */
         CommitInventoryImportRequest: {
@@ -28354,6 +28360,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "READY" | "CHOOSE_PRINTING" | "UNMATCHED";
+                printingChoice?: "AUTO" | "MANUAL" | "MOST_RECENT" | "MOST_RECENT_ASSUMED";
                 page?: number;
                 size?: number;
             };

@@ -53,6 +53,7 @@ export interface GetInventoryImportRequestParams {
 export interface ListInventoryImportRowsRequestParams {
     id: string;
     status?: 'READY' | 'CHOOSE_PRINTING' | 'UNMATCHED';
+    printingChoice?: 'AUTO' | 'MANUAL' | 'MOST_RECENT' | 'MOST_RECENT_ASSUMED';
     page?: number;
     size?: number;
 }
@@ -122,7 +123,7 @@ export interface InventoryImportServiceInterface {
 
     /**
      * The rows of an import (pages)
-     * In file order. &#x60;status&#x60; keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED.
+     * In file order. &#x60;status&#x60; keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED. &#x60;printingChoice&#x60; keeps the rows whose printing was chosen one way: MOST_RECENT_ASSUMED lists the rows &#x60;summary.assumedPrintings&#x60; counts, for the collector to check. Both together keep the rows that fit both.
      * @endpoint get /api/v1/inventory/imports/{id}/rows
 * @param requestParameters
      */

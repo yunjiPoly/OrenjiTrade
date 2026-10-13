@@ -506,7 +506,7 @@ export class InventoryImportService extends BaseService implements InventoryImpo
 
     /**
      * The rows of an import (pages)
-     * In file order. &#x60;status&#x60; keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED.
+     * In file order. &#x60;status&#x60; keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED. &#x60;printingChoice&#x60; keeps the rows whose printing was chosen one way: MOST_RECENT_ASSUMED lists the rows &#x60;summary.assumedPrintings&#x60; counts, for the collector to check. Both together keep the rows that fit both.
      * @endpoint get /api/v1/inventory/imports/{id}/rows
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -522,6 +522,7 @@ export class InventoryImportService extends BaseService implements InventoryImpo
             throw new Error('Required parameter id was null or undefined when calling listInventoryImportRows.');
         }
         const status = requestParameters?.status;
+        const printingChoice = requestParameters?.printingChoice;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
 
@@ -531,6 +532,15 @@ export class InventoryImportService extends BaseService implements InventoryImpo
             localVarQueryParameters,
             'status',
             <any>status,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'printingChoice',
+            <any>printingChoice,
             QueryParamStyle.Form,
             true,
         );

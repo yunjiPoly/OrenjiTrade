@@ -40,6 +40,7 @@ export function summaryOf(overrides: Partial<ImportSummary> = {}): ImportSummary
     mergedItems: 0,
     defaultConditions: 3,
     defaultCondition: 'DAMAGED',
+    assumedPrintings: 0,
     ...overrides,
   };
 }
