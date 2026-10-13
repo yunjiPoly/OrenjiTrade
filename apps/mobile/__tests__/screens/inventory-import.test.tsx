@@ -108,7 +108,13 @@ function summarise(rows: ImportRow[]) {
         .map((row) => `${row.printing?.id}|${row.condition}`)
     ).size,
     defaultConditions: matched.filter((row) => row.conditionSource === 'DEFAULT').length,
+    assumedPrintings: rows.filter(assumedCopy).length,
   });
+}
+
+/** A line whose copy the bulk action took as the plain one, not confirmed or changed since. */
+function assumedCopy(row: ImportRow) {
+  return !!row.printing && row.printingChoice === 'MOST_RECENT_ASSUMED';
 }
 
 /**
@@ -140,7 +146,16 @@ function fakeImports(options: { open?: InventoryImport | null; rows?: ImportRow[
     [`GET ${IMPORTS}/{id}`]: () => ok(view()),
     [`GET ${IMPORTS}/{id}/rows`]: ({ query }: MockRequest) => {
       const status = query.get('status');
-      return ok(rowPage(state.rows.filter((row) => !status || row.status === status)));
+      const choice = query.get('printingChoice');
+      return ok(
+        rowPage(
+          state.rows.filter(
+            (row) =>
+              (!status || row.status === status) &&
+              (!choice || (!!row.printing && row.printingChoice === choice))
+          )
+        )
+      );
     },
     [`PATCH ${IMPORTS}/{id}`]: ({ body }: MockRequest) => {
       const preview = state.preview as InventoryImport;
@@ -846,6 +861,13 @@ describe('Import cards: the preview', () => {
     expect(await screen.findByTestId('import-row-1-assumed')).toHaveTextContent(
       /Taken as the plain copy \(Unlimited, no foil\)/
     );
+    // So does the top of the preview, which is still there once the snackbar is gone.
+    expect(
+      within(screen.getByTestId('import-assumed')).getByRole('header', {
+        name: 'Plain copy assumed for 1 card',
+      })
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-1-printing')).not.toBeDisabled();
     // The card nothing could decide still asks: nothing was taken for the collector.
     await waitFor(() => expect(screen.getByLabelText('1 needs a printing')).toBeOnTheScreen());
@@ -853,6 +875,89 @@ describe('Import cards: the preview', () => {
       screen.getByRole('button', { name: 'Which copy of Fixture Clockwork Heron: Choose printing' })
     ).toBeOnTheScreen();
     expect(screen.getByTestId('import-commit')).toBeDisabled();
+  });
+
+  it('keeps the lines whose copy was assumed counted and one press away, long after the snackbar', async () => {
+    // A CSV whose bulk action ran earlier: the preview is opened again, no snackbar says anything.
+    const assumed = (id: string, position: number) =>
+      chooseRow({
+        id,
+        position,
+        deck: undefined,
+        status: 'READY',
+        printing: HERON_PRINTINGS[0],
+        printingChoice: 'MOST_RECENT_ASSUMED',
+        willImport: true,
+      });
+    const fake = fakeImports({
+      open: importFixture({ source: 'COLLECTR_CSV', sections: null as never }),
+      rows: [
+        rowFixture({ deck: undefined }),
+        assumed('row-1', 1),
+        rowFixture({ id: 'row-2', position: 2, deck: undefined, printingChoice: 'MOST_RECENT' }),
+        assumed('row-3', 3),
+        unmatchedRow({ id: 'row-4', position: 4, deck: undefined }),
+      ],
+    });
+    const api = mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    await screen.findByTestId('import-row-0');
+    expect(screen.queryByTestId('snackbar')).toBeNull();
+
+    // A card counts them for as long as there are any, and so does a chip of the pinned filter.
+    const card = screen.getByTestId('import-assumed');
+    expect(
+      within(card).getByRole('header', { name: 'Plain copy assumed for 2 lines' })
+    ).toBeOnTheScreen();
+    const bar = screen.getByTestId('import-filter-bar');
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).not.toBeChecked();
+    expect(within(bar).getByText('Plain copy assumed (2)').props.maxFontSizeMultiplier).toBe(
+      PINNED_MAX_FONT_SCALE
+    );
+
+    // The card's button lists them: those lines and no other.
+    fireEvent.press(within(card).getByRole('button', { name: 'Show these 2 lines' }));
+    await waitFor(() => expect(screen.queryByTestId('import-row-0')).toBeNull());
+    expect(await screen.findByTestId('import-row-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('import-row-3')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-row-2')).toBeNull();
+    expect(screen.queryByTestId('import-row-4')).toBeNull();
+    const asked = api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query;
+    expect(asked?.get('printingChoice')).toBe('MOST_RECENT_ASSUMED');
+    expect(asked?.has('status')).toBe(false);
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).toBeChecked();
+
+    // The plain copy of the first one is right: picked again, it is the collector's choice, the
+    // line leaves the list and the count goes down.
+    fireEvent.press(screen.getByTestId('import-row-1-printing'));
+    const sheet = await screen.findByTestId('import-printing-sheet');
+    fireEvent.press(await within(sheet).findByTestId(`printing-${HERON_FIRST}`));
+    await waitFor(() => expect(screen.queryByTestId('import-row-1')).toBeNull());
+    expect(api.callsTo(`PATCH ${IMPORTS}/{id}/rows/{rowId}`)[0]?.body).toEqual({
+      printingId: HERON_FIRST,
+    });
+    expect(screen.getByTestId('import-row-3')).toBeOnTheScreen();
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeChecked();
+    expect(
+      within(screen.getByTestId('import-assumed')).getByRole('button', { name: 'Show this line' })
+    ).toBeOnTheScreen();
+
+    // The other one is another copy: changed, and nothing is left to check.
+    fireEvent.press(screen.getByTestId('import-row-3-printing'));
+    fireEvent.press(
+      await within(await screen.findByTestId('import-printing-sheet')).findByTestId(
+        `printing-${HERON_PRINTINGS[1]!.id}`
+      )
+    );
+    expect(await screen.findByText('No plain copy left to check')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-assumed')).toBeNull();
+    // The chip that is pressed does not vanish under the finger; it goes with the filter.
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (0)' })).toBeChecked();
+    fireEvent.press(screen.getByRole('button', { name: 'Show all lines' }));
+    expect(await screen.findByTestId('import-row-0')).toBeOnTheScreen();
+    expect(within(bar).queryByRole('radio', { name: /Plain copy assumed/ })).toBeNull();
+    expect(within(bar).getAllByRole('radio')).toHaveLength(3);
   });
 
   it('shows the lines a count stands for when the count is pressed', async () => {

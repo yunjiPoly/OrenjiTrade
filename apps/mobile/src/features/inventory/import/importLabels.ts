@@ -397,13 +397,34 @@ export function sectionSwitches(sections: ImportSections): SectionSwitch[] {
   ];
 }
 
-/** The filter chips with their counts: "All (4)", "Needs a printing (2)", "Not recognised (1)". */
-export function filterOptions(summary: ImportSummary): { value: ImportRowFilter; label: string }[] {
-  return [
+/** Lines whose copy was taken as the plain one and not confirmed or changed since. */
+export function assumedCopies(summary: Pick<ImportSummary, 'assumedPrintings'>): number {
+  // An answer cached before the API counted them has no such number.
+  return summary.assumedPrintings ?? 0;
+}
+
+/**
+ * The filter chips with their counts: "All (4)", "Needs a printing (2)", "Not recognised (1)",
+ * and "Plain copy assumed (3)" while lines hold a copy that was assumed for the collector (or
+ * while those lines are what the list shows, so the chip pressed never vanishes under a finger).
+ */
+export function filterOptions(
+  summary: ImportSummary,
+  current: ImportRowFilter = 'ALL'
+): { value: ImportRowFilter; label: string }[] {
+  const options: { value: ImportRowFilter; label: string }[] = [
     { value: 'ALL', label: `All (${formatCount(summary.rows)})` },
     { value: 'CHOOSE_PRINTING', label: `Needs a printing (${formatCount(summary.toChoose)})` },
     { value: 'UNMATCHED', label: `Not recognised (${formatCount(summary.unmatched)})` },
   ];
+  const assumed = assumedCopies(summary);
+  if (assumed > 0 || current === 'MOST_RECENT_ASSUMED') {
+    options.push({
+      value: 'MOST_RECENT_ASSUMED',
+      label: `Plain copy assumed (${formatCount(assumed)})`,
+    });
+  }
+  return options;
 }
 
 /** What an empty filtered list says. */
@@ -418,6 +439,11 @@ export function emptyFilterText(filter: ImportRowFilter): { title: string; descr
       return {
         title: 'Everything was recognised',
         description: 'Each card your file names is a card of the catalog.',
+      };
+    case 'MOST_RECENT_ASSUMED':
+      return {
+        title: 'No plain copy left to check',
+        description: 'Every copy that was taken for you has been confirmed or changed.',
       };
     default:
       return { title: 'Nothing to show', description: 'This import has nothing to show.' };
@@ -762,6 +788,28 @@ export function assumedCopyText(row: Pick<ImportRow, 'printingChoice'>): string 
   return row.printingChoice === 'MOST_RECENT_ASSUMED'
     ? 'Taken as the plain copy (Unlimited, no foil): its most recent set has other versions. Change it if yours is another.'
     : null;
+}
+
+/**
+ * The card "Plain copy assumed for …": it stays above the lines for as long as copies that were
+ * taken for the collector are unchecked, counts them, and its button lists them. What the snackbar
+ * of the bulk action said once ("Check them.") can still be done after it is gone, and in a long
+ * file without scrolling through every line.
+ */
+export function assumedCopiesText(
+  assumed: number,
+  source: ImportSource
+): { title: string; description: string; action: string } {
+  const one = assumed === 1;
+  const lines = shortLines(assumed, source);
+  const noun = source === 'YDK' ? 'card' : 'line';
+  return {
+    title: `Plain copy assumed for ${lines}`,
+    description: `${one ? 'Its' : 'Their'} most recent set has the card in several versions, so the plain copy (Unlimited, no foil) was taken. Check ${
+      one ? 'it' : 'each one'
+    }: open its copy and pick yours, or pick the plain copy again to confirm it.`,
+    action: one ? `Show this ${noun}` : `Show these ${lines}`,
+  };
 }
 
 export function conditionSetMessage(updated: number, condition: string): string {

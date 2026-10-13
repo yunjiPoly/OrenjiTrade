@@ -113,7 +113,8 @@ export const ImportRowCard = memo(function ImportRowCard({
   const copy = rowCopyLabel(row);
   const condition = rowConditionText(row);
   const fromFile = matchedSourceText(row);
-  const assumed = assumedCopyText(row);
+  // A copy that left the catalog leaves the line to choose again: nothing is assumed any more.
+  const assumed = needsPrinting ? null : assumedCopyText(row);
   const dimmed = !row.included || !row.inScope;
 
   const heading = (

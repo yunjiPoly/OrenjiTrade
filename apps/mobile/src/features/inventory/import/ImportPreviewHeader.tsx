@@ -8,6 +8,8 @@ import { SectionCard } from '@/src/components/ui/Layout';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {
+  assumedCopies,
+  assumedCopiesText,
   clockTime,
   defaultConditionsText,
   formatCount,
@@ -47,7 +49,8 @@ const STAT_FILTER: Partial<Record<SummaryStat['key'], ImportRowFilter>> = {
  * ones already owned, lines that need a printing, lines not recognised), until when the preview
  * is kept, the sections of a deck as switches with their counts, and what can be done to many
  * lines at once. The filter itself stays on screen above the list (`ImportPreview`); the two
- * counts that ask something of the collector are buttons that set it.
+ * counts that ask something of the collector are buttons that set it, and so is the card that
+ * counts the lines whose copy was assumed, for as long as there are any.
  */
 export function ImportPreviewHeader({
   preview,
@@ -68,6 +71,8 @@ export function ImportPreviewHeader({
   const oneCountPerLine = fontScale >= 1.4;
   const { summary, sections } = preview;
   const conditions = defaultConditionsText(summary, lowestGrades);
+  const assumed = assumedCopies(summary);
+  const assumedText = assumedCopiesText(assumed, preview.source);
 
   return (
     <View style={styles.root} testID="import-preview-header">
@@ -171,6 +176,22 @@ export function ImportPreviewHeader({
             onChange={onLeaveOut}
             disabled={busy}
             testID="import-leave-out"
+          />
+        </SectionCard>
+      ) : null}
+
+      {assumed > 0 ? (
+        <SectionCard
+          title={assumedText.title}
+          description={assumedText.description}
+          testID="import-assumed"
+        >
+          <Button
+            label={assumedText.action}
+            icon="filter-variant"
+            variant="secondary"
+            onPress={() => onFilter('MOST_RECENT_ASSUMED')}
+            testID="import-show-assumed"
           />
         </SectionCard>
       ) : null}

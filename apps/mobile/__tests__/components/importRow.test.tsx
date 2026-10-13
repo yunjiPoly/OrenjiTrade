@@ -97,6 +97,14 @@ describe('a line of an import preview', () => {
     expect(screen.queryByTestId('import-row-0-assumed')).toBeNull();
   });
 
+  it('says nothing of the kind once the assumed copy left the catalog: the line is to choose again', () => {
+    renderRow(chooseRow({ printingChoice: 'MOST_RECENT_ASSUMED' }));
+    expect(screen.queryByTestId('import-row-1-assumed')).toBeNull();
+    expect(screen.getByTestId('import-row-1-printing').props.accessibilityLabel).toBe(
+      'Which copy of Fixture Clockwork Heron: Choose printing'
+    );
+  });
+
   it('shows what the file said under a recognised line', () => {
     // Two lines of one card in a deck: the card, and its alternate artwork (another passcode).
     renderRow(rowFixture());
@@ -229,6 +237,28 @@ describe('the top of an import preview', () => {
     expect(
       within(after).getByRole('button', { name: 'Change the condition of these 3 cards' })
     ).toBeOnTheScreen();
+  });
+
+  it('counts the lines whose copy was assumed for as long as there are any, and shows them', () => {
+    const handlers = renderHeader({
+      source: 'COLLECTR_CSV',
+      sections: null,
+      summary: summaryOf({ rows: 435, toChoose: 0, assumedPrintings: 115 }),
+    });
+    const card = screen.getByTestId('import-assumed');
+    expect(
+      within(card).getByRole('header', { name: 'Plain copy assumed for 115 lines' })
+    ).toBeOnTheScreen();
+    expect(
+      within(card).getByText(/the plain copy \(Unlimited, no foil\) was taken\. Check each one/)
+    ).toBeOnTheScreen();
+    fireEvent.press(within(card).getByRole('button', { name: 'Show these 115 lines' }));
+    expect(handlers.onFilter).toHaveBeenCalledWith('MOST_RECENT_ASSUMED');
+  });
+
+  it('shows no such card when no copy was assumed, or every one was checked', () => {
+    renderHeader();
+    expect(screen.queryByTestId('import-assumed')).toBeNull();
   });
 
   it('says on top when the plan has no room for the import', () => {

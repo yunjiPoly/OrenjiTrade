@@ -39,8 +39,29 @@ import { useIsAuthenticated, useUid } from './useUid';
 /** Rows asked per page (the API takes 1 to 100). */
 export const IMPORT_ROW_PAGE_SIZE = 50;
 
-/** The rows a list shows: every row, the rows that need a printing, the rows that fit nothing. */
-export type ImportRowFilter = 'ALL' | 'CHOOSE_PRINTING' | 'UNMATCHED';
+/**
+ * The rows a list shows: every row, the rows that need a printing, the rows that fit nothing, or
+ * the rows whose copy "use the most recent printing" took as the plain one of several versions
+ * and the collector has not confirmed or changed since (`summary.assumedPrintings` counts them).
+ */
+export type ImportRowFilter = 'ALL' | 'CHOOSE_PRINTING' | 'UNMATCHED' | 'MOST_RECENT_ASSUMED';
+
+/** What a filter asks of the API: a status, or the way the printing was chosen. */
+function rowsQuery(filter: ImportRowFilter) {
+  switch (filter) {
+    case 'ALL':
+      return {};
+    case 'MOST_RECENT_ASSUMED':
+      return { printingChoice: filter } as const;
+    default:
+      return { status: filter } as const;
+  }
+}
+
+/** Whether the copy of a row is one the bulk action assumed and nobody confirmed yet. */
+function copyAssumed(row: Pick<ImportRow, 'printing' | 'printingChoice'>): boolean {
+  return !!row.printing && row.printingChoice === 'MOST_RECENT_ASSUMED';
+}
 
 type RowPages = InfiniteData<ImportRowPage, unknown>;
 
@@ -102,7 +123,7 @@ export function useImportRows(id: string | null, filter: ImportRowFilter) {
             params: {
               path: { id: id ?? '' },
               query: {
-                status: filter === 'ALL' ? undefined : filter,
+                ...rowsQuery(filter),
                 page: pageParam as number,
                 size: IMPORT_ROW_PAGE_SIZE,
               },
@@ -146,8 +167,9 @@ function replaceRow(
 }
 
 /**
- * The filtered lists are read again: a row that got its printing leaves "needs a printing", and
- * the pages after it move up by one (asking only for the next page would skip a row).
+ * The filtered lists are read again: a row that got its printing leaves "needs a printing", a row
+ * whose assumed copy was confirmed or changed leaves "plain copy assumed", and the pages after it
+ * move up by one (asking only for the next page would skip a row).
  */
 async function refreshFilteredRows(queryClient: QueryClient, uid: string | null, importId: string) {
   await queryClient.invalidateQueries({
@@ -294,7 +316,7 @@ export function useUpdateImportRow(importId: string) {
     onSuccess: async ({ row, preview }, input) => {
       setPreview(queryClient, uid, preview);
       replaceRow(queryClient, uid, importId, row);
-      if (row.status !== input.row.status) {
+      if (row.status !== input.row.status || copyAssumed(row) !== copyAssumed(input.row)) {
         await refreshFilteredRows(queryClient, uid, importId);
       }
     },

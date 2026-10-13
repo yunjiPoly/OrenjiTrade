@@ -3,6 +3,8 @@ import { quantityError, rowPatch } from '@/src/features/inventory/import/ImportR
 import { openImport } from '@/src/features/inventory/import/ImportStart';
 import {
   IMPORT_SOURCES,
+  assumedCopies,
+  assumedCopiesText,
   assumedCopyText,
   cardsAndCopies,
   commitState,
@@ -316,6 +318,34 @@ describe('the counts on top of a preview', () => {
     expect(emptyFilterText('ALL').title).toBe('Nothing to show');
   });
 
+  it('keeps a filter for the lines whose copy was assumed, for as long as there are any', () => {
+    // Nothing was assumed: no such chip.
+    expect(filterOptions(summaryOf()).map((option) => option.value)).not.toContain(
+      'MOST_RECENT_ASSUMED'
+    );
+    // 115 of 435 lines got the plain copy: they are counted and one press away.
+    const long = summaryOf({ rows: 435, toChoose: 0, unmatched: 15, assumedPrintings: 115 });
+    expect(filterOptions(long)).toEqual([
+      { value: 'ALL', label: 'All (435)' },
+      { value: 'CHOOSE_PRINTING', label: 'Needs a printing (0)' },
+      { value: 'UNMATCHED', label: 'Not recognised (15)' },
+      { value: 'MOST_RECENT_ASSUMED', label: 'Plain copy assumed (115)' },
+    ]);
+    // The last one was checked while its list is shown: the chip stays, and the list says so.
+    expect(filterOptions(summaryOf(), 'MOST_RECENT_ASSUMED').at(-1)).toEqual({
+      value: 'MOST_RECENT_ASSUMED',
+      label: 'Plain copy assumed (0)',
+    });
+    expect(emptyFilterText('MOST_RECENT_ASSUMED')).toEqual({
+      title: 'No plain copy left to check',
+      description: 'Every copy that was taken for you has been confirmed or changed.',
+    });
+    // An answer cached before the API counted them.
+    const old = { ...summaryOf(), assumedPrintings: undefined as unknown as number };
+    expect(assumedCopies(old)).toBe(0);
+    expect(filterOptions(old)).toHaveLength(3);
+  });
+
   it('knows a preview that expired from one that is committed', () => {
     const preview = importFixture({ expiresAt: '2026-10-13T13:00:00Z' });
     expect(isExpired(preview, Date.parse('2026-10-13T12:59:59Z'))).toBe(false);
@@ -604,6 +634,25 @@ describe('the commit button says what a press does', () => {
     );
     expect(assumedCopyText({ printingChoice: 'MOST_RECENT' })).toBeNull();
     expect(assumedCopyText({ printingChoice: 'MANUAL' })).toBeNull();
+  });
+
+  it('counts the lines whose copy was assumed on a card that stays, and says how to check one', () => {
+    expect(assumedCopiesText(115, 'COLLECTR_CSV')).toEqual({
+      title: 'Plain copy assumed for 115 lines',
+      description:
+        'Their most recent set has the card in several versions, so the plain copy (Unlimited, no foil) was taken. Check each one: open its copy and pick yours, or pick the plain copy again to confirm it.',
+      action: 'Show these 115 lines',
+    });
+    expect(assumedCopiesText(1, 'COLLECTR_CSV')).toEqual({
+      title: 'Plain copy assumed for 1 line',
+      description:
+        'Its most recent set has the card in several versions, so the plain copy (Unlimited, no foil) was taken. Check it: open its copy and pick yours, or pick the plain copy again to confirm it.',
+      action: 'Show this line',
+    });
+    // A deck is counted in cards, as everywhere on its preview.
+    expect(assumedCopiesText(2, 'YDK').title).toBe('Plain copy assumed for 2 cards');
+    expect(assumedCopiesText(2, 'YDK').action).toBe('Show these 2 cards');
+    expect(assumedCopiesText(1, 'YDK').action).toBe('Show this card');
   });
 
   it('says what the cards without a condition are set to, also after a bulk action', () => {

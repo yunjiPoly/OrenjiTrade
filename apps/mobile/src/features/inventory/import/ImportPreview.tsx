@@ -77,7 +77,8 @@ export interface ImportPreviewProps {
  * stays fast (a virtualised list fed page by page), and the commit at the bottom, always in reach.
  *
  * The filter stays on screen above the list, and choosing one brings its first line up: the lines
- * that need the collector are one press away from anywhere in a long file.
+ * that need the collector are one press away from anywhere in a long file, and so are the lines
+ * whose copy was assumed for them, for as long as one is unchecked.
  *
  * Every edit is sent as it is made and answers with the new counts. The commit button says what a
  * press does; while lines still need a printing it is disabled and says why, unless the collector
@@ -279,7 +280,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           hideLabel
           scroll
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-          options={filterOptions(preview.summary)}
+          options={filterOptions(preview.summary, filter)}
           value={filter}
           onChange={chooseFilter}
           testID="import-filter"
