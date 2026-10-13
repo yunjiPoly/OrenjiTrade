@@ -61,6 +61,13 @@ describe('(tabs) layout', () => {
       // Stable ids for the native Maestro flows.
       expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
+    // The header keeps its height at every text size (like the stack headers iOS draws): its
+    // title does not follow the system text size, or the largest sizes cut it in half.
+    const title = screen
+      .getAllByText(TABS[0]?.title ?? '')
+      .find((text) => text.props['aria-level'] === '1');
+    expect(title).toBeDefined();
+    expect(title?.props.allowFontScaling).toBe(false);
     // The Map tab: the region map with its switcher (ADR 0017).
     expect(await screen.findByTestId('map-title')).toHaveTextContent('Binders in Americas (North)');
     expect(screen.getByTestId('map-region')).toBeOnTheScreen();
