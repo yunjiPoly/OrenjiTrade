@@ -325,14 +325,15 @@ describe('the counts on top of a preview', () => {
     );
     // 115 of 435 lines got the plain copy: they are counted and one press away.
     const long = summaryOf({ rows: 435, toChoose: 0, unmatched: 15, assumedPrintings: 115 });
+    // What asks something of the collector comes before what can only be read.
     expect(filterOptions(long)).toEqual([
       { value: 'ALL', label: 'All (435)' },
       { value: 'CHOOSE_PRINTING', label: 'Needs a printing (0)' },
-      { value: 'UNMATCHED', label: 'Not recognised (15)' },
       { value: 'MOST_RECENT_ASSUMED', label: 'Plain copy assumed (115)' },
+      { value: 'UNMATCHED', label: 'Not recognised (15)' },
     ]);
     // The last one was checked while its list is shown: the chip stays, and the list says so.
-    expect(filterOptions(summaryOf(), 'MOST_RECENT_ASSUMED').at(-1)).toEqual({
+    expect(filterOptions(summaryOf(), 'MOST_RECENT_ASSUMED')[2]).toEqual({
       value: 'MOST_RECENT_ASSUMED',
       label: 'Plain copy assumed (0)',
     });

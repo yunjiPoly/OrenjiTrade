@@ -279,6 +279,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           label={preview.source === 'YDK' ? 'Cards shown' : 'Lines shown'}
           hideLabel
           scroll
+          revealSelected
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           options={filterOptions(preview.summary, filter)}
           value={filter}

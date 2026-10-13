@@ -915,9 +915,27 @@ describe('Import cards: the preview', () => {
     expect(within(bar).getByText('Plain copy assumed (2)').props.maxFontSizeMultiplier).toBe(
       PINNED_MAX_FONT_SCALE
     );
+    // On a phone the row of chips is wider than the screen: this chip is cut at the edge.
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    fireEvent(within(bar).getByTestId('import-filter-row'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 370, height: 40 } },
+    });
+    [
+      ['ALL', 0, 90],
+      ['CHOOSE_PRINTING', 98, 160],
+      ['MOST_RECENT_ASSUMED', 266, 200],
+      ['UNMATCHED', 474, 160],
+    ].forEach(([key, x, width]) =>
+      fireEvent(within(bar).getByTestId(`import-filter-${key}`), 'layout', {
+        nativeEvent: { layout: { x, y: 0, width, height: 36 } },
+      })
+    );
 
-    // The card's button lists them: those lines and no other.
+    // The card's button lists them: those lines and no other. The chip that is now the chosen
+    // one comes on screen whole, so the bar says what the list shows.
     fireEvent.press(within(card).getByRole('button', { name: 'Show these 2 lines' }));
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ x: 104, animated: true }));
+    scrollTo.mockRestore();
     await waitFor(() => expect(screen.queryByTestId('import-row-0')).toBeNull());
     expect(await screen.findByTestId('import-row-1')).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-3')).toBeOnTheScreen();

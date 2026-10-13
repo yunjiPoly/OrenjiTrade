@@ -407,24 +407,22 @@ export function assumedCopies(summary: Pick<ImportSummary, 'assumedPrintings'>):
  * The filter chips with their counts: "All (4)", "Needs a printing (2)", "Not recognised (1)",
  * and "Plain copy assumed (3)" while lines hold a copy that was assumed for the collector (or
  * while those lines are what the list shows, so the chip pressed never vanishes under a finger).
+ * What asks something of the collector comes first: the lines nothing fits can only be read.
  */
 export function filterOptions(
   summary: ImportSummary,
   current: ImportRowFilter = 'ALL'
 ): { value: ImportRowFilter; label: string }[] {
-  const options: { value: ImportRowFilter; label: string }[] = [
+  const assumed = assumedCopies(summary);
+  const options: ({ value: ImportRowFilter; label: string } | null)[] = [
     { value: 'ALL', label: `All (${formatCount(summary.rows)})` },
     { value: 'CHOOSE_PRINTING', label: `Needs a printing (${formatCount(summary.toChoose)})` },
+    assumed > 0 || current === 'MOST_RECENT_ASSUMED'
+      ? { value: 'MOST_RECENT_ASSUMED', label: `Plain copy assumed (${formatCount(assumed)})` }
+      : null,
     { value: 'UNMATCHED', label: `Not recognised (${formatCount(summary.unmatched)})` },
   ];
-  const assumed = assumedCopies(summary);
-  if (assumed > 0 || current === 'MOST_RECENT_ASSUMED') {
-    options.push({
-      value: 'MOST_RECENT_ASSUMED',
-      label: `Plain copy assumed (${formatCount(assumed)})`,
-    });
-  }
-  return options;
+  return options.filter((option) => option !== null);
 }
 
 /** What an empty filtered list says. */
