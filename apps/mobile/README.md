@@ -82,9 +82,10 @@ close / cancel through `checkout/fake-billing/[ref]`, usage and boosts; every re
 offers "See Premium"), **Credits** (`credits`: balance, unlocks for a day with one idempotency key
 per dialog, referral code with "Share" and redemption, the append-only ledger), **Support
 OrenjiTrade** (`support`: voluntary donations through `checkout/fake-donation/[ref]`, supporters,
-own donations) and **"Sponsored" placements** (search results, the map list, the inventory and other
-collectors' profiles: the impression recorded once, a tap opens the API's click route in the
-browser). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
+own donations) and **"Sponsored" placements** (search results, the inventory and other collectors'
+profiles: the impression recorded once, a tap opens the API's click route in the browser; the Map
+tab and the binders of a place show none, unlike the web's map page and its `MAP_PANEL` slot: an
+open owner question since stage M9). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
 `donations`, `advertising`), evaluated for the signed-in collector, like the web. The wording is
 "payment protection", never "escrow". Selling Premium or donations in a store build raises the
 app-store in-app purchase rules: an open owner question recorded in ADR 0011 (no IAP and no real
@@ -278,10 +279,17 @@ Conventions later stages reuse:
   root when `docs/api/openapi.json` changes.
 - **Queries**: keys in `src/api/queryKeys.ts` (everything of the signed-in collector under
   `['me', uid, ...]`, dropped on sign-out); `networkMode: 'offlineFirst'`, cached data kept a day,
-  4xx never retried; mutations invalidate the narrowest key they change. Screens render
+  4xx never retried; a read (`GET`, `HEAD`) is given up after 20 seconds without an answer
+  (`withReadTimeout` in `src/api/client.ts`) and is not tried again by itself, so a screen shows
+  "No answer from OrenjiTrade" with "Try again" instead of a skeleton for minutes (writes are
+  left alone); mutations invalidate the narrowest key they change. Screens render
   `QueryState` (skeleton, empty, error with retry) and the root `OfflineBanner` covers offline use.
 - **Lists**: paged endpoints use `useInfiniteQuery` (`nextPage`) in a `FlatList` with
-  `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change.
+  `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change
+  (region-scoped lists keep the previous results within one region only: `previousOfSameRegion`
+  in `src/api/hooks/search.ts`). A list with a text field in its head keeps its `RefreshControl`
+  whatever it shows: React Native builds a list's content again when that control is added or
+  removed, and the field would lose the keyboard.
   Writes refresh the narrowest keys: every inventory or binder write invalidates
   `['me', uid, 'inventory']` and `['me', uid, 'binders']` (counts and freshness change everywhere),
   never refetching what was just deleted.
@@ -318,27 +326,44 @@ Conventions later stages reuse:
   `GET /me`); the last region picked on this device (AsyncStorage key
   `orenjitrade.browsing-region.v1`, read and written in try / catch: a region code, never a
   place); Americas (North). A pick belongs to the account and home region it was made under, so
-  another account, or a location saved in another region, starts from its own region.
+  another account, or a location saved in another region, starts from its own region. Only a
+  region that exists is browsed or kept (`useKnownRegions`): the three regions the app ships
+  until `GET /regions` was read in the session, then what that list holds; a code from a link or
+  from the device that the server does not list is not followed, and is removed from the device
+  once the list says so.
   `RegionBar` is the switcher (a `SelectSheet` bottom sheet with the three regions, "Your region"
   on the collector's own): a pill on top of the Map and Search tabs, a round button in the card
-  holders' header. In another region than one's own the switcher takes the accent colour, a line
+  holders' header. On the Search tab the pill and the segments are all that stays on screen above
+  the list (`pinned`): they follow the system text size only a little (`PINNED_MAX_FONT_SCALE`,
+  like the tab bar; a long press shows them enlarged on iOS), and the field, the game pills, the
+  filters and every state of the results are one list that scrolls under them, so the field and
+  the results stay within reach at the largest text sizes. In another region than one's own the switcher takes the accent colour, a line
   says "Not your region." and "Back to <region>" goes home in one press; copy names the region
   instead of "your region" (`regionPhrase`).
 - **Map tab (stage M9)**: `app/(tabs)/index.tsx` shows the browsed region as **Map | List**
   (`src/features/map/`). `RegionMap` draws the region with `react-native-svg` from a file of the
   app: one path for every state and province, one for the country borders, one per state that has
-  binders (five shades, the web's steps) and one for the state opened last. A tap opens a state
-  (hit-tested in JS on the drawing, with ten points of reach for small ones); a drag moves, a
-  pinch or the buttons zoom (up to 16x); during a gesture the drawn picture is only slid and
-  scaled, and the vectors are drawn again once when the fingers lift. `PlaceList` is the same
+  binders (five shades, the web's steps, outlined in a strong colour) and one for the state opened
+  last; a place with binders that is only a few points wide at the current zoom also gets a dot.
+  A tap opens a state (hit-tested in JS on the drawing, a dot first, with ten points of reach for
+  small ones); holding a place names it first (its name, its number of public binders, "Open").
+  While the whole region is on screen a finger dragged over the map scrolls the page; once zoomed
+  in (a pinch or the buttons, up to 16x) it moves the map and the page stands still. During a
+  gesture the drawn picture is only slid and scaled, and the vectors are drawn again once when
+  the fingers lift. The map takes the height the page has left under the switcher, the title and
+  the Map | List switch (`mapFrameHeight`: 240 to 520 points), so its buttons are on screen
+  without scrolling. `PlaceList` is the same
   region as a list grouped by country, each row a link named "Quebec, 2 public binders", with a
   filter field and "Only places with binders"; the tab opens on the list while VoiceOver or
   TalkBack is on, and remembers the view chosen. Both open `regions/[region]/[code]`: the public
   binders of that place (name, kind, cards, owner by name and handle, the owner's state or
   province and country and never a city, last update), read by cursor
   (`GET /regions/{region}/subdivisions/{code}/binders`), with a skeleton, an empty state and an
-  error state with retry. Counts come from `GET /regions/{region}/binder-counts`. A collector
-  without a location still gets "Where are you?". Discoverability defaults to off.
+  error state with retry. Counts come from `GET /regions/{region}/binder-counts`. A link
+  (`/?region=&subdivision=`) is used up once followed, so the same link works every time, and a
+  link to a region that does not exist changes nothing. Another region starts at the top of its
+  list, and pressing the Map tab again scrolls back up. A collector without a location still gets
+  "Where are you?", compact and dismissible for the visit. Discoverability defaults to off.
 - **Boundaries (stage M9)**: `npm run sync:boundaries` (`scripts/sync-boundaries.mjs`,
   `scripts/lib/boundaryOutlines.js`) makes `assets/boundaries/<region>.json` from the web app's
   boundary files (`apps/web-angular/public/boundaries`, Natural Earth 5.1.1, public domain; see
@@ -490,8 +515,11 @@ invitation for a collector without a location, a profile with the state and the 
 map and from the list, its binders with the owner and the state and never the owner's city, a
 binder opened, a state without a binder, only the drawing of the region on screen downloaded; the
 region switcher re-scopes search (the request names the region) and the map, says "Not your
-region" and goes home in one press; a link opens the tab on a region and a state, and a new visit
-starts in the home region), `messages.spec.ts` (a second
+region" and goes home in one press, and the sponsored placement of the results is asked for the
+region on screen; a link opens the tab on a region and a state, and a new visit starts in the
+home region; the same link opened twice, a link to a region that does not exist and a code an
+older install kept on the device, which is neither browsed nor kept; the list back at its top
+when the Map tab is pressed again and when the region changes), `messages.spec.ts` (a second
 collector writes over the API: the inbox badge, the thread, live delivery, a reply, "Seen", a
 photo; a card link, mute and a block both ways), `community.spec.ts` (channels with their
 activity, post, edit, reply, delete), `wishlist.spec.ts` (two collectors of Americas (South): a wish
@@ -645,7 +673,16 @@ states and provinces, a state without a binder, Quebec and its public binders wi
 "Quebec, Canada" and never a city, a binder opened; then a profile with the state and the shown
 city; `scripts/region-map.js` reads on the host what the state holds), `region-switch.yaml` (the
 region sheet, Europe on the map, in its list and in Search with "Not your region", "Back to
-Americas (North)", a link that opens the tab on a region and a state), `card-holders-region.yaml` (a card collector1 lists, read on the
+Americas (North)", a link that opens the tab on a region and a state), `map-gestures-links.yaml`
+(a collector without a location: a finger dragged over the map scrolls the page, the "Where are
+you?" prompt is put away, a tap on the map itself opens a place, holding it names it first, a
+zoomed-in map moves under the finger while the page stands still, the list goes back to its top
+when the tab is pressed again and when the region changes, a link works twice and a link to a
+region that does not exist changes nothing), `large-text.yaml` (the largest text size, asked for
+that launch only by `subflows/relaunch-large-text.yaml` with the iOS launch argument
+`UIPreferredContentSizeCategoryName`, no setting of the device changed; Android keeps its own
+size: the Search field and a result stay within reach at home and in another region, and a drag
+on the map scrolls the page), `card-holders-region.yaml` (a card collector1 lists, read on the
 host by `scripts/public-card.js`, opened by deep link -> "Who has this in my region" -> collector1's
 copy with the state), `messages-inbox-thread.yaml` (a second collector set up and driven on the host by
 `scripts/messaging.js`: the conversation reaches the inbox with its unread badge over the
@@ -669,7 +706,8 @@ plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again), `goo
 (a fresh password collector continues with Google under the same e-mail through the emulator's
 simulated account: the chooser dismissed, then the sign-in lands on the tabs of that account and
 Settings -> Account names both methods), `collector-search-looking-for.yaml` (the Collectors
-segment finds a collector of the region set up by `scripts/parity.js`, with his state; his profile and "Looking for" with the condition only; the wish opens the card),
+segment finds a collector of the region set up by `scripts/parity.js`, with his state, typed in
+two steps: the field keeps the keyboard while the first results arrive under it; his profile and "Looking for" with the condition only; the wish opens the card),
 `holders-filters.yaml` (a card listed twice by a collector of the region: the holders list with
 both prices and the holder's state, sorted by price, narrowed to the Lightly Played copy,
 cleared), `blocked-users.yaml`
@@ -681,7 +719,7 @@ consent on the API, a relaunch never asks again), `legal-french.yaml` (from the 
 the legal index, FR with the French banner and the translation marking, "Trading safely" in French
 then in English, the choice kept across a relaunch), `safety-notice.yaml` (Ada's first conversation
 shows the "Trade safely" notice, the guide opens in-app, the composer keeps working, Dismiss, gone
-after a relaunch). The seed flows (`sign-in.yaml`, `map-region-binders.yaml`, `region-switch.yaml`) first record the
+after a relaunch). The seed flows (`sign-in.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `large-text.yaml`) first record the
 seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
 that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the scroll subflows (on Android an edge swipe: a slow swipe in the middle can start on a text
 field); option lists of the pickers scroll with `scrollUntilVisible`. Shared steps are in `.maestro/subflows/` (cleared
