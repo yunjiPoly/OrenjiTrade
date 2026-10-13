@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 import { useRegionOptions } from '@/src/api/hooks/regions';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { regionName } from '@/src/lib/place';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { useBrowsingRegion } from './browsingRegion';
 
@@ -14,6 +14,12 @@ export interface RegionBarProps {
    * name the region.
    */
   variant?: 'bar' | 'header';
+  /**
+   * The bar stays on screen above a list that scrolls under it (the Search tab): its texts follow
+   * the system text size only a little, so the bar stays a line or two at any size instead of
+   * taking the screen. Where the bar scrolls with the page (the Map tab) it follows it fully.
+   */
+  pinned?: boolean;
   style?: StyleProp<ViewStyle>;
   /** The switcher; its sheet is `<testID>-sheet`, the away note `<testID>-away`. */
   testID?: string;
@@ -27,7 +33,13 @@ export interface RegionBarProps {
  * A collector looking at another region than their own sees it at a glance: the switcher takes
  * the accent colour, a line says so and one press brings them back.
  */
-export function RegionBar({ variant = 'bar', style, testID = 'region-switcher' }: RegionBarProps) {
+export function RegionBar({
+  variant = 'bar',
+  pinned = false,
+  style,
+  testID = 'region-switcher',
+}: RegionBarProps) {
+  const cap = pinned ? PINNED_MAX_FONT_SCALE : undefined;
   const { palette } = useTheme();
   const { region, home, away, select } = useBrowsingRegion();
   const options = useRegionOptions().map((option) => ({
@@ -61,6 +73,7 @@ export function RegionBar({ variant = 'bar', style, testID = 'region-switcher' }
         label="Region"
         icon="earth"
         tone={away ? 'accent' : 'default'}
+        maxFontSizeMultiplier={cap}
         options={options}
         value={region}
         onChange={select}
@@ -70,6 +83,7 @@ export function RegionBar({ variant = 'bar', style, testID = 'region-switcher' }
         <View style={styles.away} testID={`${testID}-away`}>
           <Text
             accessibilityLiveRegion="polite"
+            maxFontSizeMultiplier={cap}
             style={[textStyle('sm'), styles.strong, { color: palette.ink }]}
           >
             Not your region.
@@ -77,12 +91,17 @@ export function RegionBar({ variant = 'bar', style, testID = 'region-switcher' }
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Back to ${homeName}`}
+            accessibilityShowsLargeContentViewer={pinned}
+            accessibilityLargeContentTitle={`Back to ${homeName}`}
             onPress={() => select(home)}
             hitSlop={8}
             testID={`${testID}-home`}
             style={({ pressed }) => [styles.back, pressed && styles.pressed]}
           >
-            <Text style={[textStyle('sm'), styles.link, { color: palette.accent }]}>
+            <Text
+              maxFontSizeMultiplier={cap}
+              style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+            >
               Back to {homeName}
             </Text>
           </Pressable>

@@ -62,6 +62,16 @@ export const motion = {
  */
 export const TITLE_MAX_FONT_SCALE = 2;
 
+/**
+ * How far the controls that stay on screen above a scrolling list follow the system text size
+ * (the segments of a tab, the region switcher of the Search tab): a little, like the tab bar and
+ * the navigation header of the system, which do not grow with it either. At the largest
+ * accessibility sizes they otherwise broke their words over five lines and took the whole
+ * screen, leaving the list under them out of reach. On iOS a long press shows them enlarged
+ * (the system's large content viewer).
+ */
+export const PINNED_MAX_FONT_SCALE = 1.35;
+
 export function textStyle(
   size: keyof typeof fontSize,
   variant: 'body' | 'heading' = 'body'

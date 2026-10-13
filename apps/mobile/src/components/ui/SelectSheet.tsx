@@ -35,6 +35,12 @@ export interface SelectSheetProps<T extends string> {
    * the width of its row and wraps onto more lines at large text sizes instead of ending in "…".
    */
   wrap?: boolean;
+  /**
+   * How far the trigger's text follows the system text size (a trigger that stays on screen
+   * above a scrolling list must not take the screen at the largest sizes). The sheet's own
+   * options always follow it fully.
+   */
+  maxFontSizeMultiplier?: number;
   /** Field id; the sheet is `<testID>-sheet`, each option `<testID>-option-<value>`. */
   testID?: string;
 }
@@ -55,6 +61,7 @@ export function SelectSheet<T extends string>({
   iconOnly = false,
   tone = 'default',
   wrap = false,
+  maxFontSizeMultiplier,
   testID,
 }: SelectSheetProps<T>) {
   const { palette } = useTheme();
@@ -70,6 +77,8 @@ export function SelectSheet<T extends string>({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${currentLabel}`}
         accessibilityHint="Opens the choices"
+        accessibilityShowsLargeContentViewer={maxFontSizeMultiplier !== undefined}
+        accessibilityLargeContentTitle={`${label}: ${currentLabel}`}
         aria-disabled={disabled}
         disabled={disabled}
         onPress={() => setOpen(true)}
@@ -109,6 +118,7 @@ export function SelectSheet<T extends string>({
               )}
               <Text
                 numberOfLines={compact && wrap ? undefined : 1}
+                maxFontSizeMultiplier={maxFontSizeMultiplier}
                 style={[textStyle(compact ? 'sm' : 'md'), styles.value, { color: ink }]}
               >
                 {compact ? `${label}: ${currentLabel}` : currentLabel}
